@@ -1,10 +1,9 @@
-/* Theme */
 :root {
   --bg: #111;
-  --panel: #0e1623;        /* deep navy panel */
+  --panel: #0e1623;
   --text: #ffffff;
   --muted: #c7c7c7;
-  --accent: #8B5CF6;       /* purple button */
+  --accent: #8B5CF6;
   --accent-hover: #7C3AED;
   --gold: gold;
   --border: rgba(255, 215, 0, 0.35);
@@ -12,7 +11,6 @@
 }
 
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -20,7 +18,6 @@ body {
   color: var(--text);
   min-height: 100vh;
   background-attachment: fixed;
-  /* If you have a background image set elsewhere, this plays nice. */
 }
 
 .app { max-width: 1100px; margin: 0 auto; padding: 24px; }
@@ -63,7 +60,7 @@ body {
 }
 .history-toggle:hover { background: rgba(255,255,255,0.06); }
 
-/* Layout: main + sidebar */
+/* Layout */
 .layout {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -96,7 +93,33 @@ body {
   resize: vertical;
 }
 
-/* Buttons */
+/* Prompt previews grid */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.preview-card {
+  background: #0f1827;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.preview-card img { width: 100%; display: block; }
+.preview-card .noimg {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.preview-card .meta {
+  padding: 8px 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.preview-card .meta .name { font-weight: 700; }
+.preview-card .meta .type { color: var(--muted); font-size: 12px; }
+
+/* Actions + Buttons */
 .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 button {
   padding: 10px 20px;
@@ -113,7 +136,7 @@ button:active { transform: translateY(1px); }
 button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
 button:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Markdown answer + details */
+/* Markdown */
 .markdown { line-height: 1.55; }
 .markdown p { margin: 0 0 12px; }
 .markdown ul, .markdown ol { margin: 8px 0 12px 20px; }
@@ -125,6 +148,33 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 }
 .markdown pre { padding: 12px; overflow: auto; }
 
+/* Cards grid under answer */
+.grid-title { margin: 14px 0 8px; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.card-tile {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+  background: #0f1827;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+.card-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+.card-tile img { width: 100%; display: block; }
+.tile-caption { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+.tile-caption .name { font-weight: 700; }
+.tile-caption .type { color: var(--muted); font-size: 12px; }
+
+/* Backend-used block */
 .used { margin-top: 12px; }
 .used pre {
   overflow: auto;
@@ -135,7 +185,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   padding: 12px;
 }
 
-/* Sidebar panel */
+/* Sidebar */
 .sidebar { transition: transform .18s ease, opacity .18s ease; }
 .sidebar.closed { transform: translateX(12px); opacity: 0.0; pointer-events: none; }
 .sidebar.open { transform: translateX(0); opacity: 1; }
@@ -158,7 +208,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 /* Footer */
 .footer { color: var(--muted); margin-top: 12px; font-size: 12px; }
 
-/* Accessibility helper (visually hidden but readable by screen readers) */
+/* a11y helper */
 .sr-only {
   position: absolute !important;
   height: 1px; width: 1px;

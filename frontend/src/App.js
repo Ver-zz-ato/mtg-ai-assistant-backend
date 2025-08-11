@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import "./App.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:10000";
@@ -12,6 +15,19 @@ const MODES = [
   { value: "tutor", label: "Tutor (Suggestions)" },
 ];
 
+// --- small helpers ---
+const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+const extractBracketed = (text) => {
+  if (!text) return [];
+  const out = [];
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    out.push(m[1].trim());
+  }
+  return uniq(out);
+};
+
 export default function App() {
   const [mode, setMode] = useState("default");
   const [prompt, setPrompt] = useState("");
@@ -23,25 +39,86 @@ export default function App() {
 
   const [history, setHistory] = useState(() => {
     try {
-      const raw = localStorage.getItem("mtg_ai_history_v2");
+      const raw = localStorage.getItem("mtg_ai_history_v3");
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem("mtg_ai_history_v2", JSON.stringify(history));
-  }, [history]);
+  // live previews while typing (for [[Card Name]])
+  const [promptPreviews, setPromptPreviews] = useState([]);
+  // cards extracted from the assistant reply
+  const [answerCards, setAnswerCards] = useState([]);
 
   const replyPaneRef = useRef(null);
   const canSend = prompt.trim().length > 0 && !loading;
+
+  useEffect(() => {
+    localStorage.setItem("mtg_ai_history_v3", JSON.stringify(history));
+  }, [history]);
+
+  // Debounced preview: when user types [[Card Name]], fetch previews
+  useEffect(() => {
+    const names = extractBracketed(prompt).slice(0, 3);
+    if (names.length === 0) {
+      setPromptPreviews([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const previews = [];
+      for (const n of names) {
+        try {
+          const res = await fetch(`${API_URL}/search?name=${encodeURIComponent(n)}`);
+          const data = await res.json();
+          if (data?.ok && data?.data?.ok !== false) {
+            previews.push(data.data);
+          }
+        } catch {
+          // ignore per-card errors
+        }
+      }
+      if (!cancelled) setPromptPreviews(previews);
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [prompt]);
+
+  // After we get a reply, extract [[Card Name]] and fetch a small grid
+  useEffect(() => {
+    const names = extractBracketed(reply).slice(0, 8);
+    if (names.length === 0) {
+      setAnswerCards([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const cards = [];
+      for (const n of names) {
+        try {
+          const res = await fetch(`${API_URL}/search?name=${encodeURIComponent(n)}`);
+          const data = await res.json();
+          if (data?.ok && data?.data?.ok !== false) cards.push(data.data);
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled) setAnswerCards(cards);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reply]);
 
   async function callAPI() {
     setErr("");
     setUsed(null);
     setLoading(true);
     setReply("");
+    setAnswerCards([]);
 
     try {
       const res = await fetch(`${API_URL}/api`, {
@@ -63,7 +140,6 @@ export default function App() {
       setReply(data.reply || "");
       setUsed(data.used || null);
 
-      // append to history (user + assistant)
       const newHistory = [
         ...history,
         { role: "user", content: prompt.trim() },
@@ -86,13 +162,15 @@ export default function App() {
     setHistory([]);
     setReply("");
     setUsed(null);
+    setPromptPreviews([]);
+    setAnswerCards([]);
   }
 
   return (
     <div className="app">
       <header className="header">
         <h1>MTG AI Assistant</h1>
-        <p className="sub">Modes, Scryfall-aware prompts. Clean chat.</p>
+        <p className="sub">Modes, Scryfall-aware prompts. Use [[Card Name]] to reference cards.</p>
       </header>
 
       {/* Top controls */}
@@ -122,7 +200,7 @@ export default function App() {
             <textarea
               id="prompt"
               className="chatbox"
-              placeholder="Ask a rules question, deck advice, market take, etc."
+              placeholder="Ask a rules question, deck advice, market take, etc. Tip: wrap card names like [[Sol Ring]]"
               rows={5}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -132,6 +210,25 @@ export default function App() {
                 }
               }}
             />
+            {/* live previews for [[Card]] */}
+            {promptPreviews.length > 0 && (
+              <div className="preview-grid">
+                {promptPreviews.map((c) => (
+                  <div key={c.id} className="preview-card" title={c.name}>
+                    {c.image_small ? (
+                      <img src={c.image_small} alt={c.name} />
+                    ) : (
+                      <div className="noimg">{c.name}</div>
+                    )}
+                    <div className="meta">
+                      <div className="name">{c.name}</div>
+                      <div className="type">{c.type_line}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="actions">
               <button disabled={!canSend} onClick={callAPI}>
                 {loading ? "Thinking…" : "Ask"}
@@ -147,10 +244,62 @@ export default function App() {
             <h2>Answer</h2>
             {reply ? (
               <div className="markdown">
-                <ReactMarkdown>{reply}</ReactMarkdown>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ inline, className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || "");
+                      return !inline ? (
+                        <SyntaxHighlighter
+                          style={oneDark}
+                          language={match?.[1] || "plaintext"}
+                          PreTag="div"
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, "")}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
+                  }}
+                >
+                  {reply}
+                </ReactMarkdown>
               </div>
             ) : (
               <div className="placeholder">Your answer will appear here.</div>
+            )}
+
+            {/* Show a card grid if the model (or you) referenced [[Card]] in the reply */}
+            {answerCards.length > 0 && (
+              <>
+                <h3 className="grid-title">Cards mentioned</h3>
+                <div className="card-grid">
+                  {answerCards.map((c) => (
+                    <a
+                      key={c.id}
+                      className="card-tile"
+                      href={c.scryfall_uri || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={c.name}
+                    >
+                      {c.image_small ? (
+                        <img src={c.image_small} alt={c.name} />
+                      ) : (
+                        <div className="noimg">{c.name}</div>
+                      )}
+                      <div className="tile-caption">
+                        <div className="name">{c.name}</div>
+                        <div className="type">{c.type_line}</div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
             )}
 
             {used && (
@@ -179,7 +328,7 @@ export default function App() {
                     <div className="role">{m.role}</div>
                     <div className="content">
                       {m.role === "assistant" ? (
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                       ) : (
                         m.content
                       )}
