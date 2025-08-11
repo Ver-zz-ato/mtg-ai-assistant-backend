@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 
@@ -13,38 +13,28 @@ const MODES = [
 ];
 
 export default function App() {
-  const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState("default");
-  const [cardsText, setCardsText] = useState("");
-  const [temperature, setTemperature] = useState(0.3);
+  const [prompt, setPrompt] = useState("");
   const [reply, setReply] = useState("");
   const [used, setUsed] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const [history, setHistory] = useState(() => {
     try {
-      const raw = localStorage.getItem("mtg_ai_history_v1");
+      const raw = localStorage.getItem("mtg_ai_history_v2");
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
     }
   });
 
-  const replyPaneRef = useRef(null);
-
-  // persist history (simple localStorage chat log)
   useEffect(() => {
-    localStorage.setItem("mtg_ai_history_v1", JSON.stringify(history));
+    localStorage.setItem("mtg_ai_history_v2", JSON.stringify(history));
   }, [history]);
 
-  const cardsArray = useMemo(() => {
-    return cardsText
-      .split(/[\n,]+/g)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 25);
-  }, [cardsText]);
-
+  const replyPaneRef = useRef(null);
   const canSend = prompt.trim().length > 0 && !loading;
 
   async function callAPI() {
@@ -60,20 +50,14 @@ export default function App() {
         body: JSON.stringify({
           prompt: prompt.trim(),
           mode,
-          temperature: Number(temperature),
-          // You can pass max_tokens/top_p if you want:
-          // max_tokens: 800,
-          // top_p: 1,
-          cards: cardsArray,
-          // simple sticky context: last two turns from history
-          context: history.slice(-4).map((h) => ({ role: h.role, content: h.content })),
+          // sticky context: last 4 messages
+          context: history.slice(-4).map((m) => ({ role: m.role, content: m.content })),
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        const msg = data?.error || `HTTP ${res.status}`;
-        throw new Error(msg);
+        throw new Error(data?.error || `HTTP ${res.status}`);
       }
 
       setReply(data.reply || "");
@@ -82,16 +66,15 @@ export default function App() {
       // append to history (user + assistant)
       const newHistory = [
         ...history,
-        { role: "user", content: prompt.trim() + (cardsArray.length ? `\n\n[Cards: ${cardsArray.join(", ")}]` : "") },
+        { role: "user", content: prompt.trim() },
         { role: "assistant", content: data.reply || "" },
       ];
       setHistory(newHistory);
       setPrompt("");
 
-      // scroll reply into view
       setTimeout(() => {
         replyPaneRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
+      }, 40);
     } catch (e) {
       setErr(e.message || "Request failed");
     } finally {
@@ -109,11 +92,12 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1>MTG AI Assistant</h1>
-        <p className="sub">Modes, Scryfall-aware prompts, Markdown replies.</p>
+        <p className="sub">Modes, Scryfall-aware prompts. Clean chat.</p>
       </header>
 
-      <section className="panel">
-        <div className="row">
+      {/* Top controls */}
+      <div className="topbar">
+        <div className="mode-select">
           <label htmlFor="mode">Mode</label>
           <select id="mode" value={mode} onChange={(e) => setMode(e.target.value)}>
             {MODES.map((m) => (
@@ -124,96 +108,89 @@ export default function App() {
           </select>
         </div>
 
-        <div className="row">
-          <label htmlFor="temperature">Temperature: {Number(temperature).toFixed(2)}</label>
-          <input
-            id="temperature"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={temperature}
-            onChange={(e) => setTemperature(e.target.value)}
-          />
-        </div>
+        <button className="history-toggle" onClick={() => setSidebarOpen((v) => !v)}>
+          {sidebarOpen ? "Hide History" : "Show History"}
+        </button>
+      </div>
 
-        <div className="row">
-          <label htmlFor="cards">Card names (comma or newline separated)</label>
-          <textarea
-            id="cards"
-            placeholder="e.g. Sol Ring, Smothering Tithe\n(optional)"
-            value={cardsText}
-            onChange={(e) => setCardsText(e.target.value)}
-            rows={3}
-          />
-          {cardsArray.length > 0 && (
-            <div className="hint">
-              Will include {cardsArray.length} card{cardsArray.length > 1 ? "s" : ""} via Scryfall.
+      {/* Main layout */}
+      <div className="layout">
+        {/* Main column */}
+        <main className="main">
+          <section className="panel">
+            <label htmlFor="prompt" className="sr-only">Message</label>
+            <textarea
+              id="prompt"
+              className="chatbox"
+              placeholder="Ask a rules question, deck advice, market take, etc."
+              rows={5}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  if (canSend) callAPI();
+                }
+              }}
+            />
+            <div className="actions">
+              <button disabled={!canSend} onClick={callAPI}>
+                {loading ? "Thinking…" : "Ask"}
+              </button>
+              <button className="secondary" onClick={clearHistory} disabled={loading}>
+                Clear History
+              </button>
             </div>
-          )}
-        </div>
+            {err && <div className="error">Error: {err}</div>}
+          </section>
 
-        <div className="row">
-          <label htmlFor="prompt">Your question / instruction</label>
-          <textarea
-            id="prompt"
-            placeholder="Ask a rules question, deck advice, market take, etc."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={4}
-          />
-        </div>
-
-        <div className="actions">
-          <button disabled={!canSend} onClick={callAPI}>
-            {loading ? "Thinking…" : "Ask"}
-          </button>
-          <button className="secondary" onClick={clearHistory} disabled={loading}>
-            Clear History
-          </button>
-        </div>
-
-        {err && <div className="error">Error: {err}</div>}
-      </section>
-
-      <section ref={replyPaneRef} className="panel">
-        <h2>Answer</h2>
-        {reply ? (
-          <div className="markdown">
-            <ReactMarkdown>{reply}</ReactMarkdown>
-          </div>
-        ) : (
-          <div className="placeholder">Your answer will appear here.</div>
-        )}
-        {used && (
-          <details className="used">
-            <summary>Details (from backend)</summary>
-            <pre>{JSON.stringify(used, null, 2)}</pre>
-          </details>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Chat History (local)</h2>
-        {history.length === 0 ? (
-          <div className="placeholder">No messages yet.</div>
-        ) : (
-          <div className="history">
-            {history.map((m, i) => (
-              <div key={i} className={`bubble ${m.role}`}>
-                <div className="role">{m.role}</div>
-                <div className="content">
-                  {m.role === "assistant" ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
-                </div>
+          <section ref={replyPaneRef} className="panel">
+            <h2>Answer</h2>
+            {reply ? (
+              <div className="markdown">
+                <ReactMarkdown>{reply}</ReactMarkdown>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            ) : (
+              <div className="placeholder">Your answer will appear here.</div>
+            )}
 
-      <footer className="footer">
-        <span>Backend: {API_URL}</span>
-      </footer>
+            {used && (
+              <details className="used">
+                <summary>Details (from backend)</summary>
+                <pre>{JSON.stringify(used, null, 2)}</pre>
+              </details>
+            )}
+          </section>
+
+          <footer className="footer">
+            <span>Backend: {API_URL}</span>
+          </footer>
+        </main>
+
+        {/* Sidebar */}
+        <aside className={`sidebar ${sidebarOpen ? "open" : "closed"}`}>
+          <div className="panel sidebar-inner">
+            <h2>Chat History</h2>
+            {history.length === 0 ? (
+              <div className="placeholder">No messages yet.</div>
+            ) : (
+              <div className="history">
+                {history.map((m, i) => (
+                  <div key={i} className={`bubble ${m.role}`}>
+                    <div className="role">{m.role}</div>
+                    <div className="content">
+                      {m.role === "assistant" ? (
+                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                      ) : (
+                        m.content
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
