@@ -8,51 +8,48 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 
-# ---- Config via ENV (no-code tuning) -----------------------------------------
+# ---- Config via ENV ----------------------------------------------------------
 USE_OPENAI = os.getenv("USE_OPENAI", "1") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# Model + sampling defaults (override in Render env for quick tweaks)
 MODEL = os.getenv("MODEL", "gpt-4o-mini")
 TEMP = float(os.getenv("TEMP", "0.3"))
 MAXTOK = int(os.getenv("MAXTOK", "800"))
 TOP_P = float(os.getenv("TOP_P", "1"))
 
-# System prompts (override with SYSTEM_PROMPT_* if you want to tweak in env)
+# Spellbook base (leave overrideable)
+SPELLBOOK_BASE = os.getenv("SPELLBOOK_API_URL", "https://backend.commanderspellbook.com")
+
+# --- System prompts (encourage [[Card Name]] in answers) ----------------------
 DEFAULT_SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT_DEFAULT", """
-You are an MTG assistant. Be concise, accurate, and cite card facts explicitly.
-Prefer clear bullet points. When giving rules, reference Comprehensive Rules
-concepts in plain English (no rule numbers unless asked). When suggesting deck
-changes, explain the role each suggested card plays (ramp, draw, removal, wincon).
-If a card name is ambiguous, ask which printing/version or provide the safest default.
-If you’re unsure, say so and suggest how to verify (e.g., Scryfall link or oracle text).
+You are an MTG assistant. Be concise, accurate, and prefer bullet points.
+When you reference a specific card, wrap the exact card name in [[double brackets]],
+e.g., [[Sol Ring]]. If you’re unsure on a fact, say so and suggest verifying
+with oracle text. Render lists and examples as Markdown.
 """).strip()
 
 SYSTEM_PROMPT_RULES = os.getenv("SYSTEM_PROMPT_RULES", """
-You are a precise Magic: The Gathering rules judge. Your job: explain rules
-interactions and edge cases clearly, step-by-step, with examples. Avoid
-hallucination; if a detail might vary by oracle text, say you need the exact
-card text and offer to fetch it. Keep tone friendly and authoritative.
+You are a precise Magic: The Gathering rules judge. Explain interactions clearly,
+step-by-step, with short examples. Wrap card names in [[double brackets]].
+Avoid hallucinations; if details vary by oracle text, say you need exact text.
 """).strip()
 
 SYSTEM_PROMPT_DECK = os.getenv("SYSTEM_PROMPT_DECK", """
-You are a Commander deck-building coach. Optimize for a stable mana base,
-appropriate ramp/draw/removal counts, and a coherent win plan. Provide
-specific cut/add suggestions with reasons (role fit, curve, synergy).
-Assume the user has plenty of basic lands and tokens unless they say otherwise.
+You are a Commander deck-building coach. Optimize mana base, ramp/draw/removal
+counts, and a coherent win plan. Provide specific cut/adds with reasons.
+Wrap all card names in [[double brackets]] so the UI can show cards.
 """).strip()
 
 SYSTEM_PROMPT_MARKET = os.getenv("SYSTEM_PROMPT_MARKET", """
-You are an MTG market analyst. Be careful about price data—do NOT invent prices.
-Discuss trends, availability, reprint risk, formats, and demand drivers.
-If the user wants prices, recommend checking Scryfall or specific vendors
-and outline a method, or call an available pricing endpoint if provided.
+You are an MTG market analyst. Do NOT invent prices. Discuss trends, reprint risk,
+formats, and demand drivers. Suggest where to check prices. When naming cards,
+wrap them in [[double brackets]] so the UI can show cards.
 """).strip()
 
 SYSTEM_PROMPT_TUTOR = os.getenv("SYSTEM_PROMPT_TUTOR", """
-You are a card tutor assistant. Given a strategy (e.g., aristocrats, +1/+1 counters),
-suggest on-theme staples and underrated picks. Group suggestions by role:
-ramp, draw, removal, synergy pieces, win conditions, utility lands.
+You are a card tutor assistant. Given a strategy, suggest on-theme staples and
+underrated picks, grouped by role (ramp/draw/removal/synergy/wincons/lands).
+Always wrap card names in [[double brackets]].
 """).strip()
 
 ASSISTANT_MODES: Dict[str, str] = {
@@ -73,12 +70,7 @@ def _openai_chat(messages: List[Dict[str, str]],
                  temperature: Optional[float] = None,
                  max_tokens: Optional[int] = None,
                  top_p: Optional[float] = None) -> Dict[str, Any]:
-    """
-    Calls OpenAI Chat Completions (non-streaming).
-    Uses official HTTP endpoint to avoid SDK version drift.
-    """
     if not USE_OPENAI:
-        # Echo mode mirror for dev
         last_user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         return {"ok": True, "reply": f"[echo-mode] {last_user}", "raw": {"mode": "echo"}}
 
@@ -115,26 +107,35 @@ SCRYFALL_BASE = "https://api.scryfall.com"
 
 @lru_cache(maxsize=1024)
 def scryfall_named_exact(name: str) -> Dict[str, Any]:
-    url = f"{SCRYFALL_BASE}/cards/named"
     try:
-        r = requests.get(url, params={"exact": name}, timeout=20)
+        r = requests.get(f"{SCRYFALL_BASE}/cards/named", params={"exact": name}, timeout=20)
         return r.json()
     except requests.RequestException as e:
         return {"object": "error", "details": str(e)}
 
 @lru_cache(maxsize=1024)
 def scryfall_named_fuzzy(name: str) -> Dict[str, Any]:
-    url = f"{SCRYFALL_BASE}/cards/named"
     try:
-        r = requests.get(url, params={"fuzzy": name}, timeout=20)
+        r = requests.get(f"{SCRYFALL_BASE}/cards/named", params={"fuzzy": name}, timeout=20)
         return r.json()
     except requests.RequestException as e:
         return {"object": "error", "details": str(e)}
 
+def scryfall_search(q: str, limit: int = 12) -> Dict[str, Any]:
+    try:
+        r = requests.get(f"{SCRYFALL_BASE}/cards/search", params={"q": q}, timeout=25)
+        data = r.json()
+        cards = []
+        for c in data.get("data", [])[:limit]:
+            cards.append(extract_card_summary(c))
+        return {"ok": True, "count": len(cards), "cards": cards, "has_more": data.get("has_more", False)}
+    except requests.RequestException as e:
+        return {"ok": False, "error": str(e)}
+
 def extract_card_summary(sf: Dict[str, Any]) -> Dict[str, Any]:
-    """Small, safe summary to pass into prompts/UI."""
     if not sf or sf.get("object") == "error":
         return {"ok": False, "name": None}
+    uris = sf.get("image_uris") or {}
     return {
         "ok": True,
         "id": sf.get("id"),
@@ -148,8 +149,8 @@ def extract_card_summary(sf: Dict[str, Any]) -> Dict[str, Any]:
         "set_name": sf.get("set_name"),
         "rarity": sf.get("rarity"),
         "legalities": sf.get("legalities", {}),
-        "image_small": (sf.get("image_uris") or {}).get("small") if sf.get("image_uris") else None,
-        "image_normal": (sf.get("image_uris") or {}).get("normal") if sf.get("image_uris") else None,
+        "image_small": uris.get("small"),
+        "image_normal": uris.get("normal"),
         "scryfall_uri": sf.get("scryfall_uri"),
     }
 
@@ -161,6 +162,26 @@ def summarize_cards_for_prompt(cards: List[Dict[str, Any]]) -> str:
         line = f"- {c.get('name')} :: {c.get('type_line')} :: {c.get('mana_cost') or ''}\n  {c.get('oracle_text') or ''}"
         lines.append(line.strip())
     return "\n".join(lines)
+
+# ---- Basic parsing helpers ---------------------------------------------------
+def parse_deck_text_to_names(text: str) -> List[str]:
+    """Accept Moxfield/Archidekt exports or plain 'N Name' lines."""
+    out = []
+    for raw in (text or "").splitlines():
+        s = raw.strip()
+        if not s:
+            continue
+        # Remove leading count like '3x ' or '2 '
+        s = s.replace("\t", " ")
+        parts = s.split(" ")
+        if parts and (parts[0].endswith("x") or parts[0].isdigit()):
+            parts = parts[1:]
+        name = " ".join(parts).strip()
+        # ignore comments/sideboard markers
+        if name.startswith("#") or name.lower().startswith("sideboard"):
+            continue
+        out.append(name)
+    return out
 
 # ---- Routes ------------------------------------------------------------------
 @app.get("/")
@@ -175,7 +196,6 @@ def healthz():
 @app.get("/healthz/full")
 def healthz_full():
     status = {"backend": "ok", "openai": "disabled" if not USE_OPENAI else "unknown", "scryfall": "unknown"}
-    # Check OpenAI (only if enabled)
     if USE_OPENAI and OPENAI_API_KEY:
         try:
             t0 = time.time()
@@ -190,7 +210,6 @@ def healthz_full():
     else:
         status["openai"] = "disabled"
 
-    # Check Scryfall
     try:
         r = requests.get(f"{SCRYFALL_BASE}/sets", timeout=10)
         status["scryfall"] = "ok" if r.status_code == 200 else f"HTTP {r.status_code}"
@@ -228,13 +247,17 @@ def card_fuzzy():
     data = scryfall_named_fuzzy(name)
     return jsonify({"ok": data.get("object") != "error", "data": extract_card_summary(data), "raw": data})
 
-# --- Deck legality sketch (Commander) -----------------------------------------
+@app.get("/scry/query")
+def scry_query():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "q query param required"}), 400
+    res = scryfall_search(q, limit=int(request.args.get("limit", "12")))
+    return jsonify(res), (200 if res.get("ok") else 500)
+
+# --- Commander color identity check ------------------------------------------
 @app.post("/deckcheck")
 def deckcheck():
-    """
-    Body: { "commander": "Atraxa, Praetors' Voice", "cards": ["Sol Ring", "Swords to Plowshares", ...] }
-    Returns basic commander color identity check and unknowns.
-    """
     try:
         body = request.get_json(force=True)
     except Exception:
@@ -271,6 +294,121 @@ def deckcheck():
         "checked_count": len(checked),
     })
 
+# --- Deck analyze (curve, colors, types) --------------------------------------
+@app.post("/deck/analyze")
+def deck_analyze():
+    """
+    Body:
+      { "deck_text": "2 Sol Ring\n1 Swords to Plowshares\n..." }
+      OR { "cards": ["Sol Ring", "Swords to Plowshares", ...] }
+    """
+    try:
+        body = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON"}), 400
+
+    cards = body.get("cards")
+    if not cards:
+        deck_text = body.get("deck_text", "")
+        cards = parse_deck_text_to_names(deck_text)
+
+    if not isinstance(cards, list) or len(cards) == 0:
+        return jsonify({"ok": False, "error": "Provide deck_text or cards[]"}), 400
+
+    # Fetch Scryfall data (fuzzy) and compute stats
+    curve = {}          # mana value histogram
+    color_pips = {"W":0,"U":0,"B":0,"R":0,"G":0,"C":0}
+    type_breakdown = {} # e.g., Creature, Instant, Artifact...
+    fetched = []
+
+    for name in cards[:300]:   # safety cap
+        sf = scryfall_named_fuzzy(name)
+        if sf.get("object") == "error":
+            continue
+        summary = extract_card_summary(sf)
+        fetched.append(summary)
+
+        # Mana value (cmc)
+        mv = sf.get("cmc")
+        if isinstance(mv, (int, float)):
+            mv = int(round(mv))
+            curve[mv] = curve.get(mv, 0) + 1
+
+        # Color pips from color_identity
+        for pip in (summary.get("color_identity") or []):
+            if pip in color_pips:
+                color_pips[pip] += 1
+        if not summary.get("color_identity"):
+            color_pips["C"] += 1
+
+        # Type breakdown (take first supertype/subtype word)
+        tline = (summary.get("type_line") or "")
+        primary = tline.split("—")[0].strip() if "—" in tline else tline
+        # choose first type in primary (e.g., "Artifact Creature" -> "Artifact")
+        if primary:
+            first = primary.split()[0]
+            type_breakdown[first] = type_breakdown.get(first, 0) + 1
+
+    # Aggregate
+    total = len(fetched)
+    curve_list = [{"mv": k, "count": v} for k, v in sorted(curve.items())]
+    color_list = [{"pip": k, "count": v} for k, v in color_pips.items()]
+    type_list = [{"type": k, "count": v} for k, v in sorted(type_breakdown.items(), key=lambda x: -x[1])]
+
+    return jsonify({
+        "ok": True,
+        "total_cards_parsed": total,
+        "mana_curve": curve_list,
+        "color_pips": color_list,
+        "types": type_list,
+    })
+
+# --- Combos via Commander Spellbook (best effort) -----------------------------
+@app.post("/combos/check")
+def combos_check():
+    """
+    Body:
+      { "deck_text": "...", "format": "commander" }
+      OR { "cards": ["Helm of the Host", "Godo, Bandit Warlord"] }
+    Tries Commander Spellbook backend. If their API is unreachable, returns a clear error.
+    """
+    try:
+        body = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON"}), 400
+
+    deck_text = body.get("deck_text", "")
+    cards = body.get("cards")
+    fmt = (body.get("format") or "commander").lower()
+
+    if not cards:
+        cards = parse_deck_text_to_names(deck_text)
+    if not isinstance(cards, list) or len(cards) == 0:
+        return jsonify({"ok": False, "error": "Provide deck_text or cards[]"}), 400
+
+    # Spellbook expects plain text in many tools; we join names for a first pass.
+    # Try a couple of known endpoints; fall back with a friendly error if blocked.
+    payload_text = "\n".join([f"1 {c}" for c in cards])
+
+    tried = []
+    try:
+        # 1) Known swagger advertises 'card-list-from-text' (format selectable)
+        url1 = f"{SPELLBOOK_BASE}/card-list-from-text"
+        r1 = requests.get(url1, params={"format": fmt, "text": payload_text}, timeout=25)
+        tried.append({"url": url1, "status": r1.status_code})
+        if r1.status_code == 200:
+            data = r1.json()
+            return jsonify({"ok": True, "source": "spellbook", "result": data})
+    except requests.RequestException as e:
+        tried.append({"url": "error@card-list-from-text", "error": str(e)})
+
+    # Could add more variants here if Spellbook exposes other endpoints.
+    return jsonify({
+        "ok": False,
+        "error": "Commander Spellbook API not reachable or changed. Try again later.",
+        "tried": tried
+    }), 502
+
 # --- Main chat endpoint --------------------------------------------------------
 @app.post("/api")
 def api():
@@ -283,6 +421,9 @@ def api():
       "cards": ["Sol Ring","Smothering Tithe"],   # optional: we will fetch and include oracle summaries
       "context": [ {"role":"user","content":"..."}, ... ]  # optional prior messages
     }
+
+    Special: if prompt starts with "search:" we run a Scryfall query and return
+    results as Markdown (no GPT call).
     """
     try:
         body = request.get_json(force=True)
@@ -293,21 +434,38 @@ def api():
     if not prompt:
         return jsonify({"ok": False, "error": "prompt required"}), 400
 
+    # --- "search:" command shortcut
+    if prompt.lower().startswith("search:"):
+        q = prompt.split(":", 1)[1].strip()
+        res = scryfall_search(q, limit=12)
+        if not res.get("ok"):
+            return jsonify({"ok": False, "error": res.get("error")}), 500
+        # render a tiny markdown summary
+        lines = [f"### Scryfall results for `{q}` ({res['count']}{'+' if res.get('has_more') else ''})"]
+        for c in res["cards"]:
+            line = f"- [[{c.get('name') or 'Unknown'}]] — {c.get('type_line') or ''}"
+            if c.get("scryfall_uri"):
+                line += f"  \n  {c['scryfall_uri']}"
+            lines.append(line)
+        return jsonify({
+            "ok": True,
+            "reply": "\n".join(lines),
+            "used": {"mode": "search", "query": q, "count": res["count"], "has_more": res.get("has_more", False)}
+        })
+
     mode = (body or {}).get("mode", "default")
     system_prompt = ASSISTANT_MODES.get(mode, DEFAULT_SYSTEM_PROMPT)
 
-    # Optional settings overrides
     temperature = body.get("temperature")
     max_tokens = body.get("max_tokens")
     top_p = body.get("top_p")
     model = body.get("model") or MODEL
 
-    # Optional context + card fetch
     context_msgs = body.get("context") or []
     cards = body.get("cards") or []
     card_summaries = []
     if cards and isinstance(cards, list):
-        for name in cards[:25]:  # safeguard
+        for name in cards[:25]:
             sf = scryfall_named_fuzzy(str(name))
             card_summaries.append(extract_card_summary(sf))
 
@@ -320,7 +478,6 @@ def api():
         )
 
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-    # Keep only last ~8 user/assistant turns if context is huge
     if isinstance(context_msgs, list):
         trimmed = context_msgs[-8:]
         for m in trimmed:
