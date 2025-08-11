@@ -1,60 +1,172 @@
+/* === Base + your existing theme === */
+:root {
+  --bg: #111;            /* page background */
+  --panel: #121824;      /* cards/panels */
+  --text: #ffffff;       /* main text */
+  --muted: #c7c7c7;      /* secondary text */
+  --accent: #8B5CF6;     /* button accent (your purple) */
+  --accent-hover: #7C3AED;
+  --gold: gold;          /* your gold */
+  --border: rgba(255, 215, 0, 0.35); /* gold-ish border */
+  --error: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: start;
   min-height: 100vh;
-  background-color: #111;
-  color: white;
+  background-color: var(--bg);
+  color: var(--text);
+  padding: 24px; /* so content isn’t glued to edges */
 }
 
+/* Legacy container (kept so nothing breaks if you still use it somewhere) */
 .container {
   background-color: rgba(0, 0, 0, 0.7);
   padding: 40px;
   border-radius: 12px;
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
-  max-width: 800px;
-  width: 90%;
+  max-width: 980px;
+  width: 100%;
   text-align: center;
-  border: 1px solid gold;
+  border: 1px solid var(--gold);
 }
 
 h1 {
   font-size: 2.5rem;
-  color: gold;
+  color: var(--gold);
   margin-bottom: 20px;
   font-weight: bold;
 }
 
-textarea {
+/* === New app layout === */
+.app { 
   width: 100%;
-  height: 100px;
-  padding: 12px;
-  font-size: 1rem;
-  border-radius: 8px;
-  border: none;
-  resize: vertical;
-  margin-bottom: 20px;
-  background-color: #222;
-  color: white;
+  max-width: 980px;
 }
 
+.header { margin-bottom: 8px; }
+.header h1 { margin: 0 0 4px; }
+.sub { margin: 0; color: var(--muted); }
+
+/* Panels (cards) */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  text-align: left;
+}
+
+/* Form rows */
+.row { display: grid; gap: 8px; margin-bottom: 12px; }
+label { font-weight: 600; color: var(--muted); }
+
+/* Inputs */
+textarea, select {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background-color: #0e1420;
+  color: var(--text);
+  resize: vertical;
+}
+
+/* Keep your original textarea look compatible */
+textarea#prompt, textarea#cards, textarea:not([id]) {
+  background-color: #222;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+input[type="range"] { width: 100%; }
+
+/* Hint text under inputs */
+.hint { color: var(--muted); font-size: 12px; margin-top: -4px; }
+
+/* Actions */
+.actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+/* Buttons (preserve your purple) */
 button {
   padding: 10px 24px;
   font-size: 1rem;
-  background-color: #8B5CF6;
+  background-color: var(--accent);
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   color: white;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.05s ease;
+  font-weight: 700;
+}
+button:hover { background-color: var(--accent-hover); }
+button:active { transform: translateY(1px); }
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Error text */
+.error {
+  margin-top: 10px;
+  color: var(--error);
+  font-weight: 600;
 }
 
-button:hover {
-  background-color: #7C3AED;
+/* Markdown rendering */
+.markdown { line-height: 1.55; }
+.markdown p { margin: 0 0 12px; }
+.markdown ul, .markdown ol { margin: 8px 0 12px 20px; }
+.markdown code, .markdown pre {
+  background: #0a0f18;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+.markdown pre { padding: 12px; overflow: auto; }
+
+/* Backend-used block */
+.used { margin-top: 12px; }
+.used pre {
+  overflow: auto;
+  max-height: 260px;
+  background: #0a0f18;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
 }
 
+/* Chat history */
+.history { display: grid; gap: 10px; }
+.bubble { 
+  padding: 12px; 
+  border-radius: 12px; 
+  border: 1px solid var(--border); 
+  background: #0e1420; 
+}
+.bubble .role { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.bubble.user { border-left: 4px solid #7ee787; }
+.bubble.assistant { border-left: 4px solid var(--gold); }
+
+.placeholder { color: var(--muted); }
+
+/* Footer */
+.footer { color: var(--muted); margin-top: 8px; font-size: 12px; }
+
+/* Your original .response box mapped to markdown panel use */
 .response {
   background-color: #1e1e1e;
   padding: 20px;
@@ -62,4 +174,5 @@ button:hover {
   margin-top: 20px;
   text-align: left;
   white-space: pre-wrap;
+  border: 1px solid var(--border);
 }
