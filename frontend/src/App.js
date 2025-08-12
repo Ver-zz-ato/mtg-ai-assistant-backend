@@ -16,9 +16,8 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Le
 const API = process.env.REACT_APP_API_URL || "https://mtg-ai-assistant-backend.onrender.com";
 const SCRYFALL = "https://api.scryfall.com";
 
-// --- Utilities ---------------------------------------------------------------
+/* --------------------- Utilities ---------------------- */
 const parseBrackets = (text) => {
-  // returns array of {type:'text'|'card', value:string}
   const parts = [];
   const regex = /\[\[([^\]]+)\]\]/g;
   let last = 0, m;
@@ -31,7 +30,7 @@ const parseBrackets = (text) => {
   return parts;
 };
 
-async function fetchScryfallImage(cardName) {
+async function scryImage(cardName) {
   const r = await fetch(`${SCRYFALL}/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
   if (!r.ok) return null;
   const j = await r.json();
@@ -39,24 +38,24 @@ async function fetchScryfallImage(cardName) {
 }
 
 async function fxRates() {
-  // base USD for simple conversion
   const r = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=USD,EUR,GBP");
   if (!r.ok) return { USD: 1, EUR: 0.92, GBP: 0.78 };
   const j = await r.json();
   return j.rates;
 }
 
-// --- Components --------------------------------------------------------------
+/* --------------------- Small components ---------------------- */
 function CardInline({ name }) {
   const [src, setSrc] = useState(null);
   const [show, setShow] = useState(false);
   useEffect(() => {
-    let mounted = true;
-    fetchScryfallImage(name).then((u) => mounted && setSrc(u));
-    return () => (mounted = false);
+    let on = true;
+    scryImage(name).then((u) => on && setSrc(u));
+    return () => { on = false; };
   }, [name]);
   return (
-    <span className="card-inline"
+    <span
+      className="card-inline"
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       title={name}
@@ -72,7 +71,6 @@ function CardInline({ name }) {
 }
 
 function Markdownish({ text }) {
-  // super lightweight: only [[Card]] + newlines
   const lines = String(text || "").split("\n");
   return (
     <div className="md">
@@ -87,7 +85,6 @@ function Markdownish({ text }) {
   );
 }
 
-// render a single assistant “deck analysis” message
 function DeckAnalysis({ data }) {
   const mana = useMemo(() => ({
     labels: data.manaCurve.map(i => i.label),
@@ -111,7 +108,9 @@ function DeckAnalysis({ data }) {
         <div>
           <h4>{data.commander?.name}</h4>
           {data.illegal_by_color_identity?.length > 0 && (
-            <div className="illegal">Illegal by color identity: {data.illegal_by_color_identity.join(", ")}</div>
+            <div className="illegal">
+              Illegal by color identity: {data.illegal_by_color_identity.join(", ")}
+            </div>
           )}
         </div>
       </div>
@@ -126,9 +125,7 @@ function DeckAnalysis({ data }) {
           <ul>
             {data.combos.map((c, i) => (
               <li key={i}>
-                {c.link
-                  ? <a href={c.link} target="_blank" rel="noreferrer">{c.name || "Combo"}</a>
-                  : (c.name || "Combo")}
+                {c.link ? <a href={c.link} target="_blank" rel="noreferrer">{c.name || "Combo"}</a> : (c.name || "Combo")}
                 {c.description ? <> — {c.description}</> : null}
               </li>
             ))}
@@ -139,10 +136,10 @@ function DeckAnalysis({ data }) {
   );
 }
 
-// --- Main App ----------------------------------------------------------------
+/* --------------------- Main App ---------------------- */
 export default function App() {
   const [mode, setMode] = useState("default");
-  const [currency, setCurrency] = useState("EUR"); // 3-position
+  const [currency, setCurrency] = useState("EUR"); // cycle: EUR → GBP → USD
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState(() => {
     try { return JSON.parse(localStorage.getItem("mtg_msgs") || "[]"); } catch { return []; }
@@ -160,17 +157,16 @@ export default function App() {
 
   const cycleCurrency = () => setCurrency(c => (c === "EUR" ? "GBP" : c === "GBP" ? "USD" : "EUR"));
 
-  // ---- Slash commands -------------------------------------------------------
+  const pushUser = (content) => setMessages(m => [...m, { role: "user", content }]);
+  const pushAssistant = (content) => setMessages(m => [...m, { role: "assistant", content }]);
+  const pushAssistantDeck = (payload) => setMessages(m => [...m, { role: "assistant_deck", payload }]);
+
+  /* --------------- Slash commands --------------- */
   const trySlashCommand = async (raw) => {
     const trimmed = raw.trim();
 
-    // /deck → open modal
-    if (trimmed === "/deck") {
-      setDeckModalOpen(true);
-      return true;
-    }
+    if (trimmed === "/deck") { setDeckModalOpen(true); return true; }
 
-    // /search <query>
     if (trimmed.startsWith("/search ")) {
       const q = trimmed.slice(8).trim();
       if (!q) return false;
@@ -183,14 +179,11 @@ export default function App() {
       return true;
     }
 
-    // /price [[Card Name]]
     if (trimmed.startsWith("/price")) {
       const m = trimmed.match(/\[\[([^\]]+)\]\]/);
       const name = m?.[1]?.trim();
-      if (!name) {
-        pushAssistant("Usage: `/price [[Card Name]]`");
-        return true;
-      }
+      if (!name) { pushAssistant("Usage: `/price [[Card Name]]`"); return true; }
+
       const [cardRes, rates] = await Promise.all([
         fetch(`${SCRYFALL}/cards/named?fuzzy=${encodeURIComponent(name)}`).then(r => r.json()),
         fxRates()
@@ -205,16 +198,11 @@ export default function App() {
     return false;
   };
 
-  // ---- Chat send ------------------------------------------------------------
-  const pushUser = (content) => setMessages(m => [...m, { role: "user", content }]);
-  const pushAssistant = (content) => setMessages(m => [...m, { role: "assistant", content }]);
-  const pushAssistantDeck = (payload) => setMessages(m => [...m, { role: "assistant_deck", payload }]);
-
+  /* --------------- Send --------------- */
   const send = async () => {
     const content = input;
     if (!content.trim()) return;
 
-    // slash?
     if (await trySlashCommand(content)) {
       setInput("");
       pushUser(content);
@@ -245,7 +233,7 @@ export default function App() {
     }
   };
 
-  // ---- Deck modal submit ----------------------------------------------------
+  /* --------------- Deck modal submit --------------- */
   const submitDeck = async () => {
     const cards = deckText.split("\n").map(s => s.trim()).filter(Boolean);
     if (!deckCommander || cards.length === 0) {
@@ -272,20 +260,45 @@ export default function App() {
     }
   };
 
-  // ---- Render ---------------------------------------------------------------
+  /* --------------- Role pills data --------------- */
+  const ROLES = [
+    { id: "default", label: "Default" },
+    { id: "rules", label: "Rules" },
+    { id: "deck_builder", label: "Deck Builder" },
+    { id: "market_analyst", label: "Market" },
+    { id: "tutor", label: "Tutor" },
+  ];
+
+  const placeholder =
+    mode === "rules" ? "Ask rules questions… (try [[Doubling Season]] + [[Vorinclex]])"
+    : mode === "deck_builder" ? "Try /deck to analyze a list, or ask for staples/synergies…"
+    : mode === "market_analyst" ? "Try /price [[Sol Ring]] or ask about reprints…"
+    : "Type here… (slash: /deck, /search, /price)";
+
+  /* --------------- Render --------------- */
   return (
     <div className="app">
       {/* Header */}
       <div className="header">
         <div className="brand">MTG AI Assistant</div>
+
+        {/* Role pills (our own, no dropdown) */}
+        <div className="role-pills" role="tablist" aria-label="Assistant mode">
+          {ROLES.map(r => (
+            <button
+              key={r.id}
+              role="tab"
+              aria-selected={mode === r.id}
+              className={`pill ${mode === r.id ? "active" : ""}`}
+              onClick={() => setMode(r.id)}
+              title={r.label}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
         <div className="controls">
-          <select value={mode} onChange={(e) => setMode(e.target.value)} className="mode">
-            <option value="default">Default</option>
-            <option value="rules">Rules</option>
-            <option value="deck_builder">Deck Builder</option>
-            <option value="market_analyst">Market</option>
-            <option value="tutor">Tutor</option>
-          </select>
           <div className="currency-switch" onClick={cycleCurrency} title="Click to switch currency">
             {currency}
           </div>
@@ -301,11 +314,7 @@ export default function App() {
         <div className="drawer-body">
           {messages.map((m, i) => (
             <div key={i} className={`bubble ${m.role}`}>
-              {m.role === "assistant_deck" ? (
-                <DeckAnalysis data={m.payload} />
-              ) : (
-                <Markdownish text={m.content} />
-              )}
+              {m.role === "assistant_deck" ? <DeckAnalysis data={m.payload} /> : <Markdownish text={m.content} />}
             </div>
           ))}
         </div>
@@ -316,11 +325,7 @@ export default function App() {
         <div className="messages">
           {messages.map((m, i) => (
             <div key={i} className={`bubble ${m.role}`}>
-              {m.role === "assistant_deck" ? (
-                <DeckAnalysis data={m.payload} />
-              ) : (
-                <Markdownish text={m.content} />
-              )}
+              {m.role === "assistant_deck" ? <DeckAnalysis data={m.payload} /> : <Markdownish text={m.content} />}
             </div>
           ))}
           <div ref={listEndRef} />
@@ -328,7 +333,7 @@ export default function App() {
 
         <div className="composer">
           <textarea
-            placeholder="Type here…  (try /deck, /search o:'create a Treasure' cmc<=2, or /price [[Sol Ring]])"
+            placeholder={placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onEnter}
