@@ -1,200 +1,274 @@
 import os
+from collections import Counter
+
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from collections import defaultdict
-from uuid import uuid4
+
+# -------------------------
+# Optional OpenAI import
+# -------------------------
+try:
+    # OpenAI >= 1.x style
+    from openai import OpenAI  # type: ignore
+    OPENAI_AVAILABLE = True
+except Exception:
+    OPENAI_AVAILABLE = False
+    OpenAI = None  # type: ignore
 
 app = Flask(__name__)
 CORS(app)
 
+# -------------------------
+# Config (env)
+# -------------------------
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 USE_OPENAI = os.getenv("USE_OPENAI", "1") == "1"
 MODEL = os.getenv("MODEL", "gpt-4o-mini")
 TEMP = float(os.getenv("TEMP", "0.3"))
 MAXTOK = int(os.getenv("MAXTOK", "800"))
 
-# Memory storage for session-based chat
-SESSION_MEMORY = {}
+SCRYFALL = "https://api.scryfall.com"
+SPELLBOOK = "https://commanderspellbook.com/api"
 
-# Currency cache to avoid hitting API too often
-CURRENCY_CACHE = {"rates": None, "last_fetch": None}
+# -------------------------
+# Utilities
+# -------------------------
+def http_get(url, **kwargs):
+    """requests.get with sensible defaults and error handling."""
+    kwargs.setdefault("timeout", 12)
+    try:
+        r = requests.get(url, **kwargs)
+        return r
+    except Exception:
+        class R:
+            status_code = 599
+            def json(self): return {}
+            text = "request_failed"
+        return R()
 
-SCRYFALL_API = "https://api.scryfall.com"
-COMMANDER_SPELLBOOK_API = "https://commanderspellbook.com/api/combo"
-
-# --- Helpers ---
-
-def fetch_currency_rates():
-    import time
-    if CURRENCY_CACHE["rates"] and (time.time() - CURRENCY_CACHE["last_fetch"]) < 3600:
-        return CURRENCY_CACHE["rates"]
-    url = "https://api.exchangerate.host/latest?base=USD&symbols=USD,EUR,GBP"
-    r = requests.get(url)
-    if r.status_code == 200:
-        data = r.json()
-        CURRENCY_CACHE["rates"] = data["rates"]
-        CURRENCY_CACHE["last_fetch"] = time.time()
-        return data["rates"]
-    return {"USD": 1, "EUR": 0.9, "GBP": 0.78}
-
-def convert_price(usd_price):
-    rates = fetch_currency_rates()
-    return {
-        "USD": round(usd_price, 2),
-        "EUR": round(usd_price * rates["EUR"], 2),
-        "GBP": round(usd_price * rates["GBP"], 2)
-    }
-
-def get_scryfall_card(name):
-    resp = requests.get(f"{SCRYFALL_API}/cards/named", params={"fuzzy": name})
-    if resp.status_code == 200:
-        return resp.json()
-    return None
-
-# --- Routes ---
-
+# -------------------------
+# Routes
+# -------------------------
 @app.route("/")
 def root():
     return jsonify({"ok": True, "mode": "openai" if USE_OPENAI else "echo"})
+
+@app.route("/healthz")
+def healthz():
+    return "ok"
 
 @app.route("/debug")
 def debug():
     return jsonify({
         "use_openai": USE_OPENAI,
         "has_openai_key": bool(OPENAI_KEY),
+        "openai_available": OPENAI_AVAILABLE,
         "model": MODEL,
         "temp": TEMP,
         "maxtok": MAXTOK,
         "modes": ["default", "rules", "deck_builder", "market_analyst", "tutor"]
     })
 
+@app.route("/api", methods=["POST"])
+def api():
+    """Chat endpoint. Never crash: fall back to echo if OpenAI is unavailable or errors."""
+    data = request.get_json(force=True) or {}
+    prompt = data.get("prompt", "")
+    mode = data.get("mode", "default")
+
+    if not prompt:
+        return jsonify({"ok": False, "error": "Missing prompt"}), 400
+
+    # If OpenAI disabled/missing/key absent → echo instead of 500.
+    if not (USE_OPENAI and OPENAI_KEY and OPENAI_AVAILABLE):
+        return jsonify({"ok": True, "reply": f"[{mode}] {prompt}"}), 200
+
+    # Attempt OpenAI call; still echo on any runtime failure.
+    try:
+        client = OpenAI(api_key=OPENAI_KEY)
+        completion = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": mode_to_system_prompt(mode)},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=TEMP,
+            max_tokens=MAXTOK,
+            top_p=1.0,
+        )
+        # OpenAI >=1.x returns object with .choices[0].message.content
+        reply = completion.choices[0].message.content
+        return jsonify({"ok": True, "reply": reply}), 200
+    except Exception as e:
+        # Optional: log e to console; never crash endpoint.
+        # print("OpenAI error:", repr(e))
+        return jsonify({"ok": True, "reply": f"[echo:{mode}] {prompt}"}), 200
+
+# ---------- Card data ----------
+@app.route("/card")
+def card():
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Missing name"}), 400
+    return jsonify({"ok": True, "data": fetch_card_data(name)})
+
 @app.route("/search")
 def search():
-    name = request.args.get("name", "")
+    name = (request.args.get("name") or "").strip()
     if not name:
         return jsonify({"ok": False, "error": "Missing name"}), 400
-    r = requests.get(f"{SCRYFALL_API}/cards/search", params={"q": name})
-    if r.status_code != 200:
-        return jsonify({"ok": False, "error": "Not found"})
-    data = r.json()
-    if "data" not in data or not data["data"]:
-        return jsonify({"ok": False, "error": "No matches"})
-    card = data["data"][0]
-    return jsonify({"ok": True, "data": card})
+    return jsonify({"ok": True, "data": search_card(name)})
 
-@app.route("/price")
-def price():
-    name = request.args.get("name", "")
-    if not name:
-        return jsonify({"ok": False, "error": "Missing name"}), 400
-    card = get_scryfall_card(name)
-    if not card or "prices" not in card:
-        return jsonify({"ok": False, "error": "No price found"})
-    try:
-        usd_price = float(card["prices"]["usd"]) if card["prices"]["usd"] else 0
-    except:
-        usd_price = 0
-    return jsonify({
-        "ok": True,
-        "name": card["name"],
-        "prices": convert_price(usd_price)
-    })
-
+# ---------- Deckcheck with charts/combos ----------
 @app.route("/deckcheck", methods=["POST"])
 def deckcheck():
-    data = request.get_json()
-    commander_name = data.get("commander", "")
-    cards = data.get("cards", [])
-    if not commander_name or not cards:
-        return jsonify({"ok": False, "error": "Commander and cards required"}), 400
+    data = request.get_json(force=True) or {}
+    commander_name = (data.get("commander") or "").strip()
+    card_names = data.get("cards", [])
 
-    commander = get_scryfall_card(commander_name)
-    if not commander:
+    if not commander_name:
+        return jsonify({"ok": False, "error": "Missing commander"}), 400
+
+    commander_data = fetch_card_data(commander_name)
+    if not commander_data or not commander_data.get("ok"):
         return jsonify({"ok": False, "error": "Commander not found"}), 404
 
-    legal_identity = set(commander.get("color_identity", []))
-    illegal_by_color = []
-    mana_curve = defaultdict(int)
-    color_count = defaultdict(int)
-    type_count = defaultdict(int)
-    detailed_cards = []
+    # Fetch deck cards
+    cards_data = [fetch_card_data(n) for n in card_names if n]
+    cards_data = [c for c in cards_data if c.get("ok")]
 
-    for card_name in cards:
-        card_data = get_scryfall_card(card_name)
-        if not card_data:
-            continue
-        detailed_cards.append({
-            "name": card_data["name"],
-            "image": card_data["image_uris"]["small"] if "image_uris" in card_data else None,
-            "mana_cost": card_data.get("mana_cost", ""),
-            "type_line": card_data.get("type_line", ""),
-            "cmc": card_data.get("cmc", 0),
-            "colors": card_data.get("colors", []),
-            "color_identity": card_data.get("color_identity", [])
-        })
+    mana_curve_counter = Counter()
+    color_counter = Counter()
+    type_counter = Counter()
 
-        # Color legality
-        if not set(card_data.get("color_identity", [])).issubset(legal_identity):
-            illegal_by_color.append(card_data["name"])
+    for c in cards_data:
+        d = c["data"]
+        mv = int(d.get("cmc", 0) or 0)
+        mana_curve_counter[mv] += 1
 
-        # Mana curve
-        mana_curve[int(card_data.get("cmc", 0))] += 1
-
-        # Color breakdown
-        if card_data.get("colors"):
-            for c in card_data["colors"]:
-                color_count[c] += 1
+        cols = d.get("colors") or []
+        if cols:
+            for col in cols:
+                color_counter[col] += 1
         else:
-            color_count["Colorless"] += 1
+            color_counter["Colorless"] += 1
 
-        # Type breakdown
-        if "type_line" in card_data:
-            primary_type = card_data["type_line"].split("—")[0].strip().split(" ")[0]
-            type_count[primary_type] += 1
+        type_line = (d.get("type_line") or "").split("—")[0]
+        for t in type_line.split():
+            type_counter[t] += 1
 
-    # Fetch combos from Commander Spellbook
-    combo_resp = requests.get(COMMANDER_SPELLBOOK_API, params={"q": "||".join(cards)})
-    combos = combo_resp.json().get("results", []) if combo_resp.status_code == 200 else []
+    mana_curve = [{"label": str(k), "value": v} for k, v in sorted(mana_curve_counter.items())]
+    colors = [{"label": k, "value": v} for k, v in color_counter.items()]
+    types = [{"label": k, "value": v} for k, v in type_counter.items()]
+
+    # Color identity legality
+    illegal = []
+    commander_colors = set(commander_data["data"].get("color_identity", []))
+    for c in cards_data:
+        if not set(c["data"].get("color_identity", [])).issubset(commander_colors):
+            illegal.append(c["data"]["name"])
+
+    # Combos (best-effort)
+    combos = fetch_combos_for_cards([c["data"]["name"] for c in cards_data])
 
     return jsonify({
         "ok": True,
-        "commander": commander,
-        "illegal_by_color_identity": illegal_by_color,
-        "mana_curve": dict(mana_curve),
-        "color_breakdown": dict(color_count),
-        "type_breakdown": dict(type_count),
-        "cards": detailed_cards,
+        "commander": commander_data["data"],
+        "checked_count": len(cards_data),
+        "illegal_by_color_identity": illegal,
+        "manaCurve": mana_curve,
+        "colors": colors,
+        "types": types,
         "combos": combos
     })
 
-@app.route("/api", methods=["POST"])
-def api():
-    data = request.get_json()
-    prompt = data.get("prompt", "")
-    mode = data.get("mode", "default")
-    session_id = data.get("session_id") or str(uuid4())
+# -------------------------
+# Helpers
+# -------------------------
+def mode_to_system_prompt(mode: str) -> str:
+    prompts = {
+        "default": "You are a helpful Magic: The Gathering assistant.",
+        "rules": "You are an expert MTG rules advisor.",
+        "deck_builder": "You are an MTG deckbuilding coach.",
+        "market_analyst": "You are an MTG market analyst.",
+        "tutor": "You are an MTG tutor."
+    }
+    return prompts.get(mode, prompts["default"])
 
-    if not USE_OPENAI:
-        return jsonify({"ok": True, "echo": f"[{mode}] {prompt}", "session_id": session_id})
+def fetch_card_data(name: str):
+    r = http_get(f"{SCRYFALL}/cards/named", params={"exact": name})
+    if r.status_code != 200:
+        return {"ok": False}
+    card = r.json()
+    return {
+        "ok": True,
+        "data": {
+            "id": card.get("id"),
+            "name": card.get("name"),
+            "colors": card.get("colors", []),
+            "color_identity": card.get("color_identity", []),
+            "cmc": card.get("cmc", 0),
+            "type_line": card.get("type_line"),
+            "image_normal": (card.get("image_uris") or {}).get("normal"),
+            "image_small": (card.get("image_uris") or {}).get("small"),
+            "oracle_text": card.get("oracle_text", ""),
+            "set": card.get("set"),
+            "set_name": card.get("set_name"),
+            "rarity": card.get("rarity"),
+            "scryfall_uri": card.get("scryfall_uri")
+        }
+    }
 
-    history = SESSION_MEMORY.get(session_id, [])
-    history.append({"role": "user", "content": prompt})
+def search_card(name: str):
+    r = http_get(f"{SCRYFALL}/cards/named", params={"fuzzy": name})
+    if r.status_code != 200:
+        return {"ok": False}
+    card = r.json()
+    return {
+        "ok": True,
+        "data": {
+            "id": card.get("id"),
+            "name": card.get("name"),
+            "colors": card.get("colors", []),
+            "color_identity": card.get("color_identity", []),
+            "cmc": card.get("cmc", 0),
+            "type_line": card.get("type_line"),
+            "image_normal": (card.get("image_uris") or {}).get("normal"),
+            "image_small": (card.get("image_uris") or {}).get("small"),
+            "oracle_text": card.get("oracle_text", ""),
+            "set": card.get("set"),
+            "set_name": card.get("set_name"),
+            "rarity": card.get("rarity"),
+            "scryfall_uri": card.get("scryfall_uri")
+        }
+    }
 
-    from openai import OpenAI
-    client = OpenAI(api_key=OPENAI_KEY)
-    completion = client.chat.completions.create(
-        model=MODEL,
-        messages=history,
-        temperature=TEMP,
-        max_tokens=MAXTOK,
-        top_p=1.0
-    )
-    reply = completion.choices[0].message["content"]
-    history.append({"role": "assistant", "content": reply})
-    SESSION_MEMORY[session_id] = history
+def fetch_combos_for_cards(card_names):
+    results = []
+    for name in card_names:
+        r = http_get(f"{SPELLBOOK}/combo/search", params={"cards": name})
+        if r.status_code == 200:
+            j = r.json() or {}
+            for combo in j.get("results", []):
+                results.append({
+                    "name": combo.get("name"),
+                    "description": combo.get("description"),
+                    "link": combo.get("permalink")
+                })
+    # dedupe by link+name
+    seen = set()
+    deduped = []
+    for c in results:
+        key = (c.get("link"), c.get("name"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(c)
+    return deduped
 
-    return jsonify({"ok": True, "reply": reply, "session_id": session_id})
-
+# -------------------------
+# Entrypoint
+# -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
