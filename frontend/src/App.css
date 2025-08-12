@@ -19,15 +19,42 @@ body{
 
 /* Header */
 .header{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 16px; background:rgba(0,0,0,.6); border-bottom:1px solid var(--gold);
+  display:grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items:center;
+  padding:12px 16px;
+  background:rgba(0,0,0,.6);
+  border-bottom:1px solid var(--gold);
   position:sticky; top:0; z-index:3; backdrop-filter: blur(6px);
 }
-.brand{ font-weight:800; color:var(--gold); letter-spacing:.4px; }
-.controls{ display:flex; gap:10px; align-items:center; }
-.mode{
-  background:#222; color:#fff; border:1px solid var(--gold); border-radius:8px; padding:6px 10px;
+.brand{ font-weight:800; color:var(--gold); letter-spacing:.4px; white-space:nowrap; }
+
+/* Role pills (our own look) */
+.role-pills{
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center;
 }
+.pill{
+  background:#222;
+  color:#eaeaf0;
+  border:1px solid var(--gold);
+  padding:6px 12px;
+  border-radius:999px;
+  cursor:pointer;
+  font-weight:700;
+  letter-spacing:.2px;
+  transition: transform .05s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.pill:hover{ background:#2b2b2b; border-color:var(--gold-2); }
+.pill.active{
+  background:var(--gold);
+  color:#111;
+  border-color:var(--gold);
+  box-shadow:0 0 0 2px rgba(255,215,0,.2) inset, 0 4px 14px rgba(0,0,0,.35);
+}
+
+/* Right controls */
+.controls{ display:flex; gap:10px; align-items:center; justify-self:end; }
 .currency-switch{
   min-width:58px; text-align:center; padding:6px 10px; border:1px solid var(--gold); border-radius:8px;
   background:#222; color:var(--gold); cursor:pointer; user-select:none;
@@ -35,7 +62,7 @@ body{
 .history-btn{
   border:1px solid var(--gold); background:#222; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer;
 }
-.history-btn:hover,.mode:focus,.currency-switch:hover{ outline:none; border-color:var(--gold-2); }
+.history-btn:hover,.currency-switch:hover{ border-color:var(--gold-2); }
 
 /* Layout */
 .app{ display:flex; height:100%; }
@@ -108,7 +135,17 @@ body{
 .modal-actions{ padding:12px 14px; border-top:1px solid var(--gold); display:flex; justify-content:flex-end; }
 .modal-actions button{ background:var(--accent); border:none; color:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; }
 
+/* Links inside combos */
+.combos a{ color:var(--gold); text-decoration:none; }
+.combos a:hover{ text-decoration:underline; }
+
 /* Scrollbars */
 ::-webkit-scrollbar{ width:10px; height:10px; }
 ::-webkit-scrollbar-track{ background:#111; }
 ::-webkit-scrollbar-thumb{ background:var(--gold); border-radius:6px; }
+
+/* Responsive tweaks */
+@media (max-width: 960px){
+  .header{ grid-template-columns: 1fr; gap:10px; }
+  .controls{ justify-self:start; }
+}
