@@ -23,20 +23,39 @@ export default function Chat() {
   const { mode, format, plan, colors, currency } = usePrefs();
 
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", type: "text", content: "Hi! Paste a decklist or ask a rules question. Try /price [[Sol Ring]] or /price [[Rhystic Study]], [[Cyclonic Rift]]." },
+    {
+      role: "assistant",
+      type: "text",
+      content:
+        "Hi! Paste a decklist or ask a rules question. Try /price [[Sol Ring]] or /price [[Rhystic Study]], [[Cyclonic Rift]].",
+    },
   ]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+    scrollerRef.current?.scrollTo({
+      top: scrollerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, loading]);
 
   function isProbablyDecklist(s: string): boolean {
     const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length < 5) return false;
-    const hints = ["Island","Swamp","Plains","Forest","Mountain","Sol Ring","Arcane Signet","Swords","Cultivate"," x "];
+    const hints = [
+      "Island",
+      "Swamp",
+      "Plains",
+      "Forest",
+      "Mountain",
+      "Sol Ring",
+      "Arcane Signet",
+      "Swords",
+      "Cultivate",
+      " x ",
+    ];
     const matches = lines.filter((l) => {
       if (/^\d+\s*x?\s+/.test(l)) return true;
       return hints.some((h) => l.toLowerCase().includes(h.toLowerCase()));
@@ -48,17 +67,29 @@ export default function Chat() {
     const res = await fetch("/api/deck/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckText, format, plan, colors, currency, useScryfall: true }),
+      body: JSON.stringify({
+        deckText,
+        format,
+        plan,
+        colors,
+        currency,
+        useScryfall: true,
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as SnapshotMsg["data"];
   }
 
   function parsePriceNames(raw: string): string[] {
-    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
+    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) =>
+      m[1].trim()
+    );
     if (bracketed.length) return bracketed;
     const after = raw.replace(/^\/price\s*/i, "");
-    return after.split(",").map((s) => s.trim()).filter(Boolean);
+    return after
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 
   async function fetchPrices(names: string[]): Promise<PriceItem[]> {
@@ -84,7 +115,15 @@ export default function Chat() {
       if (clean.toLowerCase().startsWith("/price")) {
         const names = parsePriceNames(clean);
         if (names.length === 0) {
-          setMessages((m) => [...m, { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]]" }]);
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              type: "text",
+              content:
+                "Usage: /price [[Card Name]], [[Another Card]] (or comma separated).",
+            },
+          ]);
         } else {
           const items = await fetchPrices(names);
           setMessages((m) => [...m, { role: "assistant", type: "price", items }]);
@@ -96,7 +135,9 @@ export default function Chat() {
       } else {
         const system = [
           "You are MTG Coach. Be concise. Cite CR numbers for rules.",
-          `User preferences: mode=${mode}, format=${format}, plan=${plan}, colors=${colors.join("") || "any"}, currency=${currency}.`,
+          `User preferences: mode=${mode}, format=${format}, plan=${plan}, colors=${
+            colors.join("") || "any"
+          }, currency=${currency}.`,
           "Respect format; prefer budget when plan=Budget; use chosen currency in any price references.",
         ].join(" ");
 
@@ -114,8 +155,11 @@ export default function Chat() {
         const reply = (data?.text as string) || "Sorry — no reply.";
         setMessages((m) => [...m, { role: "assistant", type: "text", content: reply }]);
       }
-    } catch (e) {
-      setMessages((m) => [...m, { role: "assistant", type: "text", content: "Error processing your request." }]);
+    } catch (_err) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", type: "text", content: "Error processing your request." },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -130,12 +174,21 @@ export default function Chat() {
 
   return (
     <>
-      <div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
+      <div
+        ref={scrollerRef}
+        className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]"
+      >
         {messages.map((m, i) => {
           if (m.type === "text") {
             return (
               <div key={i} className="mb-3">
-                <div className={m.role === "user" ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap" : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"}>
+                <div
+                  className={
+                    m.role === "user"
+                      ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap"
+                      : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"
+                  }
+                >
                   {m.content}
                 </div>
               </div>
@@ -154,7 +207,6 @@ export default function Chat() {
               </div>
             );
           }
-          // price
           return (
             <div key={i} className="mb-3 grid gap-3">
               {m.items.map((item, idx) => (
@@ -174,7 +226,11 @@ export default function Chat() {
           className="flex-1 bg-gray-900 border border-gray-800 rounded-xl p-3 min-h-[56px] focus:outline-none focus:ring-1 focus:ring-yellow-500"
           placeholder="Type a message, paste a decklist (or use /analyze), or /price [[Card Name]]…"
         />
-        <button onClick={send} disabled={loading || !text.trim()} className="h-[56px] px-5 rounded-xl bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-400 disabled:opacity-50">
+        <button
+          onClick={send}
+          disabled={loading || !text.trim()}
+          className="h-[56px] px-5 rounded-xl bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-400 disabled:opacity-50"
+        >
           {loading ? "Sending…" : "Send"}
         </button>
       </div>
