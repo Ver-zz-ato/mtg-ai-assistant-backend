@@ -13,18 +13,9 @@ export default function Header() {
           <div className="text-lg font-semibold tracking-tight">MTG Coach</div>
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <button onClick={() => setActive(active === "deck" ? null : "deck")}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">
-            Deck Builder
-          </button>
-          <button onClick={() => setActive(active === "rules" ? null : "rules")}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">
-            Rule Checker
-          </button>
-          <button onClick={() => setActive(active === "price" ? null : "price")}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">
-            Price Checker
-          </button>
+          <button onClick={() => setActive(active === "deck" ? null : "deck")} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Deck Builder</button>
+          <button onClick={() => setActive(active === "rules" ? null : "rules")} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Rule Checker</button>
+          <button onClick={() => setActive(active === "price" ? null : "price")} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Price Checker</button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700">Signup</button>

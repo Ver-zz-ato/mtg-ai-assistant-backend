@@ -1,6 +1,7 @@
-import LeftSidebar from "@/components/LeftSidebar";
-import RightSidebar from "@/components/RightSidebar";
-import Chat from "@/components/Chat";
+import LeftSidebar from "../components/LeftSidebar";
+import RightSidebar from "../components/RightSidebar";
+import Chat from "../components/Chat";
+import DeckBuilder from "../components/DeckBuilder"; // <-- add this
 
 export default function Page() {
   return (
@@ -10,6 +11,7 @@ export default function Page() {
       </aside>
 
       <section className="col-span-12 lg:col-span-6 flex flex-col">
+        <DeckBuilder />     {/* <-- new panel */}
         <Chat />
       </section>
 
