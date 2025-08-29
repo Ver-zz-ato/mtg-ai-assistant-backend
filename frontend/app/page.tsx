@@ -1,8 +1,8 @@
-import ModeOptions from "@/components/ModeOptions";
-import LeftSidebar from "@/components/LeftSidebar";
-import RightSidebar from "@/components/RightSidebar";
-import Chat from "@/components/Chat";
-import DeckBuilder from "@/components/DeckBuilder";
+import ModeOptions from "../components/ModeOptions";
+import LeftSidebar from "../components/LeftSidebar";
+import RightSidebar from "../components/RightSidebar";
+import Chat from "../components/Chat";
+import DeckBuilder from "../components/DeckBuilder";
 
 export default function Page() {
   return (
