@@ -1,4 +1,4 @@
-// Typed Scryfall-backed deck snapshot with no `any` usage.
+// Typed Scryfall-backed deck snapshot.
 
 type SfCard = {
   name: string;
@@ -7,9 +7,7 @@ type SfCard = {
   color_identity?: string[];
 };
 
-// augment globalThis for a simple in-memory cache between requests
 declare global {
-  // eslint-disable-next-line no-var
   var __sfCache: Map<string, SfCard> | undefined;
 }
 const sfCache: Map<string, SfCard> = globalThis.__sfCache ?? new Map();
@@ -19,11 +17,6 @@ async function fetchCard(name: string): Promise<SfCard | null> {
   const key = name.toLowerCase();
   if (sfCache.has(key)) return sfCache.get(key)!;
 
-  const r = await fetch(
-    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
-  );
-  if (!r.ok) return null;
-
   type ScryfallNamed = {
     name: string;
     type_line?: string;
@@ -32,7 +25,11 @@ async function fetchCard(name: string): Promise<SfCard | null> {
     color_identity?: string[];
   };
 
-  const j = (await r.json()) as unknown as ScryfallNamed;
+  const r = await fetch(
+    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
+  );
+  if (!r.ok) return null;
+  const j = (await r.json()) as ScryfallNamed;
 
   const card: SfCard = {
     name: j.name,
@@ -69,7 +66,6 @@ export async function POST(req: Request) {
     .map((s) => s.trim())
     .filter((s) => Boolean(s));
 
-  // parse counts + names
   const entries = lines.map((l) => {
     const m = l.match(/^(\d+)\s*x?\s*(.+)$/i);
     const count = m ? Number(m[1]) : 1;
@@ -79,7 +75,6 @@ export async function POST(req: Request) {
 
   const totalCards = entries.reduce((s, e) => s + e.count, 0);
 
-  // tallies
   let lands = 0,
     draw = 0,
     ramp = 0,
@@ -137,7 +132,6 @@ export async function POST(req: Request) {
       .reduce((s, e) => s + e.count, 0);
   }
 
-  // format-aware expectations
   const landTarget = format === "Commander" ? 35 : 24;
   const manaBand =
     lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
@@ -187,29 +181,4 @@ export async function POST(req: Request) {
 
   if (removal < 5)
     quickFixes.push(
-      "Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>."
-    );
-
-  const note =
-    draw < 6
-      ? "needs a touch more draw"
-      : lands < landTarget - 2
-      ? "mana base is light"
-      : "solid, room to tune";
-
-  console.log(
-    `[api/deck/analyze] 200 in ${Date.now() - started}ms (len=${deckText.length})`
-  );
-  return Response.json({
-    score,
-    note,
-    bands,
-    whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
-    quickFixes:
-      plan === "Budget"
-        ? quickFixes.map((s) =>
-            s.replace("Beast Whisperer", "Guardian Project")
-          )
-        : quickFixes,
-  });
-}
+      "Add 1–2 interaction pieces: <em>Swords
