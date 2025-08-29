@@ -1,6 +1,10 @@
 // frontend/app/api/deck/analyze/route.ts
+// Heuristic deck snapshot + logging.
 
 export async function POST(req: Request) {
+  const started = Date.now();
+  console.log("[api/deck/analyze] POST start");
+
   const { deckText = "" } = await req.json().catch(() => ({ deckText: "" }));
 
   const lines: string[] = deckText
@@ -33,12 +37,10 @@ export async function POST(req: Request) {
     mana: Math.min(1, lands >= 34 ? 0.8 : lands >= 30 ? 0.7 : 0.55),
   };
 
-  // score
   const score = Math.round(
     (bands.curve + bands.ramp + bands.draw + bands.removal + bands.mana) * 20
   );
 
-  // notes and tips
   const whatsGood: string[] = [];
   const quickFixes: string[] = [];
 
@@ -66,6 +68,10 @@ export async function POST(req: Request) {
       : lands < 32
       ? "mana base is light"
       : "solid, room to tune";
+
+  console.log(
+    `[api/deck/analyze] 200 in ${Date.now() - started}ms (len=${deckText.length})`
+  );
 
   return Response.json({
     score,
