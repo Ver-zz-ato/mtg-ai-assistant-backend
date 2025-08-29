@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     .map((s) => s.trim())
     .filter((s) => Boolean(s));
 
+  // parse counts + names
   const entries = lines.map((l) => {
     const m = l.match(/^(\d+)\s*x?\s*(.+)$/i);
     const count = m ? Number(m[1]) : 1;
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
 
   const totalCards = entries.reduce((s, e) => s + e.count, 0);
 
+  // tallies
   let lands = 0,
     draw = 0,
     ramp = 0,
@@ -132,6 +134,7 @@ export async function POST(req: Request) {
       .reduce((s, e) => s + e.count, 0);
   }
 
+  // format-aware expectations
   const landTarget = format === "Commander" ? 35 : 24;
   const manaBand =
     lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
@@ -181,4 +184,29 @@ export async function POST(req: Request) {
 
   if (removal < 5)
     quickFixes.push(
-      "Add 1–2 interaction pieces: <em>Swords
+      `Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>.`
+    );
+
+  const note =
+    draw < 6
+      ? "needs a touch more draw"
+      : lands < landTarget - 2
+      ? "mana base is light"
+      : "solid, room to tune";
+
+  console.log(
+    `[api/deck/analyze] 200 in ${Date.now() - started}ms (len=${deckText.length})`
+  );
+  return Response.json({
+    score,
+    note,
+    bands,
+    whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
+    quickFixes:
+      plan === "Budget"
+        ? quickFixes.map((s) =>
+            s.replace("Beast Whisperer", "Guardian Project")
+          )
+        : quickFixes,
+  });
+}
