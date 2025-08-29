@@ -1,16 +1,23 @@
-// Live SSE stream of shoutbox messages
+// Live SSE stream of shoutbox messages (typed, no `any`)
 type Shout = { id: number; user: string; text: string; ts: number };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __shoutStore:
-    | { clients: Set<WritableStreamDefaultWriter<Uint8Array>>; history: Shout[]; nextId: number }
+    | {
+        clients: Set<WritableStreamDefaultWriter<Uint8Array>>;
+        history: Shout[];
+        nextId: number;
+      }
     | undefined;
 }
 
 const store =
   globalThis.__shoutStore ??
-  (globalThis.__shoutStore = { clients: new Set<WritableStreamDefaultWriter<Uint8Array>>(), history: [], nextId: 1 });
+  (globalThis.__shoutStore = {
+    clients: new Set<WritableStreamDefaultWriter<Uint8Array>>(),
+    history: [],
+    nextId: 1,
+  });
 
 export async function GET(req: Request) {
   const { readable, writable } = new TransformStream();
@@ -26,13 +33,13 @@ export async function GET(req: Request) {
   }, 30000);
 
   // remove client on disconnect
-  (req as any)?.signal?.addEventListener("abort", () => {
+  req.signal.addEventListener("abort", () => {
     clearInterval(ping);
     store.clients.delete(writer);
     writer.close().catch(() => {});
   });
 
-  // optional: greet (client will fetch history separately)
+  // greet (client will fetch history separately)
   write(`event: hello\ndata: "ok"\n\n`);
 
   return new Response(readable, {
