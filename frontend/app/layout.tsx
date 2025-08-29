@@ -1,15 +1,17 @@
-export const metadata = {
+// app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
+import Header from "../components/Header";
+
+export const metadata: Metadata = {
   title: "MTG Coach",
   description: "Chat-first MTG assistant",
 };
 
-import "../styles/globals.css";
-import Header from "@/components/Header";
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen flex flex-col bg-gray-950 text-gray-100">
         <Header />
         <main className="flex-1">{children}</main>
         <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
