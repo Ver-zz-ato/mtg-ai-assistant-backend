@@ -1,3 +1,4 @@
+// frontend/components/DeckBuilder.tsx
 "use client";
 import { useState } from "react";
 import DeckHealthCard from "./DeckHealthCard";
@@ -29,8 +30,8 @@ export default function DeckBuilder() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: AnalyzeResponse = await res.json();
       setData(json);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(false);
     }
@@ -42,12 +43,14 @@ export default function DeckBuilder() {
         <h2 className="font-semibold">Deck Builder (MVP)</h2>
         <div className="text-xs text-gray-400">Paste list → Analyze snapshot</div>
       </div>
+
       <textarea
         value={deckText}
         onChange={(e) => setDeckText(e.target.value)}
         placeholder="Paste a decklist (one card per line, e.g. '4 Island' or 'Sol Ring')…"
         className="w-full min-h-[120px] rounded-lg bg-gray-950 border border-gray-800 p-3 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
       />
+
       <div className="mt-2 flex items-center gap-2">
         <button
           onClick={analyze}
