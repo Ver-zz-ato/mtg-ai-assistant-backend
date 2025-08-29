@@ -1,212 +1,201 @@
-// Typed Scryfall-backed deck snapshot.
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { usePrefs } from "./PrefsContext";
+import DeckHealthCard from "./DeckHealthCard";
+import PriceCard, { PriceItem } from "./PriceCard";
 
-type SfCard = {
-  name: string;
-  type_line?: string;
-  oracle_text?: string | null;
-  color_identity?: string[];
+type TextMsg = { role: "user" | "assistant"; type: "text"; content: string };
+type SnapshotMsg = {
+  role: "assistant";
+  type: "snapshot";
+  data: {
+    score: number;
+    note: string;
+    bands: { curve: number; ramp: number; draw: number; removal: number; mana: number };
+    whatsGood: string[];
+    quickFixes: string[];
+  };
 };
+type PriceMsg = { role: "assistant"; type: "price"; items: PriceItem[] };
+type Msg = TextMsg | SnapshotMsg | PriceMsg;
 
-declare global {
-  var __sfCache: Map<string, SfCard> | undefined;
-}
-const sfCache: Map<string, SfCard> = globalThis.__sfCache ?? new Map();
-globalThis.__sfCache = sfCache;
+export default function Chat() {
+  const { mode, format, plan, colors, currency } = usePrefs();
 
-async function fetchCard(name: string): Promise<SfCard | null> {
-  const key = name.toLowerCase();
-  if (sfCache.has(key)) return sfCache.get(key)!;
+  const [messages, setMessages] = useState<Msg[]>([
+    {
+      role: "assistant",
+      type: "text",
+      content:
+        "Hi! Paste a decklist or ask a rules question. Try /price [[Sol Ring]] or /price [[Rhystic Study]], [[Cyclonic Rift]].",
+    },
+  ]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
-  type ScryfallNamed = {
-    name: string;
-    type_line?: string;
-    oracle_text?: string | null;
-    card_faces?: { oracle_text?: string | null }[];
-    color_identity?: string[];
-  };
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({
+      top: scrollerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, loading]);
 
-  const r = await fetch(
-    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
-  );
-  if (!r.ok) return null;
-  const j = (await r.json()) as ScryfallNamed;
-
-  const card: SfCard = {
-    name: j.name,
-    type_line: j.type_line,
-    oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
-    color_identity: j.color_identity ?? [],
-  };
-  sfCache.set(key, card);
-  return card;
-}
-
-export async function POST(req: Request) {
-  const started = Date.now();
-  console.log("[api/deck/analyze] POST start");
-
-  type AnalyzeBody = {
-    deckText?: string;
-    format?: "Commander" | "Modern" | "Pioneer";
-    plan?: "Budget" | "Optimized";
-    colors?: string[];
-    currency?: "USD" | "EUR" | "GBP";
-    useScryfall?: boolean;
-  };
-
-  const body = (await req.json().catch(() => ({}))) as AnalyzeBody;
-
-  const deckText: string = body.deckText ?? "";
-  const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
-  const plan: "Budget" | "Optimized" = body.plan ?? "Optimized";
-  const useScryfall: boolean = Boolean(body.useScryfall);
-
-  const lines = deckText
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => Boolean(s));
-
-  // parse counts + names
-  const entries = lines.map((l) => {
-    const m = l.match(/^(\d+)\s*x?\s*(.+)$/i);
-    const count = m ? Number(m[1]) : 1;
-    const name = (m ? m[2] : l).replace(/\s*\(.*?\)\s*$/, "").trim();
-    return { count: Number.isFinite(count) ? count : 1, name };
-  });
-
-  const totalCards = entries.reduce((s, e) => s + e.count, 0);
-
-  // tallies
-  let lands = 0,
-    draw = 0,
-    ramp = 0,
-    removal = 0;
-
-  if (useScryfall) {
-    const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(
-      0,
-      80
-    );
-    const looked = await Promise.all(uniqueNames.map(fetchCard));
-    const byName = new Map(
-      looked.filter((c): c is SfCard => Boolean(c)).map((c) => [
-        c.name.toLowerCase(),
-        c,
-      ])
-    );
-
-    const landRe = /land/i;
-    const drawRe = /draw a card|scry [1-9]/i;
-    const rampRe =
-      /add \{[wubrg]\}|search your library for (a|up to .*?) land/i;
-    const killRe = /destroy target|exile target|counter target/i;
-
-    for (const { name, count } of entries) {
-      const c = byName.get(name.toLowerCase());
-      const t = c?.type_line ?? "";
-      const o = c?.oracle_text ?? "";
-      if (landRe.test(t)) lands += count;
-      if (drawRe.test(o)) draw += count;
-      if (rampRe.test(o) || /signet|talisman|sol ring/i.test(name)) ramp += count;
-      if (killRe.test(o)) removal += count;
-    }
-  } else {
-    const landRx =
-      /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
-    const drawRx =
-      /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
-    const rampRx =
-      /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet|Fellwar Stone)\b/i;
-    const removalRx =
-      /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
-
-    lands = entries
-      .filter((e) => landRx.test(e.name))
-      .reduce((s, e) => s + e.count, 0);
-    draw = entries
-      .filter((e) => drawRx.test(e.name))
-      .reduce((s, e) => s + e.count, 0);
-    ramp = entries
-      .filter((e) => rampRx.test(e.name))
-      .reduce((s, e) => s + e.count, 0);
-    removal = entries
-      .filter((e) => removalRx.test(e.name))
-      .reduce((s, e) => s + e.count, 0);
+  function isProbablyDecklist(s: string): boolean {
+    const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 5) return false;
+    const hints = ["Island","Swamp","Plains","Forest","Mountain","Sol Ring","Arcane Signet","Swords","Cultivate"," x "];
+    const matches = lines.filter((l) => {
+      if (/^\d+\s*x?\s+/.test(l)) return true;
+      return hints.some((h) => l.toLowerCase().includes(h.toLowerCase()));
+    }).length;
+    return matches >= 3;
   }
 
-  // format-aware expectations
-  const landTarget = format === "Commander" ? 35 : 24;
-  const manaBand =
-    lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
+  async function analyzeDeck(deckText: string) {
+    const res = await fetch("/api/deck/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deckText,
+        format,
+        plan,
+        colors,
+        currency,
+        useScryfall: true,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as SnapshotMsg["data"];
+  }
 
-  const bands = {
-    curve: Math.min(
-      1,
-      Math.max(
-        0.5,
-        0.8 -
-          Math.max(0, totalCards - (format === "Commander" ? 100 : 60)) * 0.001
-      )
-    ),
-    ramp: Math.min(1, ramp / 6 + 0.4),
-    draw: Math.min(1, draw / 6 + 0.4),
-    removal: Math.min(1, removal / 6 + 0.2),
-    mana: Math.min(1, manaBand),
-  };
+  function parsePriceNames(raw: string): string[] {
+    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
+    if (bracketed.length) return bracketed;
+    const after = raw.replace(/^\/price\s*/i, "");
+    return after.split(",").map((s) => s.trim()).filter(Boolean);
+  }
 
-  const score = Math.round(
-    (bands.curve + bands.ramp + bands.draw + bands.removal + bands.mana) * 20
+  async function fetchPrices(names: string[]): Promise<PriceItem[]> {
+    const res = await fetch("/api/price", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names, currency }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return (json?.results ?? []) as PriceItem[];
+  }
+
+  async function send() {
+    const clean = text.trim();
+    if (!clean || loading) return;
+
+    setMessages((m) => [...m, { role: "user", type: "text", content: clean }]);
+    setText("");
+    setLoading(true);
+
+    try {
+      if (clean.toLowerCase().startsWith("/price")) {
+        const names = parsePriceNames(clean);
+        if (names.length === 0) {
+          setMessages((m) => [...m, { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]] (or comma separated)." }]);
+        } else {
+          const items = await fetchPrices(names);
+          setMessages((m) => [...m, { role: "assistant", type: "price", items }]);
+        }
+      } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
+        const deckText = clean.replace(/^\/analyze\s*/i, "");
+        const data = await analyzeDeck(deckText);
+        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]);
+      } else {
+        const system = [
+          "You are MTG Coach. Be concise. Cite CR numbers for rules.",
+          `User preferences: mode=${mode}, format=${format}, plan=${plan}, colors=${colors.join("") || "any"}, currency=${currency}.`,
+          "Respect format; prefer budget when plan=Budget; use chosen currency in any price references.",
+        ].join(" ");
+
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system,
+            messages: [...messages, { role: "user", type: "text", content: clean }]
+              .filter((m): m is TextMsg => m.type === "text")
+              .map((m) => ({ role: m.role, content: m.content })),
+          }),
+        });
+        const data = await res.json();
+        const reply = (data?.text as string) || "Sorry — no reply.";
+        setMessages((m) => [...m, { role: "assistant", type: "text", content: reply }]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", type: "text", content: "Error processing your request." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  }
+
+  return (
+    <>
+      <div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
+        {messages.map((m, i) => {
+          if (m.type === "text") {
+            return (
+              <div key={i} className="mb-3">
+                <div className={m.role === "user" ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap" : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"}>
+                  {m.content}
+                </div>
+              </div>
+            );
+          }
+          if (m.type === "snapshot") {
+            return (
+              <div key={i} className="mb-3">
+                <DeckHealthCard
+                  score={m.data.score}
+                  note={m.data.note}
+                  bands={m.data.bands}
+                  whatsGood={m.data.whatsGood}
+                  quickFixes={m.data.quickFixes}
+                />
+              </div>
+            );
+          }
+          return (
+            <div key={i} className="mb-3 grid gap-3">
+              {m.items.map((item, idx) => (
+                <PriceCard key={idx} item={item} highlight={currency} />
+              ))}
+            </div>
+          );
+        })}
+        {loading && <div className="text-sm text-gray-400">Thinking…</div>}
+      </div>
+
+      <div className="mt-3 flex items-end gap-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          className="flex-1 bg-gray-900 border border-gray-800 rounded-xl p-3 min-h-[56px] focus:outline-none focus:ring-1 focus:ring-yellow-500"
+          placeholder="Type a message, paste a decklist (or use /analyze), or /price [[Card Name]]…"
+        />
+        <button
+          onClick={send}
+          disabled={loading || !text.trim()}
+          className="h-[56px] px-5 rounded-xl bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-400 disabled:opacity-50"
+        >
+          {loading ? "Sending…" : "Send"}
+        </button>
+      </div>
+    </>
   );
-
-  const whatsGood: string[] = [];
-  const quickFixes: string[] = [];
-
-  if (lands >= landTarget)
-    whatsGood.push(`Mana base looks stable for ${format}.`);
-  else
-    quickFixes.push(
-      `Add ${
-        format === "Commander" ? "2–3" : "1–2"
-      } lands (aim ${landTarget}${format === "Commander" ? " for EDH" : ""}).`
-    );
-
-  if (ramp >= 8) whatsGood.push("Healthy ramp density.");
-  else
-    quickFixes.push(
-      "Add 2 cheap rocks: <em>Arcane Signet</em>, <em>Fellwar Stone</em>."
-    );
-
-  if (draw >= 8) whatsGood.push("Card draw density looks fine.");
-  else
-    quickFixes.push(
-      "Add 2 draw spells: <em>Beast Whisperer</em>, <em>Inspiring Call</em>."
-    );
-
-  if (removal < 5)
-    quickFixes.push(
-      `Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>.`
-    );
-
-  const note =
-    draw < 6
-      ? "needs a touch more draw"
-      : lands < landTarget - 2
-      ? "mana base is light"
-      : "solid, room to tune";
-
-  console.log(
-    `[api/deck/analyze] 200 in ${Date.now() - started}ms (len=${deckText.length})`
-  );
-  return Response.json({
-    score,
-    note,
-    bands,
-    whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
-    quickFixes:
-      plan === "Budget"
-        ? quickFixes.map((s) =>
-            s.replace("Beast Whisperer", "Guardian Project")
-          )
-        : quickFixes,
-  });
 }
