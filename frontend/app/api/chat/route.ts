@@ -1,6 +1,4 @@
 // frontend/app/api/chat/route.ts
-// Simple server proxy to OpenAI's chat API (no client library required)
-
 export async function POST(req: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -10,8 +8,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // optional: override model via env; default is cheap/fast 4o-mini
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  // Use a widely-available default; you can override via env
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
 
   type ChatMsg = { role: "system" | "user" | "assistant"; content: string };
   type Body = {
@@ -23,11 +21,10 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as Body;
 
-  // default system prompt geared for MTG
   const systemDefault =
     body.system ??
-    "You are MTG Coach. Be concise, cite Comprehensive Rules by number (e.g., CR 702.49a) when answering rules. " +
-      "For deck help, explain WHY, list 2–3 concrete swaps, and prefer budget-friendly options when asked.";
+    "You are MTG Coach. Be concise. For rules, cite CR sections (e.g., CR 702.49a). " +
+      "For deck help, explain why and give 2–3 concrete, budget-aware swaps.";
 
   const messages: ChatMsg[] = [
     { role: "system", content: systemDefault },
@@ -50,20 +47,19 @@ export async function POST(req: Request) {
     body: JSON.stringify(payload),
   });
 
-  const data = await r.json();
+  const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    // Bubble up API errors to the client
-    return new Response(JSON.stringify(data), {
-      status: r.status,
-      headers: { "Content-Type": "application/json" },
-    });
+    const msg =
+      data?.error?.message ||
+      `Upstream error from OpenAI (status ${r.status}).`;
+    return new Response(
+      JSON.stringify({ error: msg, status: r.status, details: data }),
+      { status: r.status, headers: { "Content-Type": "application/json" } }
+    );
   }
 
-  const text =
-    data?.choices?.[0]?.message?.content ??
-    "";
-
-  return new Response(JSON.stringify({ text, raw: data }), {
+  const text = data?.choices?.[0]?.message?.content ?? "";
+  return new Response(JSON.stringify({ text }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
