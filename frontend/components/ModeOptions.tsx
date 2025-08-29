@@ -69,8 +69,9 @@ export default function ModeOptions() {
           </>
         )}
 
-        {mode === "price" && (
+        {(mode === "deck" || mode === "price") && (
           <>
+            <span className="mx-2 text-gray-600">|</span>
             <span className="text-gray-400 mr-1">Currency</span>
             <select
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm"
