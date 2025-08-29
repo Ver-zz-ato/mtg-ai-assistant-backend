@@ -1,3 +1,4 @@
+// frontend/components/RightSidebar.tsx
 "use client";
 import { useState } from "react";
 
@@ -20,19 +21,7 @@ export default function RightSidebar() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <div className="font-semibold mb-2">Deck Snapshot/Judger</div>
         <div className="text-sm text-gray-300">
-          Paste a deck to get score, curve, color identity & quick fixes.
-        </div>
-      </div>
-
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <div className="font-semibold mb-2">Price Checker</div>
-        <div className="flex gap-2">
-          <select className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
-            <option>USD</option><option>EUR</option><option>GBP</option>
-          </select>
-          <button className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700">
-            Sources…
-          </button>
+          Paste a deck into chat to get score, curve, color identity & quick fixes.
         </div>
       </div>
 
@@ -50,7 +39,10 @@ export default function RightSidebar() {
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
             placeholder="Say something…"
           />
-          <button onClick={post} className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700">
+          <button
+            onClick={post}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700"
+          >
             Post
           </button>
         </div>
