@@ -1,4 +1,4 @@
-import { broadcast, pushHistory } from "../stream/route";
+import { broadcast, pushHistory, type Shout } from "../hub";
 
 type Body = { text?: string; user?: string };
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "Empty message" }, { status: 400 });
   }
 
-  const msg = { id: Date.now(), user: cleanUser, text: cleanText, ts: Date.now() };
+  const msg: Shout = { id: Date.now(), user: cleanUser, text: cleanText, ts: Date.now() };
   pushHistory(msg);
   broadcast(msg);
 
