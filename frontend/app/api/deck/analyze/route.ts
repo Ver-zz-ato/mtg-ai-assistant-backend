@@ -1,4 +1,5 @@
-// app/api/deck/analyze/route.ts
+// frontend/app/api/deck/analyze/route.ts
+
 export async function POST(req: Request) {
   const { deckText = "" } = await req.json().catch(() => ({ deckText: "" }));
 
@@ -9,15 +10,19 @@ export async function POST(req: Request) {
 
   // super-light heuristics
   const total = lines.length;
-  const landRx = /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
-  const drawRx = /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
-  const rampRx = /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet)\b/i;
-  const removalRx = /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
+  const landRx =
+    /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
+  const drawRx =
+    /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
+  const rampRx =
+    /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet)\b/i;
+  const removalRx =
+    /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
 
-  const lands = lines.filter(l => landRx.test(l)).length;
-  const draw = lines.filter(l => drawRx.test(l)).length;
-  const ramp = lines.filter(l => rampRx.test(l)).length;
-  const removal = lines.filter(l => removalRx.test(l)).length;
+  const lands = lines.filter((l) => landRx.test(l)).length;
+  const draw = lines.filter((l) => drawRx.test(l)).length;
+  const ramp = lines.filter((l) => rampRx.test(l)).length;
+  const removal = lines.filter((l) => removalRx.test(l)).length;
 
   // crude band scores 0..1
   const bands = {
@@ -28,8 +33,8 @@ export async function POST(req: Request) {
     mana: Math.min(1, lands >= 34 ? 0.8 : lands >= 30 ? 0.7 : 0.55),
   };
 
-  // score
-  let score = Math.round(
+  // score (eslint prefer-const)
+  const score = Math.round(
     (bands.curve + bands.ramp + bands.draw + bands.removal + bands.mana) * 20
   );
 
@@ -41,17 +46,26 @@ export async function POST(req: Request) {
   else quickFixes.push("Add 2–3 lands (aim 34–36 for EDH).");
 
   if (ramp >= 8) whatsGood.push("Healthy ramp density.");
-  else quickFixes.push("Add 2 cheap rocks: <em>Arcane Signet</em>, <em>Fellwar Stone</em>.");
+  else quickFixes.push(
+    "Add 2 cheap rocks: <em>Arcane Signet</em>, <em>Fellwar Stone</em>."
+  );
 
   if (draw >= 8) whatsGood.push("Card draw density looks fine.");
-  else quickFixes.push("Add 2 draw spells: <em>Beast Whisperer</em>, <em>Inspiring Call</em>.");
+  else quickFixes.push(
+    "Add 2 draw spells: <em>Beast Whisperer</em>, <em>Inspiring Call</em>."
+  );
 
-  if (removal < 5) quickFixes.push("Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>.");
+  if (removal < 5)
+    quickFixes.push(
+      "Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>."
+    );
 
   const note =
-    draw < 6 ? "needs a touch more draw" :
-    lands < 32 ? "mana base is light" :
-    "solid, room to tune";
+    draw < 6
+      ? "needs a touch more draw"
+      : lands < 32
+      ? "mana base is light"
+      : "solid, room to tune";
 
   return Response.json({
     score,
