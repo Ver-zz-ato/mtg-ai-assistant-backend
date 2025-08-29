@@ -3,10 +3,10 @@
 export async function POST(req: Request) {
   const { deckText = "" } = await req.json().catch(() => ({ deckText: "" }));
 
-  const lines = deckText
+  const lines: string[] = deckText
     .split(/\r?\n/)
     .map((s: string) => s.trim())
-    .filter(Boolean);
+    .filter((s: string) => Boolean(s));
 
   // super-light heuristics
   const total = lines.length;
@@ -19,10 +19,10 @@ export async function POST(req: Request) {
   const removalRx =
     /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
 
-  const lands = lines.filter((l) => landRx.test(l)).length;
-  const draw = lines.filter((l) => drawRx.test(l)).length;
-  const ramp = lines.filter((l) => rampRx.test(l)).length;
-  const removal = lines.filter((l) => removalRx.test(l)).length;
+  const lands   = lines.filter((l: string) => landRx.test(l)).length;
+  const draw    = lines.filter((l: string) => drawRx.test(l)).length;
+  const ramp    = lines.filter((l: string) => rampRx.test(l)).length;
+  const removal = lines.filter((l: string) => removalRx.test(l)).length;
 
   // crude band scores 0..1
   const bands = {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     mana: Math.min(1, lands >= 34 ? 0.8 : lands >= 30 ? 0.7 : 0.55),
   };
 
-  // score (eslint prefer-const)
+  // score
   const score = Math.round(
     (bands.curve + bands.ramp + bands.draw + bands.removal + bands.mana) * 20
   );
