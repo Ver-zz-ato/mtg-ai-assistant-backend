@@ -1,33 +1,91 @@
-// frontend/app/api/deck/analyze/route.ts
+type SfCard = {
+  name: string;
+  type_line?: string;
+  oracle_text?: string | null;
+  color_identity?: string[];
+};
+
+const sfCache: Map<string, SfCard> = (globalThis as any).__sfCache ?? new Map();
+(globalThis as any).__sfCache = sfCache;
+
+async function fetchCard(name: string): Promise<SfCard | null> {
+  const key = name.toLowerCase();
+  if (sfCache.has(key)) return sfCache.get(key)!;
+  const r = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+  if (!r.ok) return null;
+  const j = (await r.json()) as any;
+  const card: SfCard = {
+    name: j.name,
+    type_line: j.type_line,
+    oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
+    color_identity: j.color_identity ?? [],
+  };
+  sfCache.set(key, card);
+  return card;
+}
+
 export async function POST(req: Request) {
   const started = Date.now();
   console.log("[api/deck/analyze] POST start");
 
-  const { deckText = "", format = "Commander", plan = "Optimized", colors = [], currency = "USD" } =
-    await req.json().catch(() => ({ deckText: "" }));
+  const body = await req.json().catch(() => ({}));
+  const deckText: string = body.deckText ?? "";
+  const format: string = body.format ?? "Commander";
+  const plan: string = body.plan ?? "Optimized";
+  const useScryfall: boolean = Boolean(body.useScryfall);
 
-  const lines: string[] = deckText
-    .split(/\r?\n/)
-    .map((s: string) => s.trim())
-    .filter((s: string) => Boolean(s));
+  const lines = deckText.split(/\r?\n/).map((s: string) => s.trim()).filter((s: string) => Boolean(s));
 
-  const total = lines.length;
-  const landRx = /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
-  const drawRx = /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
-  const rampRx = /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet|Fellwar Stone)\b/i;
-  const removalRx = /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
+  // parse counts + names
+  const entries = lines.map((l) => {
+    const m = l.match(/^(\d+)\s*x?\s*(.+)$/i);
+    const count = m ? Number(m[1]) : 1;
+    const name = (m ? m[2] : l).replace(/\s*\(.*?\)\s*$/, "").trim();
+    return { count: Number.isFinite(count) ? count : 1, name };
+  });
 
-  const lands   = lines.filter((l: string) => landRx.test(l)).length;
-  const draw    = lines.filter((l: string) => drawRx.test(l)).length;
-  const ramp    = lines.filter((l: string) => rampRx.test(l)).length;
-  const removal = lines.filter((l: string) => removalRx.test(l)).length;
+  const totalCards = entries.reduce((s, e) => s + e.count, 0);
 
-  // format-aware mana expectations
-  const landTarget = format === "Commander" ? 35 : 24; // simple heuristic
+  // fallback heuristics if not using Scryfall
+  let lands = 0, draw = 0, ramp = 0, removal = 0;
+
+  if (useScryfall) {
+    const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 80);
+    const looked = await Promise.all(uniqueNames.map(fetchCard));
+    const byName = new Map(looked.filter(Boolean).map((c) => [c!.name.toLowerCase(), c!]));
+
+    const landRe = /land/i;
+    const drawRe = /draw a card|scry [1-9]/i;
+    const rampRe = /add \{[wubrg]\}|search your library for (a|up to .*?) land/i;
+    const killRe = /destroy target|exile target|counter target/i;
+
+    for (const { name, count } of entries) {
+      const c = byName.get(name.toLowerCase());
+      const t = c?.type_line ?? "";
+      const o = c?.oracle_text ?? "";
+      if (landRe.test(t)) lands += count;
+      if (drawRe.test(o)) draw += count;
+      if (rampRe.test(o) || /signet|talisman|sol ring/i.test(name)) ramp += count;
+      if (killRe.test(o)) removal += count;
+    }
+  } else {
+    const landRx = /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
+    const drawRx = /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
+    const rampRx = /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet|Fellwar Stone)\b/i;
+    const removalRx = /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
+
+    lands   = entries.filter((e) => landRx.test(e.name)).reduce((s,e)=>s+e.count,0);
+    draw    = entries.filter((e) => drawRx.test(e.name)).reduce((s,e)=>s+e.count,0);
+    ramp    = entries.filter((e) => rampRx.test(e.name)).reduce((s,e)=>s+e.count,0);
+    removal = entries.filter((e) => removalRx.test(e.name)).reduce((s,e)=>s+e.count,0);
+  }
+
+  // format-aware expectations
+  const landTarget = format === "Commander" ? 35 : 24;
   const manaBand = lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
 
   const bands = {
-    curve: Math.min(1, Math.max(0.5, 0.8 - Math.max(0, total - (format === "Commander" ? 100 : 60)) * 0.001)),
+    curve: Math.min(1, Math.max(0.5, 0.8 - Math.max(0, totalCards - (format === "Commander" ? 100 : 60)) * 0.001)),
     ramp: Math.min(1, ramp / 6 + 0.4),
     draw: Math.min(1, draw / 6 + 0.4),
     removal: Math.min(1, removal / 6 + 0.2),
@@ -61,10 +119,6 @@ export async function POST(req: Request) {
     note,
     bands,
     whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
-    quickFixes:
-      plan === "Budget"
-        ? quickFixes.map((s) => s.replace("Beast Whisperer", "Guardian Project")) // tiny example swap
-        : quickFixes,
-    meta: { format, plan, colors, currency },
+    quickFixes: plan === "Budget" ? quickFixes.map((s) => s.replace("Beast Whisperer", "Guardian Project")) : quickFixes,
   });
 }
