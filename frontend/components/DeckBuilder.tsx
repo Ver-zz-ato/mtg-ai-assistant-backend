@@ -1,7 +1,7 @@
-// frontend/components/DeckBuilder.tsx
 "use client";
 import { useState } from "react";
 import DeckHealthCard from "./DeckHealthCard";
+import { usePrefs } from "./PrefsContext";
 
 type AnalyzeResponse = {
   score: number;
@@ -12,6 +12,8 @@ type AnalyzeResponse = {
 };
 
 export default function DeckBuilder() {
+  const { format, plan, colors, currency } = usePrefs();
+
   const [deckText, setDeckText] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AnalyzeResponse | null>(null);
@@ -25,7 +27,13 @@ export default function DeckBuilder() {
       const res = await fetch("/api/deck/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deckText }),
+        body: JSON.stringify({
+          deckText,
+          format,
+          plan,
+          colors,
+          currency,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: AnalyzeResponse = await res.json();
@@ -41,7 +49,9 @@ export default function DeckBuilder() {
     <div className="mb-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold">Deck Builder (MVP)</h2>
-        <div className="text-xs text-gray-400">Paste list → Analyze snapshot</div>
+        <div className="text-xs text-gray-400">
+          Using: {format} · {plan} · {colors.length ? colors.join("") : "Any colors"} · {currency}
+        </div>
       </div>
 
       <textarea
