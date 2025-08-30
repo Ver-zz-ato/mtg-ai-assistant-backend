@@ -6,6 +6,7 @@ type SfCard = {
   type_line?: string;
   oracle_text?: string | null;
   color_identity?: string[]; // e.g. ["G","B"]
+  cmc?: number;
 };
 
 // Simple in-process cache (persists across hot reloads on server)
@@ -26,6 +27,7 @@ async function fetchCard(name: string): Promise<SfCard | null> {
     oracle_text?: string | null;
     card_faces?: { oracle_text?: string | null }[];
     color_identity?: string[];
+    cmc?: number;
   };
 
   const r = await fetch(
@@ -39,6 +41,7 @@ async function fetchCard(name: string): Promise<SfCard | null> {
     type_line: j.type_line,
     oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
     color_identity: j.color_identity ?? [],
+    cmc: typeof j.cmc === "number" ? j.cmc : undefined,
   };
   sfCache.set(key, card);
   return card;
@@ -85,11 +88,14 @@ export async function POST(req: Request) {
     ramp = 0,
     removal = 0;
 
+  // Curve buckets: [<=1, 2, 3, 4, >=5]
+  const curveBuckets = [0, 0, 0, 0, 0];
+
   // Store Scryfall results by name for reuse + legality
   const byName = new Map<string, SfCard>();
 
   if (useScryfall) {
-    const unique = Array.from(new Set(entries.map((e) => e.name))).slice(0, 120);
+    const unique = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
     const looked = await Promise.all(unique.map(fetchCard));
     for (const c of looked) {
       if (c) byName.set(c.name.toLowerCase(), c);
@@ -108,6 +114,16 @@ export async function POST(req: Request) {
       if (drawRe.test(o)) draw += count;
       if (rampRe.test(o) || /signet|talisman|sol ring/i.test(name)) ramp += count;
       if (killRe.test(o)) removal += count;
+
+      // CMC bucket
+      const cmc = typeof c?.cmc === "number" ? c!.cmc : undefined;
+      if (typeof cmc === "number") {
+        if (cmc <= 1) curveBuckets[0] += count;
+        else if (cmc <= 2) curveBuckets[1] += count;
+        else if (cmc <= 3) curveBuckets[2] += count;
+        else if (cmc <= 4) curveBuckets[3] += count;
+        else curveBuckets[4] += count;
+      }
     }
   } else {
     const landRx = /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
@@ -122,6 +138,7 @@ export async function POST(req: Request) {
     draw = entries.filter((e) => drawRx.test(e.name)).reduce((s, e) => s + e.count, 0);
     ramp = entries.filter((e) => rampRx.test(e.name)).reduce((s, e) => s + e.count, 0);
     removal = entries.filter((e) => removalRx.test(e.name)).reduce((s, e) => s + e.count, 0);
+    // No CMC data without Scryfall; buckets remain 0s.
   }
 
   // Simple curve band from deck size; ramp/draw/removal normalized
@@ -152,9 +169,6 @@ export async function POST(req: Request) {
 
   if (removal < 5) quickFixes.push(`Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>.`);
 
-  const note =
-    draw < 6 ? "needs a touch more draw" : lands < landTarget - 2 ? "mana base is light" : "solid, room to tune";
-
   // --- NEW: Commander color-identity legality check (requires Scryfall + colors) ---
   let illegalByCI = 0;
   let illegalExamples: string[] = [];
@@ -168,23 +182,38 @@ export async function POST(req: Request) {
       if (!c) continue;
 
       const ci = (c.color_identity ?? []).map((x) => x.toUpperCase());
-      // Basic lands are fine; colorless cards have empty CI and are fine.
-      const illegal =
-        ci.length > 0 && ci.some((symbol) => !allowed.has(symbol));
-
+      const illegal = ci.length > 0 && ci.some((symbol) => !allowed.has(symbol));
       if (illegal) offenders.push(c.name);
     }
 
-    // de-dup
     const uniqueOffenders = Array.from(new Set(offenders));
     illegalByCI = uniqueOffenders.length;
     illegalExamples = uniqueOffenders.slice(0, 5);
   }
 
+  // --- NEW: curve-aware quick fixes (format-aware targets) ---
+  if (useScryfall) {
+    const [b01, b2, b3, b4, b5p] = curveBuckets;
+    if (format === "Commander") {
+      // loose, friendly targets for 100-card singleton decks
+      if (b2 < 12) quickFixes.push("Fill the 2-drop gap (aim ~12): cheap dorks, signets/talismans, utility bears.");
+      if (b01 < 8) quickFixes.push("Add 1–2 more one-drops: ramp dorks or cheap interaction.");
+      if (b5p > 16) quickFixes.push("Top-end is heavy; trim a few 5+ CMC spells for smoother starts.");
+    } else {
+      // 60-card formats: suggest smoothing low curve
+      if (b01 < 10) quickFixes.push("Increase low curve (≤1 CMC) to improve early plays.");
+      if (b2 < 8) quickFixes.push("Add a couple more 2-drops for consistent curve.");
+    }
+  }
+
+  const note =
+    draw < 6 ? "needs a touch more draw" : lands < landTarget - 2 ? "mana base is light" : "solid, room to tune";
+
   return Response.json({
     score,
     note,
     bands,
+    curveBuckets, // <= NEW
     whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
     quickFixes: plan === "Budget" ? quickFixes.map((s) => s.replace("Beast Whisperer", "Guardian Project")) : quickFixes,
     illegalByCI,

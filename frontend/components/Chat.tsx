@@ -183,6 +183,7 @@ export default function Chat() {
                   quickFixes={m.data.quickFixes}
                   illegalByCI={m.data.illegalByCI ?? 0}
                   illegalExamples={m.data.illegalExamples ?? []}
+                  curveBuckets={m.data.curveBuckets}   // <-- NEW
                 />
               </div>
             );

@@ -8,6 +8,7 @@ export default function DeckHealthCard({
   quickFixes = ["Add 2 draw spells: <em>Beast Whisperer</em>, <em>Inspiring Call</em>."],
   illegalByCI = 0,
   illegalExamples = [],
+  curveBuckets = undefined,
 }: {
   score?: number;
   note?: string;
@@ -16,6 +17,7 @@ export default function DeckHealthCard({
   quickFixes?: string[];
   illegalByCI?: number;
   illegalExamples?: string[];
+  curveBuckets?: number[]; // [<=1, 2, 3, 4, >=5]
 }) {
   const Bar = ({ v }: { v: number }) => (
     <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -34,7 +36,7 @@ export default function DeckHealthCard({
       </div>
 
       {/* Bands */}
-      <div className="grid grid-cols-5 gap-3 text-xs text-gray-300 mb-3">
+      <div className="grid grid-cols-5 gap-3 text-xs text-gray-300 mb-2">
         <div><div className="mb-1">Curve</div><Bar v={bands.curve} /></div>
         <div><div className="mb-1">Ramp</div><Bar v={bands.ramp} /></div>
         <div><div className="mb-1">Draw</div><Bar v={bands.draw} /></div>
@@ -42,13 +44,19 @@ export default function DeckHealthCard({
         <div><div className="mb-1">Mana</div><Bar v={bands.mana} /></div>
       </div>
 
+      {/* NEW: compact curve buckets line */}
+      {Array.isArray(curveBuckets) && curveBuckets.length === 5 && (
+        <div className="text-xs text-gray-300 mb-3">
+          <span className="mr-2 font-medium text-gray-200">Curve (≤1/2/3/4/5+):</span>
+          {curveBuckets.join(" / ")}
+        </div>
+      )}
+
       {/* EDH CI illegal line */}
       {illegalByCI > 0 && (
         <div className="text-sm text-red-400 mb-3">
           Illegal by color identity: <b>{illegalByCI}</b>
-          {illegalExamples.length > 0 && (
-            <> — e.g., {illegalExamples.slice(0, 3).join(", ")}</>
-          )}
+          {illegalExamples.length > 0 && <> — e.g., {illegalExamples.slice(0, 3).join(", ")}</>}
         </div>
       )}
 
