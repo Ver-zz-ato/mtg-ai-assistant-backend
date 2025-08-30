@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+// If you prefer, you could import the real type:
+// import type { Session } from "@supabase/supabase-js";
 type SessionLike = { user?: { id: string; email?: string | null } } | null;
 
 export default function Header() {
@@ -19,6 +21,7 @@ export default function Header() {
   // Load current session (client-side)
   useEffect(() => {
     let mounted = true;
+
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
       if (error) console.error("getSession error:", error);
@@ -28,6 +31,7 @@ export default function Header() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
     });
+
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
@@ -48,12 +52,16 @@ export default function Header() {
         console.log("[auth] signUp", email);
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // If email confirmations disabled, user is signed in immediately.
         setOpen(false);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      // No 'any' here — narrow unknown safely:
       console.error("Auth error:", e);
-      setErr(e?.message ?? "Authentication failed.");
+      const message =
+        typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message?: unknown }).message)
+          : "Authentication failed.";
+      setErr(message);
     } finally {
       setBusy(false);
     }
@@ -75,7 +83,14 @@ export default function Header() {
           <div className="text-lg font-semibold tracking-tight">MTG Coach</div>
         </div>
 
-        {/* Mode pills kept as-is by your app; auth area at right */}
+        {/* Mode pills (your app can wire these; left as UI only here) */}
+        <div className="hidden md:flex items-center gap-2">
+          <button className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Deck Builder</button>
+          <button className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Rule Checker</button>
+          <button className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Price Checker</button>
+        </div>
+
+        {/* Auth area */}
         {session?.user ? (
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-gray-400 hidden md:inline">
@@ -91,13 +106,21 @@ export default function Header() {
         ) : (
           <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={() => { setMode("signup"); setErr(null); setOpen(true); }}
+              onClick={() => {
+                setMode("signup");
+                setErr(null);
+                setOpen(true);
+              }}
               className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700"
             >
               Signup
             </button>
             <button
-              onClick={() => { setMode("login"); setErr(null); setOpen(true); }}
+              onClick={() => {
+                setMode("login");
+                setErr(null);
+                setOpen(true);
+              }}
               className="px-3 py-2 rounded-lg bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-400"
             >
               Login
@@ -106,7 +129,7 @@ export default function Header() {
         )}
       </div>
 
-      {/* Simple modal */}
+      {/* Modal */}
       {open && (
         <div
           className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4"
@@ -117,10 +140,10 @@ export default function Header() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">
-                {mode === "login" ? "Login" : "Create Account"}
-              </h3>
-              <button className="text-gray-400 hover:text-gray-200" onClick={() => setOpen(false)}>✕</button>
+              <h3 className="text-lg font-semibold">{mode === "login" ? "Login" : "Create Account"}</h3>
+              <button className="text-gray-400 hover:text-gray-200" onClick={() => setOpen(false)}>
+                ✕
+              </button>
             </div>
 
             <div className="space-y-3">
@@ -154,7 +177,10 @@ export default function Header() {
 
               <button
                 className="text-sm text-gray-400 hover:text-gray-200"
-                onClick={() => { setMode(mode === "login" ? "signup" : "login"); setErr(null); }}
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
+                  setErr(null);
+                }}
               >
                 {mode === "login" ? "Need an account? Sign up" : "Have an account? Log in"}
               </button>
