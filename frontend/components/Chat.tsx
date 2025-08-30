@@ -17,7 +17,7 @@ type SnapshotMsg = {
     quickFixes: string[];
     illegalByCI?: number;
     illegalExamples?: string[];
-    curveBuckets?: number[]; // <-- add this to match API response
+    curveBuckets?: number[]; // to match API response
   };
 };
 
@@ -112,7 +112,8 @@ export default function Chat() {
       } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
         const deckText = clean.replace(/^\/analyze\s*/i, "");
         const data = await analyzeDeck(deckText);
-        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]]);
+        // ✅ fixed: one closing bracket, not two
+        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]);
       } else {
         const system = [
           "You are MTG Coach. Be concise. Cite CR numbers for rules.",
@@ -184,7 +185,7 @@ export default function Chat() {
                   quickFixes={m.data.quickFixes}
                   illegalByCI={m.data.illegalByCI ?? 0}
                   illegalExamples={m.data.illegalExamples ?? []}
-                  curveBuckets={m.data.curveBuckets}  // now valid
+                  curveBuckets={m.data.curveBuckets}
                 />
               </div>
             );
