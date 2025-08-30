@@ -5,6 +5,7 @@ import DeckHealthCard from "./DeckHealthCard";
 import PriceCard, { PriceItem } from "./PriceCard";
 
 type TextMsg = { role: "user" | "assistant"; type: "text"; content: string };
+
 type SnapshotMsg = {
   role: "assistant";
   type: "snapshot";
@@ -14,21 +15,20 @@ type SnapshotMsg = {
     bands: { curve: number; ramp: number; draw: number; removal: number; mana: number };
     whatsGood: string[];
     quickFixes: string[];
+    illegalByCI?: number;       // NEW
+    illegalExamples?: string[]; // NEW
   };
 };
+
 type PriceMsg = { role: "assistant"; type: "price"; items: PriceItem[] };
+
 type Msg = TextMsg | SnapshotMsg | PriceMsg;
 
 export default function Chat() {
   const { mode, format, plan, colors, currency } = usePrefs();
 
   const [messages, setMessages] = useState<Msg[]>([
-    {
-      role: "assistant",
-      type: "text",
-      content:
-        "Hi! Paste a decklist or ask a rules question. Try /price [[Sol Ring]] or /price [[Rhystic Study]], [[Cyclonic Rift]].",
-    },
+    { role: "assistant", type: "text", content: "Hi! Paste a decklist or ask any MTG question." },
   ]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function Chat() {
   function isProbablyDecklist(s: string): boolean {
     const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length < 5) return false;
-    const hints = ["Island","Swamp","Plains","Forest","Mountain","Sol Ring","Arcane Signet","Swords","Cultivate"," x "];
+    const hints = ["Island", "Swamp", "Plains", "Forest", "Mountain", "Sol Ring", "Arcane Signet", "Swords", "Cultivate", " x "];
     const matches = lines.filter((l) => {
       if (/^\d+\s*x?\s+/.test(l)) return true;
       return hints.some((h) => l.toLowerCase().includes(h.toLowerCase()));
@@ -70,7 +70,7 @@ export default function Chat() {
   }
 
   function parsePriceNames(raw: string): string[] {
-    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
+    const bracketed = Array.from(raw.matchAll(/\[\[(.+?))\]\]/g)).map((m) => m[1].trim());
     if (bracketed.length) return bracketed;
     const after = raw.replace(/^\/price\s*/i, "");
     return after.split(",").map((s) => s.trim()).filter(Boolean);
@@ -99,7 +99,10 @@ export default function Chat() {
       if (clean.toLowerCase().startsWith("/price")) {
         const names = parsePriceNames(clean);
         if (names.length === 0) {
-          setMessages((m) => [...m, { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]] (or comma separated)." }]);
+          setMessages((m) => [
+            ...m,
+            { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]] (or comma separated)." },
+          ]);
         } else {
           const items = await fetchPrices(names);
           setMessages((m) => [...m, { role: "assistant", type: "price", items }]);
@@ -130,7 +133,10 @@ export default function Chat() {
         setMessages((m) => [...m, { role: "assistant", type: "text", content: reply }]);
       }
     } catch {
-      setMessages((m) => [...m, { role: "assistant", type: "text", content: "Error processing your request." }]);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", type: "text", content: "Error processing your request." },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -145,12 +151,21 @@ export default function Chat() {
 
   return (
     <>
-      <div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
+      <div
+        ref={scrollerRef}
+        className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]"
+      >
         {messages.map((m, i) => {
           if (m.type === "text") {
             return (
               <div key={i} className="mb-3">
-                <div className={m.role === "user" ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap" : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"}>
+                <div
+                  className={
+                    m.role === "user"
+                      ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap"
+                      : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"
+                  }
+                >
                   {m.content}
                 </div>
               </div>
@@ -165,10 +180,13 @@ export default function Chat() {
                   bands={m.data.bands}
                   whatsGood={m.data.whatsGood}
                   quickFixes={m.data.quickFixes}
+                  illegalByCI={m.data.illegalByCI ?? 0}
+                  illegalExamples={m.data.illegalExamples ?? []}
                 />
               </div>
             );
           }
+          // price cards
           return (
             <div key={i} className="mb-3 grid gap-3">
               {m.items.map((item, idx) => (
@@ -186,7 +204,7 @@ export default function Chat() {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           className="flex-1 bg-gray-900 border border-gray-800 rounded-xl p-3 min-h-[56px] focus:outline-none focus:ring-1 focus:ring-yellow-500"
-          placeholder="Type a message, paste a decklist (or use /analyze), or /price [[Card Name]]…"
+          placeholder="Ask anything or paste a decklist…"
         />
         <button
           onClick={send}
