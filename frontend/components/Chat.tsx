@@ -15,8 +15,8 @@ type SnapshotMsg = {
     bands: { curve: number; ramp: number; draw: number; removal: number; mana: number };
     whatsGood: string[];
     quickFixes: string[];
-    illegalByCI?: number;       // NEW
-    illegalExamples?: string[]; // NEW
+    illegalByCI?: number;
+    illegalExamples?: string[];
   };
 };
 
@@ -70,7 +70,8 @@ export default function Chat() {
   }
 
   function parsePriceNames(raw: string): string[] {
-    const bracketed = Array.from(raw.matchAll(/\[\[(.+?))\]\]/g)).map((m) => m[1].trim());
+    // FIXED REGEX: was /\[\[(.+?))\]\]/g (extra ')'), now correct:
+    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
     if (bracketed.length) return bracketed;
     const after = raw.replace(/^\/price\s*/i, "");
     return after.split(",").map((s) => s.trim()).filter(Boolean);
