@@ -1,17 +1,20 @@
-// Typed Scryfall-backed deck snapshot.
+// app/api/deck/analyze/route.ts
 
+// --- Minimal typed Scryfall card for our needs ---
 type SfCard = {
   name: string;
   type_line?: string;
   oracle_text?: string | null;
-  color_identity?: string[];
+  color_identity?: string[]; // e.g. ["G","B"]
 };
 
+// Simple in-process cache (persists across hot reloads on server)
 declare global {
-  var __sfCache: Map<string, SfCard> | undefined;
+  // eslint-disable-next-line no-var
+  var __sfCacheAnalyze: Map<string, SfCard> | undefined;
 }
-const sfCache: Map<string, SfCard> = globalThis.__sfCache ?? new Map();
-globalThis.__sfCache = sfCache;
+const sfCache: Map<string, SfCard> = globalThis.__sfCacheAnalyze ?? new Map();
+globalThis.__sfCacheAnalyze = sfCache;
 
 async function fetchCard(name: string): Promise<SfCard | null> {
   const key = name.toLowerCase();
@@ -42,16 +45,15 @@ async function fetchCard(name: string): Promise<SfCard | null> {
 }
 
 export async function POST(req: Request) {
-  const started = Date.now();
-  console.log("[api/deck/analyze] POST start");
+  const t0 = Date.now();
 
   type AnalyzeBody = {
     deckText?: string;
     format?: "Commander" | "Modern" | "Pioneer";
     plan?: "Budget" | "Optimized";
-    colors?: string[];
+    colors?: string[]; // e.g. ["G","B"]
     currency?: "USD" | "EUR" | "GBP";
-    useScryfall?: boolean;
+    useScryfall?: boolean; // true = do real lookups
   };
 
   const body = (await req.json().catch(() => ({}))) as AnalyzeBody;
@@ -60,7 +62,9 @@ export async function POST(req: Request) {
   const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
   const plan: "Budget" | "Optimized" = body.plan ?? "Optimized";
   const useScryfall: boolean = Boolean(body.useScryfall);
+  const selectedColors: string[] = Array.isArray(body.colors) ? body.colors : [];
 
+  // Parse text into entries {count, name}
   const lines = deckText
     .split(/\r?\n/)
     .map((s) => s.trim())
@@ -75,12 +79,21 @@ export async function POST(req: Request) {
 
   const totalCards = entries.reduce((s, e) => s + e.count, 0);
 
-  let lands = 0, draw = 0, ramp = 0, removal = 0;
+  // Tally bands
+  let lands = 0,
+    draw = 0,
+    ramp = 0,
+    removal = 0;
+
+  // Store Scryfall results by name for reuse + legality
+  const byName = new Map<string, SfCard>();
 
   if (useScryfall) {
-    const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 80);
-    const looked = await Promise.all(uniqueNames.map(fetchCard));
-    const byName = new Map(looked.filter((c): c is SfCard => Boolean(c)).map((c) => [c.name.toLowerCase(), c]));
+    const unique = Array.from(new Set(entries.map((e) => e.name))).slice(0, 120);
+    const looked = await Promise.all(unique.map(fetchCard));
+    for (const c of looked) {
+      if (c) byName.set(c.name.toLowerCase(), c);
+    }
 
     const landRe = /land/i;
     const drawRe = /draw a card|scry [1-9]/i;
@@ -98,16 +111,20 @@ export async function POST(req: Request) {
     }
   } else {
     const landRx = /\b(Island|Swamp|Plains|Forest|Mountain|Gate|Temple|Land)\b/i;
-    const drawRx = /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
-    const rampRx = /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet|Fellwar Stone)\b/i;
-    const removalRx = /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
+    const drawRx =
+      /\b(Draw|Opt|Ponder|Brainstorm|Read the Bones|Sign in Blood|Beast Whisperer|Inspiring Call)\b/i;
+    const rampRx =
+      /\b(Rampant Growth|Cultivate|Kodama's|Solemn|Signet|Talisman|Sol Ring|Arcane Signet|Fellwar Stone)\b/i;
+    const removalRx =
+      /\b(Removal|Swords to Plowshares|Path to Exile|Terminate|Go for the Throat|Beast Within)\b/i;
 
-    lands   = entries.filter((e) => landRx.test(e.name)).reduce((s,e)=>s+e.count,0);
-    draw    = entries.filter((e) => drawRx.test(e.name)).reduce((s,e)=>s+e.count,0);
-    ramp    = entries.filter((e) => rampRx.test(e.name)).reduce((s,e)=>s+e.count,0);
-    removal = entries.filter((e) => removalRx.test(e.name)).reduce((s,e)=>s+e.count,0);
+    lands = entries.filter((e) => landRx.test(e.name)).reduce((s, e) => s + e.count, 0);
+    draw = entries.filter((e) => drawRx.test(e.name)).reduce((s, e) => s + e.count, 0);
+    ramp = entries.filter((e) => rampRx.test(e.name)).reduce((s, e) => s + e.count, 0);
+    removal = entries.filter((e) => removalRx.test(e.name)).reduce((s, e) => s + e.count, 0);
   }
 
+  // Simple curve band from deck size; ramp/draw/removal normalized
   const landTarget = format === "Commander" ? 35 : 24;
   const manaBand = lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
 
@@ -135,14 +152,42 @@ export async function POST(req: Request) {
 
   if (removal < 5) quickFixes.push(`Add 1–2 interaction pieces: <em>Swords to Plowshares</em>, <em>Path to Exile</em>.`);
 
-  const note = draw < 6 ? "needs a touch more draw" : lands < landTarget - 2 ? "mana base is light" : "solid, room to tune";
+  const note =
+    draw < 6 ? "needs a touch more draw" : lands < landTarget - 2 ? "mana base is light" : "solid, room to tune";
 
-  console.log(`[api/deck/analyze] 200 in ${Date.now() - started}ms (len=${deckText.length})`);
+  // --- NEW: Commander color-identity legality check (requires Scryfall + colors) ---
+  let illegalByCI = 0;
+  let illegalExamples: string[] = [];
+
+  if (format === "Commander" && useScryfall && selectedColors.length > 0) {
+    const allowed = new Set(selectedColors.map((c) => c.toUpperCase())); // e.g. G,B
+    const offenders: string[] = [];
+
+    for (const { name } of entries) {
+      const c = byName.get(name.toLowerCase());
+      if (!c) continue;
+
+      const ci = (c.color_identity ?? []).map((x) => x.toUpperCase());
+      // Basic lands are fine; colorless cards have empty CI and are fine.
+      const illegal =
+        ci.length > 0 && ci.some((symbol) => !allowed.has(symbol));
+
+      if (illegal) offenders.push(c.name);
+    }
+
+    // de-dup
+    const uniqueOffenders = Array.from(new Set(offenders));
+    illegalByCI = uniqueOffenders.length;
+    illegalExamples = uniqueOffenders.slice(0, 5);
+  }
+
   return Response.json({
     score,
     note,
     bands,
     whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
     quickFixes: plan === "Budget" ? quickFixes.map((s) => s.replace("Beast Whisperer", "Guardian Project")) : quickFixes,
+    illegalByCI,
+    illegalExamples,
   });
 }
