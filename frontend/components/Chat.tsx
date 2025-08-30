@@ -17,6 +17,7 @@ type SnapshotMsg = {
     quickFixes: string[];
     illegalByCI?: number;
     illegalExamples?: string[];
+    curveBuckets?: number[]; // <-- add this to match API response
   };
 };
 
@@ -70,7 +71,7 @@ export default function Chat() {
   }
 
   function parsePriceNames(raw: string): string[] {
-    // FIXED REGEX: was /\[\[(.+?))\]\]/g (extra ')'), now correct:
+    // Correct bracket syntax: [[Card Name]]
     const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
     if (bracketed.length) return bracketed;
     const after = raw.replace(/^\/price\s*/i, "");
@@ -111,7 +112,7 @@ export default function Chat() {
       } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
         const deckText = clean.replace(/^\/analyze\s*/i, "");
         const data = await analyzeDeck(deckText);
-        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]);
+        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]]);
       } else {
         const system = [
           "You are MTG Coach. Be concise. Cite CR numbers for rules.",
@@ -183,7 +184,7 @@ export default function Chat() {
                   quickFixes={m.data.quickFixes}
                   illegalByCI={m.data.illegalByCI ?? 0}
                   illegalExamples={m.data.illegalExamples ?? []}
-                  curveBuckets={m.data.curveBuckets}   // <-- NEW
+                  curveBuckets={m.data.curveBuckets}  // now valid
                 />
               </div>
             );
