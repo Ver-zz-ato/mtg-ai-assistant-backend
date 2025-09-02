@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 type SaveDeckBody = {
   title: string;
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (userErr || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = (await req.json()) as SaveDeckBody | null;
@@ -35,14 +35,14 @@ export async function POST(req: Request) {
     }
 
     const { data, error } = await supabase
-      .from('decks')
+      .from("decks")
       .insert({
         user_id: user.id,
         title,
         deck_text,
         is_public,
       })
-      .select('id')
+      .select("id")
       .single();
 
     if (error) {
@@ -51,4 +51,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: data.id }, { status: 200 });
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Unexpected error';
+    const message = e instanceof Error ? e.message : "Unexpected error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
