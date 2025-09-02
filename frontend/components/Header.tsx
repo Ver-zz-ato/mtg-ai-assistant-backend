@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-// If you prefer, you could import the real type:
-// import type { Session } from "@supabase/supabase-js";
+// If desired, you can swap this for: import type { Session } from "@supabase/supabase-js";
 type SessionLike = { user?: { id: string; email?: string | null } } | null;
 
 export default function Header() {
@@ -18,7 +17,7 @@ export default function Header() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Load current session (client-side)
+  // Load current session (client-side) and subscribe to auth changes
   useEffect(() => {
     let mounted = true;
 
@@ -44,18 +43,15 @@ export default function Header() {
     setBusy(true);
     try {
       if (mode === "login") {
-        console.log("[auth] signInWithPassword", email);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         setOpen(false);
       } else {
-        console.log("[auth] signUp", email);
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setOpen(false);
       }
     } catch (e: unknown) {
-      // No 'any' here — narrow unknown safely:
       console.error("Auth error:", e);
       const message =
         typeof e === "object" && e !== null && "message" in e
@@ -78,12 +74,13 @@ export default function Header() {
   return (
     <header className="bg-gray-900/90 backdrop-blur sticky top-0 z-50 border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+        {/* Brand */}
         <div className="flex items-center gap-2 mr-auto">
           <div className="h-7 w-7 rounded-md bg-yellow-400/90 text-gray-900 grid place-content-center font-black">M</div>
           <div className="text-lg font-semibold tracking-tight">MTG Coach</div>
         </div>
 
-        {/* Mode pills (your app can wire these; left as UI only here) */}
+        {/* (Optional) static mode buttons — your ModeOptions handles the real state */}
         <div className="hidden md:flex items-center gap-2">
           <button className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Deck Builder</button>
           <button className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">Rule Checker</button>
@@ -96,6 +93,13 @@ export default function Header() {
             <span className="text-sm text-gray-400 hidden md:inline">
               Signed in as {session.user.email ?? session.user.id.slice(0, 8)}
             </span>
+            <a
+              href="/my-decks"
+              className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm"
+              title="View your saved decks"
+            >
+              My Decks
+            </a>
             <button
               onClick={doLogout}
               className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700"
@@ -129,7 +133,7 @@ export default function Header() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Auth modal */}
       {open && (
         <div
           className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4"
