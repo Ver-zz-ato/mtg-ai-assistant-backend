@@ -12,7 +12,7 @@ type DeckRow = {
 };
 
 export default async function MyDecksPage() {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

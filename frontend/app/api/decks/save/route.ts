@@ -11,7 +11,7 @@ type SaveDeckBody = {
 
 export async function POST(req: Request) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     const {
       data: { user },
