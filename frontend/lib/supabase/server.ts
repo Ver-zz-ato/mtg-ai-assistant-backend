@@ -1,40 +1,28 @@
-﻿// lib/supabase/server.ts
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+﻿import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-/**
- * Server-side Supabase client wired to Next.js cookies.
- * Lint-safe: no `any` types in the cookie adapters.
- */
-export function createSupabaseServerClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anon) {
-    throw new Error(
-      "Supabase env missing (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)."
-    );
-  }
-
+export function createServerSupabaseClient() {
   const cookieStore = cookies();
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   return createServerClient(url, anon, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
-      set(
-        name: string,
-        value: string,
-        // accept any option shape without using `any`
-        options?: Record<string, unknown>
-      ) {
-        // Next's cookies().set allows a variety of cookie options
-        // We forward them through; type cast stays on our side.
-        cookieStore.set(name, value, options as undefined);
+      set(name: string, value: string, options: CookieOptions) {
+        // Next's cookies() API writes Set-Cookie headers for us
+        cookieStore.set({ name, value, ...options });
       },
-      remove(name: string, options?: Record<string, unknown>) {
-        cookieStore.set(name, "", { ...(options ?? {}), maxAge: 0 } as undefined);
+      remove(name: string, options: CookieOptions) {
+        cookieStore.set({
+          name,
+          value: '',
+          ...options,
+          expires: new Date(0),
+        });
       },
     },
   });
