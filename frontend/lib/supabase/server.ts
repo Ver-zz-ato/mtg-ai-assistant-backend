@@ -1,8 +1,8 @@
-﻿// frontend/lib/supabase/server.ts
-import { cookies } from 'next/headers';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+﻿import { cookies } from "next/headers";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 function _createServerSupabaseClient() {
+  // DO NOT await this — it’s synchronous
   const cookieStore = cookies();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -19,7 +19,7 @@ function _createServerSupabaseClient() {
       remove(name: string, options: CookieOptions) {
         cookieStore.set({
           name,
-          value: '',
+          value: "",
           ...options,
           expires: new Date(0),
         });
@@ -32,5 +32,5 @@ export function createServerSupabaseClient() {
   return _createServerSupabaseClient();
 }
 
-// Back-compat alias in case any old imports remain
+// Back-compat alias for older imports
 export const createSupabaseServerClient = _createServerSupabaseClient;
