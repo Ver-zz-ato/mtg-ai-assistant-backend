@@ -1,7 +1,7 @@
 ﻿import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-export function createServerSupabaseClient() {
+function _createServerSupabaseClient() {
   const cookieStore = cookies();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -13,7 +13,6 @@ export function createServerSupabaseClient() {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        // Next's cookies() API writes Set-Cookie headers for us
         cookieStore.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
@@ -27,3 +26,16 @@ export function createServerSupabaseClient() {
     },
   });
 }
+
+/**
+ * Canonical export: use this in all new code.
+ */
+export function createServerSupabaseClient() {
+  return _createServerSupabaseClient();
+}
+
+/**
+ * Back-compat alias: some files might still import the old name.
+ * Keeping this prevents build failures if the old import lingers anywhere.
+ */
+export const createSupabaseServerClient = _createServerSupabaseClient;
