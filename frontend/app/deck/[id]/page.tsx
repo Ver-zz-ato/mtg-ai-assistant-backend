@@ -1,31 +1,32 @@
-// frontend/app/deck/[id]/page.tsx
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-type Params = { params: { id: string } };
+export default async function DeckViewPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
 
-export default async function DeckViewPage({ params }: Params) {
   const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Try to fetch: if owner → always; if not owner → must be public
   const { data: deck, error } = await supabase
     .from("decks")
     .select("id, user_id, title, deck_text, is_public, created_at")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (error || !deck) return notFound();
-
-  // If not owner and not public → 404
   if (deck.user_id !== user?.id && !deck.is_public) return notFound();
 
-  const created =
-    deck.created_at ? new Date(deck.created_at).toLocaleString() : "";
+  const created = deck.created_at
+    ? new Date(deck.created_at).toLocaleString()
+    : "";
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
