@@ -3,11 +3,42 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type SaveDeckBody = {
-  title: string;
-  deck_text: string;
-  is_public?: boolean;
+type SaveDeckBodyLoose = {
+  // preferred
+  title?: string | null;
+  deck_text?: string | null;
+  is_public?: boolean | null;
+
+  // common variants we’ll accept
+  name?: string | null;
+  deckName?: string | null;
+  deck?: string | null;
+  deckText?: string | null;
+  list?: string | null;
+  text?: string | null;
 };
+
+function pickTitle(body: SaveDeckBodyLoose): string | null {
+  const candidate =
+    body.title ??
+    body.name ??
+    body.deckName ??
+    null;
+  const t = typeof candidate === "string" ? candidate.trim() : "";
+  return t.length ? t : null;
+}
+
+function pickDeckText(body: SaveDeckBodyLoose): string | null {
+  const candidate =
+    body.deck_text ??
+    body.deckText ??
+    body.deck ??
+    body.list ??
+    body.text ??
+    null;
+  const v = typeof candidate === "string" ? candidate.trim() : "";
+  return v.length ? v : null;
+}
 
 export async function POST(req: Request) {
   try {
@@ -22,14 +53,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await req.json()) as SaveDeckBody | null;
-    const title = body?.title?.trim();
-    const deck_text = body?.deck_text?.trim();
-    const is_public = Boolean(body?.is_public);
+    const raw = (await req.json()) as SaveDeckBodyLoose | null;
 
-    if (!title || !deck_text) {
+    // Pull values from any common key
+    const title = pickTitle(raw ?? {}) ?? "Untitled Deck";
+    const deck_text = pickDeckText(raw ?? {});
+
+    const is_public = Boolean(raw?.is_public);
+
+    if (!deck_text) {
       return NextResponse.json(
-        { error: 'Missing "title" or "deck_text"' },
+        { error: 'Missing deck text. Provide "deck_text" (or deckText/deck/list/text).' },
         { status: 400 }
       );
     }
