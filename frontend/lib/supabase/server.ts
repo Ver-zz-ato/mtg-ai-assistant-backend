@@ -1,9 +1,9 @@
 ﻿import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-function _createServerSupabaseClient() {
-  // DO NOT await this — it’s synchronous
-  const cookieStore = cookies();
+async function _createServerSupabaseClient() {
+  // In Next.js 15, cookies() is async → must await
+  const cookieStore = await cookies();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -28,9 +28,9 @@ function _createServerSupabaseClient() {
   });
 }
 
-export function createServerSupabaseClient() {
+export async function createServerSupabaseClient() {
   return _createServerSupabaseClient();
 }
 
-// Back-compat alias for older imports
+// Back-compat alias
 export const createSupabaseServerClient = _createServerSupabaseClient;
