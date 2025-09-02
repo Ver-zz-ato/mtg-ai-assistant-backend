@@ -17,7 +17,8 @@ type SnapshotMsg = {
     quickFixes: string[];
     illegalByCI?: number;
     illegalExamples?: string[];
-    curveBuckets?: number[]; // to match API response
+    curveBuckets?: number[];
+    deckText?: string; // <-- store the original analyzed text for saving
   };
 };
 
@@ -71,7 +72,6 @@ export default function Chat() {
   }
 
   function parsePriceNames(raw: string): string[] {
-    // Correct bracket syntax: [[Card Name]]
     const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
     if (bracketed.length) return bracketed;
     const after = raw.replace(/^\/price\s*/i, "");
@@ -87,6 +87,34 @@ export default function Chat() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return (json?.results ?? []) as PriceItem[];
+  }
+
+  async function saveDeck(deckText: string) {
+    const title = window.prompt("Deck title?", "Untitled Deck");
+    if (title === null) return; // user cancelled
+    const res = await fetch("/api/decks/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        deckText,
+        format,
+        plan,
+        colors,
+        currency,
+        is_public: true,
+      }),
+    });
+    if (res.status === 401) {
+      alert("Please log in to save decks.");
+      return;
+    }
+    if (!res.ok) {
+      alert("Failed to save deck.");
+      return;
+    }
+    const { id } = await res.json();
+    alert("Saved! You can find it on the My Decks page.");
   }
 
   async function send() {
@@ -112,8 +140,11 @@ export default function Chat() {
       } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
         const deckText = clean.replace(/^\/analyze\s*/i, "");
         const data = await analyzeDeck(deckText);
-        // ✅ fixed: one closing bracket, not two
-        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data }]);
+        // Store the original text so we can save the deck later
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", type: "snapshot", data: { ...data, deckText } },
+        ]);
       } else {
         const system = [
           "You are MTG Coach. Be concise. Cite CR numbers for rules.",
@@ -187,6 +218,20 @@ export default function Chat() {
                   illegalExamples={m.data.illegalExamples ?? []}
                   curveBuckets={m.data.curveBuckets}
                 />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm"
+                    onClick={() => m.data.deckText && saveDeck(m.data.deckText)}
+                  >
+                    Save deck
+                  </button>
+                  <a
+                    href="/my-decks"
+                    className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm"
+                  >
+                    My Decks →
+                  </a>
+                </div>
               </div>
             );
           }
