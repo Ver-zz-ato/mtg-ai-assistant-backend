@@ -1,3 +1,4 @@
+// frontend/app/my-decks/page.tsx
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -68,3 +69,23 @@ export default async function MyDecksPage() {
                   <div className="font-medium">
                     {d.title || '(Untitled Deck)'}
                   </div>
+                  <div className="text-xs opacity-70">
+                    {pub} • {created}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Link
+                    href={`/deck/${d.id}`}
+                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+                  >
+                    View
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </main>
+  );
+}

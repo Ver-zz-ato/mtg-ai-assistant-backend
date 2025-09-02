@@ -1,4 +1,5 @@
-﻿import { cookies } from 'next/headers';
+﻿// frontend/lib/supabase/server.ts
+import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 function _createServerSupabaseClient() {
@@ -27,15 +28,9 @@ function _createServerSupabaseClient() {
   });
 }
 
-/**
- * Canonical export: use this in all new code.
- */
 export function createServerSupabaseClient() {
   return _createServerSupabaseClient();
 }
 
-/**
- * Back-compat alias: some files might still import the old name.
- * Keeping this prevents build failures if the old import lingers anywhere.
- */
+// Back-compat alias in case any old imports remain
 export const createSupabaseServerClient = _createServerSupabaseClient;
