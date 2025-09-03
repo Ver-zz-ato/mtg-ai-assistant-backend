@@ -1,35 +1,56 @@
-// frontend/app/collections/cost-to-finish/page.tsx
 "use client";
 
 import React from "react";
 
-type MissingRow = {
+// ---- Helpers (kept inline so this file is truly drop-in)
+type Currency = "USD" | "EUR" | "GBP";
+
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’'`]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function currencyPrefix(c: Currency) {
+  switch (c) {
+    case "EUR":
+      return "EUR ";
+    case "GBP":
+      return "GBP ";
+    default:
+      return "USD ";
+  }
+}
+
+type Collection = {
+  id: string;
+  name: string;
+  created_at?: string;
+};
+
+type CollectionCard = {
+  name: string; // raw typed name as saved
+  qty: number; // owned quantity
+};
+
+type Row = {
   name: string;
   need: number;
   unit: number;
   subtotal: number;
 };
 
-type Cur = "USD" | "EUR" | "GBP";
-
-function parseList(text: string): { name: string; qty: number }[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const rows: { name: string; qty: number }[] = [];
-  for (const line of lines) {
-    const m1 = line.match(/^(\d+)\s+(.+)$/); // "1 Sol Ring"
-    if (m1) { rows.push({ name: m1[2].trim(), qty: parseInt(m1[1], 10) || 1 }); continue; }
-    const m2 = line.match(/^(.+?)\s+x(\d+)$/i); // "Sol Ring x1"
-    if (m2) { rows.push({ name: m2[1].trim(), qty: parseInt(m2[2], 10) || 1 }); continue; }
-    rows.push({ name: line, qty: 1 }); // bare
-  }
-  return rows;
-}
-
+// ---- UI
 export default function CostToFinishPage() {
-  const [collections, setCollections] = React.useState<{ id: string; name: string }[]>([]);
-  const [collectionId, setCollectionId] = React.useState<string>("");
-  const [currency, setCurrency] = React.useState<Cur>("USD");
-  const [deckText, setDeckText] = React.useState(
+  const [collections, setCollections] = React.useState<Collection[]>([]);
+  const [collectionId, setCollectionId] = React.useState<string>(""); // empty = not linked in MVP
+  const [ownedByName, setOwnedByName] = React.useState<Record<string, number>>({});
+  const [currency, setCurrency] = React.useState<Currency>("USD");
+  const [deckText, setDeckText] = React.useState<string>(
     [
       "1 Treasure Cruise",
       "1 Dig Through Time",
@@ -43,123 +64,176 @@ export default function CostToFinishPage() {
       "8 Mountain",
     ].join("\n")
   );
-
-  const [rows, setRows] = React.useState<MissingRow[]>([]);
+  const [rows, setRows] = React.useState<Row[]>([]);
   const [total, setTotal] = React.useState<number>(0);
-  const [busy, setBusy] = React.useState(false);
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [loadingCollections, setLoadingCollections] = React.useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = React.useState<string>("");
 
-  // Load user's collections into the dropdown
+  // Load collections on mount
   React.useEffect(() => {
+    let cancelled = false;
     (async () => {
+      setLoadingCollections(true);
       try {
-        const r = await fetch("/api/collections/list");
-        if (!r.ok) return;
+        const r = await fetch("/api/collections/list", { cache: "no-store" });
         const j = await r.json();
-        // expecting { collections: [{id,name,created_at}, ...] }
-        setCollections((j?.collections || []).map((c: any) => ({ id: c.id, name: c.name })));
-      } catch {}
-    })();
-  }, []);
-
-  const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
-
-  const handleCompute = async () => {
-    setBusy(true);
-    try {
-      const want = parseList(deckText);
-      const needMap: Record<string, number> = {};
-      for (const w of want) {
-        const key = w.name.toLowerCase();
-        needMap[key] = (needMap[key] || 0) + w.qty;
-      }
-
-      // subtract OWNED if a collection is selected
-      if (collectionId) {
-        const ownedRes = await fetch(`/api/collections/cards?collection_id=${encodeURIComponent(collectionId)}`);
-        if (ownedRes.ok) {
-          const ownedJson: { ok: boolean; owned: Record<string, number> } = await ownedRes.json();
-          const owned = ownedJson?.owned || {};
-          for (const key of Object.keys(needMap)) {
-            const left = Math.max(0, (needMap[key] || 0) - (owned[key] || 0));
-            needMap[key] = left;
+        if (!cancelled && Array.isArray(j.collections)) {
+          setCollections(j.collections as Collection[]);
+          // If there is at least one collection, default-select the first one.
+          if ((j.collections as Collection[]).length > 0) {
+            setCollectionId(j.collections[0].id);
           }
         }
+      } catch (e) {
+        // silently ignore; user can still compute without a linked collection
+      } finally {
+        setLoadingCollections(false);
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      // names that still needed
-      const missingNames = Object.keys(needMap).filter((k) => needMap[k] > 0);
-      if (!missingNames.length) {
+  // Load owned cards when a collection is chosen
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!collectionId) {
+        setOwnedByName({});
+        return;
+      }
+      try {
+        const r = await fetch(`/api/collections/cards?collection_id=${encodeURIComponent(collectionId)}`, {
+          cache: "no-store",
+        });
+        const j = await r.json();
+        if (!j.ok || !Array.isArray(j.cards)) {
+          if (!cancelled) setOwnedByName({});
+          return;
+        }
+        const map: Record<string, number> = {};
+        for (const c of j.cards as CollectionCard[]) {
+          const norm = normalizeName(c.name);
+          map[norm] = (map[norm] ?? 0) + (Number(c.qty) || 0);
+        }
+        if (!cancelled) setOwnedByName(map);
+      } catch {
+        if (!cancelled) setOwnedByName({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId]);
+
+  async function compute() {
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      // 1) parse decklist -> entries { qty, name }
+      const lines = deckText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      type Entry = { qty: number; name: string };
+      const entries: Entry[] = lines.map((line) => {
+        const m = line.match(/^(\d+)\s+(.+)$/);
+        if (!m) return { qty: 1, name: line };
+        return { qty: Number(m[1]), name: m[2] };
+      });
+
+      // 2) compute "need" per name vs collection-owned
+      const withNeed = entries.map((e) => {
+        const norm = normalizeName(e.name);
+        const owned = ownedByName[norm] ?? 0;
+        const need = Math.max(0, e.qty - owned);
+        return { ...e, need };
+      });
+
+      // filter out rows that need 0
+      const needing = withNeed.filter((e) => e.need > 0);
+
+      if (needing.length === 0) {
         setRows([]);
         setTotal(0);
-        setBusy(false);
         return;
       }
 
-      // fetch prices
-      const priceRes = await fetch("/api/price", {
+      // 3) call price API with **raw names** (server normalizes internally)
+      const res = await fetch("/api/price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names: missingNames, currency }),
+        body: JSON.stringify({
+          names: needing.map((e) => e.name),
+          currency,
+        }),
       });
-      if (!priceRes.ok) {
-        alert("Price lookup failed");
-        setBusy(false);
+      const json = await res.json();
+
+      if (!json.ok) {
+        setErrorMsg(json.error ?? "Price lookup failed");
+        setRows([]);
+        setTotal(0);
         return;
       }
-      const priceJson: {
-        ok: boolean;
-        currency: Cur;
-        prices: Record<string, { unit: number; found: boolean }>;
-      } = await priceRes.json();
 
-      const out: MissingRow[] = [];
-      let t = 0;
-      for (const key of missingNames) {
-        const need = needMap[key];
-        const unit = priceJson.prices[key]?.found ? priceJson.prices[key].unit : 0;
-        const subtotal = need * unit;
-        t += subtotal;
+      const priceMap: Record<string, number> = json.prices ?? {};
 
-        const display = want.find((w) => w.name.toLowerCase() === key)?.name || key;
-        out.push({ name: display, need, unit, subtotal });
-      }
-      out.sort((a, b) => b.subtotal - a.subtotal);
+      // 4) build rows
+      const nextRows: Row[] = needing.map((e) => {
+        const norm = normalizeName(e.name);
+        const unit = priceMap[norm] ?? 0;
+        const subtotal = +(unit * e.need).toFixed(2);
+        return { name: e.name, need: e.need, unit, subtotal };
+      });
 
-      setRows(out);
-      setTotal(t);
-    } catch (e: any) {
-      alert(e?.message || String(e));
+      setRows(nextRows);
+      const t = nextRows.reduce((acc, r) => acc + r.subtotal, 0);
+      setTotal(+t.toFixed(2));
+    } catch (e) {
+      setErrorMsg((e as Error)?.message ?? "Compute failed");
+      setRows([]);
+      setTotal(0);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-[1100px] mx-auto p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Cost to finish</h1>
+    <div className="mx-auto max-w-6xl p-6">
+      <h1 className="text-2xl font-semibold mb-6">Cost to finish</h1>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="rounded border border-neutral-800 p-4 space-y-4">
-          <div>
-            <label className="text-sm text-neutral-300">Your collection</label>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left panel */}
+        <div className="rounded-lg border border-neutral-700/50 p-4 space-y-4">
+          <div className="space-y-1">
+            <label className="text-sm opacity-80">Your collection</label>
             <select
+              className="w-full rounded-md bg-black border border-neutral-700 px-3 py-2"
               value={collectionId}
               onChange={(e) => setCollectionId(e.target.value)}
-              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2"
+              disabled={loadingCollections}
             >
-              <option value="">(Not linked in MVP)</option>
+              {collections.length === 0 ? (
+                <option value="">(Not linked in MVP)</option>
+              ) : null}
               {collections.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="text-sm text-neutral-300">Currency</label>
+          <div className="space-y-1">
+            <label className="text-sm opacity-80">Currency</label>
             <select
+              className="w-full rounded-md bg-black border border-neutral-700 px-3 py-2"
               value={currency}
-              onChange={(e) => setCurrency(e.target.value as Cur)}
-              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2"
+              onChange={(e) => setCurrency(e.target.value as Currency)}
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -167,47 +241,73 @@ export default function CostToFinishPage() {
             </select>
           </div>
 
-          <div>
-            <label className="text-sm text-neutral-300">Decklist</label>
+          <div className="space-y-1">
+            <label className="text-sm opacity-80">Decklist</label>
             <textarea
+              className="w-full h-64 rounded-md bg-black border border-neutral-700 px-3 py-2 font-mono text-sm"
               value={deckText}
               onChange={(e) => setDeckText(e.target.value)}
-              rows={16}
-              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2 font-mono text-sm"
+              placeholder={`1 Lightning Bolt\n4 Counterspell\n...`}
             />
           </div>
 
-          <button
-            onClick={handleCompute}
-            disabled={busy}
-            className="rounded bg-amber-600 hover:bg-amber-700 px-3 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {busy ? "Computing…" : "Compute cost"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={compute}
+              disabled={loading}
+              className="rounded-md bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 disabled:opacity-60"
+            >
+              {loading ? "Computing..." : "Compute cost"}
+            </button>
+            {errorMsg ? <span className="text-red-400 text-sm">{errorMsg}</span> : null}
+          </div>
         </div>
 
-        <div className="rounded border border-neutral-800 p-4">
-          <div className="mb-3 text-sm text-neutral-300">
-            {rows.length
-              ? `Missing ${rows.length} unique cards. Estimated total: ${fmt(total)}`
-              : `Missing 0 unique cards. Estimated total: ${fmt(0)}`}
+        {/* Right panel - results */}
+        <div className="rounded-lg border border-neutral-700/50 p-4 space-y-4">
+          <div className="text-sm opacity-80">
+            Missing <b>{rows.length}</b> unique card{rows.length === 1 ? "" : "s"}. Estimated total:{" "}
+            <b>
+              {currencyPrefix(currency)}
+              {total.toFixed(2)}
+            </b>
           </div>
 
-          <div className="divide-y divide-neutral-800">
-            <div className="grid grid-cols-4 text-xs uppercase text-neutral-400 pb-2">
-              <div>Card</div>
-              <div className="text-right">Need</div>
-              <div className="text-right">Unit</div>
-              <div className="text-right">Subtotal</div>
-            </div>
-            {rows.map((r) => (
-              <div key={r.name} className="grid grid-cols-4 py-2 text-sm">
-                <div className="truncate pr-2">{r.name}</div>
-                <div className="text-right">{r.need}</div>
-                <div className="text-right">{fmt(r.unit)}</div>
-                <div className="text-right">{fmt(r.subtotal)}</div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left opacity-80">
+                <tr className="border-b border-neutral-800">
+                  <th className="py-2 pr-2">Card</th>
+                  <th className="py-2 pr-2">Need</th>
+                  <th className="py-2 pr-2">Unit</th>
+                  <th className="py-2 pr-2">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center opacity-60">
+                      No missing cards (or not computed yet).
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((r) => (
+                    <tr key={r.name} className="border-b border-neutral-900/60">
+                      <td className="py-2 pr-2">{r.name}</td>
+                      <td className="py-2 pr-2">{r.need}</td>
+                      <td className="py-2 pr-2">
+                        {currencyPrefix(currency)}
+                        {r.unit.toFixed(2)}
+                      </td>
+                      <td className="py-2 pr-2">
+                        {currencyPrefix(currency)}
+                        {r.subtotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

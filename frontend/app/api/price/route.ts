@@ -1,89 +1,177 @@
+// app/api/price/route.ts
 import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * Normalize a card name so the client and server use the exact same key.
+ * - lowercase
+ * - trim
+ * - collapse spaces
+ * - strip weird quotes and diacritics
+ */
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "") // strip diacritics
+    .replace(/[’'`]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 type Currency = "USD" | "EUR" | "GBP";
 
+type PriceMap = Record<string, number>;
+
 type ScryfallCard = {
   name: string;
-  image_uris?: { small?: string; normal?: string; large?: string };
-  prices: { usd: string | null; eur: string | null };
+  prices: {
+    usd: string | null;
+    eur: string | null;
+    // scryfall does **not** provide gbp; we'll derive it
+  };
 };
 
-let fxCache: { rate: number; fetchedAt: number } | null = null;
-const TEN_MIN = 10 * 60 * 1000;
+// ---- Simple in-memory cache for FX rates (avoid hammering the API)
+let fxCache: {
+  at: number;
+  USD_EUR: number;
+  USD_GBP: number;
+} | null = null;
 
-async function getUsdToGbp(): Promise<number> {
-  if (fxCache && Date.now() - fxCache.fetchedAt < TEN_MIN) return fxCache.rate;
-  const r = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=GBP", { cache: "no-store" });
-  const j = await r.json();
-  const rate = Number(j?.rates?.GBP);
-  if (!Number.isFinite(rate)) throw new Error("FX rate unavailable");
-  fxCache = { rate, fetchedAt: Date.now() };
-  return rate;
+async function getFxRates(): Promise<{ USD_EUR: number; USD_GBP: number }> {
+  // Reuse for 4 hours
+  const TTL_MS = 4 * 60 * 60 * 1000;
+  if (fxCache && Date.now() - fxCache.at < TTL_MS) {
+    return { USD_EUR: fxCache.USD_EUR, USD_GBP: fxCache.USD_GBP };
+  }
+
+  // exchangerate.host is free/anonymous & very reliable
+  const url = "https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    // very defensive: fall back to safe-ish constants (won't be perfect, but better than 0s)
+    const fallback = { USD_EUR: 0.92, USD_GBP: 0.78 };
+    fxCache = { at: Date.now(), ...fallback };
+    return fallback;
+  }
+  const data = (await res.json()) as { rates?: { EUR?: number; GBP?: number } };
+
+  const USD_EUR = data?.rates?.EUR ?? 0.92;
+  const USD_GBP = data?.rates?.GBP ?? 0.78;
+
+  fxCache = { at: Date.now(), USD_EUR, USD_GBP };
+  return { USD_EUR, USD_GBP };
 }
 
-function pickImage(c: ScryfallCard) {
-  return c.image_uris?.normal || c.image_uris?.large || c.image_uris?.small || null;
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Fetches one representative printing for each name via Scryfall's collection API.
+ * We dedupe the input and cap to Scryfall's limit (75 ids per request).
+ */
+async function fetchScryfallPrices(names: string[]): Promise<Record<string, ScryfallCard>> {
+  const byNorm: Record<string, ScryfallCard> = {};
+  const unique = Array.from(new Set(names.map(normalizeName)));
+
+  // Scryfall /cards/collection allows up to 75 identifiers per call
+  for (const batch of chunk(unique, 75)) {
+    const body = {
+      identifiers: batch.map((n) => ({ name: n })),
+    };
+    const res = await fetch("https://api.scryfall.com/cards/collection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      // no-store so we don't get stale prices
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      // keep going for other batches; the client will gracefully handle missing prices
+      continue;
+    }
+    const data = (await res.json()) as { data?: ScryfallCard[] };
+
+    for (const c of data?.data ?? []) {
+      const norm = normalizeName(c.name);
+      // only set the first time we see it (dedupe by normalized name)
+      if (!byNorm[norm]) byNorm[norm] = c;
+    }
+  }
+
+  return byNorm;
+}
+
+/**
+ * Compute a numeric unit price in the desired currency with fallbacks.
+ *  - USD/EUR: use Scryfall direct price; if missing -> convert from USD if available
+ *  - GBP: always derived from USD via FX
+ */
+async function toCurrencyUnit(card: ScryfallCard | undefined, currency: Currency): Promise<number> {
+  if (!card) return 0;
+
+  const { USD_EUR, USD_GBP } = await getFxRates();
+
+  const usdRaw = card.prices.usd ? Number(card.prices.usd) : null;
+  const eurRaw = card.prices.eur ? Number(card.prices.eur) : null;
+
+  if (currency === "USD") {
+    return usdRaw ?? 0;
+  }
+  if (currency === "EUR") {
+    if (eurRaw != null) return eurRaw;
+    if (usdRaw != null) return +(usdRaw * USD_EUR).toFixed(2);
+    return 0;
+  }
+  // GBP
+  if (usdRaw != null) return +(usdRaw * USD_GBP).toFixed(2);
+  if (eurRaw != null) return +(eurRaw * (1 / USD_EUR) * USD_GBP).toFixed(2);
+  return 0;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { names, currency = "USD" } = (await req.json()) as {
+    const { names, currency } = (await req.json()) as {
       names: string[];
       currency?: Currency;
     };
 
     if (!Array.isArray(names) || names.length === 0) {
-      return NextResponse.json({ ok: false, error: "No names" }, { status: 400 });
+      return NextResponse.json({ ok: true, prices: {}, currency: currency ?? "USD", missing: [] });
     }
 
-    // Hit Scryfall
-    const r = await fetch("https://api.scryfall.com/cards/collection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifiers: names.map((n) => ({ name: n })) }),
-    });
+    const want: Currency = (currency ?? "USD").toUpperCase() as Currency;
 
-    if (!r.ok) {
-      const txt = await r.text();
-      return NextResponse.json({ ok: false, error: txt }, { status: r.status });
+    // Fetch raw Scryfall prices
+    const scry = await fetchScryfallPrices(names);
+
+    // Build the final price map keyed by *normalized name*
+    const prices: PriceMap = {};
+    const missing: string[] = [];
+
+    // Compute price for each incoming name (not just the deduped set)
+    for (const raw of names) {
+      const norm = normalizeName(raw);
+      const card = scry[norm];
+      const unit = await toCurrencyUnit(card, want);
+      if (unit === 0) missing.push(raw);
+      prices[norm] = unit;
     }
 
-    const payload = await r.json();
-    const returned: ScryfallCard[] = Array.isArray(payload?.data) ? payload.data : [];
-
-    const byLower = new Map<string, ScryfallCard>();
-    for (const c of returned) byLower.set(c.name.toLowerCase(), c);
-
-    const usdToGbp = currency === "GBP" ? await getUsdToGbp() : 1;
-
-    type Row = { name: string; image: string | null; unit: number };
-    const results: Row[] = [];
-    const prices: Record<string, Row> = {}; // ← name-keyed map (lowercased keys)
-
-    for (const requestedName of names) {
-      const key = requestedName.toLowerCase();
-      const card = byLower.get(key);
-
-      const usd = card?.prices.usd ? Number(card.prices.usd) : null;
-      const eur = card?.prices.eur ? Number(card.prices.eur) : null;
-
-      let unit: number | null = null;
-      if (currency === "USD") unit = usd;
-      else if (currency === "EUR") unit = eur;
-      else if (currency === "GBP") unit = usd !== null ? usd * usdToGbp : null;
-
-      const row: Row = {
-        name: requestedName,                    // echo back requested spelling
-        image: card ? pickImage(card) : null,
-        unit: Number.isFinite(unit!) ? Number(unit!.toFixed(2)) : 0, // default 0 if missing
-      };
-
-      results.push(row);
-      prices[key] = row; // ensure the map always has a value
-    }
-
-    return NextResponse.json({ ok: true, currency, results, prices });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? "Unknown error" }, { status: 500 });
+    return NextResponse.json({ ok: true, currency: want, prices, missing });
+  } catch (err) {
+    // Never throw HTML at the client; always JSON with a friendly message.
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Price lookup failed",
+        detail: (err as Error)?.message ?? String(err),
+      },
+      { status: 200 }
+    );
   }
 }
