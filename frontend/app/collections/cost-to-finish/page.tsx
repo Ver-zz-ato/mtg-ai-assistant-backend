@@ -1,10 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import SaveDeckButton from "@/components/SaveDeckButton";
 import { normalizeName } from "@/lib/mtg/normalize";
 import { Currency, currencyPrefix } from "@/lib/currency";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Row = { name: string; need: number; unit: number; subtotal: number };
 type CollectionInfo = { id: string; name: string };
@@ -31,7 +34,6 @@ async function fetchCollections(): Promise<CollectionInfo[]> {
 }
 
 type OwnedMap = Record<string, number>;
-
 async function fetchOwned(collectionId: string): Promise<OwnedMap> {
   if (!collectionId) return {};
   let res = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, {
@@ -61,7 +63,8 @@ async function fetchOwned(collectionId: string): Promise<OwnedMap> {
   return map;
 }
 
-export default function CostToFinishPage() {
+/** Inner component uses useSearchParams; rendered inside Suspense below. */
+function CostToFinishInner() {
   const searchParams = useSearchParams();
   const deckIdParam = searchParams.get("deckId");
 
@@ -119,10 +122,7 @@ export default function CostToFinishPage() {
       try {
         const r = await fetch(`/api/decks/${encodeURIComponent(deckIdParam)}`, { cache: "no-store" });
         const j = await r.json();
-        console.log("[COST] load deck by id", j);
-        if (j?.ok && j.deck?.deck_text && !cancelled) {
-          setDeckText(j.deck.deck_text);
-        }
+        if (j?.ok && j.deck?.deck_text && !cancelled) setDeckText(j.deck.deck_text);
       } catch (e) {
         console.error("[COST] failed to load deckId", e);
       }
@@ -135,7 +135,6 @@ export default function CostToFinishPage() {
     setErrorMsg("");
     try {
       const entries = parseDecklist(deckText);
-
       const needEntries = entries
         .map((e) => {
           const have = owned[normalizeName(e.name)] ?? 0;
@@ -233,7 +232,7 @@ export default function CostToFinishPage() {
           </button>
         </div>
 
-        {/* Save deck (opens modal) */}
+        {/* Save deck */}
         <div className="flex items-end justify-end">
           <SaveDeckButton getDeckText={() => deckText} />
         </div>
@@ -289,5 +288,14 @@ export default function CostToFinishPage() {
         Total: {currencyPrefix(currency)} {total.toFixed(2)}
       </div>
     </div>
+  );
+}
+
+/** Page component: Suspense wrapper satisfies Next’s requirement for useSearchParams() */
+export default function CostToFinishPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <CostToFinishInner />
+    </Suspense>
   );
 }
