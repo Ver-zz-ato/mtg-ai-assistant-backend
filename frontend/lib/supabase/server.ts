@@ -1,36 +1,38 @@
-﻿import { cookies } from "next/headers";
+﻿// Server-side Supabase client for Next.js App Router
+// Works in route handlers and server components.
+
+import { cookies, headers } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-async function _createServerSupabaseClient() {
-  // In Next.js 15, cookies() is async → must await
-  const cookieStore = await cookies();
+export function createClient() {
+  const cookieStore = cookies();
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  return createServerClient(url, anon, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+  // Render/Next often needs explicit getters/setters for cookies to support auth
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // in edge runtimes or some contexts this may be a no-op; that's fine
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: "", ...options });
+          } catch {
+            // no-op fallback
+          }
+        },
       },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        cookieStore.set({
-          name,
-          value: "",
-          ...options,
-          expires: new Date(0),
-        });
-      },
-    },
-  });
+      // Forward headers if you want RLS policies that depend on IP/UA, optional:
+      global: { headers: Object.fromEntries(headers().entries()) },
+    }
+  );
 }
-
-export async function createServerSupabaseClient() {
-  return _createServerSupabaseClient();
-}
-
-// Back-compat alias
-export const createSupabaseServerClient = _createServerSupabaseClient;
