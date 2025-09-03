@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET(_req: NextRequest) {
   const supabase = createClient();
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  const user = userRes?.user;
   if (userErr || !user) {
     console.error("[DECKS/MY] 401 no user", userErr);
     return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
