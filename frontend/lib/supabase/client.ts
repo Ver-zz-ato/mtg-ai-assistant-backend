@@ -9,7 +9,7 @@ export function createBrowserSupabaseClient() {
   return createBrowserClient(url, anon);
 }
 
-/** Optional back-compat alias (safe to keep) */
+/** Back-compat alias (so Header can import either name) */
 export function createSupabaseBrowserClient() {
   return createBrowserSupabaseClient();
 }
