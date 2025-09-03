@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useSearchParams } from "next/navigation";
+import SaveDeckButton from "@/components/SaveDeckButton";
 import { normalizeName } from "@/lib/mtg/normalize";
 import { Currency, currencyPrefix } from "@/lib/currency";
 
@@ -22,10 +24,8 @@ async function fetchCollections(): Promise<CollectionInfo[]> {
   const res = await fetch("/api/collections/list", { method: "GET", cache: "no-store" });
   if (!res.ok) return [];
   const j = await res.json();
-  // accept {collections:[{id,name}]} or raw array
   if (Array.isArray(j)) return j as CollectionInfo[];
   if (Array.isArray(j?.collections)) return j.collections as CollectionInfo[];
-  // fallback: supabase styles sometimes nest at data
   if (Array.isArray(j?.data)) return j.data as CollectionInfo[];
   return [];
 }
@@ -34,13 +34,11 @@ type OwnedMap = Record<string, number>;
 
 async function fetchOwned(collectionId: string): Promise<OwnedMap> {
   if (!collectionId) return {};
-  // try GET first
   let res = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, {
     method: "GET",
     cache: "no-store",
   });
   if (!res.ok) {
-    // try POST body as a fallback
     res = await fetch("/api/collections/cards", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,14 +47,10 @@ async function fetchOwned(collectionId: string): Promise<OwnedMap> {
   }
   if (!res.ok) return {};
   const j = await res.json();
-
-  // Normalize common shapes:
-  // 1) {cards:[{name, qty}]}  2) raw array [{name, quantity}]  3) {data:[...]}
   const arr: any[] =
     Array.isArray(j) ? j :
     Array.isArray(j?.cards) ? j.cards :
     Array.isArray(j?.data) ? j.data : [];
-
   const map: OwnedMap = {};
   for (const c of arr) {
     const name: string = c.name ?? c.card_name ?? c.CardName ?? "";
@@ -68,6 +62,9 @@ async function fetchOwned(collectionId: string): Promise<OwnedMap> {
 }
 
 export default function CostToFinishPage() {
+  const searchParams = useSearchParams();
+  const deckIdParam = searchParams.get("deckId");
+
   const [collections, setCollections] = React.useState<CollectionInfo[]>([]);
   const [collectionId, setCollectionId] = React.useState<string>("");
   const [owned, setOwned] = React.useState<OwnedMap>({});
@@ -93,17 +90,16 @@ export default function CostToFinishPage() {
   const [loading, setLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState("");
 
-  // Load collections on mount
+  // Load collections
   React.useEffect(() => {
     (async () => {
       const list = await fetchCollections();
       setCollections(list);
-      // preserve previous choice if ID still exists; else default to blank
       if (list.length === 1) setCollectionId(list[0].id);
     })();
   }, []);
 
-  // Load owned map whenever collectionId changes
+  // Load owned when collection changes
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -112,10 +108,27 @@ export default function CostToFinishPage() {
       const map = await fetchOwned(collectionId);
       if (!cancelled) setOwned(map);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [collectionId]);
+
+  // If ?deckId=… present, load that deck and hydrate deckText
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!deckIdParam) return;
+    (async () => {
+      try {
+        const r = await fetch(`/api/decks/${encodeURIComponent(deckIdParam)}`, { cache: "no-store" });
+        const j = await r.json();
+        console.log("[COST] load deck by id", j);
+        if (j?.ok && j.deck?.deck_text && !cancelled) {
+          setDeckText(j.deck.deck_text);
+        }
+      } catch (e) {
+        console.error("[COST] failed to load deckId", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [deckIdParam]);
 
   async function compute() {
     setLoading(true);
@@ -123,7 +136,6 @@ export default function CostToFinishPage() {
     try {
       const entries = parseDecklist(deckText);
 
-      // Build NEED map using owned
       const needEntries = entries
         .map((e) => {
           const have = owned[normalizeName(e.name)] ?? 0;
@@ -132,7 +144,6 @@ export default function CostToFinishPage() {
         })
         .filter((e) => e.need > 0);
 
-      // If nothing needed, short-circuit
       if (needEntries.length === 0) {
         setRows([]);
         setTotal(0);
@@ -140,7 +151,6 @@ export default function CostToFinishPage() {
         return;
       }
 
-      // Price only the names we need
       const res = await fetch("/api/price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,7 +185,7 @@ export default function CostToFinishPage() {
       <h1 className="text-xl font-semibold">Cost to finish</h1>
 
       {/* Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Collections selector */}
         <div className="flex flex-col gap-1">
           <label className="text-sm text-neutral-400">Your collection</label>
@@ -212,7 +222,7 @@ export default function CostToFinishPage() {
           </select>
         </div>
 
-        {/* Action */}
+        {/* Actions */}
         <div className="flex items-end">
           <button
             onClick={compute}
@@ -221,6 +231,11 @@ export default function CostToFinishPage() {
           >
             {loading ? "Computing..." : "Compute cost"}
           </button>
+        </div>
+
+        {/* Save deck (opens modal) */}
+        <div className="flex items-end justify-end">
+          <SaveDeckButton getDeckText={() => deckText} />
         </div>
       </div>
 
