@@ -1,193 +1,196 @@
+// frontend/app/collections/cost-to-finish/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
-type Collection = { id: string; name: string; created_at: string | null };
-type Missing = { name: string; need: number };
+type MissingRow = {
+  name: string;
+  need: number;
+  unit: number;     // filled from /api/price
+  subtotal: number; // need * unit
+};
 
-// Try to pull a price out of many possible shapes.
-function extractPrices(payload: any, currency: "USD" | "EUR" | "GBP") {
-  const out: Record<string, number> = {};
-  if (!payload) return out;
+function parseList(text: string): { name: string; qty: number }[] {
+  // Accepts formats like:
+  // 1 Sol Ring
+  // Sol Ring x1
+  // 10 Island
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  const curKey = currency.toLowerCase(); // "usd" | "eur" | "gbp"
+  const rows: { name: string; qty: number }[] = [];
 
-  // Common shapes we’ll check in order:
-  const candidates: any[] = [];
-  if (Array.isArray(payload)) candidates.push(payload);
-  if (Array.isArray(payload?.rows)) candidates.push(payload.rows);
-  if (Array.isArray(payload?.prices)) candidates.push(payload.prices);
-  if (Array.isArray(payload?.data)) candidates.push(payload.data);
-  if (payload?.result && Array.isArray(payload.result)) candidates.push(payload.result);
-
-  for (const arr of candidates) {
-    for (const r of arr) {
-      if (!r) continue;
-      const nm = (r.name ?? r.card_name ?? r.card)?.toString().trim();
-      if (!nm) continue;
-
-      // Priority 1: direct "price"
-      if (typeof r.price === "number" && isFinite(r.price)) {
-        out[nm.toLowerCase()] = r.price;
-        continue;
-      }
-
-      // Priority 2: currency keyed fields
-      const maybe =
-        r[curKey] ?? r[`price_${curKey}`] ?? r[`prices_${curKey}`] ?? r[`min_${curKey}`];
-      const asNum =
-        typeof maybe === "number"
-          ? maybe
-          : typeof maybe === "string"
-          ? Number(maybe)
-          : NaN;
-
-      if (isFinite(asNum)) {
-        out[nm.toLowerCase()] = asNum;
-        continue;
-      }
-
-      // Priority 3: nested e.g. r.prices?.eur
-      const nested =
-        r.prices?.[curKey] ??
-        r.market?.[curKey] ??
-        r.avg?.[curKey] ??
-        r.low?.[curKey] ??
-        r.high?.[curKey];
-      const nestedNum =
-        typeof nested === "number"
-          ? nested
-          : typeof nested === "string"
-          ? Number(nested)
-          : NaN;
-
-      if (isFinite(nestedNum)) {
-        out[nm.toLowerCase()] = nestedNum;
-        continue;
-      }
+  for (const line of lines) {
+    // "1 Sol Ring" OR "10 Mountain"
+    const m1 = line.match(/^(\d+)\s+(.+)$/);
+    if (m1) {
+      const qty = parseInt(m1[1], 10) || 1;
+      const name = m1[2].trim();
+      rows.push({ name, qty });
+      continue;
     }
-    if (Object.keys(out).length) break; // we found prices in this candidate
+
+    // "Sol Ring x1"
+    const m2 = line.match(/^(.+?)\s+x(\d+)$/i);
+    if (m2) {
+      const name = m2[1].trim();
+      const qty = parseInt(m2[2], 10) || 1;
+      rows.push({ name, qty });
+      continue;
+    }
+
+    // bare line → qty 1
+    rows.push({ name: line, qty: 1 });
   }
 
-  // Last-chance: object map { "Sol Ring": 1.2, ... }
-  if (!Object.keys(out).length && payload && typeof payload === "object") {
-    for (const [k, v] of Object.entries(payload)) {
-      if (typeof v === "number" && isFinite(v)) {
-        out[k.toLowerCase()] = v;
-      }
-    }
-  }
-
-  return out;
+  return rows;
 }
 
 export default function CostToFinishPage() {
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [collectionOptions, setCollectionOptions] = useState<string[]>([]);
+  const [collectionName, setCollectionName] = useState<string>("");
   const [currency, setCurrency] = useState<"USD" | "EUR" | "GBP">("USD");
-  const [deckText, setDeckText] = useState("");
-  const [missing, setMissing] = useState<Missing[] | null>(null);
-  const [pricing, setPricing] = useState<Record<string, number>>({});
-  const [busy, setBusy] = useState(false);
+  const [deckText, setDeckText] = useState<string>(
+    [
+      "1 Treasure Cruise",
+      "1 Dig Through Time",
+      "1 Mystic Sanctuary",
+      "1 Reliquary Tower",
+      "1 Command Tower",
+      "1 Steam Vents",
+      "1 Sulfur Falls",
+      "1 Spirebluff Canal",
+      "10 Island",
+      "8 Mountain",
+    ].join("\n")
+  );
 
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/collections/list", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) {
-        setCollections(data.collections ?? []);
-        if (data.collections?.[0]?.id) setSelectedId(data.collections[0].id);
-      } else {
-        alert("Failed to load collections: " + (data.error || res.status));
-      }
-    })();
+  const [rows, setRows] = useState<MissingRow[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [computing, setComputing] = useState(false);
+
+  // (Optional) load user's collections in a real app.
+  React.useEffect(() => {
+    // If you already have /api/collections/list, you can fetch and set options here
+    // setCollectionOptions([...])
   }, []);
 
-  async function compute() {
-    if (!selectedId) return alert("Pick a collection");
-    if (!deckText.trim()) return alert("Paste a decklist");
-    setBusy(true);
-    setMissing(null);
-    setPricing({});
-
+  const handleCompute = async () => {
+    setComputing(true);
     try {
-      // 1) what am I missing?
-      const res = await fetch("/api/collections/cost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collection_id: selectedId, deck_text: deckText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || res.statusText);
-      const m: Missing[] = data.missing || [];
-      setMissing(m);
+      // 1) Parse the decklist into wanted card counts
+      const want = parseList(deckText);
 
-      if (!m.length) {
-        setPricing({});
+      // 2) Pull the user's collection counts (here we assume zero for MVP)
+      // If you have server data, join it here to compute "need".
+      const missingMap: Record<string, number> = {};
+      for (const w of want) {
+        const key = w.name.toLowerCase();
+        missingMap[key] = (missingMap[key] || 0) + w.qty; // assume none owned for MVP
+      }
+
+      const missingNames = Object.keys(missingMap);
+      if (!missingNames.length) {
+        setRows([]);
+        setTotal(0);
+        setComputing(false);
         return;
       }
 
-      // 2) price the missing names
-      const names = m.map((x) => x.name);
+      // 3) Ask our price API for unit prices
       const priceRes = await fetch("/api/price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names, currency }),
+        body: JSON.stringify({
+          names: missingNames,
+          currency,
+        }),
       });
-      const priceData = await priceRes.json();
 
-      // Robust extraction + name normalization
-      const found = extractPrices(priceData, currency);
-      const normalized: Record<string, number> = {};
-      for (const [k, v] of Object.entries(found)) {
-        if (!isFinite(v)) continue;
-        normalized[k.trim().toLowerCase()] = v;
+      if (!priceRes.ok) {
+        const msg = await priceRes.text();
+        alert(`Compute failed: ${msg}`);
+        setComputing(false);
+        return;
       }
 
-      setPricing(normalized);
-    } catch (e: any) {
-      alert("Compute failed: " + (e.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
+      const priceJson: {
+        ok: boolean;
+        currency: "USD" | "EUR" | "GBP";
+        prices: Record<string, { unit: number; found: boolean }>;
+      } = await priceRes.json();
 
-  const total = useMemo(() => {
-    if (!missing?.length) return 0;
-    return missing.reduce((sum, row) => {
-      const unit = pricing[row.name.trim().toLowerCase()] ?? 0;
-      return sum + unit * row.need;
-    }, 0);
-  }, [missing, pricing]);
+      const out: MissingRow[] = [];
+      let t = 0;
+
+      for (const nameLower of missingNames) {
+        const need = missingMap[nameLower] || 0;
+        const unit =
+          priceJson.prices[nameLower]?.unit && priceJson.prices[nameLower].found
+            ? priceJson.prices[nameLower].unit
+            : 0;
+
+        const subtotal = need * unit;
+        t += subtotal;
+
+        // Use original capitalization from want list if available
+        const display =
+          want.find((w) => w.name.toLowerCase() === nameLower)?.name ||
+          nameLower;
+
+        out.push({
+          name: display,
+          need,
+          unit,
+          subtotal,
+        });
+      }
+
+      // Sort by subtotal desc for readability
+      out.sort((a, b) => b.subtotal - a.subtotal);
+
+      setRows(out);
+      setTotal(t);
+    } catch (e: any) {
+      alert(`Compute failed: ${e?.message || e}`);
+    } finally {
+      setComputing(false);
+    }
+  };
+
+  const fmt = (n: number) =>
+    `${currency} ${n.toFixed(2)}`;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-      <h1 className="text-2xl font-semibold">Cost to finish</h1>
+    <div className="max-w-[1100px] mx-auto p-6 space-y-6">
+      <h1 className="text-xl font-semibold">Cost to finish</h1>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Left: inputs */}
-        <div className="rounded-xl border p-4 space-y-3">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Your collection</label>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="rounded border border-neutral-800 p-4 space-y-4">
+          <div>
+            <label className="text-sm text-neutral-300">Your collection</label>
             <select
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
+              value={collectionName}
+              onChange={(e) => setCollectionName(e.target.value)}
+              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2"
             >
-              {collections.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="">(Not linked in MVP)</option>
+              {collectionOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Currency</label>
+          <div>
+            <label className="text-sm text-neutral-300">Currency</label>
             <select
-              className="w-full rounded-lg border px-3 py-2 text-sm"
               value={currency}
               onChange={(e) => setCurrency(e.target.value as any)}
+              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2"
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -195,87 +198,57 @@ export default function CostToFinishPage() {
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Decklist</label>
+          <div>
+            <label className="text-sm text-neutral-300">Decklist</label>
             <textarea
-              placeholder="Paste decklist here (e.g., '3 Sol Ring')"
-              className="w-full h-56 rounded-lg border px-3 py-2 text-sm font-mono"
               value={deckText}
               onChange={(e) => setDeckText(e.target.value)}
+              rows={16}
+              className="w-full mt-1 rounded bg-neutral-900 border border-neutral-700 p-2 font-mono text-sm"
             />
           </div>
 
           <button
-            className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-50"
-            onClick={compute}
-            disabled={busy}
+            onClick={handleCompute}
+            disabled={computing}
+            className="rounded bg-amber-600 hover:bg-amber-700 px-3 py-2 text-sm font-medium disabled:opacity-60"
           >
-            {busy ? "Computing…" : "Compute cost"}
+            {computing ? "Computing…" : "Compute cost"}
           </button>
         </div>
 
-        {/* Right: results */}
-        <div className="rounded-xl border p-4 space-y-3">
-          <div className="text-sm font-medium mb-2">Results</div>
-          {!missing ? (
-            <div className="text-sm opacity-70">Paste a deck and compute.</div>
-          ) : missing.length === 0 ? (
-            <div className="text-sm">You already own everything 🎉</div>
-          ) : (
-            <>
-              <div className="text-sm">
-                Missing <b>{missing.length}</b> unique cards. Estimated total:{" "}
-                <b>
-                  {currency}{" "}
-                  {total.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </b>
+        <div className="rounded border border-neutral-800 p-4">
+          <div className="mb-3 text-sm text-neutral-300">
+            {rows.length
+              ? `Missing ${rows.length} unique cards. Estimated total: ${fmt(
+                  total
+                )}`
+              : `Missing 0 unique cards. Estimated total: ${fmt(0)}`}
+          </div>
+
+          <div className="divide-y divide-neutral-800">
+            <div className="grid grid-cols-4 text-xs uppercase text-neutral-400 pb-2">
+              <div>Card</div>
+              <div className="text-right">Need</div>
+              <div className="text-right">Unit</div>
+              <div className="text-right">Subtotal</div>
+            </div>
+            {rows.map((r) => (
+              <div
+                key={r.name}
+                className="grid grid-cols-4 py-2 text-sm items-center"
+              >
+                <div className="truncate pr-2">{r.name}</div>
+                <div className="text-right">{r.need}</div>
+                <div className="text-right">
+                  {r.unit > 0 ? fmt(r.unit) : "—"}
+                </div>
+                <div className="text-right">{fmt(r.subtotal)}</div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b">
-                    <tr>
-                      <th className="text-left py-2 pr-2">Card</th>
-                      <th className="text-right py-2 pr-2">Need</th>
-                      <th className="text-right py-2 pr-2">Unit</th>
-                      <th className="text-right py-2">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {missing.map((m) => {
-                      const key = m.name.trim().toLowerCase();
-                      const unit = pricing[key] ?? 0;
-                      const sub = unit * m.need;
-                      return (
-                        <tr key={m.name} className="border-b last:border-0">
-                          <td className="py-2 pr-2">{m.name}</td>
-                          <td className="py-2 pr-2 text-right">{m.need}</td>
-                          <td className="py-2 pr-2 text-right">
-                            {currency}{" "}
-                            {unit.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                          <td className="py-2 text-right">
-                            {currency}{" "}
-                            {sub.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+            ))}
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
