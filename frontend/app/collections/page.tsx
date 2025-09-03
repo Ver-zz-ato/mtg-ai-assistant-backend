@@ -59,9 +59,27 @@ export default async function CollectionsPage() {
 
       {/* Upload CSV */}
       <div className="rounded-xl border p-4">
-        <div className="text-sm font-medium mb-2">Upload CSV to a collection</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium mb-2">Upload CSV to a collection</div>
+          <div className="text-xs opacity-70">
+            <span id="selectedId" className="font-mono"></span>
+            <button
+              id="copyIdBtn"
+              className="ml-2 rounded border px-2 py-0.5 text-xs hover:bg-black/5"
+              title="Copy selected collection ID"
+              type="button"
+            >
+              Copy ID
+            </button>
+          </div>
+        </div>
+
         <form id="csvForm" className="flex flex-col sm:flex-row gap-2 items-stretch">
-          <select name="collection_id" className="rounded-lg border px-3 py-2 text-sm">
+          <select
+            name="collection_id"
+            id="collectionSelect"
+            className="rounded-lg border px-3 py-2 text-sm"
+          >
             {(cols ?? []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -94,7 +112,7 @@ export default async function CollectionsPage() {
                 <div className="font-medium truncate">{c.name}</div>
                 <div className="text-xs opacity-70">{created}</div>
               </div>
-              {/* Placeholder for future: link to /collections/[id] detail page */}
+              {/* Future: link to detail page */}
               {/* <a href={`/collections/${c.id}`} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5">Open</a> */}
             </div>
           );
@@ -104,12 +122,34 @@ export default async function CollectionsPage() {
         )}
       </div>
 
-      {/* Tiny inline scripts for actions (keeps page as a Server Component) */}
+      {/* Inline actions script */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
           (function(){
-            // Create collection
+            const selectEl = document.getElementById('collectionSelect');
+            const idLabel = document.getElementById('selectedId');
+            const copyBtn = document.getElementById('copyIdBtn');
+
+            function updateIdLabel(){
+              const val = selectEl?.value || '';
+              if(idLabel) idLabel.textContent = val ? ('ID: ' + val) : '';
+            }
+            selectEl?.addEventListener('change', updateIdLabel);
+            updateIdLabel();
+
+            copyBtn?.addEventListener('click', async () => {
+              const val = selectEl?.value || '';
+              if (!val) return;
+              try {
+                await navigator.clipboard.writeText(val);
+                alert('Copied collection ID');
+              } catch(e) {
+                alert('Failed to copy');
+              }
+            });
+
+            // Create new collection
             const nameInput = document.getElementById('newColName');
             const createBtn = document.getElementById('createColBtn');
             createBtn?.addEventListener('click', async () => {
@@ -130,15 +170,16 @@ export default async function CollectionsPage() {
             csvForm?.addEventListener('submit', async (e) => {
               e.preventDefault();
               const fd = new FormData(csvForm);
+              const colId = fd.get('collection_id');
               const file = fd.get('file');
+              if (!colId) { alert('Pick a collection'); return; }
               if (!file || (file instanceof File && file.size === 0)) {
-                alert('Pick a CSV file');
-                return;
+                alert('Pick a CSV file'); return;
               }
               const res = await fetch('/api/collections/upload', { method: 'POST', body: fd });
               const data = await res.json().catch(()=>({}));
-              if (!res.ok) return alert('Upload failed: ' + (data.error || res.status));
-              alert('Uploaded ' + (data.inserted ?? 0) + ' rows');
+              if (!res.ok) { alert('Upload failed: ' + (data.error || res.status)); return; }
+              alert('Uploaded ' + (data.inserted ?? data.count ?? 0) + ' rows');
             });
           })();
         `,
