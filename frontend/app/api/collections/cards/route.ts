@@ -1,28 +1,52 @@
 // frontend/app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server"; // <-- you already have this server client
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const collection_id = searchParams.get("collection_id");
-    if (!collection_id) return NextResponse.json({ error: "Missing collection_id" }, { status: 400 });
+    if (!collection_id) {
+      return NextResponse.json({ error: "Missing collection_id" }, { status: 400 });
+    }
 
+    // Build a Supabase server client inline (no helper import)
     const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: "", ...options });
+          },
+        },
+      }
+    );
 
+    // Auth (RLS still protects, this gives clear 401s)
     const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (userErr || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // RLS will protect, but we also assert ownership via join on collections
+    // Join to ensure the collection belongs to the user
     const { data, error } = await supabase
       .from("collection_cards")
       .select("name, qty, collection_id, collections!inner(user_id)")
       .eq("collection_id", collection_id)
       .eq("collections.user_id", user.id);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
     const owned: Record<string, number> = {};
     for (const row of data || []) {
