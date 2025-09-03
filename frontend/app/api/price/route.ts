@@ -1,94 +1,105 @@
 // frontend/app/api/price/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// Normalize and fetch a single card's price from Scryfall.
-// We prefer: currency -> scryfall "usd"/"eur" (GBP is not directly on Scryfall, so we fallback to usd and mark converted=false).
-async function fetchScryfallPrice(name: string, currency: "USD" | "EUR" | "GBP") {
-  const exactUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&include_extras=true&include_multilingual=true`;
-  const searchUrl = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(
-    `!"${name}" unique:prints`
-  )}`;
+// Simple in-memory FX cache (per server instance)
+let fxCache: { ts: number; USD_GBP: number; EUR_GBP: number } | null = null;
 
-  const pullPrice = (card: any): number | null => {
-    if (!card || !card.prices) return null;
-    // Scryfall offers "usd", "eur". No gbp — we’ll send null and let the UI show "—"
-    if (currency === "USD" && card.prices.usd) return parseFloat(card.prices.usd);
-    if (currency === "EUR" && card.prices.eur) return parseFloat(card.prices.eur);
-    // GBP not native on Scryfall; return null to mark missing (UI will show — and 0 subtotal).
+async function getFx(): Promise<{ USD_GBP: number; EUR_GBP: number }> {
+  const now = Date.now();
+  if (fxCache && now - fxCache.ts < 1000 * 60 * 30) return fxCache; // 30 min cache
+
+  // Fetch once; exchangerate.host is free/no-key
+  const r = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=GBP,EUR", { cache: "no-store" });
+  const j = await r.json();
+  const USD_GBP = j?.rates?.GBP ?? 0;
+
+  const r2 = await fetch("https://api.exchangerate.host/latest?base=EUR&symbols=GBP,USD", { cache: "no-store" });
+  const j2 = await r2.json();
+  const EUR_GBP = j2?.rates?.GBP ?? 0;
+
+  fxCache = { ts: now, USD_GBP, EUR_GBP };
+  return fxCache;
+}
+
+async function scryfallExact(name: string) {
+  const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&include_extras=true&include_multilingual=true`;
+  const r = await fetch(url, { cache: "no-store" });
+  return r.ok ? r.json() : null;
+}
+
+async function scryfallSearch(name: string) {
+  const url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${name}" unique:prints`)}`;
+  const r = await fetch(url, { cache: "no-store" });
+  return r.ok ? r.json() : null;
+}
+
+type Cur = "USD" | "EUR" | "GBP";
+
+function pickPrice(card: any, currency: Cur): number | null {
+  if (!card?.prices) return null;
+  if (currency === "USD" && card.prices.usd) return parseFloat(card.prices.usd);
+  if (currency === "EUR" && card.prices.eur) return parseFloat(card.prices.eur);
+  return null;
+}
+
+async function fetchPrice(name: string, currency: Cur) {
+  const fx = await getFx();
+
+  const tryCard = (card: any): number | null => {
+    // Direct
+    const direct = pickPrice(card, currency);
+    if (typeof direct === "number") return direct;
+
+    // Conversions for GBP only
+    if (currency === "GBP") {
+      const usd = card?.prices?.usd ? parseFloat(card.prices.usd) : null;
+      const eur = card?.prices?.eur ? parseFloat(card.prices.eur) : null;
+
+      if (typeof usd === "number" && fx.USD_GBP) return usd * fx.USD_GBP;
+      if (typeof eur === "number" && fx.EUR_GBP) return eur * fx.EUR_GBP;
+    }
+
     return null;
   };
 
-  // Try exact first
-  try {
-    const r = await fetch(exactUrl, { cache: "no-store" });
-    if (r.ok) {
-      const c = await r.json();
-      const price = pullPrice(c);
+  // exact
+  const exact = await scryfallExact(name);
+  let price = tryCard(exact);
+  if (typeof price === "number" && !Number.isNaN(price)) return { name, unit: price, found: true };
+
+  // search fallback
+  const search = await scryfallSearch(name);
+  if (search?.data?.length) {
+    for (const cand of search.data) {
+      price = tryCard(cand);
       if (typeof price === "number" && !Number.isNaN(price)) {
         return { name, unit: price, found: true };
       }
     }
-  } catch {
-    // ignore
   }
 
-  // Fallback: search
-  try {
-    const r2 = await fetch(searchUrl, { cache: "no-store" });
-    if (r2.ok) {
-      const j = await r2.json();
-      if (j?.data?.length) {
-        // Prefer the first printing that actually has a price in the requested currency
-        for (const cand of j.data) {
-          const price = pullPrice(cand);
-          if (typeof price === "number" && !Number.isNaN(price)) {
-            return { name, unit: price, found: true };
-          }
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // Not found for requested currency
   return { name, unit: 0, found: false };
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { names, currency } = await req.json();
+    if (!Array.isArray(names) || !names.length)
+      return NextResponse.json({ error: "Provide { names: string[] }" }, { status: 400 });
 
-    if (!Array.isArray(names) || !names.length) {
-      return NextResponse.json(
-        { error: "Provide { names: string[] }" },
-        { status: 400 }
-      );
-    }
+    const cur: Cur = (["USD", "EUR", "GBP"].includes((currency || "").toUpperCase())
+      ? (currency || "USD").toUpperCase()
+      : "USD") as Cur;
 
-    const cur =
-      currency && ["USD", "EUR", "GBP"].includes(currency.toUpperCase())
-        ? (currency.toUpperCase() as "USD" | "EUR" | "GBP")
-        : "USD";
-
-    // Unique names only (avoid duplicate Scryfall calls)
     const uniq = Array.from(new Set(names.map((n) => String(n).trim()).filter(Boolean)));
 
-    const results = await Promise.all(
-      uniq.map((n) => fetchScryfallPrice(n, cur))
-    );
+    const results = await Promise.all(uniq.map((n) => fetchPrice(n, cur)));
 
-    // Return a map for quick join on the UI side
-    const byName: Record<string, { unit: number; found: boolean }> = {};
-    for (const r of results) {
-      byName[r.name.toLowerCase()] = { unit: r.unit, found: r.found };
-    }
+    const prices: Record<string, { unit: number; found: boolean }> = {};
+    for (const r of results) prices[r.name.toLowerCase()] = { unit: r.unit, found: r.found };
 
-    return NextResponse.json({ ok: true, currency: cur, prices: byName });
+    return NextResponse.json({ ok: true, currency: cur, prices });
   } catch (e) {
-    return NextResponse.json(
-      { error: "Price lookup failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Price lookup failed" }, { status: 500 });
   }
 }
