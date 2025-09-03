@@ -1,45 +1,34 @@
-// app/api/collections/list/route.ts
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createServerSupabaseClient();
 
-    // Get current user
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Fetch collections for this user
     const { data, error } = await supabase
       .from("collections")
-      .select("id, name, created_at, updated_at")
+      .select("id, name, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching collections:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch collections" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data ?? [], { status: 200 });
-  } catch (e: any) {
-    console.error("Unexpected error in /collections/list:", e);
-    return NextResponse.json(
-      { error: e.message || "Unexpected error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ collections: data ?? [] }, { status: 200 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Unexpected error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
