@@ -1,7 +1,8 @@
-import Link from "next/link";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import Link from 'next/link';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import DeckRowActions from '@/components/DeckRowActions';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 type DeckRow = {
   id: string;
@@ -29,10 +30,10 @@ export default async function MyDecksPage() {
   }
 
   const { data: decks, error } = await supabase
-    .from("decks")
-    .select("id, title, is_public, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .from('decks')
+    .select('id, title, is_public, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
 
   if (error) {
     return (
@@ -56,9 +57,8 @@ export default async function MyDecksPage() {
       ) : (
         <ul className="space-y-3">
           {decks.map((d: DeckRow) => {
-            const created =
-              d.created_at ? new Date(d.created_at).toLocaleString() : "";
-            const pub = d.is_public ? "Public" : "Private";
+            const created = d.created_at ? new Date(d.created_at).toLocaleString() : '';
+            const pub = d.is_public ? 'Public' : 'Private';
             return (
               <li
                 key={d.id}
@@ -66,13 +66,13 @@ export default async function MyDecksPage() {
               >
                 <div className="min-w-0">
                   <div className="font-medium truncate">
-                    {d.title || "(Untitled Deck)"}{" "}
+                    {d.title || '(Untitled Deck)'}{' '}
                     <span className="ml-2 text-xs opacity-70">{pub}</span>
                   </div>
                   <div className="text-xs opacity-70">{created}</div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Link
                     href={`/deck/${d.id}`}
                     className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
@@ -80,73 +80,8 @@ export default async function MyDecksPage() {
                     View
                   </Link>
 
-                  {/* Minimal actions (client JS-free by using form+fetch via buttons would be nicer, but keep it simple) */}
-                  <form
-                    action={`/api/decks/update`}
-                    method="post"
-                    className="hidden"
-                    id={`toggle-${d.id}`}
-                  >
-                    <input type="hidden" name="id" value={d.id} />
-                    <input
-                      type="hidden"
-                      name="is_public"
-                      value={(!d.is_public).toString()}
-                    />
-                  </form>
-                  <button
-                    onClick={async () => {
-                      await fetch("/api/decks/update", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          id: d.id,
-                          is_public: !d.is_public,
-                        }),
-                      });
-                      location.reload();
-                    }}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-                    title="Toggle public/private"
-                  >
-                    {d.is_public ? "Make Private" : "Make Public"}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      const name = prompt(
-                        "New deck title:",
-                        d.title || "Untitled Deck"
-                      );
-                      if (name == null) return;
-                      await fetch("/api/decks/update", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: d.id, title: name }),
-                      });
-                      location.reload();
-                    }}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-                  >
-                    Rename
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      if (!confirm("Delete this deck? This cannot be undone.")) {
-                        return;
-                      }
-                      await fetch("/api/decks/delete", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: d.id }),
-                      });
-                      location.reload();
-                    }}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5 text-red-600"
-                  >
-                    Delete
-                  </button>
+                  {/* Client-side actions */}
+                  <DeckRowActions id={d.id} title={d.title} is_public={d.is_public} />
                 </div>
               </li>
             );
