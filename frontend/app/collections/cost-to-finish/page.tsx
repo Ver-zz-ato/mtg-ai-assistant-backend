@@ -4,7 +4,82 @@ import { useEffect, useMemo, useState } from "react";
 
 type Collection = { id: string; name: string; created_at: string | null };
 type Missing = { name: string; need: number };
-type PriceRow = { name: string; price: number };
+
+// Try to pull a price out of many possible shapes.
+function extractPrices(payload: any, currency: "USD" | "EUR" | "GBP") {
+  const out: Record<string, number> = {};
+  if (!payload) return out;
+
+  const curKey = currency.toLowerCase(); // "usd" | "eur" | "gbp"
+
+  // Common shapes we’ll check in order:
+  const candidates: any[] = [];
+  if (Array.isArray(payload)) candidates.push(payload);
+  if (Array.isArray(payload?.rows)) candidates.push(payload.rows);
+  if (Array.isArray(payload?.prices)) candidates.push(payload.prices);
+  if (Array.isArray(payload?.data)) candidates.push(payload.data);
+  if (payload?.result && Array.isArray(payload.result)) candidates.push(payload.result);
+
+  for (const arr of candidates) {
+    for (const r of arr) {
+      if (!r) continue;
+      const nm = (r.name ?? r.card_name ?? r.card)?.toString().trim();
+      if (!nm) continue;
+
+      // Priority 1: direct "price"
+      if (typeof r.price === "number" && isFinite(r.price)) {
+        out[nm.toLowerCase()] = r.price;
+        continue;
+      }
+
+      // Priority 2: currency keyed fields
+      const maybe =
+        r[curKey] ?? r[`price_${curKey}`] ?? r[`prices_${curKey}`] ?? r[`min_${curKey}`];
+      const asNum =
+        typeof maybe === "number"
+          ? maybe
+          : typeof maybe === "string"
+          ? Number(maybe)
+          : NaN;
+
+      if (isFinite(asNum)) {
+        out[nm.toLowerCase()] = asNum;
+        continue;
+      }
+
+      // Priority 3: nested e.g. r.prices?.eur
+      const nested =
+        r.prices?.[curKey] ??
+        r.market?.[curKey] ??
+        r.avg?.[curKey] ??
+        r.low?.[curKey] ??
+        r.high?.[curKey];
+      const nestedNum =
+        typeof nested === "number"
+          ? nested
+          : typeof nested === "string"
+          ? Number(nested)
+          : NaN;
+
+      if (isFinite(nestedNum)) {
+        out[nm.toLowerCase()] = nestedNum;
+        continue;
+      }
+    }
+    if (Object.keys(out).length) break; // we found prices in this candidate
+  }
+
+  // Last-chance: object map { "Sol Ring": 1.2, ... }
+  if (!Object.keys(out).length && payload && typeof payload === "object") {
+    for (const [k, v] of Object.entries(payload)) {
+      if (typeof v === "number" && isFinite(v)) {
+        out[k.toLowerCase()] = v;
+      }
+    }
+  }
+
+  return out;
+}
 
 export default function CostToFinishPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -60,17 +135,16 @@ export default function CostToFinishPage() {
         body: JSON.stringify({ names, currency }),
       });
       const priceData = await priceRes.json();
-      if (!priceRes.ok) throw new Error(priceData.error || priceRes.statusText);
 
-      // Expecting priceData.rows: [{ name, price }]
-      const map: Record<string, number> = {};
-      const rows: PriceRow[] = priceData.rows || priceData.prices || [];
-      for (const r of rows) {
-        if (!r?.name) continue;
-        const p = typeof r.price === "number" ? r.price : Number(r.price ?? 0);
-        map[r.name] = isFinite(p) ? p : 0;
+      // Robust extraction + name normalization
+      const found = extractPrices(priceData, currency);
+      const normalized: Record<string, number> = {};
+      for (const [k, v] of Object.entries(found)) {
+        if (!isFinite(v)) continue;
+        normalized[k.trim().toLowerCase()] = v;
       }
-      setPricing(map);
+
+      setPricing(normalized);
     } catch (e: any) {
       alert("Compute failed: " + (e.message || e));
     } finally {
@@ -81,7 +155,7 @@ export default function CostToFinishPage() {
   const total = useMemo(() => {
     if (!missing?.length) return 0;
     return missing.reduce((sum, row) => {
-      const unit = pricing[row.name] ?? 0;
+      const unit = pricing[row.name.trim().toLowerCase()] ?? 0;
       return sum + unit * row.need;
     }, 0);
   }, [missing, pricing]);
@@ -171,7 +245,8 @@ export default function CostToFinishPage() {
                   </thead>
                   <tbody>
                     {missing.map((m) => {
-                      const unit = pricing[m.name] ?? 0;
+                      const key = m.name.trim().toLowerCase();
+                      const unit = pricing[key] ?? 0;
                       const sub = unit * m.need;
                       return (
                         <tr key={m.name} className="border-b last:border-0">
