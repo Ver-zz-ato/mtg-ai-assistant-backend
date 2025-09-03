@@ -1,60 +1,60 @@
-// frontend/app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+
+/**
+ * Shared handler for both GET and POST.
+ * Reads a collectionId and returns the cards + quantities for that collection.
+ */
+async function handle(req: NextRequest) {
+  const supabase = createClient();
+
+  // Get user session
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  const user = userRes?.user;
+  if (userErr || !user) {
+    console.error("[COLLECTIONS/CARDS] Not authenticated", userErr);
+    return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Support GET ?collectionId=... or POST { collectionId }
+  let collectionId: string | null = null;
+  const url = new URL(req.url);
+  if (url.searchParams.get("collectionId")) {
+    collectionId = url.searchParams.get("collectionId");
+  } else {
+    try {
+      const body = await req.json();
+      if (body?.collectionId) collectionId = body.collectionId;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!collectionId) {
+    return NextResponse.json({ ok: false, error: "collectionId required" }, { status: 400 });
+  }
+
+  // Query cards for this collection. Adjust table/column names to match your schema!
+  const { data, error } = await supabase
+    .from("collection_cards") // replace with your actual table name
+    .select("id, name, qty")
+    .eq("collection_id", collectionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("[COLLECTIONS/CARDS] Supabase error", error);
+    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+  }
+
+  return NextResponse.json({ ok: true, cards: data ?? [] });
+}
 
 export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const collection_id = searchParams.get("collection_id");
-    if (!collection_id) {
-      return NextResponse.json({ error: "Missing collection_id" }, { status: 400 });
-    }
+  return handle(req);
+}
 
-    // Build a Supabase server client inline (no helper import)
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
-
-    // Auth (RLS still protects, this gives clear 401s)
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Join to ensure the collection belongs to the user
-    const { data, error } = await supabase
-      .from("collection_cards")
-      .select("name, qty, collection_id, collections!inner(user_id)")
-      .eq("collection_id", collection_id)
-      .eq("collections.user_id", user.id);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    const owned: Record<string, number> = {};
-    for (const row of data || []) {
-      owned[(row.name as string).toLowerCase()] = Number(row.qty) || 0;
-    }
-
-    return NextResponse.json({ ok: true, owned });
-  } catch (e) {
-    return NextResponse.json({ error: "Failed to load collection" }, { status: 500 });
-  }
+export async function POST(req: NextRequest) {
+  return handle(req);
 }
