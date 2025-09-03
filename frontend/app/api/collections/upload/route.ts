@@ -1,24 +1,29 @@
-// frontend/app/api/collections/upload/route.ts
+// app/api/collections/upload/route.ts
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // be explicit
 
-// Minimal CSV parser
+// Quick ping so we can verify the route exists with GET
+export async function GET() {
+  return NextResponse.json({ ok: true, route: "collections/upload" }, { status: 200 });
+}
+
+// --- minimal CSV parser ---
 function parseCSV(text: string): Array<{ name: string; qty: number }> {
-  const out: Array<{ name: string; qty: number }> = [];
+  const rows: Array<{ name: string; qty: number }> = [];
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return out;
+  if (lines.length === 0) return rows;
 
-  const headerCols = lines[0].toLowerCase().split(",").map(h => h.trim());
-  const looksLikeHeader =
-    headerCols.includes("name") || headerCols.includes("card") || headerCols.includes("qty") || headerCols.includes("quantity");
+  const headers = lines[0].toLowerCase().split(",").map(h => h.trim());
+  const hasHeader = headers.some(h => ["name","card","qty","quantity","count","owned"].includes(h));
 
-  let start = looksLikeHeader ? 1 : 0;
+  let start = hasHeader ? 1 : 0;
   let nameIdx = 0, qtyIdx = 1;
-  if (looksLikeHeader) {
-    const n = headerCols.findIndex(h => ["name","card"].includes(h));
-    const q = headerCols.findIndex(h => ["qty","quantity","count","owned"].includes(h));
+  if (hasHeader) {
+    const n = headers.findIndex(h => ["name","card"].includes(h));
+    const q = headers.findIndex(h => ["qty","quantity","count","owned"].includes(h));
     if (n >= 0) nameIdx = n;
     if (q >= 0) qtyIdx = q;
   }
@@ -28,10 +33,11 @@ function parseCSV(text: string): Array<{ name: string; qty: number }> {
     if (!cols.length) continue;
     let name = cols[nameIdx] ?? "";
     let qty = Number(cols[qtyIdx] ?? "1");
+    if (!name) continue;
     if (!Number.isFinite(qty) || qty < 0) qty = 1;
-    if (name) out.push({ name, qty });
+    rows.push({ name, qty });
   }
-  return out;
+  return rows;
 }
 
 export async function POST(req: Request) {
@@ -47,7 +53,7 @@ export async function POST(req: Request) {
     if (!collection_id) return NextResponse.json({ error: "Missing collection_id" }, { status: 400 });
     if (!file) return NextResponse.json({ error: "Missing file" }, { status: 400 });
 
-    // Check ownership of collection
+    // Ownership check (RLS also enforces)
     const { data: col, error: colErr } = await supabase
       .from("collections")
       .select("id")
@@ -59,8 +65,9 @@ export async function POST(req: Request) {
     const rows = parseCSV(text);
     if (!rows.length) return NextResponse.json({ error: "No rows found" }, { status: 400 });
 
-    // Replace old cards
-    await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
+    // Replace the collection’s rows
+    const del = await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
+    if (del.error) return NextResponse.json({ error: del.error.message }, { status: 400 });
 
     const payload = rows.map(r => ({ collection_id, name: r.name, qty: r.qty }));
     const { error: insErr } = await supabase.from("collection_cards").insert(payload);
