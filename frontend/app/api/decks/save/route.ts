@@ -1,91 +1,88 @@
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-
-type SaveDeckBodyLoose = {
-  // preferred
-  title?: string | null;
-  deck_text?: string | null;
-  is_public?: boolean | null;
-
-  // common variants we’ll accept
-  name?: string | null;
-  deckName?: string | null;
-  deck?: string | null;
-  deckText?: string | null;
-  list?: string | null;
-  text?: string | null;
+type SaveBody = {
+  id?: string;
+  title?: string;
+  commander?: string;
+  deck_text: string;
+  is_public?: boolean;
 };
 
-function pickTitle(body: SaveDeckBodyLoose): string | null {
-  const candidate =
-    body.title ??
-    body.name ??
-    body.deckName ??
-    null;
-  const t = typeof candidate === "string" ? candidate.trim() : "";
-  return t.length ? t : null;
+function sanitizeTitle(s?: string) {
+  if (!s) return "";
+  return s.trim().slice(0, 140);
 }
 
-function pickDeckText(body: SaveDeckBodyLoose): string | null {
-  const candidate =
-    body.deck_text ??
-    body.deckText ??
-    body.deck ??
-    body.list ??
-    body.text ??
-    null;
-  const v = typeof candidate === "string" ? candidate.trim() : "";
-  return v.length ? v : null;
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const supabase = createClient();
   try {
-    const supabase = await createServerSupabaseClient();
-
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
-
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("[DECKS/SAVE] 401 no user", userErr);
+      return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
     }
 
-    const raw = (await req.json()) as SaveDeckBodyLoose | null;
+    const body = (await req.json()) as SaveBody;
+    console.log("[DECKS/SAVE] incoming", body);
 
-    // Pull values from any common key
-    const title = pickTitle(raw ?? {}) ?? "Untitled Deck";
-    const deck_text = pickDeckText(raw ?? {});
-
-    const is_public = Boolean(raw?.is_public);
-
-    if (!deck_text) {
-      return NextResponse.json(
-        { error: 'Missing deck text. Provide "deck_text" (or deckText/deck/list/text).' },
-        { status: 400 }
-      );
+    if (!body?.deck_text || typeof body.deck_text !== "string") {
+      return NextResponse.json({ ok: false, error: "deck_text is required" }, { status: 400 });
     }
 
+    const payload = {
+      title: sanitizeTitle(body.title) || "Untitled Deck",
+      commander: sanitizeTitle(body.commander),
+      deck_text: body.deck_text.trim(),
+      is_public: !!body.is_public,
+      user_id: user.id,
+    };
+
+    // Update
+    if (body.id) {
+      const { data, error } = await supabase
+        .from("decks")
+        .update({
+          title: payload.title,
+          commander: payload.commander,
+          deck_text: payload.deck_text,
+          is_public: payload.is_public,
+        })
+        .eq("id", body.id)
+        .eq("user_id", user.id) // guard at query level too
+        .select("id, updated_at")
+        .single();
+
+      if (error) {
+        console.error("[DECKS/SAVE] update error", error);
+        return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+      }
+      console.log("[DECKS/SAVE] updated", data);
+      return NextResponse.json({ ok: true, id: data.id, mode: "updated" });
+    }
+
+    // Create
     const { data, error } = await supabase
       .from("decks")
       .insert({
+        title: payload.title,
+        commander: payload.commander,
+        deck_text: payload.deck_text,
+        is_public: payload.is_public,
         user_id: user.id,
-        title,
-        deck_text,
-        is_public,
       })
-      .select("id")
+      .select("id, created_at")
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error("[DECKS/SAVE] insert error", error);
+      return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
     }
 
-    return NextResponse.json({ id: data.id }, { status: 200 });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.log("[DECKS/SAVE] created", data);
+    return NextResponse.json({ ok: true, id: data.id, mode: "created" });
+  } catch (e: any) {
+    console.error("[DECKS/SAVE] exception", e);
+    return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 200 });
   }
 }

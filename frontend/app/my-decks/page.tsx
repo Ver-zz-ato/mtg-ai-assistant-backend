@@ -1,93 +1,80 @@
-import Link from 'next/link';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import DeckRowActions from '@/components/DeckRowActions';
+"use client";
 
-export const dynamic = 'force-dynamic';
+import React from "react";
+import Link from "next/link";
 
 type DeckRow = {
   id: string;
   title: string | null;
-  is_public: boolean | null;
-  created_at: string | null;
+  commander: string | null;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-export default async function MyDecksPage() {
-  const supabase = await createServerSupabaseClient();
+export default function MyDecksPage() {
+  const [rows, setRows] = React.useState<DeckRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [errorMsg, setErrorMsg] = React.useState("");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-semibold mb-4">My Decks</h1>
-        <div className="rounded-xl border p-4 text-sm">
-          Please sign in to view your decks.
-        </div>
-      </main>
-    );
-  }
-
-  const { data: decks, error } = await supabase
-    .from('decks')
-    .select('id, title, is_public, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-semibold mb-4">My Decks</h1>
-        <div className="rounded-xl border p-4 text-sm text-red-600">
-          Error loading decks: {error.message}
-        </div>
-      </main>
-    );
-  }
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setErrorMsg("");
+      try {
+        const r = await fetch("/api/decks/my", { cache: "no-store" });
+        if (r.status === 401) {
+          setErrorMsg("Please sign in to view your decks.");
+          setRows([]);
+        } else {
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || "Failed to load decks");
+          if (!cancelled) setRows(j.decks || []);
+        }
+      } catch (e: any) {
+        setErrorMsg(e.message || "Unexpected error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-4">My Decks</h1>
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <h1 className="text-xl font-semibold">My Decks</h1>
 
-      {!decks || decks.length === 0 ? (
-        <div className="rounded-xl border p-4 text-sm">
-          You haven’t saved any decks yet.
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {decks.map((d: DeckRow) => {
-            const created = d.created_at ? new Date(d.created_at).toLocaleString() : '';
-            const pub = d.is_public ? 'Public' : 'Private';
-            return (
-              <li
-                key={d.id}
-                className="rounded-xl border p-4 flex items-center justify-between"
+      {loading && <div>Loading…</div>}
+      {errorMsg && <div className="text-red-500">{errorMsg}</div>}
+      {!loading && !errorMsg && rows.length === 0 && <div>No decks yet.</div>}
+
+      <div className="space-y-3">
+        {rows.map((d) => (
+          <div key={d.id} className="border rounded p-3 flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="font-medium">{d.title || "Untitled Deck"}</div>
+              <div className="text-xs text-neutral-400">
+                {d.commander ? `Commander: ${d.commander} • ` : ""}
+                Updated {new Date(d.updated_at).toLocaleString()} • {d.is_public ? "Public" : "Private"}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link
+                className="border px-3 py-1 rounded"
+                href={`/collections/cost-to-finish?deckId=${encodeURIComponent(d.id)}`}
               >
-                <div className="min-w-0">
-                  <div className="font-medium truncate">
-                    {d.title || '(Untitled Deck)'}{' '}
-                    <span className="ml-2 text-xs opacity-70">{pub}</span>
-                  </div>
-                  <div className="text-xs opacity-70">{created}</div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/deck/${d.id}`}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-                  >
-                    View
-                  </Link>
-
-                  {/* Client-side actions */}
-                  <DeckRowActions id={d.id} title={d.title} is_public={d.is_public} />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </main>
+                Cost to finish
+              </Link>
+              <Link className="border px-3 py-1 rounded" href={`/api/decks/${encodeURIComponent(d.id)}`}>
+                JSON
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
