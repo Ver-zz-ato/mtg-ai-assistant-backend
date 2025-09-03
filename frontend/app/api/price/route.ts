@@ -1,4 +1,3 @@
-// app/api/price/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 type Currency = "USD" | "EUR" | "GBP";
@@ -6,10 +5,9 @@ type Currency = "USD" | "EUR" | "GBP";
 type ScryfallCard = {
   name: string;
   image_uris?: { small?: string; normal?: string; large?: string };
-  prices: { usd: string | null; eur: string | null; tix?: string | null };
+  prices: { usd: string | null; eur: string | null };
 };
 
-// --- tiny cache for USD->GBP
 let fxCache: { rate: number; fetchedAt: number } | null = null;
 const TEN_MIN = 10 * 60 * 1000;
 
@@ -38,7 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No names" }, { status: 400 });
     }
 
-    // Hit Scryfall once
+    // Hit Scryfall
     const r = await fetch("https://api.scryfall.com/cards/collection", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,16 +51,18 @@ export async function POST(req: NextRequest) {
     const payload = await r.json();
     const returned: ScryfallCard[] = Array.isArray(payload?.data) ? payload.data : [];
 
-    // Build case-insensitive lookup from returned data
     const byLower = new Map<string, ScryfallCard>();
     for (const c of returned) byLower.set(c.name.toLowerCase(), c);
 
-    // FX for GBP if needed (EUR is native in Scryfall)
     const usdToGbp = currency === "GBP" ? await getUsdToGbp() : 1;
 
-    // IMPORTANT: iterate over requested names to always emit a row
-    const results = names.map((requestedName) => {
-      const card = byLower.get(requestedName.toLowerCase());
+    type Row = { name: string; image: string | null; unit: number };
+    const results: Row[] = [];
+    const prices: Record<string, Row> = {}; // ← name-keyed map (lowercased keys)
+
+    for (const requestedName of names) {
+      const key = requestedName.toLowerCase();
+      const card = byLower.get(key);
 
       const usd = card?.prices.usd ? Number(card.prices.usd) : null;
       const eur = card?.prices.eur ? Number(card.prices.eur) : null;
@@ -72,14 +72,17 @@ export async function POST(req: NextRequest) {
       else if (currency === "EUR") unit = eur;
       else if (currency === "GBP") unit = usd !== null ? usd * usdToGbp : null;
 
-      return {
-        name: requestedName,                // echo back the name you asked for
+      const row: Row = {
+        name: requestedName,                    // echo back requested spelling
         image: card ? pickImage(card) : null,
-        unit: Number.isFinite(unit!) ? Number(unit!.toFixed(2)) : 0, // 0 when not found
+        unit: Number.isFinite(unit!) ? Number(unit!.toFixed(2)) : 0, // default 0 if missing
       };
-    });
 
-    return NextResponse.json({ ok: true, results, currency });
+      results.push(row);
+      prices[key] = row; // ensure the map always has a value
+    }
+
+    return NextResponse.json({ ok: true, currency, results, prices });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "Unknown error" }, { status: 500 });
   }
