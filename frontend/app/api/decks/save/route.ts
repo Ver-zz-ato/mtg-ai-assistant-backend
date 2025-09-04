@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+export const runtime = "nodejs";
+
 
 type SaveBody = {
   id?: string;
@@ -17,7 +19,8 @@ function sanitizeTitle(s?: string) {
 export async function POST(req: NextRequest) {
   const supabase = createClient();
   try {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    const user = userRes?.user;
     if (userErr || !user) {
       console.error("[DECKS/SAVE] 401 no user", userErr);
       return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
@@ -38,7 +41,6 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
     };
 
-    // Update
     if (body.id) {
       const { data, error } = await supabase
         .from("decks")
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
           is_public: payload.is_public,
         })
         .eq("id", body.id)
-        .eq("user_id", user.id) // guard at query level too
+        .eq("user_id", user.id)
         .select("id, updated_at")
         .single();
 
@@ -61,7 +63,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, id: data.id, mode: "updated" });
     }
 
-    // Create
     const { data, error } = await supabase
       .from("decks")
       .insert({
@@ -84,5 +85,13 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error("[DECKS/SAVE] exception", e);
     return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 200 });
+    console.log("[DECKS/SAVE] start");
+const { data: userRes, error: userErr } = await supabase.auth.getUser();
+console.log("[DECKS/SAVE] got user", !!userRes?.user, userErr?.message);
+const body = await req.json().catch(e => { console.error("[DECKS/SAVE] bad json", e); return null; });
+console.log("[DECKS/SAVE] body", !!body);
+// ... before update/insert:
+console.log("[DECKS/SAVE] inserting...");
+
   }
 }
