@@ -3,58 +3,57 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-/**
- * Shared handler for both GET and POST.
- * Reads a collectionId and returns the cards + quantities for that collection.
- */
 async function handle(req: NextRequest) {
   const supabase = createClient();
 
-  // Get user session
+  // auth
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
   const user = userRes?.user;
   if (userErr || !user) {
-    console.error("[COLLECTIONS/CARDS] Not authenticated", userErr);
     return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
   }
 
-  // Support GET ?collectionId=... or POST { collectionId }
-  let collectionId: string | null = null;
+  // GET ?collectionId=... or POST { collectionId }
   const url = new URL(req.url);
-  if (url.searchParams.get("collectionId")) {
-    collectionId = url.searchParams.get("collectionId");
-  } else {
+  let collectionId: string | null = url.searchParams.get("collectionId");
+  if (!collectionId) {
     try {
       const body = await req.json();
-      if (body?.collectionId) collectionId = body.collectionId;
-    } catch {
-      /* ignore */
-    }
+      if (body?.collectionId) collectionId = String(body.collectionId);
+    } catch {}
   }
-
   if (!collectionId) {
     return NextResponse.json({ ok: false, error: "collectionId required" }, { status: 400 });
   }
 
-  // Query cards for this collection. Adjust table/column names to match your schema!
+  // Ensure the collection belongs to the user (nice error; RLS should also enforce)
+  const { data: col, error: colErr } = await supabase
+    .from("collections")
+    .select("id, user_id")
+    .eq("id", collectionId)
+    .single();
+
+  if (colErr || !col) {
+    return NextResponse.json({ ok: false, error: "Collection not found" }, { status: 404 });
+  }
+  if (col.user_id !== user.id) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  // Now read cards (this table doesn’t have user_id)
   const { data, error } = await supabase
-    .from("collection_cards") // replace with your actual table name
+    .from("collection_cards")
     .select("id, name, qty")
     .eq("collection_id", collectionId)
-    .eq("user_id", user.id);
+    .order("name", { ascending: true });
 
   if (error) {
-    console.error("[COLLECTIONS/CARDS] Supabase error", error);
+    console.error("[collections/cards] supabase error", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
   }
 
-  return NextResponse.json({ ok: true, cards: data ?? [] });
+  return NextResponse.json({ ok: true, cards: data ?? [] }, { status: 200 });
 }
 
-export async function GET(req: NextRequest) {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest) {
-  return handle(req);
-}
+export async function GET(req: NextRequest)  { return handle(req); }
+export async function POST(req: NextRequest) { return handle(req); }
