@@ -21,16 +21,23 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
         body: JSON.stringify({ title, commander, deck_text, is_public: isPublic }),
       });
 
+      // Handle non-JSON responses gracefully (HTML error pages, proxies, etc.)
+      const ctype = r.headers.get("content-type") || "";
+      if (!ctype.includes("application/json")) {
+        const text = await r.text().catch(() => "");
+        throw new Error(`Save failed (status ${r.status}). ${text.slice(0, 140)}`);
+      }
+
       if (r.status === 401) {
         setErrorMsg("Please sign in to save decks.");
         setSaving(false);
         return;
       }
+
       const j = await r.json();
-      console.log("[SaveDeckButton] result", j);
-      if (!j.ok) throw new Error(j.error || "Save failed");
+      if (!j.ok) throw new Error(j.error || `Save failed (status ${r.status}).`);
+
       setOpen(false);
-      // small toast substitute:
       alert(`Saved! Deck ID: ${j.id}`);
     } catch (e: any) {
       console.error("[SaveDeckButton] error", e);
@@ -42,11 +49,7 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="border px-3 py-2 rounded"
-        disabled={saving}
-      >
+      <button onClick={() => setOpen(true)} className="border px-3 py-2 rounded" disabled={saving}>
         Save deck
       </button>
 
@@ -72,15 +75,11 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
             />
 
             <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-              />
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
               <span>Make public (shareable)</span>
             </label>
 
-            {errorMsg && <div className="text-red-500 text-sm">{errorMsg}</div>}
+            {errorMsg && <div className="text-red-500 text-sm whitespace-pre-wrap">{errorMsg}</div>}
 
             <div className="flex justify-end gap-2">
               <button className="px-3 py-2 rounded border" onClick={() => setOpen(false)} disabled={saving}>
