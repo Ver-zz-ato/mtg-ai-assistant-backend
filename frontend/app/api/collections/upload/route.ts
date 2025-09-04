@@ -1,16 +1,8 @@
-// app/api/collections/upload/route.ts
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
 export const runtime = "nodejs";
-
-
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
-// GET ping to verify route exists
-export async function GET() {
-  return NextResponse.json({ ok: true, route: "collections/upload" }, { status: 200 });
-}
 
 // Tiny CSV parser (header optional)
 function parseCSV(text: string): Array<{ name: string; qty: number }> {
@@ -24,8 +16,7 @@ function parseCSV(text: string): Array<{ name: string; qty: number }> {
   );
 
   let start = hasHeader ? 1 : 0;
-  let nameIdx = 0,
-    qtyIdx = 1;
+  let nameIdx = 0, qtyIdx = 1;
   if (hasHeader) {
     const n = headers.findIndex((h) => ["name", "card"].includes(h));
     const q = headers.findIndex((h) => ["qty", "quantity", "count", "owned"].includes(h));
@@ -37,7 +28,6 @@ function parseCSV(text: string): Array<{ name: string; qty: number }> {
     const cols = lines[i].split(",").map((c) => c.trim());
     if (!cols.length) continue;
 
-    // Support "2,Sol Ring" or "Sol Ring,2" when no header
     let name = "";
     let qty = 1;
 
@@ -47,16 +37,9 @@ function parseCSV(text: string): Array<{ name: string; qty: number }> {
     } else {
       const a = cols[0] ?? "";
       const b = cols[1] ?? "";
-      if (/^\d+$/.test(a)) {
-        qty = Number(a);
-        name = b;
-      } else if (/^\d+$/.test(b)) {
-        name = a;
-        qty = Number(b);
-      } else {
-        name = a;
-        qty = 1;
-      }
+      if (/^\d+$/.test(a)) { qty = Number(a); name = b; }
+      else if (/^\d+$/.test(b)) { name = a; qty = Number(b); }
+      else { name = a; qty = 1; }
     }
 
     name = name.trim();
@@ -69,51 +52,48 @@ function parseCSV(text: string): Array<{ name: string; qty: number }> {
   return rows;
 }
 
-export async function POST(req: Request) {
-  try {
-    const supabase = await createServerSupabaseClient();
+export async function GET() {
+  return NextResponse.json({ ok: true, route: "collections/upload" }, { status: 200 });
+}
 
-    // auth
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = createClient();
+
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    const user = userRes?.user;
     if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // read form
     const form = await req.formData();
     const collection_id = (form.get("collection_id") as string | null)?.trim();
     const file = form.get("file") as File | null;
 
-    if (!collection_id) return NextResponse.json({ error: "Missing collection_id" }, { status: 400 });
-    if (!file) return NextResponse.json({ error: "Missing file" }, { status: 400 });
+    if (!collection_id) return NextResponse.json({ ok: false, error: "Missing collection_id" }, { status: 400 });
+    if (!file)          return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
 
-    // verify ownership (RLS protects us too; this gives nicer error)
     const { data: col, error: colErr } = await supabase
       .from("collections")
       .select("id")
       .eq("id", collection_id)
       .single();
-    if (colErr || !col) return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+    if (colErr || !col) return NextResponse.json({ ok: false, error: "Collection not found" }, { status: 404 });
 
-    // parse CSV
     const text = await file.text();
     const rows = parseCSV(text);
-    if (!rows.length) return NextResponse.json({ error: "No rows found" }, { status: 400 });
+    if (!rows.length) return NextResponse.json({ ok: false, error: "No rows found" }, { status: 400 });
 
-    // sanity cap (avoid huge accidental uploads)
     const MAX_ROWS = 5000;
     if (rows.length > MAX_ROWS) {
-      return NextResponse.json({ error: `Too many rows (>${MAX_ROWS})` }, { status: 400 });
+      return NextResponse.json({ ok: false, error: `Too many rows (>${MAX_ROWS})` }, { status: 400 });
     }
 
-    // replace current contents
+    // Replace contents
     const del = await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
-    if (del.error) return NextResponse.json({ error: del.error.message }, { status: 400 });
+    if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 200 });
 
-    // chunk inserts to avoid payload limits
+    // Chunk insert
     const chunkSize = 500;
     let inserted = 0;
     for (let i = 0; i < rows.length; i += chunkSize) {
@@ -127,14 +107,13 @@ export async function POST(req: Request) {
         .insert(chunk, { count: "exact" });
 
       if (insErr) {
-        return NextResponse.json({ error: insErr.message, inserted }, { status: 400 });
+        return NextResponse.json({ ok: false, error: insErr.message, inserted }, { status: 200 });
       }
       inserted += count ?? chunk.length;
     }
 
     return NextResponse.json({ ok: true, inserted }, { status: 200 });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unexpected error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 500 });
   }
 }
