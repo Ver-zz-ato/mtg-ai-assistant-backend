@@ -86,13 +86,14 @@ export default function Chat() {
         body: JSON.stringify({ title, deckText, format, plan, colors, currency, is_public: true }),
       });
 
-      const text = await res.text().catch(() => "");
+      const rawText = await res.text().catch(() => "");
       let json: any = {};
-      try { json = text ? JSON.parse(text) : {}; } catch { /* keep raw */ }
+      try { json = rawText ? JSON.parse(rawText) : {}; } catch { /* keep raw */ }
 
-      // Always surface what happened
+      // Always surface what happened; avoid ?? with || precedence issues
       if (!res.ok || json?.ok === false) {
-        alert(`Save failed (HTTP ${res.status}).\n${json?.error ?? text || "Unknown error"}`);
+        const errMsg = (json && (json.error ?? "")) || rawText || "Unknown error";
+        alert(`Save failed (HTTP ${res.status}).\n${errMsg}`);
         return;
       }
 
