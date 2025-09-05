@@ -1,58 +1,35 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
-import { cookies as cookieStore } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
-export const runtime = "nodejs";
-
-function getAllCookies(): Array<{ name: string; value: string }> {
+function getToken() {
+  const jar = cookies();
+  const all = (jar as any).getAll?.() ?? [];
+  const c = all.find((x:any) => x.name.endsWith("-auth-token"));
+  if (!c?.value) return null;
+  const raw = c.value.startsWith("base64-") ? c.value.slice(7) : c.value;
   try {
-    const jar: any = (cookieStore as any)(); // handles Promise/Non-Promise
-    return typeof jar?.getAll === "function" ? jar.getAll() : [];
-  } catch {
-    return [];
-  }
-}
-
-function readAccessTokenFromCookie(): { token: string | null; rawPreview: string } {
-  const all = getAllCookies();
-  const authCookie = all.find((c) => String(c?.name).endsWith("-auth-token"));
-  if (!authCookie?.value) return { token: null, rawPreview: "" };
-
-  let raw = String(authCookie.value);
-  const preview = raw.slice(0, 24);
-  try {
-    if (raw.startsWith("base64-")) {
-      raw = Buffer.from(raw.slice(7), "base64").toString("utf8");
-    }
-    const parsed = JSON.parse(raw);
-    return { token: parsed?.access_token ?? null, rawPreview: preview };
-  } catch {
-    return { token: null, rawPreview: preview };
-  }
+    const parsed = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    return parsed?.access_token ?? parsed?.currentSession?.access_token ?? null;
+  } catch { return null; }
 }
 
 export async function GET() {
-  const supabase = createClient();
-  const all = getAllCookies();
-  const cookie_names = all.map((c) => c.name);
+  const token = getToken();
+  if (!token) return NextResponse.json({ ok:false, token_present:false });
 
-  const { token, rawPreview } = readAccessTokenFromCookie();
+  const sb = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
 
-  let user = null as any;
-  let error: string | null = null;
-
-  if (token) {
-    const { data, error: e } = await supabase.auth.getUser(token);
-    user = data?.user ?? null;
-    error = e?.message ?? null;
-  }
-
+  const { data } = await sb.auth.getUser();
   return NextResponse.json({
     ok: true,
-    token_present: Boolean(token),
-    token_preview: rawPreview,
-    user,
-    error,
-    cookie_names,
+    token_present: true,
+    user_id: data.user?.id ?? null
   });
 }
