@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 type DeckRow = {
   id: string;
-  name?: string | null;
+  title?: string | null;      // NEW: prefer this
+  name?: string | null;       // fallback (older rows)
   format?: string | null;
   commander?: string | null;
   data?: any | null;
@@ -29,7 +30,6 @@ export const dynamic = "force-dynamic";
 export default async function MyDecksPage() {
   const supabase = createClient();
 
-  // ✅ No updated_at dependency
   const { data, error } = await supabase
     .from("decks")
     .select("*")
@@ -64,19 +64,20 @@ export default async function MyDecksPage() {
 
       <ul className="space-y-2">
         {rows.map((r) => {
+          const title = r.title ?? r.name ?? "Untitled deck";
           const commander = guessCommander(r);
           const created = r.created_at ? new Date(r.created_at).toLocaleString() : "";
+
           return (
             <li key={r.id} className="border rounded p-3 flex items-center justify-between">
               <div className="min-w-0">
-                <div className="font-medium truncate">{r.name ?? "Untitled deck"}</div>
+                <div className="font-medium truncate">{title}</div>
                 <div className="text-xs text-gray-500">
                   {(r.format ?? "Commander") + (commander ? ` • ${commander}` : "")}
                 </div>
                 {created && <div className="text-[10px] text-gray-500">{created}</div>}
               </div>
 
-              {/* ✅ Link to the real page, not the POST API */}
               <Link
                 href={`/decks/${encodeURIComponent(r.id)}`}
                 className="text-sm underline underline-offset-4"
