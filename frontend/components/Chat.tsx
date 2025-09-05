@@ -109,6 +109,7 @@ export default function Chat() {
       const res = await fetch("/api/decks/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({
           title,
           deckText,
@@ -120,27 +121,48 @@ export default function Chat() {
         }),
       });
 
-      const j = await res.json().catch(() => ({}));
+      // Read the raw text first so we can show it even if JSON parsing fails
+      const raw = await res.text();
+      let j: any = null;
+      try {
+        j = raw ? JSON.parse(raw) : null;
+      } catch {
+        // non-JSON response; keep raw for debugging
+      }
+
+      // Loud logging to help us debug via DevTools
+      console.log("[SAVE] status:", res.status, "json:", j, "raw:", raw);
 
       if (res.status === 401) {
-        alert(j.error || "Please log in to save decks.");
-        return;
-      }
-      if (!res.ok || j?.ok === false) {
-        // 🔎 Surface the real DB/Supabase error from the API
-        alert(j.error || "Failed to save deck.");
+        alert((j && j.error) || "Please log in to save decks.");
         return;
       }
 
-      const id: string | undefined = j.id;
+      if (!res.ok || (j && j.ok === false)) {
+        const msg =
+          (j && (j.error || j.message)) ||
+          raw ||
+          `Failed to save deck (HTTP ${res.status}).`;
+        alert(msg);
+        return;
+      }
+
+      const id: string | undefined = j?.id;
       if (id) {
         const go = window.confirm("Saved! Open the deck page now?");
-        if (go) window.location.href = `/decks/${encodeURIComponent(id)}`;
-      } else {
-        alert("Saved! You can find it on the My Decks page.");
+        if (go) {
+          window.location.href = `/decks/${encodeURIComponent(id)}`;
+        } else {
+          alert("Saved! You can find it on the My Decks page.");
+        }
+        return;
       }
+
+      // Unexpected success response shape
+      alert("Saved, but no ID returned. Check My Decks.");
     } catch (e: any) {
-      alert(e?.message || "Failed to save deck.");
+      console.error("[SAVE] exception:", e);
+      alert(e?.message || "Failed to save deck (network/exception).");
     }
   }
 
