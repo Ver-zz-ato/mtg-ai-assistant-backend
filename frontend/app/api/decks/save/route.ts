@@ -5,8 +5,6 @@ import { createClient as createSb } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ---- helpers ---------------------------------------------------------------
-
 type CardRow = { name: string; qty: number };
 
 function parseDeckText(text?: string | null): CardRow[] {
@@ -32,7 +30,6 @@ async function getAllCookies(): Promise<Array<{ name: string; value: string }>> 
   return [];
 }
 
-// Decode sb-*-auth-token cookie -> access token
 async function readAccessToken(): Promise<{ token: string | null; preview: string }> {
   const all = await getAllCookies();
   const authCookie = all.find((c) => c.name.endsWith("-auth-token"));
@@ -54,7 +51,6 @@ async function readAccessToken(): Promise<{ token: string | null; preview: strin
   }
 }
 
-// Per-request Supabase client that forwards JWT for RLS
 function sbWithBearer(token: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -64,22 +60,18 @@ function sbWithBearer(token: string) {
   });
 }
 
-// Small timeout so requests never hang forever
 async function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
   let t: any;
   const timeout = new Promise<never>((_, rej) =>
     (t = setTimeout(() => rej(new Error("timeout")), ms))
   );
   try {
-    // race the DB call vs timeout
-    const res = await Promise.race([p, timeout]);
-    return res as T;
+    return (await Promise.race([p, timeout])) as T;
   } finally {
     clearTimeout(t);
   }
 }
 
-// ---- CORS preflight (keeps DevTools happy if browser sends OPTIONS) --------
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -92,7 +84,6 @@ export async function OPTIONS() {
   });
 }
 
-// ---- POST ------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   const { token, preview } = await readAccessToken();
   if (!token) {
@@ -113,7 +104,6 @@ export async function POST(req: NextRequest) {
 
   const dataCards = parseDeckText(deckText);
   const row = {
-    // NOTE: user_id will be filled on the DB side by policy if you prefer; keeping explicit works too
     title: title || "Untitled deck",
     format: format || "Commander",
     plan: plan ?? null,
@@ -138,10 +128,12 @@ export async function POST(req: NextRequest) {
   try {
     const sb = sbWithBearer(token);
 
-    // IMPORTANT: avoid .single(); select minimal fields to keep it quick
-    const { data, error } = await withTimeout(
+    // ⬇️ Explicitly type the Supabase response so TS is happy
+    type SbResp = { data: any; error: { message: string } | null };
+
+    const { data, error } = (await withTimeout<SbResp>(
       sb.from("decks").insert(row).select("id")
-    );
+    )) as SbResp;
 
     if (error) {
       console.log("[DECKS/SAVE] done err:", error.message, "| cookie:", preview);
