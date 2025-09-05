@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies as cookieStore } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSb } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// ---- helpers ---------------------------------------------------------------
 
 type CardRow = { name: string; qty: number };
 
@@ -20,23 +22,18 @@ function parseDeckText(text?: string | null): CardRow[] {
   return out;
 }
 
-/** Next 15-safe cookie reader (handles both sync and promise cookies()) */
+// Next 15-safe cookies()
 async function getAllCookies(): Promise<Array<{ name: string; value: string }>> {
   try {
     const maybe = (cookieStore as any)();
-    const jar =
-      maybe && typeof maybe.then === "function" ? await maybe : maybe;
-    if (jar && typeof jar.getAll === "function") {
-      return jar.getAll();
-    }
-  } catch {
-    // ignore
-  }
+    const jar = typeof maybe?.then === "function" ? await maybe : maybe;
+    if (jar && typeof jar.getAll === "function") return jar.getAll();
+  } catch {}
   return [];
 }
 
-/** Extract Supabase access token from sb-*-auth-token cookie (supports base64- prefixed JSON) */
-async function readAccessTokenFromCookie(): Promise<{ token: string | null; preview: string }> {
+// Decode sb-*-auth-token cookie -> access token
+async function readAccessToken(): Promise<{ token: string | null; preview: string }> {
   const all = await getAllCookies();
   const authCookie = all.find((c) => c.name.endsWith("-auth-token"));
   if (!authCookie?.value) return { token: null, preview: "" };
@@ -57,43 +54,66 @@ async function readAccessTokenFromCookie(): Promise<{ token: string | null; prev
   }
 }
 
+// Per-request Supabase client that forwards JWT for RLS
+function sbWithBearer(token: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createSb(url, anon, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+// Small timeout so requests never hang forever
+async function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
+  let t: any;
+  const timeout = new Promise<never>((_, rej) =>
+    (t = setTimeout(() => rej(new Error("timeout")), ms))
+  );
+  try {
+    // race the DB call vs timeout
+    const res = await Promise.race([p, timeout]);
+    return res as T;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// ---- CORS preflight (keeps DevTools happy if browser sends OPTIONS) --------
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "600",
+    },
+  });
+}
+
+// ---- POST ------------------------------------------------------------------
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
-
-  // --- auth via cookie
-  const { token, preview } = await readAccessTokenFromCookie();
+  const { token, preview } = await readAccessToken();
   if (!token) {
-    return NextResponse.json(
-      { ok: false, error: "Auth session missing!" },
-      { status: 401 }
-    );
+    return NextResponse.json({ ok: false, error: "Auth session missing!" }, { status: 401 });
   }
 
-  // Validate token and get user
-  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-  if (userErr || !userData?.user) {
-    return NextResponse.json(
-      { ok: false, error: userErr?.message || "Auth session invalid" },
-      { status: 401 }
-    );
-  }
-  const user = userData.user;
-
-  // Body
   let body: any;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
-  if (!body?.deckText) {
+
+  const { title, deckText, format, plan, colors, currency, is_public, commander } = body || {};
+  if (!deckText) {
     return NextResponse.json({ ok: false, error: "deck_text is required" }, { status: 400 });
   }
 
-  const { title, deckText, format, plan, colors, currency, is_public, commander } = body;
-
+  const dataCards = parseDeckText(deckText);
   const row = {
-    user_id: user.id,
+    // NOTE: user_id will be filled on the DB side by policy if you prefer; keeping explicit works too
     title: title || "Untitled deck",
     format: format || "Commander",
     plan: plan ?? null,
@@ -101,37 +121,44 @@ export async function POST(req: NextRequest) {
     currency: (currency || "USD") as string,
     is_public: Boolean(is_public),
     commander: commander ?? null,
-
     deck_text: deckText,
-    data: { cards: parseDeckText(deckText) },
+    data: { cards: dataCards },
     meta: { deck_text: deckText, saved_at: new Date().toISOString() },
   };
 
   console.log("[DECKS/SAVE] inserting row outline:", {
-    user_id: row.user_id,
     title: row.title,
     format: row.format,
     is_public: row.is_public,
     commander: row.commander ?? null,
     has_text: !!deckText,
-    cards_count: row.data.cards.length,
+    cards_count: dataCards.length,
   });
 
-  // NOTE: do not use .single() here; some RLS configs make it hang if row isn't selectable.
-  // Also: because this client might still be "anon" for DB calls, RLS insert policy must allow auth via JWT.
-  // If your createClient isn't propagating the JWT, we may switch to a per-request client later.
-  const { data, error } = await supabase.from("decks").insert(row).select("id");
+  try {
+    const sb = sbWithBearer(token);
 
-  if (error) {
-    console.log("[DECKS/SAVE] done err:", error.message, "| cookie:", preview);
-    return NextResponse.json(
-      { ok: false, error: `Insert failed: ${error.message}` },
-      { status: 400 }
+    // IMPORTANT: avoid .single(); select minimal fields to keep it quick
+    const { data, error } = await withTimeout(
+      sb.from("decks").insert(row).select("id")
     );
+
+    if (error) {
+      console.log("[DECKS/SAVE] done err:", error.message, "| cookie:", preview);
+      return NextResponse.json(
+        { ok: false, error: `Insert failed: ${error.message}` },
+        { status: 400 }
+      );
+    }
+
+    const id = Array.isArray(data) && data.length ? (data[0] as any).id : null;
+    console.log("[DECKS/SAVE] done ok:", { id, cookiePreview: preview });
+
+    return NextResponse.json({ ok: true, id }, { status: 200 });
+  } catch (e: any) {
+    const msg = e?.message || String(e);
+    console.log("[DECKS/SAVE] crashed:", msg);
+    const status = msg === "timeout" ? 504 : 500;
+    return NextResponse.json({ ok: false, error: msg }, { status });
   }
-
-  const id = Array.isArray(data) && data.length ? (data[0] as any).id : null;
-  console.log("[DECKS/SAVE] done ok:", { id, cookiePreview: preview });
-
-  return NextResponse.json({ ok: true, id }, { status: 200 });
 }
