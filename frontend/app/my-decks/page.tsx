@@ -1,80 +1,120 @@
-"use client";
-
-import React from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 type DeckRow = {
   id: string;
-  title: string | null;
-  commander: string | null;
-  is_public: boolean;
-  created_at: string;
-  updated_at: string;
+  name?: string | null;
+  format?: string | null;
+  // These may or may not exist in your schema:
+  commander?: string | null;
+  data?: any | null;   // e.g., deck JSON blob
+  meta?: any | null;   // e.g., { commander: "…" }
+  created_at?: string | null;
 };
 
-export default function MyDecksPage() {
-  const [rows, setRows] = React.useState<DeckRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [errorMsg, setErrorMsg] = React.useState("");
+function guessCommander(row: DeckRow): string | null {
+  // Prefer an explicit column if present
+  if (row.commander) return String(row.commander);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setErrorMsg("");
-      try {
-        const r = await fetch("/api/decks/my", { cache: "no-store" });
-        if (r.status === 401) {
-          setErrorMsg("Please sign in to view your decks.");
-          setRows([]);
-        } else {
-          const j = await r.json();
-          if (!j.ok) throw new Error(j.error || "Failed to load decks");
-          if (!cancelled) setRows(j.decks || []);
-        }
-      } catch (e: any) {
-        setErrorMsg(e.message || "Unexpected error");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Common metadata shapes
+  const m1 =
+    row.meta?.commander ??
+    row.meta?.leader ??
+    row.meta?.general ??
+    null;
+  if (m1) return String(m1);
+
+  // Inside a deck JSON
+  const m2 =
+    row.data?.commander ??
+    row.data?.leaders?.[0] ??
+    row.data?.identity?.commander ??
+    null;
+  return m2 ? String(m2) : null;
+}
+
+export const dynamic = "force-dynamic";
+
+export default async function MyDecksPage() {
+  const supabase = createClient();
+
+  // Select "*" so installs without a 'commander' column don't error
+  const { data, error } = await supabase
+    .from("decks")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto p-6">
+        <h1 className="text-xl font-semibold mb-4">My Decks</h1>
+        <p className="text-red-500">{error.message}</p>
+      </div>
+    );
+  }
+
+  const rows = (data ?? []) as DeckRow[];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <h1 className="text-xl font-semibold">My Decks</h1>
-
-      {loading && <div>Loading…</div>}
-      {errorMsg && <div className="text-red-500">{errorMsg}</div>}
-      {!loading && !errorMsg && rows.length === 0 && <div>No decks yet.</div>}
-
-      <div className="space-y-3">
-        {rows.map((d) => (
-          <div key={d.id} className="border rounded p-3 flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="font-medium">{d.title || "Untitled Deck"}</div>
-              <div className="text-xs text-neutral-400">
-                {d.commander ? `Commander: ${d.commander} • ` : ""}
-                Updated {new Date(d.updated_at).toLocaleString()} • {d.is_public ? "Public" : "Private"}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Link
-                className="border px-3 py-1 rounded"
-                href={`/collections/cost-to-finish?deckId=${encodeURIComponent(d.id)}`}
-              >
-                Cost to finish
-              </Link>
-              <Link className="border px-3 py-1 rounded" href={`/api/decks/${encodeURIComponent(d.id)}`}>
-                JSON
-              </Link>
-            </div>
-          </div>
-        ))}
+    <div className="max-w-4xl mx-auto p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">My Decks</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/collections"
+            className="text-sm underline underline-offset-4"
+          >
+            Collections
+          </Link>
+          <Link
+            href="/collections/cost-to-finish"
+            className="text-sm underline underline-offset-4"
+          >
+            Cost to Finish
+          </Link>
+        </div>
       </div>
+
+      {rows.length === 0 && (
+        <div className="text-gray-400">No decks saved yet.</div>
+      )}
+
+      <ul className="space-y-2">
+        {rows.map((r) => {
+          const commander = guessCommander(r);
+          const created =
+            r.created_at ? new Date(r.created_at).toLocaleString() : "";
+
+          return (
+            <li
+              key={r.id}
+              className="border rounded p-3 flex items-center justify-between"
+            >
+              <div className="min-w-0">
+                <div className="font-medium truncate">
+                  {r.name ?? "Untitled deck"}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {(r.format ?? "Commander") +
+                    (commander ? ` • ${commander}` : "")}
+                </div>
+                {created && (
+                  <div className="text-[10px] text-gray-500">{created}</div>
+                )}
+              </div>
+
+              {/* TEMP: point to something viewable until you add a real deck detail page */}
+              <Link
+                href={`/api/decks/save?id=${encodeURIComponent(r.id)}`}
+                className="text-sm underline underline-offset-4"
+                title="Temporary view endpoint"
+              >
+                View
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

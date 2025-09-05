@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Collection = {
   id: string;
@@ -86,7 +87,6 @@ export default function CollectionsPageClient() {
 
       alert(`Uploaded ${data.inserted ?? data.count ?? 0} rows`);
       setFile(null);
-      // optional: refresh anything here if you show card counts later
     } catch (e: any) {
       alert("Upload failed: " + (e.message || e));
     } finally {
@@ -137,7 +137,10 @@ export default function CollectionsPageClient() {
           </div>
         </div>
 
-        <form className="flex flex-col sm:flex-row gap-2 items-stretch" onSubmit={onUpload}>
+        <form
+          className="flex flex-col sm:flex-row gap-2 items-stretch"
+          onSubmit={onUpload}
+        >
           <select
             className="rounded-lg border px-3 py-2 text-sm"
             value={selectedId}
@@ -192,14 +195,25 @@ export default function CollectionsPageClient() {
           <div className="rounded-xl border p-4 text-sm opacity-75">Loading…</div>
         ) : collections.length ? (
           collections.map((c) => {
-            const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+            const created = c.created_at
+              ? new Date(c.created_at).toLocaleString()
+              : "";
             return (
-              <div key={c.id} className="rounded-xl border p-4 flex items-center justify-between">
+              <div
+                key={c.id}
+                className="rounded-xl border p-4 flex items-center justify-between"
+              >
                 <div className="min-w-0">
                   <div className="font-medium truncate">{c.name}</div>
                   <div className="text-xs opacity-70">{created}</div>
                 </div>
-                {/* Future: add a /collections/[id] detail page link */}
+                <Link
+                  href={`/collections/${encodeURIComponent(c.id)}`}
+                  className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5"
+                  title="View collection"
+                >
+                  View
+                </Link>
               </div>
             );
           })
