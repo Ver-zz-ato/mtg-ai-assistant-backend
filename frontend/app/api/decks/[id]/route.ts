@@ -1,26 +1,38 @@
+// app/api/decks/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type CardRow = { name: string; qty: number };
-function parseDeckText(text?: string | null): CardRow[] {
-  if (!text) return [];
-  return text.split(/\r?\n/).map((line) => {
-    const t = line.trim();
-    const m = t.match(/^(\d+)\s+(.+)$/);
-    return m ? { qty: Number(m[1]), name: m[2] } : { qty: 1, name: t };
-  }).filter(c => c.name);
-}
+type Params = { params: { id: string } };
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createClient();
-  const { data, error } = await supabase.from("decks").select("*").eq("id", params.id).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ deck: data }, { status: 200, headers: { "Cache-Control": "no-store" } });
-}
+// GET /api/decks/:id
+// Returns the deck if it's public, or if it belongs to the signed-in user.
+export async function GET(_req: NextRequest, { params }: Params) {
+  const deckId = params.id;
+  if (!deckId) {
+    return NextResponse.json({ error: "Missing deck id" }, { status: 400 });
+  }
 
-// Backward-compatible SAVE (some UIs still POST to /api/decks/[id])
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createClient();
+
+  // best-effort auth (user may be null for public decks)
   const { data: auth } = await supabase.auth.getUser();
-  const user = auth?.user;
-  if (!user) return NextResponse.json({ error: "No
+  const user = auth?.user ?? null;
+
+  // Build query: if user exists, allow own deck OR public; otherwise only public
+  let query = supabase.from("decks").select("*").eq("id", deckId).limit(1);
+
+  if (user) {
+    // Supabase OR syntax
+    query = query.or(`is_public.eq.true,user_id.eq.${user.id}`);
+  } else {
+    query = query.eq("is_public", true);
+  }
+
+  const { data, error } = await query.single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, deck: data }, { status: 200 });
+}
