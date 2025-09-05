@@ -18,7 +18,7 @@ type SnapshotMsg = {
     illegalByCI?: number;
     illegalExamples?: string[];
     curveBuckets?: number[];
-    deckText?: string; // <-- store the original analyzed text for saving
+    deckText?: string; // original analyzed text for saving
   };
 };
 
@@ -46,7 +46,18 @@ export default function Chat() {
   function isProbablyDecklist(s: string): boolean {
     const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length < 5) return false;
-    const hints = ["Island", "Swamp", "Plains", "Forest", "Mountain", "Sol Ring", "Arcane Signet", "Swords", "Cultivate", " x "];
+    const hints = [
+      "Island",
+      "Swamp",
+      "Plains",
+      "Forest",
+      "Mountain",
+      "Sol Ring",
+      "Arcane Signet",
+      "Swords",
+      "Cultivate",
+      " x ",
+    ];
     const matches = lines.filter((l) => {
       if (/^\d+\s*x?\s+/.test(l)) return true;
       return hints.some((h) => l.toLowerCase().includes(h.toLowerCase()));
@@ -86,35 +97,51 @@ export default function Chat() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
+    // If your /api/price returns a map, adapt here. Keeping as-is since your existing page expects items.
     return (json?.results ?? []) as PriceItem[];
   }
 
   async function saveDeck(deckText: string) {
     const title = window.prompt("Deck title?", "Untitled Deck");
     if (title === null) return; // user cancelled
-    const res = await fetch("/api/decks/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        deckText,
-        format,
-        plan,
-        colors,
-        currency,
-        is_public: true,
-      }),
-    });
-    if (res.status === 401) {
-      alert("Please log in to save decks.");
-      return;
+
+    try {
+      const res = await fetch("/api/decks/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          deckText,
+          format,
+          plan,
+          colors,
+          currency,
+          is_public: true,
+        }),
+      });
+
+      const j = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        alert(j.error || "Please log in to save decks.");
+        return;
+      }
+      if (!res.ok || j?.ok === false) {
+        // 🔎 Surface the real DB/Supabase error from the API
+        alert(j.error || "Failed to save deck.");
+        return;
+      }
+
+      const id: string | undefined = j.id;
+      if (id) {
+        const go = window.confirm("Saved! Open the deck page now?");
+        if (go) window.location.href = `/decks/${encodeURIComponent(id)}`;
+      } else {
+        alert("Saved! You can find it on the My Decks page.");
+      }
+    } catch (e: any) {
+      alert(e?.message || "Failed to save deck.");
     }
-    if (!res.ok) {
-      alert("Failed to save deck.");
-      return;
-    }
-    const { id } = await res.json();
-    alert("Saved! You can find it on the My Decks page.");
   }
 
   async function send() {
@@ -131,7 +158,12 @@ export default function Chat() {
         if (names.length === 0) {
           setMessages((m) => [
             ...m,
-            { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]] (or comma separated)." },
+            {
+              role: "assistant",
+              type: "text",
+              content:
+                "Usage: /price [[Card Name]], [[Another Card]] (or comma separated).",
+            },
           ]);
         } else {
           const items = await fetchPrices(names);
@@ -140,7 +172,7 @@ export default function Chat() {
       } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
         const deckText = clean.replace(/^\/analyze\s*/i, "");
         const data = await analyzeDeck(deckText);
-        // Store the original text so we can save the deck later
+        // Store original text so Save can use it
         setMessages((m) => [
           ...m,
           { role: "assistant", type: "snapshot", data: { ...data, deckText } },
