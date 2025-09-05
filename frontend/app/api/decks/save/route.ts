@@ -1,8 +1,7 @@
+// app/api/decks/save/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies as cookieStore } from "next/headers";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-
-export const runtime = "nodejs";
 
 type CardRow = { name: string; qty: number };
 
@@ -19,94 +18,112 @@ function parseDeckText(text?: string | null): CardRow[] {
   return out;
 }
 
-function readAccessTokenFromCookie(): string | null {
-  const jar: any = (cookieStore as any)();
-  const all = typeof jar?.getAll === "function" ? jar.getAll() : [];
-  const authCookie = all.find((c: any) => String(c?.name).endsWith("-auth-token"));
-  if (!authCookie?.value) return null;
+/**
+ * Read and decode the sb-* auth cookie that looks like:  base64-<base64json>
+ * Returns a JWT access token if present; otherwise null.
+ */
+function readAccessTokenFromCookie(): { token: string | null; rawPreview: string } {
+  const jar = cookies();
+  const authCookie = jar.getAll().find((c) => c.name.endsWith("-auth-token"));
+  if (!authCookie?.value) return { token: null, rawPreview: "" };
 
-  let raw: string = String(authCookie.value);
+  let raw = authCookie.value;
+  // Newer helpers prefix with "base64-"
+  if (raw.startsWith("base64-")) raw = raw.slice("base64-".length);
+
   try {
-    if (raw.startsWith("base64-")) {
-      raw = Buffer.from(raw.slice(7), "base64").toString("utf8");
-    }
-    const parsed = JSON.parse(raw);
-    return parsed?.access_token ?? null;
+    const decoded = Buffer.from(raw, "base64").toString("utf-8");
+    const parsed = JSON.parse(decoded);
+    // shape: { currentSession: { access_token }, ... } OR { access_token }
+    const token =
+      parsed?.currentSession?.access_token ??
+      parsed?.access_token ??
+      null;
+    return { token, rawPreview: authCookie.value.slice(0, 16) };
   } catch {
-    return null;
+    return { token: null, rawPreview: authCookie.value.slice(0, 16) };
   }
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
-
-  // --- auth
-  const accessToken = readAccessTokenFromCookie();
-  if (!accessToken) {
-    console.error("[DECKS/SAVE] no access token cookie");
-    return NextResponse.json({ ok: false, error: "Auth session missing!" }, { status: 401 });
-  }
-
-  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
-  if (userErr || !userData?.user) {
-    console.error("[DECKS/SAVE] getUser failed:", userErr);
+  const { token, rawPreview } = readAccessTokenFromCookie();
+  if (!token) {
     return NextResponse.json(
-      { ok: false, error: userErr?.message || "Auth session missing!" },
+      { ok: false, error: "Auth session missing (no sb-*-auth-token cookie)" },
       { status: 401 }
     );
   }
-  const user = userData.user;
 
-  // --- body
+  // Create a supabase server client that forwards the end-user JWT
+  const supabase = createClient({ accessToken: token });
+
+  // Resolve the user (this also validates the token)
+  const {
+    data: { user },
+    error: getUserErr,
+  } = await supabase.auth.getUser();
+  if (getUserErr || !user) {
+    return NextResponse.json(
+      { ok: false, error: "Could not resolve user from token" },
+      { status: 401 }
+    );
+  }
+
+  // Parse body
   let body: any;
   try {
     body = await req.json();
   } catch {
-    console.error("[DECKS/SAVE] invalid JSON body");
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { title, deckText, format, plan, colors, currency, is_public, commander } = body || {};
-  if (!deckText) {
-    console.error("[DECKS/SAVE] deck_text missing");
-    return NextResponse.json({ ok: false, error: "deck_text is required" }, { status: 400 });
-  }
-
+  const { title, deckText, format, plan, colors, currency, is_public, commander } = body;
+  const cards = parseDeckText(deckText);
   const row = {
     user_id: user.id,
-    title: title || "Untitled deck",
-    format: format || "Commander",
+    title: (title || "Untitled deck") as string,
+    format: (format || "Commander") as string,
+    is_public: Boolean(is_public),
+    commander: commander ?? null,
+
+    // keep existing columns you already have
+    deck_text: deckText ?? "",
     plan: plan ?? null,
     colors: (colors ?? []) as string[],
     currency: (currency || "USD") as string,
-    is_public: Boolean(is_public),
-    commander: commander ?? null,
-    deck_text: deckText,
-    data: { cards: parseDeckText(deckText) },
-    meta: { deck_text: deckText, saved_at: new Date().toISOString() },
+
+    // nice-to-have JSON mirrors
+    data: { cards },
+    meta: {
+      deck_text: deckText ?? "",
+      saved_at: new Date().toISOString(),
+    },
   };
 
+  // Helpful server-side breadcrumb
   console.log("[DECKS/SAVE] inserting row outline:", {
     user_id: row.user_id,
     title: row.title,
     format: row.format,
     is_public: row.is_public,
-    commander: row.commander,
-    has_text: !!row.deck_text,
-    cards_count: row.data.cards.length,
+    commander: row.commander ?? null,
+    has_text: !!deckText,
+    cards_count: cards.length,
   });
 
-  const { data: inserted, error } = await supabase
-    .from("decks")
-    .insert(row)
-    .select("id")
-    .single();
+  // ⚠️ IMPORTANT: do NOT use .single() here; just read the first element if present.
+  const { data, error } = await supabase.from("decks").insert(row).select("id");
 
   if (error) {
-    console.error("[DECKS/SAVE] insert error:", error);
-    return NextResponse.json({ ok: false, error: "Insert failed: " + error.message }, { status: 400 });
+    console.log("[DECKS/SAVE] done err:", error.message);
+    return NextResponse.json(
+      { ok: false, error: `Insert failed: ${error.message}` },
+      { status: 400 }
+    );
   }
 
-  console.log("[DECKS/SAVE] success id:", inserted?.id);
-  return NextResponse.json({ ok: true, id: inserted?.id }, { status: 200 });
+  const id = Array.isArray(data) && data.length > 0 ? (data[0] as any).id : null;
+  console.log("[DECKS/SAVE] done ok:", { id, cookiePreview: rawPreview });
+
+  return NextResponse.json({ ok: true, id }, { status: 200 });
 }
