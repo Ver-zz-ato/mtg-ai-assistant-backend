@@ -2,22 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
-// If you store more fields, extend this
 type DeckRow = {
   id: string;
   name?: string | null;
   format?: string | null;
   commander?: string | null;
-  data?: any | null;   // often a JSON blob with your deck
-  meta?: any | null;   // e.g., { commander: "…" }
+  data?: any | null;
+  meta?: any | null;
   created_at?: string | null;
 };
 
-// A single card entry
 type DeckCard = { name: string; qty: number };
-
-// --- Helpers ---------------------------------------------------------------
 
 function guessCommander(row: DeckRow): string | null {
   if (row.commander) return String(row.commander);
@@ -32,24 +29,14 @@ function guessCommander(row: DeckRow): string | null {
   return m ? String(m) : null;
 }
 
-/**
- * Try to normalize any likely deck JSON structures into [{name, qty}, ...].
- * Common shapes it supports:
- * - row.data.cards: [{ name, qty }] or [{ name, count }]
- * - row.data.mainboard / row.data.board / row.data.list: arrays of strings like "2 Sol Ring" or objects with {name, qty}
- * - row.data.lines: text list lines "2 Sol Ring"
- */
 function extractCards(row: DeckRow): DeckCard[] {
   const out: DeckCard[] = [];
-
-  // helper to add one
   const push = (name: any, qty: any) => {
     const n = String(name ?? "").trim();
     const q = Number(qty ?? 1);
     if (!n) return;
     out.push({ name: n, qty: Number.isFinite(q) && q > 0 ? q : 1 });
   };
-
   const fromTextLines = (lines: string[]) => {
     for (const line of lines) {
       const t = line.trim();
@@ -60,7 +47,6 @@ function extractCards(row: DeckRow): DeckCard[] {
     }
   };
 
-  // 1) Explicit cards array
   if (Array.isArray(row.data?.cards)) {
     for (const c of row.data.cards) {
       if (typeof c === "string") {
@@ -73,7 +59,6 @@ function extractCards(row: DeckRow): DeckCard[] {
     }
   }
 
-  // 2) Other common buckets: mainboard/board/list
   const buckets = ["mainboard", "board", "list"];
   for (const k of buckets) {
     const v = row.data?.[k];
@@ -90,25 +75,18 @@ function extractCards(row: DeckRow): DeckCard[] {
     }
   }
 
-  // 3) Raw text lines
   if (typeof row.data?.text === "string") {
-    const lines = row.data.text.split(/\r?\n/);
-    fromTextLines(lines);
+    fromTextLines(row.data.text.split(/\r?\n/));
   }
   if (Array.isArray(row.data?.lines)) {
     fromTextLines(row.data.lines.map((x: any) => String(x ?? "")));
   }
-
-  // 4) Fallback: meta.deck_text if you had stored it
   if (!out.length && typeof row.meta?.deck_text === "string") {
     fromTextLines(row.meta.deck_text.split(/\r?\n/));
   }
-
-  // 5) Last-resort: if nothing found and name exists, return empty (header will still render)
   return out;
 }
 
-// Clipboard for “Copy Decklist”
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -118,36 +96,24 @@ async function copyToClipboard(text: string) {
   }
 }
 
-// Build plain-text decklist lines "N Name"
 function buildDeckText(cards: DeckCard[]): string {
   return cards.map((c) => `${c.qty} ${c.name}`).join("\n");
 }
 
-// --- Data fetch (Supabase via API facade) ----------------------------------
-// Using an API route keeps the client page simple. If you prefer server components,
-// you can query Supabase directly in a server page instead.
+// Fetch via API route
 async function fetchDeckById(id: string): Promise<DeckRow | null> {
-  // You might already have an API route to read a deck. If not, here’s a minimal
-  // one-liner using your existing analyze/save endpoints is not ideal, so we’ll
-  // hit a dedicated read route if you create it. For now, call a generic route.
-
-  // If you do NOT have /api/decks/get, change this to your actual endpoint or
-  // swap this page to a server component to query Supabase directly.
   const res = await fetch(`/api/decks/get?id=${encodeURIComponent(id)}`, {
     cache: "no-store",
   }).catch(() => null);
-
   if (!res || !res.ok) return null;
   const j = await res.json().catch(() => null);
-  // Expected shape: { deck: DeckRow } or data
-  const deck = (j?.deck ?? j?.data ?? null) as DeckRow | null;
-  return deck;
+  return (j?.deck ?? j?.data ?? null) as DeckRow | null;
 }
 
-// --- Page ------------------------------------------------------------------
+export default function DeckDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = decodeURIComponent(String(params.id));
 
-export default function DeckDetailPage({ params }: { params: { id: string } }) {
-  const id = decodeURIComponent(params.id);
   const [deck, setDeck] = useState<DeckRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -179,9 +145,7 @@ export default function DeckDetailPage({ params }: { params: { id: string } }) {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
-          {deck?.name ?? "Deck"}
-        </h1>
+        <h1 className="text-2xl font-semibold">{deck?.name ?? "Deck"}</h1>
         <div className="flex items-center gap-3">
           <Link href="/my-decks" className="text-sm underline underline-offset-4">
             ← My Decks

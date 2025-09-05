@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
 type CardRow = { name: string; qty: number };
 
-export default function CollectionDetailPage({ params }: { params: { id: string } }) {
-  const collectionId = decodeURIComponent(params.id);
+export default function CollectionDetailPage() {
+  const params = useParams<{ id: string }>();
+  const collectionId = decodeURIComponent(String(params.id));
   const [cards, setCards] = useState<CardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -23,7 +25,6 @@ export default function CollectionDetailPage({ params }: { params: { id: string 
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || res.statusText);
 
-        // Adjust mapping if your API returns a different shape
         const rows: CardRow[] = (j.cards ?? j.data ?? []).map((r: any) => ({
           name: String(r.name ?? r.card_name ?? r.card ?? ""),
           qty: Number(r.qty ?? r.quantity ?? r.count ?? r.owned ?? 0),
