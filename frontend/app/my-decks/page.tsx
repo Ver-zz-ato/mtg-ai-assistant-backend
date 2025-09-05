@@ -5,32 +5,23 @@ type DeckRow = {
   id: string;
   name?: string | null;
   format?: string | null;
-  // These may or may not exist in your schema:
   commander?: string | null;
-  data?: any | null;   // e.g., deck JSON blob
-  meta?: any | null;   // e.g., { commander: "…" }
+  data?: any | null;
+  meta?: any | null;
   created_at?: string | null;
 };
 
 function guessCommander(row: DeckRow): string | null {
-  // Prefer an explicit column if present
   if (row.commander) return String(row.commander);
-
-  // Common metadata shapes
-  const m1 =
+  const m =
     row.meta?.commander ??
     row.meta?.leader ??
     row.meta?.general ??
-    null;
-  if (m1) return String(m1);
-
-  // Inside a deck JSON
-  const m2 =
     row.data?.commander ??
     row.data?.leaders?.[0] ??
     row.data?.identity?.commander ??
     null;
-  return m2 ? String(m2) : null;
+  return m ? String(m) : null;
 }
 
 export const dynamic = "force-dynamic";
@@ -38,7 +29,7 @@ export const dynamic = "force-dynamic";
 export default async function MyDecksPage() {
   const supabase = createClient();
 
-  // Select "*" so installs without a 'commander' column don't error
+  // ✅ No updated_at dependency
   const { data, error } = await supabase
     .from("decks")
     .select("*")
@@ -60,54 +51,36 @@ export default async function MyDecksPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">My Decks</h1>
         <div className="flex items-center gap-3">
-          <Link
-            href="/collections"
-            className="text-sm underline underline-offset-4"
-          >
+          <Link href="/collections" className="text-sm underline underline-offset-4">
             Collections
           </Link>
-          <Link
-            href="/collections/cost-to-finish"
-            className="text-sm underline underline-offset-4"
-          >
+          <Link href="/collections/cost-to-finish" className="text-sm underline underline-offset-4">
             Cost to Finish
           </Link>
         </div>
       </div>
 
-      {rows.length === 0 && (
-        <div className="text-gray-400">No decks saved yet.</div>
-      )}
+      {rows.length === 0 && <div className="text-gray-400">No decks saved yet.</div>}
 
       <ul className="space-y-2">
         {rows.map((r) => {
           const commander = guessCommander(r);
-          const created =
-            r.created_at ? new Date(r.created_at).toLocaleString() : "";
-
+          const created = r.created_at ? new Date(r.created_at).toLocaleString() : "";
           return (
-            <li
-              key={r.id}
-              className="border rounded p-3 flex items-center justify-between"
-            >
+            <li key={r.id} className="border rounded p-3 flex items-center justify-between">
               <div className="min-w-0">
-                <div className="font-medium truncate">
-                  {r.name ?? "Untitled deck"}
-                </div>
+                <div className="font-medium truncate">{r.name ?? "Untitled deck"}</div>
                 <div className="text-xs text-gray-500">
-                  {(r.format ?? "Commander") +
-                    (commander ? ` • ${commander}` : "")}
+                  {(r.format ?? "Commander") + (commander ? ` • ${commander}` : "")}
                 </div>
-                {created && (
-                  <div className="text-[10px] text-gray-500">{created}</div>
-                )}
+                {created && <div className="text-[10px] text-gray-500">{created}</div>}
               </div>
 
-              {/* TEMP: point to something viewable until you add a real deck detail page */}
+              {/* ✅ Link to the real page, not the POST API */}
               <Link
-                href={`/api/decks/save?id=${encodeURIComponent(r.id)}`}
+                href={`/decks/${encodeURIComponent(r.id)}`}
                 className="text-sm underline underline-offset-4"
-                title="Temporary view endpoint"
+                title="View deck"
               >
                 View
               </Link>
