@@ -128,12 +128,12 @@ export async function POST(req: NextRequest) {
   try {
     const sb = sbWithBearer(token);
 
-    // ⬇️ Explicitly type the Supabase response so TS is happy
     type SbResp = { data: any; error: { message: string } | null };
 
-    const { data, error } = (await withTimeout<SbResp>(
-      sb.from("decks").insert(row).select("id")
-    )) as SbResp;
+    // 👇 Wrap the thenable in an async IIFE so TS sees a real Promise<SbResp>
+    const { data, error } = await withTimeout<SbResp>(
+      (async () => await sb.from("decks").insert(row).select("id"))()
+    );
 
     if (error) {
       console.log("[DECKS/SAVE] done err:", error.message, "| cookie:", preview);
