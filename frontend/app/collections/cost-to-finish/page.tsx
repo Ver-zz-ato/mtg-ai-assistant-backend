@@ -1,21 +1,26 @@
+// frontend/app/collections/cost-to-finish/page.tsx
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import CostToFinishClient from "./Client";
+import Client from "./Client";
 
 function Inner() {
-  const params = useSearchParams();
-  const deckId = params.get("deck");
-  const collectionId = params.get("collection");
-  return <CostToFinishClient deckId={deckId} collectionId={collectionId} />;
+  const sp = useSearchParams();
+  const deckId = sp.get("deck") ?? undefined;
+  const collectionId = sp.get("collection") ?? undefined;
+
+  return (
+    <Client
+      initialDeckId={deckId}
+      initialCollectionId={collectionId}
+    />
+  );
 }
 
-export default function CostToFinishPage() {
+export default function Page() {
   return (
-    <Suspense fallback={<div className="max-w-4xl mx-auto p-6">Loading…</div>}>
+    <Suspense fallback={null}>
       <Inner />
     </Suspense>
   );
