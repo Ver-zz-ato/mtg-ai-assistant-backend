@@ -1,20 +1,21 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import React from "react";
-
-export const dynamic = "force-dynamic";
 
 type DeckRow = {
   id: string;
   user_id?: string | null;
   title?: string | null;
-  name?: string | null; // legacy support
+  name?: string | null;
   format?: string | null;
   commander?: string | null;
   is_public?: boolean | null;
   deck_text?: string | null;
-  data?: any | null; // { cards?: [{name, qty}], text?: string }
-  meta?: any | null; // { deck_text?: string }
+  data?: any | null;
+  meta?: any | null;
   created_at?: string | null;
 };
 
@@ -22,12 +23,7 @@ function resolveTitle(row: DeckRow): string {
   return (row.title ?? row.name ?? "Untitled deck").trim();
 }
 function resolveText(row: DeckRow): string {
-  return (
-    row.deck_text ??
-    row.meta?.deck_text ??
-    row.data?.text ??
-    ""
-  );
+  return row.deck_text ?? row.meta?.deck_text ?? row.data?.text ?? "";
 }
 function resolveCommander(row: DeckRow): string | null {
   if (row.commander) return String(row.commander);
@@ -44,7 +40,7 @@ function resolveCommander(row: DeckRow): string | null {
 
 function CopyButtons({ deckText, shareUrl }: { deckText: string; shareUrl: string }) {
   "use client";
-  const [msg, setMsg] = React.useState<string>("");
+  const [msg, setMsg] = React.useState("");
 
   async function copyDeck() {
     try {
@@ -66,6 +62,7 @@ function CopyButtons({ deckText, shareUrl }: { deckText: string; shareUrl: strin
       setTimeout(() => setMsg(""), 1500);
     }
   }
+
   return (
     <div className="flex flex-wrap gap-2 items-center">
       <button
@@ -87,7 +84,13 @@ function CopyButtons({ deckText, shareUrl }: { deckText: string; shareUrl: strin
   );
 }
 
-export default async function DeckDetailPage({ params }: { params: { id: string } }) {
+export default async function DeckDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params; // 👈 Next 15: params is a Promise
+
   const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
   const authedId = auth?.user?.id ?? null;
@@ -95,16 +98,20 @@ export default async function DeckDetailPage({ params }: { params: { id: string 
   const { data, error } = await supabase
     .from("decks")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !data) {
     return (
       <div className="max-w-3xl mx-auto p-6">
         <h1 className="text-xl font-semibold mb-2">Deck not found</h1>
-        <div className="text-sm opacity-75">{error?.message || "This deck may be private or deleted."}</div>
+        <div className="text-sm opacity-75">
+          {error?.message || "This deck may be private or deleted."}
+        </div>
         <div className="mt-4">
-          <Link href="/my-decks" className="underline underline-offset-4">My Decks</Link>
+          <Link href="/my-decks" className="underline underline-offset-4">
+            My Decks
+          </Link>
         </div>
       </div>
     );
@@ -116,7 +123,9 @@ export default async function DeckDetailPage({ params }: { params: { id: string 
   const commander = resolveCommander(row);
   const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
   const isOwner = authedId && row.user_id && authedId === row.user_id;
-  const shareUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/decks/${encodeURIComponent(row.id)}`;
+  const shareUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/decks/${encodeURIComponent(
+    row.id
+  )}`;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-5">
@@ -124,7 +133,9 @@ export default async function DeckDetailPage({ params }: { params: { id: string 
         <div className="min-w-0">
           <h1 className="text-xl font-semibold truncate">{title}</h1>
           <div className="text-xs opacity-75">
-            {(row.format ?? "Commander")}{commander ? ` • ${commander}` : ""}{created ? ` • ${created}` : ""}
+            {(row.format ?? "Commander")}
+            {commander ? ` • ${commander}` : ""}
+            {created ? ` • ${created}` : ""}
             {row.is_public ? " • Public" : ""}
           </div>
         </div>
@@ -152,7 +163,9 @@ export default async function DeckDetailPage({ params }: { params: { id: string 
       </div>
 
       <div className="flex items-center gap-4 pt-2">
-        <Link href="/my-decks" className="text-sm underline underline-offset-4">← Back to My Decks</Link>
+        <Link href="/my-decks" className="text-sm underline underline-offset-4">
+          ← Back to My Decks
+        </Link>
         {isOwner ? (
           <span className="text-xs opacity-70">You are the owner.</span>
         ) : (
