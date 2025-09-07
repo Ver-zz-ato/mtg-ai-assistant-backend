@@ -1,117 +1,178 @@
-// app/api/collections/cost-to-finish/route.ts
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server"; // your server-side helper
+// frontend/app/api/collections/cost-to-finish/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
-type InBody = {
-  deckText?: string;
-  deck_text?: string;
-  deckId?: string;
-  deck_id?: string;
-  collectionId?: string;
-  collection_id?: string;
-  currency?: string;
-  useOwned?: boolean;
-  use_owned?: boolean;
-};
+export const runtime = "nodejs"; // avoid Edge, we use Node APIs here
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  try {
-    const body = (await req.json().catch(() => ({}))) as InBody;
-
-    let deckText =
-      body.deckText ??
-      body.deck_text ??
-      "";
-
-    const deckId = body.deckId ?? body.deck_id ?? "";
-    const collectionId = body.collectionId ?? body.collection_id ?? "";
-    const currency = (body.currency ?? "USD").toUpperCase();
-    const useOwned = (body.useOwned ?? body.use_owned ?? true) ? true : false;
-
-    // If deckText not provided but deckId is, fetch it from Supabase
-    if (!deckText && deckId) {
-      const sb = createClient();
-      const { data, error } = await sb
-        .from("decks")
-        .select("deck_text")
-        .eq("id", deckId)
-        .single();
-
-      if (error || !data?.deck_text) {
-        return NextResponse.json(
-          { ok: false, error: "Deck not found or has no deck_text" },
-          { status: 400 }
-        );
-      }
-      deckText = data.deck_text;
+type IncomingBody =
+  | {
+      // camelCase (new)
+      collectionId?: string | null;
+      currency?: string | null;
+      deckText?: string | null;
+      deckId?: string | null;
+      useOwned?: boolean | null;
     }
-
-    if (!collectionId || !deckText) {
-      return NextResponse.json(
-        { ok: false, error: "Missing 'collection_id' or 'deck_text'" },
-        { status: 400 }
-      );
-    }
-
-    // IMPORTANT: point to your separate backend service (not this app)
-    const BACKEND_ORIGIN =
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.BACKEND_ORIGIN ||
-      "";
-
-    if (!BACKEND_ORIGIN) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "BACKEND_ORIGIN/NEXT_PUBLIC_BACKEND_URL not set on frontend. Set it to your backend service origin (e.g. https://mtg-ai-assistant-backend-1.onrender.com).",
-        },
-        { status: 500 }
-      );
-    }
-
-    // Guard against accidental self-call
-    const incomingHost = req.headers.get("host");
-    const upstreamHost = new URL(BACKEND_ORIGIN).host;
-    if (incomingHost && upstreamHost && incomingHost === upstreamHost) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Misconfiguration: BACKEND_ORIGIN points to this same app, causing a loop.",
-        },
-        { status: 500 }
-      );
-    }
-
-    // Old backend endpoint expects snake_case and deck_text
-    const payload = {
-      collection_id: collectionId,
-      deck_text: deckText,
-      currency,
-      use_owned: useOwned,
+  | {
+      // snake_case (legacy)
+      collection_id?: string | null;
+      currency?: string | null;
+      deck_text?: string | null;
+      deck_id?: string | null;
+      use_owned?: boolean | null;
     };
 
-    const r = await fetch(`${BACKEND_ORIGIN}/api/collections/cost`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-      // don't cache; we want live collection numbers
-      cache: "no-store",
-    });
+function getBackendUrl() {
+  // Prefer explicit public env (used by client too), fall back to private one
+  const url =
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+    process.env.BACKEND_URL?.trim();
 
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      return NextResponse.json(
-        { ok: false, error: out?.error || "Upstream call failed" },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json(out);
-  } catch (err: any) {
+  return url || "";
+}
+
+function snake<T extends Record<string, any>>(o: T) {
+  // minimal mapper camelCase -> snake_case
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(o)) {
+    const snakeKey = k
+      .replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
+      .replace(/^_/, "");
+    out[snakeKey] = v;
+  }
+  return out;
+}
+
+async function withTimeout<T>(p: Promise<T>, ms = 15000): Promise<T> {
+  return await Promise.race([
+    p,
+    new Promise<never>((_, rej) =>
+      setTimeout(() => rej(new Error(`Upstream timeout after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+export async function POST(req: NextRequest) {
+  const BACKEND_URL = getBackendUrl();
+  if (!BACKEND_URL) {
     return NextResponse.json(
-      { ok: false, error: err?.message || "Unexpected error" },
-      { status: 500 }
+      {
+        ok: false,
+        error:
+          "BACKEND_ORIGIN/NEXT_PUBLIC_BACKEND_URL not set on frontend. Set it to your backend base URL (e.g. https://mtg-ai-assistant-backend-1.onrender.com).",
+      },
+      { status: 500 },
     );
   }
+
+  let body: IncomingBody;
+  try {
+    body = (await req.json()) as IncomingBody;
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
+
+  // Accept both shapes (camelCase and snake_case)
+  const collectionId =
+    ("collectionId" in body ? body.collectionId : undefined) ??
+    ("collection_id" in body ? body.collection_id : undefined) ??
+    null;
+
+  const currency =
+    ("currency" in body ? body.currency : undefined) ??
+    (("currency" in body) as any) ??
+    "USD";
+
+  const deckText =
+    ("deckText" in body ? body.deckText : undefined) ??
+    ("deck_text" in body ? body.deck_text : undefined) ??
+    "";
+
+  const deckId =
+    ("deckId" in body ? body.deckId : undefined) ??
+    ("deck_id" in body ? body.deck_id : undefined) ??
+    null;
+
+  const useOwned =
+    ("useOwned" in body ? body.useOwned : undefined) ??
+    ("use_owned" in body ? body.use_owned : undefined) ??
+    true;
+
+  // Minimal validation before forwarding
+  if (!collectionId) {
+    return NextResponse.json(
+      { ok: false, error: "Missing 'collectionId'/'collection_id'." },
+      { status: 400 },
+    );
+  }
+
+  if (!deckText?.trim()) {
+    // We require deck_text because upstream expects it (your earlier 400 proved it).
+    // We still forward deck_id if present, but without deck_text upstream will reject.
+    return NextResponse.json(
+      { ok: false, error: "Missing 'deckText'/'deck_text' (paste your list)." },
+      { status: 400 },
+    );
+  }
+
+  const payloadForBackend = snake({
+    collectionId,
+    currency: currency || "USD",
+    deckText,
+    // Optional extras (harmless if upstream ignores them)
+    deckId,
+    useOwned,
+  });
+
+  try {
+    const upstream = await withTimeout(
+      fetch(`${BACKEND_URL}/api/collections/cost`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payloadForBackend),
+      }),
+      15000,
+    );
+
+    const text = await upstream.text();
+
+    if (!upstream.ok) {
+      // Bubble exact upstream error so we can see what's wrong
+      return NextResponse.json(
+        { ok: false, error: text || `Upstream ${upstream.status}` },
+        { status: upstream.status },
+      );
+    }
+
+    // Try to parse JSON; if not JSON, wrap it
+    try {
+      const json = text ? JSON.parse(text) : {};
+      return NextResponse.json(json);
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON from upstream" },
+        { status: 502 },
+      );
+    }
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message || "Upstream call failed" },
+      { status: 502 },
+    );
+  }
+}
+
+export function GET() {
+  // Helpful hint if someone GETs the route
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        "POST only. Send { collectionId, currency, deckText, useOwned, deckId? }.",
+    },
+    { status: 405 },
+  );
 }
