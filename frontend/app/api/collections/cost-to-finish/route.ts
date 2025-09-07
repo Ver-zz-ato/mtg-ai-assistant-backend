@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // use Node runtime (not Edge)
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type IncomingBody =
@@ -13,7 +13,7 @@ type IncomingBody =
     }
   | {
       collection_id?: string | null;
-      currency?: string | null; // same key in legacy shape
+      currency?: string | null; // same key
       deck_text?: string | null;
       deck_id?: string | null;
       use_owned?: boolean | null;
@@ -22,15 +22,16 @@ type IncomingBody =
 function getBackendUrl() {
   const url =
     process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
-    process.env.BACKEND_URL?.trim();
-  return url || "";
+    process.env.BACKEND_URL?.trim() ||
+    "";
+  return url.replace(/\/+$/, ""); // strip trailing slash
 }
 
-function snake<T extends Record<string, any>>(o: T) {
+function toSnake<T extends Record<string, any>>(o: T) {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(o)) {
-    const snakeKey = k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, "");
-    out[snakeKey] = v;
+    const snake = k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, "");
+    out[snake] = v;
   }
   return out;
 }
@@ -38,15 +39,13 @@ function snake<T extends Record<string, any>>(o: T) {
 async function withTimeout<T>(p: Promise<T>, ms = 15000): Promise<T> {
   return await Promise.race([
     p,
-    new Promise<never>((_, rej) =>
-      setTimeout(() => rej(new Error(`Upstream timeout after ${ms}ms`)), ms),
-    ),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`Upstream timeout after ${ms}ms`)), ms)),
   ]);
 }
 
 export async function POST(req: NextRequest) {
-  const BACKEND_URL = getBackendUrl();
-  if (!BACKEND_URL) {
+  const BACKEND = getBackendUrl();
+  if (!BACKEND) {
     return NextResponse.json(
       {
         ok: false,
@@ -64,15 +63,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Accept camelCase and snake_case
+  // Accept both shapes
   const collectionId =
     ("collectionId" in body ? body.collectionId : undefined) ??
     ("collection_id" in body ? body.collection_id : undefined) ??
     null;
 
-  // currency uses the same key in both shapes; keep it simple
   const currencyRaw = (body as any).currency;
-  const currency: string = typeof currencyRaw === "string" && currencyRaw ? currencyRaw : "USD";
+  const currency: string =
+    typeof currencyRaw === "string" && currencyRaw.trim() ? currencyRaw : "USD";
 
   const deckText =
     ("deckText" in body ? body.deckText : undefined) ??
@@ -102,7 +101,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const payloadForBackend = snake({
+  const payload = toSnake({
     collectionId,
     currency,
     deckText,
@@ -110,42 +109,77 @@ export async function POST(req: NextRequest) {
     useOwned,
   });
 
-  try {
-    const upstream = await withTimeout(
-      fetch(`${BACKEND_URL}/api/collections/cost`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payloadForBackend),
-      }),
-      15000,
-    );
+  // Try a small set of likely backend paths
+  const candidates = [
+    "/api/collections/cost",
+    "/api/collections/cost-to-finish",
+    "/api/cost-to-finish",
+    "/collections/cost",
+    "/collections/cost-to-finish",
+    "/cost-to-finish",
+  ];
 
-    const text = await upstream.text();
-
-    if (!upstream.ok) {
-      return NextResponse.json(
-        { ok: false, error: text || `Upstream ${upstream.status}` },
-        { status: upstream.status },
-      );
-    }
-
+  let lastText = "";
+  for (const path of candidates) {
     try {
-      const json = text ? JSON.parse(text) : {};
-      return NextResponse.json(json);
-    } catch {
-      return NextResponse.json({ ok: false, error: "Invalid JSON from upstream" }, { status: 502 });
+      const res = await withTimeout(
+        fetch(`${BACKEND}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        15000,
+      );
+
+      const txt = await res.text();
+      lastText = txt;
+
+      // If pure 404, keep trying next candidate
+      if (res.status === 404) continue;
+
+      if (!res.ok) {
+        return NextResponse.json(
+          { ok: false, error: txt || `Upstream ${res.status}` },
+          { status: res.status },
+        );
+      }
+
+      // Try to parse JSON; if not JSON, return a helpful error
+      try {
+        const json = txt ? JSON.parse(txt) : {};
+        return NextResponse.json(json);
+      } catch {
+        return NextResponse.json(
+          { ok: false, error: "Invalid JSON from upstream" },
+          { status: 502 },
+        );
+      }
+    } catch (e: any) {
+      lastText = e?.message || String(e);
+      // keep trying the next candidate
     }
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message || "Upstream call failed" },
-      { status: 502 },
-    );
   }
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        "No matching backend endpoint found (tried: " +
+        candidates.join(", ") +
+        "). Last error: " +
+        lastText,
+    },
+    { status: 502 },
+  );
 }
 
 export function GET() {
   return NextResponse.json(
-    { ok: false, error: "POST only. Send { collectionId, currency, deckText, useOwned, deckId? }." },
+    {
+      ok: false,
+      error:
+        "POST only. Send { collectionId, currency, deckText, useOwned, deckId? } to this route.",
+    },
     { status: 405 },
   );
 }
