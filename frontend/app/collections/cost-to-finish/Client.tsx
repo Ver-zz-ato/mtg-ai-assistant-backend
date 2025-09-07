@@ -22,7 +22,7 @@ type Props = {
   /** "USD" | "EUR" etc. */
   initialCurrency?: string;
   /** Collections user can pick from */
-  collections: Collection[];
+  collections?: Collection[];
   /** Preferred / preselected collection id */
   initialCollectionId?: string | null;
 };
