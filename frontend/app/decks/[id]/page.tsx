@@ -1,22 +1,35 @@
-"use client";
-
-import React, { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import React from "react";
+
+export const dynamic = "force-dynamic";
 
 type DeckRow = {
   id: string;
-  name?: string | null;
+  user_id?: string | null;
+  title?: string | null;
+  name?: string | null; // legacy support
   format?: string | null;
   commander?: string | null;
-  data?: any | null;
-  meta?: any | null;
+  is_public?: boolean | null;
+  deck_text?: string | null;
+  data?: any | null; // { cards?: [{name, qty}], text?: string }
+  meta?: any | null; // { deck_text?: string }
   created_at?: string | null;
 };
 
-type DeckCard = { name: string; qty: number };
-
-function guessCommander(row: DeckRow): string | null {
+function resolveTitle(row: DeckRow): string {
+  return (row.title ?? row.name ?? "Untitled deck").trim();
+}
+function resolveText(row: DeckRow): string {
+  return (
+    row.deck_text ??
+    row.meta?.deck_text ??
+    row.data?.text ??
+    ""
+  );
+}
+function resolveCommander(row: DeckRow): string | null {
   if (row.commander) return String(row.commander);
   const m =
     row.meta?.commander ??
@@ -29,197 +42,123 @@ function guessCommander(row: DeckRow): string | null {
   return m ? String(m) : null;
 }
 
-function extractCards(row: DeckRow): DeckCard[] {
-  const out: DeckCard[] = [];
-  const push = (name: any, qty: any) => {
-    const n = String(name ?? "").trim();
-    const q = Number(qty ?? 1);
-    if (!n) return;
-    out.push({ name: n, qty: Number.isFinite(q) && q > 0 ? q : 1 });
-  };
-  const fromTextLines = (lines: string[]) => {
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t) continue;
-      const m = t.match(/^(\d+)\s+(.+)$/);
-      if (m) push(m[2], Number(m[1]));
-      else push(t, 1);
-    }
-  };
+function CopyButtons({ deckText, shareUrl }: { deckText: string; shareUrl: string }) {
+  "use client";
+  const [msg, setMsg] = React.useState<string>("");
 
-  if (Array.isArray(row.data?.cards)) {
-    for (const c of row.data.cards) {
-      if (typeof c === "string") {
-        const m = c.match(/^(\d+)\s+(.+)$/);
-        if (m) push(m[2], Number(m[1]));
-        else push(c, 1);
-      } else if (c && typeof c === "object") {
-        push(c.name ?? c.card ?? c.title, c.qty ?? c.quantity ?? c.count ?? 1);
-      }
+  async function copyDeck() {
+    try {
+      await navigator.clipboard.writeText(deckText);
+      setMsg("Copied decklist");
+      setTimeout(() => setMsg(""), 1200);
+    } catch {
+      setMsg("Copy failed");
+      setTimeout(() => setMsg(""), 1500);
     }
   }
-
-  const buckets = ["mainboard", "board", "list"];
-  for (const k of buckets) {
-    const v = row.data?.[k];
-    if (Array.isArray(v)) {
-      for (const c of v) {
-        if (typeof c === "string") {
-          const m = c.match(/^(\d+)\s+(.+)$/);
-          if (m) push(m[2], Number(m[1]));
-          else push(c, 1);
-        } else if (c && typeof c === "object") {
-          push(c.name ?? c.card ?? c.title, c.qty ?? c.quantity ?? c.count ?? 1);
-        }
-      }
+  async function copyShare() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setMsg("Share link copied");
+      setTimeout(() => setMsg(""), 1200);
+    } catch {
+      setMsg("Copy failed");
+      setTimeout(() => setMsg(""), 1500);
     }
   }
-
-  if (typeof row.data?.text === "string") {
-    fromTextLines(row.data.text.split(/\r?\n/));
-  }
-  if (Array.isArray(row.data?.lines)) {
-    fromTextLines(row.data.lines.map((x: any) => String(x ?? "")));
-  }
-  if (!out.length && typeof row.meta?.deck_text === "string") {
-    fromTextLines(row.meta.deck_text.split(/\r?\n/));
-  }
-  return out;
+  return (
+    <div className="flex flex-wrap gap-2 items-center">
+      <button
+        onClick={copyDeck}
+        className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm"
+        title="Copy decklist to clipboard"
+      >
+        Copy decklist
+      </button>
+      <button
+        onClick={copyShare}
+        className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm"
+        title="Copy public share link"
+      >
+        Share link
+      </button>
+      {msg && <span className="text-xs opacity-75">{msg}</span>}
+    </div>
+  );
 }
 
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
+export default async function DeckDetailPage({ params }: { params: { id: string } }) {
+  const supabase = createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const authedId = auth?.user?.id ?? null;
+
+  const { data, error } = await supabase
+    .from("decks")
+    .select("*")
+    .eq("id", params.id)
+    .single();
+
+  if (error || !data) {
+    return (
+      <div className="max-w-3xl mx-auto p-6">
+        <h1 className="text-xl font-semibold mb-2">Deck not found</h1>
+        <div className="text-sm opacity-75">{error?.message || "This deck may be private or deleted."}</div>
+        <div className="mt-4">
+          <Link href="/my-decks" className="underline underline-offset-4">My Decks</Link>
+        </div>
+      </div>
+    );
   }
-}
 
-function buildDeckText(cards: DeckCard[]): string {
-  return cards.map((c) => `${c.qty} ${c.name}`).join("\n");
-}
-
-// Fetch via API route
-async function fetchDeckById(id: string): Promise<DeckRow | null> {
-  const res = await fetch(`/api/decks/get?id=${encodeURIComponent(id)}`, {
-    cache: "no-store",
-  }).catch(() => null);
-  if (!res || !res.ok) return null;
-  const j = await res.json().catch(() => null);
-  return (j?.deck ?? j?.data ?? null) as DeckRow | null;
-}
-
-export default function DeckDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = decodeURIComponent(String(params.id));
-
-  const [deck, setDeck] = useState<DeckRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setErr("");
-      try {
-        const d = await fetchDeckById(id);
-        if (!d) throw new Error("Deck not found");
-        setDeck(d);
-      } catch (e: any) {
-        setErr(e.message || String(e));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
-
-  const cards = useMemo(() => (deck ? extractCards(deck) : []), [deck]);
-  const deckText = useMemo(() => buildDeckText(cards), [cards]);
-  const commander = deck ? guessCommander(deck) : null;
-
-  const created = deck?.created_at
-    ? new Date(deck.created_at).toLocaleString()
-    : "";
+  const row = data as DeckRow;
+  const title = resolveTitle(row);
+  const text = resolveText(row);
+  const commander = resolveCommander(row);
+  const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
+  const isOwner = authedId && row.user_id && authedId === row.user_id;
+  const shareUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/decks/${encodeURIComponent(row.id)}`;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{deck?.name ?? "Deck"}</h1>
+    <div className="max-w-4xl mx-auto p-6 space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold truncate">{title}</h1>
+          <div className="text-xs opacity-75">
+            {(row.format ?? "Commander")}{commander ? ` • ${commander}` : ""}{created ? ` • ${created}` : ""}
+            {row.is_public ? " • Public" : ""}
+          </div>
+        </div>
         <div className="flex items-center gap-3">
-          <Link href="/my-decks" className="text-sm underline underline-offset-4">
-            ← My Decks
-          </Link>
           <Link
-            href={`/collections/cost-to-finish?deck=${encodeURIComponent(deckText)}`}
+            href={`/collections/cost-to-finish?deck=${encodeURIComponent(row.id)}`}
             className="text-sm underline underline-offset-4"
-            title="Open this deck in Cost to Finish"
+            title="Open Cost to Finish for this deck"
           >
-            Cost to Finish
+            Cost to Finish →
           </Link>
         </div>
       </div>
 
-      {deck && (
-        <div className="text-sm text-gray-600 space-x-2">
-          <span>{deck.format ?? "Commander"}</span>
-          {commander ? <span>• {commander}</span> : null}
-          {created ? <span>• {created}</span> : null}
-        </div>
-      )}
+      <CopyButtons deckText={text} shareUrl={shareUrl} />
 
-      {err && <div className="text-red-500">{err}</div>}
-      {loading && <div className="rounded-xl border p-4 text-sm opacity-75">Loading…</div>}
+      <div className="grid gap-2">
+        <div className="text-sm opacity-75">Decklist</div>
+        <textarea
+          className="w-full h-72 border rounded p-2 font-mono"
+          readOnly
+          value={text}
+          spellCheck={false}
+        />
+      </div>
 
-      {!loading && deck && cards.length === 0 && !err && (
-        <div className="rounded-xl border p-4 text-sm">
-          No card list stored for this deck.
-        </div>
-      )}
-
-      {cards.length > 0 && (
-        <>
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const ok = await copyToClipboard(deckText);
-                alert(ok ? "Decklist copied." : "Failed to copy.");
-              }}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5"
-              title="Copy text decklist"
-            >
-              Copy Decklist
-            </button>
-            <a
-              href={`data:text/plain;charset=utf-8,${encodeURIComponent(deckText)}`}
-              download={`${deck?.name ?? "deck"}.txt`}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5"
-              title="Download as .txt"
-            >
-              Download .txt
-            </a>
-          </div>
-
-          <div className="rounded-xl border">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-3">Card</th>
-                  <th className="text-right py-2 px-3">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cards.map((r, i) => (
-                  <tr key={`${r.name}-${i}`} className="border-b">
-                    <td className="py-1 px-3">{r.name}</td>
-                    <td className="py-1 px-3 text-right">{r.qty}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </main>
+      <div className="flex items-center gap-4 pt-2">
+        <Link href="/my-decks" className="text-sm underline underline-offset-4">← Back to My Decks</Link>
+        {isOwner ? (
+          <span className="text-xs opacity-70">You are the owner.</span>
+        ) : (
+          <span className="text-xs opacity-70">Read-only view.</span>
+        )}
+      </div>
+    </div>
   );
 }

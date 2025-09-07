@@ -35,6 +35,7 @@ export default function CollectionsPageClient() {
 
   useEffect(() => {
     loadCollections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onCreate() {
@@ -137,10 +138,7 @@ export default function CollectionsPageClient() {
           </div>
         </div>
 
-        <form
-          className="flex flex-col sm:flex-row gap-2 items-stretch"
-          onSubmit={onUpload}
-        >
+        <form className="flex flex-col sm:flex-row gap-2 items-stretch" onSubmit={onUpload}>
           <select
             className="rounded-lg border px-3 py-2 text-sm"
             value={selectedId}
@@ -184,8 +182,7 @@ export default function CollectionsPageClient() {
 
         <div className="text-xs opacity-70">
           CSV headers accepted: <code>name,qty</code> (also <code>quantity</code>,{" "}
-          <code>count</code>, <code>owned</code>). Bare lines like <code>2,Sol Ring</code> also
-          work.
+          <code>count</code>, <code>owned</code>). Bare lines like <code>2,Sol Ring</code> also work.
         </div>
       </div>
 
@@ -195,26 +192,22 @@ export default function CollectionsPageClient() {
           <div className="rounded-xl border p-4 text-sm opacity-75">Loading…</div>
         ) : collections.length ? (
           collections.map((c) => {
-            const created = c.created_at
-              ? new Date(c.created_at).toLocaleString()
-              : "";
+            const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
             return (
-              <div
+              <Link
                 key={c.id}
-                className="rounded-xl border p-4 flex items-center justify-between"
+                href={`/collections/${encodeURIComponent(c.id)}`}
+                className="block rounded-xl border p-4 hover:bg-black/5 transition-colors"
+                title="View collection"
               >
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{c.name}</div>
-                  <div className="text-xs opacity-70">{created}</div>
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{c.name}</div>
+                    <div className="text-xs opacity-70">{created}</div>
+                  </div>
+                  <div className="text-sm underline underline-offset-4">Open →</div>
                 </div>
-                <Link
-                  href={`/collections/${encodeURIComponent(c.id)}`}
-                  className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5"
-                  title="View collection"
-                >
-                  View
-                </Link>
-              </div>
+              </Link>
             );
           })
         ) : (
