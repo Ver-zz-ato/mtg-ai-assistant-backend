@@ -1,115 +1,133 @@
-// Force Node runtime (we need cookies + Supabase server client)
+// Force Node runtime (supabase & libs need Node APIs; avoids Edge errors)
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { NextResponse } from "next/server";
 
-type InBody = {
-  deckText?: string;
-  deck_text?: string;
-  deckId?: string;
-  deck_id?: string;
-  collectionId?: string;
-  collection_id?: string;
-  currency?: string;
-  useOwned?: boolean;
-  use_owned?: boolean;
+/**
+ * Proxies to the Python backend and normalizes the shape so the UI always gets:
+ * {
+ *   ok: boolean,
+ *   currency: string,
+ *   usedOwned: boolean,
+ *   total: number,
+ *   rows: Array<{ card: string; need: number; unit: number; subtotal: number }>
+ * }
+ */
+
+type RawRow = {
+  card?: string;
+  name?: string;
+  card_name?: string;
+
+  need?: number | string;
+  qty?: number | string;
+  quantity?: number | string;
+
+  unit?: number | string;
+  price?: number | string;
+
+  subtotal?: number | string;
+  total?: number | string;
+  sum?: number | string;
 };
 
-function backendBase(): string {
-  // Use the same var you configured on Render; no trailing slash.
-  const url =
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    process.env.BACKEND_URL ||
-    "http://localhost:3001";
-  return url.replace(/\/$/, "");
+function toNum(v: unknown, fallback = 0): number {
+  const n =
+    typeof v === "string"
+      ? Number(v)
+      : typeof v === "number"
+      ? v
+      : Number.NaN;
+  return Number.isFinite(n) ? n : fallback;
 }
 
-export async function POST(req: NextRequest) {
+function normalizeRows(anyRows: unknown): Array<{
+  card: string;
+  need: number;
+  unit: number;
+  subtotal: number;
+}> {
+  const rows: RawRow[] = Array.isArray(anyRows) ? (anyRows as RawRow[]) : [];
+  return rows
+    .map((r) => {
+      const card = String(r.card ?? r.name ?? r.card_name ?? "");
+      const need = toNum(r.need ?? r.qty ?? r.quantity, 0);
+      const unit = toNum(r.unit ?? r.price, 0);
+      const subtotal = toNum(r.subtotal ?? r.total ?? r.sum, need * unit);
+      return { card, need, unit, subtotal };
+    })
+    .filter((r) => r.card.length > 0);
+}
+
+export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as InBody;
+    const body = (await req.json().catch(() => ({}))) as Record<string, any>;
 
-    // Accept both camelCase & snake_case, with sensible defaults
-    let deckText = body.deckText ?? body.deck_text ?? null;
-    const deckId = body.deckId ?? body.deck_id ?? null;
-    const collectionId = body.collectionId ?? body.collection_id ?? null;
-    const currency = (body.currency ?? "USD").toUpperCase();
-    const useOwned =
-      body.useOwned ?? body.use_owned ?? Boolean(collectionId);
+    // Accept both camelCase and snake_case
+    const payload = {
+      deckId: body.deckId ?? body.deck_id ?? undefined,
+      collectionId: body.collectionId ?? body.collection_id ?? undefined,
+      deckText: body.deckText ?? body.deck_text ?? undefined,
+      currency: body.currency ?? "USD",
+      useOwned: Boolean(body.useOwned ?? body.use_owned ?? false),
+    };
 
-    // If no deckText was provided but a deckId was, read it via Supabase under RLS
-    if (!deckText && deckId) {
-      const supabase = createRouteHandlerClient({ cookies });
-      const { data, error } = await supabase
-        .from("decks")
-        .select("deck_text")
-        .eq("id", deckId)
-        .maybeSingle();
+    // Where is the Python backend?
+    const base =
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.BACKEND_ORIGIN ||
+      process.env.BACKEND_URL ||
+      "";
 
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: `Deck lookup failed: ${error.message}` },
-          { status: 400 }
-        );
-      }
-      if (!data || !data.deck_text) {
-        return NextResponse.json(
-          { ok: false, error: "Deck not found or no deck_text" },
-          { status: 404 }
-        );
-      }
-      deckText = data.deck_text as string;
-    }
-
-    if (!deckText || typeof deckText !== "string" || !deckText.trim()) {
+    if (!base) {
       return NextResponse.json(
-        { ok: false, error: "Missing `deckText`/`deck_text`" },
-        { status: 400 }
+        { ok: false, error: "BACKEND URL env not set" },
+        { status: 500 }
       );
     }
 
-    // Build payload for Python backend
-    const payload: Record<string, unknown> = {
-      deck_text: deckText,
-      currency,
-    };
+    const url = base.endsWith("/") ? `${base}api/cost` : `${base}/api/cost`;
 
-    if (useOwned) {
-      if (!collectionId) {
-        return NextResponse.json(
-          { ok: false, error: "useOwned=true requires collectionId" },
-          { status: 400 }
-        );
-      }
-      payload.collection_id = collectionId;
-      payload.use_owned = true;
-    }
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-    const res = await fetch(
-      `${backendBase()}/api/collections/cost`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        // avoid caching; always compute fresh
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
+    if (!upstream.ok) {
+      const text = await upstream.text();
       return NextResponse.json(
-        { ok: false, error: `Upstream error (${res.status}): ${text}` },
+        { ok: false, error: `Upstream ${upstream.status}: ${text}` },
         { status: 502 }
       );
     }
 
-    const out = await res.json();
-    return NextResponse.json(out, { status: 200 });
+    const raw = (await upstream.json().catch(() => ({}))) as Record<
+      string,
+      any
+    >;
+
+    // Normalize response
+    const currency = raw.currency ?? payload.currency ?? "USD";
+    const usedOwned = Boolean(
+      raw.usedOwned ?? raw.useOwned ?? payload.useOwned ?? false
+    );
+    const rows = normalizeRows(raw.rows ?? raw.items ?? raw.lines);
+    const total =
+      typeof raw.total === "number"
+        ? raw.total
+        : rows.reduce((s, r) => s + r.subtotal, 0);
+
+    return NextResponse.json({
+      ok: raw.ok !== false,
+      currency,
+      usedOwned,
+      total,
+      rows,
+    });
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: e?.message ?? "Unhandled error" },
+      { ok: false, error: e?.message ?? "proxy failed" },
       { status: 500 }
     );
   }
