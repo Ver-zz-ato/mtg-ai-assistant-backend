@@ -1,62 +1,53 @@
-// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
 
 type Collection = { id: string; name: string };
 
-interface Props {
-  initialDeckId?: string;
-  initialCollectionId?: string;
-  // If you already had initialDeckText prop, keep it too.
-}
+type CostRow = {
+  name: string;
+  need: number;
+  unit: number;      // price per card in selected currency
+  subtotal: number;  // need * unit
+};
 
-export default function Client({
-  initialDeckId,
-  initialCollectionId,
+type ApiOk = { ok: true; items: CostRow[]; total: number };
+type ApiErr = { ok: false; error: string };
+
+type Props = {
+  /** Optional deck ID we navigated in with (?deck=xyz) so the API can look up context */
+  initialDeckId?: string | null;
+  /** Text pasted (or prefilled) into the textarea */
+  initialDeckText?: string;
+  /** "USD" | "EUR" etc. */
+  initialCurrency?: string;
+  /** Collections user can pick from */
+  collections: Collection[];
+  /** Preferred / preselected collection id */
+  initialCollectionId?: string | null;
+};
+
+export default function CostToFinishClient({
+  initialDeckId = null,
+  initialDeckText = "",
+  initialCurrency = "USD",
+  collections,
+  initialCollectionId = null,
 }: Props) {
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
-  const [currency, setCurrency] = useState<"USD" | "GBP" | "EUR">("USD");
-  const [deckText, setDeckText] = useState<string>("");
-  const [rows, setRows] = useState<any[]>([]);
-  const [total, setTotal] = useState<number>(0);
-  const [error, setError] = useState<string>("");
-
-  // Load collections (whatever you had before)
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/collections/list");
-      const json = await res.json();
-      if (json?.ok) setCollections(json.collections as Collection[]);
-    })();
-  }, []);
-
-  // If we came in with ?collection=, auto-select it once collections are loaded
-  useEffect(() => {
-    if (!collections.length || !initialCollectionId) return;
-    const hit = collections.find(c => c.id === initialCollectionId);
-    if (hit) setSelectedCollection(hit);
-  }, [collections, initialCollectionId]);
-
-  // (Optional) If you support ?deck= and want to prefill the text box from the deck id,
-  // you could fetch it here. Otherwise the user pastes/edits the text manually.
-  useEffect(() => {
-    (async () => {
-      if (!initialDeckId) return;
-      try {
-        const res = await fetch(`/api/decks/${initialDeckId}`);
-        const json = await res.json();
-        if (json?.ok && json?.deck?.deck_text) setDeckText(json.deck.deck_text);
-      } catch {}
-    })();
-  }, [initialDeckId]);
-
-  const selectedCollectionId: string | undefined =
-    selectedCollection?.id ?? initialCollectionId ?? undefined;
+  const [deckText, setDeckText] = React.useState<string>(initialDeckText ?? "");
+  const [currency, setCurrency] = React.useState<string>(initialCurrency ?? "USD");
+  const [selectedCollectionId, setSelectedCollectionId] = React.useState<string | null>(
+    initialCollectionId ?? (collections[0]?.id ?? null)
+  );
+  const [rows, setRows] = React.useState<CostRow[]>([]);
+  const [total, setTotal] = React.useState<number>(0);
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string>("");
 
   async function computeCost() {
     setError("");
+    setRows([]);
+    setTotal(0);
 
     if (!selectedCollectionId) {
       setError("collectionId required");
@@ -67,93 +58,167 @@ export default function Client({
       return;
     }
 
-    const payload = {
-      deckText,
-      currency,
-      collectionId: selectedCollectionId,  // <-- IMPORTANT
-      deckId: initialDeckId ?? undefined,  // optional
-    };
+    setLoading(true);
+    try {
+      const payload = {
+        deckText,
+        currency,
+        collectionId: selectedCollectionId,
+        deckId: initialDeckId ?? undefined,
+      };
 
-    const res = await fetch("/api/collections/cost-to-finish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
+      // IMPORTANT: make the URL absolute and target the API route, not the page.
+      const apiUrl = new URL(
+        "/api/collections/cost-to-finish",
+        window.location.origin
+      ).toString();
 
-    if (!res.ok || json?.ok === false) {
-      setError(json?.error || `HTTP ${res.status}`);
-      setRows([]);
-      setTotal(0);
-      return;
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let json: ApiOk | ApiErr;
+      try {
+        json = (await res.json()) as ApiOk | ApiErr;
+      } catch {
+        json = { ok: false, error: `Unexpected response (HTTP ${res.status})` };
+      }
+
+      if (!res.ok || json.ok === false) {
+        setError((json as ApiErr)?.error || `HTTP ${res.status}`);
+        return;
+      }
+
+      const ok = json as ApiOk;
+      setRows(ok.items ?? []);
+      setTotal(ok.total ?? 0);
+    } catch (e: any) {
+      setError(e?.message || "Request failed");
+    } finally {
+      setLoading(false);
     }
-
-    // expect: { ok:true, items:[...], total: number }
-    setRows(json.items || []);
-    setTotal(json.total || 0);
   }
 
   return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center gap-3">
-        <select
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value as any)}
-          className="border rounded px-2 py-1 bg-black/20"
-        >
-          <option value="USD">USD</option>
-          <option value="GBP">GBP</option>
-          <option value="EUR">EUR</option>
-        </select>
+    <div className="max-w-5xl mx-auto px-4 pb-12">
+      <div className="flex items-center justify-between gap-3 py-3">
+        <h1 className="text-xl font-semibold">Cost to Finish</h1>
 
-        <select
-          value={selectedCollection?.id ?? ""}
-          onChange={(e) => {
-            const c = collections.find(x => x.id === e.target.value) || null;
-            setSelectedCollection(c);
-          }}
-          className="border rounded px-2 py-1 bg-black/20"
-        >
-          <option value="" disabled>Select collection…</option>
-          {collections.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-400">Currency</label>
+          <select
+            className="rounded border bg-transparent px-2 py-1 text-sm"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
 
-        <button
-          className="px-3 py-1 rounded bg-orange-500"
-          onClick={computeCost}
-        >
-          Compute cost
-        </button>
+          <label className="text-sm text-gray-400 ml-3">Collection</label>
+          <select
+            className="rounded border bg-transparent px-2 py-1 text-sm"
+            value={selectedCollectionId ?? ""}
+            onChange={(e) => setSelectedCollectionId(e.target.value || null)}
+          >
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="rounded bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1.5 disabled:opacity-50"
+            onClick={computeCost}
+            disabled={loading}
+          >
+            {loading ? "Computing…" : "Compute cost"}
+          </button>
+        </div>
       </div>
 
-      {/* Hint line */}
-      {selectedCollectionId ? (
-        <div className="text-xs opacity-70">
-          Using owned quantities from <b>
-            {selectedCollection?.name ??
-              collections.find(c => c.id === selectedCollectionId)?.name ??
-              selectedCollectionId}
-          </b>. Need = deck − owned (never negative).
-        </div>
-      ) : (
-        <div className="text-xs text-red-500">Pick a collection.</div>
-      )}
-
-      {/* Deck text area */}
       <textarea
+        className="w-full h-56 rounded border bg-transparent p-3 text-sm font-mono"
+        placeholder='Paste a decklist, e.g.:
+1 Sol Ring
+1 Arcane Signet
+...'
         value={deckText}
         onChange={(e) => setDeckText(e.target.value)}
-        rows={14}
-        className="w-full border rounded p-2 bg-black/20"
       />
 
-      {error && <div className="text-red-500 text-sm">{error}</div>}
+      <p className="mt-2 text-xs text-gray-400">
+        Using owned quantities from{" "}
+        <span className="font-medium">
+          {collections.find((c) => c.id === selectedCollectionId)?.name ??
+            "(select a collection)"}
+        </span>
+        . Need = deck − owned (never negative).
+      </p>
 
-      {/* Results table (keep your existing rendering) */}
-      {/* ... render rows + total ... */}
+      {error && (
+        <p className="mt-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b border-gray-800">
+              <th className="py-2 pr-3">Card</th>
+              <th className="py-2 pr-3">Need</th>
+              <th className="py-2 pr-3">Unit</th>
+              <th className="py-2 pr-3">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td className="py-3 text-gray-500" colSpan={4}>
+                  {loading ? "Calculating…" : "No missing cards."}
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.name} className="border-b border-gray-900/30">
+                  <td className="py-2 pr-3">{r.name}</td>
+                  <td className="py-2 pr-3">{r.need}</td>
+                  <td className="py-2 pr-3">
+                    {r.unit.toLocaleString(undefined, {
+                      style: "currency",
+                      currency,
+                    })}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {r.subtotal.toLocaleString(undefined, {
+                      style: "currency",
+                      currency,
+                    })}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="py-3 font-semibold" colSpan={3}>
+                Total:
+              </td>
+              <td className="py-3 font-semibold">
+                {total.toLocaleString(undefined, {
+                  style: "currency",
+                  currency,
+                })}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
