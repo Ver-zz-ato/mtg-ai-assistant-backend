@@ -1,170 +1,416 @@
+// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
 import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-type CostRow = { card: string; need: number; unit: number; subtotal: number };
-
-type Props = {
-  collections?: Array<{ id: string; name: string }>;
-  initialDeckId?: string;
-  initialCollectionId?: string;
-  initialCurrency?: string;
+type CostRow = {
+  name: string;
+  need: number;
+  unit: number; // unit price in chosen currency
+  subtotal: number;
+  source?: string;
 };
 
-export default function Client({
-  collections = [],
-  initialDeckId,
-  initialCollectionId,
-  initialCurrency = "USD",
-}: Props) {
-  const [deckText, setDeckText] = React.useState<string>("");
-  const [currency, setCurrency] = React.useState<string>(initialCurrency ?? "USD");
-  const [selectedCollectionId, setSelectedCollectionId] = React.useState<string | null>(
-    initialCollectionId ?? (collections[0]?.id ?? null)
-  );
-  const [rows, setRows] = React.useState<CostRow[]>([]);
-  const [total, setTotal] = React.useState<number>(0);
-  const [error, setError] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false);
+type CostResponse = {
+  ok: boolean;
+  error?: string;
+  currency?: string;
+  rows?: CostRow[];
+  total?: number;
+  usedOwned?: boolean;
+  fx_date?: string;
+  unpriced?: string[];
+};
 
-  async function computeCost() {
-    setIsLoading(true);
+const BACKEND_UI_ROUTE = "/api/collections/cost-to-finish";
+const LS_KEY = "mtgcoach_cost_collectionId";
+
+function formatCurrency(amount: number, currency: string | undefined) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD",
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // Fallback if currency code is weird
+    return `${currency ?? "$"} ${amount.toFixed(2)}`;
+  }
+}
+
+function downloadCSV(filename: string, headers: string[], rows: Array<(string | number)[]>) {
+  const csv = [
+    headers.join(","),
+    ...rows.map((r) =>
+      r
+        .map((cell) => {
+          const s = String(cell ?? "");
+          // escape quotes
+          if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+            return `"${s.replace(/"/g, '""')}"`;
+          }
+          return s;
+        })
+        .join(",")
+    ),
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+// tiny fetch logger for observability
+async function loggedFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const start = performance.now();
+  const res = await fetch(input, init);
+  const ms = Math.round(performance.now() - start);
+  // non-invasive console logging
+  // eslint-disable-next-line no-console
+  console.log(
+    `[cost-to-finish] ${typeof input === "string" ? input : (input as URL).toString()} -> ${res.status} in ${ms}ms`
+  );
+  return res;
+}
+
+export default function Client() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  // inputs
+  const [deckText, setDeckText] = React.useState<string>("");
+  const [deckId, setDeckId] = React.useState<string>("");
+  const [collectionId, setCollectionId] = React.useState<string | null>(null);
+  const [currency, setCurrency] = React.useState<string>("USD");
+  const [useOwned, setUseOwned] = React.useState<boolean>(false);
+
+  // results
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [resp, setResp] = React.useState<CostResponse | null>(null);
+
+  // hydrate from query + localStorage
+  React.useEffect(() => {
+    const qDeck = params.get("deck");
+    const qCollection = params.get("collection");
+    const lsCollection = typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null;
+
+    if (qDeck) setDeckId(qDeck);
+    if (qCollection) {
+      setCollectionId(qCollection);
+      setUseOwned(true);
+    } else if (lsCollection) {
+      setCollectionId(lsCollection);
+      setUseOwned(true);
+      // reflect in URL for shareability
+      const newParams = new URLSearchParams(params.toString());
+      newParams.set("collection", lsCollection);
+      router.replace(`?${newParams.toString()}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // keep localStorage + query in sync when collection changes
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const newParams = new URLSearchParams(params.toString());
+    if (collectionId) {
+      localStorage.setItem(LS_KEY, collectionId);
+      newParams.set("collection", collectionId);
+      router.replace(`?${newParams.toString()}`);
+    } else {
+      localStorage.removeItem(LS_KEY);
+      newParams.delete("collection");
+      router.replace(newParams.toString() ? `?${newParams.toString()}` : "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionId]);
+
+  async function run() {
+    setLoading(true);
     setError(null);
-    setRows([]);
-    setTotal(0);
+    setResp(null);
+
+    // require deckText OR deckId
+    if (!deckText.trim() && !deckId.trim()) {
+      setLoading(false);
+      setError("Please paste deck text or provide a deck id in the URL.");
+      return;
+    }
+
+    const payload = {
+      deckText: deckText.trim() || undefined,
+      deckId: deckId.trim() || undefined,
+      collectionId: collectionId || undefined,
+      useOwned: useOwned && !!collectionId,
+      currency,
+    };
 
     try {
-      const payload: any = {
-        currency,
-      };
-
-      if (deckText.trim()) {
-        payload.deckText = deckText.trim();
-      } else if (initialDeckId) {
-        payload.deckId = initialDeckId;
-      }
-
-      if (selectedCollectionId) {
-        payload.collectionId = selectedCollectionId;
-        payload.useOwned = true; // when a collection is selected, subtract owned
-      }
-
-      const res = await fetch("/api/collections/cost-to-finish", {
+      const r = await loggedFetch(BACKEND_UI_ROUTE, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
+        cache: "no-store",
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        setError(data?.error ?? `Request failed (${res.status})`);
-        return;
-      }
+      const json = (await r.json()) as CostResponse;
 
-      setRows(Array.isArray(data.rows) ? data.rows : []);
-      setTotal(typeof data.total === "number" ? data.total : 0);
+      if (!r.ok || !json.ok) {
+        setError(json.error ?? `Upstream error (${r.status})`);
+        setResp(null);
+      } else {
+        setResp(json);
+      }
     } catch (e: any) {
-      setError(e?.message ?? "Failed to compute");
+      setError(e?.message ?? "Unexpected error");
+      setResp(null);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-semibold mb-4">Cost to Finish</h1>
+  function onExportCSV() {
+    if (!resp?.rows?.length) return;
+    const fname = `cost_to_finish_${new Date().toISOString().slice(0, 10)}.csv`;
+    const rows = resp.rows.map((r) => [
+      r.name,
+      r.need,
+      r.unit,
+      r.subtotal,
+      r.source ?? "",
+    ]);
+    downloadCSV(fname, ["name", "need", "unit", "subtotal", "source"], rows);
+  }
 
-      <div className="flex items-center gap-3 mb-3">
-        {/* Currency */}
-        <label className="text-sm">
-          Currency
-          <select
-            className="ml-2 rounded border px-2 py-1 text-sm"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-          >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-          </select>
-        </label>
+  const totalFmt =
+    resp && resp.total != null ? formatCurrency(resp.total, resp.currency) : null;
 
-        {/* Collection */}
-        <label className="text-sm">
-          Collection
-          <select
-            className="ml-2 rounded border px-2 py-1 text-sm"
-            value={selectedCollectionId ?? ""}
-            onChange={(e) => setSelectedCollectionId(e.target.value || null)}
-          >
-            <option value="">(no collections)</option>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          onClick={computeCost}
-          disabled={isLoading}
-          className="rounded bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm px-3 py-1.5"
-        >
-          {isLoading ? "Computing..." : "Compute cost"}
-        </button>
+  // UI helpers
+  const usingOwnedBanner =
+    useOwned && collectionId ? (
+      <div className="sticky top-0 z-10 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm">
+            Using owned from <span className="font-medium">collection {collectionId}</span>
+            {resp?.usedOwned ? "" : " (selected)"}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setUseOwned(false)}
+              className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/10"
+            >
+              Disable
+            </button>
+            <button
+              onClick={() => {
+                // focus the dropdown below
+                const el = document.getElementById("collectionId");
+                if (el) (el as HTMLSelectElement).focus();
+              }}
+              className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/10"
+            >
+              Change
+            </button>
+          </div>
+        </div>
       </div>
+    ) : null;
 
-      <textarea
-        className="w-full h-56 rounded border p-2 font-mono text-sm mb-2"
-        placeholder="Paste your decklist here (one card per line)…"
-        value={deckText}
-        onChange={(e) => setDeckText(e.target.value)}
-      />
+  return (
+    <div className="space-y-6">
+      {/* Inputs */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm text-gray-400">Deck text</label>
+          <textarea
+            value={deckText}
+            onChange={(e) => setDeckText(e.target.value)}
+            placeholder={`1 Sol Ring
+1 Arcane Signet
+1 Swamp`}
+            className="h-40 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-3 font-mono text-sm outline-none placeholder:text-gray-500"
+          />
+          <p className="text-xs text-gray-500">
+            Or deep-link a public deck with{" "}
+            <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">
+              ?deck=&lt;id&gt;
+            </span>{" "}
+            in the URL.
+          </p>
+        </div>
 
-      <p className="text-xs text-gray-400 mb-3">
-        Using owned quantities from <span className="font-medium">{selectedCollectionId ? "selected collection" : "no collection selected"}</span>.
-        Need = deck − owned (never negative).
-      </p>
+        <div className="space-y-2">
+          <label className="text-sm text-gray-400">Options</label>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <input
+                id="useOwned"
+                type="checkbox"
+                className="h-4 w-4"
+                checked={useOwned}
+                onChange={(e) => setUseOwned(e.target.checked)}
+              />
+              <label htmlFor="useOwned" className="text-sm">
+                Subtract owned (requires a collection id)
+              </label>
+            </div>
 
-      {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+            <div className="flex items-center gap-2">
+              <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
+                Collection ID
+              </label>
+              <input
+                id="collectionId"
+                type="text"
+                value={collectionId ?? ""}
+                onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
+                placeholder="uuid-or-slug"
+                className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
+              />
+            </div>
 
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="border-y">
-            <th className="text-left py-2">Card</th>
-            <th className="text-right py-2">Need</th>
-            <th className="text-right py-2">Unit</th>
-            <th className="text-right py-2">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={4} className="py-6 text-center text-gray-500">
-                {isLoading ? "Working…" : "No items"}
-              </td>
-            </tr>
-          ) : (
-            rows.map((r, idx) => (
-              <tr key={`${r.card}-${idx}`} className="border-t">
-                <td className="py-1">{r.card}</td>
-                <td className="text-right">{r.need}</td>
-                <td className="text-right">${r.unit.toFixed(2)}</td>
-                <td className="text-right">${r.subtotal.toFixed(2)}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-        <tfoot>
-          <tr className="border-t">
-            <td className="py-2 font-semibold">Total:</td>
-            <td />
-            <td />
-            <td className="text-right font-semibold">${total.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
+            <div className="flex items-center gap-2">
+              <label htmlFor="currency" className="w-32 text-sm text-gray-400">
+                Currency
+              </label>
+              <select
+                id="currency"
+                className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+              >
+                {/* extend freely; backend accepts ISO codes */}
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={run}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-60"
+              >
+                {loading ? "Calculating…" : "Compute cost"}
+              </button>
+            </div>
+
+            {error ? (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {error}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      {/* Using owned banner */}
+      {usingOwnedBanner}
+
+      {/* Results */}
+      <section className="space-y-3">
+        {!resp && !loading ? (
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
+            Paste a deck or open a shared deck and click <span className="font-semibold">Compute cost</span>.
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-8 w-48 animate-pulse rounded bg-white/10" />
+            <div className="h-10 w-full animate-pulse rounded bg-white/10" />
+            <div className="h-10 w-full animate-pulse rounded bg-white/10" />
+            <div className="h-10 w-full animate-pulse rounded bg-white/10" />
+          </div>
+        ) : null}
+
+        {resp?.ok && resp.rows && resp.rows.length > 0 ? (
+          <div className="relative overflow-auto rounded-lg border border-white/10">
+            <table className="w-full border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-black/60 backdrop-blur">
+                <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left">
+                  <th className="w-1/2">Card</th>
+                  <th className="w-20">Need</th>
+                  <th className="w-32">Unit</th>
+                  <th className="w-36">Subtotal</th>
+                  <th className="w-40">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resp.rows.map((r, i) => (
+                  <tr
+                    key={`${r.name}-${i}`}
+                    className="odd:bg-white/[0.03] [&>td]:px-3 [&>td]:py-2"
+                  >
+                    <td className="font-medium">{r.name}</td>
+                    <td className="tabular-nums">{r.need}</td>
+                    <td className="tabular-nums">
+                      {formatCurrency(r.unit, resp.currency)}
+                    </td>
+                    <td className="tabular-nums font-semibold">
+                      {formatCurrency(r.subtotal, resp.currency)}
+                    </td>
+                    <td className="text-xs text-gray-400">{r.source ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="sticky bottom-0 bg-black/60 backdrop-blur">
+                <tr className="[&>td]:px-3 [&>td]:py-2">
+                  <td className="text-right font-semibold" colSpan={3}>
+                    Total
+                  </td>
+                  <td className="tabular-nums font-bold">{totalFmt}</td>
+                  <td className="text-xs text-gray-400">
+                    {resp.fx_date ? `FX: ${resp.fx_date}` : ""}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : null}
+
+        {resp?.ok && (!resp.rows || resp.rows.length === 0) && !loading ? (
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="text-sm">
+              No purchasable items detected. If you subtracted owned, you might already have everything. 🎉
+            </div>
+          </div>
+        ) : null}
+
+        {resp?.unpriced && resp.unpriced.length > 0 ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="text-sm font-medium">Unpriced cards</div>
+            <ul className="mt-1 list-disc pl-5 text-sm text-amber-100">
+              {resp.unpriced.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {resp?.rows && resp.rows.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onExportCSV}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
+            >
+              Back to top
+            </button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
