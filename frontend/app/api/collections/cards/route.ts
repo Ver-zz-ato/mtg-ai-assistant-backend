@@ -1,144 +1,224 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const runtime = "nodejs";
-
-// Helpers
+/** Always reply JSON */
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
-function bad(message: string, status = 400) {
-  return json({ ok: false, error: message }, status);
+function bad(msg: string, status = 400) {
+  return json({ ok: false, error: msg }, status);
 }
 
-async function mustAuthed() {
+export const runtime = "nodejs";
+
+/** Helpers */
+const normStr = (v: unknown) =>
+  typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+
+const normQty = (v: unknown) => {
+  if (v === "" || v == null) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+};
+
+async function getAuthedSupabase() {
   const supabase = createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) return { supabase, user: null as any, error: error || new Error("Not authenticated") };
-  return { supabase, user: data.user, error: null as any };
+  const { data: ures, error: uerr } = await supabase.auth.getUser();
+  if (uerr || !ures?.user) return { supabase, user: null as any, err: "Not authenticated" };
+  return { supabase, user: ures.user, err: null as any };
 }
 
-async function ensureCollectionOwner(supabase: ReturnType<typeof createClient>, collectionId: string, userId: string) {
-  const { data: col, error } = await supabase
+/** Verify collection ownership before mutating/reading */
+async function verifyCollection(supabase: any, collectionId: string, userId: string) {
+  const { data, error } = await supabase
     .from("collections")
     .select("id,user_id")
     .eq("id", collectionId)
     .single();
-
-  if (error || !col) return "Collection not found";
-  if (col.user_id !== userId) return "Forbidden";
+  if (error || !data) return "Collection not found";
+  if (data.user_id !== userId) return "Forbidden";
   return null;
 }
 
-// GET  -> list cards in a collection
+/** GET -> list cards in collection */
 export async function GET(req: NextRequest) {
-  const { supabase, user } = await mustAuthed();
-  if (!user) return bad("Not authenticated", 401);
+  const { supabase, user, err } = await getAuthedSupabase();
+  if (err) return bad(err, 401);
 
   const url = new URL(req.url);
-  const collectionId = url.searchParams.get("collectionId");
+  const collectionId = normStr(url.searchParams.get("collectionId"));
   if (!collectionId) return bad("collectionId required");
 
-  const ownerErr = await ensureCollectionOwner(supabase, collectionId, user.id);
-  if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
+  const vcErr = await verifyCollection(supabase, collectionId, user.id);
+  if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
 
-  const { data, error: listErr } = await supabase
+  const { data, error } = await supabase
     .from("collection_cards")
-    .select("id,name,qty")
+    .select("id, name, qty")
     .eq("collection_id", collectionId)
     .order("name", { ascending: true });
 
-  if (listErr) return bad(listErr.message);
+  if (error) return bad(error.message);
   return json({ ok: true, cards: data ?? [] });
 }
 
-// POST -> add/upsert (single or bulk)
+/** POST -> add a single card OR bulk CSV rows */
 export async function POST(req: NextRequest) {
-  const { supabase, user } = await mustAuthed();
-  if (!user) return bad("Not authenticated", 401);
+  const { supabase, user, err } = await getAuthedSupabase();
+  if (err) return bad(err, 401);
 
   let body: any = {};
-  try { body = await req.json(); } catch {}
-  const collectionId = String(body.collectionId || "");
+  try {
+    body = await req.json();
+  } catch {
+    return bad("Invalid JSON");
+  }
+
+  const collectionId = normStr(body.collectionId);
   if (!collectionId) return bad("collectionId required");
 
-  const ownerErr = await ensureCollectionOwner(supabase, collectionId, user.id);
-  if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
+  const vcErr = await verifyCollection(supabase, collectionId, user.id);
+  if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
 
-  const rows = Array.isArray(body.rows)
-    ? body.rows
-    : (body.name ? [{ name: body.name, qty: body.qty ?? 0 }] : []);
+  // Bulk upload: { rows:[{name, qty? | count? | owned?}] }
+  if (Array.isArray(body.rows)) {
+    const rows = body.rows
+      .map((r: any) => ({
+        collection_id: collectionId,
+        name: normStr(r.name),
+        qty: normQty(r.qty ?? r.count ?? r.owned),
+      }))
+      .filter((r: any) => r.name && r.qty > 0);
 
-  const normalized = rows
-    .map((r: any) => ({
-      collection_id: collectionId,
-      name: String(r.name ?? "").trim(),
-      qty: Math.max(0, parseInt(String(r.qty ?? r.count ?? r.owned ?? 0), 10) || 0),
-    }))
-    .filter((r: any) => r.name);
+    if (rows.length === 0) return json({ ok: true, inserted: 0 });
 
-  if (normalized.length === 0) return bad("No valid rows to upsert.");
+    const { error } = await supabase
+      .from("collection_cards")
+      .upsert(rows, { onConflict: "collection_id,name" });
 
-  const { error: upErr } = await supabase
+    if (error) return bad(error.message);
+    return json({ ok: true, inserted: rows.length });
+  }
+
+  // Single add: { name, qty }
+  const name = normStr(body.name);
+  const qty = normQty(body.qty);
+
+  if (!name) return bad("name required");
+  if (qty <= 0) return bad("qty must be > 0");
+
+  const { error } = await supabase
     .from("collection_cards")
-    .upsert(normalized, { onConflict: "collection_id,name", ignoreDuplicates: false });
+    .upsert([{ collection_id: collectionId, name, qty }], {
+      onConflict: "collection_id,name",
+    });
 
-  if (upErr) return bad(upErr.message);
+  if (error) return bad(error.message);
   return json({ ok: true });
 }
 
-// PATCH -> update qty (by id or by {collectionId, name})
+/** PATCH -> change quantity (by id OR by (collectionId+name)) */
 export async function PATCH(req: NextRequest) {
-  const { supabase, user } = await mustAuthed();
-  if (!user) return bad("Not authenticated", 401);
+  const { supabase, user, err } = await getAuthedSupabase();
+  if (err) return bad(err, 401);
 
   let body: any = {};
-  try { body = await req.json(); } catch {}
-  const collectionId = String(body.collectionId || "");
-  const id = body.id ? String(body.id) : null;
-  const name = body.name ? String(body.name) : null;
-  const qty = Math.max(0, parseInt(String(body.qty ?? 0), 10) || 0);
+  try {
+    body = await req.json();
+  } catch {
+    return bad("Invalid JSON");
+  }
 
-  if (!collectionId) return bad("collectionId required");
-  const ownerErr = await ensureCollectionOwner(supabase, collectionId, user.id);
-  if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
+  const id = normStr(body.id);
+  const collectionId = normStr(body.collectionId);
+  const name = normStr(body.name);
+  const qty = normQty(body.qty);
 
-  if (!id && !name) return bad("id or name required");
+  if (!id && !(collectionId && name)) return bad("Provide id OR (collectionId + name)");
 
-  // NOTE: no .select().single().maybeSingle(); just perform update and check error
-  let q = supabase.from("collection_cards").update({ qty });
-  if (id) q = q.eq("id", id);
-  else q = q.eq("collection_id", collectionId).eq("name", name!);
+  if (id) {
+    // Optional ownership check: fetch item -> its collection -> user
+    const { data: item, error: iErr } = await supabase
+      .from("collection_cards")
+      .select("id,collection_id")
+      .eq("id", id)
+      .single();
+    if (iErr || !item) return bad("Item not found", 404);
 
-  const { error: updErr } = await q;
-  if (updErr) return bad(updErr.message);
+    const vcErr = await verifyCollection(supabase, item.collection_id, user.id);
+    if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
 
+    if (qty <= 0) {
+      const { error } = await supabase.from("collection_cards").delete().eq("id", id);
+      if (error) return bad(error.message);
+      return json({ ok: true, deleted: 1 });
+    }
+
+    const { error } = await supabase.from("collection_cards").update({ qty }).eq("id", id);
+    if (error) return bad(error.message);
+    return json({ ok: true });
+  }
+
+  // (collectionId + name)
+  const vcErr = await verifyCollection(supabase, collectionId, user.id);
+  if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
+
+  if (qty <= 0) {
+    const { error } = await supabase
+      .from("collection_cards")
+      .delete()
+      .eq("collection_id", collectionId)
+      .eq("name", name);
+    if (error) return bad(error.message);
+    return json({ ok: true, deleted: 1 });
+  }
+
+  const { error } = await supabase
+    .from("collection_cards")
+    .update({ qty })
+    .eq("collection_id", collectionId)
+    .eq("name", name);
+
+  if (error) return bad(error.message);
   return json({ ok: true });
 }
 
-// DELETE -> remove row (by id or {collectionId, name})
+/** DELETE -> by id OR (collectionId+name) */
 export async function DELETE(req: NextRequest) {
-  const { supabase, user } = await mustAuthed();
-  if (!user) return bad("Not authenticated", 401);
+  const { supabase, user, err } = await getAuthedSupabase();
+  if (err) return bad(err, 401);
 
-  let body: any = {};
-  try { body = await req.json(); } catch {}
-  const collectionId = String(body.collectionId || "");
-  const id = body.id ? String(body.id) : null;
-  const name = body.name ? String(body.name) : null;
+  const url = new URL(req.url);
+  const id = normStr(url.searchParams.get("id"));
+  const collectionId = normStr(url.searchParams.get("collectionId"));
+  const name = normStr(url.searchParams.get("name"));
 
-  if (!collectionId) return bad("collectionId required");
-  const ownerErr = await ensureCollectionOwner(supabase, collectionId, user.id);
-  if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
+  if (!id && !(collectionId && name)) return bad("Provide id OR (collectionId + name)");
 
-  if (!id && !name) return bad("id or name required");
+  if (id) {
+    const { data: item, error: iErr } = await supabase
+      .from("collection_cards")
+      .select("id,collection_id")
+      .eq("id", id)
+      .single();
+    if (iErr || !item) return bad("Item not found", 404);
+    const vcErr = await verifyCollection(supabase, item.collection_id, user.id);
+    if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
 
-  let q = supabase.from("collection_cards").delete();
-  if (id) q = q.eq("id", id);
-  else q = q.eq("collection_id", collectionId).eq("name", name!);
+    const { error } = await supabase.from("collection_cards").delete().eq("id", id);
+    if (error) return bad(error.message);
+    return json({ ok: true });
+  }
 
-  const { error: delErr } = await q;
-  if (delErr) return bad(delErr.message);
+  const vcErr = await verifyCollection(supabase, collectionId, user.id);
+  if (vcErr) return bad(vcErr, vcErr === "Forbidden" ? 403 : 404);
 
+  const { error } = await supabase
+    .from("collection_cards")
+    .delete()
+    .eq("collection_id", collectionId)
+    .eq("name", name);
+
+  if (error) return bad(error.message);
   return json({ ok: true });
 }
