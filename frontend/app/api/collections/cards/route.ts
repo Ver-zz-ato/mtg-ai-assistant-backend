@@ -32,7 +32,7 @@ async function ensureCollectionOwner(supabase: ReturnType<typeof createClient>, 
 
 // GET  -> list cards in a collection
 export async function GET(req: NextRequest) {
-  const { supabase, user, error } = await mustAuthed();
+  const { supabase, user } = await mustAuthed();
   if (!user) return bad("Not authenticated", 401);
 
   const url = new URL(req.url);
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 // POST -> add/upsert (single or bulk)
 export async function POST(req: NextRequest) {
-  const { supabase, user, error } = await mustAuthed();
+  const { supabase, user } = await mustAuthed();
   if (!user) return bad("Not authenticated", 401);
 
   let body: any = {};
@@ -65,8 +65,10 @@ export async function POST(req: NextRequest) {
   const ownerErr = await ensureCollectionOwner(supabase, collectionId, user.id);
   if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
 
-  // rows: [{name, qty}], or single {name, qty}
-  const rows = Array.isArray(body.rows) ? body.rows : (body.name ? [{ name: body.name, qty: body.qty ?? 0 }] : []);
+  const rows = Array.isArray(body.rows)
+    ? body.rows
+    : (body.name ? [{ name: body.name, qty: body.qty ?? 0 }] : []);
+
   const normalized = rows
     .map((r: any) => ({
       collection_id: collectionId,
@@ -77,7 +79,6 @@ export async function POST(req: NextRequest) {
 
   if (normalized.length === 0) return bad("No valid rows to upsert.");
 
-  // Upsert on (collection_id, name)
   const { error: upErr } = await supabase
     .from("collection_cards")
     .upsert(normalized, { onConflict: "collection_id,name", ignoreDuplicates: false });
@@ -103,12 +104,15 @@ export async function PATCH(req: NextRequest) {
   if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
 
   if (!id && !name) return bad("id or name required");
-  const q = supabase.from("collection_cards").update({ qty });
-  if (id) q.eq("id", id);
-  else q.eq("collection_id", collectionId).eq("name", name!);
 
-  const { error: updErr } = await q.select("id").single().maybeSingle();
+  // NOTE: no .select().single().maybeSingle(); just perform update and check error
+  let q = supabase.from("collection_cards").update({ qty });
+  if (id) q = q.eq("id", id);
+  else q = q.eq("collection_id", collectionId).eq("name", name!);
+
+  const { error: updErr } = await q;
   if (updErr) return bad(updErr.message);
+
   return json({ ok: true });
 }
 
@@ -128,11 +132,13 @@ export async function DELETE(req: NextRequest) {
   if (ownerErr) return bad(ownerErr, ownerErr === "Forbidden" ? 403 : 404);
 
   if (!id && !name) return bad("id or name required");
-  const q = supabase.from("collection_cards").delete();
-  if (id) q.eq("id", id);
-  else q.eq("collection_id", collectionId).eq("name", name!);
+
+  let q = supabase.from("collection_cards").delete();
+  if (id) q = q.eq("id", id);
+  else q = q.eq("collection_id", collectionId).eq("name", name!);
 
   const { error: delErr } = await q;
   if (delErr) return bad(delErr.message);
+
   return json({ ok: true });
 }
