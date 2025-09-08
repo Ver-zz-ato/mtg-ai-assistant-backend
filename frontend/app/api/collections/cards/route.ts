@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-/* ----------------------------- helpers ----------------------------- */
+/* ----------------------- small helpers ----------------------- */
 
 const ok = (data: any, init: ResponseInit = { status: 200 }) =>
   NextResponse.json(data, init);
@@ -12,12 +12,26 @@ const err = (message: string, status = 400) =>
 
 type CsvRow = { name: string; qty: number };
 
-/** Tiny CSV parser that tolerates BOM, CRLF, quoted names, and varied headers. */
+async function safeReadJson(req: NextRequest): Promise<any> {
+  try {
+    const ct = req.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) return {};
+    // empty body guard
+    const clone = req.clone();
+    const text = await clone.text();
+    if (!text || !text.trim()) return {};
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+/** tolerant CSV parser (BOM/CRLF/quoted names/loose headers/“2, Sol Ring”) */
 function parseCsv(input: string): CsvRow[] {
   let text = input.replace(/^\uFEFF/, "").trim();
   if (!text) return [];
   const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length === 0) return [];
+  if (!lines.length) return [];
 
   const split = (line: string) => {
     const out: string[] = [];
@@ -29,17 +43,15 @@ function parseCsv(input: string): CsvRow[] {
         else { q = !q; }
       } else if (ch === "," && !q) {
         out.push(cur); cur = "";
-      } else {
-        cur += ch;
-      }
+      } else cur += ch;
     }
     out.push(cur);
-    return out.map((s) => s.trim());
+    return out.map(s => s.trim());
   };
 
-  const header = split(lines[0]).map((h) => h.toLowerCase());
-  const nameIdx = header.findIndex((h) => ["name","card","card name","card_name"].includes(h));
-  const qtyIdx  = header.findIndex((h) => ["qty","quantity","count","owned","have"].includes(h));
+  const header = split(lines[0]).map(h => h.toLowerCase());
+  const nameIdx = header.findIndex(h => ["name","card","card name","card_name"].includes(h));
+  const qtyIdx  = header.findIndex(h => ["qty","quantity","count","owned","have"].includes(h));
   const looksHeader = nameIdx !== -1 || qtyIdx !== -1;
   const start = looksHeader ? 1 : 0;
 
@@ -50,10 +62,10 @@ function parseCsv(input: string): CsvRow[] {
 
     if (looksHeader) {
       name = String(parts[nameIdx] ?? "").replace(/^"|"$/g, "").trim();
-      const rawQty = parts[qtyIdx];
-      qty = Number(rawQty ?? 0);
+      qty = Number(parts[qtyIdx] ?? 0);
     } else {
-      const p = lines[i].split(/[;,]/).map((s) => s.trim());
+      // “2, Sol Ring” or “Sol Ring, 2” or “Sol Ring”
+      const p = lines[i].split(/[;,]/).map(s => s.trim());
       if (p.length === 1) { name = p[0]; qty = 1; }
       else {
         const a = Number(p[0]);
@@ -76,23 +88,24 @@ function parseCsv(input: string): CsvRow[] {
   return Array.from(dedup, ([name, qty]) => ({ name, qty }));
 }
 
-/** Auth + collection ownership */
+/** auth + collection ownership + collectionId resolution (query, JSON, or formdata) */
 async function getAuthedCollection(
   req: NextRequest,
   supabase: ReturnType<typeof createClient>
 ): Promise<{ userId: string; collectionId: string } | Response> {
+
   const { data: ures, error: uerr } = await supabase.auth.getUser();
   const user = ures?.user;
   if (uerr || !user) return err("Not authenticated", 401);
 
   const url = new URL(req.url);
-  let collectionId = url.searchParams.get("collectionId");
+  let collectionId: string | null = url.searchParams.get("collectionId");
 
   if (!collectionId) {
     const ct = req.headers.get("content-type") || "";
     try {
       if (ct.includes("application/json")) {
-        const b = await req.json();
+        const b = await safeReadJson(req);
         if (b?.collectionId) collectionId = String(b.collectionId);
       } else if (ct.includes("multipart/form-data")) {
         const fd = await req.formData();
@@ -101,6 +114,7 @@ async function getAuthedCollection(
       }
     } catch {}
   }
+
   if (!collectionId) return err("collectionId required", 400);
 
   const { data: col, error: colErr } = await supabase
@@ -112,7 +126,7 @@ async function getAuthedCollection(
   if (colErr || !col) return err("Collection not found", 404);
   if (col.user_id !== user.id) return err("Forbidden", 403);
 
-  return { userId: user.id as string, collectionId };
+  return { userId: String(user.id), collectionId };
 }
 
 /* ------------------------------ GET list ------------------------------ */
@@ -143,43 +157,35 @@ export async function POST(req: NextRequest) {
 
   const ct = req.headers.get("content-type") || "";
 
-  // CSV via multipart/form-data
+  // CSV (multipart/form-data)
   if (ct.includes("multipart/form-data")) {
-    try {
-      const fd = await req.formData();
-      const file = fd.get("file");
-      if (!file || !(file instanceof Blob)) return err("file missing");
-      const text = await (file as Blob).text();
-      const rows = parseCsv(text);
-      if (rows.length === 0) return err("No valid rows");
+    const fd = await req.formData().catch(() => null);
+    if (!fd) return err("Invalid form data");
+    const file = fd.get("file");
+    if (!file || !(file instanceof Blob)) return err("file missing");
+    const text = await (file as Blob).text();
+    const rows = parseCsv(text);
+    if (rows.length === 0) return err("No valid rows");
 
-      let inserted = 0;
-      for (const r of rows) {
-        const up = await supabase
-          .from("collection_cards")
-          .upsert(
-            { collection_id: collectionId, name: r.name, qty: r.qty },
-            { onConflict: "collection_id,name" }
-          )
-          .select("id")
-          .single();
-        if (up.error) return err(up.error.message);
-        inserted++;
-      }
-      return ok({ ok: true, inserted });
-    } catch (e: any) {
-      return err(e?.message || "CSV upload failed");
+    // upsert each (keeps it simple; list is small)
+    for (const r of rows) {
+      const { error } = await supabase
+        .from("collection_cards")
+        .upsert(
+          { collection_id: collectionId, name: r.name, qty: r.qty },
+          { onConflict: "collection_id,name" }
+        )
+        .select("id")
+        .single();
+      if (error) return err(error.message);
     }
+    return ok({ ok: true, inserted: rows.length });
   }
 
-  // JSON bulk or single
-  let body: any = {};
-  try {
-    if (ct.includes("application/json")) body = await req.json();
-  } catch {
-    return err("Invalid JSON body");
-  }
+  // JSON
+  const body = await safeReadJson(req);
 
+  // bulk
   if (Array.isArray(body?.rows)) {
     const normalized: CsvRow[] = body.rows
       .map((r: any) => ({
@@ -190,7 +196,7 @@ export async function POST(req: NextRequest) {
 
     if (normalized.length === 0) return err("No valid rows");
 
-    const payload = normalized.map((r: CsvRow) => ({
+    const payload = normalized.map((r) => ({
       collection_id: collectionId,
       name: r.name,
       qty: r.qty,
@@ -204,7 +210,7 @@ export async function POST(req: NextRequest) {
     return ok({ ok: true, inserted: normalized.length });
   }
 
-  // Single add
+  // single add
   const name = String(body?.name ?? "").trim();
   const qty = Math.max(0, Math.floor(Number(body?.qty ?? 0)));
   if (!name) return err("name required");
@@ -224,64 +230,55 @@ export async function POST(req: NextRequest) {
 }
 
 /* ------------------------------ PATCH qty ------------------------------ */
+
 export async function PATCH(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
   if (auth instanceof Response) return auth;
-
   const { collectionId } = auth;
 
-  let body: any = {};
-  try {
-    const ct = req.headers.get("content-type") || "";
-    if (ct.includes("application/json")) body = await req.json();
-  } catch {
-    return err("Invalid JSON body");
-  }
-
+  const body = await safeReadJson(req);
   const id = body?.id ? String(body.id) : null;
   const name = body?.name ? String(body.name) : null;
   const qty = Math.max(0, Math.floor(Number(body?.qty ?? NaN)));
   if (!Number.isFinite(qty)) return err("qty required");
   if (!id && !name) return err("id or name required");
 
-  // Build filters first, then .select()
-  const baseUpdate = supabase.from("collection_cards").update({ qty });
-  const updateBuilder = id
-    ? baseUpdate.eq("id", id)
-    : baseUpdate.eq("collection_id", collectionId).eq("name", name!);
+  let q = supabase
+    .from("collection_cards")
+    .update({ qty })
+    .eq("collection_id", collectionId)
+    .select("id");
 
-  const { error } = await updateBuilder.select("id").single();
+  q = id ? q.eq("id", id) : q.eq("name", name!);
+
+  const { error } = await q.single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
 
 /* ------------------------------ DELETE card ------------------------------ */
+
 export async function DELETE(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
   if (auth instanceof Response) return auth;
-
   const { collectionId } = auth;
 
-  let body: any = {};
-  try {
-    const ct = req.headers.get("content-type") || "";
-    if (ct.includes("application/json")) body = await req.json();
-  } catch {
-    return err("Invalid JSON body");
-  }
-
+  const body = await safeReadJson(req);
   const id = body?.id ? String(body.id) : null;
   const name = body?.name ? String(body.name) : null;
   if (!id && !name) return err("id or name required");
 
-  const baseDelete = supabase.from("collection_cards").delete();
-  const deleteBuilder = id
-    ? baseDelete.eq("id", id)
-    : baseDelete.eq("collection_id", collectionId).eq("name", name!);
+  let q = supabase
+    .from("collection_cards")
+    .delete()
+    .eq("collection_id", collectionId)
+    .select("id");
 
-  const { error } = await deleteBuilder.select("id").single();
+  q = id ? q.eq("id", id) : q.eq("name", name!);
+
+  const { error } = await q.single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
