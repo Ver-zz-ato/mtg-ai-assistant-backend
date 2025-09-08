@@ -14,31 +14,21 @@ type CsvRow = { name: string; qty: number };
 
 /** Tiny CSV parser that tolerates BOM, CRLF, quoted names, and varied headers. */
 function parseCsv(input: string): CsvRow[] {
-  // Drop BOM if present
   let text = input.replace(/^\uFEFF/, "").trim();
   if (!text) return [];
-
-  // Normalize newlines
   const lines = text.split(/\r?\n/).filter(Boolean);
   if (lines.length === 0) return [];
 
-  // Split a CSV line (handles quoted commas)
   const split = (line: string) => {
     const out: string[] = [];
-    let cur = "";
-    let q = false;
+    let cur = "", q = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (q && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          q = !q;
-        }
+        if (q && line[i + 1] === '"') { cur += '"'; i++; }
+        else { q = !q; }
       } else if (ch === "," && !q) {
-        out.push(cur);
-        cur = "";
+        out.push(cur); cur = "";
       } else {
         cur += ch;
       }
@@ -48,45 +38,29 @@ function parseCsv(input: string): CsvRow[] {
   };
 
   const header = split(lines[0]).map((h) => h.toLowerCase());
-  const nameIdx = header.findIndex((h) =>
-    ["name", "card", "card name", "card_name"].includes(h)
-  );
-  const qtyIdx = header.findIndex((h) =>
-    ["qty", "quantity", "count", "owned", "have"].includes(h)
-  );
-
-  const looksLikeHeader = nameIdx !== -1 || qtyIdx !== -1;
-  const start = looksLikeHeader ? 1 : 0;
+  const nameIdx = header.findIndex((h) => ["name","card","card name","card_name"].includes(h));
+  const qtyIdx  = header.findIndex((h) => ["qty","quantity","count","owned","have"].includes(h));
+  const looksHeader = nameIdx !== -1 || qtyIdx !== -1;
+  const start = looksHeader ? 1 : 0;
 
   const rows: CsvRow[] = [];
   for (let i = start; i < lines.length; i++) {
     const parts = split(lines[i]);
-    let name = "";
-    let qty = NaN;
+    let name = "", qty = NaN;
 
-    if (looksLikeHeader) {
+    if (looksHeader) {
       name = String(parts[nameIdx] ?? "").replace(/^"|"$/g, "").trim();
       const rawQty = parts[qtyIdx];
       qty = Number(rawQty ?? 0);
     } else {
-      // bare lines: "2, Sol Ring" | "Sol Ring, 2" | "Sol Ring"
       const p = lines[i].split(/[;,]/).map((s) => s.trim());
-      if (p.length === 1) {
-        name = p[0];
-        qty = 1;
-      } else if (p.length >= 2) {
+      if (p.length === 1) { name = p[0]; qty = 1; }
+      else {
         const a = Number(p[0]);
         const b = Number(p[p.length - 1]);
-        if (Number.isFinite(a) && !Number.isFinite(b)) {
-          qty = a;
-          name = p.slice(1).join(", ");
-        } else if (!Number.isFinite(a) && Number.isFinite(b)) {
-          name = p.slice(0, -1).join(", ");
-          qty = b;
-        } else {
-          name = p.slice(0, -1).join(", ");
-          qty = Number.isFinite(b) ? b : 1;
-        }
+        if (Number.isFinite(a) && !Number.isFinite(b)) { qty = a; name = p.slice(1).join(", "); }
+        else if (!Number.isFinite(a) && Number.isFinite(b)) { name = p.slice(0, -1).join(", "); qty = b; }
+        else { name = p.slice(0, -1).join(", "); qty = Number.isFinite(b) ? b : 1; }
       }
     }
 
@@ -94,17 +68,15 @@ function parseCsv(input: string): CsvRow[] {
     if (!name) continue;
     if (!Number.isFinite(qty)) qty = 1;
     qty = Math.max(0, Math.floor(qty));
-
     rows.push({ name, qty });
   }
 
-  // Dedup by name (last one wins)
   const dedup = new Map<string, number>();
   for (const r of rows) dedup.set(r.name, r.qty);
   return Array.from(dedup, ([name, qty]) => ({ name, qty }));
 }
 
-/** Auth + collection ownership (RLS still enforces; this gives friendly errors). */
+/** Auth + collection ownership */
 async function getAuthedCollection(
   req: NextRequest,
   supabase: ReturnType<typeof createClient>
@@ -113,7 +85,6 @@ async function getAuthedCollection(
   const user = ures?.user;
   if (uerr || !user) return err("Not authenticated", 401);
 
-  // Discover collectionId from query, JSON, or multipart form
   const url = new URL(req.url);
   let collectionId = url.searchParams.get("collectionId");
 
@@ -128,9 +99,7 @@ async function getAuthedCollection(
         const v = fd.get("collectionId");
         if (typeof v === "string") collectionId = v;
       }
-    } catch {
-      // ignore parse errors; we’ll error below if still missing
-    }
+    } catch {}
   }
   if (!collectionId) return err("collectionId required", 400);
 
@@ -184,7 +153,6 @@ export async function POST(req: NextRequest) {
       const rows = parseCsv(text);
       if (rows.length === 0) return err("No valid rows");
 
-      // Upsert each row (defensive against row-size limits)
       let inserted = 0;
       for (const r of rows) {
         const up = await supabase
@@ -204,7 +172,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // JSON: either bulk rows or single add
+  // JSON bulk or single
   let body: any = {};
   try {
     if (ct.includes("application/json")) body = await req.json();
@@ -213,7 +181,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (Array.isArray(body?.rows)) {
-    const normalized = body.rows
+    const normalized: CsvRow[] = body.rows
       .map((r: any) => ({
         name: String(r?.name ?? "").trim(),
         qty: Math.max(0, Math.floor(Number(r?.qty ?? r?.count ?? r?.owned ?? 0))),
@@ -222,7 +190,7 @@ export async function POST(req: NextRequest) {
 
     if (normalized.length === 0) return err("No valid rows");
 
-    const payload = normalized.map((r) => ({
+    const payload = normalized.map((r: CsvRow) => ({
       collection_id: collectionId,
       name: r.name,
       qty: r.qty,
@@ -276,11 +244,9 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(qty)) return err("qty required");
   if (!id && !name) return err("id or name required");
 
-  // Update by id if provided; else by (collectionId+name)
   let q = supabase.from("collection_cards").update({ qty }).select("id");
-
   if (id) q = q.eq("id", id);
-  else q = q.eq("name", name!); // collection ownership is already checked
+  else q = q.eq("name", name!);
 
   const { error } = await q.single();
   if (error) return err(error.message);
