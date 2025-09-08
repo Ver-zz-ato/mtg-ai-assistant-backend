@@ -1,4 +1,3 @@
-// frontend/app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,7 +9,6 @@ const bad = (msg: string, status = 400) => json({ ok: false, error: msg }, statu
 
 type CardRow = { id?: string; name: string; qty: number };
 
-// ---------- helpers ----------
 function cleanName(x: unknown) {
   return String(x ?? "")
     .replace(/\s+/g, " ")
@@ -19,12 +17,9 @@ function cleanName(x: unknown) {
 
 async function getAuthedClient() {
   const supabase = createClient();
-
-  const { data: userRes, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userRes?.user) {
-    throw new Error("Not authenticated");
-  }
-  return { supabase, userId: userRes.user.id as string };
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) throw new Error("Not authenticated");
+  return { supabase, userId: data.user.id as string };
 }
 
 async function assertOwnsCollection(
@@ -42,35 +37,109 @@ async function assertOwnsCollection(
   if (data.user_id !== userId) throw new Error("Forbidden");
 }
 
-// ---------- core handler ----------
+/* ---------- CSV parsing ---------- */
+
+function parseCsv(text: string): CardRow[] {
+  const rows: CardRow[] = [];
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return rows;
+
+  // Helper: split line on comma or tab, but keep inner commas in names simple enough
+  const split = (s: string) => s.split(/\t|,(?![^"]*")/).map((t) => t.replace(/^"|"$/g, "").trim());
+
+  // detect headers
+  const first = split(lines[0]).map((h) => h.toLowerCase());
+  const looksHeader = first.some((h) => ["name", "qty", "count", "owned"].includes(h));
+
+  let start = 0;
+  let nameIdx = -1, qtyIdx = -1;
+  if (looksHeader) {
+    start = 1;
+    nameIdx = first.findIndex((h) => h === "name");
+    qtyIdx = first.findIndex((h) => h === "qty" || h === "count" || h === "owned");
+  }
+
+  for (let i = start; i < lines.length; i++) {
+    const parts = split(lines[i]);
+
+    // headered: read by column
+    if (looksHeader) {
+      const nm = nameIdx >= 0 ? parts[nameIdx] : undefined;
+      const qv = qtyIdx >= 0 ? parts[qtyIdx] : undefined;
+      const name = cleanName(nm);
+      const qty = Number(qv ?? 1);
+      if (name && Number.isFinite(qty)) rows.push({ name, qty });
+      continue;
+    }
+
+    // bare lines:
+    // 1) "2, Sol Ring" or "2\tSol Ring"
+    // 2) "Sol Ring"  -> qty=1
+    const [a, ...rest] = parts;
+    const maybeNum = Number(a);
+    if (Number.isFinite(maybeNum) && rest.length > 0) {
+      rows.push({ name: cleanName(rest.join(" ")), qty: maybeNum });
+    } else {
+      rows.push({ name: cleanName(parts.join(" ")), qty: 1 });
+    }
+  }
+
+  return rows;
+}
+
+/* ---------- body helpers ---------- */
+
+async function readJson(req: NextRequest) {
+  try {
+    return await req.json();
+  } catch {
+    return undefined;
+  }
+}
+
+async function readForm(req: NextRequest) {
+  try {
+    return await req.formData();
+  } catch {
+    return undefined;
+  }
+}
+
+/* ---------- handler ---------- */
+
 async function handle(req: NextRequest) {
   const { supabase, userId } = await getAuthedClient().catch(() => ({} as any));
   if (!supabase || !userId) return bad("Not authenticated", 401);
 
-  // collectionId may arrive via query (?collectionId=) or body
   const url = new URL(req.url);
-  let collectionId = url.searchParams.get("collectionId");
 
-  // Read body (if present) once
+  // try to pick collectionId from query, json, or form
+  let collectionId: string | null = url.searchParams.get("collectionId");
   let body: any = undefined;
+  let form: FormData | undefined;
+
+  // read body if needed
   if (req.method !== "GET") {
-    try {
-      body = await req.json();
+    // heuristics: if multipart, read form; else try JSON
+    const ct = req.headers.get("content-type") || "";
+    if (ct.includes("multipart/form-data")) {
+      form = await readForm(req);
+      if (!collectionId && form?.get("collectionId")) {
+        collectionId = String(form.get("collectionId"));
+      }
+    } else {
+      body = await readJson(req);
       if (!collectionId && body?.collectionId) {
         collectionId = String(body.collectionId);
       }
-    } catch {
-      // no-op: some verbs might not send a body
     }
   }
 
-  // Methods that need collectionId
   const needsCollectionId = ["GET", "POST"];
   if (needsCollectionId.includes(req.method) && !collectionId) {
     return bad("collectionId required");
   }
 
-  // Ownership check (skip for DELETE/PATCH when targeting by row id only? we’ll still verify)
   if (collectionId) {
     try {
       await assertOwnsCollection(supabase, userId, collectionId);
@@ -79,7 +148,7 @@ async function handle(req: NextRequest) {
     }
   }
 
-  // ------- GET: list cards -------
+  /* ----- GET: list cards ----- */
   if (req.method === "GET") {
     const { data, error } = await supabase
       .from("collection_cards")
@@ -91,34 +160,56 @@ async function handle(req: NextRequest) {
     return json({ ok: true, cards: data ?? [] });
   }
 
-  // ------- POST: single add/upsert or bulk upsert -------
+  /* ----- POST: add/upsert (single, bulk-JSON, or CSV form) ----- */
   if (req.method === "POST") {
-    // Bulk upsert payload: { rows: [{name, qty}, ...] }
+    // CSV form-data path: { file, collectionId }
+    if (form && form.get("file") instanceof File) {
+      const file = form.get("file") as File;
+      if (!file) return bad("file required");
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length === 0) return bad("No valid rows in CSV");
+
+      const payload = rows.map((r) => ({
+        collection_id: collectionId!,
+        name: cleanName(r.name),
+        qty: Number(r.qty),
+      }));
+
+      const { error } = await supabase
+        .from("collection_cards")
+        .upsert(payload, { onConflict: "collection_id,name" });
+
+      if (error) return bad(error.message);
+      return json({ ok: true, inserted: rows.length });
+    }
+
+    // Bulk JSON path: { rows: [...] }
     if (Array.isArray(body?.rows)) {
       const rows: CardRow[] = body.rows
         .map((r: any) => ({
           name: cleanName(r?.name),
           qty: Number(r?.qty ?? r?.count ?? r?.owned ?? 0),
         }))
-        .filter((r: CardRow) => r.name && Number.isFinite(r.qty));
+        .filter((r) => r.name && Number.isFinite(r.qty));
 
       if (rows.length === 0) return bad("No valid rows");
 
-      // Upsert by (collection_id, name)
-      const { error } = await supabase.from("collection_cards").upsert(
-        rows.map((r) => ({
-          collection_id: collectionId!,
-          name: r.name,
-          qty: r.qty,
-        })),
-        { onConflict: "collection_id,name" }
-      );
+      const payload = rows.map((r) => ({
+        collection_id: collectionId!,
+        name: r.name,
+        qty: r.qty,
+      }));
+
+      const { error } = await supabase
+        .from("collection_cards")
+        .upsert(payload, { onConflict: "collection_id,name" });
 
       if (error) return bad(error.message);
-      return json({ ok: true });
+      return json({ ok: true, inserted: rows.length });
     }
 
-    // Single upsert: { name, qty }
+    // Single add/upsert: { name, qty }
     const name = cleanName(body?.name);
     const qty = Number(body?.qty);
     if (!name) return bad("name required");
@@ -126,24 +217,31 @@ async function handle(req: NextRequest) {
 
     const { error } = await supabase
       .from("collection_cards")
-      .upsert(
-        [{ collection_id: collectionId!, name, qty }],
-        { onConflict: "collection_id,name" }
-      );
+      .upsert([{ collection_id: collectionId!, name, qty }], {
+        onConflict: "collection_id,name",
+      });
 
     if (error) return bad(error.message);
     return json({ ok: true });
   }
 
-  // ------- PATCH: update qty by row id -------
+  /* ----- PATCH: update qty by row id (JSON or form-data) ----- */
   if (req.method === "PATCH") {
-    const id = String(body?.id || "");
-    const qty = Number(body?.qty);
+    let id: string | undefined;
+    let qty: number | undefined;
+
+    if (form) {
+      id = form.get("id") ? String(form.get("id")) : undefined;
+      qty = form.get("qty") != null ? Number(form.get("qty")) : undefined;
+    } else {
+      id = body?.id ? String(body.id) : undefined;
+      qty = body?.qty != null ? Number(body.qty) : undefined;
+    }
 
     if (!id) return bad("id required");
     if (!Number.isFinite(qty)) return bad("qty must be a number");
 
-    // Optional: verify the row belongs to the same user (defense-in-depth)
+    // Ensure ownership via the row’s collection
     const { data: row, error: rowErr } = await supabase
       .from("collection_cards")
       .select("id,collection_id")
@@ -162,12 +260,14 @@ async function handle(req: NextRequest) {
     return json({ ok: true });
   }
 
-  // ------- DELETE: remove row by id -------
+  /* ----- DELETE: remove row by id (JSON or form-data) ----- */
   if (req.method === "DELETE") {
-    const id = String(body?.id || "");
+    let id: string | undefined;
+    if (form) id = form.get("id") ? String(form.get("id")) : undefined;
+    else id = body?.id ? String(body.id) : undefined;
+
     if (!id) return bad("id required");
 
-    // Optional: verify ownership via the row’s collection
     const { data: row, error: rowErr } = await supabase
       .from("collection_cards")
       .select("id,collection_id")
@@ -189,8 +289,7 @@ async function handle(req: NextRequest) {
   return bad("Method not allowed", 405);
 }
 
-// Export the route handlers
-export async function GET(req: NextRequest)  { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
-export async function POST(req: NextRequest) { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
-export async function PATCH(req: NextRequest){ try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
-export async function DELETE(req: NextRequest){ try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
+export async function GET(req: NextRequest)    { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
+export async function POST(req: NextRequest)   { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
+export async function PATCH(req: NextRequest)  { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
+export async function DELETE(req: NextRequest) { try { return await handle(req); } catch (e: any) { return bad(e?.message || "Unexpected error", 500); } }
