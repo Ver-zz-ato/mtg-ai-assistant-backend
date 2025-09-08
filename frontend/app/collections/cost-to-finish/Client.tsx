@@ -1,17 +1,18 @@
-// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
+type CostRowIn = { name?: string; card?: string; need: number; unit: number; subtotal: number; source?: string };
 type CostRow = { name: string; need: number; unit: number; subtotal: number; source?: string };
-type CostResponse = {
+type CostResponseIn = {
   ok: boolean; error?: string; currency?: string;
-  rows?: CostRow[]; total?: number; usedOwned?: boolean; fx_date?: string; unpriced?: string[];
+  rows?: CostRowIn[]; total?: number; usedOwned?: boolean; fx_date?: string; unpriced?: string[];
 };
 
 type DeckRow = { id: string; title: string | null };
+type DeckWithText = { id: string; title: string | null; deck_text: string | null };
 type CollectionRow = { id: string; name: string | null };
 
 const supabase = createClient(
@@ -62,29 +63,28 @@ export default function Client() {
   // Results
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [resp, setResp] = React.useState<CostResponse | null>(null);
+  const [resp, setResp] = React.useState<{
+    ok: boolean; error?: string; currency?: string;
+    rows?: CostRow[]; total?: number; usedOwned?: boolean; fx_date?: string; unpriced?: string[];
+  } | null>(null);
 
-  // --- Hydrate from URL + localStorage --------------------------------------
+  // Hydrate from URL + localStorage
   React.useEffect(() => {
     const qDeck = params.get("deck");
     const qCollection = params.get("collection");
     const lsCollection = typeof window !== "undefined" ? localStorage.getItem(LS_KEY_COLLECTION) : null;
 
     if (qDeck) setDeckId(qDeck);
-    if (qCollection) {
-      setCollectionId(qCollection);
-      setUseOwned(true);
-    } else if (lsCollection) {
-      setCollectionId(lsCollection);
-      setUseOwned(true);
-      const np = new URLSearchParams(params.toString());
-      np.set("collection", lsCollection);
+    if (qCollection) { setCollectionId(qCollection); setUseOwned(true); }
+    else if (lsCollection) {
+      setCollectionId(lsCollection); setUseOwned(true);
+      const np = new URLSearchParams(params.toString()); np.set("collection", lsCollection);
       router.replace(`?${np.toString()}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Load user's decks (for selector) --------------------------------------
+  // Load user's decks (for selector)
   React.useEffect(() => {
     let ok = true;
     (async () => {
@@ -99,7 +99,23 @@ export default function Client() {
     return () => { ok = false; };
   }, []);
 
-  // --- Load user's collections if table exists -------------------------------
+  // When deckId changes, fetch its deck_text to show in textarea
+  React.useEffect(() => {
+    if (!deckId) return;
+    let ok = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("decks")
+        .select("id,title,deck_text")
+        .eq("id", deckId)
+        .maybeSingle<DeckWithText>();
+      if (!ok) return;
+      if (!error && data?.deck_text != null) setDeckText(data.deck_text);
+    })();
+    return () => { ok = false; };
+  }, [deckId]);
+
+  // Load collections if table exists
   React.useEffect(() => {
     let ok = true;
     (async () => {
@@ -109,53 +125,35 @@ export default function Client() {
           .select("id,name")
           .order("name", { ascending: true });
         if (!ok) return;
-        if (error) {
-          setCollectionsErr("No collections table yet (using manual ID for now).");
-          setCollections(null);
-        } else {
-          setCollections((data ?? []) as CollectionRow[]);
-        }
-      } catch {
-        if (!ok) return;
-        setCollectionsErr("Could not load collections (manual ID fallback).");
-        setCollections(null);
-      }
+        if (error) { setCollectionsErr("No collections table yet (manual ID for now)."); setCollections(null); }
+        else setCollections((data ?? []) as CollectionRow[]);
+      } catch { if (ok) { setCollectionsErr("Could not load collections (manual ID fallback)."); setCollections(null); } }
     })();
     return () => { ok = false; };
   }, []);
 
-  // --- Keep collection in URL + localStorage ---------------------------------
+  // Keep collection in URL + localStorage
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const np = new URLSearchParams(params.toString());
-    if (collectionId) {
-      localStorage.setItem(LS_KEY_COLLECTION, collectionId);
-      np.set("collection", collectionId);
-    } else {
-      localStorage.removeItem(LS_KEY_COLLECTION);
-      np.delete("collection");
-    }
+    if (collectionId) { localStorage.setItem(LS_KEY_COLLECTION, collectionId); np.set("collection", collectionId); }
+    else { localStorage.removeItem(LS_KEY_COLLECTION); np.delete("collection"); }
     router.replace(np.toString() ? `?${np.toString()}` : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId]);
 
-  // --- Auto-run when arriving with ?deck=... ---------------------------------
+  // Auto-run when arriving with ?deck= or when choosing a deck
   const autoRanRef = React.useRef(false);
   React.useEffect(() => {
-    if (!autoRanRef.current && deckId) {
-      autoRanRef.current = true;
-      void run(); // fire-and-forget
-    }
+    if (!autoRanRef.current && deckId) { autoRanRef.current = true; void run(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId]);
 
-  // --- Core action -----------------------------------------------------------
   async function run() {
     setLoading(true); setError(null); setResp(null);
 
     if (!deckText.trim() && !deckId.trim()) {
-      setLoading(false);
-      setError("Please paste deck text or choose a deck.");
+      setLoading(false); setError("Please paste deck text or choose a deck.");
       return;
     }
 
@@ -174,12 +172,21 @@ export default function Client() {
         body: JSON.stringify(payload),
         cache: "no-store",
       });
-      const json = (await r.json()) as CostResponse;
+      const json = (await r.json()) as CostResponseIn;
+
       if (!r.ok || !json.ok) {
         setError(json.error ?? `Upstream error (${r.status})`);
         setResp(null);
       } else {
-        setResp(json);
+        // 🔧 Normalize rows: support {card: "..."} or {name: "..."}
+        const rows: CostRow[] = (json.rows ?? []).map((row) => ({
+          name: (row.name ?? row.card ?? "").toString(),
+          need: Number(row.need ?? 0),
+          unit: Number(row.unit ?? 0),
+          subtotal: Number(row.subtotal ?? 0),
+          source: row.source,
+        }));
+        setResp({ ...json, rows });
       }
     } catch (e: any) {
       setError(e?.message ?? "Unexpected error");
@@ -192,13 +199,9 @@ export default function Client() {
   function onExportCSV() {
     if (!resp?.rows?.length) return;
     const rows = resp.rows.map(r => ({
-      name: r.name ?? "",
-      need: r.need ?? 0,
-      unit: r.unit ?? 0,
-      subtotal: r.subtotal ?? 0,
-      source: r.source ?? "",
+      name: r.name, need: r.need, unit: r.unit, subtotal: r.subtotal, source: r.source ?? ""
     }));
-    const csv = toCSV(["name", "need", "unit", "subtotal", "source"], rows);
+    const csv = toCSV(["name","need","unit","subtotal","source"], rows);
     const fname = `cost_to_finish_${new Date().toISOString().slice(0,10)}.csv`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -233,9 +236,7 @@ export default function Client() {
             <textarea
               value={deckText}
               onChange={(e) => setDeckText(e.target.value)}
-              placeholder={`1 Sol Ring
-1 Arcane Signet
-1 Swamp`}
+              placeholder={`1 Sol Ring\n1 Arcane Signet\n1 Swamp`}
               className="h-40 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-3 font-mono text-sm outline-none placeholder:text-gray-500"
             />
             <p className="text-xs text-gray-500">
@@ -255,7 +256,6 @@ export default function Client() {
               <p className="text-xs text-gray-500">Pick your collection. We’ll price only the copies you still need to buy.</p>
             </div>
 
-            {/* Collection selector if table exists; fallback to text input */}
             {collections && collections.length > 0 ? (
               <div className="flex items-center gap-2">
                 <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection</label>
@@ -267,18 +267,14 @@ export default function Client() {
                   disabled={!useOwned}
                 >
                   <option value="">— Select —</option>
-                  {collections.map(c => (
-                    <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
-                  ))}
+                  {collections.map(c => (<option key={c.id} value={c.id}>{c.name ?? c.id}</option>))}
                 </select>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection ID</label>
                 <input
-                  id="collectionId"
-                  type="text"
-                  value={collectionId ?? ""}
+                  id="collectionId" type="text" value={collectionId ?? ""}
                   onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
                   placeholder="paste your collection id"
                   className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500 disabled:opacity-60"
