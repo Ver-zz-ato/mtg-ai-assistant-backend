@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-/* ----------------------- small helpers ----------------------- */
-
+/* ----------------------- helpers ----------------------- */
 const ok = (data: any, init: ResponseInit = { status: 200 }) =>
   NextResponse.json(data, init);
 const err = (message: string, status = 400) =>
@@ -16,7 +15,6 @@ async function safeReadJson(req: NextRequest): Promise<any> {
   try {
     const ct = req.headers.get("content-type") || "";
     if (!ct.includes("application/json")) return {};
-    // empty body guard
     const clone = req.clone();
     const text = await clone.text();
     if (!text || !text.trim()) return {};
@@ -26,7 +24,7 @@ async function safeReadJson(req: NextRequest): Promise<any> {
   }
 }
 
-/** tolerant CSV parser (BOM/CRLF/quoted names/loose headers/“2, Sol Ring”) */
+/** tolerant CSV parser */
 function parseCsv(input: string): CsvRow[] {
   let text = input.replace(/^\uFEFF/, "").trim();
   if (!text) return [];
@@ -64,7 +62,6 @@ function parseCsv(input: string): CsvRow[] {
       name = String(parts[nameIdx] ?? "").replace(/^"|"$/g, "").trim();
       qty = Number(parts[qtyIdx] ?? 0);
     } else {
-      // “2, Sol Ring” or “Sol Ring, 2” or “Sol Ring”
       const p = lines[i].split(/[;,]/).map(s => s.trim());
       if (p.length === 1) { name = p[0]; qty = 1; }
       else {
@@ -88,12 +85,11 @@ function parseCsv(input: string): CsvRow[] {
   return Array.from(dedup, ([name, qty]) => ({ name, qty }));
 }
 
-/** auth + collection ownership + collectionId resolution (query, JSON, or formdata) */
+/** auth + collection ownership + collectionId from query/JSON/form-data */
 async function getAuthedCollection(
   req: NextRequest,
   supabase: ReturnType<typeof createClient>
 ): Promise<{ userId: string; collectionId: string } | Response> {
-
   const { data: ures, error: uerr } = await supabase.auth.getUser();
   const user = ures?.user;
   if (uerr || !user) return err("Not authenticated", 401);
@@ -114,7 +110,6 @@ async function getAuthedCollection(
       }
     } catch {}
   }
-
   if (!collectionId) return err("collectionId required", 400);
 
   const { data: col, error: colErr } = await supabase
@@ -129,8 +124,7 @@ async function getAuthedCollection(
   return { userId: String(user.id), collectionId };
 }
 
-/* ------------------------------ GET list ------------------------------ */
-
+/* ------------------------------ GET ------------------------------ */
 export async function GET(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
@@ -147,8 +141,7 @@ export async function GET(req: NextRequest) {
   return ok({ ok: true, cards: data ?? [] });
 }
 
-/* ------------------------------ POST add / CSV ------------------------------ */
-
+/* ------------------------------ POST (add / CSV) ------------------------------ */
 export async function POST(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
@@ -157,7 +150,7 @@ export async function POST(req: NextRequest) {
 
   const ct = req.headers.get("content-type") || "";
 
-  // CSV (multipart/form-data)
+  // CSV via multipart/form-data
   if (ct.includes("multipart/form-data")) {
     const fd = await req.formData().catch(() => null);
     if (!fd) return err("Invalid form data");
@@ -167,7 +160,6 @@ export async function POST(req: NextRequest) {
     const rows = parseCsv(text);
     if (rows.length === 0) return err("No valid rows");
 
-    // upsert each (keeps it simple; list is small)
     for (const r of rows) {
       const { error } = await supabase
         .from("collection_cards")
@@ -185,7 +177,6 @@ export async function POST(req: NextRequest) {
   // JSON
   const body = await safeReadJson(req);
 
-  // bulk
   if (Array.isArray(body?.rows)) {
     const normalized: CsvRow[] = body.rows
       .map((r: any) => ({
@@ -229,8 +220,7 @@ export async function POST(req: NextRequest) {
   return ok({ ok: true });
 }
 
-/* ------------------------------ PATCH qty ------------------------------ */
-
+/* ------------------------------ PATCH (update qty) ------------------------------ */
 export async function PATCH(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
@@ -244,21 +234,28 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(qty)) return err("qty required");
   if (!id && !name) return err("id or name required");
 
-  let q = supabase
-    .from("collection_cards")
-    .update({ qty })
-    .eq("collection_id", collectionId)
-    .select("id");
+  // Do the whole chain inline to keep TS happy
+  const { error } = id
+    ? await supabase
+        .from("collection_cards")
+        .update({ qty })
+        .eq("collection_id", collectionId)
+        .eq("id", id)
+        .select("id")
+        .single()
+    : await supabase
+        .from("collection_cards")
+        .update({ qty })
+        .eq("collection_id", collectionId)
+        .eq("name", name!)
+        .select("id")
+        .single();
 
-  q = id ? q.eq("id", id) : q.eq("name", name!);
-
-  const { error } = await q.single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
 
-/* ------------------------------ DELETE card ------------------------------ */
-
+/* ------------------------------ DELETE ------------------------------ */
 export async function DELETE(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
@@ -270,15 +267,22 @@ export async function DELETE(req: NextRequest) {
   const name = body?.name ? String(body.name) : null;
   if (!id && !name) return err("id or name required");
 
-  let q = supabase
-    .from("collection_cards")
-    .delete()
-    .eq("collection_id", collectionId)
-    .select("id");
+  const { error } = id
+    ? await supabase
+        .from("collection_cards")
+        .delete()
+        .eq("collection_id", collectionId)
+        .eq("id", id)
+        .select("id")
+        .single()
+    : await supabase
+        .from("collection_cards")
+        .delete()
+        .eq("collection_id", collectionId)
+        .eq("name", name!)
+        .select("id")
+        .single();
 
-  q = id ? q.eq("id", id) : q.eq("name", name!);
-
-  const { error } = await q.single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
