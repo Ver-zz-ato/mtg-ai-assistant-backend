@@ -44,10 +44,8 @@ function parseCsv(text: string): CardRow[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return rows;
 
-  // Helper: split line on comma or tab, but keep inner commas in names simple enough
   const split = (s: string) => s.split(/\t|,(?![^"]*")/).map((t) => t.replace(/^"|"$/g, "").trim());
 
-  // detect headers
   const first = split(lines[0]).map((h) => h.toLowerCase());
   const looksHeader = first.some((h) => ["name", "qty", "count", "owned"].includes(h));
 
@@ -62,7 +60,6 @@ function parseCsv(text: string): CardRow[] {
   for (let i = start; i < lines.length; i++) {
     const parts = split(lines[i]);
 
-    // headered: read by column
     if (looksHeader) {
       const nm = nameIdx >= 0 ? parts[nameIdx] : undefined;
       const qv = qtyIdx >= 0 ? parts[qtyIdx] : undefined;
@@ -72,9 +69,6 @@ function parseCsv(text: string): CardRow[] {
       continue;
     }
 
-    // bare lines:
-    // 1) "2, Sol Ring" or "2\tSol Ring"
-    // 2) "Sol Ring"  -> qty=1
     const [a, ...rest] = parts;
     const maybeNum = Number(a);
     if (Number.isFinite(maybeNum) && rest.length > 0) {
@@ -113,14 +107,11 @@ async function handle(req: NextRequest) {
 
   const url = new URL(req.url);
 
-  // try to pick collectionId from query, json, or form
   let collectionId: string | null = url.searchParams.get("collectionId");
   let body: any = undefined;
   let form: FormData | undefined;
 
-  // read body if needed
   if (req.method !== "GET") {
-    // heuristics: if multipart, read form; else try JSON
     const ct = req.headers.get("content-type") || "";
     if (ct.includes("multipart/form-data")) {
       form = await readForm(req);
@@ -162,7 +153,6 @@ async function handle(req: NextRequest) {
 
   /* ----- POST: add/upsert (single, bulk-JSON, or CSV form) ----- */
   if (req.method === "POST") {
-    // CSV form-data path: { file, collectionId }
     if (form && form.get("file") instanceof File) {
       const file = form.get("file") as File;
       if (!file) return bad("file required");
@@ -184,14 +174,13 @@ async function handle(req: NextRequest) {
       return json({ ok: true, inserted: rows.length });
     }
 
-    // Bulk JSON path: { rows: [...] }
     if (Array.isArray(body?.rows)) {
       const rows: CardRow[] = body.rows
         .map((r: any) => ({
           name: cleanName(r?.name),
           qty: Number(r?.qty ?? r?.count ?? r?.owned ?? 0),
         }))
-        .filter((r) => r.name && Number.isFinite(r.qty));
+        .filter((r: CardRow) => r.name && Number.isFinite(r.qty)); // <-- typed here
 
       if (rows.length === 0) return bad("No valid rows");
 
@@ -209,7 +198,6 @@ async function handle(req: NextRequest) {
       return json({ ok: true, inserted: rows.length });
     }
 
-    // Single add/upsert: { name, qty }
     const name = cleanName(body?.name);
     const qty = Number(body?.qty);
     if (!name) return bad("name required");
@@ -241,7 +229,6 @@ async function handle(req: NextRequest) {
     if (!id) return bad("id required");
     if (!Number.isFinite(qty)) return bad("qty must be a number");
 
-    // Ensure ownership via the row’s collection
     const { data: row, error: rowErr } = await supabase
       .from("collection_cards")
       .select("id,collection_id")
