@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 async function handle(req: NextRequest) {
   const supabase = createClient();
 
-  // auth
+  // Auth
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
   const user = userRes?.user;
   if (userErr || !user) {
@@ -18,15 +18,15 @@ async function handle(req: NextRequest) {
   let collectionId: string | null = url.searchParams.get("collectionId");
   if (!collectionId) {
     try {
-      const body = await req.json();
+      const body = await req.json().catch(() => null);
       if (body?.collectionId) collectionId = String(body.collectionId);
-    } catch {}
+    } catch {/* ignore */}
   }
   if (!collectionId) {
     return NextResponse.json({ ok: false, error: "collectionId required" }, { status: 400 });
   }
 
-  // Ensure the collection belongs to the user (nice error; RLS should also enforce)
+  // Ownership check (RLS should also enforce, but this gives a nice message)
   const { data: col, error: colErr } = await supabase
     .from("collections")
     .select("id, user_id")
@@ -40,16 +40,16 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  // Now read cards (this table doesn’t have user_id)
+  // Cards for this collection
   const { data, error } = await supabase
     .from("collection_cards")
-    .select("id, name, qty")
+    .select("name, qty")
     .eq("collection_id", collectionId)
     .order("name", { ascending: true });
 
   if (error) {
     console.error("[collections/cards] supabase error", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+    return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, cards: data ?? [] }, { status: 200 });
