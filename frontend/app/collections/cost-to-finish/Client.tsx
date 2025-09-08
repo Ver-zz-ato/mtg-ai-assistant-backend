@@ -1,82 +1,45 @@
+// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-type CostRow = {
-  name: string;
-  need: number;
-  unit: number;
-  subtotal: number;
-  source?: string;
-};
-
+type CostRow = { name: string; need: number; unit: number; subtotal: number; source?: string };
 type CostResponse = {
-  ok: boolean;
-  error?: string;
-  currency?: string;
-  rows?: CostRow[];
-  total?: number;
-  usedOwned?: boolean;
-  fx_date?: string;
-  unpriced?: string[];
+  ok: boolean; error?: string; currency?: string;
+  rows?: CostRow[]; total?: number; usedOwned?: boolean; fx_date?: string; unpriced?: string[];
 };
 
-type CollectionRow = {
-  id: string;
-  name: string | null;
-};
-
-const BACKEND_UI_ROUTE = "/api/collections/cost-to-finish";
-const LS_KEY = "mtgcoach_cost_collectionId";
+type DeckRow = { id: string; title: string | null };
+type CollectionRow = { id: string; name: string | null };
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function formatCurrency(amount: number, currency: string | undefined) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency || "USD",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currency ?? "$"} ${amount.toFixed(2)}`;
-  }
+const BACKEND_UI_ROUTE = "/api/collections/cost-to-finish";
+const LS_KEY_COLLECTION = "mtgcoach_cost_collectionId";
+
+function fmtMoney(x: number, c?: string) {
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: c || "USD", maximumFractionDigits: 2 }).format(x); }
+  catch { return `${c ?? "$"} ${x.toFixed(2)}`; }
 }
 
-function buildCsv(rows: Array<Record<string, string | number>>, headers: string[]) {
-  const line = (cells: (string | number)[]) =>
-    cells
-      .map((c) => {
-        const s = String(c ?? "");
-        return s.includes(",") || s.includes('"') || s.includes("\n")
-          ? `"${s.replace(/"/g, '""')}"`
-          : s;
-      })
-      .join(",");
-  return [headers.join(","), ...rows.map((r) => line(headers.map((h) => r[h] ?? "")))]
-    .join("\n");
-}
-
-function downloadCSV(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
+function toCSV(headers: string[], rows: Array<Record<string, string | number>>) {
+  const esc = (s: string | number) => {
+    const t = String(s ?? "");
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  return [headers.join(","), ...rows.map(r => headers.map(h => esc(r[h] ?? "")).join(","))].join("\n");
 }
 
 async function loggedFetch(input: RequestInfo | URL, init?: RequestInit) {
-  const start = performance.now();
+  const t0 = performance.now();
   const res = await fetch(input, init);
-  const ms = Math.round(performance.now() - start);
-  console.log(`[cost-to-finish] ${typeof input === "string" ? input : (input as URL).toString()} -> ${res.status} in ${ms}ms`);
+  // eslint-disable-next-line no-console
+  console.log(`[cost-to-finish] ${typeof input === "string" ? input : (input as URL).toString()} -> ${res.status} in ${Math.round(performance.now()-t0)}ms`);
   return res;
 }
 
@@ -84,27 +47,28 @@ export default function Client() {
   const router = useRouter();
   const params = useSearchParams();
 
-  // inputs
-  const [deckText, setDeckText] = React.useState<string>("");
-  const [deckId, setDeckId] = React.useState<string>("");
+  // Inputs
+  const [deckText, setDeckText] = React.useState("");
+  const [deckId, setDeckId] = React.useState("");
+  const [currency, setCurrency] = React.useState("USD");
+  const [useOwned, setUseOwned] = React.useState(false);
   const [collectionId, setCollectionId] = React.useState<string | null>(null);
-  const [currency, setCurrency] = React.useState<string>("USD");
-  const [useOwned, setUseOwned] = React.useState<boolean>(false);
 
-  // collections (optional)
+  // Lists
+  const [decks, setDecks] = React.useState<DeckRow[] | null>(null);
   const [collections, setCollections] = React.useState<CollectionRow[] | null>(null);
   const [collectionsErr, setCollectionsErr] = React.useState<string | null>(null);
 
-  // results
-  const [loading, setLoading] = React.useState<boolean>(false);
+  // Results
+  const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [resp, setResp] = React.useState<CostResponse | null>(null);
 
-  // hydrate from query + localStorage
+  // --- Hydrate from URL + localStorage --------------------------------------
   React.useEffect(() => {
     const qDeck = params.get("deck");
     const qCollection = params.get("collection");
-    const lsCollection = typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null;
+    const lsCollection = typeof window !== "undefined" ? localStorage.getItem(LS_KEY_COLLECTION) : null;
 
     if (qDeck) setDeckId(qDeck);
     if (qCollection) {
@@ -113,67 +77,85 @@ export default function Client() {
     } else if (lsCollection) {
       setCollectionId(lsCollection);
       setUseOwned(true);
-      const newParams = new URLSearchParams(params.toString());
-      newParams.set("collection", lsCollection);
-      router.replace(`?${newParams.toString()}`);
+      const np = new URLSearchParams(params.toString());
+      np.set("collection", lsCollection);
+      router.replace(`?${np.toString()}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Try to load user's collections (if the table exists)
+  // --- Load user's decks (for selector) --------------------------------------
   React.useEffect(() => {
-    let alive = true;
+    let ok = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("decks")
+        .select("id,title")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (!ok) return;
+      if (!error) setDecks((data ?? []) as DeckRow[]);
+    })();
+    return () => { ok = false; };
+  }, []);
+
+  // --- Load user's collections if table exists -------------------------------
+  React.useEffect(() => {
+    let ok = true;
     (async () => {
       try {
         const { data, error } = await supabase
           .from("collections")
           .select("id,name")
           .order("name", { ascending: true });
-
-        if (!alive) return;
-
+        if (!ok) return;
         if (error) {
-          // If the table doesn't exist yet, that's fine—fallback to manual input.
-          setCollectionsErr("No collections table found (fallback to manual ID).");
+          setCollectionsErr("No collections table yet (using manual ID for now).");
           setCollections(null);
         } else {
           setCollections((data ?? []) as CollectionRow[]);
         }
       } catch {
-        if (!alive) return;
-        setCollectionsErr("Could not load collections (fallback to manual ID).");
+        if (!ok) return;
+        setCollectionsErr("Could not load collections (manual ID fallback).");
         setCollections(null);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { ok = false; };
   }, []);
 
-  // sync URL + localStorage with collection selection
+  // --- Keep collection in URL + localStorage ---------------------------------
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const newParams = new URLSearchParams(params.toString());
+    const np = new URLSearchParams(params.toString());
     if (collectionId) {
-      localStorage.setItem(LS_KEY, collectionId);
-      newParams.set("collection", collectionId);
-      router.replace(`?${newParams.toString()}`);
+      localStorage.setItem(LS_KEY_COLLECTION, collectionId);
+      np.set("collection", collectionId);
     } else {
-      localStorage.removeItem(LS_KEY);
-      newParams.delete("collection");
-      router.replace(newParams.toString() ? `?${newParams.toString()}` : "");
+      localStorage.removeItem(LS_KEY_COLLECTION);
+      np.delete("collection");
     }
+    router.replace(np.toString() ? `?${np.toString()}` : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId]);
 
+  // --- Auto-run when arriving with ?deck=... ---------------------------------
+  const autoRanRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!autoRanRef.current && deckId) {
+      autoRanRef.current = true;
+      void run(); // fire-and-forget
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckId]);
+
+  // --- Core action -----------------------------------------------------------
   async function run() {
-    setLoading(true);
-    setError(null);
-    setResp(null);
+    setLoading(true); setError(null); setResp(null);
 
     if (!deckText.trim() && !deckId.trim()) {
       setLoading(false);
-      setError("Please paste deck text or provide a deck id in the URL.");
+      setError("Please paste deck text or choose a deck.");
       return;
     }
 
@@ -192,9 +174,7 @@ export default function Client() {
         body: JSON.stringify(payload),
         cache: "no-store",
       });
-
       const json = (await r.json()) as CostResponse;
-
       if (!r.ok || !json.ok) {
         setError(json.error ?? `Upstream error (${r.status})`);
         setResp(null);
@@ -211,74 +191,57 @@ export default function Client() {
 
   function onExportCSV() {
     if (!resp?.rows?.length) return;
-    const data = resp.rows.map((r) => ({
-      name: String(r.name ?? ""),
+    const rows = resp.rows.map(r => ({
+      name: r.name ?? "",
       need: r.need ?? 0,
       unit: r.unit ?? 0,
       subtotal: r.subtotal ?? 0,
       source: r.source ?? "",
     }));
-    const csv = buildCsv(data, ["name", "need", "unit", "subtotal", "source"]);
-    const fname = `cost_to_finish_${new Date().toISOString().slice(0, 10)}.csv`;
-    downloadCSV(fname, csv);
+    const csv = toCSV(["name", "need", "unit", "subtotal", "source"], rows);
+    const fname = `cost_to_finish_${new Date().toISOString().slice(0,10)}.csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = fname; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 400);
   }
 
-  const totalFmt =
-    resp && resp.total != null ? formatCurrency(resp.total, resp.currency) : null;
-
-  const usingOwnedBanner =
-    useOwned && collectionId ? (
-      <div className="sticky top-0 z-10 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm">
-            Subtracting cards you already own from{" "}
-            <span className="font-medium">
-              {collections?.find((c) => c.id === collectionId)?.name ?? `collection ${collectionId}`}
-            </span>
-            . Only missing copies are priced.
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setUseOwned(false)}
-              className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/10"
-            >
-              Disable
-            </button>
-            <button
-              onClick={() => {
-                const el = document.getElementById("collectionId");
-                if (el) (el as HTMLSelectElement).focus();
-              }}
-              className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/10"
-            >
-              Change
-            </button>
-          </div>
-        </div>
-      </div>
-    ) : null;
+  const totalFmt = resp?.total != null ? fmtMoney(resp.total, resp.currency) : null;
 
   return (
     <div className="space-y-6">
       {/* Inputs */}
       <section className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Deck text</label>
-          <textarea
-            value={deckText}
-            onChange={(e) => setDeckText(e.target.value)}
-            placeholder={`1 Sol Ring
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-sm text-gray-400">Choose one of your decks</label>
+            <select
+              className="w-full rounded-md border border-white/10 bg-white text-black px-2 py-1.5 text-sm outline-none"
+              value={deckId}
+              onChange={(e) => setDeckId(e.target.value)}
+            >
+              <option value="">— None (paste below) —</option>
+              {(decks ?? []).map(d => (
+                <option key={d.id} value={d.id}>{d.title ?? d.id}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">Picking a deck will run the cost calculator automatically.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-gray-400">Deck text</label>
+            <textarea
+              value={deckText}
+              onChange={(e) => setDeckText(e.target.value)}
+              placeholder={`1 Sol Ring
 1 Arcane Signet
 1 Swamp`}
-            className="h-40 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-3 font-mono text-sm outline-none placeholder:text-gray-500"
-          />
-          <p className="text-xs text-gray-500">
-            Or deep-link a public deck with{" "}
-            <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">
-              ?deck=&lt;id&gt;
-            </span>{" "}
-            in the URL.
-          </p>
+              className="h-40 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-3 font-mono text-sm outline-none placeholder:text-gray-500"
+            />
+            <p className="text-xs text-gray-500">
+              Or deep-link a public deck with <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">?deck=&lt;id&gt;</span> in the URL.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -286,71 +249,50 @@ export default function Client() {
           <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <input
-                  id="useOwned"
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={useOwned}
-                  onChange={(e) => setUseOwned(e.target.checked)}
-                />
-                <label htmlFor="useOwned" className="text-sm">
-                  Subtract cards I already own
-                </label>
+                <input id="useOwned" type="checkbox" className="h-4 w-4" checked={useOwned} onChange={(e) => setUseOwned(e.target.checked)} />
+                <label htmlFor="useOwned" className="text-sm">Subtract cards I already own</label>
               </div>
-              <p className="text-xs text-gray-500">
-                Pick your collection. We’ll price only the copies you still need to buy.
-              </p>
+              <p className="text-xs text-gray-500">Pick your collection. We’ll price only the copies you still need to buy.</p>
             </div>
 
-            {/* Dropdown if we have collections; otherwise text input fallback */}
+            {/* Collection selector if table exists; fallback to text input */}
             {collections && collections.length > 0 ? (
               <div className="flex items-center gap-2">
-                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
-                  Collection
-                </label>
+                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection</label>
                 <select
                   id="collectionId"
-                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none"
+                  className="flex-1 rounded-md border border-white/10 bg-white text-black px-2 py-1.5 text-sm outline-none"
                   value={collectionId ?? ""}
                   onChange={(e) => setCollectionId(e.target.value || null)}
                   disabled={!useOwned}
                 >
                   <option value="">— Select —</option>
-                  {collections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name ?? c.id}
-                    </option>
+                  {collections.map(c => (
+                    <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
                   ))}
                 </select>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
-                  Collection ID
-                </label>
+                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection ID</label>
                 <input
                   id="collectionId"
                   type="text"
                   value={collectionId ?? ""}
                   onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
                   placeholder="paste your collection id"
-                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
+                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500 disabled:opacity-60"
                   disabled={!useOwned}
                 />
               </div>
             )}
-
-            {collectionsErr ? (
-              <div className="text-xs text-amber-400">{collectionsErr}</div>
-            ) : null}
+            {collectionsErr ? <div className="text-xs text-amber-400">{collectionsErr}</div> : null}
 
             <div className="flex items-center gap-2">
-              <label htmlFor="currency" className="w-32 text-sm text-gray-400">
-                Currency
-              </label>
+              <label htmlFor="currency" className="w-32 text-sm text-gray-400">Currency</label>
               <select
                 id="currency"
-                className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none"
+                className="flex-1 rounded-md border border-white/10 bg-white text-black px-2 py-1.5 text-sm outline-none"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
               >
@@ -371,21 +313,28 @@ export default function Client() {
             </div>
 
             {error ? (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                {error}
-              </div>
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>
             ) : null}
           </div>
         </div>
       </section>
 
-      {usingOwnedBanner}
+      {/* Using-owned banner */}
+      {useOwned && collectionId ? (
+        <div className="sticky top-0 z-10 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 backdrop-blur">
+          <div className="text-sm">
+            Subtracting cards you already own from <span className="font-medium">
+              {collections?.find(c => c.id === collectionId)?.name ?? `collection ${collectionId}`}
+            </span>. Only missing copies are priced.
+          </div>
+        </div>
+      ) : null}
 
       {/* Results */}
       <section className="space-y-3">
         {!resp && !loading ? (
           <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
-            Paste a deck or open a shared deck and click <span className="font-semibold">Compute cost</span>.
+            Paste a deck, choose one above, or open a shared deck — then click <span className="font-semibold">Compute cost</span>.
           </div>
         ) : null}
 
@@ -415,17 +364,15 @@ export default function Client() {
                   <tr key={`${r.name}-${i}`} className="odd:bg-white/[0.03] [&>td]:px-3 [&>td]:py-2">
                     <td className="font-medium">{r.name}</td>
                     <td className="tabular-nums">{r.need}</td>
-                    <td className="tabular-nums">{formatCurrency(r.unit, resp.currency)}</td>
-                    <td className="tabular-nums font-semibold">{formatCurrency(r.subtotal, resp.currency)}</td>
+                    <td className="tabular-nums">{fmtMoney(r.unit, resp.currency)}</td>
+                    <td className="tabular-nums font-semibold">{fmtMoney(r.subtotal, resp.currency)}</td>
                     <td className="text-xs text-gray-400">{r.source ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot className="sticky bottom-0 bg-black/60 backdrop-blur">
                 <tr className="[&>td]:px-3 [&>td]:py-2">
-                  <td className="text-right font-semibold" colSpan={3}>
-                    Total
-                  </td>
+                  <td className="text-right font-semibold" colSpan={3}>Total</td>
                   <td className="tabular-nums font-bold">{totalFmt}</td>
                   <td className="text-xs text-gray-400">{resp.fx_date ? `FX: ${resp.fx_date}` : ""}</td>
                 </tr>
@@ -436,9 +383,7 @@ export default function Client() {
 
         {resp?.ok && (!resp.rows || resp.rows.length === 0) && !loading ? (
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-            <div className="text-sm">
-              No purchasable items detected. If you subtracted owned, you might already have everything. 🎉
-            </div>
+            <div className="text-sm">No purchasable items detected. If you subtracted owned, you might already have everything. 🎉</div>
           </div>
         ) : null}
 
@@ -446,25 +391,17 @@ export default function Client() {
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <div className="text-sm font-medium">Unpriced cards</div>
             <ul className="mt-1 list-disc pl-5 text-sm text-amber-100">
-              {resp.unpriced.map((n) => (
-                <li key={n}>{n}</li>
-              ))}
+              {resp.unpriced.map((n) => (<li key={n}>{n}</li>))}
             </ul>
           </div>
         ) : null}
 
         {resp?.rows && resp.rows.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={onExportCSV}
-              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
-            >
+            <button onClick={onExportCSV} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10">
               Export CSV
             </button>
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
-            >
+            <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10">
               Back to top
             </button>
           </div>
