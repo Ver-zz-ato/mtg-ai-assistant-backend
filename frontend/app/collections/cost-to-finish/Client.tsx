@@ -1,3 +1,4 @@
+// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
 import * as React from "react";
@@ -68,6 +69,9 @@ export default function Client() {
     rows?: CostRow[]; total?: number; usedOwned?: boolean; fx_date?: string; unpriced?: string[];
   } | null>(null);
 
+  // Track whether run() was manual or autorun, so we can suppress noisy errors
+  const lastTrigger = React.useRef<"idle" | "manual" | "autorun">("idle");
+
   // Hydrate from URL + localStorage
   React.useEffect(() => {
     const qDeck = params.get("deck");
@@ -111,6 +115,9 @@ export default function Client() {
         .maybeSingle<DeckWithText>();
       if (!ok) return;
       if (!error && data?.deck_text != null) setDeckText(data.deck_text);
+      // Debounced autorun to avoid race with deck_text fetch
+      lastTrigger.current = "autorun";
+      setTimeout(() => { if (ok) void run(); }, 50);
     })();
     return () => { ok = false; };
   }, [deckId]);
@@ -142,18 +149,14 @@ export default function Client() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId]);
 
-  // Auto-run when arriving with ?deck= or when choosing a deck
-  const autoRanRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!autoRanRef.current && deckId) { autoRanRef.current = true; void run(); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId]);
-
-  async function run() {
+  async function run(manual = false) {
+    lastTrigger.current = manual ? "manual" : lastTrigger.current === "idle" ? "autorun" : lastTrigger.current;
     setLoading(true); setError(null); setResp(null);
 
     if (!deckText.trim() && !deckId.trim()) {
-      setLoading(false); setError("Please paste deck text or choose a deck.");
+      setLoading(false);
+      // Only show this error if the user clicked the button
+      if (manual) setError("Please paste deck text or choose a deck.");
       return;
     }
 
@@ -175,10 +178,16 @@ export default function Client() {
       const json = (await r.json()) as CostResponseIn;
 
       if (!r.ok || !json.ok) {
-        setError(json.error ?? `Upstream error (${r.status})`);
+        // Suppress the “missing deck” error if this was autorun noise
+        const msg = json.error ?? `Upstream error (${r.status})`;
+        if (lastTrigger.current === "autorun" && /Missing.*deck_text/i.test(msg)) {
+          setError(null);
+        } else {
+          setError(msg);
+        }
         setResp(null);
       } else {
-        // 🔧 Normalize rows: support {card: "..."} or {name: "..."}
+        // Normalize rows and clear any stale error
         const rows: CostRow[] = (json.rows ?? []).map((row) => ({
           name: (row.name ?? row.card ?? "").toString(),
           need: Number(row.need ?? 0),
@@ -186,10 +195,16 @@ export default function Client() {
           subtotal: Number(row.subtotal ?? 0),
           source: row.source,
         }));
+        setError(null);
         setResp({ ...json, rows });
       }
     } catch (e: any) {
-      setError(e?.message ?? "Unexpected error");
+      if (lastTrigger.current === "autorun") {
+        // Silent on autorun; show only on manual
+        setError(null);
+      } else {
+        setError(e?.message ?? "Unexpected error");
+      }
       setResp(null);
     } finally {
       setLoading(false);
@@ -228,7 +243,7 @@ export default function Client() {
                 <option key={d.id} value={d.id}>{d.title ?? d.id}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500">Picking a deck will run the cost calculator automatically.</p>
+            <p className="text-xs text-gray-500">Picking a deck will auto-run the calculator.</p>
           </div>
 
           <div className="space-y-2">
@@ -248,41 +263,39 @@ export default function Client() {
         <div className="space-y-2">
           <label className="text-sm text-gray-400">Options</label>
           <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+            {/* Collection dropdown moved to the top */}
+            <div className="flex items-center gap-2">
+              <label htmlFor="collectionIdSelect" className="w-32 text-sm text-gray-400">Collection</label>
+              {collections && collections.length > 0 ? (
+                <select
+                  id="collectionIdSelect"
+                  className="flex-1 rounded-md border border-white/10 bg-white text-black px-2 py-1.5 text-sm outline-none"
+                  value={collectionId ?? ""}
+                  onChange={(e) => { setCollectionId(e.target.value || null); setUseOwned(!!e.target.value); }}
+                >
+                  <option value="">— None —</option>
+                  {collections.map(c => (<option key={c.id} value={c.id}>{c.name ?? c.id}</option>))}
+                </select>
+              ) : (
+                <input
+                  id="collectionIdSelect"
+                  type="text"
+                  value={collectionId ?? ""}
+                  onChange={(e) => { setCollectionId(e.target.value ? e.target.value : null); setUseOwned(!!e.target.value); }}
+                  placeholder="paste your collection id"
+                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
+                />
+              )}
+            </div>
+            {collectionsErr ? <div className="text-xs text-amber-400">{collectionsErr}</div> : null}
+
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <input id="useOwned" type="checkbox" className="h-4 w-4" checked={useOwned} onChange={(e) => setUseOwned(e.target.checked)} />
                 <label htmlFor="useOwned" className="text-sm">Subtract cards I already own</label>
               </div>
-              <p className="text-xs text-gray-500">Pick your collection. We’ll price only the copies you still need to buy.</p>
+              <p className="text-xs text-gray-500">We’ll price only the copies you still need to buy.</p>
             </div>
-
-            {collections && collections.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection</label>
-                <select
-                  id="collectionId"
-                  className="flex-1 rounded-md border border-white/10 bg-white text-black px-2 py-1.5 text-sm outline-none"
-                  value={collectionId ?? ""}
-                  onChange={(e) => setCollectionId(e.target.value || null)}
-                  disabled={!useOwned}
-                >
-                  <option value="">— Select —</option>
-                  {collections.map(c => (<option key={c.id} value={c.id}>{c.name ?? c.id}</option>))}
-                </select>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">Collection ID</label>
-                <input
-                  id="collectionId" type="text" value={collectionId ?? ""}
-                  onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
-                  placeholder="paste your collection id"
-                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500 disabled:opacity-60"
-                  disabled={!useOwned}
-                />
-              </div>
-            )}
-            {collectionsErr ? <div className="text-xs text-amber-400">{collectionsErr}</div> : null}
 
             <div className="flex items-center gap-2">
               <label htmlFor="currency" className="w-32 text-sm text-gray-400">Currency</label>
@@ -300,7 +313,7 @@ export default function Client() {
 
             <div className="pt-2">
               <button
-                onClick={run}
+                onClick={() => run(true)}
                 disabled={loading}
                 className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-60"
               >
@@ -308,8 +321,11 @@ export default function Client() {
               </button>
             </div>
 
-            {error ? (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>
+            {/* show error only when we don't already have results */}
+            {error && !resp ? (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {error}
+              </div>
             ) : null}
           </div>
         </div>
