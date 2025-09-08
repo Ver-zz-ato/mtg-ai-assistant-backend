@@ -4,14 +4,15 @@ import Client from "./Client";
 
 export const dynamic = "force-dynamic";
 
-// Keep types simple; let Next infer PageProps shape
+// In Next 15, params/searchParams can be Promises in types.
+// Accept a Promise and await it in both functions.
+
 export async function generateMetadata(
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
-  const id = params.id;
+  const { id } = await params;
   const title = `My Deck • ${id.slice(0, 8)}`;
   const url = `https://manatap.ai/decks/${id}`;
-
   return {
     title,
     description: "View and manage your deck.",
@@ -21,13 +22,13 @@ export async function generateMetadata(
   };
 }
 
-export default function Page(
-  { params }: { params: { id: string } }
+export default async function Page(
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // No server-side Supabase calls here
+  const { id } = await params;
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <Client deckId={params.id} />
+      <Client deckId={id} />
     </main>
   );
 }
