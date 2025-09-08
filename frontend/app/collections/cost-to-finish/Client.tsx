@@ -1,237 +1,259 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
-type Deck = { id: string; title: string | null; deck_text: string | null };
-type Collection = { id: string; name: string };
+type Deck = { id: string; title: string | null };
+type Coll = { id: string; name: string | null };
+type CostRow = { card: string; need: number; unit: number; subtotal: number };
 
-export default function CostToFinishClient() {
-  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
-  const [decks, setDecks] = useState<Deck[]>([]);
-  const [selectedDeck, setSelectedDeck] = useState<string>('');
-  const [deckText, setDeckText] = useState<string>('');
+export default function Client() {
+  const supabase = React.useMemo(() => createBrowserSupabaseClient(), []);
+  const search = useSearchParams();
+  const router = useRouter();
 
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [selectedCollection, setSelectedCollection] = useState<string>('');
-  const [subtractOwned, setSubtractOwned] = useState<boolean>(false);
+  const [decks, setDecks] = React.useState<Deck[]>([]);
+  const [collections, setCollections] = React.useState<Coll[]>([]);
 
-  const [currency, setCurrency] = useState<'USD' | 'GBP' | 'EUR'>('USD');
-  const [rows, setRows] = useState<Array<{ card: string; need: number; unit: number; subtotal: number }>>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingCollections, setLoadingCollections] = useState<boolean>(true);
+  const [deckId, setDeckId] = React.useState<string | "">("");
+  const [deckText, setDeckText] = React.useState("");
+  const [currency, setCurrency] = React.useState<"USD" | "GBP">("USD");
 
-  // Load decks (for the logged-in user)
-  useEffect(() => {
+  const [useOwned, setUseOwned] = React.useState(false);
+  const [collectionId, setCollectionId] = React.useState<string | "">("");
+
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [rows, setRows] = React.useState<CostRow[]>([]);
+  const [total, setTotal] = React.useState<number>(0);
+
+  // load decks & collections
+  React.useEffect(() => {
     let alive = true;
+    (async () => {
+      const { data: d } = await supabase
+        .from("decks")
+        .select("id,title")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (alive) setDecks(d ?? []);
+
+      const { data: c } = await supabase
+        .from("collections")
+        .select("id,name")
+        .order("name", { ascending: true })
+        .limit(100);
+      if (alive) setCollections(c ?? []);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
+
+  // deep link (?deck=...) -> select that deck, fetch its text to textarea
+  React.useEffect(() => {
+    const qDeck = search.get("deck");
+    if (!qDeck) return;
+    setDeckId(qDeck);
+
     (async () => {
       const { data, error } = await supabase
-        .from('decks')
-        .select('id,title,deck_text')
-        .order('created_at', { ascending: false });
-
-      if (!alive) return;
-      if (error) console.error('fetch decks', error);
-      setDecks(data ?? []);
+        .from("decks")
+        .select("deck_text")
+        .eq("id", qDeck)
+        .single();
+      if (!error && data?.deck_text) setDeckText(String(data.deck_text));
     })();
-    return () => { alive = false; };
-  }, [supabase]);
+  }, [search, supabase]);
 
-  // Load collections AFTER we know we have a session
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoadingCollections(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!alive) return;
-        if (!user) { setCollections([]); return; }
-
-        const { data, error } = await supabase
-          .from('collections')
-          .select('id,name')
-          .eq('user_id', user.id)
-          .order('name', { ascending: true });
-
-        if (!alive) return;
-        if (error) {
-          console.error('fetch collections', error);
-          setCollections([]);
-        } else {
-          setCollections(data ?? []);
-        }
-      } finally {
-        if (alive) setLoadingCollections(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [supabase]);
-
-  // When user picks a deck, fill the textarea
-  const onPickDeck = (id: string) => {
-    setSelectedDeck(id);
-    const d = decks.find(x => x.id === id);
-    setDeckText(d?.deck_text ?? '');
-  };
-
-  // When user picks a collection, enable subtraction automatically
-  const onPickCollection = (id: string) => {
-    setSelectedCollection(id);
-    setSubtractOwned(!!id);
-  };
-
-  const computeCost = async () => {
+  async function onPickDeck(id: string) {
+    setDeckId(id);
     setError(null);
     setRows([]);
-    setTotal(null);
-    try {
-      const res = await fetch('/api/collections/cost-to-finish', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          deckId: selectedDeck || null,
-          deckText,
-          collectionId: subtractOwned ? (selectedCollection || null) : null,
-          currency,
-          useOwned: subtractOwned,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Upstream error');
+    setTotal(0);
 
-      setRows(json.rows ?? []);
-      setTotal(json.total ?? 0);
+    if (!id) return;
+
+    const { data, error } = await supabase
+      .from("decks")
+      .select("deck_text")
+      .eq("id", id)
+      .single();
+    if (!error && data?.deck_text) setDeckText(String(data.deck_text));
+
+    // reflect in the URL a bit (nice UX)
+    const u = new URL(window.location.href);
+    u.searchParams.set("deck", id);
+    router.replace(u.pathname + "?" + u.searchParams.toString());
+  }
+
+  async function compute() {
+    try {
+      setBusy(true);
+      setError(null);
+      setRows([]);
+      setTotal(0);
+
+      const payload: any = {
+        currency,
+        useOwned,
+      };
+
+      if (deckId) payload.deckId = deckId;
+      if (deckText.trim()) payload.deckText = deckText.trim();
+      if (useOwned && collectionId) payload.collectionId = collectionId;
+
+      const r = await fetch("/api/collections/cost-to-finish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const j = await r.json();
+      if (!r.ok || !j?.ok) {
+        throw new Error(j?.error || r.statusText || "Cost failed");
+      }
+
+      setRows(j.rows ?? []);
+      setTotal(Number(j.total ?? 0));
     } catch (e: any) {
-      console.error(e);
-      setError(e?.message ?? 'Unexpected error');
+      setError(e?.message ?? String(e));
+    } finally {
+      setBusy(false);
     }
-  };
+  }
+
+  // auto-run when a deck is chosen (handy)
+  React.useEffect(() => {
+    if (deckId) compute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckId]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Cost to Finish</h1>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Left: deck text */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium">Choose one of your decks</label>
+        <select
+          className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+          value={deckId}
+          onChange={(e) => onPickDeck(e.target.value)}
+        >
+          <option value="">— None (paste below) —</option>
+          {decks.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.title || d.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left: deck picker + text */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Choose one of your decks</label>
-          <select
-            value={selectedDeck}
-            onChange={(e) => onPickDeck(e.target.value)}
-            className="w-full rounded-lg border border-white/20 bg-neutral-900 text-white px-3 py-2"
-          >
-            <option value="">— None (paste below) —</option>
-            {decks.map((d) => (
-              <option key={d.id} value={d.id}>{d.title ?? 'Untitled'}</option>
-            ))}
-          </select>
+        <label className="block text-sm font-medium mt-4">Deck text</label>
+        <textarea
+          className="h-56 w-full rounded-md border bg-transparent px-3 py-2 text-sm font-mono"
+          value={deckText}
+          onChange={(e) => setDeckText(e.target.value)}
+          placeholder="1 Sol Ring&#10;1 Arcane Signet&#10;1 Swamp"
+        />
+      </div>
 
-          <label className="block text-sm text-gray-300 mt-4 mb-1">Deck text</label>
-          <textarea
-            rows={10}
-            className="w-full rounded-lg border border-white/20 bg-neutral-900 text-white px-3 py-2 font-mono"
-            value={deckText}
-            onChange={(e) => setDeckText(e.target.value)}
-          />
-          <p className="mt-2 text-xs text-gray-400">
-            Or deep-link a public deck with <code className="font-mono">?deck=&lt;id&gt;</code> in the URL.
-          </p>
-        </div>
-
-        {/* Right: options */}
-        <div className="rounded-lg border border-white/20 bg-neutral-900 p-4 space-y-3">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Collection</label>
-            <select
-              value={selectedCollection}
-              onChange={(e) => onPickCollection(e.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-neutral-800 text-white px-3 py-2"
-            >
-              <option value="">— None —</option>
-              {!loadingCollections && collections.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-400">
-              Pick a collection to subtract the cards you already own.
-            </p>
+      {/* Right: options & results */}
+      <div className="space-y-4">
+        <div className="rounded-lg border p-3 space-y-3">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Collection</label>
+            <div className="flex items-center gap-2">
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={collectionId}
+                onChange={(e) => setCollectionId(e.target.value)}
+                disabled={!useOwned}
+              >
+                <option value="">— None —</option>
+                {collections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name || c.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-200">
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={subtractOwned}
-              onChange={(e) => setSubtractOwned(e.target.checked)}
+              checked={useOwned}
+              onChange={(e) => setUseOwned(e.target.checked)}
             />
             Subtract cards I already own
           </label>
 
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Currency</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Currency</label>
             <select
+              className="w-40 rounded-md border bg-transparent px-3 py-2 text-sm"
               value={currency}
               onChange={(e) => setCurrency(e.target.value as any)}
-              className="w-full rounded-lg border border-white/20 bg-neutral-800 text-white px-3 py-2"
             >
               <option value="USD">USD</option>
               <option value="GBP">GBP</option>
-              <option value="EUR">EUR</option>
             </select>
           </div>
 
           <button
-            onClick={computeCost}
-            className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium py-2"
+            onClick={compute}
+            disabled={busy}
+            className="rounded-md bg-white/10 hover:bg-white/20 px-3 py-1.5 text-sm disabled:opacity-60"
           >
-            Compute cost
+            {busy ? "Computing…" : "Compute cost"}
           </button>
 
           {error && (
-            <div className="rounded-md bg-red-900/40 border border-red-500/60 text-red-200 text-sm px-3 py-2">
+            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-xs mt-2">
               {error}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Results */}
-      {rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="mt-6 w-full text-sm">
-            <thead className="sticky top-0 bg-neutral-950/70 backdrop-blur">
-              <tr className="text-left text-gray-300">
-                <th className="py-2 px-3">Card</th>
-                <th className="py-2 px-3 text-right">Need</th>
-                <th className="py-2 px-3 text-right">Unit</th>
-                <th className="py-2 px-3 text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr:nth-child(odd)]:bg-white/5">
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="py-2 px-3 text-gray-100">{r.card}</td>
-                  <td className="py-2 px-3 text-right">{r.need}</td>
-                  <td className="py-2 px-3 text-right">
-                    {r.unit.toLocaleString(undefined, { style: 'currency', currency })}
-                  </td>
-                  <td className="py-2 px-3 text-right">
-                    {r.subtotal.toLocaleString(undefined, { style: 'currency', currency })}
+        {rows.length > 0 && (
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 border-b bg-black/20">
+                <tr>
+                  <th className="text-left py-2 px-3">Card</th>
+                  <th className="text-right py-2 px-3">Need</th>
+                  <th className="text-right py-2 px-3">Unit</th>
+                  <th className="text-right py-2 px-3">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={`${r.card}-${i}`} className="border-b">
+                    <td className="py-1.5 px-3">{r.card}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums">{r.need}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums">
+                      {currency === "USD" ? `US$${r.unit.toFixed(2)}` : `£${r.unit.toFixed(2)}`}
+                    </td>
+                    <td className="py-1.5 px-3 text-right tabular-nums">
+                      {currency === "USD" ? `US$${r.subtotal.toFixed(2)}` : `£${r.subtotal.toFixed(2)}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t">
+                  <td className="py-2 px-3 font-medium">Total</td>
+                  <td />
+                  <td />
+                  <td className="py-2 px-3 text-right font-medium tabular-nums">
+                    {currency === "USD" ? `US$${total.toFixed(2)}` : `£${total.toFixed(2)}`}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="font-semibold">
-                <td className="py-2 px-3 text-right text-gray-300" colSpan={3}>Total</td>
-                <td className="py-2 px-3 text-right text-gray-100">
-                  {total?.toLocaleString(undefined, { style: 'currency', currency })}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
