@@ -1,13 +1,13 @@
-// frontend/app/collections/cost-to-finish/Client.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 type CostRow = {
   name: string;
   need: number;
-  unit: number; // unit price in chosen currency
+  unit: number;
   subtotal: number;
   source?: string;
 };
@@ -23,8 +23,18 @@ type CostResponse = {
   unpriced?: string[];
 };
 
+type CollectionRow = {
+  id: string;
+  name: string | null;
+};
+
 const BACKEND_UI_ROUTE = "/api/collections/cost-to-finish";
 const LS_KEY = "mtgcoach_cost_collectionId";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 function formatCurrency(amount: number, currency: string | undefined) {
   try {
@@ -34,27 +44,25 @@ function formatCurrency(amount: number, currency: string | undefined) {
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    // Fallback if currency code is weird
     return `${currency ?? "$"} ${amount.toFixed(2)}`;
   }
 }
 
-function downloadCSV(filename: string, headers: string[], rows: Array<(string | number)[]>) {
-  const csv = [
-    headers.join(","),
-    ...rows.map((r) =>
-      r
-        .map((cell) => {
-          const s = String(cell ?? "");
-          // escape quotes
-          if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-            return `"${s.replace(/"/g, '""')}"`;
-          }
-          return s;
-        })
-        .join(",")
-    ),
-  ].join("\n");
+function buildCsv(rows: Array<Record<string, string | number>>, headers: string[]) {
+  const line = (cells: (string | number)[]) =>
+    cells
+      .map((c) => {
+        const s = String(c ?? "");
+        return s.includes(",") || s.includes('"') || s.includes("\n")
+          ? `"${s.replace(/"/g, '""')}"`
+          : s;
+      })
+      .join(",");
+  return [headers.join(","), ...rows.map((r) => line(headers.map((h) => r[h] ?? "")))]
+    .join("\n");
+}
+
+function downloadCSV(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -64,16 +72,11 @@ function downloadCSV(filename: string, headers: string[], rows: Array<(string | 
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
-// tiny fetch logger for observability
 async function loggedFetch(input: RequestInfo | URL, init?: RequestInit) {
   const start = performance.now();
   const res = await fetch(input, init);
   const ms = Math.round(performance.now() - start);
-  // non-invasive console logging
-  // eslint-disable-next-line no-console
-  console.log(
-    `[cost-to-finish] ${typeof input === "string" ? input : (input as URL).toString()} -> ${res.status} in ${ms}ms`
-  );
+  console.log(`[cost-to-finish] ${typeof input === "string" ? input : (input as URL).toString()} -> ${res.status} in ${ms}ms`);
   return res;
 }
 
@@ -87,6 +90,10 @@ export default function Client() {
   const [collectionId, setCollectionId] = React.useState<string | null>(null);
   const [currency, setCurrency] = React.useState<string>("USD");
   const [useOwned, setUseOwned] = React.useState<boolean>(false);
+
+  // collections (optional)
+  const [collections, setCollections] = React.useState<CollectionRow[] | null>(null);
+  const [collectionsErr, setCollectionsErr] = React.useState<string | null>(null);
 
   // results
   const [loading, setLoading] = React.useState<boolean>(false);
@@ -106,15 +113,44 @@ export default function Client() {
     } else if (lsCollection) {
       setCollectionId(lsCollection);
       setUseOwned(true);
-      // reflect in URL for shareability
       const newParams = new URLSearchParams(params.toString());
       newParams.set("collection", lsCollection);
       router.replace(`?${newParams.toString()}`);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // keep localStorage + query in sync when collection changes
+  // Try to load user's collections (if the table exists)
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("collections")
+          .select("id,name")
+          .order("name", { ascending: true });
+
+        if (!alive) return;
+
+        if (error) {
+          // If the table doesn't exist yet, that's fine—fallback to manual input.
+          setCollectionsErr("No collections table found (fallback to manual ID).");
+          setCollections(null);
+        } else {
+          setCollections((data ?? []) as CollectionRow[]);
+        }
+      } catch {
+        if (!alive) return;
+        setCollectionsErr("Could not load collections (fallback to manual ID).");
+        setCollections(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // sync URL + localStorage with collection selection
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const newParams = new URLSearchParams(params.toString());
@@ -127,7 +163,7 @@ export default function Client() {
       newParams.delete("collection");
       router.replace(newParams.toString() ? `?${newParams.toString()}` : "");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId]);
 
   async function run() {
@@ -135,7 +171,6 @@ export default function Client() {
     setError(null);
     setResp(null);
 
-    // require deckText OR deckId
     if (!deckText.trim() && !deckId.trim()) {
       setLoading(false);
       setError("Please paste deck text or provide a deck id in the URL.");
@@ -176,28 +211,31 @@ export default function Client() {
 
   function onExportCSV() {
     if (!resp?.rows?.length) return;
+    const data = resp.rows.map((r) => ({
+      name: String(r.name ?? ""),
+      need: r.need ?? 0,
+      unit: r.unit ?? 0,
+      subtotal: r.subtotal ?? 0,
+      source: r.source ?? "",
+    }));
+    const csv = buildCsv(data, ["name", "need", "unit", "subtotal", "source"]);
     const fname = `cost_to_finish_${new Date().toISOString().slice(0, 10)}.csv`;
-    const rows = resp.rows.map((r) => [
-      r.name,
-      r.need,
-      r.unit,
-      r.subtotal,
-      r.source ?? "",
-    ]);
-    downloadCSV(fname, ["name", "need", "unit", "subtotal", "source"], rows);
+    downloadCSV(fname, csv);
   }
 
   const totalFmt =
     resp && resp.total != null ? formatCurrency(resp.total, resp.currency) : null;
 
-  // UI helpers
   const usingOwnedBanner =
     useOwned && collectionId ? (
       <div className="sticky top-0 z-10 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm">
-            Using owned from <span className="font-medium">collection {collectionId}</span>
-            {resp?.usedOwned ? "" : " (selected)"}
+            Subtracting cards you already own from{" "}
+            <span className="font-medium">
+              {collections?.find((c) => c.id === collectionId)?.name ?? `collection ${collectionId}`}
+            </span>
+            . Only missing copies are priced.
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -208,7 +246,6 @@ export default function Client() {
             </button>
             <button
               onClick={() => {
-                // focus the dropdown below
                 const el = document.getElementById("collectionId");
                 if (el) (el as HTMLSelectElement).focus();
               }}
@@ -247,32 +284,65 @@ export default function Client() {
         <div className="space-y-2">
           <label className="text-sm text-gray-400">Options</label>
           <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
-            <div className="flex items-center gap-2">
-              <input
-                id="useOwned"
-                type="checkbox"
-                className="h-4 w-4"
-                checked={useOwned}
-                onChange={(e) => setUseOwned(e.target.checked)}
-              />
-              <label htmlFor="useOwned" className="text-sm">
-                Subtract owned (requires a collection id)
-              </label>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <input
+                  id="useOwned"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={useOwned}
+                  onChange={(e) => setUseOwned(e.target.checked)}
+                />
+                <label htmlFor="useOwned" className="text-sm">
+                  Subtract cards I already own
+                </label>
+              </div>
+              <p className="text-xs text-gray-500">
+                Pick your collection. We’ll price only the copies you still need to buy.
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
-                Collection ID
-              </label>
-              <input
-                id="collectionId"
-                type="text"
-                value={collectionId ?? ""}
-                onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
-                placeholder="uuid-or-slug"
-                className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
-              />
-            </div>
+            {/* Dropdown if we have collections; otherwise text input fallback */}
+            {collections && collections.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
+                  Collection
+                </label>
+                <select
+                  id="collectionId"
+                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none"
+                  value={collectionId ?? ""}
+                  onChange={(e) => setCollectionId(e.target.value || null)}
+                  disabled={!useOwned}
+                >
+                  <option value="">— Select —</option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name ?? c.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <label htmlFor="collectionId" className="w-32 text-sm text-gray-400">
+                  Collection ID
+                </label>
+                <input
+                  id="collectionId"
+                  type="text"
+                  value={collectionId ?? ""}
+                  onChange={(e) => setCollectionId(e.target.value ? e.target.value : null)}
+                  placeholder="paste your collection id"
+                  className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
+                  disabled={!useOwned}
+                />
+              </div>
+            )}
+
+            {collectionsErr ? (
+              <div className="text-xs text-amber-400">{collectionsErr}</div>
+            ) : null}
 
             <div className="flex items-center gap-2">
               <label htmlFor="currency" className="w-32 text-sm text-gray-400">
@@ -284,7 +354,6 @@ export default function Client() {
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
               >
-                {/* extend freely; backend accepts ISO codes */}
                 <option value="USD">USD</option>
                 <option value="GBP">GBP</option>
                 <option value="EUR">EUR</option>
@@ -310,7 +379,6 @@ export default function Client() {
         </div>
       </section>
 
-      {/* Using owned banner */}
       {usingOwnedBanner}
 
       {/* Results */}
@@ -344,18 +412,11 @@ export default function Client() {
               </thead>
               <tbody>
                 {resp.rows.map((r, i) => (
-                  <tr
-                    key={`${r.name}-${i}`}
-                    className="odd:bg-white/[0.03] [&>td]:px-3 [&>td]:py-2"
-                  >
+                  <tr key={`${r.name}-${i}`} className="odd:bg-white/[0.03] [&>td]:px-3 [&>td]:py-2">
                     <td className="font-medium">{r.name}</td>
                     <td className="tabular-nums">{r.need}</td>
-                    <td className="tabular-nums">
-                      {formatCurrency(r.unit, resp.currency)}
-                    </td>
-                    <td className="tabular-nums font-semibold">
-                      {formatCurrency(r.subtotal, resp.currency)}
-                    </td>
+                    <td className="tabular-nums">{formatCurrency(r.unit, resp.currency)}</td>
+                    <td className="tabular-nums font-semibold">{formatCurrency(r.subtotal, resp.currency)}</td>
                     <td className="text-xs text-gray-400">{r.source ?? "—"}</td>
                   </tr>
                 ))}
@@ -366,9 +427,7 @@ export default function Client() {
                     Total
                   </td>
                   <td className="tabular-nums font-bold">{totalFmt}</td>
-                  <td className="text-xs text-gray-400">
-                    {resp.fx_date ? `FX: ${resp.fx_date}` : ""}
-                  </td>
+                  <td className="text-xs text-gray-400">{resp.fx_date ? `FX: ${resp.fx_date}` : ""}</td>
                 </tr>
               </tfoot>
             </table>
