@@ -224,11 +224,12 @@ export async function POST(req: NextRequest) {
 }
 
 /* ------------------------------ PATCH qty ------------------------------ */
-
 export async function PATCH(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
   if (auth instanceof Response) return auth;
+
+  const { collectionId } = auth;
 
   let body: any = {};
   try {
@@ -244,21 +245,24 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(qty)) return err("qty required");
   if (!id && !name) return err("id or name required");
 
-  let q = supabase.from("collection_cards").update({ qty }).select("id");
-  if (id) q = q.eq("id", id);
-  else q = q.eq("name", name!);
+  // Build filters first, then .select()
+  const baseUpdate = supabase.from("collection_cards").update({ qty });
+  const updateBuilder = id
+    ? baseUpdate.eq("id", id)
+    : baseUpdate.eq("collection_id", collectionId).eq("name", name!);
 
-  const { error } = await q.single();
+  const { error } = await updateBuilder.select("id").single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
 
 /* ------------------------------ DELETE card ------------------------------ */
-
 export async function DELETE(req: NextRequest) {
   const supabase = createClient();
   const auth = await getAuthedCollection(req, supabase);
   if (auth instanceof Response) return auth;
+
+  const { collectionId } = auth;
 
   let body: any = {};
   try {
@@ -272,11 +276,12 @@ export async function DELETE(req: NextRequest) {
   const name = body?.name ? String(body.name) : null;
   if (!id && !name) return err("id or name required");
 
-  let q = supabase.from("collection_cards").delete().select("id");
-  if (id) q = q.eq("id", id);
-  else q = q.eq("name", name!);
+  const baseDelete = supabase.from("collection_cards").delete();
+  const deleteBuilder = id
+    ? baseDelete.eq("id", id)
+    : baseDelete.eq("collection_id", collectionId).eq("name", name!);
 
-  const { error } = await q.single();
+  const { error } = await deleteBuilder.select("id").single();
   if (error) return err(error.message);
   return ok({ ok: true });
 }
