@@ -1,104 +1,140 @@
+// app/collections/[id]/Client.tsx
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useEffect, useState, useTransition } from "react";
 
-type ItemRow = {
-  card_name: string;
-  qty: number;
-  created_at: string | null;
-};
+type Card = { id: string; name: string; qty: number };
 
-export default function Client({ collectionId }: { collectionId: string }) {
-  const supabase = React.useMemo(() => createBrowserSupabaseClient(), []);
-  const [rows, setRows] = React.useState<ItemRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+export default function Client({ collectionId, initialItems }: { collectionId: string; initialItems: Card[] }) {
+  const [items, setItems] = useState<Card[]>(initialItems || []);
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState<number | "">("");
 
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({ ok: false, items: [] }));
+      if (data?.ok && Array.isArray(data.items)) setItems(data.items);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-        // NOTE: no `id` here — your table doesn't have it (by design).
-        const { data, error } = await supabase
-          .from("collection_items")
-          .select("card_name,qty,created_at")
-          .eq("collection_id", collectionId)
-          .order("card_name", { ascending: true });
+  useEffect(() => { load(); }, [collectionId]);
 
-        if (error) throw error;
+  async function adjustQty(id: string, delta: number) {
+    const res = await fetch("/api/collections/cards", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, delta }),
+    });
+    if (res.ok) await load();
+  }
 
-        if (alive) {
-          setRows(
-            (data ?? []).map((r) => ({
-              card_name: String(r.card_name ?? ""),
-              qty: Number(r.qty ?? 0),
-              created_at: r.created_at ?? null,
-            }))
-          );
-        }
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? String(e));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [supabase, collectionId]);
+  async function deleteCard(id: string) {
+    const res = await fetch("/api/collections/cards", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) await load();
+  }
+
+  async function addCard(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const n = typeof qty === "number" && Number.isFinite(qty) ? qty : 1;
+
+    const res = await fetch("/api/collections/cards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ collectionId, name: trimmed, qty: n }),
+    });
+    if (res.ok) {
+      setName(""); setQty("");
+      await load();
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Collection</h1>
-        <Link href="/collections" className="text-sm underline underline-offset-4">
-          ← Back to Collections
-        </Link>
+    <div className="p-4 space-y-6">
+      <h1 className="text-2xl font-semibold">Collection</h1>
+
+      <form onSubmit={addCard} className="flex items-end gap-3">
+        <div className="flex-1">
+          <label className="block text-sm mb-1">Card name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border rounded px-2 py-1"
+            placeholder="Sol Ring"
+          />
+        </div>
+        <div className="w-24">
+          <label className="block text-sm mb-1">Qty</label>
+          <input
+            type="number"
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
+            className="w-full border rounded px-2 py-1"
+            placeholder="1"
+          />
+        </div>
+        <button className="px-3 py-2 border rounded">Add</button>
+      </form>
+
+      <div className="border rounded">
+        {loading ? (
+          <div className="p-3 text-sm text-neutral-600">Loading…</div>
+        ) : items.length === 0 ? (
+          <div className="p-3 text-sm text-neutral-600">No cards yet — add one above or upload a CSV.</div>
+        ) : (
+          items.map((c) => (
+            <Row key={c.id} card={c} onAdjust={adjustQty} onDelete={deleteCard} />
+          ))
+        )}
       </div>
+    </div>
+  );
+}
 
-      <div className="text-xs text-gray-400 break-all">ID: {collectionId}</div>
-
-      {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
-          {error}
-        </div>
-      )}
-
-      {loading && (
-        <div className="rounded-lg border p-4 text-sm opacity-70">Loading…</div>
-      )}
-
-      {!loading && !error && rows.length === 0 && (
-        <div className="rounded-lg border p-4 text-sm">
-          No cards in this collection yet.
-        </div>
-      )}
-
-      {!loading && !error && rows.length > 0 && (
-        <div className="rounded-lg border overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 border-b bg-black/20">
-              <tr>
-                <th className="text-left py-2 px-3">Card</th>
-                <th className="text-right py-2 px-3">Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.card_name}-${i}`} className="border-b">
-                  <td className="py-1.5 px-3">{r.card_name}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums">{r.qty}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+function Row({ card, onAdjust, onDelete }: {
+  card: Card,
+  onAdjust: (id: string, delta: number) => Promise<void>,
+  onDelete: (id: string) => Promise<void>,
+}) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className="flex items-center gap-3 border-b py-2">
+      <div className="flex-1">{card.name}</div>
+      <div className="flex items-center gap-2">
+        <button
+          className="px-2 py-1 border rounded"
+          onClick={() => startTransition(() => onAdjust(card.id, -1))}
+          disabled={pending}
+        >
+          -
+        </button>
+        <span className="w-8 text-center">{card.qty}</span>
+        <button
+          className="px-2 py-1 border rounded"
+          onClick={() => startTransition(() => onAdjust(card.id, +1))}
+          disabled={pending}
+        >
+          +
+        </button>
+      </div>
+      <button
+        className="px-2 py-1 border rounded text-red-600"
+        onClick={() => startTransition(() => onDelete(card.id))}
+        disabled={pending}
+      >
+        delete
+      </button>
     </div>
   );
 }
