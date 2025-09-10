@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     const user = userRes?.user;
@@ -29,4 +29,3 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 500 });
   }
 }
-

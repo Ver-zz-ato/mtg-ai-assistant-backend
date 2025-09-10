@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -58,7 +58,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     const user = userRes?.user;
@@ -117,4 +117,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 500 });
   }
 }
-

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 type DeckRow = {
@@ -28,7 +28,7 @@ function guessCommander(row: DeckRow): string | null {
 export const dynamic = "force-dynamic";
 
 export default async function MyDecksPage() {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("decks")
@@ -73,7 +73,7 @@ export default async function MyDecksPage() {
               <div className="min-w-0">
                 <div className="font-medium truncate">{title}</div>
                 <div className="text-xs text-gray-500">
-                  {(r.format ?? "Commander") + (commander ? ` â€¢ ${commander}` : "")}
+                  {(r.format ?? "Commander") + (commander ? ` • ${commander}` : "")}
                 </div>
                 {created && <div className="text-[10px] text-gray-500">{created}</div>}
               </div>
@@ -92,4 +92,3 @@ export default async function MyDecksPage() {
     </div>
   );
 }
-
