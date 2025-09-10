@@ -1,10 +1,10 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 
 export async function GET(_req: NextRequest) {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
   const user = userRes?.user;
@@ -25,4 +25,3 @@ export async function GET(_req: NextRequest) {
   }
   return NextResponse.json({ ok: true, decks: data ?? [] });
 }
-

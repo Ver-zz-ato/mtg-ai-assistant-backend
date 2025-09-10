@@ -1,31 +1,48 @@
-﻿import { cookies, headers } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+// lib/supabase/server.ts
+import { cookies, headers } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
-export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "Supabase env missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY on the server."
-    );
-  }
+/**
+ * Next 15+ compatible Supabase server client.
+ * Exports:
+ *  - createSupabaseServerClient()  // preferred
+ *  - createClient()                // legacy alias for existing imports
+ */
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();   // must await in Next 15
+  const headerList = await headers();    // must await in Next 15
 
-  const cookieStore = cookies() as any;
-  const hdrs = headers() as any;
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(_name: string, _value: string, _options: any) {
+          // no-op in route handlers; use Response cookies to mutate if needed
+        },
+        remove(_name: string, _options: any) {
+          // no-op
+        },
+      },
+      headers: {
+        get(key: string) {
+          return headerList.get(key) ?? undefined;
+        },
+      },
+    }
+  );
 
-  return createServerClient(url, key, {
-    cookies: {
-      get(name: string) {
-        try { return cookieStore.get(name)?.value ?? undefined; } catch { return undefined; }
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        try { cookieStore.set({ name, value, ...options }); } catch {}
-      },
-      remove(name: string, options: CookieOptions) {
-        try { cookieStore.set({ name, value: "", ...options }); } catch {}
-      },
-    },
-    global: typeof hdrs?.entries === "function" ? { headers: Object.fromEntries(hdrs.entries()) } : undefined,
-  });
+  return supabase;
 }
-export function createServerSupabaseClient() { return createClient(); }
+
+// Legacy alias for older code that imports { createClient } from this module.
+export async function createClient() {
+  return createSupabaseServerClient();
+}
+
+// Optional additional aliases if your code used different names before:
+export const getServerClient = createSupabaseServerClient;
+export const supabaseServerClient = createSupabaseServerClient;
