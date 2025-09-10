@@ -1,18 +1,18 @@
-// frontend/components/LeftSidebar.tsx
+// This file replaces your existing components/LeftSidebar.tsx
+// It keeps the left column layout and swaps the static "Yuriko…" list
+// for a live RecentPublicDecks widget that reads /api/decks/recent.
+import RecentPublicDecks from "./RecentPublicDecks";
+
 export default function LeftSidebar() {
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <div className="font-semibold mb-2">Recent Decks</div>
-        <ul className="space-y-2 text-sm text-gray-300">
-          <li className="hover:text-white cursor-pointer">Yuriko, the Tiger&apos;s Shadow</li>
-          <li className="hover:text-white cursor-pointer">Atraxa Superfriends</li>
-          <li className="hover:text-white cursor-pointer">Korvold Food Chain</li>
-        </ul>
-      </div>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-48 grid place-content-center text-gray-400">
-        <div className="text-xs uppercase tracking-wide mb-2">Ad Placeholder</div>
-        <div className="text-sm">300 × 250</div>
+    <div className="w-full flex flex-col gap-4">
+      {/* Recent public decks - live */}
+      <RecentPublicDecks />
+
+      {/* Ad box (unchanged placeholder) */}
+      <div className="rounded-xl border border-dashed border-gray-700 p-6 text-center text-xs text-gray-500">
+        AD PLACEHOLDER
+        <br />300 × 250
       </div>
     </div>
   );

@@ -2,14 +2,14 @@
 import os
 import re
 from collections import Counter, defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 # -------------------------
-# Optional OpenAI import (kept from your file)
+# Optional OpenAI import
 # -------------------------
 try:
     from openai import OpenAI  # type: ignore
@@ -21,7 +21,6 @@ except Exception:
 app = Flask(__name__)
 
 # ---- CORS ---------------------------------------------------------
-# Allow only your site + local dev. Comma or space separated env works.
 raw_origins = os.getenv("CORS_ORIGINS", "https://manatap.ai,http://localhost:3000")
 ALLOWED_ORIGINS = [o.strip() for o in raw_origins.replace(" ", "").split(",") if o.strip()]
 CORS(
@@ -30,7 +29,6 @@ CORS(
     supports_credentials=False,
 )
 
-# Add common headers for preflight
 @app.after_request
 def add_cors_headers(resp):
     resp.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -39,12 +37,19 @@ def add_cors_headers(resp):
 # ------------------------------------------------------------------
 
 # -------------------------
-# Config (env) (kept)
+# Config (env)
 # -------------------------
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 USE_OPENAI = os.getenv("USE_OPENAI", "1") == "1"
 MODEL = os.getenv("MODEL", "gpt-4o-mini")
-TEMP = float(os.getenv("TEMP", "0.3"))
+
+# Avoid Windows TEMP collision; tolerant parse
+raw_temp = os.getenv("OPENAI_TEMPERATURE")
+try:
+    TEMP = float(raw_temp) if raw_temp is not None else 0.3
+except (TypeError, ValueError):
+    TEMP = 0.3
+
 MAXTOK = int(os.getenv("MAXTOK", "800"))
 
 SCRYFALL = "https://api.scryfall.com"
@@ -65,13 +70,12 @@ def http_get(url, **kwargs):
             text = "request_failed"
         return R()
 
-# Price cache to avoid hammering Scryfall during one request
 PRICE_CACHE: Dict[Tuple[str, str], float] = {}
 
 def scryfall_price(card_name: str, currency: str = "USD") -> float:
     """
-    Best-effort unit price via Scryfall. currency in {"USD","EUR"}.
-    Falls back to 0 if price unavailable.
+    Best-effort unit price via Scryfall. Supports USD and EUR.
+    Falls back to 0 if price unavailable. GBP -> USD.
     """
     currency = (currency or "USD").upper()
     key = (card_name.lower(), currency)
@@ -85,10 +89,11 @@ def scryfall_price(card_name: str, currency: str = "USD") -> float:
 
     data = r.json() or {}
     prices = data.get("prices") or {}
+
     if currency == "EUR":
         raw = prices.get("eur")
     else:
-        raw = prices.get("usd")
+        raw = prices.get("usd")  # GBP (and anything else) treated as USD
 
     try:
         val = float(raw) if raw not in (None, "", "null") else 0.0
@@ -101,12 +106,6 @@ def scryfall_price(card_name: str, currency: str = "USD") -> float:
 LINE_RE = re.compile(r"^\s*(\d+)\s*[xX]?\s+(.+?)\s*$")
 
 def parse_deck_text(deck_text: str) -> Dict[str, int]:
-    """
-    Parse lines like:
-      1 Sol Ring
-      2 Arcane Signet
-    Returns {card_name -> quantity}
-    """
     counts: Dict[str, int] = defaultdict(int)
     for raw in (deck_text or "").splitlines():
         m = LINE_RE.match(raw)
@@ -121,7 +120,6 @@ def parse_deck_text(deck_text: str) -> Dict[str, int]:
 def compute_rows(deck_counts: Dict[str, int], owned: Dict[str, int], currency: str):
     rows = []
     total = 0.0
-
     for name, want in deck_counts.items():
         have = int(owned.get(name, 0) or 0)
         need = max(0, want - have)
@@ -136,12 +134,11 @@ def compute_rows(deck_counts: Dict[str, int], owned: Dict[str, int], currency: s
             "unit": unit,
             "subtotal": sub,
         })
-
     rows.sort(key=lambda r: (-r["subtotal"], r["card"]))
     return rows, round(total, 2)
 
 # -------------------------
-# Routes (kept + new)
+# Routes
 # -------------------------
 @app.route("/")
 def root():
@@ -163,7 +160,6 @@ def debug():
         "allowed_origins": ALLOWED_ORIGINS,
     })
 
-# ---------- Chat API (kept) ----------
 @app.route("/api", methods=["POST"])
 def api():
     data = request.get_json(force=True) or {}
@@ -192,7 +188,6 @@ def api():
     except Exception:
         return jsonify({"ok": True, "reply": f"[echo:{mode}] {prompt}"}), 200
 
-# ---------- Card helpers (kept) ----------
 @app.route("/card")
 def card():
     name = (request.args.get("name") or "").strip()
@@ -207,18 +202,14 @@ def search():
         return jsonify({"ok": False, "error": "Missing name"}), 400
     return jsonify({"ok": True, "data": search_card(name)})
 
-# ---------- NEW: Cost-to-finish ----------
 @app.route("/api/collections/cost", methods=["POST", "OPTIONS"])
 def collections_cost():
     if request.method == "OPTIONS":
         return ("", 204)
 
     data = request.get_json(force=True) or {}
-
-    # Tolerant keys
     deck_text = data.get("deck_text") or data.get("deckText") or ""
     currency = (data.get("currency") or "USD").upper()
-    # Optional: { "Sol Ring": 1, "Arcane Signet": 2, ... }
     owned = data.get("owned") or {}
 
     if not deck_text.strip():
@@ -235,12 +226,10 @@ def collections_cost():
         "usedOwned": bool(owned),
     }), 200
 
-# Alias to keep both URLs working
 @app.route("/api/collections/cost-to-finish", methods=["POST", "OPTIONS"])
 def collections_cost_alias():
     return collections_cost()
 
-# ---------- Deckcheck (kept) ----------
 @app.route("/deckcheck", methods=["POST"])
 def deckcheck():
     data = request.get_json(force=True) or {}
@@ -283,7 +272,8 @@ def deckcheck():
     illegal = []
     commander_colors = set(commander_data["data"].get("color_identity", []))
     for c in cards_data:
-        if not set(c["data"].get("color_identity", [])).subsets(commander_colors):
+        card_colors = set(c["data"].get("color_identity", []))
+        if not card_colors.issubset(commander_colors):
             illegal.append(c["data"]["name"])
 
     combos = fetch_combos_for_cards([c["data"]["name"] for c in cards_data])
@@ -300,7 +290,7 @@ def deckcheck():
     })
 
 # -------------------------
-# Helpers (kept)
+# Helpers
 # -------------------------
 def mode_to_system_prompt(mode: str) -> str:
     prompts = {
@@ -372,7 +362,6 @@ def fetch_combos_for_cards(card_names):
                     "description": combo.get("description"),
                     "link": combo.get("permalink")
                 })
-    # dedupe
     seen = set()
     deduped = []
     for c in results:
