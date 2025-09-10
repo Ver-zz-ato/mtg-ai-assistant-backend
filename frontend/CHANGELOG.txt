@@ -1,0 +1,4 @@
+2025-09-10  –  Fix collections +/- & delete:
+- API now accepts id, delta from JSON body OR query string for PATCH/DELETE.
+- Auto-delete row when qty goes to 0 or below.
+2025-09-10 – Improve /api/collections/cards PATCH:\n- Accept id via id|cardId|card_id (body or query).\n- Accept delta via delta|d|qtyDelta (body or query).\n- Support ?op=inc|dec, ?inc=1, ?dec=1, and delta='+'/'-'.\n- Support absolute qty mode: { id, qty }.\n- Auto-delete on qty<=0.\n
