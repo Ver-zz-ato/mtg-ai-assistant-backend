@@ -1,19 +1,22 @@
-// This file replaces your existing components/LeftSidebar.tsx
-// It keeps the left column layout and swaps the static "Yuriko…" list
-// for a live RecentPublicDecks widget that reads /api/decks/recent.
+// components/LeftSidebar.tsx
+import { Suspense } from "react";
 import RecentPublicDecks from "./RecentPublicDecks";
+import RecentPublicDecksSkeleton from "./RecentPublicDecksSkeleton";
 
 export default function LeftSidebar() {
   return (
     <div className="w-full flex flex-col gap-4">
-      {/* Recent public decks - live */}
-      <RecentPublicDecks />
+      <Suspense fallback={<RecentPublicDecksSkeleton />}>
+        {/* @ts-expect-error Async Server Component */}
+        <RecentPublicDecks />
+      </Suspense>
 
       {/* Ad box (unchanged placeholder) */}
       <div className="rounded-xl border border-dashed border-gray-700 p-6 text-center text-xs text-gray-500">
         AD PLACEHOLDER
-        <br />300 × 250
       </div>
+
+      {/* Your left-rail tools, untouched below… */}
     </div>
   );
 }

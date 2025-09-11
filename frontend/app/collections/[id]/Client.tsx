@@ -1,126 +1,153 @@
+// app/collections/[id]/Client.tsx
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 
-type CardRow = { id: string; name: string; qty: number };
+type Item = { id: string; name: string; qty: number; created_at?: string };
 
-export default function Client({ id }: { id: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [items, setItems] = useState<CardRow[]>([]);
+export default function CollectionClient({ collectionId: idProp }: { collectionId?: string }) {
+  const params = useParams();
+  const collectionId = useMemo(() => {
+    const pid = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params?.id[0] : undefined;
+    return idProp || pid;
+  }, [params, idProp]);
+
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [qty, setQty] = useState<number>(1);
+  const [qty, setQty] = useState(1);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 1200);
+  }
 
   async function load() {
-    const res = await fetch(`/api/collections/cards?collectionId=${id}`, { cache: "no-store" });
-    const json = await res.json();
-    if (json?.ok) setItems(json.items ?? []);
-    else console.error(json?.error || "Failed loading items");
+    if (!collectionId) return;
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch(`/api/collections/cards?collectionId=${collectionId}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setItems(json.items || []);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  function refresh() {
-    startTransition(() => {
-      router.refresh();
-      load();
-    });
-  }
+  useEffect(() => { load(); }, [collectionId]);
 
   async function add() {
-    const body = { collectionId: id, name: name.trim(), qty: Number(qty) || 1 };
-    await fetch(`/api/collections/cards`, {
+    if (!collectionId || !name.trim()) return;
+    const safeName = name.trim();
+    const res = await fetch(`/api/collections/cards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ collectionId, name: safeName, qty }),
     });
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      alert(json?.error || "Add failed");
+      return;
+    }
     setName("");
     setQty(1);
-    refresh();
+    await load();
+    showToast(`Added x${qty} ${safeName}`);
   }
 
-  async function patch(cardId: string, delta: number) {
-    await fetch(`/api/collections/cards`, {
+  async function bump(item: Item, delta: number) {
+    const res = await fetch(`/api/collections/cards`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: cardId, delta }),
+      body: JSON.stringify({ id: item.id, delta }),
     });
-    refresh();
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      alert(json?.error || "Update failed");
+      return;
+    }
+    await load();
+    if (delta > 0) showToast(`Added x${delta} ${item.name}`);
+    else if (delta < 0) showToast(`Removed x${Math.abs(delta)} ${item.name}`);
   }
 
-  async function remove(cardId: string) {
-    await fetch(`/api/collections/cards`, {
+  async function remove(item: Item) {
+    const res = await fetch(`/api/collections/cards`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: cardId }),
+      body: JSON.stringify({ id: item.id }),
     });
-    refresh();
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      alert(json?.error || "Delete failed");
+      return;
+    }
+    await load();
+    showToast(`Removed ${item.name}`);
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-semibold">Collection</h1>
-
-      <div className="flex gap-2 items-center">
+    <div className="space-y-3 relative">
+      {/* Add row */}
+      <div className="flex items-center gap-2">
         <input
-          className="w-full rounded-md bg-zinc-900 px-3 py-2"
-          placeholder="Card name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          placeholder="Card name"
+          className="flex-1 border rounded px-2 py-1 text-sm bg-transparent"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") add();
+          }}
         />
         <input
-          className="w-20 rounded-md bg-zinc-900 px-3 py-2 text-right"
-          placeholder="Qty"
-          inputMode="numeric"
+          type="number"
           value={qty}
-          onChange={(e) => setQty(Number(e.target.value) || 1)}
+          min={1}
+          onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
+          className="w-16 border rounded px-2 py-1 text-sm bg-transparent"
         />
-        <button
-          onClick={add}
-          disabled={!name.trim() || isPending}
-          className="rounded-md bg-emerald-700 px-3 py-2 disabled:opacity-50"
-        >
-          Add
-        </button>
+        <button onClick={add} className="border rounded px-2 py-1 text-sm">Add</button>
       </div>
 
-      <div className="divide-y divide-zinc-800">
-        {items.length === 0 ? (
-          <p className="text-sm text-zinc-400">No cards yet — add one above or upload a CSV.</p>
+      {/* List */}
+      {loading && <div className="text-xs opacity-70">Loading…</div>}
+      {error && <div className="text-xs text-red-500">Error: {error}</div>}
+
+      {!loading && !error && (
+        items.length ? (
+          <ul className="space-y-1">
+            {items.map((it) => (
+              <li key={it.id} className="flex items-center justify-between rounded border px-3 py-2">
+                <span className="text-sm">{it.name}</span>
+                <div className="flex items-center gap-2">
+                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(it, -1)}>-</button>
+                  <span className="text-xs opacity-75">x{it.qty}</span>
+                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(it, +1)}>+</button>
+                  <button className="text-xs text-red-500 underline" onClick={() => remove(it)}>delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
-          items.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 py-2">
-              <div className="flex-1 truncate">{c.name}</div>
-              <button
-                onClick={() => patch(c.id, -1)}
-                className="rounded-md bg-zinc-800 px-2"
-                aria-label="decrement"
-              >
-                -
-              </button>
-              <div className="w-8 text-center tabular-nums">{c.qty}</div>
-              <button
-                onClick={() => patch(c.id, +1)}
-                className="rounded-md bg-zinc-800 px-2"
-                aria-label="increment"
-              >
-                +
-              </button>
-              <button
-                onClick={() => remove(c.id)}
-                className="rounded-md bg-red-700 px-2"
-                aria-label="delete"
-              >
-                delete
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+          <div className="text-xs text-muted-foreground rounded border p-3">
+            No cards in this collection yet — try adding <span className="font-medium">Lightning Bolt</span>?<br />
+            Tip: type a card and press <span className="font-mono">Enter</span>.
+          </div>
+        )
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="pointer-events-none fixed bottom-4 right-4 rounded bg-black/80 text-white text-xs px-3 py-2 shadow">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
