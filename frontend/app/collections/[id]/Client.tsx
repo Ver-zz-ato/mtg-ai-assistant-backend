@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 
 type Item = { id: string; name: string; qty: number; created_at?: string };
 
@@ -94,6 +95,12 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
 
   return (
     <div className="space-y-3 relative">
+      {/* Header with export */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">Collection</h3>
+        {collectionId ? <ExportCollectionCSV collectionId={collectionId} small /> : null}
+      </div>
+
       {/* Add row */}
       <div className="flex items-center gap-2">
         <input
