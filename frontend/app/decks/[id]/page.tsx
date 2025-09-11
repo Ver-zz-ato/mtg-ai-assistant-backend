@@ -1,33 +1,22 @@
-// frontend/app/decks/[id]/page.tsx
-import type { Metadata } from "next";
+// app/decks/[id]/page.tsx
+import { createClient } from "@/lib/supabase/server";
 import Client from "./Client";
+
+type Params = { id: string };
 
 export const dynamic = "force-dynamic";
 
-// In Next 15, params/searchParams can be Promises in types.
-// Accept a Promise and await it in both functions.
-
-export async function generateMetadata(
-  { params }: { params: Promise<{ id: string }> }
-): Promise<Metadata> {
+export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
-  const title = `My Deck • ${id.slice(0, 8)}`;
-  const url = `https://manatap.ai/decks/${id}`;
-  return {
-    title,
-    description: "View and manage your deck.",
-    openGraph: { title, description: "View and manage your deck.", url, type: "website" },
-    twitter: { card: "summary_large_image", title, description: "View and manage your deck." },
-    alternates: { canonical: url },
-  };
-}
+  const _supabase = await createClient(); // kept to ensure cookie/session bootstrap
 
-export default async function Page(
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-8">
+      <header className="mb-4">
+        <h1 className="text-2xl font-semibold">Deck</h1>
+        <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
+      </header>
+
       <Client deckId={id} />
     </main>
   );
