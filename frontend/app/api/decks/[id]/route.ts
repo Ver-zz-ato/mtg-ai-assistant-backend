@@ -1,45 +1,62 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+// app/api/decks/[id]/route.ts
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }   // <- Promise here
-) {
-  const { id: deckId } = await ctx.params;     // <- and await here
+type Params = { id: string };
 
+export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
+  const { id } = await ctx.params;
   const supabase = await createClient();
 
-  // Try to read user (may be null if logged out)
+  // May be null if logged out
   const { data: ures } = await supabase.auth.getUser();
-  const user = ures?.user;
+  const user = ures?.user ?? null;
 
-  // If logged in, try private "decks" first
-  if (user) {
-    const { data, error } = await supabase
-      .from("decks")
-      .select("id, title, deck_text, created_at, owner_id")
-      .eq("id", deckId)
-      .maybeSingle();
+  // Single-query public/owner OR filter; no dependency on views
+  const { data: deck, error: deckErr } = await supabase
+    .from("decks")
+    .select(
+      "id, user_id, title, format, plan, colors, currency, deck_text, is_public, created_at, updated_at, commander, data, meta"
+    )
+    .or(`and(id.eq.${id},is_public.eq.true),and(id.eq.${id},user_id.eq.${user ? user.id : "00000000-0000-0000-0000-000000000000"})`) // bogus UUID won't match when logged out
+    .single();
 
-    if (!error && data) {
-      return NextResponse.json({ ok: true, deck: data });
-    }
-    // fall through to public snapshot if not found/authorized
+  if (deckErr || !deck) {
+    // Return useful diagnostics without leaking private info
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Deck not found",
+        details: {
+          deck_id: id,
+          user_id: user?.id ?? null,
+          hint:
+            "Either the deck ID is wrong, the deck is private and you are not the owner, or RLS policies are blocking SELECT on 'decks'.",
+        },
+      },
+      { status: 404 }
+    );
   }
 
-  // Fallback to public snapshot
-  const { data: pub, error: pubErr } = await supabase
-    .from("recent_public_decks")
-    .select("id, title, deck_text, created_at, owner_id")
-    .eq("id", deckId)
-    .maybeSingle();
+  // Cards: permitted by deck_cards_read policy (public or owner)
+  const { data: cards, error: cardsErr } = await supabase
+    .from("deck_cards")
+    .select("id, deck_id, name, qty, created_at")
+    .eq("deck_id", deck.id)
+    .order("created_at", { ascending: true });
 
-  if (pubErr) {
-    return NextResponse.json({ ok: false, error: pubErr.message }, { status: 500 });
-  }
-  if (!pub) {
-    return NextResponse.json({ ok: false, error: "Deck not found" }, { status: 404 });
+  if (cardsErr) {
+    return NextResponse.json(
+      {
+        ok: true,
+        deck,
+        cards: [],
+        warning: "Cards blocked by RLS or other error",
+        error: cardsErr.message,
+      },
+      { status: 200 }
+    );
   }
 
-  return NextResponse.json({ ok: true, deck: pub });
+  return NextResponse.json({ ok: true, deck, cards: cards ?? [] }, { status: 200 });
 }
