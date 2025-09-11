@@ -1,5 +1,7 @@
 // components/RecentPublicDecks.tsx
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
+import { createClient } from "@supabase/supabase-js";
 
 type Row = {
   id: string;
@@ -7,17 +9,31 @@ type Row = {
   updated_at?: string | null;
 };
 
+// Cookie-free Supabase client for public data (safe to run at build/prerender)
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(url, anon, { auth: { persistSession: false } });
+
+const getRecent = unstable_cache(
+  async (limit: number) => {
+    const { data, error } = await supabase
+      .from("decks")
+      .select("id, title, updated_at")
+      .eq("is_public", true)
+      .order("updated_at", { ascending: false })
+      .limit(Math.min(Math.max(limit || 12, 1), 24));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Row[];
+  },
+  ["recent_public_decks"],
+  { revalidate: 30 }
+);
+
 export default async function RecentPublicDecks({ limit = 12 }: { limit?: number }) {
-  const base =
-    (process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")) ||
-    (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
-
-  const url = `${base}/api/decks/recent?limit=${encodeURIComponent(String(limit))}`;
-  const res = await fetch(url, { next: { revalidate: 30 } });
-  const json = await res.json();
-  const decks: Row[] = json?.decks || [];
-
-  if (!res.ok || json?.ok === false) {
+  let decks: Row[] = [];
+  try {
+    decks = await getRecent(limit);
+  } catch (e) {
     return <div className="text-sm text-red-500">Failed to load recent decks.</div>;
   }
 
