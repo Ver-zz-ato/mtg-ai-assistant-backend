@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DeckPublicToggle from "@/components/DeckPublicToggle";
 import Client from "./Client";
+import ExportDeckCSV from "@/components/ExportDeckCSV";
+import CopyDecklistButton from "@/components/CopyDecklistButton";
 
 type Params = { id: string };
 
@@ -30,9 +32,12 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           <h1 className="text-2xl font-semibold">{deck.title ?? "Untitled Deck"}</h1>
           <p className="text-xs text-muted-foreground">Deck ID: {deck.id}</p>
         </div>
-        <DeckPublicToggle deckId={deck.id} initialIsPublic={deck.is_public} compact />
+        <div className="flex items-center gap-3">
+          <DeckPublicToggle deckId={deck.id} initialIsPublic={deck.is_public} compact />
+          <CopyDecklistButton deckId={deck.id} small />
+          <ExportDeckCSV deckId={deck.id} small />
+        </div>
       </div>
-
       <Client deckId={deck.id} />
     </main>
   );

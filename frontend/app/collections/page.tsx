@@ -1,21 +1,21 @@
+// app/collections/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type Collection = {
-  id: string;
-  name: string;
-  created_at: string | null;
-};
+type Collection = { id: string; name: string; created_at: string | null };
 
 export default function CollectionsPageClient() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 1200);
+  }
 
   async function loadCollections() {
     setLoading(true);
@@ -23,9 +23,7 @@ export default function CollectionsPageClient() {
       const res = await fetch("/api/collections/list", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
-      const cols: Collection[] = data.collections ?? [];
-      setCollections(cols);
-      if (cols.length && !selectedId) setSelectedId(cols[0].id);
+      setCollections(data.collections ?? []);
     } catch (e: any) {
       alert("Failed to load collections: " + (e.message || e));
     } finally {
@@ -33,187 +31,83 @@ export default function CollectionsPageClient() {
     }
   }
 
-  useEffect(() => {
-    loadCollections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { loadCollections(); }, []);
 
-  async function onCreate() {
-    const name = newName.trim();
-    if (!name) {
-      alert("Enter a name");
+  async function createCollection() {
+    if (!newName.trim()) return;
+    const res = await fetch("/api/collections/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      alert(json?.error || "Create failed");
       return;
     }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/collections/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || res.statusText);
-      setNewName("");
-      await loadCollections();
-    } catch (e: any) {
-      alert("Create failed: " + (e.message || e));
-    } finally {
-      setBusy(false);
-    }
+    setNewName("");
+    showToast("Collection created");
+    await loadCollections();
   }
 
-  async function onUpload(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedId) {
-      alert("Pick a collection");
+  async function deleteCollection(id: string) {
+    const ok = confirm("Delete this collection? This cannot be undone.");
+    if (!ok) return;
+    const res = await fetch("/api/collections/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      alert(json?.error || "Delete failed");
       return;
     }
-    if (!file) {
-      alert("Pick a CSV file");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("collection_id", selectedId);
-      fd.append("file", file);
-
-      const res = await fetch("/api/collections/upload", {
-        method: "POST",
-        body: fd,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || res.statusText);
-
-      alert(`Uploaded ${data.inserted ?? data.count ?? 0} rows`);
-      setFile(null);
-    } catch (e: any) {
-      alert("Upload failed: " + (e.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onCopyId() {
-    if (!selectedId) return;
-    try {
-      await navigator.clipboard.writeText(selectedId);
-      alert("Copied collection ID");
-    } catch {
-      alert("Failed to copy");
-    }
+    showToast("Deleted");
+    setCollections(prev => prev.filter(c => c.id !== id));
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 space-y-6">
-      <h1 className="text-2xl font-semibold">Collections</h1>
-
-      {/* Create collection */}
-      <div className="rounded-xl border p-4 flex gap-2 items-center">
-        <input
-          placeholder="New collection name"
-          className="flex-1 rounded-lg border px-3 py-2 text-sm"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          disabled={busy}
-        />
-        <button
-          type="button"
-          onClick={onCreate}
-          className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-50"
-          disabled={busy}
-          title="Create new collection"
-        >
-          Create
-        </button>
-      </div>
-
-      {/* Upload CSV */}
-      <div className="rounded-xl border p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">Upload CSV to a collection</div>
-          <div className="text-xs opacity-70 font-mono truncate">
-            {selectedId ? `ID: ${selectedId}` : ""}
-          </div>
-        </div>
-
-        <form className="flex flex-col sm:flex-row gap-2 items-stretch" onSubmit={onUpload}>
-          <select
-            className="rounded-lg border px-3 py-2 text-sm"
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
-            disabled={busy || loading}
-          >
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
+    <main className="max-w-5xl mx-auto px-4 py-6 relative">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Collections</h1>
+        <div className="flex items-center gap-2">
           <input
-            type="file"
-            accept=".csv,text/csv"
-            className="rounded-lg border px-3 py-2 text-sm flex-1"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            disabled={busy}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New collection name"
+            className="border rounded px-2 py-1 text-sm bg-transparent"
           />
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onCopyId}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-50"
-              disabled={!selectedId}
-            >
-              Copy ID
-            </button>
-
-            <button
-              type="submit"
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-50"
-              disabled={busy}
-            >
-              Upload
-            </button>
-          </div>
-        </form>
-
-        <div className="text-xs opacity-70">
-          CSV headers accepted: <code>name,qty</code> (also <code>quantity</code>,{" "}
-          <code>count</code>, <code>owned</code>). Bare lines like <code>2,Sol Ring</code> also work.
+          <button onClick={createCollection} className="border rounded px-2 py-1 text-sm">Create</button>
         </div>
       </div>
 
-      {/* Existing collections */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="rounded-xl border p-4 text-sm opacity-75">Loading…</div>
-        ) : collections.length ? (
-          collections.map((c) => {
+      {loading ? (
+        <div className="text-sm opacity-70">Loading…</div>
+      ) : collections.length ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {collections.map((c) => {
             const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
             return (
-              <Link
-                key={c.id}
-                href={`/collections/${encodeURIComponent(c.id)}`}
-                className="block rounded-xl border p-4 hover:bg-black/5 transition-colors"
-                title="View collection"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{c.name}</div>
-                    <div className="text-xs opacity-70">{created}</div>
-                  </div>
-                  <div className="text-sm underline underline-offset-4">Open →</div>
-                </div>
-              </Link>
+              <div key={c.id} className="border rounded p-3 flex items-center justify-between">
+                <Link href={`/collections/${c.id}`} className="min-w-0">
+                  <div className="font-medium truncate">{c.name}</div>
+                  <div className="text-xs opacity-70">{created}</div>
+                </Link>
+                <button onClick={() => deleteCollection(c.id)} className="text-sm text-red-500 underline">Delete</button>
+              </div>
             );
-          })
-        ) : (
-          <div className="rounded-xl border p-4 text-sm">No collections yet.</div>
-        )}
-      </div>
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border p-4 text-sm">No collections yet.</div>
+      )}
+
+      {toast && (
+        <div className="pointer-events-none fixed bottom-4 right-4 rounded bg-black/80 text-white text-xs px-3 py-2 shadow">
+          {toast}
+        </div>
+      )}
     </main>
   );
 }

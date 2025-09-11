@@ -13,6 +13,12 @@ export default function CardsPane({ deckId: deckIdProp }: { deckId?: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 1200);
+  }
 
   async function load() {
     if (!deckId) return;
@@ -44,6 +50,8 @@ export default function CardsPane({ deckId: deckIdProp }: { deckId?: string }) {
       return;
     }
     await load();
+    if (delta > 0) showToast(`Added x${delta} ${name}`);
+    else if (delta < 0) showToast(`Removed x${Math.abs(delta)} ${name}`);
   }
 
   async function remove(name: string) {
@@ -59,10 +67,11 @@ export default function CardsPane({ deckId: deckIdProp }: { deckId?: string }) {
       return;
     }
     await load();
+    showToast(`Removed ${name}`);
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 relative">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-medium">Cards</h3>
         <button className="text-xs underline" onClick={load}>Refresh</button>
@@ -85,8 +94,16 @@ export default function CardsPane({ deckId: deckIdProp }: { deckId?: string }) {
             ))}
           </ul>
         ) : (
-          <div className="text-xs text-muted-foreground">No cards yet.</div>
+          <div className="text-xs text-muted-foreground rounded border p-3">
+            No cards yet — try adding <span className="font-medium">Lightning Bolt</span>?<br />
+            Tip: use the input above, then use <span className="font-mono">+</span>/<span className="font-mono">-</span> to adjust.
+          </div>
         )
+      )}
+      {toast && (
+        <div className="pointer-events-none fixed bottom-4 right-4 rounded bg-black/80 text-white text-xs px-3 py-2 shadow">
+          {toast}
+        </div>
       )}
     </div>
   );
