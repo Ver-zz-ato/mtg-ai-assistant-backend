@@ -1,140 +1,126 @@
-// app/collections/[id]/Client.tsx
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
-type Card = { id: string; name: string; qty: number };
+type CardRow = { id: string; name: string; qty: number };
 
-export default function Client({ collectionId, initialItems }: { collectionId: string; initialItems: Card[] }) {
-  const [items, setItems] = useState<Card[]>(initialItems || []);
-  const [loading, setLoading] = useState(false);
+export default function Client({ id }: { id: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [items, setItems] = useState<CardRow[]>([]);
   const [name, setName] = useState("");
-  const [qty, setQty] = useState<number | "">("");
+  const [qty, setQty] = useState<number>(1);
 
   async function load() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, { cache: "no-store" });
-      const data = await res.json().catch(() => ({ ok: false, items: [] }));
-      if (data?.ok && Array.isArray(data.items)) setItems(data.items);
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch(`/api/collections/cards?collectionId=${id}`, { cache: "no-store" });
+    const json = await res.json();
+    if (json?.ok) setItems(json.items ?? []);
+    else console.error(json?.error || "Failed loading items");
   }
 
-  useEffect(() => { load(); }, [collectionId]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  async function adjustQty(id: string, delta: number) {
-    const res = await fetch("/api/collections/cards", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, delta }),
+  function refresh() {
+    startTransition(() => {
+      router.refresh();
+      load();
     });
-    if (res.ok) await load();
   }
 
-  async function deleteCard(id: string) {
-    const res = await fetch("/api/collections/cards", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) await load();
-  }
-
-  async function addCard(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const n = typeof qty === "number" && Number.isFinite(qty) ? qty : 1;
-
-    const res = await fetch("/api/collections/cards", {
+  async function add() {
+    const body = { collectionId: id, name: name.trim(), qty: Number(qty) || 1 };
+    await fetch(`/api/collections/cards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ collectionId, name: trimmed, qty: n }),
+      body: JSON.stringify(body),
     });
-    if (res.ok) {
-      setName(""); setQty("");
-      await load();
-    }
+    setName("");
+    setQty(1);
+    refresh();
+  }
+
+  async function patch(cardId: string, delta: number) {
+    await fetch(`/api/collections/cards`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: cardId, delta }),
+    });
+    refresh();
+  }
+
+  async function remove(cardId: string) {
+    await fetch(`/api/collections/cards`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: cardId }),
+    });
+    refresh();
   }
 
   return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">Collection</h1>
+    <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <h1 className="text-xl font-semibold">Collection</h1>
 
-      <form onSubmit={addCard} className="flex items-end gap-3">
-        <div className="flex-1">
-          <label className="block text-sm mb-1">Card name</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-            placeholder="Sol Ring"
-          />
-        </div>
-        <div className="w-24">
-          <label className="block text-sm mb-1">Qty</label>
-          <input
-            type="number"
-            min={1}
-            value={qty}
-            onChange={(e) => setQty(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-            className="w-full border rounded px-2 py-1"
-            placeholder="1"
-          />
-        </div>
-        <button className="px-3 py-2 border rounded">Add</button>
-      </form>
+      <div className="flex gap-2 items-center">
+        <input
+          className="w-full rounded-md bg-zinc-900 px-3 py-2"
+          placeholder="Card name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          className="w-20 rounded-md bg-zinc-900 px-3 py-2 text-right"
+          placeholder="Qty"
+          inputMode="numeric"
+          value={qty}
+          onChange={(e) => setQty(Number(e.target.value) || 1)}
+        />
+        <button
+          onClick={add}
+          disabled={!name.trim() || isPending}
+          className="rounded-md bg-emerald-700 px-3 py-2 disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
 
-      <div className="border rounded">
-        {loading ? (
-          <div className="p-3 text-sm text-neutral-600">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="p-3 text-sm text-neutral-600">No cards yet — add one above or upload a CSV.</div>
+      <div className="divide-y divide-zinc-800">
+        {items.length === 0 ? (
+          <p className="text-sm text-zinc-400">No cards yet — add one above or upload a CSV.</p>
         ) : (
           items.map((c) => (
-            <Row key={c.id} card={c} onAdjust={adjustQty} onDelete={deleteCard} />
+            <div key={c.id} className="flex items-center gap-2 py-2">
+              <div className="flex-1 truncate">{c.name}</div>
+              <button
+                onClick={() => patch(c.id, -1)}
+                className="rounded-md bg-zinc-800 px-2"
+                aria-label="decrement"
+              >
+                -
+              </button>
+              <div className="w-8 text-center tabular-nums">{c.qty}</div>
+              <button
+                onClick={() => patch(c.id, +1)}
+                className="rounded-md bg-zinc-800 px-2"
+                aria-label="increment"
+              >
+                +
+              </button>
+              <button
+                onClick={() => remove(c.id)}
+                className="rounded-md bg-red-700 px-2"
+                aria-label="delete"
+              >
+                delete
+              </button>
+            </div>
           ))
         )}
       </div>
-    </div>
-  );
-}
-
-function Row({ card, onAdjust, onDelete }: {
-  card: Card,
-  onAdjust: (id: string, delta: number) => Promise<void>,
-  onDelete: (id: string) => Promise<void>,
-}) {
-  const [pending, startTransition] = useTransition();
-  return (
-    <div className="flex items-center gap-3 border-b py-2">
-      <div className="flex-1">{card.name}</div>
-      <div className="flex items-center gap-2">
-        <button
-          className="px-2 py-1 border rounded"
-          onClick={() => startTransition(() => onAdjust(card.id, -1))}
-          disabled={pending}
-        >
-          -
-        </button>
-        <span className="w-8 text-center">{card.qty}</span>
-        <button
-          className="px-2 py-1 border rounded"
-          onClick={() => startTransition(() => onAdjust(card.id, +1))}
-          disabled={pending}
-        >
-          +
-        </button>
-      </div>
-      <button
-        className="px-2 py-1 border rounded text-red-600"
-        onClick={() => startTransition(() => onDelete(card.id))}
-        disabled={pending}
-      >
-        delete
-      </button>
     </div>
   );
 }
