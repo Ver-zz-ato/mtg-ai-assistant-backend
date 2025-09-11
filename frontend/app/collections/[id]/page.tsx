@@ -1,8 +1,9 @@
+// app/collections/[id]/page.tsx
 import Client from "./Client";
 
-export default async function Page(
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Params = { id: string };
+
+export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
-  return <Client id={id} />;
+  return <Client collectionId={id} />;
 }
