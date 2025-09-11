@@ -3,99 +3,131 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-type Item = { id: string; name: string; qty: number };
+type CardRow = { id: string; name: string; qty: number };
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<CardRow[]>([]);
   const [name, setName] = useState("");
   const [qty, setQty] = useState<number>(1);
 
   const collectionId = params.id;
 
   async function load() {
-    setLoading(true);
-    const res = await fetch(`/api/collections/cards?collectionId=${collectionId}`, { cache: "no-store" });
+    const res = await fetch(`/api/collections/cards?collectionId=${collectionId}`, {
+      cache: "no-store",
+    });
     const json = await res.json();
-    setItems(json.items ?? []);
-    setLoading(false);
+    if (json?.ok) setItems(json.items ?? []);
+    else console.error(json?.error || "Failed loading items");
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [collectionId]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionId]);
 
-  async function adjustQty(id: string, delta: number) {
+  function refresh() {
+    startTransition(() => {
+      router.refresh();
+      load();
+    });
+  }
+
+  async function add() {
+    const body = { collectionId, name: name.trim(), qty: Number(qty) || 1 };
+    await fetch(`/api/collections/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setName("");
+    setQty(1);
+    refresh();
+  }
+
+  async function patch(id: string, delta: number) {
     await fetch(`/api/collections/cards`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, delta }),
     });
-    startTransition(load);
+    refresh();
   }
 
-  async function del(id: string) {
+  async function remove(id: string) {
     await fetch(`/api/collections/cards`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    startTransition(load);
-  }
-
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    await fetch(`/api/collections/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ collectionId, name: name.trim(), qty }),
-    });
-    setName("");
-    setQty(1);
-    startTransition(load);
+    refresh();
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <div className="flex items-center gap-3 mb-4">
-        <button className="text-sm underline" onClick={() => router.push("/collections")}>← Back to Collections</button>
-      </div>
+    <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <h1 className="text-xl font-semibold">Collection</h1>
 
-      <form onSubmit={add} className="flex gap-2 items-center mb-3">
+      <div className="flex gap-2 items-center">
         <input
+          className="w-full rounded-md bg-zinc-900 px-3 py-2"
           placeholder="Card name"
-          className="flex-1 bg-transparent border px-3 py-2 rounded"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          type="number"
-          min={1}
-          className="w-16 bg-transparent border px-2 py-2 rounded text-center"
+          className="w-20 rounded-md bg-zinc-900 px-3 py-2 text-right"
+          placeholder="Qty"
+          inputMode="numeric"
           value={qty}
-          onChange={(e) => setQty(Math.max(1, parseInt(e.target.value || "1", 10)))}
+          onChange={(e) => setQty(Number(e.target.value) || 1)}
         />
-        <button className="border px-3 py-2 rounded">Add</button>
-      </form>
+        <button
+          onClick={add}
+          disabled={!name.trim() || isPending}
+          className="rounded-md bg-emerald-700 px-3 py-2 disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
 
-      {loading ? (
-        <div className="opacity-70">Loading…</div>
-      ) : items.length === 0 ? (
-        <div className="opacity-70">No cards yet — add one above or upload a CSV.</div>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((c) => (
-            <li key={c.id} className="flex items-center gap-2 border rounded px-2 py-1">
+      <div className="divide-y divide-zinc-800">
+        {items.length === 0 ? (
+          <p className="text-sm text-zinc-400">No cards yet — add one above or upload a CSV.</p>
+        ) : (
+          items.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center gap-2 py-2"
+            >
               <div className="flex-1 truncate">{c.name}</div>
-              <button className="border px-2 rounded" onClick={() => adjustQty(c.id, -1)}>-</button>
-              <div className="w-6 text-center">{c.qty}</div>
-              <button className="border px-2 rounded" onClick={() => adjustQty(c.id, +1)}>+</button>
-              <button className="border px-2 rounded text-red-500" onClick={() => del(c.id)}>delete</button>
-            </li>
-          ))}
-        </ul>
-      )}
+              <button
+                onClick={() => patch(c.id, -1)}
+                className="rounded-md bg-zinc-800 px-2"
+                aria-label="decrement"
+              >
+                -
+              </button>
+              <div className="w-8 text-center tabular-nums">{c.qty}</div>
+              <button
+                onClick={() => patch(c.id, +1)}
+                className="rounded-md bg-zinc-800 px-2"
+                aria-label="increment"
+              >
+                +
+              </button>
+              <button
+                onClick={() => remove(c.id)}
+                className="rounded-md bg-red-700 px-2"
+                aria-label="delete"
+              >
+                delete
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
