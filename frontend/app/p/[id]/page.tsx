@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -44,9 +44,7 @@ export default async function PublicDeckPage({
 }) {
   const { id } = await params;
 
-  const supabase = createClient();
-
-  // RLS allows SELECT when is_public = true. Unauthed is fine here.
+  const supabase = await createClient();// RLS allows SELECT when is_public = true. Unauthed is fine here.
   const { data, error } = await supabase
     .from("decks")
     .select("*")
