@@ -13,9 +13,16 @@ export default function ExportDeckCSV({ deckId, filename = "deck.csv", small }: 
       const res = await fetch(`/api/decks/${deckId}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-      const title = json.deck?.title || "Deck";
-      const rows = [["Name", "Qty"], ...(json.cards || []).map((c: any) => [c.name, String(c.qty)])];
-      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const title: string = json.deck?.title || "Deck";
+
+      // Build rows as string[][] to satisfy TS in strict mode
+      const head: string[] = ["Name", "Qty"];
+      const body: string[][] = (json.cards || []).map((c: any) => [String(c.name), String(c.qty)]);
+      const rows: string[][] = [head, ...body];
+
+      const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+      const csv: string = rows.map((r: string[]) => r.map((v: string) => esc(v)).join(",")).join("\n");
+
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
