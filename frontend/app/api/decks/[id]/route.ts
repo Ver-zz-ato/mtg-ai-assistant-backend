@@ -1,51 +1,45 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿// app/api/decks/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const supabase = await createClient();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ ok: false, error: "id is required" }, { status: 400 });
-  }
+  const deckId = params.id;
 
-  // Try to get the user; it's fine if nobody is logged in
-  const { data: userRes } = await supabase.auth.getUser();
-  const uid = userRes?.user?.id;
+  // Try to read user (may be null if logged out)
+  const { data: ures } = await supabase.auth.getUser();
+  const user = ures?.user;
 
-  // If not logged in, read from the public view
-  if (!uid) {
+  // If logged in, first try the private "decks" table
+  if (user) {
     const { data, error } = await supabase
-      .from("recent_public_decks")
-      .select("*")
-      .eq("id", id)
+      .from("decks")
+      .select("id, title, deck_text, created_at, owner_id")
+      .eq("id", deckId)
       .maybeSingle();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    if (!data) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ok: true, deck: data });
+    if (!error && data) {
+      return NextResponse.json({ ok: true, deck: data });
+    }
+    // falls through to public view if not found / not accessible
   }
 
-  // Logged in: allow owner OR public
-  const { data, error } = await supabase
-    .from("decks")
-    .select("*")
-    .eq("id", id)
+  // Fallback: allow logged-out users (and logged-in) to fetch public deck snapshots
+  const { data: pub, error: pubErr } = await supabase
+    .from("recent_public_decks")
+    .select("id, title, deck_text, created_at, owner_id")
+    .eq("id", deckId)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  if (!data) {
-    // Fallback to public view if deck exists but belongs to someone else
-    const { data: pub, error: pubErr } = await supabase
-      .from("recent_public_decks")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (pubErr) return NextResponse.json({ ok: false, error: pubErr.message }, { status: 500 });
-    if (!pub) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ok: true, deck: pub });
+  if (pubErr) {
+    return NextResponse.json({ ok: false, error: pubErr.message }, { status: 500 });
+  }
+  if (!pub) {
+    return NextResponse.json({ ok: false, error: "Deck not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, deck: data });
+  return NextResponse.json({ ok: true, deck: pub });
 }
