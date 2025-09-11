@@ -1,9 +1,9 @@
-// app/api/collections/cards/route.ts
+﻿// app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const { searchParams } = new URL(req.url);
   const collectionId = searchParams.get("collectionId");
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
   const { collectionId, name, qty } = body;
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
   const { id, delta } = body;
 
@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
   const { id } = body;
 
@@ -97,3 +97,4 @@ export async function DELETE(req: NextRequest) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
+

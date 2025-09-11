@@ -1,3 +1,4 @@
+﻿import { createClient } from "@/lib/supabase/server";
 // frontend/app/api/collections/cost/route.ts
 // Node runtime so we can use supabase-js + normal fetch without Edge errors.
 export const runtime = "nodejs";
@@ -6,8 +7,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 // You already have this package (it showed in your build logs)
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-
 // ---- Utilities ----
 type Currency = "USD" | "EUR" | "TIX";
 
@@ -102,7 +101,7 @@ export async function POST(req: Request) {
 
     // If deck_text not given, try to fetch from DB by deckId
     let deckText = pick<string>(body, "deckText", "deck_text", "");
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     if (!deckText && deckId) {
       const { data, error } = await supabase
