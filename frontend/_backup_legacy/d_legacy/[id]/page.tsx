@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 
-export default async function DeckPublicPage({ params }: { params: { id: string } }) {
+export default async function DeckPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("decks")
