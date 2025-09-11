@@ -7,7 +7,6 @@ export default function LeftSidebar() {
   return (
     <div className="w-full flex flex-col gap-4">
       <Suspense fallback={<RecentPublicDecksSkeleton />}>
-        {/* @ts-expect-error Async Server Component */}
         <RecentPublicDecks />
       </Suspense>
 
