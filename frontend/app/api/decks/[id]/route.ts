@@ -1,19 +1,19 @@
-﻿// app/api/decks/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // <- Promise here
 ) {
+  const { id: deckId } = await ctx.params;     // <- and await here
+
   const supabase = await createClient();
-  const deckId = params.id;
 
   // Try to read user (may be null if logged out)
   const { data: ures } = await supabase.auth.getUser();
   const user = ures?.user;
 
-  // If logged in, first try the private "decks" table
+  // If logged in, try private "decks" first
   if (user) {
     const { data, error } = await supabase
       .from("decks")
@@ -24,10 +24,10 @@ export async function GET(
     if (!error && data) {
       return NextResponse.json({ ok: true, deck: data });
     }
-    // falls through to public view if not found / not accessible
+    // fall through to public snapshot if not found/authorized
   }
 
-  // Fallback: allow logged-out users (and logged-in) to fetch public deck snapshots
+  // Fallback to public snapshot
   const { data: pub, error: pubErr } = await supabase
     .from("recent_public_decks")
     .select("id, title, deck_text, created_at, owner_id")
