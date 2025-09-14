@@ -1,32 +1,21 @@
-﻿import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
-import { cookies, headers } from "next/headers";
-export async function POST(req: Request) {
-  try {
-const supabase = await createClient();
+// app/api/feedback/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
+export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth?.user;
 
-    const body = await req.json().catch(() => ({}));
-    const { rating, text, email } = body || {};
-    if (!text || typeof text !== "string" || !text.trim()) {
-      return NextResponse.json({ ok: false, error: "Missing text" }, { status: 400 });
-    }
+  const body = await req.json().catch(() => ({}));
+  const row = {
+    user_id: user?.id ?? null,
+    email: user?.email ?? (typeof body.email === "string" ? body.email : null),
+    rating: typeof body.rating === "number" ? body.rating : null,
+    text: String(body.text || "").slice(0, 2000),
+  };
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user_id = userData?.user?.id ?? null;
-
-    const { error } = await supabase.from("feedback").insert({
-      user_id, email: email ?? null, rating: typeof rating === "number" ? rating : null, text: text.trim(),
-    });
-
-    if (error) {
-      console.error("feedback insert error", error);
-      // Don't fail the UX if table not ready: log-and-accept (MVP fallback)
-      return NextResponse.json({ ok: true, stored: false, note: "Logged only (create table to store)" });
-    }
-    return NextResponse.json({ ok: true, stored: true });
-  } catch (e:any) {
-    console.error("feedback error", e);
-    return NextResponse.json({ ok: false, error: e?.message ?? "Feedback error" }, { status: 500 });
-  }
+  const { error } = await supabase.from("feedback").insert(row);
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true });
 }

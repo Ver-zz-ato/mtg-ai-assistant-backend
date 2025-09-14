@@ -1,7 +1,9 @@
+// app/page.tsx
 import ModeOptions from "../components/ModeOptions";
 import LeftSidebar from "../components/LeftSidebar";
 import RightSidebar from "../components/RightSidebar";
 import Chat from "../components/Chat";
+import FeedbackFab from "../components/FeedbackFab"; // ← add this
 
 export default function Page() {
   return (
@@ -16,6 +18,7 @@ export default function Page() {
           <aside className="col-span-12 lg:col-span-3"><RightSidebar /></aside>
         </div>
       </div>
+      <FeedbackFab /> {/* ← floating feedback button */}
     </>
   );
 }

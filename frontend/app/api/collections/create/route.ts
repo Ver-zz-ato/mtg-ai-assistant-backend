@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    return NextResponse.json({ id: data.id }, { status: 200 });
+    return NextResponse.json({ ok: true, id: data.id }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
     return NextResponse.json({ error: msg }, { status: 500 });

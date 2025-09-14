@@ -42,7 +42,7 @@ export default function CollectionsPageClient() {
     });
     const json = await res.json();
     if (!res.ok || !json?.ok) {
-      alert(json?.error || "Create failed");
+      showToast(json?.error || `Create failed (HTTP ${res.status})`);
       return;
     }
     setNewName("");
