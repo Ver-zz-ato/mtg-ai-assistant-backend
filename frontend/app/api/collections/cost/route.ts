@@ -129,6 +129,7 @@ export async function POST(req: Request) {
       // we don't know your exact schema; be flexible
       // Try common names for a collection items table
       const candidateTables = [
+        // DEPRECATION NOTE: prefer "collection_cards"; keep legacy names for backward compat.
         "collection_items",
         "collections_items",
         "collection_cards",

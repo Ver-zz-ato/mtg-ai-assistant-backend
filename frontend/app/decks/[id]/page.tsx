@@ -1,22 +1,31 @@
 // app/decks/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
-import Client from "./Client";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 
 type Params = { id: string };
-
 export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
-  const _supabase = await createClient(); // bootstrap session
+  const supabase = await createClient();
+
+  // Fetch deck meta (public visibility enforced by RLS)
+  const { data: deck } = await supabase.from("decks").select("title, public").eq("id", id).maybeSingle();
+  const title = deck?.title ?? "Deck";
+
+  // Fetch cards to render a simple read-only list
+  const { data: cards } = await supabase
+    .from("deck_cards")
+    .select("name, qty")
+    .eq("deck_id", id)
+    .order("name", { ascending: true });
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <header className="mb-4 flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Deck</h1>
+          <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -24,7 +33,21 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           <ExportDeckCSV deckId={id} small />
         </div>
       </header>
-      <Client deckId={id} />
+
+      <section className="space-y-1">
+        {(cards || []).length === 0 ? (
+          <div className="text-sm text-muted-foreground">No cards yet.</div>
+        ) : (
+          <ul className="text-sm">
+            {(cards || []).map((c) => (
+              <li key={c.name} className="flex items-center gap-2">
+                <span className="w-8 text-right tabular-nums">{c.qty}×</span>
+                <span>{c.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

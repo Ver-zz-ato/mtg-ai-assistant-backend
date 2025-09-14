@@ -9,7 +9,13 @@ export type ParseReport = {
 const BOM = /^\ufeff/;
 
 function normName(s: string): string {
-  return s.replace(BOM, '').replace(/[“”]/g, '"').replace(/[’]/g, "'").trim();
+  // Normalize Unicode (NFKC), smart quotes → ASCII, collapse spaces, trim, drop surrounding quotes.
+  const BOM = /^\ufeff/;
+  const unified = s.replace(BOM, '')
+    .replace(/[“”]/g, '"')
+    .replace(/[’‘]/g, "'");
+  const nfkc = (unified as any).normalize ? unified.normalize("NFKC") : unified;
+  return nfkc.replace(/^\"|\"$/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; report: ParseReport } {
@@ -33,21 +39,31 @@ export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; repor
     let qty = 1;
     let rest: any = {};
 
-    const csv = raw.split(/,(?![^"]*\")/).map(s => s.trim()); // naive CSV split without breaking quotes
+    const csv = raw.split(/,(?![^"]*")/).map(s => s.trim()); // naive CSV split without breaking quotes
     if (hasHeader && csv.length >= 2) {
+      // Recognize synonyms: name|card|card_name, qty|quantity|count, set|set_code, collector|collector_number, foil
+
       // header-based
       const cols = header.split(",").map(s => s.trim());
       const map: any = {};
       for (let j = 0; j < Math.min(cols.length, csv.length); j++) {
         map[cols[j]] = csv[j].replace(/^\"|\"$/g, "");
       }
-      name = normName(map["name"] || "");
-      qty = Number(map["qty"] || map["count"] || 1);
-      rest = map;
+      // map keys to lower for easier access
+      const lower: any = {}; Object.keys(map).forEach(k => lower[k.toLowerCase()] = map[k]);
+      name = normName(lower["name"] || lower["card"] || lower["card_name"] || "");
+      qty = Number(lower["qty"] || lower["quantity"] || lower["count"] || 1);
+      rest = {
+        set: lower["set"] || lower["set_code"] || undefined,
+        collector: lower["collector"] || lower["collector_number"] || undefined,
+        foil: /^(1|true|foil|yes)$/i.test(String(lower["foil"]||"")) || undefined
+      };
     } else {
       // loose formats: "2 Arcane Signet" OR "2, Arcane Signet" OR "Arcane Signet,2"
       const loose = raw.replace(/\s+/g, " ").trim();
-      let m = loose.match(/^(\d+)\s+(.+)$/);
+      if (/^(#|\/\/)/.test(loose)) continue; // comments
+      if (/^(LANDS|CREATURES|INSTANTS|SORCERIES|ARTIFACTS|ENCHANTMENTS|PLANESWALKERS|SIDEBOARD)\b/i.test(loose)) continue;
+      let m = loose.match(/^(\d+)\s+(.+)$/) || loose.match(/^(.+?)\s*[x×]\s*(\d+)$/i) || loose.match(/^(.+?)\s*-\s*(\d+)$/);
       if (!m && csv.length === 2) {
         const a = csv[0], b = csv[1];
         if (/^\d+$/.test(a)) m = [raw, a, b];
