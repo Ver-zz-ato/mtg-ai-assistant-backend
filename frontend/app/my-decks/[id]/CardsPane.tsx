@@ -1,110 +1,136 @@
 // app/my-decks/[id]/CardsPane.tsx
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
 
-type Card = { id: string; name: string; qty: number; created_at: string };
-type ApiResp = { ok: boolean; cards?: Card[]; error?: string };
+import React, { useEffect, useMemo, useState } from "react";
+import EditorAddBar from "@/components/EditorAddBar";
 
-export default function CardsPane({ deckId: deckIdProp }: { deckId?: string }) {
-  const params = useParams();
-  const deckId = useMemo(() => deckIdProp ?? (typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params?.id[0] : undefined), [deckIdProp, params]);
+type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [cards, setCards] = useState<Card[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 1200);
-  }
+export default function CardsPane({ deckId }: { deckId?: string }) {
+  const [cards, setCards] = useState<CardRow[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     if (!deckId) return;
-    setLoading(true); setError(null);
-    try {
-      const res = await fetch(`/api/decks/cards?deckId=${deckId}`, { cache: "no-store" });
-      const json: ApiResp = await res.json();
-      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-      setCards(json.cards || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { cache: "no-store" });
+    let json: any = {};
+    try { json = await res.json(); } catch { json = { ok: false, error: "Bad JSON" }; }
+    if (!json?.ok) { setStatus(json?.error || `Error ${res.status}`); return; }
+    setCards(json.cards || []);
+    setStatus(null);
   }
 
   useEffect(() => { load(); }, [deckId]);
 
-  async function bump(name: string, delta: number) {
+  async function add(name: string | { name: string }, qty: number) {
     if (!deckId) return;
-    const res = await fetch(`/api/decks/cards`, {
-      method: "PATCH",
+    const n = (typeof name === "string" ? name : name?.name)?.trim();
+    const q = Math.max(1, Number(qty) || 1);
+    if (!n) return;
+
+    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckId, name, delta }),
+      body: JSON.stringify({ name: n, qty: q }),
     });
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      alert(json?.error || "Update failed");
-      return;
-    }
+    const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+    if (!json.ok) { alert(json.error || "Failed to add"); return; }
+
+    window.dispatchEvent(new CustomEvent("toast", { detail: `Added x${q} ${n}` }));
     await load();
-    if (delta > 0) showToast(`Added x${delta} ${name}`);
-    else if (delta < 0) showToast(`Removed x${Math.abs(delta)} ${name}`);
   }
 
-  async function remove(name: string) {
+  async function delta(id: string, d: number) {
     if (!deckId) return;
-    const res = await fetch(`/api/decks/cards`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckId, name }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      alert(json?.error || "Delete failed");
-      return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, delta: d }),
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+      if (!json.ok) throw new Error(json.error || "Update failed");
+      window.dispatchEvent(new CustomEvent("toast", { detail: d > 0 ? "Added +1" : "Removed -1" }));
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Error");
+    } finally {
+      setBusyId(null);
     }
-    await load();
-    showToast(`Removed ${name}`);
   }
+
+  async function remove(id: string, name: string) {
+    if (!deckId) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/decks/cards?id=${encodeURIComponent(id)}&deckid=${encodeURIComponent(deckId)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+      if (!json.ok) throw new Error(json.error || "Delete failed");
+      window.dispatchEvent(new CustomEvent("toast", { detail: `Deleted ${name}` }));
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // render each actual row (not grouped), sorted by name for a stable view
+  const rows = useMemo(() => [...cards].sort((a, b) => a.name.localeCompare(b.name)), [cards]);
 
   return (
-    <div className="mt-4 relative">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium">Cards</h3>
-        <button className="text-xs underline" onClick={load}>Refresh</button>
-      </div>
-      {loading && <div className="text-xs opacity-70">Loading…</div>}
-      {error && <div className="text-xs text-red-500">Error: {error}</div>}
-      {!loading && !error && (
-        cards.length ? (
-          <ul className="space-y-1">
-            {cards.map((c) => (
-              <li key={c.id} className="flex items-center justify-between rounded border px-3 py-2">
-                <span className="text-sm">{c.name}</span>
-                <div className="flex items-center gap-2">
-                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(c.name, -1)}>-</button>
-                  <span className="text-xs opacity-75">x{c.qty}</span>
-                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(c.name, +1)}>+</button>
-                  <button className="text-xs text-red-500 underline" onClick={() => remove(c.name)}>delete</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-xs text-muted-foreground rounded border p-3">
-            No cards yet — try adding <span className="font-medium">Lightning Bolt</span>?<br />
-            Tip: use the input above, then use <span className="font-mono">+</span>/<span className="font-mono">-</span> to adjust.
+    <div className="mt-2">
+      {/* Search + quick add */}
+      <div className="max-w-xl"><EditorAddBar onAdd={add} /></div>
+
+      {status && <p className="text-red-400 text-sm mt-2">{status}</p>}
+
+      <div className="mt-3 flex flex-col gap-2">
+        {rows.map((c) => (
+          <div
+            key={c.id}
+            className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1"
+          >
+            <span className="truncate pr-2">{c.name}</span>
+
+            <div className="flex items-center gap-2">
+              <button
+                className="px-2 py-0.5 rounded border border-neutral-600 hover:bg-neutral-800 disabled:opacity-50"
+                onClick={() => delta(c.id, -1)}
+                disabled={busyId === c.id}
+                aria-label={`Remove one ${c.name}`}
+              >
+                −
+              </button>
+              <span className="w-10 text-center opacity-80 select-none">x{c.qty}</span>
+              <button
+                className="px-2 py-0.5 rounded border border-neutral-600 hover:bg-neutral-800 disabled:opacity-50"
+                onClick={() => delta(c.id, +1)}
+                disabled={busyId === c.id}
+                aria-label={`Add one ${c.name}`}
+              >
+                +
+              </button>
+
+              <button
+                className="ml-3 px-2 py-0.5 text-red-300 border border-red-400 rounded hover:bg-red-950/40 disabled:opacity-50"
+                onClick={() => remove(c.id, c.name)}
+                disabled={busyId === c.id}
+              >
+                delete
+              </button>
+            </div>
           </div>
-        )
-      )}
-      {toast && (
-        <div className="pointer-events-none fixed bottom-4 right-4 rounded bg-black/80 text-white text-xs px-3 py-2 shadow">
-          {toast}
-        </div>
-      )}
+        ))}
+
+        {rows.length === 0 && !status && (
+          <p className="text-sm opacity-70">No cards yet — try adding <em>Sol Ring</em>?</p>
+        )}
+      </div>
     </div>
   );
 }

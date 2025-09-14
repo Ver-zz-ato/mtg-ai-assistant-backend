@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
+import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 
 type Item = { id: string; name: string; qty: number; created_at?: string };
 
@@ -42,6 +43,16 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   }
 
   useEffect(() => { load(); }, [collectionId]);
+
+  useEffect(() => {
+    function onImported(e: any) {
+      if (!collectionId) return;
+      if (e?.detail?.collectionId && e.detail.collectionId !== collectionId) return;
+      load();
+    }
+    window.addEventListener("collection:csv-imported", onImported);
+    return () => window.removeEventListener("collection:csv-imported", onImported);
+  }, [collectionId]);
 
   async function add() {
     if (!collectionId || !name.trim()) return;
@@ -95,10 +106,13 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
 
   return (
     <div className="space-y-3 relative">
-      {/* Header with export */}
+      {/* Header with export & upload */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Collection</h3>
-        {collectionId ? <ExportCollectionCSV collectionId={collectionId} small /> : null}
+        <div className="flex items-center gap-2">
+          {collectionId ? <CollectionCsvUpload collectionId={collectionId} onDone={load} /> : null}
+          {collectionId ? <ExportCollectionCSV collectionId={collectionId} small /> : null}
+        </div>
       </div>
 
       {/* Add row */}

@@ -2,6 +2,7 @@
 import { Suspense } from "react";
 import RecentPublicDecks from "./RecentPublicDecks";
 import RecentPublicDecksSkeleton from "./RecentPublicDecksSkeleton";
+import FeedbackFab from "./FeedbackFab";
 
 export default function LeftSidebar() {
   return (
@@ -15,7 +16,8 @@ export default function LeftSidebar() {
         AD PLACEHOLDER
       </div>
 
-      {/* Your left-rail tools, untouched below… */}
+      {/* FAB is fixed-position; rendering here mounts it globally */}
+      <FeedbackFab />
     </div>
   );
 }
