@@ -1,5 +1,8 @@
 // app/api/price/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { withLogging } from "@/lib/api/withLogging";
+import { ok, err } from "@/lib/api/envelope";
+import { PriceBody } from "@/lib/validation";
 
 /**
  * Normalize a card name so the client and server use the exact same key.
@@ -133,7 +136,7 @@ async function toCurrencyUnit(card: ScryfallCard | undefined, currency: Currency
   return 0;
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withLogging(async (req: NextRequest) => {
   try {
     const { names, currency } = (await req.json()) as {
       names: string[];
@@ -174,4 +177,4 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   }
-}
+});
