@@ -1,10 +1,12 @@
 // app/api/cards/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
+import { withLogging } from "@/lib/api/withLogging";
+import { SearchQuery } from "@/lib/validation";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export async function GET(req: NextRequest) {
+export const GET = withLogging(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") || "").trim();
   if (!q) return NextResponse.json({ ok: true, cards: [] }, { status: 200 });
@@ -32,4 +34,4 @@ export async function GET(req: NextRequest) {
   const payload = { ok: true, cards };
   memoSet(key, payload, DAY);
   return NextResponse.json(payload, { status: 200 });
-}
+});

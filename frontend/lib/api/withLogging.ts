@@ -1,43 +1,21 @@
 // lib/api/withLogging.ts
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
 
-type Handler = (req: Request, ctx?: any) => Promise<Response>;
+type Handler = (req: NextRequest) => Promise<Response> | Response;
 
-export function withLogging(handler: Handler): Handler {
-  return async (req, ctx) => {
-    const t0 = Date.now();
-    let userId = "anon";
+export function withLogging(handler: Handler, label?: string): Handler {
+  return async (req: NextRequest) => {
+    const start = Date.now();
+    const url = new URL(req.url);
     try {
-      const supabase = await createClient();
-      const { data } = await supabase.auth.getUser();
-      userId = data?.user?.id ?? "anon";
-    } catch {}
-    let res: Response;
-    try {
-      res = await handler(req, ctx);
+      const res = await handler(req);
+      const ms = Date.now() - start;
+      console.log(`[api] ${req.method} ${url.pathname}${url.search} ${res.status} ${ms}ms ${label ?? ""}`.trim());
+      return res;
     } catch (e: any) {
-      const ms = Date.now() - t0;
-      console.error(JSON.stringify({
-        level: "error",
-        msg: e?.message || "Unhandled error",
-        method: req.method,
-        path: new URL(req.url).pathname,
-        ms,
-        userId
-      }));
-      return NextResponse.json({ ok: false, error: "Unexpected server error" }, { status: 500 });
+      const ms = Date.now() - start;
+      console.error(`[api] ${req.method} ${url.pathname}${url.search} threw after ${ms}ms`, e?.message || e);
+      throw e;
     }
-    const ms = Date.now() - t0;
-    const status = (res as any)?.status ?? 200;
-    console.log(JSON.stringify({
-      level: "info",
-      method: req.method,
-      path: new URL(req.url).pathname,
-      status,
-      ms,
-      userId
-    }));
-    return res;
   };
 }

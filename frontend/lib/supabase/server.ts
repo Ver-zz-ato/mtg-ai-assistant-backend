@@ -9,7 +9,7 @@ function maybeDecodeBase64Cookie(val?: string | null): string | undefined {
       const decoded = Buffer.from(val.slice(7), "base64").toString("utf8");
       return decoded;
     } catch {
-      // fall through to raw
+      return undefined; // ignore bad cookie silently
     }
   }
   return val;

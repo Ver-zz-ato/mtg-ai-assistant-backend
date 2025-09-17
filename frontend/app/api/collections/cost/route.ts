@@ -6,6 +6,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { withLogging } from "@/lib/api/withLogging";
+import { ok, err } from "@/lib/api/envelope";
+import { CostBody } from "@/lib/validation";
 // You already have this package (it showed in your build logs)
 // ---- Utilities ----
 type Currency = "USD" | "EUR" | "TIX";
@@ -90,7 +93,7 @@ function readOwnedRow(row: any): { name: string; qty: number } | null {
 }
 
 // ---- Handler ----
-export async function POST(req: Request) {
+export const POST = withLogging(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}));
 
@@ -198,4 +201,4 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unhandled error" }, { status: 500 });
   }
-}
+});
