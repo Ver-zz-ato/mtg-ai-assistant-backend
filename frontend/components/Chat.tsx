@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePrefs } from "./PrefsContext";
 import DeckHealthCard from "./DeckHealthCard";
 import PriceCard, { PriceItem } from "./PriceCard";
+import HistoryDropdown from "./HistoryDropdown";
 
 type TextMsg = { role: "user" | "assistant"; type: "text"; content: string };
 
@@ -28,6 +29,7 @@ type Msg = TextMsg | SnapshotMsg | PriceMsg;
 export default function Chat() {
   const { mode, format, plan, colors, currency } = usePrefs();
 
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([
     { role: "assistant", type: "text", content: "Hi! Paste a decklist or ask any MTG question." },
   ]);
@@ -109,7 +111,24 @@ export default function Chat() {
     }
   }
 
-  async function send() {
+  async function loadThreadMessages(id: string) {
+  try {
+    const res = await fetch("/api/chat/messages/list?threadId=" + encodeURIComponent(id), { cache: "no-store" });
+    const json = await res.json();
+    if (json?.ok) {
+      const restored = (json.messages || []).map((m: any) => ({
+        role: m.role,
+        type: "text",
+        content: m.content,
+      }));
+      setMessages(restored.length ? restored : [{ role: "assistant", type: "text", content: "No messages in this thread yet." }]);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function send() {
     const clean = text.trim();
     if (!clean || loading) return;
 
@@ -137,17 +156,13 @@ export default function Chat() {
           "Respect format; prefer budget when plan=Budget; use chosen currency in any price references.",
         ].join(" ");
 
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system,
+        const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, threadId, 
             messages: [...messages, { role: "user", type: "text", content: clean }]
               .filter((m): m is TextMsg => m.type === "text")
               .map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
+           }), });
         const data = await res.json();
+        if (data?.threadId && !threadId) setThreadId(data.threadId);
         const reply = (data?.text as string) || "Sorry — no reply.";
         setMessages((m) => [...m, { role: "assistant", type: "text", content: reply }]);
       }
@@ -167,7 +182,10 @@ export default function Chat() {
 
   return (
     <>
-      <div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
+      <div className="mb-3 flex items-center justify-between">
+  <HistoryDropdown threadId={threadId} onSelect={(id) => { setThreadId(id || null); if (id) loadThreadMessages(id); else setMessages([{ role: "assistant", type: "text", content: "Hi! Paste a decklist or ask any MTG question." }]); }} />
+</div>
+<div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
         {messages.map((m, i) => {
           if (m.type === "text") {
             return (
