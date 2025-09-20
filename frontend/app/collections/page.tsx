@@ -11,21 +11,22 @@ export default function CollectionsPageClient() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 1200);
+    setTimeout(() => setToast(null), 1500);
   }
 
   async function loadCollections() {
     setLoading(true);
     try {
       const res = await fetch("/api/collections/list", { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || res.statusText);
-      setCollections(data.collections ?? []);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) throw new Error(json?.error || "Failed to load");
+      setCollections(json.collections || []);
     } catch (e: any) {
-      alert("Failed to load collections: " + (e.message || e));
+      showToast(e?.message || "Load failed");
     } finally {
       setLoading(false);
     }
@@ -34,58 +35,73 @@ export default function CollectionsPageClient() {
   useEffect(() => { loadCollections(); }, []);
 
   async function createCollection() {
-    if (!newName.trim()) return;
-    const res = await fetch("/api/collections/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim() }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      showToast(json?.error || `Create failed (HTTP ${res.status})`);
-      return;
+    setNameError(null);
+    const name = (newName || "").trim();
+    if (!name) return;
+    try {
+      const res = await fetch("/api/collections/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) { 
+        const msg = (json?.error || "Create failed"); 
+        setNameError(String(msg)); 
+        throw new Error(msg); 
+      }
+      setNewName(""); 
+      setNameError(null);
+      await loadCollections();
+      showToast("Collection created");
+    } catch (e: any) {
+      showToast(e?.message || "Create failed");
     }
-    setNewName("");
-    showToast("Collection created");
-    await loadCollections();
   }
 
   async function deleteCollection(id: string) {
-    const ok = confirm("Delete this collection? This cannot be undone.");
-    if (!ok) return;
-    const res = await fetch("/api/collections/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      alert(json?.error || "Delete failed");
-      return;
+    if (!confirm("Delete this collection?")) return;
+    try {
+      const res = await fetch("/api/collections/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) throw new Error(json?.error || "Delete failed");
+      await loadCollections();
+      showToast("Deleted");
+    } catch (e: any) {
+      showToast(e?.message || "Delete failed");
     }
-    showToast("Deleted");
-    setCollections(prev => prev.filter(c => c.id !== id));
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-6 relative">
-      <div className="flex items-center justify-between mb-4">
+    <main className="max-w-3xl mx-auto p-6 space-y-4">
+      <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Collections</h1>
-        <div className="flex items-center gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="New collection name"
-            className="border rounded px-2 py-1 text-sm bg-transparent"
-          />
-          <button onClick={createCollection} className="border rounded px-2 py-1 text-sm">Create</button>
-        </div>
+        <Link href="/collections/cost-to-finish" className="text-sm underline underline-offset-4">
+          Open Cost to Finish →
+        </Link>
       </div>
 
+      <div className="flex items-center gap-2">
+        <input
+          value={newName}
+          onChange={(e) => { setNewName(e.target.value); if (nameError) setNameError(null); }}
+          placeholder="New collection name"
+          className="flex-1 bg-neutral-900 text-white border border-neutral-700 rounded px-3 py-2"
+        />
+        <button onClick={createCollection} className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-60">
+          Create
+        </button>
+      </div>
+      {nameError && (<p className="text-xs text-red-500 mt-1">{nameError}</p>)}
+
       {loading ? (
-        <div className="text-sm opacity-70">Loading…</div>
-      ) : collections.length ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="text-sm text-gray-400">Loading…</div>
+      ) : collections.length > 0 ? (
+        <div className="space-y-2">
           {collections.map((c) => {
             const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
             return (

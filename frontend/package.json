@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:canary": "playwright test tests/smoke.spec.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -15,7 +17,8 @@
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "posthog-js": "^1.179.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@playwright/test": "^1.47.2"
   }
 }

@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { containsProfanity, sanitizeName } from "@/lib/profanity";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,9 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => null) as { id?: string; title?: string } | null;
     if (!body?.id) return NextResponse.json({ ok:false, error: "id required" }, { status: 400 });
-    const next = (body.title ?? "").toString().slice(0, 120);
+    const nextRaw = (body.title ?? "").toString();
+    const next = sanitizeName(nextRaw, 120);
+    if (containsProfanity(next)) return NextResponse.json({ ok:false, error: "Please choose a different name." }, { status: 400 });
 
     const { error } = await supabase
       .from("decks")

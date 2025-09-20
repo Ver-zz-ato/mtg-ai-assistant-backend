@@ -53,6 +53,7 @@ export default function Chat() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [histKey, setHistKey] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
   const [lastDeck, setLastDeck] = useState<string>("");
 
   async function refreshMessages(tid: string | null) {
@@ -122,6 +123,7 @@ export default function Chat() {
       setHistKey(k => k + 1);
       await refreshMessages(tid);
     } else {
+      setToast(res?.error?.message || "Chat failed");
       setMessages(m => [
         ...m,
         { id: Date.now() + 1, thread_id: threadId || "", role: "assistant", content: "Sorry — " + ((res as any)?.error?.message ?? "no reply"), created_at: new Date().toISOString() } as any,
@@ -227,6 +229,7 @@ export default function Chat() {
           {busy ? "…" : "Send"}
         </button>
       </div>
-    </div>
+    {toast && (<div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-3 py-2 rounded shadow">{toast}</div>)}
+  </div>
   );
 }

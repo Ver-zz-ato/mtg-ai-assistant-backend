@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/lib/envelope";
-import { getAutoTitle } from "@/lib/autotitle";
+import { chatRateCheck } from "@/lib/rate";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_URL = "https://api.openai.com/v1/responses";
@@ -69,14 +69,17 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return err("unauthorized", 401);
 
+    const rl = await chatRateCheck(supabase as any, user.id);
+    if (!rl.ok) return err(rl.error || "rate limited", rl.status || 429);
+
+
     const parse = ChatPostSchema.safeParse(await req.json().catch(() => ({})));
     if (!parse.success) return err(parse.error.issues[0].message, 400);
     const { text, threadId } = parse.data;
 
     let tid = threadId ?? null;
     if (!tid) {
-      const auto = await getAutoTitle(text).catch(() => null);
-      const title = (auto && auto.trim()) ? auto.trim() : text.slice(0, 60).replace(/\s+/g, " ").trim();
+      const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
       const { data, error } = await supabase
         .from("chat_threads")
         .insert({ user_id: user.id, title })
@@ -87,16 +90,11 @@ export async function POST(req: NextRequest) {
     } else {
       const { data, error } = await supabase
         .from("chat_threads")
-        .select("id,title")
+        .select("id")
         .eq("id", tid)
         .eq("user_id", user.id)
         .single();
       if (error || !data) return err("thread not found", 404);
-      if (!data.title || !data.title.trim()) {
-        const auto = await getAutoTitle(text).catch(() => null);
-        const title = (auto && auto.trim()) ? auto.trim() : text.slice(0, 60).replace(/\s+/g, " ").trim();
-        await supabase.from("chat_threads").update({ title }).eq("id", tid).eq("user_id", user.id);
-      }
     }
 
     await supabase.from("chat_messages")
@@ -113,3 +111,31 @@ export async function POST(req: NextRequest) {
     return err(e?.message || "server_error", 500);
   }
 }
+// --- RATE LIMIT (softlaunch): per-user 1-min and 24h caps using existing tables ---
+async function checkRateLimit(supabase: any, userId: string) {
+  const oneMinAgo = new Date(Date.now() - 60*1000).toISOString();
+  const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
+
+  const { data: threads } = await supabase.from("chat_threads").select("id").eq("user_id", userId);
+  const ids = (threads || []).map((t:any) => t.id);
+  if (ids.length === 0) return { ok: true };
+
+  const { count: c1 } = await supabase
+    .from("chat_messages")
+    .select("*", { count: "exact", head: true })
+    .in("thread_id", ids)
+    .eq("role", "user")
+    .gte("created_at", oneMinAgo);
+
+  const { count: c2 } = await supabase
+    .from("chat_messages")
+    .select("*", { count: "exact", head: true })
+    .in("thread_id", ids)
+    .eq("role", "user")
+    .gte("created_at", oneDayAgo);
+
+  if ((c1 || 0) > 20) return { ok: false, error: "Too many messages. Please slow down (20/min limit)." };
+  if ((c2 || 0) > 500) return { ok: false, error: "Daily message limit reached (500/day)." };
+  return { ok: true };
+}
+

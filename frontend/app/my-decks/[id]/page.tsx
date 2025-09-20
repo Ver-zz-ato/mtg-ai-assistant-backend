@@ -5,6 +5,7 @@ import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
 import InlineDeckTitle from "@/components/InlineDeckTitle";
+import DeckPublicToggle from "@/components/DeckPublicToggle";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -25,6 +26,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           <InlineDeckTitle deckId={id} initial={title} />
           <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
         </div>
+        <DeckPublicToggle deckId={id} compact />
         <div className="flex items-center gap-2">
           <CopyDecklistButton deckId={id} small />
           <ExportDeckCSV deckId={id} small />

@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { containsProfanity, sanitizeName } from "@/lib/profanity";
 export const runtime = "nodejs";
 
 
@@ -18,7 +19,10 @@ export async function POST(req: Request) {
     }
 
     const { name } = (await req.json()) as { name?: string };
-    const clean = (name ?? "").trim();
+    const clean = sanitizeName(name ?? "");
+    if (containsProfanity(clean)) {
+      return NextResponse.json({ error: "Please choose a different collection name" }, { status: 400 });
+    }
     if (!clean) {
       return NextResponse.json({ error: "Missing collection name" }, { status: 400 });
     }
