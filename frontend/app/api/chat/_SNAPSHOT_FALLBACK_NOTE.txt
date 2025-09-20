@@ -1,0 +1,3 @@
+/* PATCH SNIPPET (for maintainers): ensure your /api/chat fallback snapshot appends a JSON code block
+   identical to /api/chat/commands/analyze so the UI can render a rich card even after reload.
+*/

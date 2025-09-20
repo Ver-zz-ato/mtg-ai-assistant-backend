@@ -1,79 +1,75 @@
-type Bands = { curve: number; ramp: number; draw: number; removal: number; mana: number };
+"use client";
+import React from "react";
 
-export default function DeckHealthCard({
-  score = 72,
-  note = "needs a touch more draw",
-  bands = { curve: 0.78, ramp: 0.7, draw: 0.55, removal: 0.0, mana: 0.72 },
-  whatsGood = ["Ninjutsu core is intact.", "Strong 1–2 mana interaction density."],
-  quickFixes = ["Add 2 draw spells: <em>Beast Whisperer</em>, <em>Inspiring Call</em>."],
-  illegalByCI = 0,
-  illegalExamples = [],
-  curveBuckets = undefined,
-}: {
-  score?: number;
+type Bands = { curve: number; ramp: number; draw: number; removal: number; mana: number };
+type Result = {
+  score: number;
   note?: string;
-  bands?: Bands;
+  bands: Bands;
+  curveBuckets: number[];
   whatsGood?: string[];
   quickFixes?: string[];
   illegalByCI?: number;
   illegalExamples?: string[];
-  curveBuckets?: number[]; // [<=1, 2, 3, 4, >=5]
+};
+
+export default function DeckHealthCard({
+  result,
+  onSave,
+  onMyDecks,
+}: {
+  result: Result;
+  onSave?: () => void;
+  onMyDecks?: () => void;
 }) {
-  const Bar = ({ v }: { v: number }) => (
-    <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-      <div
-        className="h-full bg-yellow-500"
-        style={{ width: `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%` }}
-      />
-    </div>
-  );
-
   return (
-    <div className="rounded-xl p-4 border border-yellow-500/60 bg-gray-900">
-      <div className="flex items-center gap-2 text-yellow-400 font-semibold mb-2">
-        <span>Deck Health: {score}/100</span>
-        <span className="text-gray-400 font-normal">– {note}</span>
+    <div className="rounded-2xl border border-amber-700 bg-slate-900 text-slate-200 shadow-md w-[640px] max-w-[90vw]">
+      <div className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-amber-700/40 to-amber-600/20 rounded-t-2xl">
+        Deck Health: {result.score}/100 — {result.note || "snapshot"}
       </div>
 
-      {/* Bands */}
-      <div className="grid grid-cols-5 gap-3 text-xs text-gray-300 mb-2">
-        <div><div className="mb-1">Curve</div><Bar v={bands.curve} /></div>
-        <div><div className="mb-1">Ramp</div><Bar v={bands.ramp} /></div>
-        <div><div className="mb-1">Draw</div><Bar v={bands.draw} /></div>
-        <div><div className="mb-1">Removal</div><Bar v={bands.removal} /></div>
-        <div><div className="mb-1">Mana</div><Bar v={bands.mana} /></div>
-      </div>
-
-      {/* NEW: compact curve buckets line */}
-      {Array.isArray(curveBuckets) && curveBuckets.length === 5 && (
-        <div className="text-xs text-gray-300 mb-3">
-          <span className="mr-2 font-medium text-gray-200">Curve (≤1/2/3/4/5+):</span>
-          {curveBuckets.join(" / ")}
+      <div className="p-4 space-y-3">
+        <div className="grid grid-cols-5 gap-2 items-end text-[11px]">
+          {(["curve","ramp","draw","removal","mana"] as const).map((k) => (
+            <div key={k}>
+              <div className="mb-1 capitalize">{k}</div>
+              <div className="h-2 bg-slate-800 rounded">
+                <div className="h-2 rounded bg-amber-500" style={{ width: `${Math.round((result.bands as any)[k]*100)}%` }} />
+              </div>
+            </div>
+          ))}
         </div>
-      )}
 
-      {/* EDH CI illegal line */}
-      {illegalByCI > 0 && (
-        <div className="text-sm text-red-400 mb-3">
-          Illegal by color identity: <b>{illegalByCI}</b>
-          {illegalExamples.length > 0 && <> — e.g., {illegalExamples.slice(0, 3).join(", ")}</>}
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <div className="font-semibold text-sm mb-1">What’s good</div>
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              {(result.whatsGood ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: t }} />)}
+            </ul>
+          </div>
+          <div>
+            <div className="font-semibold text-sm mb-1">Quick fixes</div>
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              {(result.quickFixes ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: t }} />)}
+            </ul>
+          </div>
         </div>
-      )}
 
-      <div className="grid md:grid-cols-2 gap-3 text-sm">
-        <div>
-          <div className="font-medium text-gray-200 mb-1">What’s good</div>
-          <ul className="list-disc ml-5 space-y-1 text-gray-300">
-            {whatsGood.map((s, i) => <li key={i}>{s}</li>)}
-          </ul>
-        </div>
-        <div>
-          <div className="font-medium text-gray-200 mb-1">Quick fixes</div>
-          <ul className="list-disc ml-5 space-y-1 text-gray-300">
-            {quickFixes.map((s, i) => (
-              <li key={i} dangerouslySetInnerHTML={{ __html: s }} />
-            ))}
-          </ul>
+        <div className="flex gap-2 pt-2">
+          <button
+            className="px-3 py-1.5 rounded bg-amber-600 text-black font-semibold hover:bg-amber-500 disabled:opacity-50"
+            onClick={() => onSave?.()}
+            disabled={!onSave}
+          >
+            Save deck
+          </button>
+          <button
+            className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600"
+            onClick={() => onMyDecks?.()}
+            disabled={!onMyDecks}
+          >
+            My Decks →
+          </button>
         </div>
       </div>
     </div>
