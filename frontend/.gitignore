@@ -44,3 +44,5 @@ _autofix_backup_*/
 _backup_legacy*/
 legacy_*_backup/
 **/*.zip
+
+.env.local

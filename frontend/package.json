@@ -15,13 +15,15 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.56.1",
     "next": "15.5.2",
+    "posthog-js": "^1.266.3",
+    "posthog-node": "^5.8.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "zod": "^3.23.8",
-    "posthog-js": "^1.179.1"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.47.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -29,7 +31,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "@playwright/test": "^1.47.2"
+    "typescript": "^5"
   }
 }

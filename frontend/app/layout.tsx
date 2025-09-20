@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Providers from "@/components/Providers";
+import AnalyticsProvider from "@/components/AnalyticsProvider";
 
 export const metadata: Metadata = {
   title: "MTG Coach",
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <Providers>
+          <AnalyticsProvider />
           <Header />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
