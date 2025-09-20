@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { listThreads } from "@/lib/threads";
 import type { ThreadSummary } from "@/types/chat";
 
+
+function badgeFor(title: string | null): string {
+  const t = (title || '').toLowerCase();
+  if (t.startsWith('price check')) return '💰 ';
+  return '💬 ';
+}
+function clamp(s: string, n = 32) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
+
+
 type Props = { value: string | null; onChange: (id: string | null) => void };
 
 export default function HistoryDropdown({ value, onChange }: Props) {
@@ -21,7 +30,7 @@ export default function HistoryDropdown({ value, onChange }: Props) {
       <option value="">New thread</option>
       {threads.map((t) => (
         <option key={t.id} value={t.id}>
-          {t.title || "(untitled)"} — {new Date(t.created_at).toLocaleString()}
+          {badgeFor(t.title)}{clamp(t.title || "(untitled)")} — {new Date(t.created_at).toLocaleString()}
         </option>
       ))}
     </select>

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import NewDeckInline from "@/components/NewDeckInline";
+import DeckDeleteButton from "@/components/DeckDeleteButton";
 
 type DeckRow = {
   id: string;
@@ -45,6 +46,7 @@ export default async function Page() {
         <h1 className="text-xl font-semibold">My Decks</h1>
         <NewDeckInline />
       </div>
+      <div className="mb-3 text-sm"><a className="underline underline-offset-4" href="/collections/cost-to-finish">Open Cost to Finish →</a></div>
 
       {rows.length === 0 && <div className="text-gray-400">No decks saved yet.</div>}
 
@@ -61,6 +63,7 @@ export default async function Page() {
               <div className="flex items-center gap-3">
                 <Link href={`/my-decks/${encodeURIComponent(r.id)}`} className="text-sm underline underline-offset-4" title="Edit deck">Edit</Link>
                 <Link href={`/decks/${encodeURIComponent(r.id)}`} className="text-sm underline underline-offset-4" title="View deck">View</Link>
+                <DeckDeleteButton deckId={r.id} small />
               </div>
             </li>
           );
