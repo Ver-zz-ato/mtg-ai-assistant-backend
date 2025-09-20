@@ -1,20 +1,16 @@
-// app/api/chat/threads/list/route.ts
-import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { ok, err } from "@/lib/api/envelope";
+import { createClient } from "@/lib/server-supabase";
+import { ok, err } from "@/lib/envelope";
 
-export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  const user = u?.user;
-  if (!user) return ok({ threads: [] }); // show empty for anon
+export async function GET() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return err("unauthorized", 401);
 
   const { data, error } = await supabase
     .from("chat_threads")
-    .select("id, title, deck_id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (error) return err(error.message);
-  return ok({ threads: data ?? [] });
+    .select("id, deck_id, title, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (error) return err(error.message, 500);
+  return ok({ threads: data });
 }

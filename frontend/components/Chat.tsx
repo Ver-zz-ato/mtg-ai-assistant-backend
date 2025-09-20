@@ -1,252 +1,232 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { usePrefs } from "./PrefsContext";
-import DeckHealthCard from "./DeckHealthCard";
-import PriceCard, { PriceItem } from "./PriceCard";
-import HistoryDropdown from "./HistoryDropdown";
+import { useEffect, useState } from "react";
+import HistoryDropdown from "@/components/HistoryDropdown";
+import ThreadMenu from "@/components/ThreadMenu";
+import DeckHealthCard from "@/components/DeckHealthCard";
+import { listMessages, postMessage } from "@/lib/threads";
+import type { ChatMessage } from "@/types/chat";
 
-type TextMsg = { role: "user" | "assistant"; type: "text"; content: string };
+const DEV = process.env.NODE_ENV !== "production";
 
-type SnapshotMsg = {
-  role: "assistant";
-  type: "snapshot";
+function isDecklist(text: string): boolean {
+  if (!text) return false;
+  const lines = text.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
+  if (lines.length < 6) return false;
+  let hits = 0;
+  const rxQty = /^(?:SB:\s*)?\d+\s*[xX]?\s+.+$/;
+  const rxDash = /^-\s+.+$/;
+  for (const l of lines) {
+    if (rxQty.test(l) || rxDash.test(l)) hits++;
+  }
+  if (DEV) console.log("[detect] lines", lines.length, "hits", hits);
+  return hits >= Math.max(6, Math.floor(lines.length * 0.5));
+}
+
+type AnalysisPayload = {
+  type: "analysis";
   data: {
     score: number;
-    note: string;
+    note?: string;
     bands: { curve: number; ramp: number; draw: number; removal: number; mana: number };
-    whatsGood: string[];
-    quickFixes: string[];
+    curveBuckets: number[];
+    whatsGood?: string[];
+    quickFixes?: string[];
     illegalByCI?: number;
     illegalExamples?: string[];
-    curveBuckets?: number[];
-    deckText?: string;
   };
 };
 
-type PriceMsg = { role: "assistant"; type: "price"; items: PriceItem[] };
-type Msg = TextMsg | SnapshotMsg | PriceMsg;
-
-export default function Chat() {
-  const { mode, format, plan, colors, currency } = usePrefs();
-
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", type: "text", content: "Hi! Paste a decklist or ask any MTG question." },
-  ]);
-  const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
-
-  function isProbablyDecklist(s: string): boolean {
-    const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length < 5) return false;
-    const hints = ["Island","Swamp","Plains","Forest","Mountain","Sol Ring","Arcane Signet","Swords","Cultivate"," x "];
-    const matches = lines.filter((l) => (/^\d+\s*x?\s+/.test(l)) || hints.some((h) => l.toLowerCase().includes(h.toLowerCase()))).length;
-    return matches >= 3;
-  }
-
-  async function analyzeDeck(deckText: string) {
-    const res = await fetch("/api/deck/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckText, format, plan, colors, currency, useScryfall: true }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as SnapshotMsg["data"];
-  }
-
-  function parsePriceNames(raw: string): string[] {
-    const bracketed = Array.from(raw.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1].trim());
-    if (bracketed.length) return bracketed;
-    const after = raw.replace(/^\/price\s*/i, "");
-    return after.split(",").map((s) => s.trim()).filter(Boolean);
-  }
-
-  async function fetchPrices(names: string[]): Promise<PriceItem[]> {
-    const res = await fetch("/api/price", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ names, currency }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    return (json?.results ?? []) as PriceItem[];
-  }
-
-  async function saveDeck(deckText: string) {
-    const title = window.prompt("Deck title?", "Untitled Deck");
-    if (title === null) return; // cancelled
-
-    try {
-      const res = await fetch("/api/decks/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, deckText, format, plan, colors, currency, is_public: true }),
-      });
-
-      const rawText = await res.text().catch(() => "");
-      let json: any = {};
-      try { json = rawText ? JSON.parse(rawText) : {}; } catch { /* keep raw */ }
-
-      // Always surface what happened; avoid ?? with || precedence issues
-      if (!res.ok || json?.ok === false) {
-        const errMsg = (json && (json.error ?? "")) || rawText || "Unknown error";
-        alert(`Save failed (HTTP ${res.status}).\n${errMsg}`);
-        return;
-      }
-
-      const id: string | undefined = json.id;
-      if (id) {
-        const go = window.confirm("Saved! Open the deck page now?");
-        if (go) window.location.href = `/decks/${encodeURIComponent(id)}`;
-      } else {
-        alert("Saved! You can find it on the My Decks page.");
-      }
-    } catch (e: any) {
-      alert(String(e?.message ?? e) || "Failed to save deck.");
-    }
-  }
-
-  async function loadThreadMessages(id: string) {
-  try {
-    const res = await fetch("/api/chat/messages/list?threadId=" + encodeURIComponent(id), { cache: "no-store" });
-    const json = await res.json();
-    if (json?.ok) {
-      const restored = (json.messages || []).map((m: any) => ({
-        role: m.role,
-        type: "text",
-        content: m.content,
-      }));
-      setMessages(restored.length ? restored : [{ role: "assistant", type: "text", content: "No messages in this thread yet." }]);
-    }
-  } catch {
-    // ignore
-  }
+async function appendAssistant(threadId: string, content: string) {
+  const res = await fetch("/api/chat/messages/append", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ threadId, role: "assistant", content }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "append failed");
+  return true;
 }
 
-async function send() {
-    const clean = text.trim();
-    if (!clean || loading) return;
+export default function Chat() {
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [histKey, setHistKey] = useState(0);
+  const [lastDeck, setLastDeck] = useState<string>("");
 
-    setMessages((m) => [...m, { role: "user", type: "text", content: clean }]);
-    setText("");
-    setLoading(true);
-
+  async function refreshMessages(tid: string | null) {
+    if (!tid) { setMessages([]); return; }
     try {
-      if (clean.toLowerCase().startsWith("/price")) {
-        const names = parsePriceNames(clean);
-        if (names.length === 0) {
-          setMessages((m) => [...m, { role: "assistant", type: "text", content: "Usage: /price [[Card Name]], [[Another Card]] (or comma separated)." }]);
-        } else {
-          const items = await fetchPrices(names);
-          setMessages((m) => [...m, { role: "assistant", type: "price", items }]);
-        }
-      } else if (clean.startsWith("/analyze") || isProbablyDecklist(clean)) {
-        const deckText = clean.replace(/^\/analyze\s*/i, "");
-        const data = await analyzeDeck(deckText);
-        setMessages((m) => [...m, { role: "assistant", type: "snapshot", data: { ...data, deckText } }]);
-      } else {
-        const system = [
-          "You are MTG Coach. Be concise. Cite CR numbers for rules.",
-          `User preferences: mode=${mode}, format=${format}, plan=${plan}, colors=${colors.join("") || "any"}, currency=${currency}.`,
-          "Respect format; prefer budget when plan=Budget; use chosen currency in any price references.",
-        ].join(" ");
-
-        const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, threadId, 
-            messages: [...messages, { role: "user", type: "text", content: clean }]
-              .filter((m): m is TextMsg => m.type === "text")
-              .map((m) => ({ role: m.role, content: m.content })),
-           }), });
-        const data = await res.json();
-        if (data?.threadId && !threadId) setThreadId(data.threadId);
-        const reply = (data?.text as string) || "Sorry — no reply.";
-        setMessages((m) => [...m, { role: "assistant", type: "text", content: reply }]);
+      const { messages } = await listMessages(tid);
+      setMessages(messages);
+    } catch (e: any) {
+      if (String(e?.message || "").toLowerCase().includes("thread not found")) {
+        setThreadId(null);
+        setMessages([]);
+        setHistKey(k => k + 1);
+        return;
       }
-    } catch {
-      setMessages((m) => [...m, { role: "assistant", type: "text", content: "Error processing your request." }]);
-    } finally {
-      setLoading(false);
+      throw e;
+    }
+  }
+  useEffect(() => { refreshMessages(threadId); }, [threadId]);
+
+  async function saveDeck() {
+    if (!lastDeck?.trim()) return;
+    try {
+      const title = (lastDeck.split("\n").find(Boolean) || "Imported Deck").replace(/^\d+\s*[xX]?\s*/, "").slice(0, 64);
+      const res = await fetch("/api/decks/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title,
+          format: "Commander",
+          plan: "Optimized",
+          colors: [],
+          currency: "USD",
+          deck_text: lastDeck,
+          data: { source: "chat-inline" },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Save failed");
+      alert("Saved! Check My Decks.");
+    } catch (e: any) {
+      alert(e?.message ?? "Save failed");
     }
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
+  function gotoMyDecks() { window.location.href = "/my-decks"; }
+
+  async function send() {
+    if (!text.trim() || busy) return;
+    const val = text;
+    const looksDeck = isDecklist(val);
+    if (looksDeck) setLastDeck(val);
+    if (DEV) console.log("[send] looksDeck?", looksDeck);
+
+    setText("");
+    setBusy(true);
+    setMessages(m => [
+      ...m,
+      { id: Date.now(), thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
+    ]);
+
+    const res = await postMessage(val, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+
+    let tid = threadId as string | null;
+    if ((res as any)?.ok) {
+      tid = (res as any).threadId as string;
+      if (tid !== threadId) setThreadId(tid);
+      setHistKey(k => k + 1);
+      await refreshMessages(tid);
+    } else {
+      setMessages(m => [
+        ...m,
+        { id: Date.now() + 1, thread_id: threadId || "", role: "assistant", content: "Sorry — " + ((res as any)?.error?.message ?? "no reply"), created_at: new Date().toISOString() } as any,
+      ]);
     }
+
+    if (looksDeck) {
+      try {
+        const ar = await fetch("/analyze", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ deckText: val, useScryfall: true }),
+        });
+        const textBody = await ar.text();
+        let parsed: any = null;
+        try { parsed = JSON.parse(textBody); } catch { parsed = null; }
+        const result = parsed?.result ?? parsed;
+        if (ar.ok && result && (tid || threadId)) {
+          const payload: AnalysisPayload = { type: "analysis", data: result };
+          const content = JSON.stringify(payload);
+          const threadForAppend = tid || threadId!;
+          setMessages(m => [
+            ...m,
+            { id: Date.now() + 2, thread_id: threadForAppend, role: "assistant", content, created_at: new Date().toISOString() } as any,
+          ]);
+          await appendAssistant(threadForAppend, content);
+          await refreshMessages(threadForAppend);
+        } else if (DEV) {
+          console.warn("[analyze] bad response", parsed);
+        }
+      } catch (e) { if (DEV) console.warn("[analyze] failed", e); }
+    }
+
+    setBusy(false);
   }
 
   return (
-    <>
-      <div className="mb-3 flex items-center justify-between">
-  <HistoryDropdown threadId={threadId} onSelect={(id) => { setThreadId(id || null); if (id) loadThreadMessages(id); else setMessages([{ role: "assistant", type: "text", content: "Hi! Paste a decklist or ask any MTG question." }]); }} />
-</div>
-<div ref={scrollerRef} className="flex-1 bg-gray-900/60 rounded-xl border border-gray-800 p-4 overflow-y-auto min-h-[60vh]">
-        {messages.map((m, i) => {
-          if (m.type === "text") {
-            return (
-              <div key={i} className="mb-3">
-                <div className={m.role === "user" ? "inline-block bg-gray-800 rounded-xl px-4 py-3 whitespace-pre-wrap" : "bg-gray-900 border border-gray-800 rounded-xl p-4 whitespace-pre-wrap"}>
-                  {m.content}
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <HistoryDropdown key={histKey} value={threadId} onChange={setThreadId} />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <ThreadMenu
+          threadId={threadId}
+          onChanged={() => setHistKey(k => k + 1)}
+          onDeleted={() => { setThreadId(null); setMessages([]); setHistKey(k => k + 1); }}
+        />
+      </div>
+
+      <div className="min-h-[40vh] space-y-2 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3">
+        {messages.length === 0 ? (
+          <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
+        ) : messages.map((m) => {
+          try {
+            const obj = JSON.parse(m.content);
+            if (obj && obj.type === "analysis" && obj.data) {
+              return (
+                <div key={m.id} className="text-right">
+                  <div className="inline-block max-w-[100%]">
+                    <DeckHealthCard result={obj.data} onSave={saveDeck} onMyDecks={gotoMyDecks} />
+                  </div>
                 </div>
-              </div>
-            );
-          }
-          if (m.type === "snapshot") {
-            return (
-              <div key={i} className="mb-3">
-                <DeckHealthCard
-                  score={m.data.score}
-                  note={m.data.note}
-                  bands={m.data.bands}
-                  whatsGood={m.data.whatsGood}
-                  quickFixes={m.data.quickFixes}
-                  illegalByCI={m.data.illegalByCI ?? 0}
-                  illegalExamples={m.data.illegalExamples ?? []}
-                  curveBuckets={m.data.curveBuckets}
-                />
-                <div className="mt-2 flex gap-2">
-                  <button className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm" onClick={() => m.data.deckText && saveDeck(m.data.deckText)}>
-                    Save deck
-                  </button>
-                  <a href="/my-decks" className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm">
-                    My Decks →
-                  </a>
-                </div>
-              </div>
-            );
-          }
+              );
+            }
+          } catch {}
+          const isAssistant = m.role === "assistant";
           return (
-            <div key={i} className="mb-3 grid gap-3">
-              {m.items.map((item, idx) => (
-                <PriceCard key={idx} item={item} highlight={currency} />
-              ))}
+            <div key={m.id} className={isAssistant ? "text-right" : "text-left"}>
+              <div
+                className={
+                  "inline-block max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap " +
+                  (isAssistant ? "bg-blue-900/40" : "bg-neutral-800")
+                }
+              >
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
+                  {isAssistant ? "assistant" : "user"}
+                </div>
+                <div className="leading-relaxed">{m.content}</div>
+              </div>
             </div>
           );
         })}
-        {loading && <div className="text-sm text-gray-400">Thinking…</div>}
       </div>
 
-      <div className="mt-3 flex items-end gap-2">
+      <div className="flex gap-2">
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          className="flex-1 bg-gray-900 border border-gray-800 rounded-xl p-3 min-h-[56px] focus:outline-none focus:ring-1 focus:ring-yellow-500"
-          placeholder="Ask anything or paste a decklist…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Ask anything or paste a decklist… (Shift+Enter for newline)"
+          rows={3}
+          className="flex-1 bg-neutral-900 text-white border border-neutral-700 rounded px-3 py-2 resize-y"
         />
-        <button
-          onClick={send}
-          disabled={loading || !text.trim()}
-          className="h-[56px] px-5 rounded-xl bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-400 disabled:opacity-50"
-        >
-          {loading ? "Sending…" : "Send"}
+        <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit self-end rounded bg-blue-600 text-white disabled:opacity-60">
+          {busy ? "…" : "Send"}
         </button>
       </div>
-    </>
+    </div>
   );
 }
