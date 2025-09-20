@@ -14,6 +14,22 @@ const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Still fail on real TS errors
   typescript: { ignoreBuildErrors: false },
+
+  // This is required to support PostHog trailing slash API requests
+  skipTrailingSlashRedirect: true,
+
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://eu-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://eu.i.posthog.com/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
