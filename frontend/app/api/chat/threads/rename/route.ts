@@ -1,21 +1,21 @@
 import { createClient } from "@/lib/server-supabase";
 import { ok, err } from "@/lib/envelope";
-import { CreateThreadSchema } from "@/lib/validate";
+import { RenameThreadSchema } from "@/lib/validate";
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return err("unauthorized", 401);
 
-  const parsed = CreateThreadSchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = RenameThreadSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return err(parsed.error.issues[0].message, 400);
-  const { title, deckId } = parsed.data;
+  const { threadId, title } = parsed.data;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("chat_threads")
-    .insert({ user_id: user.id, title: title ?? "Untitled", deck_id: deckId ?? null })
-    .select("id")
-    .single();
+    .update({ title })
+    .eq("id", threadId)
+    .eq("user_id", user.id);
   if (error) return err(error.message, 500);
-  return ok({ id: data.id });
+  return ok({});
 }
