@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/lib/envelope";
+import { getAutoTitle } from "@/lib/autotitle";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_URL = "https://api.openai.com/v1/responses";
@@ -74,7 +75,8 @@ export async function POST(req: NextRequest) {
 
     let tid = threadId ?? null;
     if (!tid) {
-      const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
+      const auto = await getAutoTitle(text).catch(() => null);
+      const title = (auto && auto.trim()) ? auto.trim() : text.slice(0, 60).replace(/\s+/g, " ").trim();
       const { data, error } = await supabase
         .from("chat_threads")
         .insert({ user_id: user.id, title })
@@ -85,11 +87,16 @@ export async function POST(req: NextRequest) {
     } else {
       const { data, error } = await supabase
         .from("chat_threads")
-        .select("id")
+        .select("id,title")
         .eq("id", tid)
         .eq("user_id", user.id)
         .single();
       if (error || !data) return err("thread not found", 404);
+      if (!data.title || !data.title.trim()) {
+        const auto = await getAutoTitle(text).catch(() => null);
+        const title = (auto && auto.trim()) ? auto.trim() : text.slice(0, 60).replace(/\s+/g, " ").trim();
+        await supabase.from("chat_threads").update({ title }).eq("id", tid).eq("user_id", user.id);
+      }
     }
 
     await supabase.from("chat_messages")
