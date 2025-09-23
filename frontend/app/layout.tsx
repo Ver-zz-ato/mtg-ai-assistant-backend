@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
+import '@/styles/ph-toolbar-fix.css';
 import Providers from "@/components/Providers";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
-
 export const metadata: Metadata = {
   title: "MTG Coach",
   description: "Chat-first MTG assistant",
@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <Providers>
-          <AnalyticsProvider />
+<AnalyticsProvider />
           <Header />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">

@@ -1,23 +1,27 @@
-"use client";
-import { useEffect } from "react";
-import posthog from "posthog-js";
+'use client';
 
-// Clean init for current posthog-js types:
-// - remove session_recording entirely (defaults to off unless explicitly started)
-// - keep manual $pageview via your tracker component
+import { useEffect } from 'react';
+import posthog from 'posthog-js';
+
+const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
 export default function PosthogInit() {
   useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
+    if (!KEY) return;
+    if (typeof window === 'undefined') return;
 
-    posthog.init(key, {
-      api_host: "/ingest",
-      ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.posthog.com",
-      autocapture: false,
-      capture_pageleave: true,
-      capture_exceptions: false,
-      debug: process.env.NODE_ENV === "development",
-    });
+    try {
+      posthog.init(KEY, ({
+        api_host: '/ingest',
+        ui_host: 'https://eu.posthog.com',
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: true,
+        disable_toolbar: true, // kill the toolbar at the source
+      }) as any);
+      // hard kill in case toolbar was already enabled from a previous session
+      (posthog as any).set_config({ disable_toolbar: true });
+    } catch {}
   }, []);
 
   return null;

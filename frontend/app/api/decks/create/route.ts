@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { ok, err } from "@/lib/envelope";
 import { z } from "zod";
+import { withLogging } from "@/lib/api/withLogging";
 
 const Req = z.object({
   title: z.string().min(1).max(120),
@@ -13,13 +14,42 @@ const Req = z.object({
   data: z.any().optional(),
 });
 
-export async function POST(req: NextRequest) {
+function parseDeckText(text: string): Array<{ name: string; qty: number }> {
+  const out: Array<{ name: string; qty: number }> = [];
+  if (!text) return out;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    // e.g. "1 Sol Ring", "2x Arcane Signet"
+    const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
+    if (!m) continue;
+    const qty = Math.max(0, parseInt(m[1], 10) || 0);
+    const name = m[2].trim();
+    if (!qty || !name) continue;
+    out.push({ name, qty });
+  }
+  return out;
+}
+
+function aggregateCards(cards: Array<{ name: string; qty: number }>): Array<{ name: string; qty: number }> {
+  const map = new Map<string, { name: string; qty: number }>();
+  for (const c of cards) {
+    const key = c.name.trim().toLowerCase();
+    const prev = map.get(key);
+    if (prev) prev.qty += c.qty;
+    else map.set(key, { name: c.name.trim(), qty: c.qty });
+  }
+  return Array.from(map.values());
+}
+
+async function _POST(req: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: userResp } = await supabase.auth.getUser();
+    const user = userResp?.user;
     if (!user) return err("unauthorized", 401);
 
-    const parsed = Req.safeParse(await req.json().catch(() => ({})));
+    const parsed = Req.safeParse(await req.json().catch(() => ({} as any)));
     if (!parsed.success) return err(parsed.error.issues[0].message, 400);
     const payload = parsed.data;
 
@@ -40,8 +70,24 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return err(error.message, 500);
-    return ok({ id: data.id });
+
+    // Parse & upsert deck_cards
+    const cardsRaw = parseDeckText(payload.deck_text || "");
+    const cards = aggregateCards(cardsRaw);
+    if (cards.length) {
+      const rows = cards.map((c) => ({ deck_id: data.id as string, name: c.name, qty: c.qty }));
+      const { error: dcErr } = await supabase
+        .from("deck_cards")
+        .upsert(rows, { onConflict: "deck_id,name" });
+      if (dcErr) {
+        return ok({ id: data.id, warning: `created deck but failed upserting ${rows.length} cards: ${dcErr.message}` });
+      }
+    }
+
+    return ok({ id: data.id, inserted: cards.length || 0 });
   } catch (e: any) {
     return err(e?.message || "server_error", 500);
   }
 }
+
+export const POST = withLogging(_POST, "POST");

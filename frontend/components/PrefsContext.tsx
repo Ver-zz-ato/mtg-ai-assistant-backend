@@ -1,52 +1,41 @@
-"use client";
-import { createContext, useContext, useState } from "react";
+'use client';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 
-export type Mode = "deck" | "rules" | "price";
-export type Format = "Commander" | "Modern" | "Pioneer";
-export type Plan = "Budget" | "Optimized";
-export type Currency = "USD" | "EUR" | "GBP";
-export type Color = "W" | "U" | "B" | "R" | "G";
-
-type PrefsState = {
-  mode: Mode;
-  format: Format;
-  plan: Plan;
-  colors: Color[];      // W U B R G
-  currency: Currency;
-
-  setMode: (m: Mode) => void;
-  setFormat: (f: Format) => void;
-  setPlan: (p: Plan) => void;
-  setCurrency: (c: Currency) => void;
-  toggleColor: (c: Color) => void;
-  clearColors: () => void;
+export type PrefsState = {
+  // extendable bag of user preferences (theme, format, etc.)
+  [key: string]: any;
 };
 
-const Prefs = createContext<PrefsState | null>(null);
+export type PrefsContextValue = {
+  prefs: PrefsState;
+  setPrefs: React.Dispatch<React.SetStateAction<PrefsState>>;
+
+  // Extra optional helpers for ModeOptions compatibility
+  mode?: string;
+  format?: string;
+  setFormat?: (f: string) => void;
+  plan?: string;
+  setPlan?: (p: string) => void;
+  colors?: string[];
+  toggleColor?: (c: string) => void;
+  clearColors?: () => void;
+  currency?: string;
+  setCurrency?: (c: string) => void;
+};
+
+const Prefs = createContext<PrefsContextValue | undefined>(undefined);
 
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<Mode>("deck");
-  const [format, setFormat] = useState<Format>("Commander");
-  const [plan, setPlan] = useState<Plan>("Optimized");
-  const [colors, setColors] = useState<Color[]>([]);
-  const [currency, setCurrency] = useState<Currency>("USD");
-
-  function toggleColor(c: Color) {
-    setColors((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
-  }
-  function clearColors() { setColors([]); }
-
-  return (
-    <Prefs.Provider
-      value={{ mode, format, plan, colors, currency, setMode, setFormat, setPlan, setCurrency, toggleColor, clearColors }}
-    >
-      {children}
-    </Prefs.Provider>
-  );
+  const [prefs, setPrefs] = useState<PrefsState>({});
+  const value = useMemo(() => ({ prefs, setPrefs }), [prefs]);
+  return <Prefs.Provider value={value}>{children}</Prefs.Provider>;
 }
 
-export function usePrefs() {
+export function usePrefs(): PrefsContextValue {
   const ctx = useContext(Prefs);
-  if (!ctx) throw new Error("usePrefs must be used within PrefsProvider");
+  if (!ctx) {
+    // Keep the explicit error so we notice if the provider is ever missing again.
+    throw new Error('usePrefs must be used within PrefsProvider');
+  }
   return ctx;
 }

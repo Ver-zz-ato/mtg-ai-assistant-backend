@@ -58,15 +58,11 @@ export default function Chat() {
   const [toast, setToast] = useState<string | null>(null);
   const [lastDeck, setLastDeck] = useState<string>("");
 
-  let currentAbort: AbortController | null = null;
-async function refreshMessages(tid: string | null) {
+  async function refreshMessages(tid: string | null) {
     if (!tid) { setMessages([]); return; }
-    
-try {
-  if (currentAbort) { try { currentAbort.abort(); } catch {} }
-  currentAbort = new AbortController();
+    try {
       const { messages } = await listMessages(tid);
-      setMessages(Array.isArray(messages) ? messages : []);
+      setMessages(messages);
     } catch (e: any) {
       if (String(e?.message || "").toLowerCase().includes("thread not found")) {
         setThreadId(null);
@@ -81,10 +77,7 @@ try {
 
   async function saveDeck() {
     if (!lastDeck?.trim()) return;
-    
-try {
-  if (currentAbort) { try { currentAbort.abort(); } catch {} }
-  currentAbort = new AbortController();
+    try {
       const title = (lastDeck.split("\n").find(Boolean) || "Imported Deck").replace(/^\d+\s*[xX]?\s*/, "").slice(0, 64);
       const res = await fetch("/api/decks/create", {
         method: "POST",
@@ -124,10 +117,11 @@ try {
     ]);
 
     capture('chat_sent');
+    capture('chat_sent');
     console.debug('[analytics] chat_sent');
     capture('chat_sent');
     console.debug('[analytics] chat_sent');
-    capture('chat_sent', { chars: (val?.length ?? 0), thread_id: threadId ?? null });
+    capture('chat_sent', { chars: (val?.length ?? 0), thread_id: threadId ?? null, has_deck_link: !!linkedDeckId });
     const res = await postMessage(val, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
 
     let tid = threadId as string | null;
@@ -145,10 +139,7 @@ try {
     }
 
     if (looksDeck) {
-      
-try {
-  if (currentAbort) { try { currentAbort.abort(); } catch {} }
-  currentAbort = new AbortController();
+      try {
         const ar = await fetch("/analyze", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -156,10 +147,7 @@ try {
         });
         const textBody = await ar.text();
         let parsed: any = null;
-        
-try {
-  if (currentAbort) { try { currentAbort.abort(); } catch {} }
-  currentAbort = new AbortController(); parsed = JSON.parse(textBody); } catch { parsed = null; }
+        try { parsed = JSON.parse(textBody); } catch { parsed = null; }
         const result = parsed?.result ?? parsed;
         if (ar.ok && result && (tid || threadId)) {
           const payload: AnalysisPayload = { type: "analysis", data: result };
@@ -197,13 +185,10 @@ try {
       </div>
 
       <div className="min-h-[40vh] space-y-2 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3">
-        {(!Array.isArray(messages) || messages.length === 0) ? (
+        {messages.length === 0 ? (
           <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
         ) : messages.map((m) => {
-          
-try {
-  if (currentAbort) { try { currentAbort.abort(); } catch {} }
-  currentAbort = new AbortController();
+          try {
             const obj = JSON.parse(m.content);
             if (obj && obj.type === "analysis" && obj.data) {
               return (

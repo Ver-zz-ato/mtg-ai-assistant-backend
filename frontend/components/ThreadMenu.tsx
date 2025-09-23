@@ -112,19 +112,19 @@ export default function ThreadMenu({
 
   return (
     <div className="flex flex-wrap gap-2 text-sm">
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled}>
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled} data-testid="thread-action">
         Rename
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doDelete} disabled={disabled}>
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doDelete} disabled={disabled} data-testid="thread-action">
         Delete
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doExport} disabled={disabled}>
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doExport} disabled={disabled} data-testid="thread-action">
         Export
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doImport} disabled={busy}>
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doImport} disabled={busy} data-testid="thread-action">
         Import
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doLink} disabled={disabled}>
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doLink} disabled={disabled} data-testid="thread-action">
         {deckId ? 'Link (change)' : 'Link to deck'}
       </button>
     </div>
