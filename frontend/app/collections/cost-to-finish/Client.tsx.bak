@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { capture } from "@/lib/ph";
-
+import { capture } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 

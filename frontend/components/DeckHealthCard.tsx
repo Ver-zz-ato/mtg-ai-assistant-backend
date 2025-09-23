@@ -1,6 +1,16 @@
 "use client";
 import React from "react";
 
+function sanitizeLLM(input: string): string {
+  // Strip all tags; allow only basic line breaks.
+  try {
+    const withoutTags = input.replace(/<[^>]*>/g, '');
+    return withoutTags;
+  } catch {
+    return input;
+  }
+}
+
 type Bands = { curve: number; ramp: number; draw: number; removal: number; mana: number };
 type Result = {
   score: number;

@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
+import { capture } from "@/lib/analytics"
 
 type AnalyzeResult = {
   score: number;
@@ -69,6 +70,9 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
       });
       const json = await res.json();
       if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Save failed");
+      capture('deck_created');
+      console.debug('[analytics] deck_created');
+      try { capture('deck_created', { deck_id: (json?.id ?? null), format }); } catch {}
       alert("Saved! Check My Decks.");
     } catch (e: any) {
       alert(e?.message ?? "Save failed");

@@ -11,7 +11,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const supabase = await createClient();
 
   // Fetch deck meta (public visibility enforced by RLS)
-  const { data: deck } = await supabase.from("decks").select("title, public").eq("id", id).maybeSingle();
+  const { data: deck } = await supabase.from("decks").select("title, is_public").eq("id", id).maybeSingle();
   const title = deck?.title ?? "Deck";
 
   // Fetch cards to render a simple read-only list
