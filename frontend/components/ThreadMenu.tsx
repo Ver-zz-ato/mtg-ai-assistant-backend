@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { renameThread, deleteThread, linkThread } from '@/lib/threads';
 
 export default function ThreadMenu({
@@ -39,62 +39,6 @@ export default function ThreadMenu({
     }
   }
 
-  // Removed export/import per product decision
-    if (!threadId) return;
-    setBusy(true);
-    try {
-      await exportThread(threadId);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Import expects a payload object with { title, messages, deckId? }.
-  // We open a file picker, parse JSON, and pass it through.
-  // (import removed)
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    return new Promise<void>((resolve) => {
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return resolve();
-        setBusy(true);
-        try {
-          const text = await file.text();
-          let data: any;
-          try {
-            data = JSON.parse(text);
-          } catch {
-            alert('Invalid JSON file.');
-            return resolve();
-          }
-          // Normalize a few common shapes
-          // If the JSON was an export envelope { title, messages, deckId }
-          // or a raw array of messages, massage into the expected shape.
-          let payload: any = data;
-          if (Array.isArray(data)) {
-            payload = { title: 'Imported Thread', messages: data };
-          } else if (data && data.thread) {
-            payload = data.thread;
-          }
-          if (!payload?.title || !payload?.messages) {
-            alert('File missing required fields (title, messages).');
-            return resolve();
-          }
-          await importThread(payload);
-          onChanged?.();
-        } catch (e: any) {
-          alert(e?.message ?? 'Import failed');
-        } finally {
-          setBusy(false);
-          resolve();
-        }
-      };
-      input.click();
-    });
-  }
-
   async function doLink() {
     if (!threadId) return;
     const deck = prompt('Enter deck ID to link (UUID):', deckId || '');
@@ -111,7 +55,7 @@ export default function ThreadMenu({
   const [linked, setLinked] = useState<boolean>(!!deckId);
 
   // probe deck link if not provided
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
     async function probe() {
       if (!threadId) { setLinked(false); return; }
@@ -129,7 +73,7 @@ export default function ThreadMenu({
   const disabled = !threadId || busy;
 
   return (
-    <div className="
+    <div className="flex flex-wrap gap-2 text-sm">
       <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled} data-testid="thread-action">
         Rename
       </button>
