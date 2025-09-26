@@ -27,6 +27,6 @@ export async function captureServer(event: string, properties: Record<string, an
   } catch {}
 }
 
-export async function shutdownAnalytics() {
-  try { await ph?.shutdownAsync?.(); } catch {}
+export function shutdownAnalytics() {
+  try { (ph as any)?.shutdown?.(); } catch {}
 }
