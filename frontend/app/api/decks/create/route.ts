@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/server-supabase";
-import { ok, err } from "@/lib/envelope";
+import { ok, err } from "@/app/api/_utils/envelope";
 import { z } from "zod";
 import { withLogging } from "@/lib/api/withLogging";
 
@@ -47,10 +47,10 @@ async function _POST(req: NextRequest) {
     const supabase = createClient();
     const { data: userResp } = await supabase.auth.getUser();
     const user = userResp?.user;
-    if (!user) return err("unauthorized", 401);
+    if (!user) return err("unauthorized", "unauthorized", 401);
 
     const parsed = Req.safeParse(await req.json().catch(() => ({} as any)));
-    if (!parsed.success) return err(parsed.error.issues[0].message, 400);
+    if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
 
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ async function _POST(req: NextRequest) {
       .select("id")
       .single();
 
-    if (error) return err(error.message, 500);
+    if (error) return err(error.message, "db_error", 500);
 
     // Parse & upsert deck_cards
     const cardsRaw = parseDeckText(payload.deck_text || "");
@@ -86,7 +86,7 @@ async function _POST(req: NextRequest) {
 
     return ok({ id: data.id, inserted: cards.length || 0 });
   } catch (e: any) {
-    return err(e?.message || "server_error", 500);
+    return err(e?.message || "server_error", "internal", 500);
   }
 }
 

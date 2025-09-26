@@ -7,7 +7,8 @@ export async function GET() {
     const supabase = getSupabaseServerClient(); // call before awaits
 
     // Assuming you have a chat_threads table with user scoping.
-    const { data, error } = await supabase
+    const client: any = await (supabase as any);
+    const { data, error } = await client
       .from("chat_threads")
       .select("*")
       .order("updated_at", { ascending: false });

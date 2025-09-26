@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { messages, title } = body || {};
   if (!Array.isArray(messages)) return err("Missing messages[]", "bad_request", 400);
-  const supabase = getSupabaseServer();
+  const supabase = await getSupabaseServer();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return err("unauthorized", "unauthorized", 401);
   const { data: thread, error: tErr } = await supabase

@@ -1,28 +1,55 @@
-import { NextRequest } from "next/server";
-import { createClient } from "@/lib/server-supabase";
-import { ok, err } from "@/lib/envelope";
-import { ThreadIdSchema } from "@/lib/validate";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getServerSupabase } from "@/lib/server-supabase";
+import { ok, err } from "@/app/api/_utils/envelope";
+import { withTiming } from "@/lib/server/log";
 
-export async function GET(req: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return err("unauthorized", 401);
+const Query = z.object({
+  threadId: z.string().uuid(),
+});
 
-  const { searchParams } = new URL(req.url);
-  const tid = searchParams.get("threadId") || "";
-  const parsed = ThreadIdSchema.safeParse(tid);
-  if (!parsed.success) return err("Invalid threadId", 400);
+export async function GET(req: Request) {
+  return withTiming("/api/chat/messages/list", "GET", null, async () => {
+    try {
+      const url = new URL(req.url);
+      const params = Object.fromEntries(url.searchParams.entries());
+      const parsed = Query.safeParse(params);
+      if (!parsed.success) {
+        return err("Invalid request: missing or invalid threadId", "BAD_INPUT", 400);
+      }
+      const { threadId } = parsed.data;
 
-  // ownership check
-  const owner = await supabase.from("chat_threads")
-    .select("id").eq("id", tid).eq("user_id", user.id).single();
-  if (owner.error || !owner.data) return err("thread not found", 404);
+      const supabase = await getServerSupabase();
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (!user || userErr) {
+        return err("Unauthorized", "UNAUTHORIZED", 401);
+      }
 
-  const { data, error } = await supabase
-    .from("chat_messages")
-    .select("id, role, content, created_at")
-    .eq("thread_id", tid)
-    .order("created_at", { ascending: true });
-  if (error) return err(error.message, 500);
-  return ok({ messages: data });
+      const { data: thread, error: thErr } = await supabase
+        .from("chat_threads")
+        .select("id, user_id")
+        .eq("id", threadId)
+        .single();
+
+      if (thErr || !thread) {
+        return err("Thread not found", "NOT_FOUND", 404);
+      }
+      if (thread.user_id !== user.id) {
+        return NextResponse.json(err("Forbidden", "FORBIDDEN"), { status: 403 });
+      }
+
+      const { data: messages, error: msgErr } = await supabase
+        .from("chat_messages")
+        .select("id, role, content, created_at")
+        .eq("thread_id", threadId)
+        .order("created_at", { ascending: true });
+
+      if (msgErr) {
+        return err("Failed to load messages: " + (msgErr.message || "unknown"), "DB_ERROR", 500);
+      }
+      return ok({ data: messages, messages });
+    } catch (e: any) {
+      return NextResponse.json(err(e?.message ?? "Internal error", "INTERNAL"), { status: 500 });
+    }
+  }).then(({ result }) => result);
 }

@@ -1,7 +1,11 @@
 // Canonical client helpers for chat threads/messages
 // All functions return unified envelopes from the server.
 
-async function j(res: Response) {
+type Envelope<T = any> =
+  | ({ ok: true } & T)
+  | ({ ok: false } & { error: { code?: string; message: string; hint?: string } });
+
+async function j(res: Response): Promise<Envelope> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status} ${res.statusText} – ${text}`);
@@ -9,102 +13,91 @@ async function j(res: Response) {
   return res.json();
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
 // Threads
-export async function listThreads(signal?: AbortSignal): Promise<any> {
-  return j(await fetch("/api/chat/threads/list", { cache: "no-store", signal } as RequestInit));
+// ───────────────────────────────────────────────────────────────────────────────
+
+export async function listThreads(signal?: AbortSignal): Promise<{ threads: any[] }> {
+  const r = await j(await fetch("/api/chat/threads/list", { cache: "no-store", signal } as RequestInit));
+  const threads = (r as any)?.threads ?? (r as any)?.data ?? [];
+  return { threads };
 }
 
-export async function createThread(title?: string): Promise<any> {
-  return j(
-    await fetch("/api/chat/threads/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    } as RequestInit),
-  );
-}
-
-export async function renameThread(id: string, title: string): Promise<any> {
+export async function renameThread(threadId: string, title: string): Promise<Envelope<{}>> {
   return j(
     await fetch("/api/chat/threads/rename", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, title }),
+      body: JSON.stringify({ threadId, title }),
     } as RequestInit),
   );
 }
 
-export async function deleteThread(id: string): Promise<any> {
+export async function deleteThread(threadId: string): Promise<Envelope<{}>> {
   return j(
     await fetch("/api/chat/threads/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ threadId }),
     } as RequestInit),
   );
 }
 
-export async function linkThread(threadId: string, deckId: string | null): Promise<any> {
+export async function linkThread(threadId: string, deckId: string | null): Promise<Envelope<{}>> {
   return j(
     await fetch("/api/chat/threads/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId, deckId: deckId && deckId.trim() ? deckId.trim() : null }),
+      body: JSON.stringify({ threadId, deckId }),
     } as RequestInit),
   );
 }
 
-// Messages
-export async function listMessages(threadId: string, signal?: AbortSignal): Promise<any> {
-  const qs = new URLSearchParams({ threadId });
+export async function exportThread(threadId: string): Promise<Envelope<{ export: any }>> {
   return j(
-    await fetch(`/api/chat/messages/list?${qs.toString()}`, {
-      cache: "no-store",
-      signal,
-    } as RequestInit),
-  );
-}
-
-export async function postMessage(content: string, threadId?: string | null): Promise<any> {
-  return j(
-    await fetch("/api/chat/messages/post", {
+    await fetch("/api/chat/threads/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: content, threadId }),
+      body: JSON.stringify({ threadId }),
     } as RequestInit),
   );
-}
-
-// Import / Export
-export async function exportThread(threadId: string): Promise<void> {
-  const res = await fetch("/api/chat/threads/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ threadId }),
-  } as RequestInit);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Export failed: ${res.status} ${res.statusText} ${text}`);
-  }
-  const text = await res.text();
-  const blob = new Blob([text], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `thread-${threadId}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 export async function importThread(payload: {
   title: string;
   messages: { role: "user" | "assistant" | "system"; content: string; created_at?: string }[];
   deckId?: string | null;
-}): Promise<any> {
+}): Promise<Envelope<{}>> {
   return j(
     await fetch("/api/chat/threads/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    } as RequestInit),
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Messages
+// ───────────────────────────────────────────────────────────────────────────────
+
+export async function listMessages(threadId: string, signal?: AbortSignal): Promise<{ messages: any[] }> {
+  const qs = new URLSearchParams({ threadId });
+  const r = await j(await fetch(`/api/chat/messages/list?${qs.toString()}`, { cache: "no-store", signal } as RequestInit));
+  const messages = (r as any)?.messages ?? (r as any)?.data ?? [];
+  return { messages };
+}
+
+// Backward-compatible: accept either (payload) or (text, threadId)
+export async function postMessage(
+  payloadOrText: { text: string; threadId?: string | null; stream?: boolean } | string,
+  maybeThreadId?: string | null,
+): Promise<Envelope<{ id?: string }>> {
+  const payload = typeof payloadOrText === "string"
+    ? { text: payloadOrText, threadId: maybeThreadId ?? null }
+    : payloadOrText;
+  return j(
+    await fetch("/api/chat/messages/post", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
