@@ -1,0 +1,1687 @@
+{
+  "format": "Modern",
+  "matchup_matrix": [
+    {
+      "deck": "Burn",
+      "opponent": "Tron",
+      "difficulty": "Favored",
+      "key_interactions": [
+        "Burn is an aggro deck that tries to kill quickly\u3010711890692970222\u2020L156-L165\u3011",
+        "Tron assembles big mana and casts huge spells like Karn and Ugin",
+        "Wurmcoil Engine\u2019s lifelink counters burn damage; Skullcrack prevents lifegain",
+        "Oblivion Stone board wipes punish Burn\u2019s creatures",
+        "Burn must finish before Tron stabilises"
+      ]
+    },
+    {
+      "deck": "Burn",
+      "opponent": "Rhinos",
+      "difficulty": "Even",
+      "key_interactions": [
+        "Rhinos cascades into 4/4 tokens; tokens block Burn\u2019s creatures",
+        "Burn\u2019s Searing Blaze/Eidolon punish creature-heavy decks",
+        "Rhinos uses Force of Negation and Mystical Dispute to counter Burn\u2019s spells",
+        "Burn can outpace Rhinos if it draws multiple bolt spells early",
+        "Deflecting Palm deals with large token attacks"
+      ]
+    },
+    {
+      "deck": "Burn",
+      "opponent": "Creativity",
+      "difficulty": "Favored",
+      "key_interactions": [
+        "Creativity requires time to make tokens and resolve Indomitable Creativity",
+        "Burn\u2019s early damage pressures Creativity before combo pieces assemble",
+        "Skullcrack and Roiling Vortex stop Leyline Binding\u2019s lifegain or big creatures",
+        "Path to Exile answers the single large creature produced",
+        "Creativity\u2019s spot removal may slow Burn but not stop its direct damage"
+      ]
+    },
+    {
+      "deck": "Burn",
+      "opponent": "Scam",
+      "difficulty": "Unfavored",
+      "key_interactions": [
+        "Scam uses Grief and Fury with Undying Malice to discard or kill Burn\u2019s threats",
+        "Scam decks gain life with Orcish Bowmasters and large Fury blocks",
+        "Thoughtseize and Grief strip Burn\u2019s best burn spells early",
+        "Seasoned Pyromancer provides blockers and card advantage",
+        "Burn\u2019s Eidolon can hurt itself as much as Scam in long games"
+      ]
+    },
+    {
+      "deck": "Burn",
+      "opponent": "Control",
+      "difficulty": "Even",
+      "key_interactions": [
+        "Control decks slow the game with removal and card advantage\u3010711890692970222\u2020L196-L216\u3011",
+        "Counterspells and Prismatic Ending remove Burn\u2019s threats",
+        "Timely Reinforcements and The Wandering Emperor gain life or create blockers",
+        "Burn punishes early fetch/shock land life loss and has redundant damage",
+        "Skullcrack stops incidental life gain"
+      ]
+    },
+    {
+      "deck": "Tron",
+      "opponent": "Rhinos",
+      "difficulty": "Unfavored",
+      "key_interactions": [
+        "Rhinos\u2019 fast cascade tokens pressure Tron before big spells land",
+        "Mystical Dispute counters Karn or Ugin early",
+        "Blood Moon disrupts Urza lands, slowing Tron\u2019s mana",
+        "Tron\u2019s Oblivion Stone can clear tokens but is slow",
+        "Tron must find Wormcoil Engine or Ugin to stabilize"
+      ]
+    },
+    {
+      "deck": "Tron",
+      "opponent": "Creativity",
+      "difficulty": "Even",
+      "key_interactions": [
+        "Creativity combo kills quickly but requires tokens; Tron can disrupt with Karn, the Great Creator",
+        "The Stone Brain can name Worldspine Wurm or Atraxa",
+        "Veil of Summer protects Creativity from Karn\u2019s Wish effects",
+        "Nature\u2019s Claim and Warping Wail answer Fable or Dwarven Mine tokens",
+        "Wurmcoil Engine lifelink competes with Creativity\u2019s single threat"
+      ]
+    },
+    {
+      "deck": "Tron",
+      "opponent": "Scam",
+      "difficulty": "Unfavored",
+      "key_interactions": [
+        "Scam\u2019s Grief and Fury backed by Feign Death strip Tron\u2019s payoffs",
+        "Rakdos midrange applies pressure while discarding Expedition Maps",
+        "Blood Moon disables Urza lands, slowing Tron\u2019s mana",
+        "Veil of Summer from Tron side helps fight discard but not Fury",
+        "Tron\u2019s Wurmcoil Engine stabilizes if it resolves"
+      ]
+    },
+    {
+      "deck": "Tron",
+      "opponent": "Control",
+      "difficulty": "Favored",
+      "key_interactions": [
+        "Tron\u2019s big threats outscale control\u2019s answers",
+        "Karn Liberated and Ugin the Spirit Dragon dodge Counterspell once resolved",
+        "Control\u2019s attrition plan\u3010711890692970222\u2020L196-L216\u3011 cannot keep up with Tron\u2019s inevitability",
+        "Relic of Progenitus and The Stone Brain disrupt graveyard recursion",
+        "Veil of Summer protects Tron\u2019s threats from counters"
+      ]
+    },
+    {
+      "deck": "Rhinos",
+      "opponent": "Creativity",
+      "difficulty": "Favored",
+      "key_interactions": [
+        "Rhinos\u2019 cascade plan is faster than Creativity\u2019s token setup",
+        "Force of Negation and Subtlety protect Rhinos from Indomitable Creativity",
+        "Blood Moon and Boseiju disrupt Dwarven Mine and fetchlands",
+        "Creativity can steal a win with Worldspine Wurm if Rhinos taps out",
+        "Shardless Agent provides extra pressure"
+      ]
+    },
+    {
+      "deck": "Rhinos",
+      "opponent": "Scam",
+      "difficulty": "Even",
+      "key_interactions": [
+        "Scam\u2019s discard can disrupt Rhinos\u2019 cascade but Rhinos top decks cascade spells",
+        "Fury kills Shardless Agent tokens; Rhino tokens outsize Ragavan and Bowmasters",
+        "Leyline Binding answers W6; Blood Moon hurts Scam\u2019s mana",
+        "Rhinos can use Force of Negation to protect cascades",
+        "Grief backed by Feign Death swings tempo early"
+      ]
+    },
+    {
+      "deck": "Rhinos",
+      "opponent": "Control",
+      "difficulty": "Favored",
+      "key_interactions": [
+        "Rhinos produces multiple 4/4 bodies that demand sweepers",
+        "Control\u2019s attrition plan\u3010711890692970222\u2020L196-L216\u3011 struggles with tempo from cascade",
+        "Force of Negation fights counter-wars over Violent Outburst",
+        "Teferi, Time Raveler can shut down cascade if unanswered",
+        "Endurance recycles cascade spells against counterspells"
+      ]
+    },
+    {
+      "deck": "Creativity",
+      "opponent": "Scam",
+      "difficulty": "Unfavored",
+      "key_interactions": [
+        "Scam\u2019s discard spells strip Indomitable Creativity and Fable",
+        "Fury kills token makers like Dwarven Mine and Prismari tokens",
+        "Dauthi Voidwalker stops graveyard recursion and copies Creativity targets",
+        "Creativity\u2019s slower combo gives Scam time to assemble threats",
+        "Blood Moon disrupts Creativity\u2019s multi-color manabase"
+      ]
+    },
+    {
+      "deck": "Creativity",
+      "opponent": "Control",
+      "difficulty": "Unfavored",
+      "key_interactions": [
+        "Control decks counter Indomitable Creativity and remove tokens",
+        "Teferi, Time Raveler stops cascade and tokens from being targeted",
+        "Dovin\u2019s Veto and Flusterstorm tax Creativity\u2019s spells",
+        "Veil of Summer helps Creativity resolve spells but may not be enough",
+        "Control\u2019s attrition plan\u3010711890692970222\u2020L196-L216\u3011 outlasts Creativity if combo fails"
+      ]
+    },
+    {
+      "deck": "Scam",
+      "opponent": "Control",
+      "difficulty": "Even",
+      "key_interactions": [
+        "Scam applies early pressure with Grief and Ragavan",
+        "Control\u2019s cheap removal like Prismatic Ending and March of Otherworldly Light answer threats",
+        "Teferi, Time Raveler stops undying effects",
+        "Seasoned Pyromancer and Fable provide card advantage",
+        "Blood Moon and Voidwalker tax Control\u2019s mana and graveyard"
+      ]
+    }
+  ],
+  "sideboards": {
+    "Burn": {
+      "sideboard": [
+        {
+          "card": "Roiling Vortex",
+          "reason": "Punish free spells and stop lifegain"
+        },
+        {
+          "card": "Skullcrack",
+          "reason": "Prevents life gain and fog effects"
+        },
+        {
+          "card": "Deflecting Palm",
+          "reason": "Reflects big creature damage back"
+        },
+        {
+          "card": "Path to Exile",
+          "reason": "Efficient removal for large creatures"
+        },
+        {
+          "card": "Searing Blaze",
+          "reason": "Burn spell that kills creatures and damages player"
+        },
+        {
+          "card": "Dragon's Claw",
+          "reason": "Gain life in mirror matches"
+        },
+        {
+          "card": "Wear // Tear",
+          "reason": "Deals with artifacts and enchantments"
+        },
+        {
+          "card": "Sanctifier en-Vec",
+          "reason": "Hate against Rakdos and graveyard decks"
+        },
+        {
+          "card": "Smash to Smithereens",
+          "reason": "Cheap artifact removal and extra damage"
+        },
+        {
+          "card": "Rest in Peace",
+          "reason": "Graveyard hate against combo"
+        },
+        {
+          "card": "Relic of Progenitus",
+          "reason": "Cheap graveyard hate and card draw"
+        },
+        {
+          "card": "Light Up the Stage",
+          "reason": "Card advantage for grindy matchups"
+        },
+        {
+          "card": "Kozilek's Return",
+          "reason": "Board wipe for tokens"
+        },
+        {
+          "card": "Chalice of the Void",
+          "reason": "Locks out one-mana spells"
+        },
+        {
+          "card": "Pithing Needle",
+          "reason": "Shuts down planeswalkers and activated abilities"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Tron",
+          "in": [
+            "Skullcrack",
+            "Roiling Vortex",
+            "Path to Exile"
+          ],
+          "out": [
+            "Searing Blaze",
+            "Lava Spike",
+            "Rift Bolt"
+          ],
+          "notes": "Stop Wurmcoil lifegain and answer big threats"
+        },
+        {
+          "opponent": "Rhinos",
+          "in": [
+            "Deflecting Palm",
+            "Searing Blaze",
+            "Kozilek's Return"
+          ],
+          "out": [
+            "Skullcrack",
+            "Light Up the Stage",
+            "Dragon's Claw"
+          ],
+          "notes": "Deal with 4/4 tokens and big attacks"
+        },
+        {
+          "opponent": "Creativity",
+          "in": [
+            "Roiling Vortex",
+            "Path to Exile",
+            "Chalice of the Void"
+          ],
+          "out": [
+            "Searing Blaze",
+            "Deflecting Palm",
+            "Dragon's Claw"
+          ],
+          "notes": "Disrupt combo and remove giant creature"
+        },
+        {
+          "opponent": "Scam",
+          "in": [
+            "Sanctifier en-Vec",
+            "Rest in Peace",
+            "Wear // Tear"
+          ],
+          "out": [
+            "Lava Spike",
+            "Light Up the Stage",
+            "Pithing Needle"
+          ],
+          "notes": "Protect from graveyard loops and kill artifacts"
+        },
+        {
+          "opponent": "Control",
+          "in": [
+            "Roiling Vortex",
+            "Chalice of the Void",
+            "Relic of Progenitus"
+          ],
+          "out": [
+            "Searing Blaze",
+            "Deflecting Palm",
+            "Sanctifier en-Vec"
+          ],
+          "notes": "Tax control spells and maintain card flow"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Smash to Smithereens",
+          "for": "Wear // Tear",
+          "reason": "Cheaper artifact removal"
+        },
+        {
+          "card": "Tormod's Crypt",
+          "for": "Rest in Peace",
+          "reason": "Zero-cost graveyard hate"
+        },
+        {
+          "card": "Chandra's Defeat",
+          "for": "Skullcrack",
+          "reason": "Cheap removal vs red creatures"
+        },
+        {
+          "card": "Relic of Progenitus",
+          "for": "Sanctifier en-Vec",
+          "reason": "Colorless graveyard hate"
+        },
+        {
+          "card": "Molten Rain",
+          "for": "Chalice of the Void",
+          "reason": "Budget land destruction vs Tron"
+        }
+      ]
+    },
+    "Tron": {
+      "sideboard": [
+        {
+          "card": "Nature's Claim",
+          "reason": "Cheap artifact/enchantment removal"
+        },
+        {
+          "card": "Warping Wail",
+          "reason": "Counters sorceries or exiles small creatures"
+        },
+        {
+          "card": "Relic of Progenitus",
+          "reason": "Graveyard hate and card draw"
+        },
+        {
+          "card": "Spatial Contortion",
+          "reason": "Instant-speed creature removal"
+        },
+        {
+          "card": "Oblivion Stone",
+          "reason": "Board wipe for creature heavy decks"
+        },
+        {
+          "card": "The Stone Brain",
+          "reason": "Targets combo pieces from decks"
+        },
+        {
+          "card": "Dismember",
+          "reason": "Colorless removal for large creatures"
+        },
+        {
+          "card": "Veil of Summer",
+          "reason": "Protects against discard and counters"
+        },
+        {
+          "card": "Wilt",
+          "reason": "Flexible removal for artifacts/enchantments"
+        },
+        {
+          "card": "Walking Ballista",
+          "reason": "Scalable removal and win condition"
+        },
+        {
+          "card": "Karn, the Great Creator",
+          "reason": "Wish board enabling silver bullets"
+        },
+        {
+          "card": "Engineered Explosives",
+          "reason": "Remove low-cost permanents"
+        },
+        {
+          "card": "Ugin, the Ineffable",
+          "reason": "Alternate win condition"
+        },
+        {
+          "card": "Pithing Needle",
+          "reason": "Shuts down opposing activated abilities"
+        },
+        {
+          "card": "Leyline of Sanctity",
+          "reason": "Protects against burn and discard"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Burn",
+          "in": [
+            "Nature's Claim",
+            "Leyline of Sanctity",
+            "Spatial Contortion"
+          ],
+          "out": [
+            "The Stone Brain",
+            "Warping Wail",
+            "Walking Ballista"
+          ],
+          "notes": "Protect life total and remove early creatures"
+        },
+        {
+          "opponent": "Rhinos",
+          "in": [
+            "Oblivion Stone",
+            "Engineered Explosives",
+            "Warping Wail"
+          ],
+          "out": [
+            "The Stone Brain",
+            "Wilt",
+            "Veil of Summer"
+          ],
+          "notes": "Clear tokens and counter cascade"
+        },
+        {
+          "opponent": "Creativity",
+          "in": [
+            "The Stone Brain",
+            "Warping Wail",
+            "Relic of Progenitus"
+          ],
+          "out": [
+            "Oblivion Stone",
+            "Engineered Explosives",
+            "Nature's Claim"
+          ],
+          "notes": "Name combo pieces and counter Indomitable Creativity"
+        },
+        {
+          "opponent": "Scam",
+          "in": [
+            "Relic of Progenitus",
+            "Veil of Summer",
+            "Dismember"
+          ],
+          "out": [
+            "The Stone Brain",
+            "Warping Wail",
+            "Walking Ballista"
+          ],
+          "notes": "Fight discard and remove early threats"
+        },
+        {
+          "opponent": "Control",
+          "in": [
+            "The Stone Brain",
+            "Veil of Summer",
+            "Walking Ballista"
+          ],
+          "out": [
+            "Spatial Contortion",
+            "Nature's Claim",
+            "Engineered Explosives"
+          ],
+          "notes": "Protect threats and add resilience against counters"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Pyroclasm",
+          "for": "Oblivion Stone",
+          "reason": "Cheap sweeper for small creatures"
+        },
+        {
+          "card": "Sorcerous Spyglass",
+          "for": "Pithing Needle",
+          "reason": "Budget ability shutdown"
+        },
+        {
+          "card": "Unlicensed Hearse",
+          "for": "Relic of Progenitus",
+          "reason": "Vehicle graveyard hate"
+        },
+        {
+          "card": "Deglamer",
+          "for": "Wilt",
+          "reason": "Budget artifact/enchantment removal"
+        },
+        {
+          "card": "Weather the Storm",
+          "for": "Leyline of Sanctity",
+          "reason": "Gain life vs Burn"
+        }
+      ]
+    },
+    "Rhinos": {
+      "sideboard": [
+        {
+          "card": "Mystical Dispute",
+          "reason": "Cheap counter against blue spells"
+        },
+        {
+          "card": "Force of Negation",
+          "reason": "Free counterspell for non-creature spells"
+        },
+        {
+          "card": "Endurance",
+          "reason": "Graveyard hate and slows mill"
+        },
+        {
+          "card": "Subtlety",
+          "reason": "Answers big creatures while tapping"
+        },
+        {
+          "card": "Blood Moon",
+          "reason": "Disrupts greedy manabases like Tron"
+        },
+        {
+          "card": "Leyline of the Void",
+          "reason": "Graveyard hate vs Dredge and Scam"
+        },
+        {
+          "card": "Brazen Borrower",
+          "reason": "Bounce problematic permanents and threat"
+        },
+        {
+          "card": "Fury",
+          "reason": "Free removal for small creatures"
+        },
+        {
+          "card": "Aether Gust",
+          "reason": "Time walk against red/green spells"
+        },
+        {
+          "card": "Teferi, Time Raveler",
+          "reason": "Stops opponents casting at instant speed"
+        },
+        {
+          "card": "Dress Down",
+          "reason": "Shuts off creature abilities"
+        },
+        {
+          "card": "Chalice of the Void",
+          "reason": "Hate against one-mana decks"
+        },
+        {
+          "card": "Force of Vigor",
+          "reason": "Free removal for artifacts/enchantments"
+        },
+        {
+          "card": "Flusterstorm",
+          "reason": "Combo counter in blue mirrors"
+        },
+        {
+          "card": "Crumble to Dust",
+          "reason": "Exile Tron lands"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Burn",
+          "in": [
+            "Endurance",
+            "Subtlety",
+            "Fury"
+          ],
+          "out": [
+            "Blood Moon",
+            "Leyline of the Void",
+            "Chalice of the Void"
+          ],
+          "notes": "Block creatures and gain tempo"
+        },
+        {
+          "opponent": "Tron",
+          "in": [
+            "Blood Moon",
+            "Crumble to Dust",
+            "Mystical Dispute"
+          ],
+          "out": [
+            "Fury",
+            "Dress Down",
+            "Aether Gust"
+          ],
+          "notes": "Disrupt Tron lands and counter big spells"
+        },
+        {
+          "opponent": "Creativity",
+          "in": [
+            "Flusterstorm",
+            "Force of Negation",
+            "Dress Down"
+          ],
+          "out": [
+            "Blood Moon",
+            "Leyline of the Void",
+            "Crumble to Dust"
+          ],
+          "notes": "Stop Indomitable Creativity and remove creature abilities"
+        },
+        {
+          "opponent": "Scam",
+          "in": [
+            "Leyline of the Void",
+            "Fury",
+            "Subtlety"
+          ],
+          "out": [
+            "Flusterstorm",
+            "Dress Down",
+            "Aether Gust"
+          ],
+          "notes": "Graveyard hate and removal for early threats"
+        },
+        {
+          "opponent": "Control",
+          "in": [
+            "Mystical Dispute",
+            "Flusterstorm",
+            "Teferi, Time Raveler"
+          ],
+          "out": [
+            "Leyline of the Void",
+            "Fury",
+            "Force of Vigor"
+          ],
+          "notes": "Fight countermagic and maintain pressure"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Hidetsugu Consumes All",
+          "for": "Force of Vigor",
+          "reason": "Cheap board wipe for artifacts and tokens"
+        },
+        {
+          "card": "Disdainful Stroke",
+          "for": "Mystical Dispute",
+          "reason": "Counters high-mana spells"
+        },
+        {
+          "card": "Brazen Borrower",
+          "for": "Teferi, Time Raveler",
+          "reason": "Budget bounce"
+        },
+        {
+          "card": "Dismember",
+          "for": "Subtlety",
+          "reason": "Cheap removal for big creatures"
+        },
+        {
+          "card": "Veil of Summer",
+          "for": "Flusterstorm",
+          "reason": "Protect spells and draw a card"
+        }
+      ]
+    },
+    "Creativity": {
+      "sideboard": [
+        {
+          "card": "Flusterstorm",
+          "reason": "Protect combo vs storm and counter wars"
+        },
+        {
+          "card": "Spell Pierce",
+          "reason": "Cheap counter for removal and counters"
+        },
+        {
+          "card": "Veil of Summer",
+          "reason": "Protection vs discard and counters"
+        },
+        {
+          "card": "Leyline of Sanctity",
+          "reason": "Prevent thoughtseize and burn"
+        },
+        {
+          "card": "Fable of the Mirror-Breaker",
+          "reason": "Generates tokens and card selection"
+        },
+        {
+          "card": "Mystical Dispute",
+          "reason": "Counter blue spells cheaply"
+        },
+        {
+          "card": "Archon of Cruelty",
+          "reason": "Alternate creature target for Creativity"
+        },
+        {
+          "card": "Boseiju, Who Endures",
+          "reason": "Land-based artifact/enchantment removal"
+        },
+        {
+          "card": "Engineered Explosives",
+          "reason": "Sweeper for low-cost permanents"
+        },
+        {
+          "card": "Dress Down",
+          "reason": "Stops creature abilities and combos"
+        },
+        {
+          "card": "Aether Gust",
+          "reason": "Time walk vs red/green spells"
+        },
+        {
+          "card": "Shark Typhoon",
+          "reason": "Draw and flying tokens for grindy games"
+        },
+        {
+          "card": "Jace, the Mind Sculptor",
+          "reason": "Card advantage and alternate win"
+        },
+        {
+          "card": "Monastery Mentor",
+          "reason": "Token generator vs control"
+        },
+        {
+          "card": "Dispel",
+          "reason": "One-mana counterspell for instants"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Burn",
+          "in": [
+            "Leyline of Sanctity",
+            "Aether Gust",
+            "Engineered Explosives"
+          ],
+          "out": [
+            "Archon of Cruelty",
+            "Fable of the Mirror-Breaker",
+            "Shark Typhoon"
+          ],
+          "notes": "Protect life and remove one-drops"
+        },
+        {
+          "opponent": "Tron",
+          "in": [
+            "Flusterstorm",
+            "Mystical Dispute",
+            "Dress Down"
+          ],
+          "out": [
+            "Spell Pierce",
+            "Monastery Mentor",
+            "Jace, the Mind Sculptor"
+          ],
+          "notes": "Counter big spells and stop Wurmcoil abilities"
+        },
+        {
+          "opponent": "Rhinos",
+          "in": [
+            "Aether Gust",
+            "Dress Down",
+            "Shark Typhoon"
+          ],
+          "out": [
+            "Spell Pierce",
+            "Dispel",
+            "Fable of the Mirror-Breaker"
+          ],
+          "notes": "Delay cascade and clear tokens"
+        },
+        {
+          "opponent": "Scam",
+          "in": [
+            "Veil of Summer",
+            "Leyline of Sanctity",
+            "Engineered Explosives"
+          ],
+          "out": [
+            "Archon of Cruelty",
+            "Jace, the Mind Sculptor",
+            "Monastery Mentor"
+          ],
+          "notes": "Protect from discard and remove cheap threats"
+        },
+        {
+          "opponent": "Control",
+          "in": [
+            "Monastery Mentor",
+            "Shark Typhoon",
+            "Flusterstorm"
+          ],
+          "out": [
+            "Dress Down",
+            "Engineered Explosives",
+            "Archon of Cruelty"
+          ],
+          "notes": "Provide resilient threats and win through counters"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Spell Snare",
+          "for": "Flusterstorm",
+          "reason": "Budget counter for two-mana spells"
+        },
+        {
+          "card": "Mana Leak",
+          "for": "Mystical Dispute",
+          "reason": "General-purpose counterspell"
+        },
+        {
+          "card": "Run Afoul",
+          "for": "Aether Gust",
+          "reason": "Cheap answer to large creatures"
+        },
+        {
+          "card": "Archfiend of Depravity",
+          "for": "Archon of Cruelty",
+          "reason": "Budget finisher"
+        },
+        {
+          "card": "Pongify",
+          "for": "Dress Down",
+          "reason": "One-mana removal for troublesome creatures"
+        }
+      ]
+    },
+    "Scam": {
+      "sideboard": [
+        {
+          "card": "Leyline of the Void",
+          "reason": "Graveyard hate shuts down loops"
+        },
+        {
+          "card": "Blood Moon",
+          "reason": "Punish greedy manabases"
+        },
+        {
+          "card": "Thoughtseize",
+          "reason": "Disrupt combo and control plans"
+        },
+        {
+          "card": "Seasoned Pyromancer",
+          "reason": "Card draw and token generation"
+        },
+        {
+          "card": "Dismember",
+          "reason": "Cheap removal for big creatures"
+        },
+        {
+          "card": "Kolaghan's Command",
+          "reason": "Versatile removal and discard"
+        },
+        {
+          "card": "Engineered Explosives",
+          "reason": "Sweep low-cost permanents"
+        },
+        {
+          "card": "Pithing Needle",
+          "reason": "Shut down planeswalkers and abilities"
+        },
+        {
+          "card": "Kroxa, Titan of Death's Hunger",
+          "reason": "Grindy threat vs control"
+        },
+        {
+          "card": "Go for the Throat",
+          "reason": "Efficient creature removal"
+        },
+        {
+          "card": "Haywire Mite",
+          "reason": "Cheap artifact/enchantment removal"
+        },
+        {
+          "card": "Chalice of the Void",
+          "reason": "Hate against one-mana spells"
+        },
+        {
+          "card": "Abrade",
+          "reason": "Flexible removal for artifacts or creatures"
+        },
+        {
+          "card": "Sheoldred, the Apocalypse",
+          "reason": "Late-game stabilizer and draw punishment"
+        },
+        {
+          "card": "Tourach, Dread Cantor",
+          "reason": "Punish blue decks with protection"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Burn",
+          "in": [
+            "Leyline of the Void",
+            "Dismember",
+            "Haywire Mite"
+          ],
+          "out": [
+            "Sheoldred, the Apocalypse",
+            "Seasoned Pyromancer",
+            "Chalice of the Void"
+          ],
+          "notes": "Graveyard hate not needed; focus on removal and artifact kill"
+        },
+        {
+          "opponent": "Tron",
+          "in": [
+            "Blood Moon",
+            "Kolaghan's Command",
+            "Pithing Needle"
+          ],
+          "out": [
+            "Dismember",
+            "Go for the Throat",
+            "Kroxa, Titan of Death's Hunger"
+          ],
+          "notes": "Disrupt mana and shut down Karn"
+        },
+        {
+          "opponent": "Rhinos",
+          "in": [
+            "Engineered Explosives",
+            "Dismember",
+            "Abrade"
+          ],
+          "out": [
+            "Blood Moon",
+            "Leyline of the Void",
+            "Sheoldred, the Apocalypse"
+          ],
+          "notes": "Sweep tokens and remove creatures"
+        },
+        {
+          "opponent": "Creativity",
+          "in": [
+            "Thoughtseize",
+            "Pithing Needle",
+            "Go for the Throat"
+          ],
+          "out": [
+            "Abrade",
+            "Tourach, Dread Cantor",
+            "Dismember"
+          ],
+          "notes": "Discard combo pieces and answer Archon"
+        },
+        {
+          "opponent": "Control",
+          "in": [
+            "Seasoned Pyromancer",
+            "Kroxa, Titan of Death's Hunger",
+            "Tourach, Dread Cantor"
+          ],
+          "out": [
+            "Abrade",
+            "Haywire Mite",
+            "Chalice of the Void"
+          ],
+          "notes": "Bring in grindy threats and punish counters"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Soul-Guide Lantern",
+          "for": "Leyline of the Void",
+          "reason": "One-shot graveyard hate"
+        },
+        {
+          "card": "Fulminator Mage",
+          "for": "Blood Moon",
+          "reason": "Targeted land destruction"
+        },
+        {
+          "card": "Terminate",
+          "for": "Go for the Throat",
+          "reason": "Affordable removal for any creature"
+        },
+        {
+          "card": "Culling Ritual",
+          "for": "Engineered Explosives",
+          "reason": "Mass removal for cheap permanents"
+        },
+        {
+          "card": "Duress",
+          "for": "Thoughtseize",
+          "reason": "Budget discard"
+        }
+      ]
+    },
+    "Control": {
+      "sideboard": [
+        {
+          "card": "Flusterstorm",
+          "reason": "Cheap storm and counter war protection"
+        },
+        {
+          "card": "Dovin's Veto",
+          "reason": "Hard counter for non-creature spells"
+        },
+        {
+          "card": "Rest in Peace",
+          "reason": "Graveyard hate to stop loops"
+        },
+        {
+          "card": "Supreme Verdict",
+          "reason": "Uncounterable board wipe"
+        },
+        {
+          "card": "Timely Reinforcements",
+          "reason": "Lifegain and blockers vs aggro"
+        },
+        {
+          "card": "Dress Down",
+          "reason": "Shut off creature abilities"
+        },
+        {
+          "card": "Celestial Purge",
+          "reason": "Removal for black/red permanents"
+        },
+        {
+          "card": "Narset, Parter of Veils",
+          "reason": "Restricts card draw and digs for answers"
+        },
+        {
+          "card": "Veil of Summer",
+          "reason": "Protection vs black and blue spells"
+        },
+        {
+          "card": "March of Otherworldly Light",
+          "reason": "Exile versatile removal"
+        },
+        {
+          "card": "Aether Gust",
+          "reason": "Put red/green spells back on top"
+        },
+        {
+          "card": "Spell Pierce",
+          "reason": "Cheap counter for non-creature spells"
+        },
+        {
+          "card": "Hallowed Moonlight",
+          "reason": "Stops cascade and token creation"
+        },
+        {
+          "card": "The Wandering Emperor",
+          "reason": "Interactive threat and removal"
+        },
+        {
+          "card": "Shark Typhoon",
+          "reason": "Flying token generator and card draw"
+        }
+      ],
+      "plans": [
+        {
+          "opponent": "Burn",
+          "in": [
+            "Timely Reinforcements",
+            "Rest in Peace",
+            "The Wandering Emperor"
+          ],
+          "out": [
+            "Narset, Parter of Veils",
+            "Flusterstorm",
+            "Celestial Purge"
+          ],
+          "notes": "Gain life and produce blockers"
+        },
+        {
+          "opponent": "Tron",
+          "in": [
+            "Dovin's Veto",
+            "Dress Down",
+            "Celestial Purge"
+          ],
+          "out": [
+            "Timely Reinforcements",
+            "Hallowed Moonlight",
+            "Spell Pierce"
+          ],
+          "notes": "Counter big spells and stop Wurmcoil abilities"
+        },
+        {
+          "opponent": "Rhinos",
+          "in": [
+            "Hallowed Moonlight",
+            "Supreme Verdict",
+            "Spell Pierce"
+          ],
+          "out": [
+            "Rest in Peace",
+            "Celestial Purge",
+            "Veil of Summer"
+          ],
+          "notes": "Stop cascade and sweep tokens"
+        },
+        {
+          "opponent": "Creativity",
+          "in": [
+            "Flusterstorm",
+            "Dovin's Veto",
+            "Dress Down"
+          ],
+          "out": [
+            "Timely Reinforcements",
+            "Narset, Parter of Veils",
+            "Celestial Purge"
+          ],
+          "notes": "Counter combo and shut off creature abilities"
+        },
+        {
+          "opponent": "Scam",
+          "in": [
+            "Rest in Peace",
+            "Celestial Purge",
+            "Supreme Verdict"
+          ],
+          "out": [
+            "Flusterstorm",
+            "Spell Pierce",
+            "The Wandering Emperor"
+          ],
+          "notes": "Graveyard hate and sweepers"
+        }
+      ],
+      "budget_alternatives": [
+        {
+          "card": "Negate",
+          "for": "Dovin's Veto",
+          "reason": "Budget non-creature counter"
+        },
+        {
+          "card": "Dissolve",
+          "for": "Flusterstorm",
+          "reason": "Versatile counterspell"
+        },
+        {
+          "card": "Sunset Revelry",
+          "for": "Timely Reinforcements",
+          "reason": "Cheaper life gain and blockers"
+        },
+        {
+          "card": "Immortal Sun",
+          "for": "Narset, Parter of Veils",
+          "reason": "Suppress planeswalkers and draw"
+        },
+        {
+          "card": "Tormod's Crypt",
+          "for": "Rest in Peace",
+          "reason": "Zero-cost graveyard hate"
+        }
+      ]
+    }
+  },
+  "edh_hate_packages": {
+    "Graveyard loops": {
+      "W": [
+        {
+          "card": "Rest in Peace",
+          "tier": "Premium",
+          "note": "Exiles all graveyards; shuts down loops"
+        },
+        {
+          "card": "Angel of Finality",
+          "tier": "Mid",
+          "note": "On-ETB exile target player's graveyard"
+        },
+        {
+          "card": "Remorseful Cleric",
+          "tier": "Budget",
+          "note": "Exile target player's graveyard at instant speed"
+        }
+      ],
+      "U": [
+        {
+          "card": "Ravenous Trap",
+          "tier": "Mid",
+          "note": "Free graveyard exile if opponent filled graveyard"
+        },
+        {
+          "card": "Surgical Extraction",
+          "tier": "Premium",
+          "note": "Remove key card from graveyard"
+        },
+        {
+          "card": "Tormod's Crypt",
+          "tier": "Budget",
+          "note": "Zero-mana graveyard exile"
+        }
+      ],
+      "B": [
+        {
+          "card": "Leyline of the Void",
+          "tier": "Premium",
+          "note": "Start with graveyard exile on board"
+        },
+        {
+          "card": "Bojuka Bog",
+          "tier": "Budget",
+          "note": "Land that exiles target player's graveyard"
+        },
+        {
+          "card": "Cling to Dust",
+          "tier": "Budget",
+          "note": "Exiles a card and draws"
+        }
+      ],
+      "R": [
+        {
+          "card": "Nihil Spellbomb",
+          "tier": "Budget",
+          "note": "Exile graveyard and draw if black mana"
+        },
+        {
+          "card": "Soul-Guide Lantern",
+          "tier": "Budget",
+          "note": "Exile target card then all graveyards"
+        },
+        {
+          "card": "Scrabbling Claws",
+          "tier": "Budget",
+          "note": "Repeatable single-card exile"
+        }
+      ],
+      "G": [
+        {
+          "card": "Endurance",
+          "tier": "Premium",
+          "note": "Put graveyards on bottom of libraries"
+        },
+        {
+          "card": "Scavenging Ooze",
+          "tier": "Mid",
+          "note": "Repeatable graveyard exile and lifegain"
+        },
+        {
+          "card": "Faerie Macabre",
+          "tier": "Budget",
+          "note": "Free exile for two cards from graveyard"
+        }
+      ],
+      "Colorless": [
+        {
+          "card": "Grafdigger's Cage",
+          "tier": "Budget",
+          "note": "Stops library-to-play and graveyard spells"
+        },
+        {
+          "card": "Relic of Progenitus",
+          "tier": "Budget",
+          "note": "Exile graveyard and draw"
+        },
+        {
+          "card": "Soul-Guide Lantern",
+          "tier": "Budget",
+          "note": "Versatile graveyard hate"
+        }
+      ]
+    },
+    "Artifacts/Treasures": {
+      "W": [
+        {
+          "card": "Disenchant",
+          "tier": "Budget",
+          "note": "Destroy target artifact or enchantment"
+        },
+        {
+          "card": "Aura of Silence",
+          "tier": "Mid",
+          "note": "Tax artifacts/enchantments and sacrifice to destroy"
+        },
+        {
+          "card": "Heliod's Intervention",
+          "tier": "Premium",
+          "note": "Destroy X artifacts/enchantments or gain life"
+        }
+      ],
+      "U": [
+        {
+          "card": "Into the Roil",
+          "tier": "Budget",
+          "note": "Bounce artifact/treasure with kicker draw"
+        },
+        {
+          "card": "Resculpt",
+          "tier": "Budget",
+          "note": "Exile artifact and give 4/4 token"
+        },
+        {
+          "card": "Hurkyl's Recall",
+          "tier": "Mid",
+          "note": "Return all artifacts to owners' hands"
+        }
+      ],
+      "B": [
+        {
+          "card": "Feed the Swarm",
+          "tier": "Budget",
+          "note": "Destroy artifact/enchantment; lose life"
+        },
+        {
+          "card": "Gate to Phyrexia",
+          "tier": "Mid",
+          "note": "Sacrifice creatures to destroy artifacts"
+        },
+        {
+          "card": "Damping Matrix",
+          "tier": "Premium",
+          "note": "Shut off activated abilities of artifacts"
+        }
+      ],
+      "R": [
+        {
+          "card": "By Force",
+          "tier": "Budget",
+          "note": "Destroy X artifacts for X+R"
+        },
+        {
+          "card": "Vandalblast",
+          "tier": "Mid",
+          "note": "Overload to destroy all opponents' artifacts"
+        },
+        {
+          "card": "Shattering Spree",
+          "tier": "Budget",
+          "note": "Replicate to destroy multiple artifacts"
+        }
+      ],
+      "G": [
+        {
+          "card": "Krosan Grip",
+          "tier": "Mid",
+          "note": "Split second artifact/enchantment removal"
+        },
+        {
+          "card": "Force of Vigor",
+          "tier": "Premium",
+          "note": "Free destroy two artifacts/enchantments"
+        },
+        {
+          "card": "Bane of Progress",
+          "tier": "Premium",
+          "note": "Board wipe for artifacts and enchantments"
+        }
+      ],
+      "Colorless": [
+        {
+          "card": "Liquimetal Torque",
+          "tier": "Budget",
+          "note": "Turns artifacts into artifacts for removal"
+        },
+        {
+          "card": "Nevinyrral's Disk",
+          "tier": "Mid",
+          "note": "Destroy artifacts, creatures, enchantments"
+        },
+        {
+          "card": "All Is Dust",
+          "tier": "Premium",
+          "note": "Each player sacrifices colored permanents"
+        }
+      ]
+    },
+    "Stax": {
+      "W": [
+        {
+          "card": "Austere Command",
+          "tier": "Premium",
+          "note": "Choose modes to destroy artifacts/enchantments or creatures"
+        },
+        {
+          "card": "Farewell",
+          "tier": "Premium",
+          "note": "Exile artifacts, creatures, enchantments and graveyards"
+        },
+        {
+          "card": "Generous Gift",
+          "tier": "Budget",
+          "note": "Destroy target permanent"
+        }
+      ],
+      "U": [
+        {
+          "card": "Cyclonic Rift",
+          "tier": "Premium",
+          "note": "Overloaded bounce all nonland permanents"
+        },
+        {
+          "card": "Pongify",
+          "tier": "Budget",
+          "note": "Destroy creature; controller gets 3/3 ape"
+        },
+        {
+          "card": "Rescind",
+          "tier": "Budget",
+          "note": "Return permanent to owner's hand; cycling"
+        }
+      ],
+      "B": [
+        {
+          "card": "Culling Ritual",
+          "tier": "Mid",
+          "note": "Destroy each nonland permanent mana value 2 or less"
+        },
+        {
+          "card": "Feed the Swarm",
+          "tier": "Budget",
+          "note": "Destroy enchantment"
+        },
+        {
+          "card": "Toxic Deluge",
+          "tier": "Premium",
+          "note": "Mass creature removal with life payment"
+        }
+      ],
+      "R": [
+        {
+          "card": "Chaos Warp",
+          "tier": "Mid",
+          "note": "Shuffle permanent into library; random top-card replaces"
+        },
+        {
+          "card": "Blasphemous Act",
+          "tier": "Budget",
+          "note": "Deals 13 damage to each creature"
+        },
+        {
+          "card": "Vandalblast",
+          "tier": "Mid",
+          "note": "Overload destroys all artifacts"
+        }
+      ],
+      "G": [
+        {
+          "card": "Creeping Corrosion",
+          "tier": "Budget",
+          "note": "Destroy all artifacts"
+        },
+        {
+          "card": "Bane of Progress",
+          "tier": "Premium",
+          "note": "Destroy artifacts and enchantments; grows"
+        },
+        {
+          "card": "Krosan Grip",
+          "tier": "Mid",
+          "note": "Split second removal"
+        }
+      ],
+      "Colorless": [
+        {
+          "card": "Ugin, the Spirit Dragon",
+          "tier": "Premium",
+          "note": "Minus ability exiles colored permanents"
+        },
+        {
+          "card": "Perilous Vault",
+          "tier": "Mid",
+          "note": "Exile all nonland permanents"
+        },
+        {
+          "card": "Engineered Explosives",
+          "tier": "Budget",
+          "note": "Destroy cheap permanents"
+        }
+      ]
+    },
+    "Tokens": {
+      "W": [
+        {
+          "card": "Settle the Wreckage",
+          "tier": "Mid",
+          "note": "Exile attacking creatures"
+        },
+        {
+          "card": "Hour of Revelation",
+          "tier": "Budget",
+          "note": "Destroy all nonland permanents if ten or more"
+        },
+        {
+          "card": "Elspeth, Sun's Champion",
+          "tier": "Premium",
+          "note": "Creates tokens and destroys big creatures"
+        }
+      ],
+      "U": [
+        {
+          "card": "Engulf the Shore",
+          "tier": "Budget",
+          "note": "Return creatures to owners' hands"
+        },
+        {
+          "card": "Aetherize",
+          "tier": "Budget",
+          "note": "Return all attacking creatures"
+        },
+        {
+          "card": "Curse of the Swine",
+          "tier": "Mid",
+          "note": "Exile creatures; replace with 2/2 boars"
+        }
+      ],
+      "B": [
+        {
+          "card": "Massacre Girl",
+          "tier": "Mid",
+          "note": "Chain reaction board wipe"
+        },
+        {
+          "card": "Plague Engineer",
+          "tier": "Mid",
+          "note": "Name a creature type; gives -1/-1"
+        },
+        {
+          "card": "Toxic Deluge",
+          "tier": "Premium",
+          "note": "Flexible board wipe"
+        }
+      ],
+      "R": [
+        {
+          "card": "Blasphemous Act",
+          "tier": "Budget",
+          "note": "13 damage to each creature"
+        },
+        {
+          "card": "Pyroclasm",
+          "tier": "Budget",
+          "note": "2 damage to each creature"
+        },
+        {
+          "card": "Chandra's Ignition",
+          "tier": "Mid",
+          "note": "Damage equal to creature's power to each other creature"
+        }
+      ],
+      "G": [
+        {
+          "card": "Ezuri's Predation",
+          "tier": "Mid",
+          "note": "Creates 4/4 tokens to fight each opponent's creatures"
+        },
+        {
+          "card": "Whirlwind",
+          "tier": "Budget",
+          "note": "Destroy all creatures with flying"
+        },
+        {
+          "card": "Kogla and Yidaro",
+          "tier": "Premium",
+          "note": "Fight plus board wipe with cycling"
+        }
+      ],
+      "Colorless": [
+        {
+          "card": "Nevinyrral's Disk",
+          "tier": "Mid",
+          "note": "Destroy artifacts, creatures, enchantments"
+        },
+        {
+          "card": "Ugin, the Spirit Dragon",
+          "tier": "Premium",
+          "note": "Minus ability clears colored creatures"
+        },
+        {
+          "card": "All Is Dust",
+          "tier": "Premium",
+          "note": "Each player sacrifices colored permanents"
+        }
+      ]
+    },
+    "Land ramp": {
+      "W": [
+        {
+          "card": "Aven Mindcensor",
+          "tier": "Mid",
+          "note": "Limits searching libraries"
+        },
+        {
+          "card": "Leonin Arbiter",
+          "tier": "Budget",
+          "note": "Players pay 2 to search libraries"
+        },
+        {
+          "card": "Land Tax",
+          "tier": "Premium",
+          "note": "Draw basic lands when behind"
+        }
+      ],
+      "U": [
+        {
+          "card": "Back to Basics",
+          "tier": "Premium",
+          "note": "Nonbasic lands don't untap"
+        },
+        {
+          "card": "Narset's Reversal",
+          "tier": "Budget",
+          "note": "Copy and bounce ramp spells"
+        },
+        {
+          "card": "Mindlock Orb",
+          "tier": "Mid",
+          "note": "Players can't search libraries"
+        }
+      ],
+      "B": [
+        {
+          "card": "Opposition Agent",
+          "tier": "Premium",
+          "note": "Control opponents' searches"
+        },
+        {
+          "card": "Shadow of Doubt",
+          "tier": "Budget",
+          "note": "Players can't search libraries; draw a card"
+        },
+        {
+          "card": "Scheming Symmetry",
+          "tier": "Budget",
+          "note": "Tutor but sabotage opponents"
+        }
+      ],
+      "R": [
+        {
+          "card": "Blood Moon",
+          "tier": "Mid",
+          "note": "Nonbasic lands become Mountains"
+        },
+        {
+          "card": "Magus of the Moon",
+          "tier": "Budget",
+          "note": "Creature version of Blood Moon"
+        },
+        {
+          "card": "Price of Progress",
+          "tier": "Budget",
+          "note": "Punish players for nonbasic lands"
+        }
+      ],
+      "G": [
+        {
+          "card": "Collector Ouphe",
+          "tier": "Mid",
+          "note": "Artifacts' activated abilities can't be activated"
+        },
+        {
+          "card": "Acidic Slime",
+          "tier": "Budget",
+          "note": "Destroy target land; deathtouch"
+        },
+        {
+          "card": "Frenzied Tilling",
+          "tier": "Budget",
+          "note": "Destroy land and ramp"
+        }
+      ],
+      "Colorless": [
+        {
+          "card": "Strip Mine",
+          "tier": "Premium",
+          "note": "Destroy target land"
+        },
+        {
+          "card": "Wasteland",
+          "tier": "Premium",
+          "note": "Destroy nonbasic land"
+        },
+        {
+          "card": "Field of Ruin",
+          "tier": "Budget",
+          "note": "Destroy nonbasic land; each gets a basic"
+        }
+      ]
+    }
+  }
+}

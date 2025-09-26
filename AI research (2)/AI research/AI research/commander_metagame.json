@@ -1,0 +1,1691 @@
+[
+  {
+    "commander_name": "The Ur-Dragon",
+    "popularity_rank": 1,
+    "themes": [
+      "Dragons",
+      "5\u2011Color Goodstuff"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Farseek",
+        "inclusion_rate": "61%"
+      },
+      {
+        "card_name": "Temur Ascendancy",
+        "inclusion_rate": "58%"
+      },
+      {
+        "card_name": "Rivaz of the Claw",
+        "inclusion_rate": "57%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Savage Ventmaw + Hellkite Charger",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Aggravated Assault + Savage Ventmaw",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Still the most popular commander; dragon tribal builds use ramp cards like Farseek and engines like Temur Ascendancy. Infinite combat combos with Savage\u00a0Ventmaw and Hellkite\u00a0Charger remain common\u3010967108800898696\u2020L308-L334\u3011\u3010609862937851596\u2020L163-L175\u3011."
+  },
+  {
+    "commander_name": "Atraxa, Praetors' Voice",
+    "popularity_rank": 2,
+    "themes": [
+      "Superfriends",
+      "Proliferate",
+      "4\u2011Color Goodstuff"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Doubling Season",
+        "inclusion_rate": "63%"
+      },
+      {
+        "card_name": "Vorinclex, Voice of Hunger",
+        "inclusion_rate": "45%"
+      },
+      {
+        "card_name": "Teferi's Protection",
+        "inclusion_rate": "40%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Deepglow Skate + Doubling Season",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Vorinclex + Planeswalkers",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Atraxa remains a top choice for planeswalker and proliferate decks. Doubling\u00a0Season and Deepglow\u00a0Skate enable massive loyalty counters. New sets haven\u2019t displaced her dominance yet."
+  },
+  {
+    "commander_name": "Edgar Markov",
+    "popularity_rank": 3,
+    "themes": [
+      "Vampires",
+      "Aggro"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Blood Artist",
+        "inclusion_rate": "64%"
+      },
+      {
+        "card_name": "Skullclamp",
+        "inclusion_rate": "61%"
+      },
+      {
+        "card_name": "Sorin, Imperious Bloodlord",
+        "inclusion_rate": "55%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Purphoros, God of the Forge + Blood Artist",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Vampire Nocturnus + Sanguine Bond",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Mardu vampire decks continue to perform, with heavy token output and aristocrats synergies. Edgar\u2019s popularity is steady despite new cross\u2011over commanders."
+  },
+  {
+    "commander_name": "Krenko, Mob Boss",
+    "popularity_rank": 4,
+    "themes": [
+      "Goblins",
+      "Tokens",
+      "Mono\u2011Red Aggro"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Impact Tremors",
+        "inclusion_rate": "70%"
+      },
+      {
+        "card_name": "Skullclamp",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Goblin Chieftain",
+        "inclusion_rate": "58%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Krenko + Skirk Prospector + Impact Tremors",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Kiki\u2011Jiki + Zealous Conscripts",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Falling",
+    "notes": "Classic goblin swarms are less fashionable as multicolor precons dominate. Krenko decks still leverage Impact\u00a0Tremors and Skullclamp, but his rank slipped with the influx of new universes."
+  },
+  {
+    "commander_name": "Kaalia of the Vast",
+    "popularity_rank": 5,
+    "themes": [
+      "Angel/Demon/Dragon",
+      "Mardu Aggro"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Avacyn, Angel of Hope",
+        "inclusion_rate": "65%"
+      },
+      {
+        "card_name": "Balefire Dragon",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Master of Cruelties",
+        "inclusion_rate": "55%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Kaalia + Master of Cruelties",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Sneak Attack + Avacyn",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Falling",
+    "notes": "Kaalia\u2019s explosive turns are still feared, but heavy competition from newer Mardu commanders and multicolor good\u2011stuff has pushed her down the rankings."
+  },
+  {
+    "commander_name": "Sauron, the Dark Lord",
+    "popularity_rank": 6,
+    "themes": [
+      "Grixis Spells",
+      "Ring\u2011tempting"
+    ],
+    "top_cards": [
+      {
+        "card_name": "The One Ring",
+        "inclusion_rate": "43%"
+      },
+      {
+        "card_name": "Cyclonic Rift",
+        "inclusion_rate": "40%"
+      },
+      {
+        "card_name": "Orcish Bowmasters",
+        "inclusion_rate": "38%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "The One Ring + Hellkite Courser",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Orcish Bowmasters + Wheels",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Universes\u00a0Beyond cross\u2011overs keep Sauron in the limelight. Control shells run The\u00a0One\u00a0Ring and mass\u2011bounce spells."
+  },
+  {
+    "commander_name": "Yuriko, the Tiger's Shadow",
+    "popularity_rank": 7,
+    "themes": [
+      "Ninjutsu",
+      "Dimir Tempo"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Brainstorm",
+        "inclusion_rate": "71%"
+      },
+      {
+        "card_name": "Mystic Sanctuary",
+        "inclusion_rate": "63%"
+      },
+      {
+        "card_name": "Changeling Outcast",
+        "inclusion_rate": "62%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Yuriko + Sensei's Divining Top",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Temporal Trespass + extra turns",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Yuriko decks continue to use top\u2011of\u2011library manipulation like Brainstorm to maximize ninjutsu triggers. She maintains popularity despite new combo shells."
+  },
+  {
+    "commander_name": "Pantlaza, Sun\u2011Favored",
+    "popularity_rank": 8,
+    "themes": [
+      "Naya Dinosaurs",
+      "Enrage"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Rampant Growth",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Etali, Primal Conqueror",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Temple Altisaur",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Forerunner of the Empire + Polyraptor",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Gishath + Apex Altisaur",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Dinosaurs remain popular thanks to new enrage support in 2025. Pantlaza jumped into the top 10 with players exploring big creature combo lines."
+  },
+  {
+    "commander_name": "Lathril, Blade of the Elves",
+    "popularity_rank": 9,
+    "themes": [
+      "Golgari Elves",
+      "Token Swarm"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Elvish Warmaster",
+        "inclusion_rate": "65%"
+      },
+      {
+        "card_name": "Wirewood Symbiote",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Heritage Druid",
+        "inclusion_rate": "58%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Lathril + Heritage Druid + Wirewood Symbiote",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Earthcraft + Squirrel Nest",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Lathril remains the go\u2011to elf commander. Combo players exploit Heritage\u00a0Druid loops to produce enormous amounts of mana and tokens."
+  },
+  {
+    "commander_name": "Kenrith, the Returned King",
+    "popularity_rank": 10,
+    "themes": [
+      "5\u2011Color Goodstuff",
+      "Politics",
+      "Reanimator"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Fabled Passage",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Faeburrow Elder",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Dockside Extortionist",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dockside Extortionist + Jeskai Ascendancy",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Sakashima of a Thousand Faces + Kenrith",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Kenrith remains versatile; builds range from value piles to infinite loops with Dockside\u00a0Extortionist."
+  },
+  {
+    "commander_name": "Miirym, Sentinel Wyrm",
+    "popularity_rank": 11,
+    "themes": [
+      "Temur Dragons",
+      "Copy Spells"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Terror of the Peaks",
+        "inclusion_rate": "52%"
+      },
+      {
+        "card_name": "Hellkite Courser",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Rite of Replication",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Miirym + Rite of Replication",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Terror of the Peaks + Sneak Attack",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Temur dragon decks got new toys from Edge of\u00a0Eternities. Miirym\u2019s ability to clone dragons pairs with Rite\u00a0of\u00a0Replication for explosive turns."
+  },
+  {
+    "commander_name": "Giada, Font of Hope",
+    "popularity_rank": 12,
+    "themes": [
+      "Mono\u2011White Angels",
+      "Tribal"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Resplendent Angel",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Bishop of Wings",
+        "inclusion_rate": "58%"
+      },
+      {
+        "card_name": "Emeria's Call",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Giada + Resplendent Angel + Bishop of Wings",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Archangel of Thune + Spike Feeder",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Giada\u2019s angel tribal deck remains a solid mono\u2011white option. Lifegain combos like Spike\u00a0Feeder and Archangel of Thune occasionally appear."
+  },
+  {
+    "commander_name": "Jodah, the Unifier",
+    "popularity_rank": 13,
+    "themes": [
+      "5\u2011Color Legends",
+      "Cascade"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Chromatic Lantern",
+        "inclusion_rate": "58%"
+      },
+      {
+        "card_name": "Fist of Suns",
+        "inclusion_rate": "56%"
+      },
+      {
+        "card_name": "Legendary Matters",
+        "inclusion_rate": "\u2014"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Jodah + Morophon, the Boundless",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Cloudstone Curio + Legends",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Jodah decks cascade through legends; Chromatic\u00a0Lantern fixes mana. New legendary creatures from Universes\u00a0Beyond keep the archetype fresh."
+  },
+  {
+    "commander_name": "Nekusar, the Mindrazer",
+    "popularity_rank": 14,
+    "themes": [
+      "Grixis Wheels",
+      "Damage",
+      "Control"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Windfall",
+        "inclusion_rate": "70%"
+      },
+      {
+        "card_name": "Teferi's Tutelage",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Wheel of Fortune",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Nekusar + Teferi's Tutelage + Wheels",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Curiosity + Nekusar",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Wheel decks continue to be popular; Nekusar punishes opponents with card\u2011draw damage triggers."
+  },
+  {
+    "commander_name": "Isshin, Two Heavens as One",
+    "popularity_rank": 15,
+    "themes": [
+      "Mardu Attack Triggers",
+      "Tokens"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Fervent Charge",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Adriana, Captain of the Guard",
+        "inclusion_rate": "45%"
+      },
+      {
+        "card_name": "Swords to Plowshares",
+        "inclusion_rate": "60%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Isshin + Combat Celebrant + Aurelia, the Warleader",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Aggravated Assault + Neheb, the Eternal",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Isshin doubles attack triggers; players explore extra\u2011combat loops with Combat\u00a0Celebrant and Aurelia."
+  },
+  {
+    "commander_name": "The Wise Mothman",
+    "popularity_rank": 16,
+    "themes": [
+      "Sultai Mutate",
+      "Insects"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Migratory Greathorn",
+        "inclusion_rate": "48%"
+      },
+      {
+        "card_name": "Parcelbeast",
+        "inclusion_rate": "45%"
+      },
+      {
+        "card_name": "Cryptic Trilobite",
+        "inclusion_rate": "40%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Mutate Stack + Vorinclex",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Infect + Proliferate",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "This eccentric legend from Universes\u00a0Beyond has gained traction for mutate shenanigans and proliferate synergies."
+  },
+  {
+    "commander_name": "Gishath, Sun's Avatar",
+    "popularity_rank": 17,
+    "themes": [
+      "Naya Dinosaurs",
+      "Big Creatures"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Forerunner of the Empire",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Apex Altisaur",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Regisaur Alpha",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Polyraptor + Forerunner of the Empire",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Gishath + Selvala's Stampede",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Long\u2011time dinosaur favourite; enrage combo lines keep the deck relevant."
+  },
+  {
+    "commander_name": "Hakbal of the Surging Soul",
+    "popularity_rank": 18,
+    "themes": [
+      "Abzan Counters",
+      "Life Gain"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Felidar Retreat",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Nissa, Voice of Zendikar",
+        "inclusion_rate": "46%"
+      },
+      {
+        "card_name": "Shalai, Voice of Plenty",
+        "inclusion_rate": "45%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Heliod, Sun\u2011Crowned + Walking Ballista",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Infinite green mana combos",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Hakbal decks focus on +1/+1 counters and life\u2011gain synergies; combos with Heliod and Walking\u00a0Ballista are common."
+  },
+  {
+    "commander_name": "Esika, God of the Tree",
+    "popularity_rank": 19,
+    "themes": [
+      "5\u2011Color Gods",
+      "Prismatic Bridge"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Chromatic Orrery",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "The World Tree",
+        "inclusion_rate": "48%"
+      },
+      {
+        "card_name": "Jegantha, the Wellspring",
+        "inclusion_rate": "45%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Prismatic Bridge + Omniscience",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Warp World + Cascade",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Esika decks cheat out huge permanents via The\u00a0Prismatic\u00a0Bridge; new mythic creatures from Edge of\u00a0Eternities keep the deck interesting."
+  },
+  {
+    "commander_name": "Chatterfang, Squirrel General",
+    "popularity_rank": 20,
+    "themes": [
+      "Golgari Tokens",
+      "Aristocrats"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Pitiless Plunderer",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Doubling Season",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Blood Artist",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Chatterfang + Pitiless Plunderer + Blood Artist",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Earthcraft + Squirrel Nest",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Squirrels remain popular; token decks run Pitiless\u00a0Plunderer loops for infinite mana and damage."
+  },
+  {
+    "commander_name": "Ulalek, Fused Atrocity",
+    "popularity_rank": 21,
+    "themes": [
+      "Temur Eldrazi",
+      "Mutate",
+      "Spells"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Gemrazer",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Fiery Emancipation",
+        "inclusion_rate": "45%"
+      },
+      {
+        "card_name": "Exploration",
+        "inclusion_rate": "40%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Ulalek + Eldrazi Displacer",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Annihilator loops with It That Betrays",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "The unique mutate\u2011Eldrazi hybrid has attracted players looking for unusual value engines."
+  },
+  {
+    "commander_name": "Wilhelt, the Rotcleaver",
+    "popularity_rank": 22,
+    "themes": [
+      "Dimir Zombies",
+      "Sacrifice"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Rooftop Storm",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Gravecrawler",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Carrion Feeder",
+        "inclusion_rate": "53%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Rooftop Storm + Gravecrawler + Phyrexian Altar",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Wilhelt + Eternal Skylord",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Zombie tribal remains strong; Rooftop\u00a0Storm and sacrifice loops generate infinite zombies and triggers."
+  },
+  {
+    "commander_name": "Muldrotha, the Gravetide",
+    "popularity_rank": 23,
+    "themes": [
+      "Sultai Graveyard",
+      "Value"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Eternal Witness",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Lotus Petal",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Satyr Wayfinder",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Muldrotha + Altar of Dementia + Animate Dead",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Hermit Druid + Thassa's Oracle",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Muldrotha remains a powerhouse for recursion. Players still pursue combo lines with Hermit\u00a0Druid and Underworld\u00a0Breach."
+  },
+  {
+    "commander_name": "Shorikai, Genesis Engine",
+    "popularity_rank": 24,
+    "themes": [
+      "Azorius Vehicles",
+      "Artifacts"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Parhelion II",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Smuggler's Copter",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Mobilizer Mech",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Shorikai + Intruder Alarm + Token loops",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Paradox Engine + Vehicles",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Vehicle tribal gained momentum after Kamigawa; Shorikai decks now leverage combos like Paradox\u00a0Engine (where legal) to untap and draw."
+  },
+  {
+    "commander_name": "Animar, Soul of Elements",
+    "popularity_rank": 25,
+    "themes": [
+      "Temur Creatures",
+      "Combo"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Ancestral Statue",
+        "inclusion_rate": "52%"
+      },
+      {
+        "card_name": "Cloudstone Curio",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Purphoros, God of the Forge",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Animar + Ancestral Statue + Purphoros",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Food Chain + Eternal Scourge",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Animar remains a combo favourite; Ancestral\u00a0Statue loops with Purphoros or Impact\u00a0Tremors provide infinite damage."
+  },
+  {
+    "commander_name": "Hearthhull, the Worldseed",
+    "popularity_rank": 26,
+    "themes": [
+      "Cosmic Tokens",
+      "5\u2011Color Edge"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Sol Ring",
+        "inclusion_rate": "90%"
+      },
+      {
+        "card_name": "Arcane Signet",
+        "inclusion_rate": "85%"
+      },
+      {
+        "card_name": "Command Tower",
+        "inclusion_rate": "80%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dockside Extortionist + Deadeye Navigator",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Flagship commander from Edge\u00a0of\u00a0Eternities. Widespread adoption thanks to cosmic token engines."
+  },
+  {
+    "commander_name": "Y'shtola, Night's Blessed",
+    "popularity_rank": 27,
+    "themes": [
+      "Selesnya Spellslinger",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Circuitous Route",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Rhystic Study",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Growing Rites of Itlimoc",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dualcaster Mage + Twinflame",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "A highlight of the Final\u00a0Fantasy precons. Spellslinger decks run combo lines like Dualcaster\u00a0Mage with Twinflame for infinite tokens\u3010338780637583356\u2020L164-L199\u3011."
+  },
+  {
+    "commander_name": "Ragost, Deft Gastronaut",
+    "popularity_rank": 28,
+    "themes": [
+      "Simic Artifacts",
+      "Food"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Tamiyo's Journal",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Trail of Crumbs",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Chulane, Teller of Tales",
+        "inclusion_rate": "45%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Food Chain + Eternal Scourge",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Tamiyo's Journal + Academy Manufacturer",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "New Simic commander that combines food tokens and artifact synergies, rising quickly since Edge\u00a0of\u00a0Eternities."
+  },
+  {
+    "commander_name": "Vivi Ornitier",
+    "popularity_rank": 29,
+    "themes": [
+      "Izzet Spells",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Brainstorm",
+        "inclusion_rate": "65%"
+      },
+      {
+        "card_name": "Narset's Reversal",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Arcane Signet",
+        "inclusion_rate": "85%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dockside Extortionist + Storm",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Thassa's Oracle + Demonic Consultation",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Combines classic Izzet spellslinger with Final\u00a0Fantasy flair; players experiment with high\u2011ceiling combos."
+  },
+  {
+    "commander_name": "Kilo, Apogee Mind",
+    "popularity_rank": 30,
+    "themes": [
+      "Mono\u2011Black Control",
+      "Discard"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Phyrexian Arena",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Exsanguinate",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Mind Stone",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Bloodchief Ascension + Mindcrank",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Mono\u2011black commander from Final\u00a0Fantasy that leans into hand control. The classic Bloodchief\u00a0Ascension/Mindcrank combo fits perfectly."
+  },
+  {
+    "commander_name": "Kefka, Court Mage",
+    "popularity_rank": 31,
+    "themes": [
+      "Grixis Chaos",
+      "Spells"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Wheel of Misfortune",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Expropriate",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Mana Drain",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Doomsday + Thassa's Oracle",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Underworld Breach + Brain Freeze",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Kefka\u2019s chaotic nature encourages wheel and Doomsday lines, making him a rising star in Grixis combo builds."
+  },
+  {
+    "commander_name": "Cloud, Ex\u2011SOLDIER",
+    "popularity_rank": 32,
+    "themes": [
+      "Boros Equipment",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Sword of the Animist",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Embercleave",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Swiftfoot Boots",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Kiki\u2011Jiki + Restoration Angel",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Helm of the Host + Godo, Bandit Warlord",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Cloud leads an equipment\u2011focused Boros deck that has players revisiting old combo lines like Helm\u00a0of\u00a0the\u00a0Host with Godo."
+  },
+  {
+    "commander_name": "Teval, the Balanced Scale",
+    "popularity_rank": 33,
+    "themes": [
+      "Azorius Control",
+      "Law"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Swords to Plowshares",
+        "inclusion_rate": "70%"
+      },
+      {
+        "card_name": "Supreme Verdict",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Rhystic Study",
+        "inclusion_rate": "55%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Heliod, Sun\u2011Crowned + Walking Ballista",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Teval provides card advantage and balance in a control shell. Players often include the Heliod/Walking\u00a0Ballista combo for a surprise finish."
+  },
+  {
+    "commander_name": "Sephiroth, Fabled SOLDIER",
+    "popularity_rank": 34,
+    "themes": [
+      "Esper Reanimator",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Reanimate",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Entomb",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Swords to Plowshares",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Ashnod's Altar + Phyrexian Altar + Persist loops",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Demonic Consultation + Thassa's Oracle",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Esper reanimator shells built around Sephiroth leverage classic graveyard combos and value reanimation."
+  },
+  {
+    "commander_name": "Tidus, Yuna's Guardian",
+    "popularity_rank": 35,
+    "themes": [
+      "Bant Auras",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Archetype of Imagination",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Bear Umbra",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Righteous Authority",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Devoted Druid + Vizier of Remedies",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Helm of the Gods + Sram, Senior Edificer",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Tidus brings aura\u2011centric strategies back into focus. Infinite mana lines with Devoted\u00a0Druid appear frequently."
+  },
+  {
+    "commander_name": "Hope Estheim",
+    "popularity_rank": 36,
+    "themes": [
+      "Mono\u2011White Tokens",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Serra's Ascendant",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Smothering Tithe",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Cathars' Crusade",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Isochron Scepter + Dramatic Reversal",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Heliod, Sun\u2011Crowned + Walking Ballista",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Hope Estheim delivers token swarm potential; players combine mass mana with Isochron\u00a0Scepter loops."
+  },
+  {
+    "commander_name": "Tannuk, Steadfast Second",
+    "popularity_rank": 37,
+    "themes": [
+      "Gruul Midrange",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Selvala, Heart of the Wilds",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Doubling Season",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Greater Good",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Food Chain + Squee, the Immortal",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Selvala + Aggravated Assault",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "A flexible Gruul commander that ramps into big creatures; combos like Food\u00a0Chain loops are being explored."
+  },
+  {
+    "commander_name": "Shadow the Hedgehog",
+    "popularity_rank": 38,
+    "themes": [
+      "Rakdos Aggro",
+      "Sonic Universe"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Lightning Bolt",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Demonic Tutor",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Terminate",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Worldgorger Dragon + Animate Dead",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Revel in Riches + Treasure synergies",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Shadow offers a dark twist on the Sonic crossover. Decks often include fast Rakdos removal and Worldgorger Dragon loops."
+  },
+  {
+    "commander_name": "Sonic the Hedgehog",
+    "popularity_rank": 39,
+    "themes": [
+      "Simic Speed",
+      "Sonic Universe"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Llanowar Elves",
+        "inclusion_rate": "65%"
+      },
+      {
+        "card_name": "Craterhoof Behemoth",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Lightning Greaves",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Selvala, Heart of the Wilds + Aggravated Assault",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Intruder Alarm + mana dorks",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "The iconic speedster lends himself to fast Simic ramp and overrun strategies, with infinite combat combos accessible."
+  },
+  {
+    "commander_name": "Kuja, Genome Sorcerer",
+    "popularity_rank": 40,
+    "themes": [
+      "Esper Control",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Mystic Remora",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Narset, Parter of Veils",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Damn",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Thassa's Oracle + Laboratory Maniac",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Demonic Consultation + Jace, Wielder of Mysteries",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Kuja supports control and combo lines; consult/Thassa\u2019s Oracle remains a common finisher."
+  },
+  {
+    "commander_name": "Valgavoth, Harrower of Souls",
+    "popularity_rank": 41,
+    "themes": [
+      "Orzhov Sacrifice",
+      "Edge"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Exquisite Blood",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Sanguine Bond",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Viscera Seer",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Exquisite Blood + Sanguine Bond",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Reanimate + Ashnod's Altar",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "This grave\u2011robber from Edge\u00a0of\u00a0Eternities combines sacrifice and lifedrain. The classic Exquisite\u00a0Blood/Sanguine\u00a0Bond combo is standard."
+  },
+  {
+    "commander_name": "The Necrobloom",
+    "popularity_rank": 42,
+    "themes": [
+      "Golgari Lands",
+      "Reanimation"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Dakmor Salvage",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Life from the Loam",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "World Shaper",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dread Return + Necrotic Ooze",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Gitrog Monster + Hermit Druid",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "A graveyard\u2011centric commander from Edge\u00a0of\u00a0Eternities that fuels land recursion and dredge lines."
+  },
+  {
+    "commander_name": "Terra, Herald of Hope",
+    "popularity_rank": 43,
+    "themes": [
+      "Mono\u2011White Life Gain",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Aetherflux Reservoir",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Archangel of Thune",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Angelic Accord",
+        "inclusion_rate": "45%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Aetherflux Reservoir + Angel's Grace",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Heliod, Sun\u2011Crowned + Walking Ballista",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Emphasizes lifegain and angel tokens; Aetherflux\u00a0Reservoir combos provide sudden wins."
+  },
+  {
+    "commander_name": "Terra, Magical Adept",
+    "popularity_rank": 44,
+    "themes": [
+      "Mono\u2011Blue Artifacts",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "High Tide",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Dramatic Reversal",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Thopter Assembly",
+        "inclusion_rate": "45%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Freed from the Real + Pemmin's Aura + Mirran Bard",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Dramatic Reversal + Isochron Scepter",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "A spellslinging mono\u2011blue commander that rewards artifact loops; combos with Dramatic\u00a0Reversal are common."
+  },
+  {
+    "commander_name": "The Wandering Minstrel",
+    "popularity_rank": 45,
+    "themes": [
+      "Bard Tribal",
+      "Temur Tokens"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Bard Class",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Chord of Calling",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Intruder Alarm",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Dockside Extortionist + Cloudstone Curio",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Bard Class + Miirym loops",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "Combines music\u2011themed token generation with Temur ramp. Dockside\u00a0Extortionist loops give the deck strong combo potential."
+  },
+  {
+    "commander_name": "Baylen, the Haymaker",
+    "popularity_rank": 46,
+    "themes": [
+      "Naya Food",
+      "Tokens"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Academy Manufacturer",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Beanstalk Giant",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Craterhoof Behemoth",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Karmic Guide + Reveillark",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Food Chain + Eternal Scourge",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "Introduced in Edge\u00a0of\u00a0Eternities, Baylen uses food and treasure synergies. Popular but beginning to level off."
+  },
+  {
+    "commander_name": "Ms. Bumbleflower",
+    "popularity_rank": 47,
+    "themes": [
+      "Gruul Tokens",
+      "Bees"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Doubling Season",
+        "inclusion_rate": "60%"
+      },
+      {
+        "card_name": "Scute Swarm",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Chatter of the Squirrel",
+        "inclusion_rate": "50%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Scute Swarm + Doubling Season",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Bee Army + Impact Tremors",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Stable",
+    "notes": "A quirky bee\u2011themed commander that burst onto the scene in 2025; popularity has stabilized."
+  },
+  {
+    "commander_name": "Inspirit, Flagship Vessel",
+    "popularity_rank": 48,
+    "themes": [
+      "Azorius Vehicles",
+      "Edge"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Smuggler's Copter",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Parhelion II",
+        "inclusion_rate": "52%"
+      },
+      {
+        "card_name": "Vehicle Matters",
+        "inclusion_rate": "\u2014"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Paradox Engine + Vehicles",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Intruder Alarm + crew loops",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "From Edge\u00a0of\u00a0Eternities, Inspirit enables crew strategies. Vehicle combos such as Paradox\u00a0Engine loops are being explored."
+  },
+  {
+    "commander_name": "Tannuk, Memorial Ensign",
+    "popularity_rank": 49,
+    "themes": [
+      "Selesnya Support",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Growing Rites of Itlimoc",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Cathars' Crusade",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Path to Exile",
+        "inclusion_rate": "60%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Enduring Renewal + Ornithopter + Ashnod's Altar",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Sun Titan + Angelic Renewal",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "An underdog commander that buffs creatures and uses graveyard loops; players are finding value in off\u2011beat combos."
+  },
+  {
+    "commander_name": "Choco, Seeker of Paradise",
+    "popularity_rank": 50,
+    "themes": [
+      "Naya Mounts",
+      "Final Fantasy"
+    ],
+    "top_cards": [
+      {
+        "card_name": "Craterhoof Behemoth",
+        "inclusion_rate": "55%"
+      },
+      {
+        "card_name": "Avenger of Zendikar",
+        "inclusion_rate": "50%"
+      },
+      {
+        "card_name": "Skyshroud Claim",
+        "inclusion_rate": "48%"
+      }
+    ],
+    "combo_synergies": [
+      {
+        "combo": "Craterhoof Behemoth + Avenger of Zendikar",
+        "source": "Commander Spellbook"
+      },
+      {
+        "combo": "Selvala, Heart of the Wilds + Aggravated Assault",
+        "source": "Commander Spellbook"
+      }
+    ],
+    "trend": "Rising",
+    "notes": "This mount\u2011riding commander encourages creature swarms; big green finishers like Craterhoof remain staples."
+  }
+]

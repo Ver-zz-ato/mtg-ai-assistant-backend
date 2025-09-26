@@ -1,0 +1,917 @@
+{
+  "probability_table": [
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Green Ramp",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8142,
+      "formula": "P(X\u22652) = 1 - [C(deck_size - lands, hand_size) + C(lands,1)*C(deck_size - lands, hand_size - 1)] / C(deck_size, hand_size)",
+      "explanation": "Calculate the chance of drawing two or more lands (successes) from a 99\u2011card deck using the hypergeometric distribution."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Green Ramp",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "P(X\u22651) = 1 - C(deck_size - copies, hand_size)/C(deck_size, hand_size)",
+      "explanation": "Because Sol Ring is a single copy in the 99\u2011card deck, the probability of it appearing in the opening seven is low."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Green Ramp",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.7432,
+      "formula": "P(X\u22651) = 1 - C(deck_size - ramp_spells, draws)/C(deck_size, draws) where draws = 10",
+      "explanation": "The probability of having at least one of the twelve ramp spells in the first ten cards (7 in hand + three draws)"
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Red Aggro",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.7985,
+      "formula": "same hypergeometric formula",
+      "explanation": "With 36 lands, you slightly under 80% chance to see two or more lands in your opener."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Red Aggro",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "same as above",
+      "explanation": "Sol Ring appears only once, so its likelihood in the opening hand is around 7%."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Mono-Red Aggro",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.5875,
+      "formula": "same as above with ramp_spells=8",
+      "explanation": "There are about eight mana rocks/dorks in mono\u2011red aggro; drawing one by your third turn happens about 59% of the time."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Izzet Spellslinger",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8142,
+      "formula": "same hypergeometric formula",
+      "explanation": "A two\u2011color deck with ~37 lands has similar land probabilities as mono\u2011green."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Izzet Spellslinger",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "same as above",
+      "explanation": "Sol Ring or another one\u2011off is roughly a 7% chance."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Izzet Spellslinger",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.6736,
+      "formula": "same as above with ramp_spells=10",
+      "explanation": "With ten signets/talismans and rituals the deck hits a ramp source by turn three ~67% of the time."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Golgari Aristocrats",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8142,
+      "formula": "same formula",
+      "explanation": "Thirty\u2011seven lands yields about an 81% chance of opening two or more."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Golgari Aristocrats",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "same formula",
+      "explanation": "Chatterfang or Sol Ring each appear only once, so expect ~7% in your opener."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Golgari Aristocrats",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.6736,
+      "formula": "same as above with ramp_spells=10",
+      "explanation": "Ten mana dorks and signets give you about a two\u2011thirds chance of seeing ramp by turn three."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Azorius Control",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.829,
+      "formula": "same formula",
+      "explanation": "With ~38 lands, control decks hit two\u2011land openers slightly more often (~83%)."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Azorius Control",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "same formula",
+      "explanation": "One\u2011of Sol Ring is about a 7% chance."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "Azorius Control",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.6736,
+      "formula": "same as above with ramp_spells=10",
+      "explanation": "Control decks pack about ten signets and mana rocks, so you see one by turn three roughly two\u2011thirds of the time."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "5-Color Goodstuff",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8429,
+      "formula": "same formula",
+      "explanation": "Five\u2011color decks typically run 39 lands to avoid being color\u2011screwed, giving an 84% chance of opening on at least two lands."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "5-Color Goodstuff",
+      "deck_size": 99,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.0707,
+      "formula": "same formula",
+      "explanation": "A single copy of Sol Ring or another key piece shows up in about one in fourteen hands."
+    },
+    {
+      "format": "Commander",
+      "deck_name": "5-Color Goodstuff",
+      "deck_size": 99,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.7432,
+      "formula": "same as above with ramp_spells=12",
+      "explanation": "With roughly a dozen ramp spells, five\u2011color decks see ramp by turn three about 74% of the time."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Burn",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.753,
+      "formula": "P(X\u22652) = 1 - [C(60-lands,7) + C(lands,1)*C(60-lands,6)]/C(60,7)",
+      "explanation": "A 20\u2011land burn deck sees two lands ~75% of the time."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Burn",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.3995,
+      "formula": "P(X\u22651) = 1 - C(60-4,7)/C(60,7)",
+      "explanation": "Four Lightning Bolts yield ~40% chance of one in your opener."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Burn",
+      "deck_size": 60,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.0,
+      "formula": "P(X\u22651) = 1 - C(60-0,10)/C(60,10)",
+      "explanation": "Burn plays no dedicated ramp; the probability is zero."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Tron",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8101,
+      "formula": "same formula",
+      "explanation": "With 22 lands, Tron has about an 81% chance to open two or more lands."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Tron",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.3995,
+      "formula": "same formula with copies=4",
+      "explanation": "Four copies of a key card like Karn, the Great Creator appear in about 40% of openers."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Modern Tron",
+      "deck_size": 60,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.7902,
+      "formula": "P(X\u22651) = 1 - C(60-8,10)/C(60,10)",
+      "explanation": "The combination of Expedition Map and Mind Stone (eight ramp cards) makes seeing ramp by turn three roughly 79%."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Pioneer Mono-Black Aggro",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8573,
+      "formula": "same formula",
+      "explanation": "Mono\u2011black aggro runs 24 lands; hitting two or more in your opening seven happens ~86% of the time."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Pioneer Mono-Black Aggro",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.3995,
+      "formula": "same formula with copies=4",
+      "explanation": "Four Thoughtseize give roughly a 40% chance of appearing in your opener."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Pioneer Mono-Black Aggro",
+      "deck_size": 60,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.0,
+      "formula": "P(X\u22651) = 1 - C(60-0,10)/C(60,10)",
+      "explanation": "Aggro lists generally have no ramp spells, so there is no chance to draw one."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Legacy Delver",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.6857,
+      "formula": "same formula",
+      "explanation": "Eighteen\u2011land Delver decks are prone to one\u2011lander keeps; you see two lands only about 69% of the time."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Legacy Delver",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.3995,
+      "formula": "same formula with copies=4",
+      "explanation": "Four Delver of Secrets appear in roughly 40% of opening hands."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Legacy Delver",
+      "deck_size": 60,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.0,
+      "formula": "zero ramp",
+      "explanation": "Delver lists do not play ramp spells; the first three turns rely on cheap threats and cantrips instead."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Standard Midrange",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 2 lands in opening hand",
+      "probability": 0.8573,
+      "formula": "same formula",
+      "explanation": "A 24\u2011land midrange deck hits two lands in your opener roughly 86% of the time."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Standard Midrange",
+      "deck_size": 60,
+      "hand_size": 7,
+      "scenario": "At least 1 specific card in opening hand",
+      "probability": 0.3154,
+      "formula": "P(X\u22651) = 1 - C(60-3,7)/C(60,7)",
+      "explanation": "Three copies of a marquee card like Sheoldred, the Apocalypse give about a 31% chance of showing up in the opener."
+    },
+    {
+      "format": "Constructed",
+      "deck_name": "Standard Midrange",
+      "deck_size": 60,
+      "hand_size": 10,
+      "scenario": "At least 1 ramp spell by turn 3",
+      "probability": 0.0,
+      "formula": "zero ramp",
+      "explanation": "Standard midrange lists generally lack dedicated ramp; you rely on your natural land drops."
+    }
+  ],
+  "mulligan_examples": {
+    "Mono-Green Ramp": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Forest, Forest, Sol Ring, Llanowar Elves, Cultivate, Selvala, Beast Whisperer",
+          "reason": "Two lands plus two pieces of early ramp (Sol Ring and Llanowar Elves) let you accelerate into bigger spells; Cultivate fixes colours and Selvala/Beast Whisperer provide card draw."
+        },
+        {
+          "hand": "Nykthos, Shrine to Nyx, Forest, Arcane Signet, Nature's Lore, Oracle of Mul Daya, Avenger of Zendikar",
+          "reason": "The land plus two ramp spells (Signet and Nature's Lore) ensure turn\u2011three Oracle; Avenger is a payoff once you\u2019ve ramped."
+        },
+        {
+          "hand": "Forest, Castle Garenbrig, Elvish Mystic, Three Visits, Beast Within, Tooth and Nail, Woodfall Primus",
+          "reason": "With two lands and cheap ramp (Mystic/Three Visits) you can cast removal or set up Tooth and Nail quickly."
+        },
+        {
+          "hand": "Forest, Forest, Fyndhorn Elves, Mana Crypt, Harmonize, Craterhoof Behemoth, Reclamation Sage",
+          "reason": "Mana Crypt plus Fyndhorn Elves accelerate you to Harmonize while giving a removal option (Reclamation Sage); Craterhoof is a finisher."
+        },
+        {
+          "hand": "Forest, Spire Garden, Arcane Signet, Solemn Simulacrum, Finale of Devastation, Llanowar Visionary, Worldly Tutor",
+          "reason": "Three mana sources (lands + Signet) and Llanowar Visionary provide ramp and card draw; Tutor and Finale search your finishers."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Forest, Sol Ring, Craterhoof Behemoth, Tooth and Nail, Genesis Wave, Avenger of Zendikar, Vorinclex",
+          "reason": "Despite Sol Ring, a one\u2011land hand with nothing to do until six mana will often stall."
+        },
+        {
+          "hand": "Nykthos, Gaea's Cradle, Kozilek, Ulamog, Avenger of Zendikar, Finale of Devastation, Beastmaster Ascension, Eternal Witness",
+          "reason": "Only one land and several double\u2011digit mana spells make this unkeepable."
+        },
+        {
+          "hand": "Forest, Forest, Forest, Beast Within, Krosan Grip, Reclamation Sage, Naturalize",
+          "reason": "Three lands and mostly artifact/enchantment removal leave you without ramp or a plan."
+        },
+        {
+          "hand": "Forest, Yavimaya Coast, Eternal Witness, Primal Command, Seasons Past, Concordant Crossroads, Traverse the Outlands",
+          "reason": "Two lands but no early ramp; spells start at four or five mana and you risk falling behind."
+        },
+        {
+          "hand": "Forest, Forest, Fabled Passage, Carpet of Flowers, Triumph of the Hordes, Finale of Devastation, Soul's Majesty",
+          "reason": "Three lands but only pump spells and no creatures; Carpet of Flowers rarely ramps in mono\u2011green, making the hand slow."
+        }
+      ],
+      "guidelines": "In mono\u2011green Commander decks you generally want at least two lands and one or two ramp pieces. A hand with only one land is risky unless you also have Sol Ring plus a cheap mana dork. Avoid hands full of huge creatures without ways to cast them; prioritize early ramp and card draw."
+    },
+    "Mono-Red Aggro": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Mountain, Mountain, Sol Ring, Lightning Bolt, Torbran, Chandra, Faithless Looting",
+          "reason": "Two lands plus Sol Ring supply plenty of mana; Faithless Looting digs and Torbran amplifies your burn."
+        },
+        {
+          "hand": "Mountain, Castle Embereth, Arcane Signet, Goblin Arsonist, Reckless Fireweaver, Torbran, Impact Tremors",
+          "reason": "Mana rocks and cheap creatures advance your aggressive plan; Torbran and Impact Tremors turn small creatures into big damage."
+        },
+        {
+          "hand": "Mountain, Mountain, Fire Diamond, Dockside Extortionist, Lightning Bolt, Chaos Warp, Chandra, Torch of Defiance",
+          "reason": "Fire Diamond and Dockside ramp into Chandra; Lightning Bolt and Chaos Warp provide early interaction."
+        },
+        {
+          "hand": "Mountain, Mountain, Mind Stone, Skullclamp, Chainer's Torch, Outpost Siege, Purphoros, God of the Forge",
+          "reason": "Mind Stone ramps, Skullclamp draws cards and Purphoros plus Siege provide game\u2011long value."
+        },
+        {
+          "hand": "Mountain, Great Furnace, Sol Ring, Ragavan, Nimble Pilferer, Abrade, Torbran, Shattering Spree",
+          "reason": "Sol Ring plus Ragavan accelerate your mana; removal keeps opponents off balance."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Mountain, Torbran, Blasphemous Act, Vandalblast, Insurrection, Mana Geyser, Chandra's Ignition",
+          "reason": "One land and a handful of expensive spells means you won\u2019t cast anything until turn four or five."
+        },
+        {
+          "hand": "Great Furnace, Forgotten Cave, Ghirapur Aether Grid, Embercleave, Chaos Warp, Outpost Siege, Flames of the Firebrand",
+          "reason": "Two lands but no early creatures or ramp; the curve starts at three mana."
+        },
+        {
+          "hand": "Mountain, Mountain, Mountain, Mountain, Lightning Bolt, Shock, Skullcrack",
+          "reason": "Four lands and only small burn spells will leave you flooded in an aggro deck."
+        },
+        {
+          "hand": "Mountain, Mountain, Surveyor's Scope, Wayfarer's Bauble, Burnished Hart, Solemn Simulacrum, Myr Battlesphere",
+          "reason": "Too much ramp with no payoff; you risk ramping into nothing."
+        },
+        {
+          "hand": "Mountain, Cavern of Souls, Impact Tremors, Warstorm Surge, Terror of the Peaks, Insurrection, Blasphemous Act",
+          "reason": "Two lands but spells cost five or more; the hand lacks cheap interaction or ramp."
+        }
+      ],
+      "guidelines": "Aggro in Commander still needs at least two lands and a mana rock. Look for cheap creatures or burn spells to start pressuring opponents. Avoid one\u2011land hands unless you have both Sol Ring and a cheap creature. Large sweeper\u2011only hands are slow; keep a mix of interaction and threats."
+    },
+    "Izzet Spellslinger": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Island, Mountain, Izzet Signet, Ponder, Arcane Denial, Guttersnipe, Talrand, Sky Summoner",
+          "reason": "Two lands plus a signet guarantee mana; cheap cantrips and counters set up your token generators."
+        },
+        {
+          "hand": "Island, Steam Vents, Sol Ring, Brainstorm, Lightning Bolt, Young Pyromancer, Thousand\u2011Year Storm",
+          "reason": "Sol Ring accelerates you into Young Pyromancer; Brainstorm fixes draws and Thousand\u2011Year Storm is a payoff."
+        },
+        {
+          "hand": "Island, Island, Arcane Signet, Preordain, Counterspell, Niv\u2011Mizzet, Parun, Mana Drain",
+          "reason": "Two lands and a signet plus draw spells let you cast counter magic; Niv\u2011Mizzet is a finisher."
+        },
+        {
+          "hand": "Mountain, Spirebluff Canal, Talisman of Creativity, Faithless Looting, Jeska's Will, Archmage Emeritus, Snapcaster Mage",
+          "reason": "This hand has fixing, ramp, card draw and both a payoff creature and a ritual."
+        },
+        {
+          "hand": "Island, Mountain, Command Tower, Opt, Mana Geyser, Electrolyze, Charmbreaker Devils",
+          "reason": "Three lands ensure all colours; Opt cycles, Mana Geyser and Electrolyze bridge to Charmbreaker Devils."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Island, Electrodominance, Comet Storm, Crackle with Power, Mizzix's Mastery, Past in Flames, Expansion/Explosion",
+          "reason": "One land and all six\u2011plus mana spells make the hand unplayable."
+        },
+        {
+          "hand": "Mountain, Mountain, Reiterate, Mana Drain, Blue Sun's Zenith, Niv\u2011Mizzet, Parun, Metallurgic Summonings",
+          "reason": "Two lands but nothing to do until turn four; no early cantrips or ramp."
+        },
+        {
+          "hand": "Island, Island, Island, Mystical Tutor, Brainstorm, Ponder, Serum Visions",
+          "reason": "Three basic Islands and all cantrips leave you without red mana or threats; you risk not finding a second colour."
+        },
+        {
+          "hand": "Island, Island, Guttersnipe, Panharmonicon, Thousand\u2011Year Storm, Mizzix, the Izmagnus, Niv\u2011Mizzet, Parun",
+          "reason": "Two lands but every spell costs four or more; you'll be stuck for multiple turns."
+        },
+        {
+          "hand": "Mountain, Mountain, Mountain, Desperate Ritual, Pirate's Pillage, Blasphemous Act, Finale of Promise",
+          "reason": "Three red sources but no blue; spells are expensive and the ritual has nothing to accelerate into."
+        }
+      ],
+      "guidelines": "Izzet spellslinger wants at least two lands (ideally a red and a blue source) plus a mana rock or cheap cantrip. A single\u2011land hand is usually a mulligan unless you have Sol Ring and Brainstorm. Avoid hands full of five\u2011plus\u2011mana payoffs without the ramp to cast them; prioritize fixing and card selection."
+    },
+    "Golgari Aristocrats": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Swamp, Forest, Arcane Signet, Llanowar Elves, Chatterfang, the Squirrel General, Blood Artist, Viscera Seer",
+          "reason": "Two lands and two ramp pieces let you curve into your commander; Blood Artist and Viscera Seer support the sacrifice plan."
+        },
+        {
+          "hand": "Forest, Woodland Cemetery, Sol Ring, Sakura\u2011Tribe Elder, Grave Pact, Zulaport Cutthroat, Cauldron Familiar",
+          "reason": "Sol Ring and Elder accelerate you into Grave Pact; Cutthroat and Familiar enable aristocrat synergies."
+        },
+        {
+          "hand": "Swamp, Swamp, Bloom Tender, Golgari Signet, Reanimate, Skullclamp, Chainer's Edict, Chatterfang",
+          "reason": "Multiple mana sources and card draw (Skullclamp) provide resources; removal spells keep opponents in check."
+        },
+        {
+          "hand": "Forest, Phyrexian Tower, Bloodghast, Viscera Seer, Rite of Oblivion, Pitiless Plunderer, Poison\u2011Tip Archer",
+          "reason": "Tower plus Seer and Bloodghast give repeatable sacrifice fodder; Plunderer and Archer convert sacrifices into value."
+        },
+        {
+          "hand": "Swamp, Forest, Birds of Paradise, Life from the Loam, Yawgmoth, Thran Physician, Reassembling Skeleton, Evolutionary Leap",
+          "reason": "Early ramp and card advantage (Loam); Yawgmoth and Skeleton form a repeatable draw engine."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Swamp, Swamp, Zulaport Cutthroat, Poison\u2011Tip Archer, Blood Artist, Dictate of Erebos, Grave Pact",
+          "reason": "Two lands but no ramp and spells starting at three mana; you'll do nothing for several turns."
+        },
+        {
+          "hand": "Forest, Forest, Forest, Jarad, Golgari Lich Lord, Hogaak, Arisen Necropolis, Golgari Grave\u2011Troll, Spider Spawning",
+          "reason": "Three forests with high\u2011cost dredge cards and no mana fixing or ramp; the hand is uncastable."
+        },
+        {
+          "hand": "Swamp, Forest, Fabled Passage, Evolutionary Leap, Skullclamp, Ashnod's Altar, Altar of Dementia",
+          "reason": "All your pieces need creatures to function; without a creature or draw spell this hand fizzles."
+        },
+        {
+          "hand": "Swamp, Mosswort Bridge, Woe Strider, Midnight Reaper, Vraska the Unseen, Seasons Past, Command the Dreadhorde",
+          "reason": "Only two lands; spells cost five or more and you have no ramp or early creatures."
+        },
+        {
+          "hand": "Forest, Dakmor Salvage, Barren Moor, Necrotic Ooze, Protean Hulk, Mikaeus, the Unhallowed, Triskelion",
+          "reason": "Only one coloured land; high\u2011combo pieces that you can\u2019t cast until very late."
+        }
+      ],
+      "guidelines": "Aristocrats decks need a mix of lands, ramp and cheap creatures to sacrifice. Aim for two lands plus a mana rock or mana dork and at least one creature and one payoff (e.g., Blood Artist). Hands full of expensive reanimation targets without enablers should be mulliganed."
+    },
+    "Azorius Control": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Island, Plains, Arcane Signet, Swords to Plowshares, Ponder, Brago, King Eternal, Flicker of Fate",
+          "reason": "Two lands and a signet ensure mana; removal and cantrips set up Brago and flicker synergy."
+        },
+        {
+          "hand": "Plains, Glacial Fortress, Talisman of Progress, Brainstorm, Path to Exile, Ghostly Flicker, Mulldrifter",
+          "reason": "Mana fixing plus cheap interaction and card draw; Ghostly Flicker and Mulldrifter provide value."
+        },
+        {
+          "hand": "Island, Flooded Strand, Sol Ring, Counterspell, Wall of Omens, Teferi, Time Raveler, Cloudblazer",
+          "reason": "Sol Ring accelerates into Wall of Omens and Teferi; Counterspell protects your strategy."
+        },
+        {
+          "hand": "Plains, Seachrome Coast, Mind Stone, Supreme Verdict, Propaganda, Azorius Signet, Brago, King Eternal",
+          "reason": "Double ramp (Mind Stone and Signet) gets you to board wipes and Propaganda quickly."
+        },
+        {
+          "hand": "Island, Plains, Command Tower, Azorius Signet, Smothering Tithe, Cyclonic Rift, Sakashima's Student",
+          "reason": "Three lands and a signet provide colour fixing; Smothering Tithe is ramp, and Rift is catch\u2011up."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Plains, Plains, Plains, Supreme Verdict, Sphinx's Revelation, Approach of the Second Sun, Terminus",
+          "reason": "Three Plains but no blue mana; high\u2011cost spells with no ramp make this hand unplayable."
+        },
+        {
+          "hand": "Island, Arcane Laboratory, Stasis, Blind Obedience, Propaganda, Sphere of Safety, Swords to Plowshares",
+          "reason": "A single Island and multiple stax pieces mean you won't cast most of your spells."
+        },
+        {
+          "hand": "Plains, Plains, Plains, Plains, Mana Drain, Counterspell, Force of Will",
+          "reason": "Four lands but only counters; no card draw or win conditions make this hand weak."
+        },
+        {
+          "hand": "Island, Plains, Ghostly Flicker, Ephemerate, Momentary Blink, Ghostway, Archaeomancer",
+          "reason": "Two lands but all flicker spells with no creatures to flicker; you will spin your wheels."
+        },
+        {
+          "hand": "Island, Island, Island, Mana Crypt, Sol Ring, Lotus Petal, Sensei's Divining Top",
+          "reason": "Three blue sources and plenty of artifacts but almost no white; you risk colour screw and have no spells."
+        }
+      ],
+      "guidelines": "Azorius control values two or three lands (including both colours), a mana rock and early interaction. Don\u2019t keep hands with only one coloured source or with a clump of four\u2011plus\u2011mana spells. Include at least one card draw or flicker engine to sustain resources."
+    },
+    "5-Color Goodstuff": {
+      "format": "Commander",
+      "good_keep_examples": [
+        {
+          "hand": "Command Tower, Forbidden Orchard, Arcane Signet, Farseek, Chromatic Lantern, Jodah, Weatherlight Captain, Oko, Thief of Crowns",
+          "reason": "Two five\u2011colour lands and two ramp spells (Signet and Farseek) fix your mana; Chromatic Lantern and Jodah enable five\u2011colour payoffs."
+        },
+        {
+          "hand": "City of Brass, Mana Confluence, Birds of Paradise, Nature's Lore, Cultivate, Teferi, Time Raveler, Niv\u2011Mizzet Reborn",
+          "reason": "Two rainbow lands and cheap ramp ensure you can cast multi\u2011colour threats; Niv\u2011Mizzet is a payoff."
+        },
+        {
+          "hand": "Savannah, Tropical Island, Sol Ring, Kodama's Reach, Knight of the Reliquary, Growth Spiral, Omnath, Locus of Creation",
+          "reason": "Dual lands plus Sol Ring and Kodama's Reach guarantee colour fixing; Growth Spiral and Omnath provide card advantage."
+        },
+        {
+          "hand": "Command Tower, Reflecting Pool, Bloom Tender, Arcane Signet, Migration Path, Maelstrom Wanderer, Jodah, the Unifier",
+          "reason": "Two lands that produce any colour plus two ramp spells give you a fast start; Maelstrom Wanderer and Jodah are finishers."
+        },
+        {
+          "hand": "Exotic Orchard, Spire of Industry, Chromatic Lantern, Mirari's Wake, Worldly Tutor, Swords to Plowshares, Teferi's Protection",
+          "reason": "Chromatic Lantern and Exotic Orchard fix your colours; Mirari's Wake doubles your mana; Tutor and Protection provide answers."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Plains, Plains, Plains, Swamp, Mountain, Forest, Yawgmoth's Will",
+          "reason": "Seven basics with no blue means you can't cast many of your five\u2011colour spells; there's no ramp or card draw."
+        },
+        {
+          "hand": "Command Tower, Lotus Field, Niv\u2011Mizzet, Parun, Maelstrom Wanderer, Tivit, Seller of Secrets, Zacama, Primal Calamity, Omnath, Locus of All",
+          "reason": "One land and a handful of seven\u2011plus\u2011mana spells; you will be unable to cast anything."
+        },
+        {
+          "hand": "Reflecting Pool, Exotic Orchard, Mana Confluence, Mana Confluence, Fist of Suns, Jodah, Archmage Eternal, Door to Nothingness, Maelstrom Nexus",
+          "reason": "Four lands but no ramp; your spells cost five or more and require set\u2011up."
+        },
+        {
+          "hand": "Swamp, Mountain, Forest, Blood Crypt, Stomping Ground, Steam Vents, Overgrown Tomb",
+          "reason": "All shocklands but no card draw or ramp; you are likely to take a lot of damage without developing your board."
+        },
+        {
+          "hand": "Island, Mana Confluence, Lightning Bolt, Swords to Plowshares, Path to Exile, Abrupt Decay, Assassin's Trophy",
+          "reason": "Two lands and a handful of removal spells but no ramp or threats; you'll answer threats but never progress your own game."
+        }
+      ],
+      "guidelines": "Five\u2011colour decks must prioritise colour fixing; keep hands with two sources that produce any colour plus ramp like Farseek or Signets. Avoid hands with a single land or only basic lands. Because your spells are expensive, you need early ramp and fixing to ensure you can cast them."
+    },
+    "Modern Burn": {
+      "format": "Constructed",
+      "good_keep_examples": [
+        {
+          "hand": "Mountain, Mountain, Goblin Guide, Monastery Swiftspear, Lightning Bolt, Lava Spike, Rift Bolt",
+          "reason": "Two lands and multiple one\u2011mana spells let you apply pressure immediately."
+        },
+        {
+          "hand": "Mountain, Bloodstained Mire, Lava Dart, Lightning Helix, Boros Charm, Skewer the Critics, Eidolon of the Great Revel",
+          "reason": "You have two lands, removal/burn and a two\u2011mana threat; the fetch land fixes white for Helix and Boros Charm."
+        },
+        {
+          "hand": "Mountain, Mountain, Monastery Swiftspear, Lava Spike, Searing Blaze, Skullcrack, Fireblast",
+          "reason": "You can cast two one\u2011mana burn spells on turn one and two; Fireblast is a finisher."
+        },
+        {
+          "hand": "Arid Mesa, Sacred Foundry, Lightning Bolt, Lava Spike, Light Up the Stage, Roiling Vortex, Rift Bolt",
+          "reason": "Fetch into Shockland provides white mana; Light Up the Stage refuels your hand."
+        },
+        {
+          "hand": "Mountain, Inspiring Vantage, Eidolon of the Great Revel, Lava Spike, Lightning Strike, Deflecting Palm, Searing Blaze",
+          "reason": "Two lands support two\u2011drop Eidolon and several burn spells; Deflecting Palm punishes big attackers."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Mountain, Mountain, Mountain, Lightning Bolt, Flame Rift, Boros Charm, Atarka's Command",
+          "reason": "Three lands and mostly two\u2011mana spells slow your start; you risk flooding."
+        },
+        {
+          "hand": "Mountain, Lightning Helix, Lightning Helix, Boros Charm, Skullcrack, Skullcrack, Fireblast",
+          "reason": "One land with two\u2011mana spells requires drawing a second land quickly; a risky keep."
+        },
+        {
+          "hand": "Mountain, Mountain, Mountain, Lava Spike, Shard Volley, Roiling Vortex, Sunbaked Canyon",
+          "reason": "Three lands and only one real threat; you'll flood out before killing your opponent."
+        },
+        {
+          "hand": "Mountain, Sunbaked Canyon, Inspiring Vantage, Inspiring Vantage, Lightning Helix, Searing Blaze, Shard Volley",
+          "reason": "Four lands is too many; you want two to three lands in Burn."
+        },
+        {
+          "hand": "Mountain, Fiery Islet, Wooded Foothills, Rest in Peace, Smash to Smithereens, Path to Exile, Tormod's Crypt",
+          "reason": "This hand is full of sideboard cards and not enough burn or creatures."
+        }
+      ],
+      "guidelines": "Modern Burn tends to keep hands with two to three lands and at least three spells that cost one or two mana. One\u2011land hands can be kept only if they contain multiple one\u2011drop spells and your spells cost one; hands with three or more lands or with sideboard cards belong in the mulligan pile."
+    },
+    "Modern Tron": {
+      "format": "Constructed",
+      "good_keep_examples": [
+        {
+          "hand": "Urza's Mine, Urza's Power Plant, Forest, Expedition Map, Mind Stone, Karn, the Great Creator, Ulamog, the Ceaseless Hunger",
+          "reason": "Two different Tron lands plus Map and Mind Stone give you Tron by turn three; Karn provides interaction and Ulamog is a finisher."
+        },
+        {
+          "hand": "Urza's Tower, Urza's Mine, Bonders' Enclave, Expedition Map, Sylvan Scrying, Chromatic Star, Karn Liberated",
+          "reason": "You have two Tron pieces, two tutors (Map and Scrying) and cheap fixing; Karn Liberated is a payoff."
+        },
+        {
+          "hand": "Urza's Tower, Urza's Power Plant, Forest, Ancient Stirrings, Chromatic Sphere, Wurmcoil Engine, Ulamog, the Ceaseless Hunger",
+          "reason": "Ancient Stirrings and Sphere help you find the third Tron piece; Wurmcoil bridges to Ulamog."
+        },
+        {
+          "hand": "Urza's Tower, Forest, Ugin's Labyrinth, Mind Stone, Karn, the Great Creator, Oblivion Stone, Chromatic Sphere",
+          "reason": "Mind Stone and Sphere fix your colours; Ugin's Labyrinth provides additional mana; Karn and Oblivion Stone handle threats."
+        },
+        {
+          "hand": "Urza's Power Plant, Urza's Mine, Sanctum of Ugin, Expedition Map, Sylvan Scrying, Chromatic Sphere, Ugin, the Spirit Dragon",
+          "reason": "Two Tron lands plus two tutors find the third; Ugin is a powerful payoff."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Urza's Tower, Sanctum of Ugin, Bonders' Enclave, Ulamog, the Ceaseless Hunger, Karn Liberated, All Is Dust, Ugin, the Spirit Dragon",
+          "reason": "Only one Tron land and no ways to assemble Tron; spells cost seven or more mana."
+        },
+        {
+          "hand": "Urza's Mine, Urza's Mine, Bonders' Enclave, Mind Stone, Chromatic Sphere, Expedition Map, Ulamog, the Ceaseless Hunger",
+          "reason": "Two copies of the same Tron land prevent assembling Tron quickly."
+        },
+        {
+          "hand": "Forest, Swamp, Wastes, Oblivion Stone, Oblivion Stone, Wurmcoil Engine, Ugin, the Spirit Dragon",
+          "reason": "Three off\u2011colour basics and no Tron pieces; you cannot accelerate into your threats."
+        },
+        {
+          "hand": "Forest, Forest, Forest, Forest, Mind Stone, Expedition Map, Chromatic Star",
+          "reason": "Four forests mean you\u2019re far from Tron and have no payoffs; you'll lose to other fast decks."
+        },
+        {
+          "hand": "Urza's Mine, Urza's Mine, Urza's Mine, Chromatic Sphere, Chromatic Star, Expedition Map, Walking Ballista",
+          "reason": "Triple of the same Tron land makes it nearly impossible to assemble Tron quickly; walking Ballista alone cannot win."
+        }
+      ],
+      "guidelines": "Tron hands need at least two different Urza lands or a tutor (Expedition Map, Sylvan Scrying) plus a payoff. Mulligan hands with only one Tron piece or multiple copies of the same one. Keep a mix of lands, fixing, and a high\u2011impact threat."
+    },
+    "Pioneer Mono-Black Aggro": {
+      "format": "Constructed",
+      "good_keep_examples": [
+        {
+          "hand": "Swamp, Mutavault, Thoughtseize, Gifted Aetherborn, Graveyard Trespasser, Fatal Push, Castle Locthwain",
+          "reason": "Two lands (one being Mutavault) enable early discard and removal; Aetherborn and Trespasser put pressure."
+        },
+        {
+          "hand": "Swamp, Swamp, Forsaken Miner, Knight of the Ebon Legion, Murderous Rider, Liliana of the Veil, Duress",
+          "reason": "Two swamps support your early one\u2011drops and removal; Liliana provides mid\u2011game value."
+        },
+        {
+          "hand": "Swamp, Swamp, Thoughtseize, Go for the Throat, Graveyard Trespasser, Blade of the Oni, Castle Locthwain",
+          "reason": "Discard, removal and a threat make for a balanced opener."
+        },
+        {
+          "hand": "Swamp, Swamp, Gifted Aetherborn, Fatal Push, Graveyard Trespasser, Invoke Despair, Field of Ruin",
+          "reason": "Early removal and lifelink to stabilise; Invoke Despair provides reach."
+        },
+        {
+          "hand": "Swamp, Castle Locthwain, Mutavault, Inti, Seneschal of the Sun, Graveyard Trespasser, Duress, Fatal Push",
+          "reason": "Three lands including a utility land support early interaction and Inti sets up aggressive draws."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Mutavault, Field of Ruin, Urborg, Tomb of Yawgmoth, Invoke Despair, Invoke Despair, Liliana of the Veil, Sheoldred, the Apocalypse",
+          "reason": "Only colourless lands and expensive spells; you cannot cast anything before turn four."
+        },
+        {
+          "hand": "Swamp, Swamp, Swamp, Swamp, Duress, Go for the Throat, Fatal Push",
+          "reason": "Four lands and only disruption; you risk drawing too many lands and not enough threats."
+        },
+        {
+          "hand": "Swamp, Thoughtseize, Thoughtseize, Duress, Go for the Throat, Fatal Push, Liliana of the Veil",
+          "reason": "One land with four discard/removal spells requires drawing multiple lands; a risky keep."
+        },
+        {
+          "hand": "Mutavault, Castle Locthwain, Mutavault, Swamp, Sheoldred, the Apocalypse, Invoke Despair, Blade of the Oni",
+          "reason": "Only one black source among four lands; double\u2011black spells will be hard to cast."
+        },
+        {
+          "hand": "Swamp, Field of Ruin, Field of Ruin, Graveyard Trespasser, Graveyard Trespasser, Graveyard Trespasser, Graveyard Trespasser",
+          "reason": "Only one black source and four copies of the same three\u2011drop; you need diversity and mana fixing."
+        }
+      ],
+      "guidelines": "Pioneer mono\u2011black wants two to three black sources and at least one early creature or discard spell. Avoid hands with colourless lands and no swamps. One\u2011land hands with multiple discard spells are risky; prioritize hands that curve out from one to three mana."
+    },
+    "Legacy Delver": {
+      "format": "Constructed",
+      "good_keep_examples": [
+        {
+          "hand": "Volcanic Island, Wasteland, Delver of Secrets, Brainstorm, Lightning Bolt, Daze, Ponder",
+          "reason": "Two lands with access to both colours, a cheap threat, a cantrip, a removal spell and a free counterspell."
+        },
+        {
+          "hand": "Flooded Strand, Volcanic Island, Dragon's Rage Channeler, Expressive Iteration, Force of Will, Murktide Regent, Lightning Bolt",
+          "reason": "Fetchland plus Volcanic ensures both colours; Channeler and Iteration build card advantage and Force/Murktide provide power."
+        },
+        {
+          "hand": "Mystic Sanctuary, Island, Delver of Secrets, Brainstorm, Spell Pierce, Lightning Bolt, Mishra's Bauble",
+          "reason": "The sanctuary plus Island yield blue mana; you have a threat, a removal spell and a cantrip."
+        },
+        {
+          "hand": "Wasteland, Volcanic Island, Ragavan, Nimble Pilferer, Ponder, Force of Will, Lightning Bolt",
+          "reason": "You can deploy Ragavan and disrupt with Force; Wasteland pressures opponent\u2019s mana."
+        },
+        {
+          "hand": "Arid Mesa, Scalding Tarn, Delver of Secrets, Brainstorm, Murktide Regent, Daze, Expressive Iteration",
+          "reason": "Fetchlands find your duals; Delver and Daze apply early pressure; Iteration and Murktide provide late\u2011game strength."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Mystic Sanctuary, Wasteland, Wasteland, Murktide Regent, Murktide Regent, Daze, Force of Will",
+          "reason": "Only one source of coloured mana (Mystic Sanctuary) and too many five\u2011mana threats."
+        },
+        {
+          "hand": "Island, Island, Island, Brainstorm, Ponder, Ponder, Expressive Iteration",
+          "reason": "Three lands and all cantrips but no threats or interaction; you risk drawing more lands and falling behind."
+        },
+        {
+          "hand": "Volcanic Island, Wasteland, Daze, Force of Will, Spell Pierce, Lightning Bolt, Consider",
+          "reason": "No creature to pressure the opponent; all interaction and no clock."
+        },
+        {
+          "hand": "Volcanic Island, Volcanic Island, Chain Lightning, Lightning Bolt, Lightning Bolt, Lightning Bolt, Pyroblast",
+          "reason": "Too many burn spells and no blue source; you may not cast Pyroblast and have no cantrips."
+        },
+        {
+          "hand": "Volcanic Island, Arid Mesa, Flooded Strand, Ponder, Preordain, Brainstorm, Consider",
+          "reason": "Three lands and only cantrips; you may spin your wheels without a threat or disruption."
+        }
+      ],
+      "guidelines": "Delver decks aim for two lands (ideally a fetchland + dual), a cheap threat (Delver/Ragavan), and a cantrip or counterspell. One\u2011land hands are keepable only with cantrip plus free countermagic. Avoid hands full of spells but no threats or hands with too many expensive cards."
+    },
+    "Standard Midrange": {
+      "format": "Constructed",
+      "good_keep_examples": [
+        {
+          "hand": "Swamp, Mountain, Bloodletter of Aclazotz, Inti, Seneschal of the Sun, Bitter Triumph, The End, Suplex",
+          "reason": "Two lands and both colours; you have an early threat, removal and a mid\u2011game payoff."
+        },
+        {
+          "hand": "Swamp, Blazemire Verge, Fear of Missing Out, Cecil, Dark Knight, Bitter Triumph, Fire Magic, Suplex",
+          "reason": "Mana fixing plus a mix of removal and creatures; Cecil and Fire Magic provide value."
+        },
+        {
+          "hand": "Swamp, Blazemire Verge, Qarsi Revenant, The End, Fire Magic, Blackcleave Cliffs, Summon: Brynhildr",
+          "reason": "Three lands (one in spell form) ensure you hit your curve; removal and a strong creature make for a solid hand."
+        },
+        {
+          "hand": "Mountain, Blazemire Verge, Bitter Triumph, The End, Inti, Seneschal of the Sun, Fire Magic, Suplex",
+          "reason": "Two lands plus Inti and removal allow you to develop on curve."
+        },
+        {
+          "hand": "Swamp, Swamp, Bloodletter of Aclazotz, Inti, Seneschal of the Sun, Bitter Triumph, Fire Magic, Fear of Missing Out",
+          "reason": "Two lands and two early threats; removal and card advantage spells help control the mid\u2011game."
+        }
+      ],
+      "bad_keep_examples": [
+        {
+          "hand": "Swamp, Cecil, Dark Knight, Fear of Missing Out, Inti, Seneschal of the Sun, Qarsi Revenant, Fire Magic, Suplex",
+          "reason": "Only one land and several three\u2011drops make the hand too slow."
+        },
+        {
+          "hand": "Swamp, Swamp, Swamp, Swamp, Bitter Triumph, The End, Fear of Missing Out, Fear of Missing Out",
+          "reason": "Four lands and only removal/draw spells; you may flood and never apply pressure."
+        },
+        {
+          "hand": "Blazemire Verge, Sulfurous Springs, Soulstone Sanctuary, Cecil, Dark Knight, Fear of Missing Out, Fire Magic, Bitter Triumph",
+          "reason": "Two lands but most spells cost three or more; Soulstone Sanctuary is not helpful early."
+        },
+        {
+          "hand": "Swamp, Mountain, Blazemire Verge, Inti, Seneschal of the Sun, Inti, Seneschal of the Sun, Bloodletter of Aclazotz, Fear of Missing Out",
+          "reason": "Three lands but multiple copies of Inti and no removal; you may get stuck if Inti dies."
+        },
+        {
+          "hand": "Swamp, Swamp, Swamp, Suplex, Suplex, Fire Magic, Fire Magic, Fear of Missing Out",
+          "reason": "Three lands and many expensive spells; you lack early plays."
+        }
+      ],
+      "guidelines": "Midrange decks want two to three lands and a mix of cheap removal and creatures. Hands with only one land should be mulled unless you have card draw to find more; hands with four lands risk flooding. Ensure you have both colours if playing two\u2011colour decks and at least one removal spell or threat."
+    }
+  },
+  "consistency_metrics": [
+    {
+      "metric_name": "Redundancy",
+      "definition": "Number of cards providing similar effects or roles (ramp, burn, cantrips, sacrifice outlets, etc.). High redundancy improves consistency because you are more likely to draw the function you need.",
+      "example_value": {
+        "Mono-Green Ramp": 12,
+        "Mono-Red Aggro": 8,
+        "Izzet Spellslinger": 15,
+        "Golgari Aristocrats": 15,
+        "Azorius Control": 10,
+        "5-Color Goodstuff": 12,
+        "Modern Burn": 30,
+        "Modern Tron": 8,
+        "Pioneer Mono-Black Aggro": 15,
+        "Legacy Delver": 10,
+        "Standard Midrange": 12
+      }
+    },
+    {
+      "metric_name": "Density",
+      "definition": "Percentage of the deck devoted to the deck\u2019s main game plan or theme. Calculated as (number of theme cards) \u00f7 (deck size). Higher densities mean your deck is more focused.",
+      "example_value": {
+        "Mono-Green Ramp": 0.49,
+        "Mono-Red Aggro": 0.4,
+        "Izzet Spellslinger": 0.3,
+        "Golgari Aristocrats": 0.3,
+        "Azorius Control": 0.3,
+        "5-Color Goodstuff": 0.4,
+        "Modern Burn": 0.6,
+        "Modern Tron": 0.3,
+        "Pioneer Mono-Black Aggro": 0.42,
+        "Legacy Delver": 0.55,
+        "Standard Midrange": 0.5
+      }
+    },
+    {
+      "metric_name": "Threat/Answer Ratio",
+      "definition": "Number of threat cards (creatures, win conditions or burn spells) divided by the number of answer cards (removal, counterspells). A higher ratio implies a more aggressive plan while a lower ratio indicates a control strategy.",
+      "example_value": {
+        "Mono-Green Ramp": 2.0,
+        "Mono-Red Aggro": 5.0,
+        "Izzet Spellslinger": 1.0,
+        "Golgari Aristocrats": 1.67,
+        "Azorius Control": 0.67,
+        "5-Color Goodstuff": 1.25,
+        "Modern Burn": 7.5,
+        "Modern Tron": 1.67,
+        "Pioneer Mono-Black Aggro": 1.88,
+        "Legacy Delver": 0.87,
+        "Standard Midrange": 1.5
+      }
+    }
+  ]
+}

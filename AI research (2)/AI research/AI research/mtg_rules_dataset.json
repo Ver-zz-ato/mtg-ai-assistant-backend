@@ -1,0 +1,696 @@
+[
+  {
+    "topic": "Life Total State-Based Action",
+    "rule_reference": "CR 704.5a; CR 119.6",
+    "plain_explanation": "If a player\u2019s life total is 0 or less, they lose the game as a state-based action.",
+    "example": "If your life total drops to 0 after combat damage, you lose the game immediately before any player receives priority.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy example"
+    ]
+  },
+  {
+    "topic": "Empty Library State-Based Action",
+    "rule_reference": "CR 704.5b",
+    "plain_explanation": "A player loses the game as a state\u2011based action if they attempt to draw a card from an empty library.",
+    "example": "If you try to draw a card while your library has no cards, you lose the game before any triggers resolve.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Creature with Lethal Damage",
+    "rule_reference": "CR 704.5g; CR 120.3e",
+    "plain_explanation": "A creature with lethal damage marked on it is put into its owner\u2019s graveyard as a state-based action. Lethal damage is damage greater than or equal to its toughness, taking other damage already marked into account.",
+    "example": "Your 3/3 creature is dealt 3 damage by Lightning Bolt; state-based actions put it into the graveyard before you get priority.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 lethal damage questions"
+    ]
+  },
+  {
+    "topic": "Creature with 0 or Less Toughness",
+    "rule_reference": "CR 704.5f",
+    "plain_explanation": "A creature with 0 or less toughness is put into its owner\u2019s graveyard as a state\u2011based action.",
+    "example": "If an opponent casts a spell that gives your 2/2 \u22123/\u22123 until end of turn, its toughness becomes \u22121 and it is put into your graveyard immediately.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Planeswalker with 0 Loyalty Counters",
+    "rule_reference": "CR 704.5i",
+    "plain_explanation": "A planeswalker with no loyalty counters is put into its owner\u2019s graveyard as a state\u2011based action.",
+    "example": "Your opponent activates Liliana of the Veil\u2019s \u22122 ability. When she has 0 loyalty counters, she is put into the graveyard before any player receives priority.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Battle with 0 Defense Counters",
+    "rule_reference": "CR 704.5s",
+    "plain_explanation": "A battle with no defense counters is put into its owner\u2019s graveyard as a state\u2011based action.",
+    "example": "After you deal 7 combat damage to an Invasion of Gobakhan, all defense counters are removed. It is put into the graveyard before the spell's back face can be cast.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Legend Rule",
+    "rule_reference": "CR 704.5j",
+    "plain_explanation": "If a player controls two or more legendary permanents with the same name, that player chooses one to keep and puts the rest into the graveyard as a state\u2011based action.",
+    "example": "You control two copies of Thalia, Guardian of Thraben. You must choose one to remain; the other goes to the graveyard before anyone can respond.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "World Rule",
+    "rule_reference": "CR 704.5k",
+    "plain_explanation": "If two or more permanents with the supertype world are on the battlefield, all but the most recent are put into their owners\u2019 graveyards as a state\u2011based action.",
+    "example": "If you cast Concordant Crossroads and later play The Tabernacle at Pendrell Vale (both world enchantments), the older world enchantment is put into the graveyard immediately.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Unattached Aura",
+    "rule_reference": "CR 704.5m",
+    "plain_explanation": "If an Aura is attached to an illegal object or player, the Aura is put into its owner\u2019s graveyard as a state\u2011based action.",
+    "example": "If a creature enchanted by Pacifism gains protection from white, Pacifism becomes illegal and is put into the graveyard without using the stack.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 Aura interactions"
+    ]
+  },
+  {
+    "topic": "Unattached Equipment",
+    "rule_reference": "CR 704.5n",
+    "plain_explanation": "An Equipment attached to an illegal creature becomes unattached and remains on the battlefield.",
+    "example": "If your opponent steals your equipped creature, the Equipment stays under your control but is no longer attached.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Commanders and the Command Zone",
+    "rule_reference": "CR 903.9a",
+    "plain_explanation": "If a commander would move to the graveyard or exile from anywhere, its owner may choose to put it into the command zone instead. This is a replacement effect.",
+    "example": "Your commander is destroyed by Doom Blade. Before it goes to the graveyard, you may move it to the command zone so it doesn\u2019t trigger graveyard\u2011specific abilities that reference it remaining there.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Commander Tax",
+    "rule_reference": "CR 903.8",
+    "plain_explanation": "Each time you cast your commander from the command zone after the first time, you must pay an additional 2 colorless mana for each previous time you\u2019ve cast that commander from the command zone.",
+    "example": "If you cast Gisela, the Broken Blade from the command zone twice in a game, the third time costs its normal mana cost plus 4 additional mana.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Control Change Ends",
+    "rule_reference": "CR 610.1",
+    "plain_explanation": "When a one\u2011shot or continuous control\u2011changing effect ends, control of the permanent reverts to the previous controller.",
+    "example": "You cast Act of Treason to gain control of your opponent\u2019s creature. If it later becomes enchanted by your Control Magic and Control Magic is destroyed, the creature returns to its original owner when the Control Magic effect ends.",
+    "sources": [
+      "Comprehensive Rules",
+      "Gatherer ruling on Control Magic"
+    ]
+  },
+  {
+    "topic": "Multiple Control-Change Effects",
+    "rule_reference": "CR 613.7b",
+    "plain_explanation": "If multiple continuous control\u2011changing effects apply, the one with the most recent timestamp takes precedence. Earlier effects still exist and will apply again if the later effect ends.",
+    "example": "Your opponent steals your creature with Mind Control; later you gain control of it with Homeward Path. Homeward Path has the later timestamp, so you control the creature. If Homeward Path\u2019s effect ends, control reverts to your opponent because Mind Control\u2019s effect is still active.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy example"
+    ]
+  },
+  {
+    "topic": "Exchange Control Effects",
+    "rule_reference": "CR 610.3a",
+    "plain_explanation": "A control\u2011exchange effect lasts as long as both permanents remain on the battlefield. If either leaves, the exchange ends and the permanents revert to their previous controllers.",
+    "example": "Exchanging control of two creatures with Shifty Doppelganger will end when one of them leaves the battlefield, and both creatures return to their owners\u2019 control.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 exchange control interactions"
+    ]
+  },
+  {
+    "topic": "Continuous Effect Duration",
+    "rule_reference": "CR 611.2a",
+    "plain_explanation": "A continuous effect from a spell or ability lasts as long as stated by the spell or ability. If no duration is specified, it lasts until the end of the game.",
+    "example": "Giant Growth gives a creature +3/+3 until end of turn. The bonus stops during the cleanup step. In contrast, Mind Control has no duration and lasts indefinitely until the enchantment leaves the battlefield.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Replacement vs. Prevention Effects",
+    "rule_reference": "CR 614; CR 615",
+    "plain_explanation": "Replacement effects modify or replace events (e.g., \u201cIf X would happen, Y happens instead\u201d). Prevention effects prevent damage that would be dealt (e.g., \u201cIf damage would be dealt, prevent it\u201d). Replacement effects apply before prevention effects.",
+    "example": "If you control Circle of Protection: Red (prevent damage) and Urabrask\u2019s Forge (replacement: replace damage with tokens), the replacement effect is applied first, then prevention effects apply to the resulting damage.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Choosing Among Multiple Replacement Effects",
+    "rule_reference": "CR 616.1",
+    "plain_explanation": "If two or more replacement or prevention effects could modify the same event, the affected player or the controller of the affected object chooses one to apply; then check whether other replacement effects still apply.",
+    "example": "You control both Boon Reflection (double life gain) and Sulfuric Vortex (no life gain). When you would gain 3 life, you must choose which replacement effect applies. If you choose Sulfuric Vortex\u2019s replacement, you gain no life and Boon Reflection doesn\u2019t apply.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Draw Replacement Effects",
+    "rule_reference": "CR 616.1g; CR 614.1",
+    "plain_explanation": "When multiple effects attempt to replace a card draw, apply one at a time. A replacement effect that modifies how many cards are drawn applies before those that perform actions on the drawn card.",
+    "example": "If you control both Notion Thief (replacement: your opponents draw no cards and you draw instead) and Alhammarret\u2019s Archive (replacement: draw extra cards), Notion Thief\u2019s replacement applies first so your opponent draws no cards and you draw one instead. Then Alhammarret\u2019s Archive sees you drawing a card and doubles your draw.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 replacement effect questions"
+    ]
+  },
+  {
+    "topic": "State-Based Actions and Commanders Leaving the Battlefield",
+    "rule_reference": "CR 903.9a; CR 704.5",
+    "plain_explanation": "When a commander would die or be exiled, its owner may apply a replacement effect to move it to the command zone instead. State\u2011based actions are checked after this replacement, and any \u201cdies\u201d triggers still see it leaving the battlefield.",
+    "example": "If your commander with a death trigger (\u201cwhenever this creature dies\u2026\u201d) is destroyed, you may move it to the command zone. The death trigger still triggers because it left the battlefield.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Layers Overview",
+    "rule_reference": "CR 613.1",
+    "plain_explanation": "Continuous effects that change characteristics of objects are applied in a specific order called layers: (1) copy effects, (2) control\u2011changing effects, (3) text\u2011changing effects, (4) type\u2011changing effects, (5) color\u2011changing effects, (6) ability adding/removing effects, and (7) power/toughness\u2013changing effects.",
+    "example": "When Blood Moon (type\u2011changing effect) and Prismatic Omen (color\u2011changing effect) both affect your Steam Vents, Blood Moon\u2019s type\u2011changing effect applies before Prismatic Omen\u2019s color\u2011changing effect. Steam Vents becomes a basic Mountain with no other types and still remains red.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy articles"
+    ]
+  },
+  {
+    "topic": "Timestamp Order and Layers",
+    "rule_reference": "CR 613.7",
+    "plain_explanation": "Within the same layer or sublayer, if multiple continuous effects apply, they are applied in order of their timestamp (the time they began to apply), with the newest effect applying last and \u2018overwriting\u2019 conflicting earlier effects.",
+    "example": "You control Humility (creatures are 1/1 and lose abilities) and Glorious Anthem (creatures you control get +1/+1). Because Humility\u2019s effect removes abilities (Layer 6) and sets power/toughness (Layer 7b) and Glorious Anthem\u2019s effect modifies power/toughness (Layer 7c), both apply in Layer 7. The one with the later timestamp applies last, determining final power/toughness.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Dependency in Layers",
+    "rule_reference": "CR 613.8",
+    "plain_explanation": "Sometimes an effect depends on another (for example, one effect changes the text of a card so that another effect applies). Dependent effects are applied after the effects they depend on, even if they have earlier timestamps.",
+    "example": "Painter\u2019s Servant names blue. Blood Moon makes nonbasic lands Mountains. Painter\u2019s Servant depends on Blood Moon because its effect makes lands a color; apply Blood Moon first, turning nonbasic lands into Mountains, then Painter\u2019s Servant makes them blue Mountains.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Base Power/Toughness Effects vs. Modifiers",
+    "rule_reference": "CR 613.3b; 613.3c",
+    "plain_explanation": "Effects that set a creature\u2019s power and toughness to specific values apply in Layer 7b, before modifiers such as counters (Layer 7d) and boosting effects (Layer 7c).",
+    "example": "Lignify turns a creature into a 0/4 Treefolk. If it also has two +1/+1 counters, its final power/toughness is 2/6, because the 0/4 base is applied in 7b and counters are applied in 7d.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Copy Effects in Layers",
+    "rule_reference": "CR 613.1a; CR 707",
+    "plain_explanation": "Copy effects are applied first in the layer system. When something becomes a copy of another object, it copies only the copiable values of the source and then other layers apply.",
+    "example": "If you cast Clone copying a mutated creature, Clone copies the entire merged creature\u2019s copiable values (including any effects from mutate). Later effects like Giant Growth modify the copy after the copying effect.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 copying mutated creatures"
+    ]
+  },
+  {
+    "topic": "Control-Changing Effects in Layers",
+    "rule_reference": "CR 613.2",
+    "plain_explanation": "Control\u2011changing effects are applied after copy effects but before text\u2011changing effects. They determine who controls an object for the remainder of the layer calculation.",
+    "example": "You control an opponent\u2019s enchantment via Confiscate and then copy it with Copy Enchantment. The copy effect applies in Layer 1, but the control\u2011changing effect (Confiscate) applies in Layer 2, so you still control the copy.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Type\u2011Changing Effects in Layers",
+    "rule_reference": "CR 613.3a",
+    "plain_explanation": "Type\u2011changing effects are applied in Layer 4. They can make an object a different card type, supertype, or subtype.",
+    "example": "With Blood Moon on the battlefield, Urborg, Tomb of Yawgmoth becomes a Mountain with no abilities. If you then apply a later effect like Deserts Are Useless (an enchantment that turns all Mountains into Deserts), the newer effect applies last, leaving Urborg as a Desert Mountain.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Color\u2011Changing Effects in Layers",
+    "rule_reference": "CR 613.4",
+    "plain_explanation": "Color\u2011changing effects are applied in Layer 5, after type\u2011changing effects.",
+    "example": "Prismatic Omen makes your lands all basic land types but doesn\u2019t change their colors. If Painter\u2019s Servant names green, it applies after type\u2011changing effects and makes all your lands green as well.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Ability Adding/Removing Effects",
+    "rule_reference": "CR 613.5; 613.6",
+    "plain_explanation": "Effects that add or remove abilities are applied in Layer 6. Effects that say a permanent can\u2019t have an ability remove it and prevent it from being given that ability.",
+    "example": "Humility says creatures are 1/1 and lose all abilities. If you then enchant a creature with Rancor, Rancor tries to grant trample, but Humility\u2019s effect prevents it. Once Humility leaves the battlefield, Rancor\u2019s ability is applied and the creature gains trample.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Power/Toughness Modifying Effects",
+    "rule_reference": "CR 613.7",
+    "plain_explanation": "Power/toughness\u2011changing effects are applied last in the layer system. Sub\u2011layer 7b sets base values, 7c modifies them (such as +X/+Y effects), 7d applies counters and static or conditional modifications.",
+    "example": "If your creature is enchanted by Ephara\u2019s Radiance (+1/+2) and has two \u22121/\u22121 counters, you apply base power and toughness effects first, then the +1/+2, then subtract 2 from both power and toughness.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Mutate Casting and Targeting",
+    "rule_reference": "CR 702.139a; CR 112.2",
+    "plain_explanation": "To cast a creature spell for its mutate cost, you target a non\u2011Human creature you own. The spell\u2019s controller must own the target; you can\u2019t mutate a creature you stole from an opponent.",
+    "example": "You control Robber of the Rich and have exiled your opponent\u2019s Chittering Harvester. Even though you control it, you don\u2019t own it, so you can\u2019t target your own Human or non\u2011Human creatures with it because the mutate ability specifies a non\u2011Human creature you own.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 mutate and ownership interaction"
+    ]
+  },
+  {
+    "topic": "Mutate Resolution and Merging",
+    "rule_reference": "CR 702.139c-e",
+    "plain_explanation": "When a mutating creature spell resolves, if its target is still legal, it merges with the target instead of entering the battlefield. You choose to put the new card above or below the target; the merged creature has the characteristics of the topmost card plus all abilities of cards underneath.",
+    "example": "You cast Gemrazer targeting your Cubwarden. When it resolves, you place Gemrazer on top. The resulting creature has Gemrazer\u2019s power/toughness (4/4) and both creatures\u2019 abilities (reach, trample, and mutate, plus lifelink and the ability to create tokens).",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Mutate and Leaving the Battlefield",
+    "rule_reference": "CR 702.139e",
+    "plain_explanation": "If a merged permanent leaves the battlefield, all cards that were merged separate. They return to their owner\u2019s zone (graveyard, hand, or exile) as independent objects.",
+    "example": "Your mutated creature made of Parcelbeast over a Llanowar Elves is bounced by Into the Roil. Both cards return to their owner\u2019s hand as separate cards.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Mutate Triggered Abilities",
+    "rule_reference": "CR 702.139d",
+    "plain_explanation": "An ability that triggers when a creature mutates triggers whenever a spell merges with a creature as a result of a mutate resolution, regardless of whether the ability is from the topmost or underlying card.",
+    "example": "Whenever Parcelbeast mutates, look at the top card of your library and you may put it into your hand. This triggers both when Parcelbeast is on top and when it is under another creature that mutates.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Mutate and Copying",
+    "rule_reference": "CR 702.139g; CR 707.9",
+    "plain_explanation": "When copying a merged creature, the copy copies the merged object\u2019s entire copiable values, including the effects of all mutating cards. The copy is not considered merged and therefore becomes a single creature.",
+    "example": "If you Clone a creature formed by mutating Brokkos, Apex of Forever over Cloudpiercer, the Clone copies the merged creature\u2019s power and abilities (6/6 trample and reach). The Clone does not contain multiple cards; it\u2019s a single card with those characteristics.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Cascade Process",
+    "rule_reference": "CR 702.99a-d",
+    "plain_explanation": "Cascade is a triggered ability that resolves when you cast the spell, not when it resolves. You exile cards from the top of your library until you reveal a nonland card with lesser mana value; you may cast that card without paying its mana cost. Put the exiled cards on the bottom in a random order.",
+    "example": "You cast Violent Outburst (mana value 3) with cascade. You reveal cards until you reveal Shardless Agent (mana value 3). Because the revealed card\u2019s mana value is not less, you cannot cast it and you put all revealed cards on the bottom in a random order.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy articles"
+    ]
+  },
+  {
+    "topic": "Cascade and Split Cards",
+    "rule_reference": "CR 708.5; CR 709.2",
+    "plain_explanation": "When determining if a split card can be cast via cascade, use the mana value of the half you cast. For effects that look at a card in a library or exile, the split card\u2019s mana value is the sum of both halves.",
+    "example": "If you cascade into Beck//Call (mana values 2 and 6), you may cast Beck because its mana value is 2, which is less than the cascade spell\u2019s mana value. You cannot cast Call via cascade because its mana value is 6.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Cascade and Adventure Cards",
+    "rule_reference": "CR 715.3",
+    "plain_explanation": "When an adventure card is exiled by cascade, you may cast either its creature face or its adventure face as long as its mana value is less than the cascade threshold. An adventure spell cast this way resolves, then the card goes to exile, and you may later cast the creature from exile.",
+    "example": "You cast Bloodbraid Elf (mana value 4) and cascade into Bonecrusher Giant. Because Stomp has mana value 2, you may cast Stomp without paying its cost. After Stomp resolves, Bonecrusher Giant goes to exile and you may later cast the creature side from exile.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Storm Keyword",
+    "rule_reference": "CR 702.39a-d",
+    "plain_explanation": "Storm is a triggered ability that copies a spell for each other spell cast before it during the turn. The copies aren\u2019t cast, so they can\u2019t be countered by spells that counter spells unless they specifically say they counter copies.",
+    "example": "You cast Grapeshot (storm). Four other spells have been cast this turn, so storm creates four copies of Grapeshot. Each copy can target any legal target and resolves separately. A card like Disallow can counter one copy because it counters any spell or ability, but Counterspell cannot counter the copies.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Storm Count and Copies",
+    "rule_reference": "CR 702.39c",
+    "plain_explanation": "Storm counts the number of spells cast before the storm spell this turn. Copies of spells do not count as spells cast and do not add to the storm count.",
+    "example": "If you cast Empty the Warrens (storm) and previously replicated a spell with Replicate, the replicated copies don\u2019t count toward the storm count because they weren\u2019t cast.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Phasing and Control Changes",
+    "rule_reference": "CR 702.25a-e; CR 611.2b",
+    "plain_explanation": "Phasing is a static ability modifying the untap step. Permanents phase out under the control of whoever controlled them when they phased out and phase in under the same player\u2019s control. If a continuous control effect expires while a permanent is phased out, control reverts to the previous controller when it phases in.",
+    "example": "You cast Threaten to gain control of an opponent\u2019s creature, then phase it out with Reality Ripple. Because Threaten\u2019s effect ends at the end of your turn, when the creature phases back in, your opponent controls it again. This is discussed in a Stack Exchange ruling\u3010963261533319375\u2020L209-L229\u3011.",
+    "sources": [
+      "Comprehensive Rules",
+      "Stack Exchange \u2013 Stealing and Phasing"
+    ]
+  },
+  {
+    "topic": "Phasing Does Not Trigger Zone Change Abilities",
+    "rule_reference": "CR 702.25d",
+    "plain_explanation": "Phasing doesn\u2019t cause permanents to change zones. Permanents that phase out remain in the battlefield zone; they\u2019re just treated as though they don\u2019t exist. Therefore zone\u2011change triggers (such as \u201cwhen this leaves the battlefield\u201d) don\u2019t trigger when a permanent phases out or in.",
+    "example": "If you phase out your Soul Warden, it phases back in without triggering its own \u201cwhen a creature enters the battlefield\u201d ability or any \u201cwhen this creature leaves the battlefield\u201d abilities because phasing is not a zone change.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Ward Keyword",
+    "rule_reference": "CR 702.121",
+    "plain_explanation": "Ward is a triggered ability. When a permanent or player with ward becomes the target of a spell or ability an opponent controls, ward triggers. If the opponent doesn\u2019t pay the ward cost, the spell or ability is countered.",
+    "example": "Your opponent casts Lightning Bolt targeting your creature with ward 2. Ward triggers, and unless they pay 2, Lightning Bolt is countered. The payment occurs on resolution of the ward trigger, not when the spell is cast.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Protection Ability",
+    "rule_reference": "CR 702.16",
+    "plain_explanation": "Protection from a quality prevents damage from sources with that quality, prevents the enchanted or equipped permanent from being enchanted or equipped by objects with that quality, prevents targeting by those sources, and prevents them from blocking or being blocked by those sources.",
+    "example": "A creature with protection from red cannot be targeted by red spells like Lightning Bolt, cannot be enchanted by red Auras, cannot be blocked by red creatures, and any damage from red sources to it is prevented.",
+    "sources": [
+      "Comprehensive Rules",
+      "Gatherer rulings"
+    ]
+  },
+  {
+    "topic": "Hexproof vs. Shroud",
+    "rule_reference": "CR 702.11; CR 702.18",
+    "plain_explanation": "Hexproof means a permanent or player can\u2019t be targeted by spells or abilities opponents control. Shroud means the permanent or player can\u2019t be targeted by any spell or ability, including their own.",
+    "example": "You can cast an Aura on your own creature with hexproof because you control the Aura. You can\u2019t cast an Aura on your own creature with shroud because shroud prohibits it from being targeted by any spells.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Indestructible vs. Lethal Damage",
+    "rule_reference": "CR 702.12",
+    "plain_explanation": "A permanent with indestructible can\u2019t be destroyed by damage or effects that say \u201cdestroy.\u201d However, state\u2011based actions still apply; if such a permanent has 0 toughness or receives damage from a source with deathtouch, it\u2019s put into a graveyard.",
+    "example": "Darksteel Colossus (indestructible) survives Doom Blade, which would destroy it, but if it becomes 0/0 due to Lignify and loses all abilities, it is put into the graveyard as a state\u2011based action despite being indestructible.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Adventure Cards \u2013 Casting and Exile",
+    "rule_reference": "CR 715.3; CR 715.4",
+    "plain_explanation": "When you cast the adventure half of an adventure card, the card goes to exile upon resolution. If it remains in exile, you may then cast the creature half from exile. Casting the creature from exile still counts as casting it from exile for abilities like cascade.",
+    "example": "You cast Stomp (the adventure half of Bonecrusher Giant). Stomp resolves and Bonecrusher Giant is exiled. Later, you may cast the creature from exile as if it were in your hand.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Split Cards \u2013 Mana Value and Casting",
+    "rule_reference": "CR 709.1; CR 709.4",
+    "plain_explanation": "Split cards have two halves. In zones other than the stack, the card\u2019s mana value is the sum of both halves. On the stack, the mana value and characteristics of the spell are those of the half you cast.",
+    "example": "Fire // Ice has mana values 2 and 2. In your library, its mana value is 4 for effects like cascade. When you cast Fire, the spell has mana value 2 and deals 2 damage divided as you choose.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Double\u2011Faced Cards Transforming",
+    "rule_reference": "CR 712.6a; CR 711.4",
+    "plain_explanation": "Transforming a double\u2011faced permanent doesn\u2019t cause it to leave or enter the battlefield. It remains the same object with the same counters, attachments, and tapped status. Continuous effects and damage marked on it remain.",
+    "example": "When Delver of Secrets transforms into Insectile Aberration, it stays tapped if it was tapped, keeps any counters, and remains enchanted or equipped.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Double\u2011Faced Cards and Color Identity",
+    "rule_reference": "CR 903.4g",
+    "plain_explanation": "For Commander, the color identity of a double\u2011faced card is the colors of both faces. You may only include cards whose color identity is within your commander\u2019s identity.",
+    "example": "Thing in the Ice // Awoken Horror has color identity blue because neither face has colored mana symbols other than blue. Westvale Abbey // Ormendahl, Profane Prince has color identity black and white even though the front face is only black, due to white mana symbols in the back face\u2019s cost.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Meld Cards \u2013 Merging and Unmerging",
+    "rule_reference": "CR 712.1; CR 712.4",
+    "plain_explanation": "Meld cards are two separate cards that can combine to form a single oversized card. When they meld, they become one object with the characteristics on the melded face. If the melded permanent leaves the battlefield, both cards are turned over and go to the appropriate zone separately.",
+    "example": "Bruna, the Fading Light and Gisela, the Broken Blade meld into Brisela, Voice of Nightmares. If Brisela dies, both Bruna and Gisela are put into the graveyard separately.",
+    "sources": [
+      "Comprehensive Rules",
+      "MTG Wiki \u2013 Meld"
+    ]
+  },
+  {
+    "topic": "Meld vs. Copy Effects",
+    "rule_reference": "CR 712.4c",
+    "plain_explanation": "If a melded permanent is copied, the copy has the characteristics of the melded face but is a single card. If the copy leaves the battlefield, it doesn\u2019t split into two cards.",
+    "example": "If you Clone a Brisela, Voice of Nightmares, the Clone becomes a single creature with 9/10 power/toughness and the melded face\u2019s abilities. If the Clone dies, it goes to the graveyard as one card and does not split into Bruna and Gisela.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Copying Adventure Cards",
+    "rule_reference": "CR 707.9b; CR 715.7",
+    "plain_explanation": "When copying an adventure card that\u2019s on the stack, you copy only what is on the stack (creature or adventure). The copy is not both halves, and casting the copy doesn\u2019t allow you to cast the other half.",
+    "example": "If you copy Stomp (the adventure half of Bonecrusher Giant), the copy is a spell named Stomp and deals 2 damage to any target. It doesn\u2019t allow you to cast Bonecrusher Giant later.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Copying Split Cards",
+    "rule_reference": "CR 707.9",
+    "plain_explanation": "When you copy a split card on the stack, you copy whatever half was cast. The copy doesn\u2019t include the other half and uses only the chosen half\u2019s characteristics.",
+    "example": "If Twincast copies the Ice half of Fire // Ice, the copy is a spell named Ice with mana cost 1U, tapping a permanent and drawing a card.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Ward and Additional Costs",
+    "rule_reference": "CR 702.121b-c",
+    "plain_explanation": "Ward\u2019s cost is paid as the ward triggered ability resolves. Paying the ward cost is not an additional cost to cast the spell. If you can\u2019t pay the ward cost or choose not to, the spell or ability is countered.",
+    "example": "If your opponent casts Murder on your creature with ward\u2014Pay 3 life, the ward ability triggers. When it resolves, they must pay 3 life; if they can\u2019t or won\u2019t, Murder is countered.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Casting from Exile and Timing Restrictions",
+    "rule_reference": "CR 601.3; CR 715.6",
+    "plain_explanation": "Some abilities let you cast cards from exile. You must still follow all normal timing restrictions and pay any additional costs. If you cast a commander from exile, commander tax does not apply unless it\u2019s being cast from the command zone.",
+    "example": "Cascade exiles cards and lets you cast one for free. You must cast the revealed card at the appropriate time. If the revealed card is a sorcery, you can\u2019t cast it during an opponent\u2019s turn.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Damage Replacement and Prevention Ordering",
+    "rule_reference": "CR 120.4b; CR 614; CR 615",
+    "plain_explanation": "When damage would be dealt, apply replacement effects that change how damage is assigned first, then apply prevention effects that reduce or prevent the damage.",
+    "example": "If you control Stuffy Doll enchanted by Pariah and your opponent casts Lightning Bolt on you, Pariah\u2019s replacement effect redirects the damage to Stuffy Doll. Then if you have a protection effect (e.g., Protection from red), that prevention effect prevents the damage.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Tokens and Phasing",
+    "rule_reference": "CR 702.25d-f",
+    "plain_explanation": "Tokens that phase out return when they phase back in. Phasing does not cause tokens to leave the battlefield, so they remain in existence. Any continuous effects with \u201cfor as long as\u201d duration end while phased out if they depend on seeing the permanent.",
+    "example": "If you create a Rhino token with Call the Coppercoats and it gains control of it via an opponent\u2019s spell, then it phases out with Teferi\u2019s Protection. It phases back in under your control because you controlled it when it phased out.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Ward and Multiple Triggers",
+    "rule_reference": "CR 702.121d",
+    "plain_explanation": "If a permanent or player with multiple ward abilities becomes the target of a spell or ability an opponent controls, each ward ability triggers separately. The opponent must pay all ward costs or the spell is countered.",
+    "example": "A creature with ward\u2014Discard a card and ward\u2014Pay 3 life is targeted by your opponent\u2019s spell. Both ward abilities trigger, and your opponent must discard a card and pay 3 life or the spell is countered.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Cascade and Companions",
+    "rule_reference": "CR 702.139h (Companion); CR 702.99",
+    "plain_explanation": "Companion is not a replacement effect and does not interact with cascade. A spell cast via cascade cannot be cast from outside the game via companion because cascade only allows casting from exile.",
+    "example": "If your companion is Lutri, the Spellchaser and you cascade into a spell with the same name, you cannot cast Lutri via cascade because cascade only allows you to cast the exiled card, not a companion.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Storm and Replicate Interaction",
+    "rule_reference": "CR 702.39c; CR 702.40",
+    "plain_explanation": "Copies created by replicate or similar abilities are not spells and do not increase storm count. Storm copies can be copied by replicate, but the replicate copies are also not cast.",
+    "example": "You cast Train of Thought with replicate twice, then cast Grapeshot. Train of Thought\u2019s replicate copies don\u2019t add to storm count, so Grapeshot sees only Train of Thought itself and any other spells cast that turn.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Commander Damage Rule",
+    "rule_reference": "CR 903.10a",
+    "plain_explanation": "A player that has been dealt 21 or more combat damage by the same commander over the course of the game loses the game.",
+    "example": "Your Ezuri, Claw of Progress deals 21 combat damage to an opponent during the game. Even if they have life remaining, they lose the game due to commander damage.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Partner Commanders",
+    "rule_reference": "CR 702.123a; CR 903.12",
+    "plain_explanation": "The partner keyword allows two legendary creatures with partner to be your commanders. Together they follow commander deck construction rules; your deck\u2019s color identity is based on both commanders.",
+    "example": "You choose Tymna the Weaver and Thrasios, Triton Hero as your commanders (both have partner). Your deck may include any card that is white, blue, green, and black, and you must pay commander tax separately for each when casting them from the command zone.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Choose a Background",
+    "rule_reference": "CR 903.12c",
+    "plain_explanation": "Some legendary creatures allow you to choose a background as a second commander. The background is an enchantment that sets your commander\u2019s color identity, and you pay commander tax separately for it.",
+    "example": "Choose Wilson, Refined Grizzly and Folk Hero as your commanders. Wilson\u2019s color identity is green and white due to the background\u2019s mana symbols, and your deck may include green and white cards.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  },
+  {
+    "topic": "Flipping a Coin and Chaos Effects",
+    "rule_reference": "CR 705; CR 706",
+    "plain_explanation": "Flipping coins and rolling dice are keyword actions governed by their own rules. Replacement and prevention effects can modify their results only if they specifically refer to those events.",
+    "example": "Krark\u2019s Thumb lets you flip two coins and ignore one result. If an ability says you can\u2019t win coin flips, it applies only if it specifically refers to that action.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Copying Objects \u2013 Copiable Values",
+    "rule_reference": "CR 707.2; CR 707.9",
+    "plain_explanation": "Only an object\u2019s copiable values are copied: its printed or originally set characteristics and other effects that set those characteristics. Effects that add abilities or modify power/toughness are not copied.",
+    "example": "If you Clone a Runeclaw Bear that has been pumped by Giant Growth, the Clone copies the Bear as a 2/2 creature without the +3/+3. It does not copy Giant Growth\u2019s effect.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Tokens Copying and Leaving Play",
+    "rule_reference": "CR 111.2; CR 707.9c",
+    "plain_explanation": "A token that is a copy of a permanent copies the copiable values of the original. If the original leaves the battlefield, the token remains as created and doesn\u2019t revert. If the token leaves the battlefield, it ceases to exist.",
+    "example": "You copy your opponent\u2019s Baneslayer Angel using Kiki-Jiki, Mirror Breaker\u2019s ability. The token is a 5/5 angel with flying, first strike, lifelink, and protection abilities. If Baneslayer Angel later loses those abilities, the token isn\u2019t affected because it copied the original values.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Triggered Ability Timing",
+    "rule_reference": "CR 603",
+    "plain_explanation": "Triggered abilities wait to be put on the stack until after a player receives priority. If multiple abilities trigger simultaneously, they are put on the stack in APNAP order (active player\u2019s triggers first).",
+    "example": "You control Soul Warden and your opponent controls Purphoros, God of the Forge. When a creature enters the battlefield under your opponent\u2019s control, both triggers happen; because it\u2019s your turn, your trigger goes on the stack first, then your opponent\u2019s. Purphoros\u2019s ability resolves first, dealing 2 damage before you gain 1 life.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "State-Based Actions and Auras on Illegal Permanents",
+    "rule_reference": "CR 704.5m; CR 704.5n",
+    "plain_explanation": "If an Aura is attached to an illegal permanent or player, it is put into its owner\u2019s graveyard. If an Equipment is attached illegally, it becomes unattached instead of going to the graveyard.",
+    "example": "If your opponent gains control of a creature enchanted by your Pacifism, Pacifism remains attached because it can enchant any creature. If your opponent then grants the creature protection from white, Pacifism is put into your graveyard because it can no longer legally enchant the creature.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Damage Redirection and Shield Counters",
+    "rule_reference": "CR 122.1d; CR 614.1c",
+    "plain_explanation": "Shield counters create replacement effects: If a creature with a shield counter would be dealt damage or destroyed, instead remove a shield counter from it and prevent that damage or destruction. Multiple shield counters create multiple replacement effects.",
+    "example": "Your creature has two shield counters. The next time it would be dealt damage, one shield counter is removed and the damage is prevented. If another damage event would destroy it later that turn, the second shield counter is removed instead.",
+    "sources": [
+      "Comprehensive Rules",
+      "Judge Academy examples"
+    ]
+  },
+  {
+    "topic": "Cards Leaving and Returning \u2013 New Objects",
+    "rule_reference": "CR 400.7; CR 400.7e",
+    "plain_explanation": "When an object changes zones, it becomes a new object with no memory of its previous existence unless specified. Continuous effects and control\u2011changing effects tied to the old object do not apply to the new object.",
+    "example": "You use Flickerwisp to exile and return a creature stolen with Mind Control. Because the creature is a new object when it returns, Mind Control\u2019s effect no longer applies, and the creature returns under its owner\u2019s control.",
+    "sources": [
+      "Comprehensive Rules"
+    ]
+  },
+  {
+    "topic": "Color Identity and Mana Symbols",
+    "rule_reference": "CR 903.4; CR 903.5",
+    "plain_explanation": "A card\u2019s color identity is determined by the colors of its mana cost, rules text (including reminder text and color indicators), and any colors on its front and back faces. Only symbols printed on the card count; symbols added by effects do not.",
+    "example": "Cyclonic Rift\u2019s color identity is blue; it can\u2019t be included in a mono\u2011white commander deck. Hybrid mana symbols contribute all colors they represent. Dauthi Voidwalker\u2019s color identity is black because of its {B}{B} mana cost and black ability text.",
+    "sources": [
+      "Comprehensive Rules",
+      "Commander rules document"
+    ]
+  }
+]

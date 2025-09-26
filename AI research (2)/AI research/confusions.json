@@ -1,0 +1,42 @@
+[
+  {
+    "alias": "Counterspell",
+    "variant": "Counter Spell"
+  },
+  {
+    "alias": "Forest",
+    "variant": "Forest (Full Art)"
+  },
+  {
+    "alias": "Ponder",
+    "variant": "Ponder (Japanese)"
+  },
+  {
+    "alias": "Cultivate",
+    "variant": "Cultivate (Japanese)"
+  },
+  {
+    "alias": "Brainstorm",
+    "variant": "Brainstorm (Japanese)"
+  },
+  {
+    "alias": "Llanowar Elves",
+    "variant": "Elvish Mystic"
+  },
+  {
+    "alias": "Birds of Paradise",
+    "variant": "Noble Hierarch"
+  },
+  {
+    "alias": "Sword of Fire and Ice",
+    "variant": "Sword of Feast and Famine"
+  },
+  {
+    "alias": "Wrath of God",
+    "variant": "Damnation"
+  },
+  {
+    "alias": "Teferi, Time Raveler",
+    "variant": "Jace, the Mind Sculptor"
+  }
+]

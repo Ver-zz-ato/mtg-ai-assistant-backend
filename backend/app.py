@@ -39,7 +39,7 @@ def add_cors_headers(resp):
 # -------------------------
 # Config (env)
 # -------------------------
-***REMOVED***
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 USE_OPENAI = os.getenv("USE_OPENAI", "1") == "1"
 MODEL = os.getenv("MODEL", "gpt-4o-mini")
 

@@ -46,6 +46,7 @@ export default function ThreadMenu({
     setBusy(true);
     try {
       await linkThread(threadId, deck);
+      setLinked(true);
       onChanged?.();
     } finally {
       setBusy(false);
@@ -59,9 +60,9 @@ export default function ThreadMenu({
     let cancelled = false;
     async function probe() {
       if (!threadId) { setLinked(false); return; }
-      try {
-        const r = await fetch('/api/chat/threads/get');
-        const j = await r.json().catch(() => ({}));
+    try {
+      const r = await fetch('/api/chat/threads/get', { cache: 'no-store' });
+      const j = await r.json().catch(() => ({}));
         const one = (Array.isArray(j?.threads) ? j.threads : Array.isArray(j?.data) ? j.data : []).find((t:any)=>t.id===threadId);
         if (!cancelled) setLinked(!!one?.deck_id);
       } catch {}

@@ -1,0 +1,382 @@
+[
+  {
+    "context": "Commander",
+    "archetype": "Izzet Spellslinger",
+    "line_type": "ideal",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Island, Ponder",
+        "reason": "Set up library and fix future draws"
+      },
+      {
+        "t": 2,
+        "play": "Mountain, Young Pyromancer",
+        "reason": "Establish threat + token engine"
+      },
+      {
+        "t": 3,
+        "play": "Swiftwater Cliffs, Arcane Signet",
+        "reason": "Ramp and fix mana"
+      },
+      {
+        "t": 4,
+        "play": "Cast commander, hold up Counterspell",
+        "reason": "Protect engine and ready to interact"
+      },
+      {
+        "t": 5,
+        "play": "Chain Lightning copied, generate tokens",
+        "reason": "Build board with synergy and pressure"
+      },
+      {
+        "t": 6,
+        "play": "Temporal Fissure with storm, bounce threats",
+        "reason": "Leverage storm count and tokens for tempo"
+      }
+    ],
+    "mulligan_note": "Keep 2 lands + cantrip + threat. Mull if no 2nd land or engine piece."
+  },
+  {
+    "context": "Commander",
+    "archetype": "Izzet Spellslinger",
+    "line_type": "realistic",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Mountain, suspend Rift Bolt",
+        "reason": "Out of Islands; at least establish turn\u20113 burn"
+      },
+      {
+        "t": 2,
+        "play": "Island, cast Opt",
+        "reason": "Look for land, set up draws"
+      },
+      {
+        "t": 3,
+        "play": "Missed land drop; cast Frantic Search",
+        "reason": "Filter hand and dig deeper"
+      },
+      {
+        "t": 4,
+        "play": "Draw second Island, cast Arcane Signet",
+        "reason": "Stabilize mana to pivot next turn"
+      },
+      {
+        "t": 5,
+        "play": "Cast commander, hold up Force of Negation",
+        "reason": "Finally establish plan + protection"
+      },
+      {
+        "t": 6,
+        "play": "Cast Past in Flames and recast early spells",
+        "reason": "Recover resource parity from mana screw"
+      }
+    ],
+    "mulligan_note": "A 1\u2011lander with two cheap cantrips is keepable; five drop plus no acceleration is a mulligan."
+  },
+  {
+    "context": "Commander",
+    "archetype": "Selesnya Tokens",
+    "line_type": "ideal",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Temple Garden untapped, Llanowar Elves",
+        "reason": "Accelerate into early spells"
+      },
+      {
+        "t": 2,
+        "play": "Plains, Parallel Lives",
+        "reason": "Set up token doubling engine"
+      },
+      {
+        "t": 3,
+        "play": "Forest, Adeline, Resplendent Cathar",
+        "reason": "Produce tokens with commander synergy"
+      },
+      {
+        "t": 4,
+        "play": "Cast Elspeth, Sun's Champion",
+        "reason": "Make three tokens to double next turn"
+      },
+      {
+        "t": 5,
+        "play": "Cast March of the Multitudes",
+        "reason": "Generate an overwhelming board state"
+      },
+      {
+        "t": 6,
+        "play": "Attack with anthem effects",
+        "reason": "Capitalize on huge token army"
+      }
+    ],
+    "mulligan_note": "Keep acceleration + token payoff. Mulligan hands with only slow, expensive spells."
+  },
+  {
+    "context": "Commander",
+    "archetype": "Selesnya Tokens",
+    "line_type": "realistic",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Forest, Sol Ring",
+        "reason": "Best start; avoids mana screw"
+      },
+      {
+        "t": 2,
+        "play": "Sunpetal Grove tapped, nothing else",
+        "reason": "No token maker drawn"
+      },
+      {
+        "t": 3,
+        "play": "Drawn Rootborn Defenses; hold up for sweeper",
+        "reason": "Pivot to protection mode"
+      },
+      {
+        "t": 4,
+        "play": "Cast commander late, make two tokens",
+        "reason": "Finally build board but behind"
+      },
+      {
+        "t": 5,
+        "play": "Opponent wipes board, use Rootborn Defenses",
+        "reason": "Save a small board, reset plan"
+      },
+      {
+        "t": 6,
+        "play": "Cast Cathars' Crusade and rebuild slowly",
+        "reason": "Sequencing keeps gas for long game"
+      }
+    ],
+    "mulligan_note": "Two lands + token producer = keep. No turn\u20112 or turn\u20113 play = mulligan."
+  },
+  {
+    "context": "Modern",
+    "archetype": "Burn",
+    "line_type": "ideal",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Mountain, Lava Spike",
+        "reason": "Immediate three damage; play on curve"
+      },
+      {
+        "t": 2,
+        "play": "Sacred Foundry untapped, cast Eidolon of the Great Revel",
+        "reason": "Punish cheap spells"
+      },
+      {
+        "t": 3,
+        "play": "Boros Charm to face",
+        "reason": "Maximize damage throughput"
+      },
+      {
+        "t": 4,
+        "play": "Lightning Bolt + Skewer the Critics",
+        "reason": "One mana burn chain with spectacle"
+      },
+      {
+        "t": 5,
+        "play": "Rift Bolt suspended + play Goblin Guide",
+        "reason": "Continue damage stream"
+      },
+      {
+        "t": 6,
+        "play": "Finish with Lightning Helix",
+        "reason": "Close the game, optional lifegain"
+      }
+    ],
+    "mulligan_note": "Keep if at least one land and three spells; mulligan anything over three lands or no 1\u2011drop."
+  },
+  {
+    "context": "Modern",
+    "archetype": "Burn",
+    "line_type": "realistic",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Mountain, Goblin Guide",
+        "reason": "Standard opener; no Lava Spike in hand"
+      },
+      {
+        "t": 2,
+        "play": "Draw land; cast Skullcrack, attack",
+        "reason": "Curve out but miss Eidolon"
+      },
+      {
+        "t": 3,
+        "play": "Opponent kills Guide; play Rift Bolt suspended",
+        "reason": "Forced to slow down"
+      },
+      {
+        "t": 4,
+        "play": "Topdeck land; cast Boros Charm",
+        "reason": "Somewhat stuck on three lands"
+      },
+      {
+        "t": 5,
+        "play": "Searing Blaze on a creature, pass",
+        "reason": "Try to keep board clear"
+      },
+      {
+        "t": 6,
+        "play": "Draw Lightning Helix; cast on opponent",
+        "reason": "Bring them within bolt range despite flood"
+      }
+    ],
+    "mulligan_note": "Two lands and no early pressure? Mull. Skullcrack + Bolt hands are keepable even with bad draw."
+  },
+  {
+    "context": "Modern",
+    "archetype": "Tron",
+    "line_type": "ideal",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Urza's Mine, Expedition Map",
+        "reason": "Set up assembling Urza lands"
+      },
+      {
+        "t": 2,
+        "play": "Urza's Power Plant, crack Map for Tower",
+        "reason": "Ensure turn\u20113 Tron"
+      },
+      {
+        "t": 3,
+        "play": "Urza's Tower, cast Karn Liberated",
+        "reason": "Seven mana for key planeswalker"
+      },
+      {
+        "t": 4,
+        "play": "Oblivion Stone, threaten board wipe",
+        "reason": "Forcibly control battlefield"
+      },
+      {
+        "t": 5,
+        "play": "Wurmcoil Engine",
+        "reason": "Stabilize life and pressure opponent"
+      },
+      {
+        "t": 6,
+        "play": "Ugin, the Spirit Dragon",
+        "reason": "Ultimate finish if not already ahead"
+      }
+    ],
+    "mulligan_note": "Mull any opener without two Urza lands + search. Keep hands that guarantee turn\u20113 Tron."
+  },
+  {
+    "context": "Modern",
+    "archetype": "Tron",
+    "line_type": "realistic",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Forest, Chromatic Sphere",
+        "reason": "Use off\u2011colour land due to awkward draw"
+      },
+      {
+        "t": 2,
+        "play": "Power Plant, crack Sphere for green draw",
+        "reason": "Filter into missing pieces"
+      },
+      {
+        "t": 3,
+        "play": "Play Mine, cast Sylvan Scrying for Tower",
+        "reason": "Set up turn\u20114 Tron instead"
+      },
+      {
+        "t": 4,
+        "play": "Play Tower, cast Oblivion Stone",
+        "reason": "Behind, but hold O\u2011Stone as catch\u2011up"
+      },
+      {
+        "t": 5,
+        "play": "Cast Ulamog, the Ceaseless Hunger if assembled",
+        "reason": "Catch up with targeted removal"
+      },
+      {
+        "t": 6,
+        "play": "Crack O\u2011Stone if needed, hope to stabilize",
+        "reason": "Plan B if threat persists"
+      }
+    ],
+    "mulligan_note": "Hands with only Forest + Sphere + no tutor are risky; mulligan if turn\u20113 Tron is not reachable."
+  },
+  {
+    "context": "Pioneer",
+    "archetype": "Mono Green Devotion",
+    "line_type": "ideal",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Forest, Elvish Mystic",
+        "reason": "Acceleration on turn 1"
+      },
+      {
+        "t": 2,
+        "play": "Nykthos, Shrine to Nyx, Old-Growth Troll",
+        "reason": "Add devotion and ramp synergy"
+      },
+      {
+        "t": 3,
+        "play": "Kiora, cast Cavalier of Thorns",
+        "reason": "Ramp + dig + huge threat"
+      },
+      {
+        "t": 4,
+        "play": "Activate Nykthos, Storm the Festival",
+        "reason": "Find multiple permanents"
+      },
+      {
+        "t": 5,
+        "play": "Karn, the Great Creator, fetch lifeline piece",
+        "reason": "Threat + toolbox access"
+      },
+      {
+        "t": 6,
+        "play": "Chain Devotion, attack lethal",
+        "reason": "Overrun opponent with huge board"
+      }
+    ],
+    "mulligan_note": "Keep hands with 1 elf and at least one 3\u2011drop. Mull hands with only Nykthos and no ramp."
+  },
+  {
+    "context": "Pioneer",
+    "archetype": "Mono Green Devotion",
+    "line_type": "realistic",
+    "turns": [
+      {
+        "t": 1,
+        "play": "Forest, pass (no elf)",
+        "reason": "Missing turn\u20111 accelerator"
+      },
+      {
+        "t": 2,
+        "play": "Play Llanowar Elves and untapped land",
+        "reason": "Behind schedule on mana"
+      },
+      {
+        "t": 3,
+        "play": "Opponent kills elf; play Wolfwillow Haven",
+        "reason": "Need to find another ramp plan"
+      },
+      {
+        "t": 4,
+        "play": "Cast Kiora, minus for land draw",
+        "reason": "Rebuild devotion chain"
+      },
+      {
+        "t": 5,
+        "play": "Tap Nykthos, cast Troll + Oath of Nissa",
+        "reason": "Double spell to catch up"
+      },
+      {
+        "t": 6,
+        "play": "Storm the Festival; hope to hit multiple threats",
+        "reason": "Pivot into recovery even if late"
+      }
+    ],
+    "mulligan_note": "Without at least one acceleration piece, strongly consider mulligan. Two lands and no elf? Mull."
+  }
+]

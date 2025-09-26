@@ -225,14 +225,35 @@ export default function CostToFinishClient() {
               <>Live pricing</>
             )}
           </div>
-          <button
-            onClick={() => {
-              const list = rows.map(r => `× ${r.need} ${r.card}`).join('\n');
-              navigator.clipboard?.writeText?.(list);
-              try { capture('shopping_list_copied', { count: rows.length }); } catch {}
-            }}
-            className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
-          >Copy shopping list</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const list = rows.map(r => `× ${r.need} ${r.card}`).join('\n');
+                navigator.clipboard?.writeText?.(list);
+                try { capture('shopping_list_copied', { count: rows.length }); } catch {}
+              }}
+              className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
+            >Copy shopping list</button>
+            <button
+              onClick={() => {
+                const header = 'Card,Need,Unit,Subtotal';
+                const lines = rows.map(r => {
+                  const unit = typeof r.unit === 'number' ? r.unit : 0;
+                  const sub = typeof r.subtotal === 'number' ? r.subtotal : (unit * r.need);
+                  const cells = [r.card, String(r.need), String(unit), String(sub)];
+                  return cells.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',');
+                });
+                const csv = [header, ...lines].join('\r\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'cost_to_finish.csv';
+                a.click();
+                try { capture('shopping_list_csv', { count: rows.length }); } catch {}
+              }}
+              className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
+            >Export CSV</button>
+          </div>
         </div>
         <div className="rounded-xl border overflow-hidden">
           <table className="w-full text-sm border-collapse">
