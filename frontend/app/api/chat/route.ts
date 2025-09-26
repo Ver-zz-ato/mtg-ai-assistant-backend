@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/server-supabase";
+import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
-import { ok, err } from "@/lib/envelope";
+import { ok, err } from "@/app/api/_utils/envelope";
 import { chatRateCheck } from "@/lib/rate";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5";
@@ -32,14 +32,23 @@ function firstOutputText(json: any): string | null {
 
 async function callOpenAI(userText: string, sys?: string) {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
+  if (!apiKey) {
+    return { fallback: true, text: `Echo: ${userText}` };
+  }
 
   const body: any = {
     model: MODEL,
     input: [{ role: "user", content: [{ type: "input_text", text: userText }]}],
-    max_output_tokens: 384,
-    temperature: 1,
   };
+  // GPT-5 (Responses API): use max_output_tokens and temperature = 1
+  if ((MODEL || "").toLowerCase().includes("gpt-5")) {
+    body.max_output_tokens = 384;
+    body.temperature = 1;
+  } else {
+    // Other models (back-compat)
+    body.max_output_tokens = 384;
+    body.temperature = 1;
+  }
   if (sys && sys.trim()) body.instructions = sys;
 
   const res = await fetch(OPENAI_URL, {
@@ -51,7 +60,8 @@ async function callOpenAI(userText: string, sys?: string) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = json?.error?.message || json?.message || `OpenAI error (${res.status})`;
-    throw new Error(msg);
+    // Fallback echo on provider errors
+    return { fallback: true, text: `Echo: ${userText}`, error: msg };
   }
   if (DEV) console.log("[responses.json]", JSON.stringify(json).slice(0, 2000));
 
@@ -60,21 +70,25 @@ async function callOpenAI(userText: string, sys?: string) {
   if (!out || out.trim() === userText.trim()) {
     out = "Got it. What format is the deck and roughly what budget are you aiming for?";
   }
-  return String(out || "").trim();
+  return { fallback: false, text: String(out || "").trim() };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return err("unauthorized", 401);
+    if (!user) return err("unauthorized", "unauthorized", 401);
 
     const rl = await chatRateCheck(supabase as any, user.id);
-    if (!rl.ok) return err(rl.error || "rate limited", rl.status || 429);
+    if (!rl.ok) return err(rl.error || "rate limited", "rate_limited", rl.status || 429);
 
 
-    const parse = ChatPostSchema.safeParse(await req.json().catch(() => ({})));
-    if (!parse.success) return err(parse.error.issues[0].message, 400);
+    // Accept { text } and legacy { prompt }
+    const raw = await req.json().catch(() => ({}));
+    const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
+    const normalized = { text: inputText, threadId: raw?.threadId };
+    const parse = ChatPostSchema.safeParse(normalized);
+    if (!parse.success) return err(parse.error.issues[0].message, "bad_request", 400);
     const { text, threadId } = parse.data;
 
     let tid = threadId ?? null;
@@ -85,7 +99,7 @@ export async function POST(req: NextRequest) {
         .insert({ user_id: user.id, title })
         .select("id")
         .single();
-      if (error) return err(error.message, 500);
+      if (error) return err(error.message, "db_error", 500);
       tid = data.id;
     } else {
       const { data, error } = await supabase
@@ -94,21 +108,23 @@ export async function POST(req: NextRequest) {
         .eq("id", tid)
         .eq("user_id", user.id)
         .single();
-      if (error || !data) return err("thread not found", 404);
+      if (error || !data) return err("thread not found", "not_found", 404);
     }
 
     await supabase.from("chat_messages")
       .insert({ thread_id: tid!, role: "user", content: text });
 
     const sys = "You are MTG Coach, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
-    const outText = await callOpenAI(text, sys);
+    const out = await callOpenAI(text, sys);
+    const outText = typeof (out as any)?.text === "string" ? (out as any).text : String(out || "");
 
     await supabase.from("chat_messages")
       .insert({ thread_id: tid!, role: "assistant", content: outText });
 
-    return ok({ text: outText, threadId: tid });
+    const provider = (out as any)?.fallback ? "fallback" : "openai";
+    return ok({ text: outText, threadId: tid, provider });
   } catch (e: any) {
-    return err(e?.message || "server_error", 500);
+    return err(e?.message || "server_error", "internal", 500);
   }
 }
 // --- RATE LIMIT (softlaunch): per-user 1-min and 24h caps using existing tables ---

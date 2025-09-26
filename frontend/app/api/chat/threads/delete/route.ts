@@ -1,22 +1,35 @@
-import { createClient } from "@/lib/server-supabase";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getServerSupabase } from "@/lib/server-supabase";
 import { ok, err } from "@/lib/envelope";
-import { DeleteThreadSchema } from "@/lib/validate";
+import { withTiming } from "@/lib/server/log";
+
+const Body = z.object({
+  threadId: z.string().uuid(),
+});
 
 export async function POST(req: Request) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return err("unauthorized", 401);
+  return withTiming("/api/chat/threads/delete", "POST", null, async () => {
+    try {
+      const supabase = await getServerSupabase();
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (!user || userErr) {
+        return NextResponse.json(err("Unauthorized"), { status: 401 });
+      }
 
-  const parsed = DeleteThreadSchema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return err(parsed.error.issues[0].message, 400);
-  const { threadId } = parsed.data;
+      const json = await req.json().catch(() => ({}));
+      const parsed = Body.safeParse(json);
+      if (!parsed.success) {
+        return NextResponse.json(err("Invalid request", "BAD_INPUT", "Missing threadId"), { status: 400 });
+      }
 
-  // delete children first (no FK cascade in provided schema)
-  const delMsgs = await supabase.from("chat_messages").delete().eq("thread_id", threadId);
-  if (delMsgs.error) return err(delMsgs.error.message, 500);
+      const { threadId } = parsed.data;
+      const { error } = await supabase.from("chat_threads").delete().eq("id", threadId).eq("user_id", user.id);
+      if (error) return NextResponse.json(err("Failed to delete thread", "DB_ERROR", error.message), { status: 500 });
 
-  const delTh = await supabase.from("chat_threads").delete().eq("id", threadId).eq("user_id", user.id);
-  if (delTh.error) return err(delTh.error.message, 500);
-
-  return ok({});
+      return NextResponse.json(ok({}));
+    } catch (e: any) {
+      return NextResponse.json(err(e?.message ?? "Internal error", "INTERNAL"), { status: 500 });
+    }
+  }).then(({ result }) => result);
 }

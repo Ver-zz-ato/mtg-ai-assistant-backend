@@ -1,21 +1,37 @@
-import { createClient } from "@/lib/server-supabase";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getServerSupabase } from "@/lib/server-supabase";
 import { ok, err } from "@/lib/envelope";
-import { RenameThreadSchema } from "@/lib/validate";
+import { withTiming } from "@/lib/server/log";
+
+const Body = z.object({
+  threadId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title cannot be empty"),
+});
 
 export async function POST(req: Request) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return err("unauthorized", 401);
+  return withTiming("/api/chat/threads/rename", "POST", null, async () => {
+    try {
+      const supabase = await getServerSupabase();
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (!user || userErr) {
+        return NextResponse.json(err("Unauthorized"), { status: 401 });
+      }
 
-  const parsed = RenameThreadSchema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return err(parsed.error.issues[0].message, 400);
-  const { threadId, title } = parsed.data;
+      const json = await req.json().catch(() => ({}));
+      const parsed = Body.safeParse(json);
+      if (!parsed.success) {
+        const message = parsed.error.issues?.[0]?.message ?? "Invalid request";
+        return NextResponse.json(err(message, "BAD_INPUT", "Provide a non-empty title and valid threadId"), { status: 400 });
+      }
 
-  const { error } = await supabase
-    .from("chat_threads")
-    .update({ title })
-    .eq("id", threadId)
-    .eq("user_id", user.id);
-  if (error) return err(error.message, 500);
-  return ok({});
+      const { threadId, title } = parsed.data;
+      const { error } = await supabase.from("chat_threads").update({ title }).eq("id", threadId).eq("user_id", user.id);
+      if (error) return NextResponse.json(err("Failed to rename thread", "DB_ERROR", error.message), { status: 500 });
+
+      return NextResponse.json(ok({}));
+    } catch (e: any) {
+      return NextResponse.json(err(e?.message ?? "Internal error", "INTERNAL"), { status: 500 });
+    }
+  }).then(({ result }) => result);
 }
