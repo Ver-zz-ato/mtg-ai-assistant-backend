@@ -133,6 +133,7 @@ export async function POST(req: Request) {
       usedOwned,
       total,
       rows,
+      prices_updated_at: raw.prices_updated_at || new Date().toISOString(),
     });
   } catch (e: any) {
     return NextResponse.json(

@@ -36,6 +36,7 @@ export default function CostToFinishClient() {
 
   const [rows, setRows] = React.useState<ResultRow[]>([]);
   const [total, setTotal] = React.useState<number | null>(null);
+  const [pricesAt, setPricesAt] = React.useState<string | null>(null);
 
   // Load decks & collections for the signed-in user
   React.useEffect(() => {
@@ -117,6 +118,7 @@ export default function CostToFinishClient() {
       }
       setRows(j.rows ?? []);
       setTotal(typeof j.total === "number" ? j.total : null);
+      setPricesAt(j.prices_updated_at || null);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -214,6 +216,24 @@ export default function CostToFinishClient() {
       )}
 
       {rows.length > 0 && (
+        <>
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <div>
+            {pricesAt ? (
+              <>Prices cached {Math.max(0, Math.floor((Date.now() - new Date(pricesAt).getTime())/3600000))}h ago</>
+            ) : (
+              <>Live pricing</>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              const list = rows.map(r => `× ${r.need} ${r.card}`).join('\n');
+              navigator.clipboard?.writeText?.(list);
+              try { capture('shopping_list_copied', { count: rows.length }); } catch {}
+            }}
+            className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
+          >Copy shopping list</button>
+        </div>
         <div className="rounded-xl border overflow-hidden">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-black/30">
@@ -249,6 +269,7 @@ export default function CostToFinishClient() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
