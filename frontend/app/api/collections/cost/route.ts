@@ -202,7 +202,7 @@ export const POST = withLogging(async (req: Request) => {
       const unit = await priceFromScryfall(name, currency);
       const subtotal = unit * need;
 
-      rows.push({ card: name, need, unit, subtotal });
+      rows.push({ card: name, need, unit, subtotal, source: 'Scryfall' as any });
       total += subtotal;
     }
 

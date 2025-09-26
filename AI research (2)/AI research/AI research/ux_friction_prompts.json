@@ -1,0 +1,515 @@
+[
+  {
+    "friction": "Search bar hard to find",
+    "prompts": [
+      "Can't find a card? Try typing its name here.",
+      "Use filters to narrow your search for specific formats.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 65
+    }
+  },
+  {
+    "friction": "Hidden legal error",
+    "prompts": [
+      "Show me illegal cards and replacements under \u00a35.",
+      "Fix my manabase for Izzet 2-color.",
+      "Explain why my deck is illegal."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 70
+    }
+  },
+  {
+    "friction": "Deck legality unclear",
+    "prompts": [
+      "Show me illegal cards and replacements under \u00a35.",
+      "Fix my manabase for Izzet 2-color."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 62
+    }
+  },
+  {
+    "friction": "Complex card text confusion",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 44
+    }
+  },
+  {
+    "friction": "Commander colour identity issues",
+    "prompts": [
+      "Check my deck for off-colour cards.",
+      "Suggest replacements that fit my commander\u2019s colours."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 118
+    }
+  },
+  {
+    "friction": "Budget constraints unclear",
+    "prompts": [
+      "Set a price cap for recommended cards.",
+      "Swap expensive staples for budget-friendly alternatives.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 96
+    }
+  },
+  {
+    "friction": "Meta staples not explained",
+    "prompts": [
+      "What are the top decks right now?",
+      "Show me meta staples for my format.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 32
+    }
+  },
+  {
+    "friction": "No explanation for suggestions",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 62
+    }
+  },
+  {
+    "friction": "Overwhelming card pool",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 40
+    }
+  },
+  {
+    "friction": "Not enough visual aids",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 55
+    }
+  },
+  {
+    "friction": "Card images missing",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 36
+    }
+  },
+  {
+    "friction": "Long loading times",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 90
+    }
+  },
+  {
+    "friction": "Hard to export deck",
+    "prompts": [
+      "Export your deck to Arena or Cockatrice.",
+      "Download in text format to share easily.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 75
+    }
+  },
+  {
+    "friction": "No synergy hints",
+    "prompts": [
+      "How do these cards synergize?",
+      "Recommend two-card combos for my deck."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 116
+    }
+  },
+  {
+    "friction": "Cannot track owned cards",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 94
+    }
+  },
+  {
+    "friction": "Decklist import fails",
+    "prompts": [
+      "Paste your decklist to import it.",
+      "Having trouble? Check the format guidelines."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 91
+    }
+  },
+  {
+    "friction": "Not mobile friendly",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 64
+    }
+  },
+  {
+    "friction": "Laggy scrolling through cards",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 59
+    }
+  },
+  {
+    "friction": "Unsure when to mulligan",
+    "prompts": [
+      "When should I mulligan this hand?",
+      "Show me ideal starting hands."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 73
+    }
+  },
+  {
+    "friction": "No sideboard recommendations",
+    "prompts": [
+      "Suggest a sideboard for this matchup.",
+      "How do I sideboard against Tron?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 46
+    }
+  },
+  {
+    "friction": "Missing archetype descriptions",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 118
+    }
+  },
+  {
+    "friction": "Cannot filter by budget",
+    "prompts": [
+      "Set a price cap for recommended cards.",
+      "Swap expensive staples for budget-friendly alternatives.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 71
+    }
+  },
+  {
+    "friction": "User interface clutter",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 35
+    }
+  },
+  {
+    "friction": "Bad recommended substitutions",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 110
+    }
+  },
+  {
+    "friction": "Difficulty reading small text",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 69
+    }
+  },
+  {
+    "friction": "Unknown acronyms",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 51
+    }
+  },
+  {
+    "friction": "Unable to copy card names",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 90
+    }
+  },
+  {
+    "friction": "Misleading card prices",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 65
+    }
+  },
+  {
+    "friction": "Hard to undo changes",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 42
+    }
+  },
+  {
+    "friction": "Poor accessibility for color-blind users",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 86
+    }
+  },
+  {
+    "friction": "No clear error messages",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 36
+    }
+  },
+  {
+    "friction": "Cannot find settings",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 49
+    }
+  },
+  {
+    "friction": "No dark mode",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 108
+    }
+  },
+  {
+    "friction": "Confusing navigation",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 33
+    }
+  },
+  {
+    "friction": "Hard to share deck",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 107
+    }
+  },
+  {
+    "friction": "Poor guidance for new players",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 91
+    }
+  },
+  {
+    "friction": "Lack of feedback after actions",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 100
+    }
+  },
+  {
+    "friction": "Cannot compare cards",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 54
+    }
+  },
+  {
+    "friction": "No meta analysis",
+    "prompts": [
+      "What are the top decks right now?",
+      "Show me meta staples for my format."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 114
+    }
+  },
+  {
+    "friction": "Too many pop-ups",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 76
+    }
+  },
+  {
+    "friction": "Confusing mana curves",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 82
+    }
+  },
+  {
+    "friction": "Missing multi-language support",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 56
+    }
+  },
+  {
+    "friction": "Inaccurate card legality",
+    "prompts": [
+      "Show me illegal cards and replacements under \u00a35.",
+      "Fix my manabase for Izzet 2-color."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 47
+    }
+  },
+  {
+    "friction": "Audio cues missing",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 101
+    }
+  },
+  {
+    "friction": "Difficult to update deck after release",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 89
+    }
+  },
+  {
+    "friction": "Duplicate card entries",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 51
+    }
+  },
+  {
+    "friction": "Bad search filtering",
+    "prompts": [
+      "Can't find a card? Try typing its name here.",
+      "Use filters to narrow your search for specific formats.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 118
+    }
+  },
+  {
+    "friction": "No offline mode",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue.",
+      "What should I do next?"
+    ],
+    "metric": {
+      "baseline_ttc_sec": 65
+    }
+  },
+  {
+    "friction": "Confusing deck statistics",
+    "prompts": [
+      "Need help? Click here for guidance.",
+      "Tell me more about this issue."
+    ],
+    "metric": {
+      "baseline_ttc_sec": 47
+    }
+  }
+]

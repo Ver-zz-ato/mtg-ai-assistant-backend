@@ -1,0 +1,408 @@
+{
+  "combos": [
+    {
+      "combo_name": "Demonic Consultation + Thassa's Oracle",
+      "cards": [
+        "Demonic Consultation",
+        "Thassa's Oracle"
+      ],
+      "steps": [
+        "Cast Demonic Consultation and name a card that is not in your library (usually naming Thassa's Oracle). Demonic Consultation exiles cards from the top of your library until the named card is exiled, exiling your entire library in the process.",
+        "Cast Thassa's Oracle from your hand. When it enters the battlefield, its triggered ability goes on the stack.",
+        "Resolve Thassa's Oracle's triggered ability. You look at the top X cards of your library where X is your devotion to blue; since your library is empty, X is 0 and the check sees that you have less than or equal cards left in your library than your devotion, so you win the game."
+      ],
+      "rules_reference": [
+        "104.3c \u2014 if you would draw from an empty library, you lose the game\u3010463319324094958\u2020L600-L616\u3011"
+      ],
+      "plain_explanation": "By naming a card that is not in your deck when casting Demonic Consultation, you exile your entire library. When Thassa's Oracle enters the battlefield, its ability checks if you have fewer cards left in your library than your devotion to blue. With an empty library, you meet the condition and win the game instead of losing to drawing from an empty library\u301093793488449270\u2020L156-L176\u3011.",
+      "common_commanders": [
+        "Kinnan, Bonder Prodigy",
+        "Tasigur, the Golden Fang",
+        "Ghyrson Starn, Kelermorph"
+      ],
+      "casual_friendly": false,
+      "notes": "This combo is a two\u2011card instant win. It exiles your entire library and wins on the spot, so many casual pods frown upon it. It is fragile if opponents can counter either spell or remove Oracle in response."
+    },
+    {
+      "combo_name": "Heliod, Sun\u2011Crowned + Walking Ballista",
+      "cards": [
+        "Heliod, Sun\u2011Crowned",
+        "Walking Ballista"
+      ],
+      "steps": [
+        "Have Heliod, Sun\u2011Crowned and Walking Ballista on the battlefield with at least two +1/+1 counters on Ballista\u3010602027435370962\u2020L152-L159\u3011.",
+        "Use Heliod to give Walking Ballista lifelink (Heliod can give another creature lifelink for {1}{W})\u3010602027435370962\u2020L164-L186\u3011.",
+        "Remove a +1/+1 counter from Ballista to deal 1 damage to any target. Because Ballista has lifelink, you gain 1 life from the damage\u3010602027435370962\u2020L164-L186\u3011.",
+        "Heliod's triggered ability sees you gaining life and puts a +1/+1 counter back on Ballista\u3010602027435370962\u2020L164-L186\u3011.",
+        "Repeat: the counter you removed is replaced, letting you repeat the process for infinite damage and infinite life gain\u3010602027435370962\u2020L164-L186\u3011."
+      ],
+      "rules_reference": [
+        "702.15 \u2014 lifelink causes a creature to simultaneously deal damage and you gain that much life"
+      ],
+      "plain_explanation": "Heliod can grant Walking Ballista lifelink. Each time you remove a +1/+1 counter from Ballista to shoot an opponent for 1 damage, you gain 1 life from lifelink. Heliod then gives Ballista another counter whenever you gain life, replacing the removed counter and allowing you to repeat the loop for unlimited damage and life\u3010602027435370962\u2020L164-L186\u3011.",
+      "common_commanders": [
+        "Heliod, Sun\u2011Crowned",
+        "Lurrus of the Dream\u2011Den",
+        "Elenda, the Dusk Rose"
+      ],
+      "casual_friendly": false,
+      "notes": "Although it uses only two cards, this combo produces infinite life and damage and is often considered unfun in casual games. It requires Heliod and Ballista to stay on the battlefield; removal at instant speed can stop it."
+    },
+    {
+      "combo_name": "Isochron Scepter + Dramatic Reversal",
+      "cards": [
+        "Isochron Scepter",
+        "Dramatic Reversal"
+      ],
+      "steps": [
+        "Exile Dramatic Reversal under Isochron Scepter and ensure you control nonland permanents (usually mana rocks and dorks) that tap for at least three mana\u3010403649339477780\u2020L154-L184\u3011.",
+        "Tap all your mana rocks and dorks to generate at least three mana\u3010403649339477780\u2020L169-L179\u3011.",
+        "Activate Isochron Scepter by paying two mana and tapping it to cast a copy of Dramatic Reversal without paying its mana cost\u3010403649339477780\u2020L172-L179\u3011.",
+        "Resolve Dramatic Reversal to untap all nonland permanents you control, including your mana rocks and Isochron Scepter\u3010403649339477780\u2020L179-L184\u3011.",
+        "Repeat: each loop produces net mana equal to the mana your rocks generate minus the cost of activating the Scepter, giving you infinite untaps, storm count and mana\u3010403649339477780\u2020L169-L184\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities",
+        "704 \u2014 state\u2011based actions"
+      ],
+      "plain_explanation": "Isochron Scepter can imprint an instant with mana value two or less. Dramatic Reversal untaps all nonland permanents you control. If your mana rocks and creatures produce at least three mana, you can tap them, spend two of that mana to activate Isochron Scepter and cast Dramatic Reversal to untap everything, generating at least one extra mana each time. Repeating this cycle yields infinite mana and storm count\u3010403649339477780\u2020L169-L184\u3011.",
+      "common_commanders": [
+        "Urza, Lord High Artificer",
+        "Kinnan, Bonder Prodigy",
+        "Kykar, Wind's Fury"
+      ],
+      "casual_friendly": false,
+      "notes": "A staple infinite\u2011mana combo. It needs nonland permanents that produce more than two mana in total. Many casual players avoid it due to its efficiency and speed."
+    },
+    {
+      "combo_name": "Kiki\u2011Jiki, Mirror Breaker + Zealous Conscripts",
+      "cards": [
+        "Kiki\u2011Jiki, Mirror Breaker",
+        "Zealous Conscripts"
+      ],
+      "steps": [
+        "Have Kiki\u2011Jiki and Zealous Conscripts on the battlefield\u3010815146523310615\u2020L154-L170\u3011.",
+        "Tap Kiki\u2011Jiki to create a token copy of Zealous Conscripts with haste\u3010815146523310615\u2020L162-L169\u3011.",
+        "When the token Conscript enters the battlefield, its triggered ability resolves and untaps Kiki\u2011Jiki\u3010815146523310615\u2020L169-L173\u3011.",
+        "Repeat: use the now untapped Kiki\u2011Jiki to make another hasty Conscript token, untapping Kiki\u2011Jiki each time and creating as many hasty tokens as you like\u3010815146523310615\u2020L169-L173\u3011."
+      ],
+      "rules_reference": [
+        "702.37 \u2014 haste",
+        "603 \u2014 triggered abilities"
+      ],
+      "plain_explanation": "Kiki\u2011Jiki makes a temporary copy of Zealous Conscripts. The Conscripts untap Kiki\u2011Jiki when they enter, letting you activate Kiki\u2011Jiki again. Because the tokens have haste, you can do this as soon as both cards are out, producing infinite hasty 3/3 Conscripts\u3010815146523310615\u2020L169-L173\u3011.",
+      "common_commanders": [
+        "Feldon of the Third Path",
+        "Lelia, the Blade Reforged",
+        "Saskia the Unyielding"
+      ],
+      "casual_friendly": false,
+      "notes": "Infinite token makers like this are powerful and can end games quickly. The combo is fragile to removal\u2014killing either creature stops the loop."
+    },
+    {
+      "combo_name": "Exquisite Blood + Sanguine Bond",
+      "cards": [
+        "Exquisite Blood",
+        "Sanguine Bond"
+      ],
+      "steps": [
+        "Have Exquisite Blood and Sanguine Bond on the battlefield\u3010201164529226157\u2020L154-L178\u3011.",
+        "Gain life in any way (for example, with a lifelink creature or a spell)\u3010201164529226157\u2020L166-L176\u3011.",
+        "Sanguine Bond triggers, causing target opponent to lose that much life\u3010201164529226157\u2020L170-L174\u3011.",
+        "Exquisite Blood triggers from your opponent's life loss and causes you to gain that much life\u3010201164529226157\u2020L174-L178\u3011.",
+        "Each new life gain triggers Sanguine Bond again. Repeat from step 3 until your opponent's life total reaches zero\u3010201164529226157\u2020L168-L178\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities",
+        "104.4b \u2014 loops"
+      ],
+      "plain_explanation": "These two enchantments create a feedback loop: when you gain life, Sanguine Bond makes an opponent lose that much life; when an opponent loses life, Exquisite Blood makes you gain that much life. Once the loop starts, it repeats until your opponents are dead\u3010201164529226157\u2020L166-L178\u3011.",
+      "common_commanders": [
+        "Karlov of the Ghost Council",
+        "Oloro, Ageless Ascetic",
+        "Vito, Thorn of the Dusk Rose"
+      ],
+      "casual_friendly": false,
+      "notes": "This combo wins immediately and is notorious for being uninteractive. Some playgroups ban or discourage it."
+    },
+    {
+      "combo_name": "Karmic Guide + Reveillark + Ashnod's Altar",
+      "cards": [
+        "Karmic Guide",
+        "Reveillark",
+        "Ashnod's Altar"
+      ],
+      "steps": [
+        "With Karmic Guide, Reveillark and Ashnod's Altar on the battlefield, sacrifice Karmic Guide to Ashnod's Altar\u3010321952790300528\u2020L156-L184\u3011.",
+        "Sacrifice Reveillark to Ashnod's Altar, generating two colorless mana from the two sacrifices\u3010321952790300528\u2020L164-L184\u3011.",
+        "Reveillark's triggered ability returns Karmic Guide and another creature with power 2 or less to the battlefield\u3010321952790300528\u2020L174-L180\u3011.",
+        "Karmic Guide's triggered ability returns Reveillark from your graveyard to the battlefield\u3010321952790300528\u2020L179-L181\u3011.",
+        "Repeat the loop, generating infinite colorless mana, infinite death/enter triggers and infinite recursion\u3010321952790300528\u2020L174-L184\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities"
+      ],
+      "plain_explanation": "Reveillark brings back Karmic Guide when it dies. Karmic Guide then reanimates Reveillark. Sacrificing them to Ashnod's Altar makes mana while the recursion repeats indefinitely, giving you infinite mana and triggers\u3010321952790300528\u2020L164-L184\u3011.",
+      "common_commanders": [
+        "Teysa Karlov",
+        "Karador, Ghost Chieftain",
+        "Ghave, Guru of Spores"
+      ],
+      "casual_friendly": false,
+      "notes": "Although it uses three cards, this loop creates infinite mana and triggers. It is popular in combo decks but can annoy casual tables."
+    },
+    {
+      "combo_name": "Karmic Guide + Reveillark + Viscera Seer",
+      "cards": [
+        "Karmic Guide",
+        "Reveillark",
+        "Viscera Seer"
+      ],
+      "steps": [
+        "Have Karmic Guide, Reveillark and Viscera Seer on the battlefield\u3010656516438464038\u2020L154-L188\u3011.",
+        "Activate Viscera Seer by sacrificing Karmic Guide\u3010656516438464038\u2020L164-L171\u3011.",
+        "Activate Viscera Seer again by sacrificing Reveillark\u3010656516438464038\u2020L168-L174\u3011.",
+        "Reveillark's triggered ability returns Karmic Guide and another small creature to the battlefield\u3010656516438464038\u2020L174-L176\u3011.",
+        "Karmic Guide's triggered ability returns Reveillark to the battlefield\u3010656516438464038\u2020L179-L180\u3011.",
+        "Resolve Viscera Seer's scry ability from the sacrifice and repeat the loop for infinite scry, death triggers and recursion\u3010656516438464038\u2020L164-L188\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities"
+      ],
+      "plain_explanation": "Viscera Seer provides a free sacrifice outlet. When Karmic Guide and Reveillark are sacrificed, their triggers bring each other back. Each loop also triggers Viscera Seer, letting you scry as many times as you like while generating death and enter triggers\u3010656516438464038\u2020L164-L188\u3011.",
+      "common_commanders": [
+        "Teysa Karlov",
+        "Meren of Clan Nel Toth",
+        "Ayara, First of Locthwain"
+      ],
+      "casual_friendly": false,
+      "notes": "This combo requires three cards but is easy to assemble in Aristocrats decks. It produces infinite value and can be game\u2011ending when paired with drain effects."
+    },
+    {
+      "combo_name": "Necrotic Ooze + Phyrexian Devourer + Triskelion",
+      "cards": [
+        "Necrotic Ooze",
+        "Phyrexian Devourer",
+        "Triskelion"
+      ],
+      "steps": [
+        "Have Necrotic Ooze on the battlefield and both Phyrexian Devourer and Triskelion in your graveyard\u3010313468642452451\u2020L156-L179\u3011.",
+        "Activate Necrotic Ooze using Phyrexian Devourer's ability by exiling the top card of your library, putting a number of +1/+1 counters on Necrotic Ooze equal to that card's mana value\u3010313468642452451\u2020L171-L173\u3011.",
+        "Repeat exiling cards until Necrotic Ooze has enough +1/+1 counters to deal lethal damage to your opponents\u3010313468642452451\u2020L177-L178\u3011.",
+        "Activate Necrotic Ooze using Triskelion's ability by removing a +1/+1 counter from itself to deal 1 damage to any target\u3010313468642452451\u2020L182-L183\u3011.",
+        "Repeat removing counters to deal damage until all opponents are dead\u3010313468642452451\u2020L182-L187\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities",
+        "702.30 \u2014 modular (counters)",
+        "118.7 \u2014 combination of costs"
+      ],
+      "plain_explanation": "Necrotic Ooze gains all activated abilities of creature cards in graveyards. With Devourer and Triskelion in your graveyard, you can exile cards from the top of your library to put counters on Ooze. Once it has enough counters, you use the Triskelion ability to remove counters and shoot damage at opponents\u3010313468642452451\u2020L171-L187\u3011.",
+      "common_commanders": [
+        "Sidisi, Brood Tyrant",
+        "The Mimeoplasm",
+        "Chainer, Dementia Master"
+      ],
+      "casual_friendly": false,
+      "notes": "This three\u2011card combo needs a large library (so you don't deck yourself) and is prone to graveyard hate. It produces near\u2011infinite damage and is often used in competitive decks."
+    },
+    {
+      "combo_name": "Sword of Feast and Famine + Aggravated Assault",
+      "cards": [
+        "Sword of Feast and Famine",
+        "Aggravated Assault"
+      ],
+      "steps": [
+        "Attach Sword of Feast and Famine to a creature that can safely deal combat damage\u301075216712470702\u2020L154-L160\u3011.",
+        "Attack an opponent; when the equipped creature deals combat damage, Sword of Feast and Famine triggers, causing that opponent to discard a card and you to untap all lands\u301075216712470702\u2020L168-L174\u3011.",
+        "In your postcombat main phase, tap your lands to generate at least three mana\u301075216712470702\u2020L178-L183\u3011.",
+        "Activate Aggravated Assault by paying {3}{R}{R} to untap all creatures and get an additional combat phase\u301075216712470702\u2020L185-L189\u3011.",
+        "Repeat the process: attack, untap lands via the Sword, use the mana to pay Aggravated Assault, giving yourself infinite combat phases and attacks\u301075216712470702\u2020L168-L193\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities",
+        "508 \u2014 combat phase"
+      ],
+      "plain_explanation": "Sword of Feast and Famine untaps all your lands each time its equipped creature deals combat damage. Aggravated Assault lets you pay {3}{R}{R} to untap your creatures and get an extra combat phase. If your lands produce at least that much mana, each combat step refuels the cost of Aggravated Assault, allowing endless combat steps\u301075216712470702\u2020L168-L193\u3011.",
+      "common_commanders": [
+        "Xenagos, God of Revels",
+        "Godo, Bandit Warlord",
+        "Najeela, the Blade\u2011Blossom"
+      ],
+      "casual_friendly": true,
+      "notes": "This combo is powerful but requires attacking and connecting with a creature. It can be stopped by blockers, removal or stax effects. Some casual pods consider it acceptable because opponents have more interaction windows."
+    },
+    {
+      "combo_name": "Food Chain + Misthollow Griffin",
+      "cards": [
+        "Food Chain",
+        "Misthollow Griffin"
+      ],
+      "steps": [
+        "Have Food Chain and Misthollow Griffin on the battlefield\u3010733079389517627\u2020L46-L52\u3011.",
+        "Activate Food Chain by exiling Misthollow Griffin, adding at least five mana of one color that can only be spent to cast creature spells\u3010733079389517627\u2020L54-L70\u3011.",
+        "Cast Misthollow Griffin from exile for its normal mana cost\u3010733079389517627\u2020L72-L80\u3011.",
+        "Repeat: exile and recast the Griffin to generate infinite colored mana that can only be spent on creature spells, along with infinite enter\u2011 and leave\u2011the\u2011battlefield triggers\u3010733079389517627\u2020L54-L82\u3011."
+      ],
+      "rules_reference": [
+        "117.9 \u2014 casting from zones other than hand",
+        "603 \u2014 triggered abilities"
+      ],
+      "plain_explanation": "Food Chain can exile a creature you control to generate mana equal to its mana cost plus one, restricted to casting creature spells. Misthollow Griffin can be cast from exile. By repeatedly exiling Misthollow Griffin to Food Chain and recasting it from exile, you net one extra mana each loop, producing infinite creature\u2011only mana and enter/leave triggers\u3010733079389517627\u2020L54-L82\u3011.",
+      "common_commanders": [
+        "Prossh, Skyraider of Kher",
+        "The First Sliver",
+        "Jolrael, Voice of Zhalfir"
+      ],
+      "casual_friendly": false,
+      "notes": "Although this combo requires only two cards, the mana can only be spent on creatures. It is common in competitive decks and can be unfun for casual tables if used to generate quick infinite mana."
+    },
+    {
+      "combo_name": "Deadeye Navigator + Peregrine Drake",
+      "cards": [
+        "Deadeye Navigator",
+        "Peregrine Drake"
+      ],
+      "steps": [
+        "Pair Deadeye Navigator with Peregrine Drake using soulbond (when either enters the battlefield, you may pair it with another unpaired creature).",
+        "Activate Deadeye Navigator's ability by paying {1}{U} to exile Peregrine Drake and return it to the battlefield under your control.",
+        "When Peregrine Drake reenters, its triggered ability untaps up to five lands\u3010530927301852090\u2020L444-L456\u3011.",
+        "Use the newly untapped lands to pay for Deadeye Navigator's activation and repeat, netting at least three extra mana each loop\u3010530927301852090\u2020L444-L456\u3011."
+      ],
+      "rules_reference": [
+        "702.95 \u2014 soulbond"
+      ],
+      "plain_explanation": "Deadeye Navigator can pair with another creature to grant an ability that exiles and returns the paired creature for {1}{U}. Peregrine Drake untaps five lands when it enters the battlefield. Each time you blink the Drake, you untap your lands and can pay for the blink again, floating extra mana. Repeating this loop yields infinite mana\u3010530927301852090\u2020L444-L456\u3011.",
+      "common_commanders": [
+        "Riku of Two Reflections",
+        "Yarok, the Desecrated",
+        "Brago, King Eternal"
+      ],
+      "casual_friendly": false,
+      "notes": "The combo requires Deadeye Navigator to remain paired with the Drake. Some casual players dislike it because it creates infinite mana quickly."
+    },
+    {
+      "combo_name": "Riku of Two Reflections + Palinchron",
+      "cards": [
+        "Riku of Two Reflections",
+        "Palinchron"
+      ],
+      "steps": [
+        "Cast Palinchron while controlling Riku of Two Reflections. Palinchron enters the battlefield and untaps up to seven lands\u3010530927301852090\u2020L548-L556\u3011.",
+        "Pay {1}{U}{G} (Riku's creature copy ability) to copy Palinchron as it enters. The copy untaps your lands as well\u3010530927301852090\u2020L548-L556\u3011.",
+        "Pay {2}{U}{U} to bounce the original Palinchron to your hand using its ability. The copy remains on the battlefield, untapping your lands again\u3010530927301852090\u2020L548-L556\u3011.",
+        "Recast Palinchron and repeat. Each cycle nets you more mana than you spend and another Palinchron token, giving you infinite mana and creatures\u3010530927301852090\u2020L548-L556\u3011."
+      ],
+      "rules_reference": [
+        "603 \u2014 triggered abilities",
+        "702.83 \u2014 storm"
+      ],
+      "plain_explanation": "Riku can copy creatures as they enter for {1}{U}{G}. Palinchron untaps seven lands when it enters and can bounce itself for {2}{U}{U}. By copying Palinchron and repeatedly bouncing and recasting it, you untap your lands more times than you spend mana, producing infinite mana and a horde of Palinchron tokens\u3010530927301852090\u2020L548-L556\u3011.",
+      "common_commanders": [
+        "Riku of Two Reflections",
+        "The First Sliver",
+        "Kinnan, Bonder Prodigy"
+      ],
+      "casual_friendly": false,
+      "notes": "Requires lots of lands to be profitable and is often used in competitive decks. Casual tables may disapprove because the loop takes time and generates infinite mana."
+    }
+  ],
+  "synergies": [
+    {
+      "synergy_name": "Sacrifice outlets + death triggers (Aristocrats)",
+      "enablers": [
+        "Viscera Seer",
+        "Ashnod's Altar",
+        "Fanatical Devotion",
+        "Thermopod"
+      ],
+      "payoffs": [
+        "Blood Artist",
+        "Zulaport Cutthroat",
+        "Ayara, First of Locthwain",
+        "Midnight Reaper"
+      ],
+      "plain_explanation": "Aristocrat decks rely on free or cheap sacrifice outlets to repeatedly sacrifice creatures. Each sacrifice triggers death\u2011benefit cards like Blood Artist or Zulaport Cutthroat to drain opponents or draw cards. Combining a sacrifice outlet with a creature that returns other creatures (like Reveillark) can produce loops for massive value and life drain."
+    },
+    {
+      "synergy_name": "Blink/flicker effects + creatures with enter\u2011the\u2011battlefield (ETB) triggers",
+      "enablers": [
+        "Deadeye Navigator",
+        "Conjurer's Closet",
+        "Ghostly Flicker",
+        "Ephemerate"
+      ],
+      "payoffs": [
+        "Peregrine Drake",
+        "Mulldrifter",
+        "Solemn Simulacrum",
+        "Dockside Extortionist"
+      ],
+      "plain_explanation": "Blinking temporarily exiles a creature and returns it to the battlefield, retriggering its ETB ability. When you repeatedly blink creatures that draw cards or untap lands, such as Mulldrifter or Peregrine Drake, you generate value or even infinite mana."
+    },
+    {
+      "synergy_name": "Infinite mana engines (untap effects + mana rocks/dorks)",
+      "enablers": [
+        "Dramatic Reversal",
+        "Pestermite",
+        "Palinchron",
+        "Seedborn Muse"
+      ],
+      "payoffs": [
+        "Isochron Scepter",
+        "Intruder Alarm",
+        "Freed from the Real",
+        "Muse tokens"
+      ],
+      "plain_explanation": "If your permanents produce more mana than the cost to untap them, cards that repeatedly untap creatures or artifacts (like Dramatic Reversal or Palinchron) become engines for infinite mana. Pairing these untappers with Isochron Scepter or enchantments that untap creatures can lead to loops where you continually tap and untap your mana sources for a net gain."
+    },
+    {
+      "synergy_name": "Life\u2011gain triggers + life\u2011loss payoffs",
+      "enablers": [
+        "Soul Warden",
+        "Cleric Class",
+        "Scavenging Ooze",
+        "Lifelink creatures"
+      ],
+      "payoffs": [
+        "Sanguine Bond",
+        "Vito, Thorn of the Dusk Rose",
+        "Archangel of Thune",
+        "Aetherflux Reservoir"
+      ],
+      "plain_explanation": "Repeatedly gaining life can fuel cards that punish opponents when you gain life or that reward you with counters and damage. Combining small life\u2011gain engines (Soul Warden seeing creatures enter) with payoffs like Sanguine Bond or Vito turns each gain into life loss for opponents, creating soft combos that scale with the number of triggers."
+    },
+    {
+      "synergy_name": "Token makers + sacrifice/drain effects",
+      "enablers": [
+        "Goblin Instigator",
+        "Ophiomancer",
+        "Nest of Scarabs",
+        "Chatterfang, Squirrel General"
+      ],
+      "payoffs": [
+        "Skullclamp",
+        "Pitiless Plunderer",
+        "Dictate of Erebos",
+        "Mayhem Devil"
+      ],
+      "plain_explanation": "Creating many expendable creature tokens works well with cards that reward you for creatures dying. Token producers give you fodder for sacrifice outlets, while drain or resource engines like Pitiless Plunderer or Skullclamp turn each death into mana or cards."
+    },
+    {
+      "synergy_name": "Self\u2011mill/draw to empty library + alternate win conditions",
+      "enablers": [
+        "Tainted Pact",
+        "Hermit Druid",
+        "Laboratory Maniac",
+        "Ad Nauseam"
+      ],
+      "payoffs": [
+        "Thassa's Oracle",
+        "Jace, Wielder of Mysteries",
+        "Laboratory Maniac",
+        "Leveler"
+      ],
+      "plain_explanation": "Decks built around winning when their library is empty use cards that quickly mill or draw through the deck. Once the library is gone, an alternate win condition like Thassa's Oracle or Laboratory Maniac replaces the usual lose\u2011condition for drawing from an empty library. Combining tutors or self\u2011mill cards with these win conditions enables quick, compact victories."
+    }
+  ]
+}

@@ -1,0 +1,386 @@
+{
+  "personas": [
+    {
+      "persona_name": "Budget Brewer",
+      "priorities": {
+        "budget": "high",
+        "power": "medium",
+        "theme": "moderate",
+        "fun": "high",
+        "legality": "commander legal"
+      },
+      "preferred_formats": [
+        "Casual Commander",
+        "Pioneer",
+        "Pauper"
+      ],
+      "deck_examples": [
+        "Mono\u2011Red Burn (Pauper)",
+        "Budget Mono\u2011Green Stompy (Pioneer)",
+        "Upgraded Commander Precon"
+      ]
+    },
+    {
+      "persona_name": "Competitive Spike",
+      "priorities": {
+        "budget": "low",
+        "power": "very high",
+        "theme": "low",
+        "fun": "medium",
+        "legality": "format dependent"
+      },
+      "preferred_formats": [
+        "cEDH",
+        "Modern",
+        "Pioneer",
+        "Standard"
+      ],
+      "deck_examples": [
+        "Izzet Phoenix (Modern)",
+        "Grixis Midrange (Pioneer)",
+        "Thassa's Oracle cEDH"
+      ]
+    },
+    {
+      "persona_name": "Casual Timmy",
+      "priorities": {
+        "budget": "medium",
+        "power": "low",
+        "theme": "high",
+        "fun": "very high",
+        "legality": "casual friendly"
+      },
+      "preferred_formats": [
+        "Kitchen Table",
+        "Casual Commander",
+        "Brawl"
+      ],
+      "deck_examples": [
+        "Dinosaur Ramp",
+        "Big Green Monsters",
+        "Angel Tribal"
+      ]
+    },
+    {
+      "persona_name": "Combo Johnny",
+      "priorities": {
+        "budget": "medium",
+        "power": "high",
+        "theme": "moderate",
+        "fun": "high",
+        "legality": "format aware"
+      },
+      "preferred_formats": [
+        "Commander",
+        "Modern",
+        "cEDH"
+      ],
+      "deck_examples": [
+        "Kiki\u2011Jiki Combo",
+        "Isochron Scepter Storm",
+        "Hermit Druid cEDH"
+      ]
+    },
+    {
+      "persona_name": "Control Player",
+      "priorities": {
+        "budget": "medium",
+        "power": "high",
+        "theme": "low",
+        "fun": "medium",
+        "legality": "tournament legal"
+      },
+      "preferred_formats": [
+        "Modern",
+        "Pioneer",
+        "Commander"
+      ],
+      "deck_examples": [
+        "Azorius Control",
+        "Esper Control",
+        "Mono\u2011Blue Stax"
+      ]
+    },
+    {
+      "persona_name": "Tribal Enthusiast",
+      "priorities": {
+        "budget": "medium",
+        "power": "medium",
+        "theme": "very high",
+        "fun": "high",
+        "legality": "format flexible"
+      },
+      "preferred_formats": [
+        "Commander",
+        "Standard",
+        "Modern"
+      ],
+      "deck_examples": [
+        "Elfball",
+        "Sliver Hive",
+        "Goblins Swarm"
+      ]
+    },
+    {
+      "persona_name": "New Player",
+      "priorities": {
+        "budget": "low",
+        "power": "low",
+        "theme": "low",
+        "fun": "high",
+        "legality": "starter legal"
+      },
+      "preferred_formats": [
+        "Kitchen Table",
+        "Casual Commander",
+        "Starter Decks"
+      ],
+      "deck_examples": [
+        "Precon Adventures in the Forgotten Realms",
+        "Intro Deck Spellslinger",
+        "Arena Starter Deck"
+      ]
+    },
+    {
+      "persona_name": "Format Explorer",
+      "priorities": {
+        "budget": "medium",
+        "power": "medium",
+        "theme": "moderate",
+        "fun": "high",
+        "legality": "varied"
+      },
+      "preferred_formats": [
+        "Historic",
+        "Pioneer",
+        "Legacy",
+        "Pauper"
+      ],
+      "deck_examples": [
+        "Fringe Modern Brew",
+        "Historic Rogue Brew",
+        "Legacy Niche Combo"
+      ]
+    }
+  ],
+  "adjustments": [
+    {
+      "persona_name": "Budget Brewer",
+      "adjustment_rules": [
+        "Prioritize cards under $5 and avoid expensive staples.",
+        "Suggest functional replacements when a card exceeds budget (e.g., Infernal Tutor instead of Demonic Tutor).",
+        "Highlight commons and uncommons that fit the deck\u2019s strategy."
+      ],
+      "example_substitutions": [
+        {
+          "expensive_card": "Fetch land",
+          "substitute": "Evolving Wilds"
+        },
+        {
+          "expensive_card": "Vampiric Tutor",
+          "substitute": "Diabolic Tutor"
+        },
+        {
+          "expensive_card": "Cyclonic Rift",
+          "substitute": "Whelming Wave"
+        }
+      ]
+    },
+    {
+      "persona_name": "Competitive Spike",
+      "adjustment_rules": [
+        "Emphasize efficiency and low mana curves; include meta staples and fast mana.",
+        "Avoid cards considered \u2018fun but weak\u2019; favour cards with proven tournament results.",
+        "Optimize the mana base with fetches, shocks and fast lands regardless of price."
+      ],
+      "example_substitutions": [
+        {
+          "expensive_card": "Solemn Simulacrum",
+          "substitute": "Mana Crypt"
+        },
+        {
+          "expensive_card": "Cancel",
+          "substitute": "Force of Will"
+        },
+        {
+          "expensive_card": "Soul Warden",
+          "substitute": "Esper Sentinel"
+        }
+      ]
+    },
+    {
+      "persona_name": "Casual Timmy",
+      "adjustment_rules": [
+        "Include big creatures and flashy spells over efficient low\u2011curve cards.",
+        "Prefer high\u2011impact splashy effects (e.g., mass pump spells) even if they cost more mana.",
+        "De\u2011emphasize counterspells and stax pieces unless they contribute to the spectacle."
+      ],
+      "example_substitutions": [
+        {
+          "efficient_card": "Mana Leak",
+          "substitute": "Reverse the Sands"
+        },
+        {
+          "efficient_card": "Lightning Bolt",
+          "substitute": "Fireball"
+        },
+        {
+          "meta_staple": "Rhystic Study",
+          "substitute": "Kindred Discovery"
+        }
+      ]
+    },
+    {
+      "persona_name": "Combo Johnny",
+      "adjustment_rules": [
+        "Prioritize cards that enable or search for combo pieces.",
+        "Value tutors, redundancy and recursion over raw power or defence.",
+        "Ignore cards that don\u2019t advance combo lines, even if they\u2019re strong independently."
+      ],
+      "example_substitutions": [
+        {
+          "general_card": "Cultivate",
+          "substitute": "Diabolic Intent"
+        },
+        {
+          "general_card": "Sword of Feast and Famine",
+          "substitute": "Isochron Scepter"
+        },
+        {
+          "general_card": "Primeval Titan",
+          "substitute": "Palinchron"
+        }
+      ]
+    },
+    {
+      "persona_name": "Control Player",
+      "adjustment_rules": [
+        "Include a high density of removal, counterspells and board wipes.",
+        "Choose win conditions that are resilient and difficult to disrupt.",
+        "Avoid overly aggressive creatures; focus on card advantage engines."
+      ],
+      "example_substitutions": [
+        {
+          "aggressive_card": "Llanowar Elves",
+          "substitute": "Arcane Signet"
+        },
+        {
+          "aggressive_card": "Fireball",
+          "substitute": "Supreme Verdict"
+        },
+        {
+          "fun_card": "Terastodon",
+          "substitute": "Toxrill, the Corrosive"
+        }
+      ]
+    },
+    {
+      "persona_name": "Tribal Enthusiast",
+      "adjustment_rules": [
+        "Prioritize cards that support or benefit the chosen tribe (lords, tribal enablers).",
+        "Substitute generic card draw or removal for tribal alternatives when available.",
+        "Avoid off\u2011tribe creatures unless they provide irreplaceable utility."
+      ],
+      "example_substitutions": [
+        {
+          "generic_card": "Divination",
+          "substitute": "Vanquisher's Banner"
+        },
+        {
+          "generic_card": "Path to Exile",
+          "substitute": "Nameless Inversion"
+        },
+        {
+          "generic_card": "Solemn Simulacrum",
+          "substitute": "Imperious Perfect"
+        }
+      ]
+    },
+    {
+      "persona_name": "New Player",
+      "adjustment_rules": [
+        "Suggest straightforward, easy\u2011to\u2011understand cards and avoid complex interactions.",
+        "Favour preconstructed decks and low\u2011rarity staples.",
+        "Avoid recommending high\u2011powered infinite combos or convoluted rules interactions."
+      ],
+      "example_substitutions": [
+        {
+          "complex_card": "Panharmonicon",
+          "substitute": "Peregrine Drake"
+        },
+        {
+          "complex_card": "Mystic Remora",
+          "substitute": "Opt"
+        },
+        {
+          "complex_card": "Force of Negation",
+          "substitute": "Cancel"
+        }
+      ]
+    },
+    {
+      "persona_name": "Format Explorer",
+      "adjustment_rules": [
+        "Suggest off\u2011meta or underplayed cards to encourage experimentation.",
+        "Include strategies tailored to less common formats (e.g., Pauper Storm, Historic Combo).",
+        "Avoid strictly meta decks; instead, highlight unique archetypes and brewing space."
+      ],
+      "example_substitutions": [
+        {
+          "meta_card": "Thoughtseize",
+          "substitute": "Inquisition of Kozilek"
+        },
+        {
+          "meta_card": "Flooded Strand",
+          "substitute": "Polluted Delta"
+        },
+        {
+          "meta_card": "Uro, Titan of Nature's Wrath",
+          "substitute": "Gurmag Angler"
+        }
+      ]
+    }
+  ],
+  "tones": [
+    {
+      "persona_name": "Budget Brewer",
+      "tone_style": "casual, encouraging",
+      "example_response": "Since you're brewing on a budget, let's look at affordable cards that still pack a punch. Replacing your fetch lands with Evolving Wilds keeps costs down without hurting your mana base too much."
+    },
+    {
+      "persona_name": "Competitive Spike",
+      "tone_style": "competitive analysis",
+      "example_response": "For a cEDH environment, speed and efficiency are paramount. Swap any slow, high\u2011curve cards for fast mana and tutors; running Mana Crypt and Force of Will will improve your deck\u2019s consistency."
+    },
+    {
+      "persona_name": "Casual Timmy",
+      "tone_style": "enthusiastic, narrative",
+      "example_response": "Imagine slamming down an Eldrazi titan and watching your friends gasp! We'll load your deck with colossal creatures and spells that make every game an epic story."
+    },
+    {
+      "persona_name": "Combo Johnny",
+      "tone_style": "analytical yet creative",
+      "example_response": "This build shines when you can assemble your three\u2011piece combo. Let's add redundancy to protect your lines and tutors to find the missing pieces, so you can enjoy the satisfaction of executing intricate interactions."
+    },
+    {
+      "persona_name": "Control Player",
+      "tone_style": "strategic and methodical",
+      "example_response": "We'll focus on controlling the board and sculpting the perfect hand. Your win condition can be as simple as a resilient finisher after you've exhausted your opponents' resources."
+    },
+    {
+      "persona_name": "Tribal Enthusiast",
+      "tone_style": "passionate and theme\u2011driven",
+      "example_response": "Let's strengthen your Goblin horde! Adding more tribal lords and synergistic spells will make your tribe unstoppable while keeping your theme front and centre."
+    },
+    {
+      "persona_name": "New Player",
+      "tone_style": "educational and friendly",
+      "example_response": "Welcome to Magic! We'll start with simple cards and straightforward strategies so you can learn the rules without getting overwhelmed. Once you\u2019re comfortable, we can explore more advanced options."
+    },
+    {
+      "persona_name": "Format Explorer",
+      "tone_style": "curious and informative",
+      "example_response": "If you're looking to explore new formats, how about trying a Historic brew built around overlooked synergies? We'll pick some unconventional cards that showcase what makes each format unique."
+    }
+  ]
+}

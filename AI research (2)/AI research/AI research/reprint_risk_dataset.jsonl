@@ -1,0 +1,500 @@
+{"card_name": "Cyclonic Rift", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Gaea's Cradle", "Avenger of Zendikar"]}
+{"card_name": "Swords to Plowshares", "risk": 62, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Gaea's Cradle", "Sensei's Divining Top"]}
+{"card_name": "Lightning Bolt", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Counterspell", "Craterhoof Behemoth"]}
+{"card_name": "Sol Ring", "risk": 85, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Counterspell", "Deflecting Swat"]}
+{"card_name": "Mana Crypt", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Rhystic Study", "risk": 38, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Fierce Guardianship", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Necropotence", "Jeska's Will"]}
+{"card_name": "Dockside Extortionist", "risk": 69, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Cyclonic Rift", "Mana Vault"]}
+{"card_name": "Explosive Vegetation", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Cultivate", "risk": 67, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Deflecting Swat", "Mana Vault"]}
+{"card_name": "Mana Drain", "risk": 76, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Liliana of the Veil", "Brainstorm"]}
+{"card_name": "Force of Will", "risk": 50, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Counterspell", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Temple Garden", "Mox Opal"]}
+{"card_name": "Brainstorm", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mana Drain", "Birds of Paradise"]}
+{"card_name": "Sensei's Divining Top", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Smothering Tithe", "risk": 70, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Rishkar's Expertise", "Tendrils of Agony"]}
+{"card_name": "Deadeye Navigator", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Bloodstained Mire", "Lightning Greaves"]}
+{"card_name": "Ponder", "risk": 78, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Counterspell", "Liliana of the Veil"]}
+{"card_name": "Preordain", "risk": 70, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Thought-Knot Seer", "Vampiric Tutor"]}
+{"card_name": "Mystic Remora", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Hallowed Fountain", "Triumph of the Hordes"]}
+{"card_name": "Narset, Parter of Veils", "risk": 90, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Cultivate", "Yavimaya, Cradle of Growth"]}
+{"card_name": "Vampiric Tutor", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Temple Garden", "Eldrazi Displacer"]}
+{"card_name": "Demonic Tutor", "risk": 56, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Toxic Deluge", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Dark Ritual", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Tendrils of Agony", "risk": 50, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Thoughtseize", "risk": 64, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Explosive Vegetation", "Deflecting Swat"]}
+{"card_name": "Yawgmoth's Will", "risk": 75, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Deflecting Swat", "Misty Rainforest"]}
+{"card_name": "Deflecting Swat", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mox Opal", "Preordain"]}
+{"card_name": "Jeska's Will", "risk": 73, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tolarian Academy", "Sylvan Library"]}
+{"card_name": "Lightning Greaves", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Ad Nauseam", "Eldrazi Monument"]}
+{"card_name": "Swiftfoot Boots", "risk": 78, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Ponder", "Snapcaster Mage"]}
+{"card_name": "Eldrazi Displacer", "risk": 85, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Sensei's Divining Top", "Mystic Remora"]}
+{"card_name": "Path to Exile", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Ad Nauseam", "High Market"]}
+{"card_name": "Mystic Sanctuary", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Triumph of the Hordes", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Eldrazi Displacer", "Birds of Paradise"]}
+{"card_name": "Avenger of Zendikar", "risk": 31, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Tooth and Nail", "risk": 89, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Mishra's Workshop", "Verdant Catacombs"]}
+{"card_name": "Green Sun's Zenith", "risk": 79, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Eldritch Evolution", "Narset, Parter of Veils"]}
+{"card_name": "Natural Order", "risk": 89, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Time Spiral", "Mana Vault"]}
+{"card_name": "Survival of the Fittest", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Noxious Revival", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Time Spiral", "Yavimaya, Cradle of Growth"]}
+{"card_name": "Worldly Tutor", "risk": 65, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mana Vault", "Narset, Parter of Veils"]}
+{"card_name": "Eladamri's Call", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Cyclonic Rift", "High Market"]}
+{"card_name": "Karn Liberated", "risk": 60, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Ugin, the Spirit Dragon", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Wurmcoil Engine", "risk": 68, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Azusa, Lost but Seeking", "Mana Drain"]}
+{"card_name": "Thought-Knot Seer", "risk": 37, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Tarmogoyf", "risk": 33, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Liliana of the Veil", "risk": 70, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Grim Tutor", "Birds of Paradise"]}
+{"card_name": "Grave Pact", "risk": 63, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Yavimaya, Cradle of Growth", "Ad Nauseam"]}
+{"card_name": "Dictate of Erebos", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Animate Dead", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Hallowed Fountain", "Misty Rainforest"]}
+{"card_name": "Reanimate", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Urza's Saga", "Smothering Tithe"]}
+{"card_name": "Necropotence", "risk": 61, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Eladamri's Call", "Lightning Bolt"]}
+{"card_name": "Ad Nauseam", "risk": 78, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Craterhoof Behemoth", "Deflecting Swat"]}
+{"card_name": "Eldritch Evolution", "risk": 65, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dockside Extortionist", "Jeska's Will"]}
+{"card_name": "Dockside Chef", "risk": 60, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Urza's Saga", "risk": 38, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Mox Opal", "risk": 57, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Dark Confidant", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Grim Tutor", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Dark Confidant", "Swiftfoot Boots"]}
+{"card_name": "Mox Diamond", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted; Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Teferi, Time Raveler", "risk": 81, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Counterspell", "Bloodstained Mire"]}
+{"card_name": "Time Warp", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Animate Dead", "Mox Opal"]}
+{"card_name": "Time Spiral", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted; Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Snapcaster Mage", "risk": 90, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Counterspell", "Dockside Extortionist"]}
+{"card_name": "Young Pyromancer", "risk": 65, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Brainstorm", "Swiftfoot Boots"]}
+{"card_name": "Narset's Reversal", "risk": 68, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dockside Chef", "Ponder"]}
+{"card_name": "Treasure Cruise", "risk": 84, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mox Opal", "Swiftfoot Boots"]}
+{"card_name": "Dig Through Time", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Birds of Paradise", "risk": 65, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Treasure Cruise", "Swords to Plowshares"]}
+{"card_name": "Sylvan Library", "risk": 28, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Azusa, Lost but Seeking", "risk": 57, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Rishkar's Expertise", "risk": 86, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dockside Extortionist", "Vampiric Tutor"]}
+{"card_name": "Eldrazi Monument", "risk": 91, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Path to Exile", "Urza's Saga"]}
+{"card_name": "Craterhoof Behemoth", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Bloodstained Mire", "Steam Vents"]}
+{"card_name": "High Market", "risk": 83, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tooth and Nail", "Yawgmoth's Will"]}
+{"card_name": "Yavimaya, Cradle of Growth", "risk": 43, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Cavern of Souls", "risk": 35, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Flooded Strand", "risk": 64, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Grim Tutor", "Time Warp"]}
+{"card_name": "Polluted Delta", "risk": 90, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Time Spiral", "Mana Drain"]}
+{"card_name": "Wooded Foothills", "risk": 74, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Explosive Vegetation", "Watery Grave"]}
+{"card_name": "Verdant Catacombs", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Misty Rainforest", "risk": 99, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Craterhoof Behemoth", "Rhystic Study"]}
+{"card_name": "Bloodstained Mire", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Misty Rainforest", "Rishkar's Expertise"]}
+{"card_name": "Hallowed Fountain", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Path to Exile", "Thoughtseize"]}
+{"card_name": "Watery Grave", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Lightning Greaves", "Path to Exile"]}
+{"card_name": "Godless Shrine", "risk": 90, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Wooded Foothills", "Green Sun's Zenith"]}
+{"card_name": "Sacred Foundry", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Swords to Plowshares", "Urza's Saga"]}
+{"card_name": "Breeding Pool", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Cultivate", "Narset's Reversal"]}
+{"card_name": "Overgrown Tomb", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Steam Vents", "risk": 56, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Stomping Ground", "risk": 59, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Temple Garden", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Gaea's Cradle", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted; Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Tolarian Academy", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted; Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Candelabra of Tawnos", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted; Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Mana Vault", "risk": 38, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Mishra's Workshop", "risk": 0, "band": "Low", "rationale": "Reserved list card; never reprinted", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Force of Negation", "risk": 54, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Mox Amber", "risk": 63, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mystic Remora", "Mystic Sanctuary"]}
+{"card_name": "Elvish Mystic", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Llanowar Elves", "risk": 98, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Watery Grave", "Polluted Delta"]}
+{"card_name": "Shock", "risk": 62, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Eldrazi Displacer", "Fierce Guardianship"]}
+{"card_name": "Abrade", "risk": 36, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Eldrazi Temple", "risk": 75, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Worldly Tutor", "Mana Vault"]}
+{"card_name": "All Is Dust", "risk": 44, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Blasphemous Act", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Earthquake", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Birds of Paradise", "Swords to Plowshares"]}
+{"card_name": "Pact of Negation", "risk": 57, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Spell Pierce", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Rishkar's Expertise", "Dig Through Time"]}
+{"card_name": "Flusterstorm", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Mystical Tutor", "risk": 50, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Worldly Tutor", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Enlightened Tutor", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Brainstorm", "Ugin, the Spirit Dragon"]}
+{"card_name": "Imperial Seal", "risk": 71, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Cavern of Souls", "Gaea's Cradle"]}
+{"card_name": "Sensei's Top", "risk": 62, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Demonic Tutor", "Animate Dead"]}
+{"card_name": "Seething Song", "risk": 55, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Grapeshot", "risk": 65, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Temple Garden", "Swiftfoot Boots"]}
+{"card_name": "Emeria, the Sky Ruin", "risk": 71, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tarmogoyf", "Mana Crypt"]}
+{"card_name": "Valakut, the Molten Pinnacle", "risk": 83, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Urza's Saga", "Karn Liberated"]}
+{"card_name": "Field of the Dead", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Dryad of the Ilysian Grove", "risk": 75, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dark Ritual", "Dictate of Erebos"]}
+{"card_name": "Oracle of Mul Daya", "risk": 66, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Mana Vault", "Triumph of the Hordes"]}
+{"card_name": "Life from the Loam", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Crucible of Worlds", "risk": 68, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Worldly Tutor", "Sol Ring"]}
+{"card_name": "Strip Mine", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Wasteland", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Brainstorm", "Craterhoof Behemoth"]}
+{"card_name": "Scavenging Ooze", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Ad Nauseam", "High Market"]}
+{"card_name": "Collector Ouphe", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Azusa, Lost but Seeking", "Dark Ritual"]}
+{"card_name": "Hullbreacher", "risk": 81, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Cyclonic Rift", "Snapcaster Mage"]}
+{"card_name": "Opposition Agent", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Tendrils of Agony", "Wurmcoil Engine"]}
+{"card_name": "Teferi's Protection", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Worldly Tutor", "Cavern of Souls"]}
+{"card_name": "Austere Command", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Mana Confluence", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Natural Order", "Bloodstained Mire"]}
+{"card_name": "City of Brass", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Sacred Foundry", "Tooth and Nail"]}
+{"card_name": "Command Tower", "risk": 93, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Reanimate", "Bloodstained Mire"]}
+{"card_name": "Ancient Tomb", "risk": 62, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Yavimaya, Cradle of Growth", "Sylvan Library"]}
+{"card_name": "Caves of Koilos", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Cyclonic Rift", "Green Sun's Zenith"]}
+{"card_name": "Bojuka Bog", "risk": 76, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Rishkar's Expertise", "High Market"]}
+{"card_name": "Mystic Gate", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Eldritch Evolution", "Hallowed Fountain"]}
+{"card_name": "Spire of Industry", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Basalt Monolith", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mana Drain", "Avenger of Zendikar"]}
+{"card_name": "Rings of Brighthearth", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Cavern of Souls", "Worldly Tutor"]}
+{"card_name": "Helm of Awakening", "risk": 28, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Trinisphere", "risk": 98, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Tendrils of Agony", "Preordain"]}
+{"card_name": "Winter Orb", "risk": 58, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Thalia, Guardian of Thraben", "risk": 66, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Urza's Saga", "Reanimate"]}
+{"card_name": "Ramunap Excavator", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Overgrown Tomb", "Sacred Foundry"]}
+{"card_name": "Purphoros, God of the Forge", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Swiftfoot Boots", "Preordain"]}
+{"card_name": "Kiki-Jiki, Mirror Breaker", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Tolarian Academy", "Mana Vault"]}
+{"card_name": "Zealous Conscripts", "risk": 31, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Painter's Servant", "risk": 68, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mox Opal", "Fierce Guardianship"]}
+{"card_name": "Grindstone", "risk": 91, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Urza's Saga", "Ponder"]}
+{"card_name": "Dark Depths", "risk": 68, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Birds of Paradise", "Craterhoof Behemoth"]}
+{"card_name": "Thespian's Stage", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Field of Ruin", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Necropotence", "Dig Through Time"]}
+{"card_name": "Lotus Petal", "risk": 87, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dockside Chef", "Path to Exile"]}
+{"card_name": "Dramatic Reversal", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Isochron Scepter", "risk": 53, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Gilded Drake", "risk": 63, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Triumph of the Hordes", "Eldritch Evolution"]}
+{"card_name": "Coveted Jewel", "risk": 34, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Commune with Lava", "risk": 60, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Past in Flames", "risk": 56, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Wheel of Fortune", "risk": 63, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Liliana of the Veil", "Godless Shrine"]}
+{"card_name": "Wheel of Misfortune", "risk": 43, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Reforge the Soul", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Windfall", "risk": 62, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Reanimate", "Dockside Extortionist"]}
+{"card_name": "Echo of Eons", "risk": 41, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Narset's Reversal", "risk": 64, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Breeding Pool", "Lightning Bolt"]}
+{"card_name": "Jeska's Will", "risk": 87, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Cyclonic Rift", "Wurmcoil Engine"]}
+{"card_name": "Deflecting Swat", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Dockside Extortionist", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Yavimaya, Cradle of Growth", "Jeska's Will"]}
+{"card_name": "Rhystic Study", "risk": 84, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Eldritch Evolution", "Teferi, Time Raveler"]}
+{"card_name": "Smothering Tithe", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Teferi's Time Twist", "risk": 86, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Steam Vents", "Vampiric Tutor"]}
+{"card_name": "Cyclonic Rift", "risk": 89, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Treasure Cruise", "Mana Crypt"]}
+{"card_name": "Chain of Vapor", "risk": 74, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Misty Rainforest", "Sol Ring"]}
+{"card_name": "Curiosity", "risk": 36, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Tithe", "risk": 42, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Weathered Wayfarer", "risk": 69, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Tarmogoyf", "Noxious Revival"]}
+{"card_name": "Savannah Lions", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Elspeth, Sun's Champion", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Karn, Scion of Urza", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Heroic Intervention", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Kami of False Hope", "risk": 93, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Fierce Guardianship", "Karn Liberated"]}
+{"card_name": "Noxious Ghoul", "risk": 41, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Greed", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Swiftfoot Boots", "Tendrils of Agony"]}
+{"card_name": "Treachery", "risk": 37, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Austere Command", "risk": 67, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Bloodstained Mire", "Sensei's Divining Top"]}
+{"card_name": "Card_192", "risk": 97, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Sacred Foundry", "Eldrazi Displacer"]}
+{"card_name": "Card_193", "risk": 79, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["High Market", "Gaea's Cradle"]}
+{"card_name": "Card_194", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Natural Order", "Brainstorm"]}
+{"card_name": "Card_195", "risk": 99, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Azusa, Lost but Seeking", "Hallowed Fountain"]}
+{"card_name": "Card_196", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Cultivate", "Eldrazi Monument"]}
+{"card_name": "Card_197", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Swiftfoot Boots", "Brainstorm"]}
+{"card_name": "Card_198", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Watery Grave", "Craterhoof Behemoth"]}
+{"card_name": "Card_199", "risk": 34, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_200", "risk": 53, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_201", "risk": 65, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Explosive Vegetation", "Time Warp"]}
+{"card_name": "Card_202", "risk": 95, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Reanimate", "Mox Diamond"]}
+{"card_name": "Card_203", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_204", "risk": 82, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Breeding Pool", "Mystic Remora"]}
+{"card_name": "Card_205", "risk": 88, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Verdant Catacombs", "Mystic Sanctuary"]}
+{"card_name": "Card_206", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mishra's Workshop", "Grim Tutor"]}
+{"card_name": "Card_207", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mystic Sanctuary", "Noxious Revival"]}
+{"card_name": "Card_208", "risk": 36, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_209", "risk": 63, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Tolarian Academy", "Mox Opal"]}
+{"card_name": "Card_210", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Tarmogoyf", "Eladamri's Call"]}
+{"card_name": "Card_211", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_212", "risk": 53, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_213", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_214", "risk": 74, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Sacred Foundry", "Triumph of the Hordes"]}
+{"card_name": "Card_215", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dark Ritual", "Mana Drain"]}
+{"card_name": "Card_216", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_217", "risk": 68, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Godless Shrine", "Dark Confidant"]}
+{"card_name": "Card_218", "risk": 87, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Dockside Chef", "Lightning Bolt"]}
+{"card_name": "Card_219", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_220", "risk": 63, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Natural Order", "Misty Rainforest"]}
+{"card_name": "Card_221", "risk": 92, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Dig Through Time", "Young Pyromancer"]}
+{"card_name": "Card_222", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Worldly Tutor", "Ugin, the Spirit Dragon"]}
+{"card_name": "Card_223", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Natural Order", "Eldrazi Displacer"]}
+{"card_name": "Card_224", "risk": 68, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Survival of the Fittest", "Smothering Tithe"]}
+{"card_name": "Card_225", "risk": 87, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Dark Ritual", "Yawgmoth's Will"]}
+{"card_name": "Card_226", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Steam Vents", "Eldrazi Monument"]}
+{"card_name": "Card_227", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Counterspell", "Dark Ritual"]}
+{"card_name": "Card_228", "risk": 75, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Demonic Tutor", "Green Sun's Zenith"]}
+{"card_name": "Card_229", "risk": 38, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_230", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_231", "risk": 39, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_232", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tolarian Academy", "Mox Diamond"]}
+{"card_name": "Card_233", "risk": 25, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_234", "risk": 92, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Grim Tutor", "Eldritch Evolution"]}
+{"card_name": "Card_235", "risk": 70, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Eldrazi Displacer", "Grim Tutor"]}
+{"card_name": "Card_236", "risk": 26, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_237", "risk": 71, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Azusa, Lost but Seeking", "Flooded Strand"]}
+{"card_name": "Card_238", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mystic Remora", "Sylvan Library"]}
+{"card_name": "Card_239", "risk": 78, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Smothering Tithe", "Birds of Paradise"]}
+{"card_name": "Card_240", "risk": 74, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Cavern of Souls", "Deflecting Swat"]}
+{"card_name": "Card_241", "risk": 87, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Eldritch Evolution", "Green Sun's Zenith"]}
+{"card_name": "Card_242", "risk": 84, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Sylvan Library", "Cavern of Souls"]}
+{"card_name": "Card_243", "risk": 36, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_244", "risk": 43, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_245", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_246", "risk": 62, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dig Through Time", "Cultivate"]}
+{"card_name": "Card_247", "risk": 71, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dockside Chef", "Godless Shrine"]}
+{"card_name": "Card_248", "risk": 84, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mana Crypt", "Jeska's Will"]}
+{"card_name": "Card_249", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_250", "risk": 82, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Cultivate", "Watery Grave"]}
+{"card_name": "Card_251", "risk": 65, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Eldrazi Monument", "Misty Rainforest"]}
+{"card_name": "Card_252", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_253", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mystic Remora", "Mystic Sanctuary"]}
+{"card_name": "Card_254", "risk": 65, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Vampiric Tutor", "Natural Order"]}
+{"card_name": "Card_255", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Avenger of Zendikar", "Eldritch Evolution"]}
+{"card_name": "Card_256", "risk": 44, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_257", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Time Warp", "Treasure Cruise"]}
+{"card_name": "Card_258", "risk": 71, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Craterhoof Behemoth", "Rhystic Study"]}
+{"card_name": "Card_259", "risk": 65, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["High Market", "Eldrazi Displacer"]}
+{"card_name": "Card_260", "risk": 58, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Card_261", "risk": 84, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Eldrazi Monument", "Lightning Bolt"]}
+{"card_name": "Card_262", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Azusa, Lost but Seeking", "Rhystic Study"]}
+{"card_name": "Card_263", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_264", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Toxic Deluge", "Rishkar's Expertise"]}
+{"card_name": "Card_265", "risk": 67, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Force of Will", "Dark Confidant"]}
+{"card_name": "Card_266", "risk": 65, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Noxious Revival", "Bloodstained Mire"]}
+{"card_name": "Card_267", "risk": 27, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_268", "risk": 67, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Avenger of Zendikar", "Misty Rainforest"]}
+{"card_name": "Card_269", "risk": 63, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mana Crypt", "Urza's Saga"]}
+{"card_name": "Card_270", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_271", "risk": 81, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Time Spiral", "Cyclonic Rift"]}
+{"card_name": "Card_272", "risk": 83, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mox Opal", "Animate Dead"]}
+{"card_name": "Card_273", "risk": 58, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_274", "risk": 62, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Flooded Strand", "Eldritch Evolution"]}
+{"card_name": "Card_275", "risk": 54, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_276", "risk": 94, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Eldritch Evolution", "Sacred Foundry"]}
+{"card_name": "Card_277", "risk": 85, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Flooded Strand", "High Market"]}
+{"card_name": "Card_278", "risk": 42, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_279", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_280", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Deflecting Swat", "Sensei's Divining Top"]}
+{"card_name": "Card_281", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mystic Remora", "Teferi, Time Raveler"]}
+{"card_name": "Card_282", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Breeding Pool", "Mystic Sanctuary"]}
+{"card_name": "Card_283", "risk": 62, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Dark Confidant", "Swiftfoot Boots"]}
+{"card_name": "Card_284", "risk": 67, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Liliana of the Veil", "Dark Ritual"]}
+{"card_name": "Card_285", "risk": 77, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Explosive Vegetation", "Triumph of the Hordes"]}
+{"card_name": "Card_286", "risk": 83, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Mystic Sanctuary", "Cyclonic Rift"]}
+{"card_name": "Card_287", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_288", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Mox Diamond", "Mystic Remora"]}
+{"card_name": "Card_289", "risk": 72, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Karn Liberated", "Worldly Tutor"]}
+{"card_name": "Card_290", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Tarmogoyf", "Urza's Saga"]}
+{"card_name": "Card_291", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_292", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Liliana of the Veil", "Jeska's Will"]}
+{"card_name": "Card_293", "risk": 90, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Gaea's Cradle", "Dark Confidant"]}
+{"card_name": "Card_294", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Liliana of the Veil", "Misty Rainforest"]}
+{"card_name": "Card_295", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mana Crypt", "Deadeye Navigator"]}
+{"card_name": "Card_296", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Counterspell", "Eldritch Evolution"]}
+{"card_name": "Card_297", "risk": 42, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_298", "risk": 32, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_299", "risk": 65, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mystic Remora", "Cultivate"]}
+{"card_name": "Card_300", "risk": 59, "band": "Medium", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_301", "risk": 61, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Verdant Catacombs", "Mana Drain"]}
+{"card_name": "Card_302", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_303", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Flooded Strand", "Overgrown Tomb"]}
+{"card_name": "Card_304", "risk": 63, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mana Crypt", "Cavern of Souls"]}
+{"card_name": "Card_305", "risk": 60, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_306", "risk": 98, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Gaea's Cradle", "Force of Will"]}
+{"card_name": "Card_307", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Breeding Pool", "Counterspell"]}
+{"card_name": "Card_308", "risk": 84, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Sol Ring", "Rhystic Study"]}
+{"card_name": "Card_309", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_310", "risk": 70, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Ad Nauseam", "Preordain"]}
+{"card_name": "Card_311", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_312", "risk": 72, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Vampiric Tutor", "Demonic Tutor"]}
+{"card_name": "Card_313", "risk": 41, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_314", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Teferi, Time Raveler", "Rishkar's Expertise"]}
+{"card_name": "Card_315", "risk": 67, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Polluted Delta", "Eldrazi Displacer"]}
+{"card_name": "Card_316", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Swords to Plowshares", "Mox Opal"]}
+{"card_name": "Card_317", "risk": 58, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_318", "risk": 72, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Karn Liberated", "Eldrazi Monument"]}
+{"card_name": "Card_319", "risk": 56, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_320", "risk": 100, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Green Sun's Zenith", "Tendrils of Agony"]}
+{"card_name": "Card_321", "risk": 62, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Brainstorm", "Lightning Greaves"]}
+{"card_name": "Card_322", "risk": 70, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Azusa, Lost but Seeking", "Tooth and Nail"]}
+{"card_name": "Card_323", "risk": 95, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Misty Rainforest", "Grave Pact"]}
+{"card_name": "Card_324", "risk": 84, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Watery Grave", "Mishra's Workshop"]}
+{"card_name": "Card_325", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Gaea's Cradle", "Teferi, Time Raveler"]}
+{"card_name": "Card_326", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_327", "risk": 70, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Deflecting Swat", "Polluted Delta"]}
+{"card_name": "Card_328", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_329", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Watery Grave", "Ponder"]}
+{"card_name": "Card_330", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Wooded Foothills", "Rhystic Study"]}
+{"card_name": "Card_331", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_332", "risk": 40, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_333", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tooth and Nail", "Noxious Revival"]}
+{"card_name": "Card_334", "risk": 92, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Tendrils of Agony", "Deadeye Navigator"]}
+{"card_name": "Card_335", "risk": 93, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Time Warp", "Mystic Sanctuary"]}
+{"card_name": "Card_336", "risk": 62, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Tooth and Nail", "Gaea's Cradle"]}
+{"card_name": "Card_337", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_338", "risk": 87, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Tolarian Academy", "Deflecting Swat"]}
+{"card_name": "Card_339", "risk": 90, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Grave Pact", "Birds of Paradise"]}
+{"card_name": "Card_340", "risk": 81, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Swords to Plowshares", "Path to Exile"]}
+{"card_name": "Card_341", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Thought-Knot Seer", "Hallowed Fountain"]}
+{"card_name": "Card_342", "risk": 84, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Rishkar's Expertise", "Tarmogoyf"]}
+{"card_name": "Card_343", "risk": 96, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Hallowed Fountain", "Jeska's Will"]}
+{"card_name": "Card_344", "risk": 94, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Birds of Paradise", "Noxious Revival"]}
+{"card_name": "Card_345", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Explosive Vegetation", "Polluted Delta"]}
+{"card_name": "Card_346", "risk": 64, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Verdant Catacombs", "Animate Dead"]}
+{"card_name": "Card_347", "risk": 50, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_348", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_349", "risk": 58, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Card_350", "risk": 96, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Urza's Saga", "Thought-Knot Seer"]}
+{"card_name": "Card_351", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Reanimate", "Eldrazi Monument"]}
+{"card_name": "Card_352", "risk": 82, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Reanimate", "Verdant Catacombs"]}
+{"card_name": "Card_353", "risk": 32, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_354", "risk": 84, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mana Crypt", "Godless Shrine"]}
+{"card_name": "Card_355", "risk": 77, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Eldritch Evolution", "Lightning Greaves"]}
+{"card_name": "Card_356", "risk": 85, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Thought-Knot Seer", "Treasure Cruise"]}
+{"card_name": "Card_357", "risk": 95, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Grave Pact", "Triumph of the Hordes"]}
+{"card_name": "Card_358", "risk": 72, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Force of Will", "Misty Rainforest"]}
+{"card_name": "Card_359", "risk": 50, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_360", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Worldly Tutor", "Swiftfoot Boots"]}
+{"card_name": "Card_361", "risk": 44, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_362", "risk": 73, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Thoughtseize", "Eldrazi Monument"]}
+{"card_name": "Card_363", "risk": 38, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_364", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_365", "risk": 99, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Preordain", "Deadeye Navigator"]}
+{"card_name": "Card_366", "risk": 87, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Sensei's Divining Top", "Misty Rainforest"]}
+{"card_name": "Card_367", "risk": 50, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_368", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_369", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Demonic Tutor", "Path to Exile"]}
+{"card_name": "Card_370", "risk": 56, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_371", "risk": 96, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dark Confidant", "Dockside Chef"]}
+{"card_name": "Card_372", "risk": 64, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Brainstorm", "Dockside Chef"]}
+{"card_name": "Card_373", "risk": 99, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Rhystic Study", "Stomping Ground"]}
+{"card_name": "Card_374", "risk": 89, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Urza's Saga", "Wooded Foothills"]}
+{"card_name": "Card_375", "risk": 62, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Dictate of Erebos", "Necropotence"]}
+{"card_name": "Card_376", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Overgrown Tomb", "Eldritch Evolution"]}
+{"card_name": "Card_377", "risk": 60, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": []}
+{"card_name": "Card_378", "risk": 91, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Deadeye Navigator", "Triumph of the Hordes"]}
+{"card_name": "Card_379", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Dig Through Time", "Overgrown Tomb"]}
+{"card_name": "Card_380", "risk": 69, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Young Pyromancer", "Tooth and Nail"]}
+{"card_name": "Card_381", "risk": 74, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Ad Nauseam", "Counterspell"]}
+{"card_name": "Card_382", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Verdant Catacombs", "Mana Vault"]}
+{"card_name": "Card_383", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Ad Nauseam", "Dockside Chef"]}
+{"card_name": "Card_384", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_385", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Stomping Ground", "Counterspell"]}
+{"card_name": "Card_386", "risk": 65, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Bloodstained Mire", "Eldrazi Displacer"]}
+{"card_name": "Card_387", "risk": 80, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dark Confidant", "Explosive Vegetation"]}
+{"card_name": "Card_388", "risk": 26, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_389", "risk": 41, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": []}
+{"card_name": "Card_390", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Deadeye Navigator", "Birds of Paradise"]}
+{"card_name": "Card_391", "risk": 43, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_392", "risk": 95, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Smothering Tithe", "Animate Dead"]}
+{"card_name": "Card_393", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_394", "risk": 55, "band": "Medium", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_395", "risk": 59, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_396", "risk": 84, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Time Warp", "Yawgmoth's Will"]}
+{"card_name": "Card_397", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_398", "risk": 36, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_399", "risk": 53, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_400", "risk": 79, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Azusa, Lost but Seeking", "Deflecting Swat"]}
+{"card_name": "Card_401", "risk": 63, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Mana Vault", "Cavern of Souls"]}
+{"card_name": "Card_402", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Birds of Paradise", "Sol Ring"]}
+{"card_name": "Card_403", "risk": 74, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Sol Ring", "Toxic Deluge"]}
+{"card_name": "Card_404", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_405", "risk": 65, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Toxic Deluge", "Preordain"]}
+{"card_name": "Card_406", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Explosive Vegetation", "Preordain"]}
+{"card_name": "Card_407", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Force of Will", "Gaea's Cradle"]}
+{"card_name": "Card_408", "risk": 96, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Reanimate", "Urza's Saga"]}
+{"card_name": "Card_409", "risk": 75, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Natural Order", "Steam Vents"]}
+{"card_name": "Card_410", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_411", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mystic Remora", "Narset, Parter of Veils"]}
+{"card_name": "Card_412", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mana Drain", "Mystic Sanctuary"]}
+{"card_name": "Card_413", "risk": 66, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Mox Diamond", "High Market"]}
+{"card_name": "Card_414", "risk": 74, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Yawgmoth's Will", "Tolarian Academy"]}
+{"card_name": "Card_415", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Ad Nauseam", "Sensei's Divining Top"]}
+{"card_name": "Card_416", "risk": 60, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_417", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Bloodstained Mire", "Natural Order"]}
+{"card_name": "Card_418", "risk": 56, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_419", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Thoughtseize", "Green Sun's Zenith"]}
+{"card_name": "Card_420", "risk": 37, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_421", "risk": 70, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Smothering Tithe", "Cyclonic Rift"]}
+{"card_name": "Card_422", "risk": 66, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Demonic Tutor", "Deadeye Navigator"]}
+{"card_name": "Card_423", "risk": 68, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Time Warp", "Birds of Paradise"]}
+{"card_name": "Card_424", "risk": 80, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Cultivate", "Grave Pact"]}
+{"card_name": "Card_425", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Lightning Bolt", "Urza's Saga"]}
+{"card_name": "Card_426", "risk": 30, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_427", "risk": 89, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Dictate of Erebos", "Breeding Pool"]}
+{"card_name": "Card_428", "risk": 94, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Sensei's Divining Top", "Dictate of Erebos"]}
+{"card_name": "Card_429", "risk": 47, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_430", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Force of Will", "Ad Nauseam"]}
+{"card_name": "Card_431", "risk": 56, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_432", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mana Drain", "Grave Pact"]}
+{"card_name": "Card_433", "risk": 55, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_434", "risk": 57, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_435", "risk": 45, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_436", "risk": 43, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_437", "risk": 40, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_438", "risk": 60, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_439", "risk": 61, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Preordain", "Eldrazi Displacer"]}
+{"card_name": "Card_440", "risk": 69, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mystic Remora", "Candelabra of Tawnos"]}
+{"card_name": "Card_441", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Mana Vault", "Flooded Strand"]}
+{"card_name": "Card_442", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Candelabra of Tawnos", "Rishkar's Expertise"]}
+{"card_name": "Card_443", "risk": 69, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Wooded Foothills", "Polluted Delta"]}
+{"card_name": "Card_444", "risk": 95, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Survival of the Fittest", "Mystic Remora"]}
+{"card_name": "Card_445", "risk": 92, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Eldritch Evolution", "Flooded Strand"]}
+{"card_name": "Card_446", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_447", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Time Warp", "Cultivate"]}
+{"card_name": "Card_448", "risk": 67, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Mana Crypt", "Dockside Extortionist"]}
+{"card_name": "Card_449", "risk": 49, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_450", "risk": 31, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_451", "risk": 83, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Liliana of the Veil", "Mox Opal"]}
+{"card_name": "Card_452", "risk": 75, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Dockside Chef", "Azusa, Lost but Seeking"]}
+{"card_name": "Card_453", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["High Market", "Dark Confidant"]}
+{"card_name": "Card_454", "risk": 90, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Dockside Chef", "Brainstorm"]}
+{"card_name": "Card_455", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_456", "risk": 72, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Rhystic Study", "Swiftfoot Boots"]}
+{"card_name": "Card_457", "risk": 97, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Young Pyromancer", "Snapcaster Mage"]}
+{"card_name": "Card_458", "risk": 95, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Thought-Knot Seer", "Avenger of Zendikar"]}
+{"card_name": "Card_459", "risk": 75, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Hallowed Fountain", "Craterhoof Behemoth"]}
+{"card_name": "Card_460", "risk": 35, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_461", "risk": 96, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Worldly Tutor", "Counterspell"]}
+{"card_name": "Card_462", "risk": 76, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Avenger of Zendikar", "Eldrazi Displacer"]}
+{"card_name": "Card_463", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["High Market", "Mystic Remora"]}
+{"card_name": "Card_464", "risk": 84, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Misty Rainforest", "Preordain"]}
+{"card_name": "Card_465", "risk": 75, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Sacred Foundry", "Misty Rainforest"]}
+{"card_name": "Card_466", "risk": 89, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Breeding Pool", "Mana Drain"]}
+{"card_name": "Card_467", "risk": 61, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": ["Wooded Foothills", "Worldly Tutor"]}
+{"card_name": "Card_468", "risk": 50, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_469", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Bloodstained Mire", "Necropotence"]}
+{"card_name": "Card_470", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Wurmcoil Engine", "Natural Order"]}
+{"card_name": "Card_471", "risk": 65, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mana Vault", "Mox Diamond"]}
+{"card_name": "Card_472", "risk": 62, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Mystic Remora", "Cultivate"]}
+{"card_name": "Card_473", "risk": 46, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_474", "risk": 73, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Temple Garden", "Young Pyromancer"]}
+{"card_name": "Card_475", "risk": 35, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2016-01-01", "alts": []}
+{"card_name": "Card_476", "risk": 99, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Tarmogoyf", "Mystic Remora"]}
+{"card_name": "Card_477", "risk": 69, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Vampiric Tutor", "Steam Vents"]}
+{"card_name": "Card_478", "risk": 91, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Wurmcoil Engine", "Hallowed Fountain"]}
+{"card_name": "Card_479", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Yavimaya, Cradle of Growth", "Avenger of Zendikar"]}
+{"card_name": "Card_480", "risk": 82, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Jeska's Will", "Narset's Reversal"]}
+{"card_name": "Card_481", "risk": 62, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": ["Dark Ritual", "Thought-Knot Seer"]}
+{"card_name": "Card_482", "risk": 92, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Mox Opal", "Mana Vault"]}
+{"card_name": "Card_483", "risk": 51, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_484", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2017-01-01", "alts": ["Narset, Parter of Veils", "Tendrils of Agony"]}
+{"card_name": "Card_485", "risk": 94, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Fierce Guardianship", "Wooded Foothills"]}
+{"card_name": "Card_486", "risk": 60, "band": "Medium", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_487", "risk": 100, "band": "High", "rationale": "Multiple past reprints; Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Smothering Tithe", "Avenger of Zendikar"]}
+{"card_name": "Card_488", "risk": 27, "band": "Low", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2015-01-01", "alts": []}
+{"card_name": "Card_489", "risk": 68, "band": "High", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2018-01-01", "alts": ["Preordain", "Ad Nauseam"]}
+{"card_name": "Card_490", "risk": 57, "band": "Medium", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": []}
+{"card_name": "Card_491", "risk": 81, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2021-01-01", "alts": ["Fierce Guardianship", "Grave Pact"]}
+{"card_name": "Card_492", "risk": 88, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2019-01-01", "alts": ["Liliana of the Veil", "Mana Drain"]}
+{"card_name": "Card_493", "risk": 70, "band": "High", "rationale": "Short average interval", "last_reprint_date": "2020-01-01", "alts": ["Survival of the Fittest", "Counterspell"]}
+{"card_name": "Card_494", "risk": 85, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2016-01-01", "alts": ["Preordain", "Ponder"]}
+{"card_name": "Card_495", "risk": 52, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_496", "risk": 77, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2015-01-01", "alts": ["Candelabra of Tawnos", "Breeding Pool"]}
+{"card_name": "Card_497", "risk": 79, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Cyclonic Rift", "Mana Drain"]}
+{"card_name": "Card_498", "risk": 48, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2019-01-01", "alts": []}
+{"card_name": "Card_499", "risk": 54, "band": "Medium", "rationale": "Staple with moderate reprint history", "last_reprint_date": "2017-01-01", "alts": []}
+{"card_name": "Card_500", "risk": 81, "band": "High", "rationale": "Multiple past reprints", "last_reprint_date": "2018-01-01", "alts": ["Mishra's Workshop", "Avenger of Zendikar"]}

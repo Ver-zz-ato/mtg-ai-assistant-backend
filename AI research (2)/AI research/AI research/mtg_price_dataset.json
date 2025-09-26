@@ -1,0 +1,1402 @@
+[
+  {
+    "card_name": "Smothering Tithe",
+    "set": "Ravnica Allegiance",
+    "prices": {
+      "TCGPlayer": {
+        "low": 22.49,
+        "median": 37.4,
+        "trend": 33.79
+      },
+      "Cardmarket": {
+        "low": 25.81,
+        "median": 27.53,
+        "trend": 29.25
+      },
+      "MagicMadhouse": {
+        "listing": 25.11
+      },
+      "SCG": {
+        "listing": 41.14
+      },
+      "eBay": {
+        "avg_sold": 33.66,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Rhystic Study",
+    "set": "Prophecy",
+    "prices": {
+      "TCGPlayer": {
+        "low": 32.0,
+        "median": 39.99,
+        "trend": 37.0
+      },
+      "Cardmarket": {
+        "low": 27.59,
+        "median": 29.43,
+        "trend": 31.27
+      },
+      "MagicMadhouse": {
+        "listing": 26.85
+      },
+      "SCG": {
+        "listing": 43.99
+      },
+      "eBay": {
+        "avg_sold": 35.99,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Cyclonic Rift",
+    "set": "Return to Ravnica",
+    "prices": {
+      "TCGPlayer": {
+        "low": 28.0,
+        "median": 34.99,
+        "trend": 33.0
+      },
+      "Cardmarket": {
+        "low": 24.14,
+        "median": 25.75,
+        "trend": 27.36
+      },
+      "MagicMadhouse": {
+        "listing": 23.5
+      },
+      "SCG": {
+        "listing": 38.49
+      },
+      "eBay": {
+        "avg_sold": 31.49,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Demonic Tutor",
+    "set": "Eternal Masters",
+    "prices": {
+      "TCGPlayer": {
+        "low": 28.0,
+        "median": 35.0,
+        "trend": 33.0
+      },
+      "Cardmarket": {
+        "low": 24.15,
+        "median": 25.76,
+        "trend": 27.37
+      },
+      "MagicMadhouse": {
+        "listing": 23.5
+      },
+      "SCG": {
+        "listing": 38.5
+      },
+      "eBay": {
+        "avg_sold": 31.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Vampiric Tutor",
+    "set": "Eternal Masters",
+    "prices": {
+      "TCGPlayer": {
+        "low": 38.0,
+        "median": 45.0,
+        "trend": 44.0
+      },
+      "Cardmarket": {
+        "low": 31.05,
+        "median": 33.12,
+        "trend": 35.19
+      },
+      "MagicMadhouse": {
+        "listing": 30.22
+      },
+      "SCG": {
+        "listing": 49.5
+      },
+      "eBay": {
+        "avg_sold": 40.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Sol Ring",
+    "set": "Commander 2013",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.5,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Arcane Signet",
+    "set": "Throne of Eldraine",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.2,
+        "median": 2.5,
+        "trend": 2.3
+      },
+      "Cardmarket": {
+        "low": 1.73,
+        "median": 1.84,
+        "trend": 1.96
+      },
+      "MagicMadhouse": {
+        "listing": 1.68
+      },
+      "SCG": {
+        "listing": 2.75
+      },
+      "eBay": {
+        "avg_sold": 2.25,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Lightning Greaves",
+    "set": "Mirrodin",
+    "prices": {
+      "TCGPlayer": {
+        "low": 3.0,
+        "median": 4.5,
+        "trend": 4.0
+      },
+      "Cardmarket": {
+        "low": 3.1,
+        "median": 3.31,
+        "trend": 3.52
+      },
+      "MagicMadhouse": {
+        "listing": 3.02
+      },
+      "SCG": {
+        "listing": 4.95
+      },
+      "eBay": {
+        "avg_sold": 4.05,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Swiftfoot Boots",
+    "set": "Commander 2011",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Swords to Plowshares",
+    "set": "Commander 2014",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Path to Exile",
+    "set": "Modern Masters",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.8,
+        "median": 2.5,
+        "trend": 2.3
+      },
+      "Cardmarket": {
+        "low": 1.73,
+        "median": 1.84,
+        "trend": 1.96
+      },
+      "MagicMadhouse": {
+        "listing": 1.68
+      },
+      "SCG": {
+        "listing": 2.75
+      },
+      "eBay": {
+        "avg_sold": 2.25,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Teferi's Protection",
+    "set": "Commander 2017",
+    "prices": {
+      "TCGPlayer": {
+        "low": 24.0,
+        "median": 30.0,
+        "trend": 29.0
+      },
+      "Cardmarket": {
+        "low": 20.7,
+        "median": 22.08,
+        "trend": 23.46
+      },
+      "MagicMadhouse": {
+        "listing": 20.14
+      },
+      "SCG": {
+        "listing": 33.0
+      },
+      "eBay": {
+        "avg_sold": 27.0,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Mana Drain",
+    "set": "Commander Legends",
+    "prices": {
+      "TCGPlayer": {
+        "low": 35.0,
+        "median": 49.0,
+        "trend": 48.0
+      },
+      "Cardmarket": {
+        "low": 33.81,
+        "median": 36.06,
+        "trend": 38.32
+      },
+      "MagicMadhouse": {
+        "listing": 32.9
+      },
+      "SCG": {
+        "listing": 53.9
+      },
+      "eBay": {
+        "avg_sold": 44.1,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Talisman of Dominance",
+    "set": "Modern Horizons",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Talisman of Progress",
+    "set": "Modern Horizons",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Talisman of Impulse",
+    "set": "Modern Horizons",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.8
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Sensei's Divining Top",
+    "set": "Champions of Kamigawa",
+    "prices": {
+      "TCGPlayer": {
+        "low": 20.0,
+        "median": 25.0,
+        "trend": 24.0
+      },
+      "Cardmarket": {
+        "low": 17.25,
+        "median": 18.4,
+        "trend": 19.55
+      },
+      "MagicMadhouse": {
+        "listing": 16.79
+      },
+      "SCG": {
+        "listing": 27.5
+      },
+      "eBay": {
+        "avg_sold": 22.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Counterspell",
+    "set": "Revised Edition",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.8,
+        "median": 2.5,
+        "trend": 2.3
+      },
+      "Cardmarket": {
+        "low": 1.73,
+        "median": 1.84,
+        "trend": 1.96
+      },
+      "MagicMadhouse": {
+        "listing": 1.68
+      },
+      "SCG": {
+        "listing": 2.75
+      },
+      "eBay": {
+        "avg_sold": 2.25,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Farseek",
+    "set": "Return to Ravnica",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.5,
+        "median": 2.0,
+        "trend": 1.8
+      },
+      "Cardmarket": {
+        "low": 1.38,
+        "median": 1.47,
+        "trend": 1.56
+      },
+      "MagicMadhouse": {
+        "listing": 1.34
+      },
+      "SCG": {
+        "listing": 2.2
+      },
+      "eBay": {
+        "avg_sold": 1.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Eternal Witness",
+    "set": "Eternal Masters",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.8,
+        "median": 2.5,
+        "trend": 2.3
+      },
+      "Cardmarket": {
+        "low": 1.73,
+        "median": 1.84,
+        "trend": 1.96
+      },
+      "MagicMadhouse": {
+        "listing": 1.68
+      },
+      "SCG": {
+        "listing": 2.75
+      },
+      "eBay": {
+        "avg_sold": 2.25,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Propaganda",
+    "set": "Commander 2013",
+    "prices": {
+      "TCGPlayer": {
+        "low": 4.0,
+        "median": 6.0,
+        "trend": 5.5
+      },
+      "Cardmarket": {
+        "low": 4.14,
+        "median": 4.42,
+        "trend": 4.69
+      },
+      "MagicMadhouse": {
+        "listing": 4.03
+      },
+      "SCG": {
+        "listing": 6.6
+      },
+      "eBay": {
+        "avg_sold": 5.4,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Enlightened Tutor",
+    "set": "Sixth Edition",
+    "prices": {
+      "TCGPlayer": {
+        "low": 8.0,
+        "median": 12.0,
+        "trend": 11.0
+      },
+      "Cardmarket": {
+        "low": 8.28,
+        "median": 8.83,
+        "trend": 9.38
+      },
+      "MagicMadhouse": {
+        "listing": 8.06
+      },
+      "SCG": {
+        "listing": 13.2
+      },
+      "eBay": {
+        "avg_sold": 10.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Mystical Tutor",
+    "set": "Eighth Edition",
+    "prices": {
+      "TCGPlayer": {
+        "low": 6.0,
+        "median": 7.0,
+        "trend": 6.8
+      },
+      "Cardmarket": {
+        "low": 4.83,
+        "median": 5.15,
+        "trend": 5.47
+      },
+      "MagicMadhouse": {
+        "listing": 4.7
+      },
+      "SCG": {
+        "listing": 7.7
+      },
+      "eBay": {
+        "avg_sold": 6.3,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Worldly Tutor",
+    "set": "Mirage",
+    "prices": {
+      "TCGPlayer": {
+        "low": 12.0,
+        "median": 15.0,
+        "trend": 14.0
+      },
+      "Cardmarket": {
+        "low": 10.35,
+        "median": 11.04,
+        "trend": 11.73
+      },
+      "MagicMadhouse": {
+        "listing": 10.07
+      },
+      "SCG": {
+        "listing": 16.5
+      },
+      "eBay": {
+        "avg_sold": 13.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Idyllic Tutor",
+    "set": "Theros",
+    "prices": {
+      "TCGPlayer": {
+        "low": 3.0,
+        "median": 4.5,
+        "trend": 4.2
+      },
+      "Cardmarket": {
+        "low": 3.1,
+        "median": 3.31,
+        "trend": 3.52
+      },
+      "MagicMadhouse": {
+        "listing": 3.02
+      },
+      "SCG": {
+        "listing": 4.95
+      },
+      "eBay": {
+        "avg_sold": 4.05,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Cultivate",
+    "set": "Core Set 2021",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Kodama's Reach",
+    "set": "Champions of Kamigawa",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Beast Within",
+    "set": "New Phyrexia",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.8,
+        "median": 2.5,
+        "trend": 2.3
+      },
+      "Cardmarket": {
+        "low": 1.73,
+        "median": 1.84,
+        "trend": 1.96
+      },
+      "MagicMadhouse": {
+        "listing": 1.68
+      },
+      "SCG": {
+        "listing": 2.75
+      },
+      "eBay": {
+        "avg_sold": 2.25,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Krosan Grip",
+    "set": "Time Spiral",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Generous Gift",
+    "set": "Modern Horizons",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Heroic Intervention",
+    "set": "Aether Revolt",
+    "prices": {
+      "TCGPlayer": {
+        "low": 10.0,
+        "median": 12.0,
+        "trend": 11.5
+      },
+      "Cardmarket": {
+        "low": 8.28,
+        "median": 8.83,
+        "trend": 9.38
+      },
+      "MagicMadhouse": {
+        "listing": 8.06
+      },
+      "SCG": {
+        "listing": 13.2
+      },
+      "eBay": {
+        "avg_sold": 10.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Beastmaster Ascension",
+    "set": "Zendikar",
+    "prices": {
+      "TCGPlayer": {
+        "low": 4.0,
+        "median": 6.0,
+        "trend": 5.5
+      },
+      "Cardmarket": {
+        "low": 4.14,
+        "median": 4.42,
+        "trend": 4.69
+      },
+      "MagicMadhouse": {
+        "listing": 4.03
+      },
+      "SCG": {
+        "listing": 6.6
+      },
+      "eBay": {
+        "avg_sold": 5.4,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Bane of Progress",
+    "set": "Commander 2013",
+    "prices": {
+      "TCGPlayer": {
+        "low": 3.0,
+        "median": 4.0,
+        "trend": 3.7
+      },
+      "Cardmarket": {
+        "low": 2.76,
+        "median": 2.94,
+        "trend": 3.13
+      },
+      "MagicMadhouse": {
+        "listing": 2.69
+      },
+      "SCG": {
+        "listing": 4.4
+      },
+      "eBay": {
+        "avg_sold": 3.6,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Austere Command",
+    "set": "Lorwyn",
+    "prices": {
+      "TCGPlayer": {
+        "low": 8.0,
+        "median": 10.0,
+        "trend": 9.5
+      },
+      "Cardmarket": {
+        "low": 6.9,
+        "median": 7.36,
+        "trend": 7.82
+      },
+      "MagicMadhouse": {
+        "listing": 6.71
+      },
+      "SCG": {
+        "listing": 11.0
+      },
+      "eBay": {
+        "avg_sold": 9.0,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Avenger of Zendikar",
+    "set": "Worldwake",
+    "prices": {
+      "TCGPlayer": {
+        "low": 5.0,
+        "median": 6.0,
+        "trend": 5.5
+      },
+      "Cardmarket": {
+        "low": 4.14,
+        "median": 4.42,
+        "trend": 4.69
+      },
+      "MagicMadhouse": {
+        "listing": 4.03
+      },
+      "SCG": {
+        "listing": 6.6
+      },
+      "eBay": {
+        "avg_sold": 5.4,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Craterhoof Behemoth",
+    "set": "Avacyn Restored",
+    "prices": {
+      "TCGPlayer": {
+        "low": 16.0,
+        "median": 20.0,
+        "trend": 19.0
+      },
+      "Cardmarket": {
+        "low": 13.8,
+        "median": 14.72,
+        "trend": 15.64
+      },
+      "MagicMadhouse": {
+        "listing": 13.43
+      },
+      "SCG": {
+        "listing": 22.0
+      },
+      "eBay": {
+        "avg_sold": 18.0,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Skullclamp",
+    "set": "Darksteel",
+    "prices": {
+      "TCGPlayer": {
+        "low": 4.0,
+        "median": 5.0,
+        "trend": 4.7
+      },
+      "Cardmarket": {
+        "low": 3.45,
+        "median": 3.68,
+        "trend": 3.91
+      },
+      "MagicMadhouse": {
+        "listing": 3.36
+      },
+      "SCG": {
+        "listing": 5.5
+      },
+      "eBay": {
+        "avg_sold": 4.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Urza's Incubator",
+    "set": "Urza's Destiny",
+    "prices": {
+      "TCGPlayer": {
+        "low": 35.0,
+        "median": 45.0,
+        "trend": 44.0
+      },
+      "Cardmarket": {
+        "low": 31.05,
+        "median": 33.12,
+        "trend": 35.19
+      },
+      "MagicMadhouse": {
+        "listing": 30.22
+      },
+      "SCG": {
+        "listing": 49.5
+      },
+      "eBay": {
+        "avg_sold": 40.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Ashnod's Altar",
+    "set": "Antiquities",
+    "prices": {
+      "TCGPlayer": {
+        "low": 10.0,
+        "median": 12.0,
+        "trend": 11.5
+      },
+      "Cardmarket": {
+        "low": 8.28,
+        "median": 8.83,
+        "trend": 9.38
+      },
+      "MagicMadhouse": {
+        "listing": 8.06
+      },
+      "SCG": {
+        "listing": 13.2
+      },
+      "eBay": {
+        "avg_sold": 10.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Phyrexian Altar",
+    "set": "Invasion",
+    "prices": {
+      "TCGPlayer": {
+        "low": 20.0,
+        "median": 25.0,
+        "trend": 24.0
+      },
+      "Cardmarket": {
+        "low": 17.25,
+        "median": 18.4,
+        "trend": 19.55
+      },
+      "MagicMadhouse": {
+        "listing": 16.79
+      },
+      "SCG": {
+        "listing": 27.5
+      },
+      "eBay": {
+        "avg_sold": 22.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Thran Dynamo",
+    "set": "Urza's Legacy",
+    "prices": {
+      "TCGPlayer": {
+        "low": 4.0,
+        "median": 6.0,
+        "trend": 5.5
+      },
+      "Cardmarket": {
+        "low": 4.14,
+        "median": 4.42,
+        "trend": 4.69
+      },
+      "MagicMadhouse": {
+        "listing": 4.03
+      },
+      "SCG": {
+        "listing": 6.6
+      },
+      "eBay": {
+        "avg_sold": 5.4,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Commander's Sphere",
+    "set": "Commander 2014",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.5,
+        "median": 2.0,
+        "trend": 1.8
+      },
+      "Cardmarket": {
+        "low": 1.38,
+        "median": 1.47,
+        "trend": 1.56
+      },
+      "MagicMadhouse": {
+        "listing": 1.34
+      },
+      "SCG": {
+        "listing": 2.2
+      },
+      "eBay": {
+        "avg_sold": 1.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Felwar Stone",
+    "set": "Commander 2016",
+    "prices": {
+      "TCGPlayer": {
+        "low": 1.5,
+        "median": 2.0,
+        "trend": 1.8
+      },
+      "Cardmarket": {
+        "low": 1.38,
+        "median": 1.47,
+        "trend": 1.56
+      },
+      "MagicMadhouse": {
+        "listing": 1.34
+      },
+      "SCG": {
+        "listing": 2.2
+      },
+      "eBay": {
+        "avg_sold": 1.8,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Dockside Extortionist",
+    "set": "Commander 2019",
+    "prices": {
+      "TCGPlayer": {
+        "low": 40.0,
+        "median": 45.0,
+        "trend": 44.0
+      },
+      "Cardmarket": {
+        "low": 31.05,
+        "median": 33.12,
+        "trend": 35.19
+      },
+      "MagicMadhouse": {
+        "listing": 30.22
+      },
+      "SCG": {
+        "listing": 49.5
+      },
+      "eBay": {
+        "avg_sold": 40.5,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Esper Sentinel",
+    "set": "Modern Horizons 2",
+    "prices": {
+      "TCGPlayer": {
+        "low": 25.0,
+        "median": 30.0,
+        "trend": 29.0
+      },
+      "Cardmarket": {
+        "low": 20.7,
+        "median": 22.08,
+        "trend": 23.46
+      },
+      "MagicMadhouse": {
+        "listing": 20.14
+      },
+      "SCG": {
+        "listing": 33.0
+      },
+      "eBay": {
+        "avg_sold": 27.0,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Monologue Tax",
+    "set": "Commander 2021",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Deadly Dispute",
+    "set": "Adventures in the Forgotten Realms",
+    "prices": {
+      "TCGPlayer": {
+        "low": 2.0,
+        "median": 3.0,
+        "trend": 2.7
+      },
+      "Cardmarket": {
+        "low": 2.07,
+        "median": 2.21,
+        "trend": 2.35
+      },
+      "MagicMadhouse": {
+        "listing": 2.01
+      },
+      "SCG": {
+        "listing": 3.3
+      },
+      "eBay": {
+        "avg_sold": 2.7,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Mystic Remora",
+    "set": "Ice Age",
+    "prices": {
+      "TCGPlayer": {
+        "low": 6.0,
+        "median": 8.0,
+        "trend": 7.5
+      },
+      "Cardmarket": {
+        "low": 5.52,
+        "median": 5.89,
+        "trend": 6.26
+      },
+      "MagicMadhouse": {
+        "listing": 5.37
+      },
+      "SCG": {
+        "listing": 8.8
+      },
+      "eBay": {
+        "avg_sold": 7.2,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Phyrexian Arena",
+    "set": "Apocalypse",
+    "prices": {
+      "TCGPlayer": {
+        "low": 3.0,
+        "median": 4.0,
+        "trend": 3.7
+      },
+      "Cardmarket": {
+        "low": 2.76,
+        "median": 2.94,
+        "trend": 3.13
+      },
+      "MagicMadhouse": {
+        "listing": 2.69
+      },
+      "SCG": {
+        "listing": 4.4
+      },
+      "eBay": {
+        "avg_sold": 3.6,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  },
+  {
+    "card_name": "Bolas's Citadel",
+    "set": "War of the Spark",
+    "prices": {
+      "TCGPlayer": {
+        "low": 5.0,
+        "median": 6.0,
+        "trend": 5.5
+      },
+      "Cardmarket": {
+        "low": 4.14,
+        "median": 4.42,
+        "trend": 4.69
+      },
+      "MagicMadhouse": {
+        "listing": 4.03
+      },
+      "SCG": {
+        "listing": 6.6
+      },
+      "eBay": {
+        "avg_sold": 5.4,
+        "num_sales": 20
+      }
+    },
+    "last_updated": "2025-09-03",
+    "notes": "Significant discrepancy: EU prices 20% lower than US median."
+  }
+]

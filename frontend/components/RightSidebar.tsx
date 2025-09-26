@@ -79,7 +79,7 @@ export default function RightSidebar() {
   }
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className="flex flex-col gap-4 w-full relative z-0">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <div className="font-semibold mb-2">Deck Snapshot/Judger</div>
         <p className="text-xs opacity-70">
@@ -95,7 +95,7 @@ export default function RightSidebar() {
         <a href="/collections/cost-to-finish" className="inline-block text-xs px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white">Open Cost to Finish</a>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-64 flex flex-col">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-64 flex flex-col z-0">
         <div className="font-semibold mb-2">Shoutbox (live)</div>
         <div ref={listRef} className="flex-1 overflow-y-auto space-y-2 text-sm">
           {items.map((t, idx) => (
