@@ -29,6 +29,22 @@ function normalizeCurrency(v: any): Currency {
 }
 
 // very forgiving deck text parser: lines like "1 Sol Ring" or "Sol Ring x1"
+function normalizeName(raw: string): string {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return s;
+  // strip punctuation and extra spaces
+  const basic = s
+    .replace(/[,·•]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // light alias pass (extendable later or load from dataset)
+  const aliases: Record<string, string> = {
+    "l. bolt": "lightning bolt",
+    "lightning bolt": "lightning bolt",
+  };
+  return aliases[basic] || basic;
+}
+
 function parseDeckText(text: string): Map<string, number> {
   const map = new Map<string, number>();
   if (!text) return map;
@@ -65,8 +81,9 @@ function parseDeckText(text: string): Map<string, number> {
       continue;
     }
 
-    const cur = map.get(name) || 0;
-    map.set(name, cur + qty);
+    const key = normalizeName(name);
+    const cur = map.get(key) || 0;
+    map.set(key, cur + qty);
   }
   return map;
 }
@@ -89,7 +106,7 @@ function readOwnedRow(row: any): { name: string; qty: number } | null {
   if (!name || typeof name !== "string") return null;
   const qtyRaw = row?.qty ?? row?.quantity ?? row?.count ?? row?.owned;
   const qty = Math.max(0, Number(qtyRaw ?? 0));
-  return { name, qty };
+  return { name: normalizeName(name), qty };
 }
 
 // ---- Handler ----
@@ -200,6 +217,7 @@ export const POST = withLogging(async (req: Request) => {
       rows,
       total,
       appliedOwned: useOwned && !!collectionId,
+      prices_updated_at: new Date().toISOString(),
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unhandled error" }, { status: 500 });

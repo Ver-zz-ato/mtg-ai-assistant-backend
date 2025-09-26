@@ -25,6 +25,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       (posthog as any).set_config({ capture_pageview: false, disable_toolbar: true });
       try { (ph.toolbar && ph.toolbar.close && ph.toolbar.close()); } catch {}
     }
+
+    // app_open once per session (consent optional; this is a low-risk event)
+    try {
+      if (!sessionStorage.getItem('analytics:app_open_sent')) {
+        ph?.capture?.('app_open');
+        sessionStorage.setItem('analytics:app_open_sent','1');
+      }
+    } catch {}
   }, []);
 
   return <PrefsProvider>{children}</PrefsProvider>;
