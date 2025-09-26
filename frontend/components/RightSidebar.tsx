@@ -87,6 +87,14 @@ export default function RightSidebar() {
         </p>
       </div>
 
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div className="font-semibold mb-2">Cost to Finish (v2)</div>
+        <p className="text-xs opacity-70 mb-2">
+          Estimate what you still need to buy. See Owned, Missing with prices, and suggested close swaps.
+        </p>
+        <a href="/collections/cost-to-finish" className="inline-block text-xs px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white">Open Cost to Finish</a>
+      </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-64 flex flex-col">
         <div className="font-semibold mb-2">Shoutbox (live)</div>
         <div ref={listRef} className="flex-1 overflow-y-auto space-y-2 text-sm">

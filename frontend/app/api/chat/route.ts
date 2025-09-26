@@ -75,6 +75,7 @@ async function callOpenAI(userText: string, sys?: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const t0 = Date.now();
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return err("unauthorized", "unauthorized", 401);
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
     const { text, threadId } = parse.data;
 
     let tid = threadId ?? null;
+    let created = false;
     if (!tid) {
       const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
       const { data, error } = await supabase
@@ -101,6 +103,7 @@ export async function POST(req: NextRequest) {
         .single();
       if (error) return err(error.message, "db_error", 500);
       tid = data.id;
+      created = true;
     } else {
       const { data, error } = await supabase
         .from("chat_threads")
@@ -122,6 +125,14 @@ export async function POST(req: NextRequest) {
       .insert({ thread_id: tid!, role: "assistant", content: outText });
 
     const provider = (out as any)?.fallback ? "fallback" : "openai";
+
+    // Server analytics (no-op if key missing)
+    try {
+      const { captureServer } = await import("@/lib/server/analytics");
+      if (created) await captureServer("thread_created", { thread_id: tid, user_id: user.id });
+      await captureServer("chat_sent", { provider, ms: Date.now() - t0, thread_id: tid, user_id: user.id });
+    } catch {}
+
     return ok({ text: outText, threadId: tid, provider });
   } catch (e: any) {
     return err(e?.message || "server_error", "internal", 500);

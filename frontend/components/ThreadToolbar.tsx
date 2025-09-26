@@ -78,8 +78,6 @@ export default function ThreadToolbar({ threadId, onChanged }: Props) {
     <div className="flex items-center gap-2">
       <button className={btn} onClick={onRename} title="Rename this thread">Rename</button>
       <button className={btn} onClick={onLink} title="Link to a deck">Link deck to this chat</button>
-      <button className={btn} onClick={onExport} title="Export messages JSON">Export</button>
-      <button className={btn} onClick={onImportClick} title="Import messages JSON">Import</button>
       <button className={danger} onClick={onDelete} title="Delete this thread">Delete</button>
       <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={onImportFile} />
     </div>

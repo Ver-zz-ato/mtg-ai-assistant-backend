@@ -17,5 +17,6 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabase.from("feedback").insert(row);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("feedback_sent", { user_id: row.user_id, rating: row.rating }); } catch {}
   return NextResponse.json({ ok: true });
 }

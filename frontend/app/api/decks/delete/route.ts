@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_deleted", { deck_id: b.id, user_id: user.id }); } catch {}
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";

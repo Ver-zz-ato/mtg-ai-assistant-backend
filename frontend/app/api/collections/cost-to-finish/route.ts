@@ -34,6 +34,7 @@ function normalizeRows(anyRows: unknown) {
 }
 
 export async function POST(req: Request) {
+  const t0 = Date.now();
   try {
     const body = (await req.json().catch(() => ({}))) as Record<string, any>;
 
@@ -123,6 +124,8 @@ export async function POST(req: Request) {
       typeof raw.total === "number"
         ? raw.total
         : rows.reduce((s, r) => s + r.subtotal, 0);
+
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency, total, usedOwned, rows: rows.length, ms: Date.now() - t0 }); } catch {}
 
     return NextResponse.json({
       ok: raw.ok !== false,

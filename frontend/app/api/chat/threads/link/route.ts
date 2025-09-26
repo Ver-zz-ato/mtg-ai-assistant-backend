@@ -17,5 +17,7 @@ export async function POST(req: Request) {
     .eq("id", threadId)
     .eq("user_id", user.id);
   if (error) return err(error.message, "db_error", 500);
+
+  try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer(deckId ? "thread_linked" : "thread_unlinked", { thread_id: threadId, deck_id: deckId ?? null, user_id: user.id }); } catch {}
   return ok({});
 }

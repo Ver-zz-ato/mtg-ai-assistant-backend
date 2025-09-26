@@ -56,5 +56,6 @@ export const POST = withLogging(async (req: Request) => {
     }
   }
 
+  try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("csv_uploaded", { added, updated, skipped: skipped.length, total: items.length }); } catch {}
   return NextResponse.json({ ok: true, report: { added, updated, skipped, total: items.length, parser: report } });
 });
