@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { renameThread, deleteThread, exportThread, importThread, linkThread } from '@/lib/threads';
+import { renameThread, deleteThread, linkThread } from '@/lib/threads';
 
 export default function ThreadMenu({
   threadId,
@@ -39,7 +39,7 @@ export default function ThreadMenu({
     }
   }
 
-  async function doExport() {
+  // Removed export/import per product decision
     if (!threadId) return;
     setBusy(true);
     try {
@@ -51,7 +51,7 @@ export default function ThreadMenu({
 
   // Import expects a payload object with { title, messages, deckId? }.
   // We open a file picker, parse JSON, and pass it through.
-  async function doImport() {
+  // (import removed)
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json,.json';
@@ -108,25 +108,41 @@ export default function ThreadMenu({
     }
   }
 
+  const [linked, setLinked] = useState<boolean>(!!deckId);
+
+  // probe deck link if not provided
+  React.useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      if (!threadId) { setLinked(false); return; }
+      try {
+        const r = await fetch('/api/chat/threads/get');
+        const j = await r.json().catch(() => ({}));
+        const one = (Array.isArray(j?.threads) ? j.threads : Array.isArray(j?.data) ? j.data : []).find((t:any)=>t.id===threadId);
+        if (!cancelled) setLinked(!!one?.deck_id);
+      } catch {}
+    }
+    probe();
+    return () => { cancelled = true; };
+  }, [threadId]);
+
   const disabled = !threadId || busy;
 
   return (
-    <div className="flex flex-wrap gap-2 text-sm">
+    <div className="
       <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled} data-testid="thread-action">
         Rename
       </button>
       <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doDelete} disabled={disabled} data-testid="thread-action">
         Delete
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doExport} disabled={disabled} data-testid="thread-action">
-        Export
+      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doLink} disabled={disabled} data-testid="thread-action" title={linked ? 'Change deck link' : 'Link to deck'}>
+        {linked ? 'Change link' : 'Link deck'}
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doImport} disabled={busy} data-testid="thread-action">
-        Import
-      </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doLink} disabled={disabled} data-testid="thread-action">
-        {deckId ? 'Link (change)' : 'Link to deck'}
-      </button>
+      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-neutral-700 ml-1" title={linked ? 'Deck linked' : 'No deck linked'}>
+        <span className={linked ? 'text-green-400' : 'text-neutral-500'}>🔗</span>
+        <span className="opacity-70">{linked ? 'linked' : 'not linked'}</span>
+      </span>
     </div>
   );
 }

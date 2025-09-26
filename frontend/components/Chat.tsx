@@ -123,10 +123,6 @@ try {
       { id: Date.now(), thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
     ]);
 
-    capture('chat_sent');
-    console.debug('[analytics] chat_sent');
-    capture('chat_sent');
-    console.debug('[analytics] chat_sent');
     capture('chat_sent', { chars: (val?.length ?? 0), thread_id: threadId ?? null });
     const res = await postMessage(val, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
 
@@ -220,12 +216,19 @@ try {
             <div key={m.id} className={isAssistant ? "text-right" : "text-left"}>
               <div
                 className={
-                  "inline-block max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap " +
+                  "inline-block max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative " +
                   (isAssistant ? "bg-blue-900/40" : "bg-neutral-800")
                 }
               >
-                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
-                  {isAssistant ? "assistant" : "user"}
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
+                  <span>{isAssistant ? "assistant" : "user"}</span>
+                  <button
+                    onClick={() => navigator.clipboard?.writeText?.(String(m.content || ''))}
+                    className="text-[10px] px-2 py-[2px] rounded bg-neutral-700 hover:bg-neutral-600"
+                    title="Copy message"
+                  >
+                    Copy
+                  </button>
                 </div>
                 <div className="leading-relaxed">{m.content}</div>
               </div>

@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       const { error } = await supabase.from("chat_threads").update({ title }).eq("id", threadId).eq("user_id", user.id);
       if (error) return NextResponse.json(err("Failed to rename thread", "DB_ERROR", error.message), { status: 500 });
 
+      try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("thread_renamed", { thread_id: threadId, user_id: user.id }); } catch {}
       return NextResponse.json(ok({}));
     } catch (e: any) {
       return NextResponse.json(err(e?.message ?? "Internal error", "INTERNAL"), { status: 500 });

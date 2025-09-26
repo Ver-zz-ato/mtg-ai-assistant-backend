@@ -94,6 +94,7 @@ function readOwnedRow(row: any): { name: string; qty: number } | null {
 
 // ---- Handler ----
 export const POST = withLogging(async (req: Request) => {
+  const t0 = Date.now();
   try {
     const body = await req.json().catch(() => ({}));
 
@@ -190,6 +191,8 @@ export const POST = withLogging(async (req: Request) => {
 
     // sort biggest first
     rows.sort((a, b) => b.subtotal - a.subtotal);
+
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency, total, usedOwned: useOwned && !!collectionId, rows: rows.length, ms: Date.now() - t0 }); } catch {}
 
     return NextResponse.json({
       ok: true,

@@ -53,6 +53,7 @@ async function _POST(req: NextRequest) {
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
 
+    const t0 = Date.now();
     const { data, error } = await supabase
       .from("decks")
       .insert({
@@ -84,6 +85,7 @@ async function _POST(req: NextRequest) {
       }
     }
 
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_saved", { deck_id: data.id, inserted: cards.length || 0, user_id: user.id, ms: Date.now() - t0 }); } catch {}
     return ok({ id: data.id, inserted: cards.length || 0 });
   } catch (e: any) {
     return err(e?.message || "server_error", "internal", 500);
