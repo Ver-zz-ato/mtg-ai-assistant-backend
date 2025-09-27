@@ -12,7 +12,7 @@ This replaces your `app/api/chat/route.ts` so it works with **GPT‑5** using th
 1. Unzip into your repo root, merging `app/api/chat/route.ts` (create folders if missing).
 2. Ensure `OPENAI_API_KEY` is set (e.g. in `.env.local`):
    ```env
-   OPENAI_API_KEY=sk-...
+   OPENAI_API_KEY=sk_...
    ```
 3. Restart dev server.
 

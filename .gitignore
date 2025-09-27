@@ -6,3 +6,9 @@ __pycache__/
 .env
 *.env
 *.zip
+*.bundle
+*.map
+.next/
+dist/
+build/
+out/
