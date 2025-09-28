@@ -19,6 +19,17 @@ export default function DeckRowActions(props: {
     router.refresh();
   }
 
+  async function copyLink() {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = `${origin}/decks/${id}`;
+      await navigator.clipboard?.writeText?.(url);
+      alert('Share link copied');
+    } catch (e) {
+      alert('Failed to copy link');
+    }
+  }
+
   async function renameDeck() {
     const name = prompt('New deck title:', title || 'Untitled Deck');
     if (name == null) return;
@@ -48,6 +59,14 @@ export default function DeckRowActions(props: {
         title="Toggle public/private"
       >
         {is_public ? 'Make Private' : 'Make Public'}
+      </button>
+
+      <button
+        onClick={copyLink}
+        className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+        title="Copy public link"
+      >
+        Copy link
       </button>
 
       <button

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
-    "test:canary": "playwright test tests/smoke.spec.ts"
+    "test:canary": "playwright test tests/smoke.spec.ts",
+    "test:unit": "tsx tests/unit/canonicalize.test.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -26,12 +27,13 @@
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.47.2",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

@@ -17,14 +17,16 @@ export default function DeckPublicToggle({ deckId, initialIsPublic, compact }: P
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/decks/${deckId}/publish`, {
-        method: nextVal ? "POST" : "DELETE",
+      const res = await fetch(`/api/decks/update`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: deckId, is_public: nextVal }),
       });
       const json = await res.json();
-      if (!res.ok || !json?.ok) {
+      if (!res.ok || json?.error) {
         throw new Error(json?.error || "Request failed");
       }
-      setIsPublic(json.is_public === true);
+      setIsPublic(nextVal);
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -38,16 +40,18 @@ export default function DeckPublicToggle({ deckId, initialIsPublic, compact }: P
       <button
         disabled={busy || isPublic === true}
         onClick={() => setVisibility(true)}
-        className={`px-3 py-1 rounded border ${isPublic ? "bg-green-600 text-white" : "bg-transparent"}`}
+        className={`px-3 py-1 rounded border transition-colors ${isPublic ? "bg-green-600 border-green-500 text-white" : "bg-neutral-900 border-neutral-700 hover:bg-neutral-800"}`}
         aria-pressed={isPublic ? "true" : "false"}
+        title="Make this deck visible to others"
       >
         Public
       </button>
       <button
         disabled={busy || isPublic === false}
         onClick={() => setVisibility(false)}
-        className={`px-3 py-1 rounded border ${isPublic === false ? "bg-gray-600 text-white" : "bg-transparent"}`}
+        className={`px-3 py-1 rounded border transition-colors ${isPublic === false ? "bg-red-600 border-red-500 text-white" : "bg-neutral-900 border-neutral-700 hover:bg-neutral-800"}`}
         aria-pressed={isPublic === false ? "true" : "false"}
+        title="Hide this deck from others"
       >
         Private
       </button>

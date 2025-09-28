@@ -1,0 +1,110 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "MTG Coach" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "My Decks" [ref=e6] [cursor=pointer]:
+          - /url: /my-decks
+        - generic [ref=e7]:
+          - textbox "email" [ref=e8]
+          - textbox "password" [ref=e9]
+          - button "Sign in" [ref=e10]
+  - main [ref=e11]:
+    - main [ref=e12]:
+      - heading "Cost to Finish" [level=1] [ref=e13]
+      - generic [ref=e14]:
+        - heading "Cost to Finish" [level=1] [ref=e15]
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]: Choose one of your decks
+            - combobox [ref=e19]:
+              - option "— None (paste below) —" [selected]
+            - generic [ref=e20]: Deck text
+            - textbox "Paste a deck list here..." [ref=e21]: 1 Sol Ring 1 Lightning Bolt 1 Thought Vessel 1 Brainstorm 1 Izzet Signet
+            - paragraph [ref=e22]:
+              - text: Or deep-link a public deck with
+              - code [ref=e23]: "?deck=<id>"
+              - text: in the URL.
+          - generic [ref=e24]:
+            - generic [ref=e25]:
+              - generic [ref=e26]: Collection
+              - combobox [disabled] [ref=e28]:
+                - option "— None —" [selected]
+              - generic [ref=e29]:
+                - checkbox "Subtract cards I already own" [ref=e30]
+                - text: Subtract cards I already own
+              - paragraph [ref=e31]: We’ll price only the copies you still need to buy.
+            - generic [ref=e32]:
+              - generic [ref=e33]: Currency
+              - combobox [ref=e34]:
+                - option "USD" [selected]
+                - option "GBP"
+            - button "Compute cost" [ref=e35]
+        - generic [ref=e36]:
+          - generic [ref=e37]: Prices cached 0h ago
+          - generic [ref=e38]:
+            - button "Copy shopping list" [ref=e39]
+            - button "Export CSV" [ref=e40]
+        - table [ref=e42]:
+          - rowgroup [ref=e43]:
+            - row "Card Need Unit Subtotal Source" [ref=e44]:
+              - cell "Card" [ref=e45]
+              - cell "Need" [ref=e46]
+              - cell "Unit" [ref=e47]
+              - cell "Subtotal" [ref=e48]
+              - cell "Source" [ref=e49]
+          - rowgroup [ref=e50]:
+            - row "Sol Ring 1 $1.93 $1.93 Scryfall" [ref=e51]:
+              - cell "Sol Ring" [ref=e52]
+              - cell "1" [ref=e53]
+              - cell "$1.93" [ref=e54]
+              - cell "$1.93" [ref=e55]
+              - cell "Scryfall" [ref=e56]
+            - row "Brainstorm 1 $1.38 $1.38 Scryfall" [ref=e57]:
+              - cell "Brainstorm" [ref=e58]
+              - cell "1" [ref=e59]
+              - cell "$1.38" [ref=e60]
+              - cell "$1.38" [ref=e61]
+              - cell "Scryfall" [ref=e62]
+            - row "Thought Vessel 1 $1.14 $1.14 Scryfall" [ref=e63]:
+              - cell "Thought Vessel" [ref=e64]
+              - cell "1" [ref=e65]
+              - cell "$1.14" [ref=e66]
+              - cell "$1.14" [ref=e67]
+              - cell "Scryfall" [ref=e68]
+            - row "Lightning Bolt 1 $1.07 $1.07 Scryfall" [ref=e69]:
+              - cell "Lightning Bolt" [ref=e70]
+              - cell "1" [ref=e71]
+              - cell "$1.07" [ref=e72]
+              - cell "$1.07" [ref=e73]
+              - cell "Scryfall" [ref=e74]
+            - row "Izzet Signet 1 $0.35 $0.35 Scryfall" [ref=e75]:
+              - cell "Izzet Signet" [ref=e76]
+              - cell "1" [ref=e77]
+              - cell "$0.35" [ref=e78]
+              - cell "$0.35" [ref=e79]
+              - cell "Scryfall" [ref=e80]
+            - row "Total $5.87" [ref=e81]:
+              - cell "Total" [ref=e82]
+              - cell "$5.87" [ref=e83]
+              - cell [ref=e84]
+  - contentinfo [ref=e85]:
+    - generic [ref=e86]:
+      - generic [ref=e87]: © 2025 MTG Coach
+      - navigation [ref=e88]:
+        - link "About" [ref=e89] [cursor=pointer]:
+          - /url: "#"
+        - link "Patreon" [ref=e90] [cursor=pointer]:
+          - /url: "#"
+        - link "Terms" [ref=e91] [cursor=pointer]:
+          - /url: "#"
+        - link "Privacy" [ref=e92] [cursor=pointer]:
+          - /url: "#"
+  - button "Open Next.js Dev Tools" [ref=e100]:
+    - img [ref=e101]
+  - alert [ref=e104]
+```

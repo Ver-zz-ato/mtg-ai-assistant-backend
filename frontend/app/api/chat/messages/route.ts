@@ -60,6 +60,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Profanity filter for user messages (matches shoutbox policy)
+    try {
+      if (message.role === "user") {
+        const { containsProfanity } = await import("@/lib/profanity");
+        if (containsProfanity(message.content)) {
+          return NextResponse.json<Envelope<never>>({ ok: false, error: "Please keep it civil." }, { status: 400 });
+        }
+      }
+    } catch {}
+
     const insMsg = await supabase.from("chat_messages").insert({ thread_id: tid, role: message.role, content: message.content });
     if (insMsg.error) return NextResponse.json<Envelope<never>>({ ok: false, error: `Failed to insert message: ${insMsg.error.message}` }, { status: 500 });
 

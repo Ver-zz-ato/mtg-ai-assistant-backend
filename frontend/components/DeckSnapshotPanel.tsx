@@ -12,6 +12,7 @@ type AnalyzeResult = {
   quickFixes?: string[];
   illegalByCI?: number;
   illegalExamples?: string[];
+  metaHints?: Array<{ card: string; inclusion_rate: string; commanders: string[] }>;
 };
 
 type Props = {
@@ -114,11 +115,26 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
       </div>
 
       {result && (
-        <DeckHealthCard
-          result={result}
-          onSave={saveDeck}
-          onMyDecks={gotoMyDecks}
-        />
+        <>
+          <DeckHealthCard
+            result={result}
+            onSave={saveDeck}
+            onMyDecks={gotoMyDecks}
+          />
+          {(result.metaHints && result.metaHints.length > 0) && (
+            <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3">
+              <div className="text-sm font-medium mb-2">Meta hints</div>
+              <div className="flex flex-wrap gap-2">
+                {result.metaHints.slice(0, 8).map((m, i) => (
+                  <span key={`${m.card}-${i}`} title={`Seen in ${m.commanders.join(', ')}`} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-neutral-800">
+                    <span className="text-neutral-200">{m.card}</span>
+                    <span className="opacity-70">{m.inclusion_rate}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -10,7 +10,7 @@ function codeAndHint(status: number) {
   return { code: "ERROR", hint: "Request failed." };
 }
 
-function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean } {
+function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean; prefs?: any } {
   const ct = (contentType || "").toLowerCase();
   const out: any = {};
 
@@ -25,7 +25,8 @@ function parseTolerantBody(raw: string, contentType: string | null): { text: str
         const text = take(j.text ?? j.prompt ?? j.content ?? j?.message?.content);
         const threadId = j.threadId ?? null;
         const stream = j.stream ?? false;
-        return { text, threadId, stream };
+        const prefs = j.prefs;
+        return { text, threadId, stream, prefs };
       }
     } catch {}
   }
@@ -61,8 +62,10 @@ export async function POST(req: NextRequest) {
   const cookieTid = jar.get?.("mtg_last_thread_id")?.value ?? null;
   const forwardPayload = {
     text: parsed.text ?? "",
-    threadId: parsed.threadId ?? cookieTid ?? null,
+    // Honor explicit new thread when no threadId provided: no cookie fallback
+    threadId: parsed.threadId ?? null,
     stream: parsed.stream ?? false,
+    ...(parsed.prefs ? { prefs: parsed.prefs } : {}),
   };
 
   const res = await fetch(new URL("/api/chat", req.url), {

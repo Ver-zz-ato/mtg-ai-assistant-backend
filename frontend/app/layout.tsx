@@ -20,11 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
             <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center gap-4 justify-between">
               <div>© 2025 MTG Coach</div>
-              <nav className="flex gap-4">
+              <nav className="flex gap-4 items-center flex-wrap">
                 <a className="hover:text-gray-200" href="#">About</a>
                 <a className="hover:text-gray-200" href="#">Patreon</a>
                 <a className="hover:text-gray-200" href="#">Terms</a>
                 <a className="hover:text-gray-200" href="#">Privacy</a>
+                <span className="text-xs opacity-70">Card images and data courtesy of Scryfall. Not affiliated with Wizards of the Coast.</span>
               </nav>
             </div>
           </footer>

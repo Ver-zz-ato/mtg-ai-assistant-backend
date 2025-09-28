@@ -9,9 +9,10 @@ import { cookies } from "next/headers";
 import { withLogging } from "@/lib/api/withLogging";
 import { ok, err } from "@/lib/api/envelope";
 import { CostBody } from "@/lib/validation";
-// You already have this package (it showed in your build logs)
+import { canonicalize } from "@/lib/cards/canonicalize";
+import { convert } from "@/lib/currency/rates";
 // ---- Utilities ----
-type Currency = "USD" | "EUR" | "TIX";
+type Currency = "USD" | "EUR" | "GBP" | "TIX";
 
 // Accept both camelCase and snake_case
 function pick<T>(obj: any, key: string, alt?: string, fallback?: T): T | undefined {
@@ -24,25 +25,24 @@ function pick<T>(obj: any, key: string, alt?: string, fallback?: T): T | undefin
 function normalizeCurrency(v: any): Currency {
   const s = String(v || "USD").toUpperCase();
   if (s === "EUR") return "EUR";
+  if (s === "GBP") return "GBP";
   if (s === "TIX") return "TIX";
   return "USD";
 }
 
 // very forgiving deck text parser: lines like "1 Sol Ring" or "Sol Ring x1"
-function normalizeName(raw: string): string {
-  const s = String(raw || "").trim().toLowerCase();
-  if (!s) return s;
+function normalizeName(raw: string): { key: string; canon: string } {
+  const s = String(raw || "").trim();
+  if (!s) return { key: "", canon: "" };
   // strip punctuation and extra spaces
   const basic = s
     .replace(/[,·•]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  // light alias pass (extendable later or load from dataset)
-  const aliases: Record<string, string> = {
-    "l. bolt": "lightning bolt",
-    "lightning bolt": "lightning bolt",
-  };
-  return aliases[basic] || basic;
+  const { canonicalName } = canonicalize(basic);
+  const canon = canonicalName || basic;
+  const key = canon.toLowerCase();
+  return { key, canon };
 }
 
 function parseDeckText(text: string): Map<string, number> {
@@ -81,9 +81,10 @@ function parseDeckText(text: string): Map<string, number> {
       continue;
     }
 
-    const key = normalizeName(name);
-    const cur = map.get(key) || 0;
-    map.set(key, cur + qty);
+    const norm = normalizeName(name);
+    if (!norm.key) continue;
+    const cur = map.get(norm.key) || 0;
+    map.set(norm.key, cur + qty);
   }
   return map;
 }
@@ -95,18 +96,24 @@ async function priceFromScryfall(name: string, currency: Currency): Promise<numb
   if (!r.ok) return 0;
   const j: any = await r.json();
   const prices = j?.prices || {};
-  if (currency === "EUR") return parseFloat(prices.eur || "0") || 0;
-  if (currency === "TIX") return parseFloat(prices.tix || "0") || 0;
-  return parseFloat(prices.usd || "0") || 0;
+  const usd = parseFloat(prices.usd || "0") || 0;
+  const eur = parseFloat(prices.eur || "0") || 0;
+  const tix = parseFloat(prices.tix || "0") || 0;
+  if (currency === "TIX") return tix;
+  // Pick the best base we have, then convert to requested
+  let base = 0; let baseCur: "USD" | "EUR" = "USD";
+  if (usd > 0) { base = usd; baseCur = "USD"; }
+  else if (eur > 0) { base = eur; baseCur = "EUR"; }
+  else { return 0; }
+  return await convert(base, baseCur as any, currency as any);
 }
-
-// try to read owned quantities regardless of exact column names
-function readOwnedRow(row: any): { name: string; qty: number } | null {
-  const name = row?.name ?? row?.card_name ?? row?.card ?? row?.title;
-  if (!name || typeof name !== "string") return null;
+function readOwnedRow(row: any): { nameKey: string; qty: number } | null {
+  const name = String(row?.name || row?.card || row?.card_name || row?.title || '').trim();
   const qtyRaw = row?.qty ?? row?.quantity ?? row?.count ?? row?.owned;
   const qty = Math.max(0, Number(qtyRaw ?? 0));
-  return { name: normalizeName(name), qty };
+  const norm = normalizeName(name);
+  if (!norm.key) return null;
+  return { nameKey: norm.key, qty };
 }
 
 // ---- Handler ----
@@ -118,7 +125,9 @@ export const POST = withLogging(async (req: Request) => {
     const deckId = pick<string>(body, "deckId", "deck_id");
     const collectionId = pick<string>(body, "collectionId", "collection_id");
     const useOwned = Boolean(pick<boolean>(body, "useOwned", "use_owned", false));
-    const currency = normalizeCurrency(pick<string>(body, "currency", "currency", "USD"));
+    const currency = normalizeCurrency(String(pick<string>(body, "currency", "currency", "USD")).toUpperCase());
+    const useSnapshot = Boolean(pick<boolean>(body, "useSnapshot", "use_snapshot", false));
+    const snapshotDate = String(pick<string>(body, "snapshotDate", "snapshot_date", new Date().toISOString().slice(0,10))).slice(0,10);
 
     // If deck_text not given, try to fetch from DB by deckId
     let deckText = pick<string>(body, "deckText", "deck_text", "");
@@ -184,14 +193,14 @@ export const POST = withLogging(async (req: Request) => {
         for (const r of rows) {
           const parsed = readOwnedRow(r);
           if (!parsed) continue;
-          const cur = ownedMap.get(parsed.name) || 0;
-          ownedMap.set(parsed.name, cur + parsed.qty);
+          const cur = ownedMap.get(parsed.nameKey) || 0;
+          ownedMap.set(parsed.nameKey, cur + parsed.qty);
         }
       }
     }
 
     // Build pricing list
-    const rows: Array<{ card: string; need: number; unit: number; subtotal: number }> = [];
+    const rows: Array<{ card: string; need: number; unit: number; subtotal: number; source?: string | null }> = [];
     let total = 0;
 
     for (const [name, qtyWant] of want.entries()) {
@@ -199,10 +208,33 @@ export const POST = withLogging(async (req: Request) => {
       const need = Math.max(0, qtyWant - owned);
       if (need === 0) continue;
 
-      const unit = await priceFromScryfall(name, currency);
+      const proper = canonicalize(name).canonicalName || name;
+
+      let unit = 0;
+      if (useSnapshot) {
+        const { data: snap } = await supabase
+          .from('price_snapshots')
+          .select('unit')
+          .eq('snapshot_date', snapshotDate)
+          .eq('name_norm', name)
+          .eq('currency', currency)
+          .maybeSingle();
+        unit = Number((snap as any)?.unit || 0);
+      }
+
+      if (!unit || unit <= 0) {
+        unit = await priceFromScryfall(proper, currency);
+        if (useSnapshot && unit > 0) {
+          // Upsert into snapshot table for reuse within the day
+          await supabase
+            .from('price_snapshots')
+            .upsert({ snapshot_date: snapshotDate, name_norm: name, currency, unit, source: 'Scryfall' }, { onConflict: 'snapshot_date,name_norm,currency' });
+        }
+      }
+
       const subtotal = unit * need;
 
-      rows.push({ card: name, need, unit, subtotal, source: 'Scryfall' as any });
+      rows.push({ card: proper, need, unit, subtotal, source: useSnapshot ? 'Snapshot' : 'Scryfall' });
       total += subtotal;
     }
 

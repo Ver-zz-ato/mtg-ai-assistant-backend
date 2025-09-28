@@ -1,12 +1,14 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { convert } from "@/lib/currency/rates";
 
 type RawRow = {
   card?: string; name?: string; card_name?: string; cardName?: string; title?: string;
   need?: number | string; qty?: number | string; quantity?: number | string; needed?: number | string; count?: number | string;
   unit?: number | string; price?: number | string; unit_price?: number | string; unitCost?: number | string;
   subtotal?: number | string; total?: number | string; sum?: number | string; line_total?: number | string; lineTotal?: number | string; extended?: number | string;
+  source?: string; src?: string; price_source?: string;
 };
 
 function toNum(v: unknown, fallback = 0): number {
@@ -28,7 +30,8 @@ function normalizeRows(anyRows: unknown) {
         r.subtotal ?? r.total ?? r.sum ?? r.line_total ?? r.lineTotal ?? r.extended,
         need * unit
       );
-      return { card, need, unit, subtotal };
+      const source = (r.source ?? r.src ?? r.price_source ?? "Scryfall") as string;
+      return { card, need, unit, subtotal, source };
     })
     .filter((r) => r.card.length > 0);
 }
@@ -44,6 +47,8 @@ export async function POST(req: Request) {
       deckText: body.deckText ?? body.deck_text ?? undefined,
       currency: body.currency ?? "USD",
       useOwned: Boolean(body.useOwned ?? body.use_owned ?? false),
+      useSnapshot: Boolean(body.useSnapshot ?? body.use_snapshot ?? false),
+      snapshotDate: body.snapshotDate ?? body.snapshot_date ?? undefined,
     };
 
     const base =
@@ -52,27 +57,21 @@ export async function POST(req: Request) {
       process.env.BACKEND_URL ||
       "";
 
-    if (!base && !process.env.NEXT_PUBLIC_BACKEND_COST_URL) {
-      return NextResponse.json(
-        { ok: false, error: "BACKEND URL env not set" },
-        { status: 500 }
-      );
-    }
-
     const trim = (s: string) => s.replace(/\/+$/, "");
-    const full =
-      process.env.NEXT_PUBLIC_BACKEND_COST_URL ||
-      ""; // if set, use it as the exact URL
+    const full = process.env.NEXT_PUBLIC_BACKEND_COST_URL || ""; // if set, use it as the exact URL
 
+    // Prefer local endpoint first to guarantee consistent currency handling in dev
+    const local = new URL("/api/collections/cost", req.url).toString();
     const candidates = full
-      ? [full]
+      ? [full, local]
       : base
       ? [
+          local,
           `${trim(base)}/api/cost`,
           `${trim(base)}/api/collections/cost`,
           `${trim(base)}/cost-to-finish`,
         ]
-      : [];
+      : [local];
 
     let upstreamResp: Response | null = null;
     let lastText = "";
@@ -117,24 +116,41 @@ export async function POST(req: Request) {
 
     const raw = (await upstreamResp.json().catch(() => ({}))) as Record<string, any>;
 
-    const currency = raw.currency ?? payload.currency ?? "USD";
+    const upstreamCurrency = String(raw.currency || payload.currency || "USD").toUpperCase();
+    const wantCurrency = String(payload.currency || upstreamCurrency || "USD").toUpperCase();
     const usedOwned = Boolean(raw.usedOwned ?? raw.useOwned ?? payload.useOwned ?? false);
-    const rows = normalizeRows(raw.rows ?? raw.items ?? raw.lines);
+    let rows = normalizeRows(raw.rows ?? raw.items ?? raw.lines);
+
+    // If upstream returned a different currency, convert unit/subtotal/total
+    if (upstreamCurrency !== wantCurrency && ["USD","EUR","GBP"].includes(upstreamCurrency) && ["USD","EUR","GBP"].includes(wantCurrency)) {
+      const converted = [] as typeof rows;
+      for (const r of rows) {
+        const unit = await convert(r.unit, upstreamCurrency as any, wantCurrency as any);
+        const subtotal = await convert(r.subtotal, upstreamCurrency as any, wantCurrency as any);
+        converted.push({ ...r, unit, subtotal });
+      }
+      rows = converted;
+    }
+
     const total =
       typeof raw.total === "number"
-        ? raw.total
+        ? (upstreamCurrency !== wantCurrency && ["USD","EUR","GBP"].includes(upstreamCurrency) && ["USD","EUR","GBP"].includes(wantCurrency)
+            ? await convert(raw.total, upstreamCurrency as any, wantCurrency as any)
+            : raw.total)
         : rows.reduce((s, r) => s + r.subtotal, 0);
 
-    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency, total, usedOwned, rows: rows.length, ms: Date.now() - t0 }); } catch {}
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency: wantCurrency, total, usedOwned, rows: rows.length, ms: Date.now() - t0 }); } catch {}
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: raw.ok !== false,
-      currency,
+      currency: wantCurrency,
       usedOwned,
       total,
       rows,
       prices_updated_at: raw.prices_updated_at || new Date().toISOString(),
     });
+    res.headers.set('x-debug-currency', JSON.stringify({ upstream: upstreamCurrency, want: wantCurrency }));
+    return res;
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message ?? "proxy failed" },

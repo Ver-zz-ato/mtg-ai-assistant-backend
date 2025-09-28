@@ -4,12 +4,16 @@ import LeftSidebar from "../components/LeftSidebar";
 import RightSidebar from "../components/RightSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab"; // ← add this
+import TopToolsStrip from "../components/TopToolsStrip";
 
 export default function Page() {
   return (
     <>
       <ModeOptions />
       <div className="w-full">
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <TopToolsStrip />
+        </div>
         <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-12 gap-4">
           <aside className="hidden lg:flex col-span-3"><LeftSidebar /></aside>
           <section className="col-span-12 lg:col-span-6 flex flex-col gap-3">

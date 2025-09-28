@@ -3,11 +3,13 @@
 import React from 'react';
 import posthog from 'posthog-js';
 import { PrefsProvider } from '@/components/PrefsContext';
+import ToastProvider from '@/components/ToastProvider';
 
 /**
  * Global app providers.
  * - Ensures PrefsProvider is always present (fixes "usePrefs must be used within PrefsProvider").
  * - Initializes PostHog *only in the browser* and force-disables the toolbar so it can't block UI.
+ * - Adds ToastProvider for global error/success toasts.
  */
 export default function Providers({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
@@ -35,5 +37,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  return <PrefsProvider>{children}</PrefsProvider>;
+  return (
+    <PrefsProvider>
+      <ToastProvider>
+        {children}
+      </ToastProvider>
+    </PrefsProvider>
+  );
 }

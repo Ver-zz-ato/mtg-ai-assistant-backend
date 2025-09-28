@@ -3,6 +3,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import NewDeckInline from "@/components/NewDeckInline";
 import DeckDeleteButton from "@/components/DeckDeleteButton";
+import LikeButton from "@/components/likes/LikeButton";
+import DeckRowActions from "@/components/DeckRowActions";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
 type DeckRow = {
   id: string;
@@ -25,7 +28,7 @@ export default async function Page() {
 
   const { data, error } = await supabase
     .from("decks")
-    .select("id, title, commander, created_at")
+    .select("id, title, commander, created_at, is_public, deck_text")
     .eq("user_id", u.user.id)
     .order("created_at", { ascending: false });
 
@@ -38,7 +41,30 @@ export default async function Page() {
     );
   }
 
-  const rows: DeckRow[] = (data || []) as any;
+  const rows: any[] = (data || []) as any;
+
+  // Prefetch art: commander/title/first card + top cards
+  const nameSet = new Set<string>(rows.flatMap((d) => {
+    const list: string[] = [];
+    const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim();
+    if (d.commander) list.push(clean(String(d.commander)));
+    if (d.title) list.push(clean(String(d.title)));
+    const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
+    if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : first)); }
+    return list;
+  }).filter(Boolean));
+  // pull top cards per deck
+  const topByDeck = new Map<string,string[]>();
+  try {
+    const results = await Promise.all(rows.map(async (d) => {
+      const { data } = await supabase.from('deck_cards').select('name, qty').eq('deck_id', d.id).order('qty', { ascending: false }).limit(5);
+      return { id: d.id, names: Array.isArray(data) ? (data as any[]).map(x => String(x.name)) : [] };
+    }));
+    for (const r of results) topByDeck.set(r.id, r.names);
+    for (const arr of topByDeck.values()) for (const n of arr) nameSet.add(n);
+  } catch {}
+  const imgMap = await getImagesForNamesCached(Array.from(nameSet));
+  const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -55,15 +81,33 @@ export default async function Page() {
           const title = r.title ?? "Untitled Deck";
           const created = r.created_at ? new Date(r.created_at).toLocaleString() : "";
           return (
-            <li key={r.id} className="border rounded p-3 flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{title}</div>
-                <div className="text-xs text-gray-500">{created}</div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Link href={`/my-decks/${encodeURIComponent(r.id)}`} className="text-sm underline underline-offset-4" title="Edit deck">Edit</Link>
-                <Link href={`/decks/${encodeURIComponent(r.id)}`} className="text-sm underline underline-offset-4" title="View deck">View</Link>
-                <DeckDeleteButton deckId={r.id} small />
+            <li key={r.id} className="border rounded p-0 overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <Link href={`/my-decks/${encodeURIComponent(r.id)}`} className="flex-1 min-w-0 p-0 block hover:bg-neutral-900/40">
+                  <div className="flex items-center gap-3 p-3">
+                    {(() => {
+                      const candidates: string[] = [];
+                      const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim();
+                      if (r.commander) candidates.push(clean(String(r.commander)));
+                      if (r.title) candidates.push(clean(String(r.title)));
+                      const first = String(r.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
+                      if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(clean(m ? m[2] : first)); }
+                      const tops = (topByDeck.get(r.id) || []);
+                      candidates.push(...tops);
+                      let art: string | undefined;
+                      for (const c of candidates) { const img = imgMap.get(norm(c)); if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; } }
+                      return <div className="w-14 h-10 rounded overflow-hidden bg-neutral-900 bg-cover bg-center" style={art?{ backgroundImage:`url(${art})`}:{}} />;
+                    })()}
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{title}</div>
+                      <div className="text-xs text-gray-500">{created}</div>
+                    </div>
+                  </div>
+                </Link>
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <LikeButton deckId={r.id} />
+                  <DeckRowActions id={r.id} title={r.title} is_public={r.is_public} />
+                </div>
               </div>
             </li>
           );

@@ -4,6 +4,8 @@ import { ok, err } from "@/app/api/_utils/envelope";
 import { z } from "zod";
 import { withLogging } from "@/lib/api/withLogging";
 
+import { containsProfanity, sanitizeName } from "@/lib/profanity";
+
 const Req = z.object({
   title: z.string().min(1).max(120),
   format: z.string().default("Commander"),
@@ -53,12 +55,16 @@ async function _POST(req: NextRequest) {
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
 
+    // Profanity guard on deck titles (same policy as rename endpoint)
+    const cleanTitle = sanitizeName(payload.title, 120);
+    if (containsProfanity(cleanTitle)) return err("Please choose a different deck name.", "bad_request", 400);
+
     const t0 = Date.now();
     const { data, error } = await supabase
       .from("decks")
       .insert({
         user_id: user.id,
-        title: payload.title,
+        title: cleanTitle || "Untitled Deck",
         format: payload.format,
         plan: payload.plan,
         colors: payload.colors,

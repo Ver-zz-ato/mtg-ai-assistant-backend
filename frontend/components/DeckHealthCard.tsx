@@ -21,6 +21,9 @@ type Result = {
   quickFixes?: string[];
   illegalByCI?: number;
   illegalExamples?: string[];
+  bannedCount?: number;
+  bannedExamples?: string[];
+  tokenNeeds?: string[];
 };
 
 export default function DeckHealthCard({
@@ -33,7 +36,7 @@ export default function DeckHealthCard({
   onMyDecks?: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-amber-700 bg-slate-900 text-slate-200 shadow-md w-[640px] max-w-[90vw]">
+    <div className="rounded-2xl border border-amber-700 bg-slate-900 text-slate-200 shadow-md w-full sm:w-[640px] max-w-full">
       <div className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-amber-700/40 to-amber-600/20 rounded-t-2xl">
         Deck Health: {result.score}/100 — {result.note || "snapshot"}
       </div>
@@ -49,6 +52,14 @@ export default function DeckHealthCard({
             </div>
           ))}
         </div>
+
+        {(result.bannedCount || result.illegalByCI) ? (
+          <div className="text-xs text-red-300">{result.bannedCount ? (`Banned in format: ${result.bannedExamples?.join(', ')}`) : null}{result.bannedCount && result.illegalByCI ? ' • ' : ''}{result.illegalByCI ? (`Color identity conflicts: ${result.illegalExamples?.join(', ')}`) : null}</div>
+        ) : null}
+
+        {(Array.isArray(result.tokenNeeds) && result.tokenNeeds.length > 0) ? (
+          <div className="text-xs text-neutral-300">Tokens created: <span className="opacity-80">{result.tokenNeeds.join(', ')}</span></div>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-6">
           <div>

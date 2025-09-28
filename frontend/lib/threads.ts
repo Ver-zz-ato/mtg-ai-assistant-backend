@@ -8,9 +8,25 @@ type Envelope<T = any> =
 async function j(res: Response): Promise<Envelope> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    // Try to show a toast if we're in the browser
+    try {
+      if (typeof window !== 'undefined') {
+        const mod = await import("@/lib/toast-client");
+        mod.toastError?.(text || `HTTP ${res.status}`);
+      }
+    } catch {}
     throw new Error(`HTTP ${res.status} ${res.statusText} – ${text}`);
   }
-  return res.json();
+  const json = await res.json().catch(() => ({} as any));
+  if ((json as any)?.ok === false) {
+    try {
+      if (typeof window !== 'undefined') {
+        const mod = await import("@/lib/toast-client");
+        mod.toastError?.((json as any)?.error?.message || "Request failed");
+      }
+    } catch {}
+  }
+  return json as Envelope;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -18,7 +34,12 @@ async function j(res: Response): Promise<Envelope> {
 // ───────────────────────────────────────────────────────────────────────────────
 
 export async function listThreads(signal?: AbortSignal): Promise<{ threads: any[] }> {
-  const r = await j(await fetch("/api/chat/threads/list", { cache: "no-store", signal } as RequestInit));
+  const res = await fetch("/api/chat/threads/list", { cache: "no-store", signal } as RequestInit);
+  if (res.status === 401) {
+    // Not signed in — return empty silently to avoid noisy toasts on homepage
+    return { threads: [] };
+  }
+  const r = await j(res);
   const threads = (r as any)?.threads ?? (r as any)?.data ?? [];
   return { threads };
 }

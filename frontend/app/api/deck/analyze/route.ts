@@ -1,5 +1,8 @@
 // app/api/deck/analyze/route.ts
 
+import fs from "node:fs/promises";
+import path from "node:path";
+
 // --- Minimal typed Scryfall card for our needs ---
 type SfCard = {
   name: string;
@@ -7,6 +10,7 @@ type SfCard = {
   oracle_text?: string | null;
   color_identity?: string[]; // e.g. ["G","B"]
   cmc?: number;
+  legalities?: Record<string, string>;
 };
 
 // Simple in-process cache (persists across hot reloads on server)
@@ -28,6 +32,7 @@ async function fetchCard(name: string): Promise<SfCard | null> {
     card_faces?: { oracle_text?: string | null }[];
     color_identity?: string[];
     cmc?: number;
+    legalities?: Record<string, string>;
   };
 
   const r = await fetch(
@@ -42,6 +47,7 @@ async function fetchCard(name: string): Promise<SfCard | null> {
     oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
     color_identity: j.color_identity ?? [],
     cmc: typeof j.cmc === "number" ? j.cmc : undefined,
+    legalities: j.legalities ?? {},
   };
   sfCache.set(key, card);
   return card;
@@ -173,6 +179,23 @@ export async function POST(req: Request) {
   let illegalByCI = 0;
   let illegalExamples: string[] = [];
 
+  // --- NEW: Banned cards for selected format ---
+  let bannedCount = 0;
+  let bannedExamples: string[] = [];
+
+  if (format === "Commander" && useScryfall) {
+    // Banned list via Scryfall legalities
+    const banned: string[] = [];
+    for (const { name } of entries) {
+      const c = byName.get(name.toLowerCase());
+      if (!c) continue;
+      if ((c.legalities?.commander || '').toLowerCase() === 'banned') banned.push(c.name);
+    }
+    const uniqBanned = Array.from(new Set(banned));
+    bannedCount = uniqBanned.length;
+    bannedExamples = uniqBanned.slice(0, 5);
+  }
+
   if (format === "Commander" && useScryfall && selectedColors.length > 0) {
     const allowed = new Set(selectedColors.map((c) => c.toUpperCase())); // e.g. G,B
     const offenders: string[] = [];
@@ -209,14 +232,65 @@ export async function POST(req: Request) {
   const note =
     draw < 6 ? "needs a touch more draw" : lands < landTarget - 2 ? "mana base is light" : "solid, room to tune";
 
+  // Meta inclusion hints: annotate cards that are popular across commanders
+  let metaHints: Array<{ card: string; inclusion_rate: string; commanders: string[] }> = [];
+
+  // --- NEW: Token needs summary (naive oracle scan for common tokens) ---
+  const tokenNames = ['Treasure','Clue','Food','Soldier','Zombie','Goblin','Saproling','Spirit','Thopter','Angel','Dragon','Vampire','Eldrazi','Golem','Cat','Beast','Faerie','Plant','Insect'];
+  const tokenNeedsSet = new Set<string>();
+  try {
+    for (const { name } of entries) {
+      const c = byName.get(name.toLowerCase());
+      const o = (c?.oracle_text || '').toString();
+      if (/create/i.test(o) && /token/i.test(o)) {
+        for (const t of tokenNames) { if (new RegExp(`\n|\b${t}\b`, 'i').test(o)) tokenNeedsSet.add(t); }
+      }
+    }
+  } catch {}
+  const tokenNeeds = Array.from(tokenNeedsSet).sort();
+  try {
+    const metaPath = path.resolve(process.cwd(), "AI research (2)", "AI research", "commander_metagame.json");
+    const buf = await fs.readFile(metaPath, "utf8");
+    const meta = JSON.parse(buf);
+    if (Array.isArray(meta)) {
+      const inclMap = new Map<string, { rate: string; commanders: Set<string> }>();
+      for (const entry of meta) {
+        const commander = String(entry?.commander_name || "");
+        for (const tc of (entry?.top_cards || []) as any[]) {
+          const name = String(tc?.card_name || "");
+          const rate = String(tc?.inclusion_rate || "");
+          if (!name) continue;
+          const key = name.toLowerCase();
+          const cur = inclMap.get(key) || { rate, commanders: new Set<string>() };
+          // keep the highest-looking rate if different
+          const curNum = parseFloat((cur.rate || "0").replace(/[^0-9.]/g, "")) || 0;
+          const newNum = parseFloat((rate || "0").replace(/[^0-9.]/g, "")) || 0;
+          if (newNum > curNum) cur.rate = rate;
+          cur.commanders.add(commander);
+          inclMap.set(key, cur);
+        }
+      }
+      // Gather for cards in this deck
+      for (const { name } of entries) {
+        const m = inclMap.get(name.toLowerCase());
+        if (m) metaHints.push({ card: name, inclusion_rate: m.rate, commanders: Array.from(m.commanders).slice(0, 3) });
+      }
+    }
+  } catch {}
+
   return Response.json({
     score,
     note,
     bands,
     curveBuckets, // <= NEW
+    counts: { lands, ramp, draw, removal }, // <= NEW: raw category counts for presets
     whatsGood: whatsGood.length ? whatsGood : ["Core plan looks coherent."],
     quickFixes: plan === "Budget" ? quickFixes.map((s) => s.replace("Beast Whisperer", "Guardian Project")) : quickFixes,
     illegalByCI,
     illegalExamples,
+    bannedCount,
+    bannedExamples,
+    tokenNeeds,
+    metaHints,
   });
 }

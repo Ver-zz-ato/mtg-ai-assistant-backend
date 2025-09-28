@@ -28,6 +28,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     const n = (typeof name === "string" ? name : name?.name)?.trim();
     const q = Math.max(1, Number(qty) || 1);
     if (!n) return;
+    try { const { containsProfanity } = await import("@/lib/profanity"); if (containsProfanity(n)) { alert('Please choose a different name.'); return; } } catch {}
 
     const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
       method: "POST",
@@ -82,6 +83,38 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   // render each actual row (not grouped), sorted by name for a stable view
   const rows = useMemo(() => [...cards].sort((a, b) => a.name.localeCompare(b.name)), [cards]);
 
+  // Scryfall images (thumb + hover)
+  const [imgMap, setImgMap] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
+  useEffect(() => {
+    (async () => {
+      try {
+        const names = Array.from(new Set(rows.map(r => r.name))).slice(0, 300);
+        if (!names.length) { setImgMap({}); return; }
+        const { getImagesForNames } = await import("@/lib/scryfall");
+        const m = await getImagesForNames(names);
+        const obj: any = {}; m.forEach((v: any, k: string) => { obj[k] = { small: v.small, normal: v.normal }; });
+        setImgMap(obj);
+      } catch { setImgMap({}); }
+    })();
+  }, [rows.map(r=>r.name).join('|')]);
+
+  const calcPos = (e: MouseEvent | any) => {
+    try {
+      const vw = window.innerWidth; const vh = window.innerHeight;
+      const margin = 12; const boxW = 320; const boxH = 460; // approximate
+      const half = boxW / 2;
+      const rawX = e.clientX as number;
+      const rawY = e.clientY as number;
+      const below = rawY - boxH - margin < 0; // if not enough room above, render below
+      const x = Math.min(vw - margin - half, Math.max(margin + half, rawX));
+      const y = below ? Math.min(vh - margin, rawY + margin) : Math.max(margin + 1, rawY - margin);
+      return { x, y, below };
+    } catch {
+      return { x: (e as any).clientX || 0, y: (e as any).clientY || 0, below: false };
+    }
+  };
+
   return (
     <div className="mt-2">
       {/* Search + quick add */}
@@ -95,7 +128,15 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
             key={c.id}
             className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1"
           >
-            <span className="truncate pr-2">{c.name}</span>
+            <span className="truncate pr-2 flex items-center gap-2">
+              {(() => { const key = c.name.toLowerCase(); const src = imgMap[key]?.small; return src ? (
+                <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
+onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: imgMap[key]?.normal || src, x, y, shown: true, below }); }}
+                  onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
+                  onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
+                />) : null; })()}
+              <a className="hover:underline" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
+            </span>
 
             <div className="flex items-center gap-2">
               <button
@@ -131,6 +172,15 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
           <p className="text-sm opacity-70">No cards yet — try adding <em>Sol Ring</em>?</p>
         )}
       </div>
+
+      {/* Global hover preview for card images */}
+      {pv.shown && typeof window !== 'undefined' && (
+        <div className="fixed z-[9999] pointer-events-none" style={{ left: pv.x, top: pv.y, transform: `translate(-50%, ${pv.below ? '0%' : '-100%'})` }}>
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl w-72 md:w-80 transition-opacity duration-150 ease-out opacity-100" style={{ minWidth: '18rem' }}>
+            <img src={pv.src} alt="preview" className="block w-full h-auto max-h-[70vh] max-w-none object-contain rounded" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
