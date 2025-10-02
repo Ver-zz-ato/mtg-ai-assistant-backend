@@ -40,6 +40,12 @@ Chat “Supercharge” items
 ☐ Pro polish: foil shimmer & seasonal frames <!-- id:cardcreator.foil_frames -->
   - Homepage right-rail interactive creator; attaches to user profile; shows on profile and public profile with hover enlarge; Scryfall credit shown. First pass.
 
+### Hotfixes / Operational
+
+- ☑ Oct 2, 2025 — Ko‑fi widget overlay blanking the app <!-- id:ops.kofi_overlay_fix -->
+  - Cause: Ko‑fi Widget_2.js injected a full‑screen iframe overlay that remained visible (white), likely due to a script/CSS interaction. Reproduced locally and on Render.
+  - Fix: Removed widget script entirely and replaced with a simple Ko‑fi link button in components/SupportWidgets.tsx; added a cleanup effect to strip any previously injected Ko‑fi overlays on load. CSP left as report‑only.
+
 ☑ Admin: Badges summary (approx) <!-- id:admin.badges_summary -->
   - Linked from admin/JustForDavy; rough counts OK.
 ☑ Admin: Events Debug panel <!-- id:admin.events_debug -->

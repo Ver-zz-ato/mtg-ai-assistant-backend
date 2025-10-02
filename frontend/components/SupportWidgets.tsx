@@ -1,10 +1,10 @@
 "use client";
 import React from "react";
-import Script from "next/script";
 
 /**
- * Support widgets (Stripe, Ko‑fi). We only enable these in production to avoid
- * any chance of third‑party overlays breaking the local dev experience.
+ * Support widgets (Stripe, Ko‑fi). The Ko‑fi script was causing a full‑screen
+ * white overlay on some environments. We now avoid loading their widget and use
+ * a simple outbound link instead.
  */
 export default function SupportWidgets() {
   function computeShow(): boolean {
@@ -60,41 +60,33 @@ export default function SupportWidgets() {
     };
   }, []);
 
+  // Cleanup: if a previous version injected Ko‑fi iframes/overlays, remove them.
   React.useEffect(() => {
-    if (!showWidgets) return;
-
-    const schedule = (fn: () => void) => {
-      try { (window as any).requestIdleCallback?.(fn, { timeout: 3000 }); }
-      catch { setTimeout(fn, 1500); }
-    };
-
-    // Ko-fi inline button (uses their widget v2 script) — schedule on idle to reduce jank
-    schedule(() => {
-      const w2 = document.createElement('script');
-      w2.src = 'https://storage.ko-fi.com/cdn/widget/Widget_2.js';
-      w2.async = true;
-      w2.onload = () => {
-        try {
-          // @ts-ignore
-          window.kofiwidget2?.init?.('Support me on Ko-fi', '#72a4f2', 'Q5Q11LZQCA');
-          // @ts-ignore
-          window.kofiwidget2?.draw?.();
-        } catch {}
-      };
-      document.body.appendChild(w2);
-    });
-
-    // NOTE: Ko-fi floating overlay disabled to avoid white full-screen overlays. Inline button only.
-  }, [showWidgets]);
+    try {
+      const nodes = document.querySelectorAll('iframe[src*="ko-fi.com"], [id*="kofi"], [class*="kofi"]');
+      nodes.forEach((n) => {
+        // Be conservative: only strip obvious overlay containers/iframes
+        if (n instanceof HTMLIFrameElement || n instanceof HTMLDivElement) {
+          // Avoid removing our own content by checking for Ko‑fi specific hints
+          const isKofi = (n as HTMLElement).id?.toLowerCase?.().includes('kofi') ||
+                         (n as HTMLElement).className?.toLowerCase?.().includes('kofi') ||
+                         (n instanceof HTMLIFrameElement && /ko-fi\.com/.test(n.src));
+          if (isKofi) {
+            try { n.remove(); } catch {}
+          }
+        }
+      });
+    } catch {}
+  }, []);
 
   if (remoteAllow === false) return null;
   if (!showWidgets) return null;
 
   return (
     <>
-      {/* Bottom-right dock with Stripe and Ko-fi */}
+      {/* Bottom-right dock with Stripe and Ko‑fi link */}
       <div className="fixed bottom-4 right-4 z-[40] flex flex-col items-end gap-2 pointer-events-none">
-        <div className="rounded border border-neutral-800 bg-black/70 backdrop-blur p-2 pointer-events-auto">
+        <div className="rounded border border-neutral-800 bg-black/70 backdrop-blur p-2 pointer-events-auto flex flex-col gap-2">
           {/* Stripe support link */}
           <a
             href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01"
@@ -104,8 +96,16 @@ export default function SupportWidgets() {
           >
             Support via Stripe
           </a>
+          {/* Ko‑fi fallback link (no script) */}
+          <a
+            href="https://ko-fi.com/Q5Q11LZQCA"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded bg-[#72a4f2] text-black px-3 py-1.5 text-sm font-medium hover:opacity-90"
+          >
+            Support me on Ko‑fi
+          </a>
         </div>
-        {/* Ko-fi widget v2 will render its button automatically */}
       </div>
     </>
   );
