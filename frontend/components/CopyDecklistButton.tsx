@@ -2,7 +2,7 @@
 "use client";
 import { useState } from "react";
 
-export default function CopyDecklistButton({ deckId, small }: { deckId: string; small?: boolean }) {
+export default function CopyDecklistButton({ deckId, small, className }: { deckId: string; small?: boolean; className?: string }) {
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
 
@@ -29,7 +29,7 @@ export default function CopyDecklistButton({ deckId, small }: { deckId: string; 
   }
 
   return (
-    <button onClick={onCopy} disabled={busy} className={small ? "text-xs underline" : "border rounded px-2 py-1 text-xs"}>
+    <button onClick={onCopy} disabled={busy} className={className || (small ? "text-xs underline" : "border rounded px-2 py-1 text-xs") }>
       {ok ? "Copied!" : busy ? "Copying…" : "Copy decklist"}
     </button>
   );

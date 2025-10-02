@@ -8,14 +8,21 @@ type Envelope<T = any> =
 async function j(res: Response): Promise<Envelope> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    let friendly = text || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(text || "{}");
+      const msg = j?.error?.message || j?.message;
+      const hint = j?.error?.hint || j?.hint;
+      if (msg) friendly = hint ? `${msg} (${hint})` : msg;
+    } catch {}
     // Try to show a toast if we're in the browser
     try {
       if (typeof window !== 'undefined') {
         const mod = await import("@/lib/toast-client");
-        mod.toastError?.(text || `HTTP ${res.status}`);
+        mod.toastError?.(friendly);
       }
     } catch {}
-    throw new Error(`HTTP ${res.status} ${res.statusText} – ${text}`);
+    throw new Error(friendly);
   }
   const json = await res.json().catch(() => ({} as any));
   if ((json as any)?.ok === false) {
@@ -111,7 +118,7 @@ export async function listMessages(threadId: string, signal?: AbortSignal): Prom
 
 // Backward-compatible: accept either (payload) or (text, threadId)
 export async function postMessage(
-  payloadOrText: { text: string; threadId?: string | null; stream?: boolean } | string,
+  payloadOrText: { text: string; threadId?: string | null; stream?: boolean; context?: any; prefs?: any } | string,
   maybeThreadId?: string | null,
 ): Promise<Envelope<{ id?: string }>> {
   const payload = typeof payloadOrText === "string"

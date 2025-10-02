@@ -217,3 +217,18 @@ export const POST = withLogging(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: e?.message || "shopping list failed" }, { status: 500 });
   }
 });
+
+// Convenience GET wrapper so we can open Cost-to-Finish in a new tab
+export const GET = withLogging(async (req: NextRequest) => {
+  try {
+    const url = new URL(req.url);
+    const deckId = String(url.searchParams.get('deckId')||'');
+    const currency = normCur(url.searchParams.get('currency'));
+    if (!deckId) return NextResponse.json({ ok:false, error:'missing deckId' }, { status:400 });
+    // Reuse POST logic by forging a JSON body
+    const fake = new Request(req.url, { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify({ deckId, currency }) }) as unknown as NextRequest;
+    return POST(fake);
+  } catch (e:any) {
+    return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 });
+  }
+});

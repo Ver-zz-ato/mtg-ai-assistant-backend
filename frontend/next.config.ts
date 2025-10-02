@@ -30,6 +30,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    const csp = [
+      "default-src 'self'",
+      "img-src 'self' data: https://cards.scryfall.io",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self' data:",
+      "connect-src 'self' https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in",
+      "frame-src https://js.stripe.com https://ko-fi.com",
+    ].join('; ');
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy-Report-Only', value: csp },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

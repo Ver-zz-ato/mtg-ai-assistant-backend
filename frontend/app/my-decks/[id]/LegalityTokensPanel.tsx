@@ -15,10 +15,10 @@ export default function LegalityTokensPanel({ deckId }: { deckId: string }) {
     setError(null);
     try {
       const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" });
-      const j = await res.json().catch(()=>({ ok:false, items:[] }));
+      const j = await res.json().catch(()=>({ ok:false }));
       if (!res.ok || j?.ok === false) throw new Error(j?.error || res.statusText);
-      const items = Array.isArray(j.items) ? j.items as Array<{ name: string; qty: number }> : [];
-      const text = items.map(it => `${it.qty} ${it.name}`).join("\n");
+      const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
+      const text = rows.map(it => `${it.qty} ${it.name}`).join("\n");
       setDeckText(text);
       return text;
     } catch (e: any) {

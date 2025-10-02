@@ -1,0 +1,291 @@
+"use client";
+import React from "react";
+import { listMessages, postMessage } from "@/lib/threads";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+
+type Msg = { id: any; role: "user"|"assistant"; content: string };
+
+async function appendAssistant(threadId: string, content: string) {
+  const res = await fetch("/api/chat/messages/append", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ threadId, role: "assistant", content }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "append failed");
+  return true;
+}
+
+export default function DeckAssistant({ deckId }: { deckId: string }) {
+  const [threadId, setThreadId] = React.useState<string | null>(null);
+  const [msgs, setMsgs] = React.useState<Msg[]>([]);
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [deckCI, setDeckCI] = React.useState<string[] | null>(null);
+  const [commander, setCommander] = React.useState<string>("");
+  const [fmt, setFmt] = React.useState<string>("commander");
+  const [plan, setPlan] = React.useState<string>("optimized");
+  const [teaching, setTeaching] = React.useState<boolean>(false);
+
+  async function deckContext(): Promise<string> {
+    try {
+      const sb = createBrowserSupabaseClient();
+      const { data } = await sb.from('decks').select('title, commander, deck_text, format, plan').eq('id', deckId).maybeSingle();
+      const title = (data as any)?.title || 'Untitled';
+      const cmd = (data as any)?.commander || '';
+      setCommander(cmd);
+      const f = String((data as any)?.format || 'Commander').toLowerCase();
+      const p = String((data as any)?.plan || 'Optimized').toLowerCase();
+      setFmt(f.includes('commander') ? 'commander' : f);
+      setPlan(p);
+      const lines = String((data as any)?.deck_text || '').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean).slice(0, 40).join("; ");
+      // Fetch commander color identity for filtering suggestions
+      try {
+        const cmdName = String((data as any)?.commander || '').trim();
+        if (cmdName) {
+          const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cmdName)}`, { cache: 'no-store' });
+          if (r.ok) {
+            const j: any = await r.json().catch(()=>({}));
+            const ci = Array.isArray(j?.color_identity) ? j.color_identity : [];
+            setDeckCI(ci);
+          }
+        }
+      } catch {}
+      return `Deck: ${title}${cmd?` | Commander: ${cmd}`:''} | Cards: ${lines}`;
+    } catch { return ''; }
+  }
+
+  async function refresh(tid: string) {
+    try {
+      const { messages } = await listMessages(tid);
+      const arr = Array.isArray(messages) ? messages : [];
+      setMsgs(arr.map((m:any)=>({ id: m.id, role: m.role, content: m.content })) as Msg[]);
+    } catch {}
+  }
+
+  function parseAdds(s: string): Array<{ qty:number; name:string }> {
+    const out: Array<{qty:number; name:string}> = [];
+    const lines = s.split(/\r?\n/);
+    for (const l of lines) {
+      const t = l.trim();
+      let m = t.match(/^add\s+(\d+)\s*[xX]?\s+(.+)$/i);
+      if (m) { out.push({ qty: Math.max(1, parseInt(m[1],10)), name: m[2].trim() }); continue; }
+      m = t.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      if (m) { out.push({ qty: Math.max(1, parseInt(m[1],10)), name: m[2].trim() }); continue; }
+      m = t.match(/^add\s+(.+)$/i);
+      if (m) { out.push({ qty: 1, name: m[1].trim() }); continue; }
+    }
+    return out.slice(0, 10);
+  }
+
+  function prefillQuickAddFromReply(s: string) {
+    const items = parseAdds(s);
+    if (!items.length) return;
+    const first = items[0];
+    const line = `add ${first.qty} ${first.name}`;
+    try { window.dispatchEvent(new CustomEvent('quickadd:prefill', { detail: line })); } catch {}
+  }
+
+  async function send() {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try {
+      const ctx = await deckContext();
+      const prompt = (ctx?`[Deck context] ${ctx}\n\n`:'') + text;
+      const pm = await postMessage({ text: prompt, threadId });
+      const tid = (pm as any)?.threadId || threadId;
+      if (tid && tid !== threadId) setThreadId(tid);
+      // Trigger assistant reply (single-shot) with prefs
+      const prefs: any = { format: fmt, budget: plan, colors: Array.isArray(deckCI)?deckCI:[], teaching };
+      await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text: prompt, threadId: tid || null, noUserInsert: true, prefs }) });
+      if (tid) await refresh(tid);
+      // Try quick-add intents from the last assistant message (prefill only, do not add automatically)
+      const lastAssistant = msgs.slice().reverse().find(m => m.role === 'assistant');
+      if (lastAssistant) prefillQuickAddFromReply(lastAssistant.content || '');
+
+      // Helper packs: NL search, combos, rules (best-effort)
+      if (tid) {
+        const helper: any = { nl: null, combos: null, combos_detect: null, rules: null };
+        try {
+          const looksSearch = /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(text.trim());
+          if (looksSearch) {
+            const r = await fetch(`/api/search/scryfall-nl?q=${encodeURIComponent(text)}`, { cache:'no-store' });
+            const j = await r.json().catch(()=>({}));
+            if (j?.ok) helper.nl = j;
+          }
+        } catch {}
+        try {
+          if (commander) {
+            const cr = await fetch(`/api/combos?commander=${encodeURIComponent(commander)}`, { cache:'no-store' });
+            const cj = await cr.json().catch(()=>({}));
+            const combos = Array.isArray(cj?.combos) ? cj.combos.slice(0,3) : [];
+            if (combos.length) helper.combos = { commander, combos };
+          }
+        } catch {}
+        try {
+          const dr = await fetch(`/api/deck/combos`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckId }) });
+          const dj2 = await dr.json().catch(()=>({}));
+          if (dj2?.ok) helper.combos_detect = { present: dj2.present||[], missing: dj2.missing||[] };
+        } catch {}
+        try {
+          const rulesy = /\b(rule|stack|priority|lifelink|flying|trample|hexproof|ward|legendary|commander|state[- ]based)\b/i.test(text);
+          if (rulesy) {
+            const baseQ = (text.match(/\b(lifelink|flying|trample|hexproof|ward|legendary|commander|state[- ]based)\b/i)?.[1] || 'rules');
+            const r = await fetch(`/api/rules/search?q=${encodeURIComponent(baseQ)}`, { cache: 'no-store' });
+            const j = await r.json().catch(()=>({}));
+            if (j?.ok) helper.rules = j;
+          }
+        } catch {}
+        try {
+          if (helper.nl || helper.combos || helper.combos_detect || helper.rules) {
+            const content = JSON.stringify({ type:'helpers', data: helper });
+            await appendAssistant(tid, content);
+            await refresh(tid);
+          }
+        } catch {}
+      }
+    } catch (e:any) { alert(e?.message || 'Assistant failed'); }
+    finally { setBusy(false); setText(''); }
+  }
+
+  function SuggestionButtons({ rawText }: { rawText: string }){
+    const [items, setItems] = React.useState<Array<{ name:string; qty:number }>>([]);
+    const [loading, setLoading] = React.useState(false);
+    React.useEffect(() => {
+      let cancelled = false;
+      async function run(){
+        const parsed = parseAdds(rawText);
+        if (!deckCI || deckCI.length===0) { setItems(parsed); return; }
+        setLoading(true);
+        try {
+          const kept: Array<{name:string; qty:number}> = [];
+          const want = new Set(deckCI);
+          const pick = parsed.slice(0, 12);
+          await Promise.all(pick.map(async (it) => {
+            try {
+              const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(it.name)}`, { cache: 'no-store' });
+              if (!r.ok) { kept.push(it); return; } // keep unknowns
+              const c: any = await r.json().catch(()=>({}));
+              const ci: string[] = Array.isArray(c?.color_identity) ? c.color_identity : [];
+              const subset = ci.every(x => want.has(x));
+              if (subset) kept.push(it);
+            } catch { kept.push(it); }
+          }));
+          if (!cancelled) setItems(kept);
+        } finally { if (!cancelled) setLoading(false); }
+      }
+      run();
+      return () => { cancelled = true; };
+    }, [rawText, (deckCI||[]).join(',')]);
+
+    async function addNow(name: string, qty: number){
+      try {
+        const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, qty }) });
+        const j = await res.json().catch(()=>({}));
+        if (!res.ok || j?.ok===false) throw new Error(j?.error || 'Add failed');
+        try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+      } catch(e:any){ alert(e?.message || 'Add failed'); }
+    }
+
+    if (loading) return <div className="text-[10px] opacity-70">Filtering suggestions…</div>;
+    if (items.length === 0) return null;
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+        {items.map((it, i) => (
+          <button key={it.name+':'+i} onClick={()=>addNow(it.name, it.qty)} className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-700">
+            + Add {it.qty>1?`${it.qty} `:''}{it.name}
+          </button>
+        ))}
+        {deckCI && deckCI.length>0 && (
+          <span className="text-[10px] opacity-60">(filtered to deck colors)</span>
+        )}
+      </div>
+    );
+  }
+
+  function renderHelpers(obj: any) {
+    const d = obj?.data || {};
+    return (
+      <div className="mt-2 space-y-3 text-[12px] opacity-90">
+        {d.nl && (
+          <div>
+            <div className="font-semibold mb-1">Search</div>
+            <div className="mb-1"><code className="px-1 py-[1px] rounded bg-neutral-800 border border-neutral-700">{d.nl.scryfall_query}</code></div>
+            <ul className="list-disc ml-5">
+              {(Array.isArray(d.nl.results)?d.nl.results:[]).slice(0,5).map((c:any,i:number)=> (
+                <li key={i}>{c.name}{c.mana_cost?` (${c.mana_cost})`:''} — {c.type_line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {d.combos && (
+          <div>
+            <div className="font-semibold mb-1">Combos ({d.combos.commander})</div>
+            <ul className="list-disc ml-5">{(Array.isArray(d.combos.combos)?d.combos.combos:[]).map((c:any,i:number)=>(<li key={i}>{c.line}</li>))}</ul>
+          </div>
+        )}
+        {d.combos_detect && (
+          <div>
+            <div className="font-semibold mb-1">Combos detected</div>
+            {Array.isArray(d.combos_detect.present) && d.combos_detect.present.length>0 && (
+              <div className="mb-1">
+                <div className="opacity-80 text-[12px]">Present:</div>
+                <ul className="list-disc ml-5">{d.combos_detect.present.slice(0,5).map((c:any,i:number)=>(<li key={'p'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.pieces)&&c.pieces.length>0?(<span className="opacity-80"> — {c.pieces.join(' + ')}</span>):null}</li>))}</ul>
+              </div>
+            )}
+            {Array.isArray(d.combos_detect.missing) && d.combos_detect.missing.length>0 && (
+              <div>
+                <div className="opacity-80 text-[12px]">One piece missing:</div>
+                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> — have {c.have.join(' + ')}, need <a className="underline" href={`https://scryfall.com/search?q=${encodeURIComponent('!"'+(c.suggest||'')+'"')}`} target="_blank" rel="noreferrer">{c.suggest}</a></span>):null}</li>))}</ul>
+              </div>
+            )}
+          </div>
+        )}
+        {d.rules && (
+          <div>
+            <div className="font-semibold mb-1">Rules references</div>
+            <ul className="list-disc ml-5">{(Array.isArray(d.rules.results)?d.rules.results:[]).slice(0,5).map((r:any,i:number)=>(<li key={i}><span className="font-medium">{r.rule}</span>: {r.text}</li>))}</ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-xs">
+      <div className="h-56 overflow-auto rounded border border-neutral-800 p-2 bg-black/20 space-y-2">
+        {msgs.length===0 && (<div className="opacity-60">Ask anything about this deck. I’ll use its commander/title and top lines as context.</div>)}
+        {msgs.map(m => {
+          try {
+            const obj = JSON.parse(m.content);
+            if (obj && obj.type === 'helpers') {
+              return (
+                <div key={m.id}>
+                  <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">assistant</div>
+                  {renderHelpers(obj)}
+                </div>
+              );
+            }
+          } catch {}
+          return (
+            <div key={m.id} className={m.role==='assistant'?"":"opacity-80"}>
+              <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">{m.role==='assistant'? 'assistant' : 'you'}</div>
+              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.role==='assistant' && <SuggestionButtons rawText={m.content} />}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <label className="inline-flex items-center gap-1">
+          <input type="checkbox" checked={!!teaching} onChange={e=>setTeaching(e.target.checked)} />
+          <span>Teaching</span>
+        </label>
+        <input value={text} onChange={e=>setText(e.target.value)} placeholder="Ask the assistant…"
+          onKeyDown={e=>{ if (e.key==='Enter') send(); }}
+          className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+        <button onClick={send} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Send</button>
+      </div>
+    </div>
+  );
+}

@@ -91,6 +91,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   }
 
   async function remove(item: Item) {
+    if (!confirm(`Are you sure you want to delete ${item.name}?`)) return;
     const res = await fetch(`/api/collections/cards`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -108,6 +109,25 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   // Scryfall images for list + hover
   const [imgMap, setImgMap] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
+
+  // Currency toggle + snapshot prices
+  // Avoid hydration mismatch: read localStorage after mount
+  const [currency, setCurrency] = useState<string>('USD');
+  useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
+  useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const names = Array.from(new Set(items.map(i=>i.name)));
+        if (!names.length) { setPriceMap({}); return; }
+        // Direct currency only; GBP requires snapshot rows
+        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ names, currency }) });
+        const j1 = await r1.json().catch(()=>({ ok:false }));
+        if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
+      } catch { setPriceMap({}); }
+    })();
+  }, [items.map(i=>i.name).join('|'), currency]);
   useEffect(() => {
     (async () => {
       try {
@@ -176,12 +196,26 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       {loading && <div className="text-xs opacity-70">Loading…</div>}
       {error && <div className="text-xs text-red-500">Error: {error}</div>}
 
+      {/* Currency toggle */}
+      <div className="mt-2 flex items-center justify-end gap-2 text-xs">
+        <label className="opacity-70">Currency</label>
+        <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+
       {!loading && !error && (
         items.length ? (
+          <>
           <ul className="space-y-1">
             {items.map((it) => (
               <li key={it.id} className="flex items-center justify-between rounded border px-3 py-2">
-                <span className="text-sm inline-flex items-center gap-2">
+                <span className="text-sm inline-flex items-center gap-2 min-w-0">
+                  <input type="number" min={0} step={1} value={it.qty}
+                    className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"
+                    onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - it.qty; if (d!==0) bump(it, d); }} />
                   {(() => { const key = it.name.toLowerCase(); const src = (imgMap as any)?.[key]?.small; return src ? (
                     <img src={src} alt={it.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
 onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: (imgMap as any)?.[key]?.normal || src, x, y, shown: true, below }); }}
@@ -191,14 +225,18 @@ onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: (im
                   <a className="hover:underline" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(it.name)}\"`} target="_blank" rel="noreferrer">{it.name}</a>
                 </span>
                 <div className="flex items-center gap-2">
-                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(it, -1)}>-</button>
-                  <span className="text-xs opacity-75">x{it.qty}</span>
-                  <button className="text-xs border rounded px-2 py-1" onClick={() => bump(it, +1)}>+</button>
+                  {(() => { try { const norm = it.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); const unit = priceMap[norm]; if (unit>0) { const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); return (<span className="text-xs opacity-80 w-32 text-right tabular-nums">{sym}{(unit*it.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span></span>); } else { return (<span className="text-xs opacity-60 w-32 text-right">— <button className="underline ml-1" onClick={async()=>{ try { const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[it.name] }) }); const j = await r.json(); const sugg = j?.results?.[it.name]?.suggestion; if (!sugg) { alert('No suggestion found'); return; } if (!confirm(`Rename to "${sugg}"?`)) return; const res = await fetch('/api/collections/cards', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id, new_name: sugg }) }); const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed'); await load(); } catch(e:any){ alert(e?.message || 'Failed'); } }}>fix?</button></span>); } } catch {} return (<span className="text-xs opacity-40 w-20 text-right">—</span>); })()}
                   <button className="text-xs text-red-500 underline" onClick={() => remove(it)}>delete</button>
                 </div>
               </li>
             ))}
           </ul>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-xs opacity-70">Cards: <span className="font-mono">{items.reduce((s,it)=>s+it.qty,0)}</span></div>
+{(() => { try { const total = items.reduce((acc,it)=>{ const norm = it.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); const unit = priceMap[norm] || 0; return acc + unit*it.qty; },0); const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); return (<div className="text-sm opacity-90">Est. total (snapshot): <span className="font-mono">{sym}{total.toFixed(2)}</span></div>); } catch { return null; } })()}
+          </div>
+          </>
+          
         ) : (
           <div className="text-xs text-muted-foreground rounded border p-3">
             No cards in this collection yet — try adding <span className="font-medium">Lightning Bolt</span>?<br />

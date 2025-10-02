@@ -51,7 +51,7 @@ export default function DeckCsvUpload({ deckId, onDone }: { deckId: string; onDo
     <div className="relative flex items-center gap-2">
       <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onChange} />
       <button onClick={pick} disabled={busy} className="text-xs border rounded px-2 py-1">
-        {busy ? "Uploading…" : "Upload CSV"}
+        {busy ? "Importing…" : "Import deck from CSV"}
       </button>
       {report && (
         <span className="text-xs text-muted-foreground">

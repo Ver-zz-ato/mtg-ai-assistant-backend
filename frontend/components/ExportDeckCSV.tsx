@@ -2,9 +2,9 @@
 "use client";
 import { useState } from "react";
 
-type Props = { deckId: string; filename?: string; small?: boolean };
+type Props = { deckId: string; filename?: string; small?: boolean; className?: string };
 
-export default function ExportDeckCSV({ deckId, filename = "deck.csv", small }: Props) {
+export default function ExportDeckCSV({ deckId, filename = "deck.csv", small, className }: Props) {
   const [busy, setBusy] = useState(false);
 
   async function onExport() {
@@ -41,7 +41,7 @@ export default function ExportDeckCSV({ deckId, filename = "deck.csv", small }: 
   }
 
   return (
-    <button onClick={onExport} disabled={busy} className={small ? "text-xs underline" : "border rounded px-2 py-1 text-xs"}>
+    <button onClick={onExport} disabled={busy} className={className || (small ? "text-xs underline" : "border rounded px-2 py-1 text-xs") }>
       {busy ? "Exporting…" : "Export CSV"}
     </button>
   );

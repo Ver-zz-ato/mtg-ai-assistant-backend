@@ -1,0 +1,21 @@
+name: nightly-prewarm-and-snapshot
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # every day at 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prewarm Scryfall cache
+        run: |
+          curl -sS -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            "${{ secrets.BASE_URL }}/api/cron/prewarm-scryfall"
+      - name: Build price snapshot (today)
+        run: |
+          curl -sS -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            "${{ secrets.BASE_URL }}/api/admin/price/snapshot/build"

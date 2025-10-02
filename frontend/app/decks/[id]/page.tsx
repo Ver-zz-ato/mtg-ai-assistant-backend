@@ -5,7 +5,7 @@ import CopyDecklistButton from "@/components/CopyDecklistButton";
 import LikeButton from "@/components/likes/LikeButton";
 
 type Params = { id: string };
-export const dynamic = "force-dynamic";
+export const revalidate = 120; // short ISR window for public decks
 
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
@@ -50,11 +50,25 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
 
   // Fetch cards
-  const { data: cards } = await supabase
+    const { data: cards } = await supabase
     .from("deck_cards")
     .select("name, qty")
     .eq("deck_id", id)
     .order("name", { ascending: true });
+
+  // Snapshot prices for per-card "each" (USD default)
+  const names = Array.from(new Set(((cards||[]) as any[]).map(c=>String(c.name))));
+  let priceMap = new Map<string, number>();
+  try {
+    if (names.length) {
+      const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/price/snapshot`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency:'USD' }) });
+      const j:any = await r.json().catch(()=>({}));
+      if (r.ok && j?.ok) {
+        const obj = j.prices || {};
+        Object.entries(obj).forEach(([k,v]:any)=>{ priceMap.set(String(k).toLowerCase(), Number(v)); });
+      }
+    }
+  } catch {}
 
   // Compute pie from commander/title
   const pieNames = [String(deckRow?.commander||''), String(deckRow?.title||'')].filter(Boolean);
@@ -115,7 +129,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       segs.push(<path key={k} d={d} fill={colors[k]} stroke="#111" strokeWidth="0.5"/>);
       start = end;
     });
-    return <svg viewBox="0 0 100 100" className="w-28 h-28">{segs}</svg>;
+    return <svg viewBox="0 0 120 120" className="w-full max-w-[240px] h-auto">{segs}</svg>;
   }
 
   function radarSvg(r: Record<string, number>) {
@@ -126,7 +140,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const axes = keys.map((k,i)=>{ const ang=-Math.PI/2+i*(2*Math.PI/keys.length); const x=CX+R*Math.cos(ang), y=CY+R*Math.sin(ang); return <line key={k} x1={CX} y1={CY} x2={x} y2={y} stroke="#333" strokeWidth="0.5"/>; });
     const labels = keys.map((k,i)=>{ const ang=-Math.PI/2+i*(2*Math.PI/keys.length); const x=CX+(R+10)*Math.cos(ang), y=CY+(R+10)*Math.sin(ang); return <text key={`lbl-${k}`} x={x} y={y} fontSize="8" textAnchor="middle" fill="#9ca3af">{k}</text>; });
     return (
-      <svg viewBox="0 0 140 140" className="w-32 h-32">
+      <svg viewBox="0 0 160 160" className="w-full max-w-[260px] h-auto">
         <g transform="translate(10,10)">
           <circle cx={60} cy={60} r={42} fill="none" stroke="#333" strokeWidth="0.5" />
           {axes}
@@ -146,7 +160,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             <div className="text-sm font-semibold mb-2">Deck trends</div>
             <div className="flex flex-col items-center gap-4">
               <div className="flex flex-col items-center">
-                <div className="text-xs opacity-80 mb-1">Color balance</div>
+              <div className="text-xs opacity-80 mb-1"><span title="Derived from commander and title; falls back to deck cards">Color balance</span></div>
                 {hasPie ? (
                   <>
                     {pieSvg(pieCounts)}
@@ -161,7 +175,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                 )}
               </div>
               <div className="flex flex-col items-center">
-                <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
+              <div className="text-xs opacity-80 mb-1"><span title="Heuristic based on types/keywords/curve">Playstyle radar</span></div>
                 {Object.values(arche||{}).some(v=>Number(v)>0) ? (
                   <>
                     {radarSvg(arche || { aggro:0, control:0, combo:0, midrange:0, stax:0 })}
@@ -183,6 +197,13 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           <header className="mb-4 flex items-center justify-between gap-2">
             <div>
               <h1 className="text-2xl font-semibold">{title}</h1>
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
+                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':' '}${t==='Control'?'counter/board wipes, instants/sorceries':''}${t==='Combo'?'tutors, search your library':''}${t==='Midrange'?'creatures at 5+ cmc':''}${t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`.trim()} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
+                    {t}
+                  </span>
+                ))}
+              </div>
               <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -197,12 +218,16 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               <div className="text-sm text-muted-foreground">No cards yet.</div>
             ) : (
               <ul className="text-sm">
-                {(cards || []).map((c) => (
-                  <li key={c.name} className="flex items-center gap-2">
-                    <span className="w-8 text-right tabular-nums">{c.qty}×</span>
-                    <span>{c.name}</span>
-                  </li>
-                ))}
+                {(cards || []).map((c) => {
+                  const unit = priceMap.get(String(c.name).toLowerCase());
+                  const each = typeof unit === 'number' && unit>0 ? ` • $${unit.toFixed(2)} each` : '';
+                  return (
+                    <li key={c.name} className="flex items-center gap-2">
+                      <span className="w-8 text-right tabular-nums">{c.qty}×</span>
+                      <span>{c.name}{each && (<span className="opacity-60 text-xs">{each}</span>)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

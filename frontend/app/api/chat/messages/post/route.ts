@@ -10,7 +10,7 @@ function codeAndHint(status: number) {
   return { code: "ERROR", hint: "Request failed." };
 }
 
-function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean; prefs?: any } {
+function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean; prefs?: any, context?: any } {
   const ct = (contentType || "").toLowerCase();
   const out: any = {};
 
@@ -26,6 +26,7 @@ function parseTolerantBody(raw: string, contentType: string | null): { text: str
         const threadId = j.threadId ?? null;
         const stream = j.stream ?? false;
         const prefs = j.prefs;
+        const context = j.context;
         return { text, threadId, stream, prefs };
       }
     } catch {}
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     threadId: parsed.threadId ?? null,
     stream: parsed.stream ?? false,
     ...(parsed.prefs ? { prefs: parsed.prefs } : {}),
+    ...(parsed.context ? { context: parsed.context } : {}),
   };
 
   const res = await fetch(new URL("/api/chat", req.url), {

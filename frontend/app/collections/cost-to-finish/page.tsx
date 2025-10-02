@@ -5,18 +5,18 @@ import Client from "./Client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Cost to Finish • MTG Coach",
+  title: "Cost to Finish • ManaTap AI",
   description:
     "Paste a decklist or deep link a public deck and estimate the cost to finish. Optionally subtract owned from a selected collection.",
   openGraph: {
-    title: "Cost to Finish • MTG Coach",
+    title: "Cost to Finish • ManaTap AI",
     description:
       "Estimate the cost to finish a deck. Subtract owned from your collection.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cost to Finish • MTG Coach",
+    title: "Cost to Finish • ManaTap AI",
     description:
       "Estimate the cost to finish a deck. Subtract owned from your collection.",
   },

@@ -27,6 +27,7 @@ export default function DeckPublicToggle({ deckId, initialIsPublic, compact }: P
         throw new Error(json?.error || "Request failed");
       }
       setIsPublic(nextVal);
+      try { window.dispatchEvent(new CustomEvent('deck:visibility', { detail: { isPublic: nextVal } })); } catch {}
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -56,11 +57,6 @@ export default function DeckPublicToggle({ deckId, initialIsPublic, compact }: P
         Private
       </button>
       {busy && <span className="text-xs opacity-70">Saving…</span>}
-      {typeof isPublic === "boolean" && (
-        <span className="text-xs opacity-70">
-          {isPublic ? "This deck is public." : "This deck is private."}
-        </span>
-      )}
       {error && <span className="text-xs text-red-500"> {error}</span>}
     </div>
   );

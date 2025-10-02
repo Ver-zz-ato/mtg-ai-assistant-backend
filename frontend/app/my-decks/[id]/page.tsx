@@ -4,8 +4,13 @@ import Client from "./Client";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
+import RecomputeButton from "./RecomputeButton";
 import InlineDeckTitle from "@/components/InlineDeckTitle";
 import DeckPublicToggle from "@/components/DeckPublicToggle";
+import ProAutoToggle from "./ProAutoToggle";
+import FunctionsPanel from "./FunctionsPanel";
+import NextDynamic from "next/dynamic";
+import DeckProbabilityPanel from "./DeckProbabilityPanel";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -20,6 +25,8 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const { id } = await params;
   const { r } = await searchParams;
   const supabase = await createClient();
+  const { data: ures } = await supabase.auth.getUser();
+  const isPro = Boolean((ures?.user as any)?.user_metadata?.pro);
   const { data: deck } = await supabase.from("decks").select("title, is_public, commander, title").eq("id", id).maybeSingle();
   const title = deck?.title || "Untitled Deck";
 
@@ -52,15 +59,20 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     return out;
   }
 
-  // Pie (initially from commander/title)
-  const pieNames = [String((deck as any)?.commander||''), String((deck as any)?.title||'')].filter(Boolean);
-  const pieCards = await scryfallBatch(pieNames);
+  // Build details from deck cards (for both pie and radar)
+  const details = await scryfallBatch(arr.map(a=>a.name));
+  // Pie from actual deck composition
   const pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
-  Object.values(pieCards).forEach((card:any)=>{ const ci: string[] = Array.isArray(card?.color_identity)? card.color_identity : []; ci.forEach(c=>{ pieCounts[c]=(pieCounts[c]||0)+1; }); });
+  for (const { name, qty } of arr) {
+    const d = details[norm(name)];
+    const ci: string[] = Array.isArray(d?.color_identity) ? d.color_identity : [];
+    const q = Math.max(1, Number(qty)||1);
+    for (const c of ci) pieCounts[c] = (pieCounts[c]||0) + q;
+  }
 
   // Radar
-  const details = await scryfallBatch(arr.map(a=>a.name));
   const radar = { aggro:0, control:0, combo:0, midrange:0, stax:0 } as Record<string, number>;
+  const totalCards = arr.reduce((s,a)=>s + (Number(a.qty)||0), 0);
   for (const { name, qty } of arr) {
     const card = details[norm(name)];
     const type = String(card?.type_line||'');
@@ -91,7 +103,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     let start = -Math.PI/2; const R=42, CX=50, CY=50; const colors: Record<string,string> = { W:'#e5e7eb', U:'#60a5fa', B:'#64748b', R:'#f87171', G:'#34d399' };
     const segs: any[] = [];
     (['W','U','B','R','G'] as const).forEach((k)=>{ const frac=(counts[k]||0)/total; const end=start+2*Math.PI*frac; const x1=CX+R*Math.cos(start), y1=CY+R*Math.sin(start); const x2=CX+R*Math.cos(end), y2=CY+R*Math.sin(end); const large=(end-start)>Math.PI?1:0; const d=`M ${CX} ${CY} L ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} Z`; segs.push(<path key={k} d={d} fill={colors[k]} stroke="#111" strokeWidth="0.5"/>); start=end; });
-    return <svg viewBox="0 0 100 100" className="w-28 h-28">{segs}</svg>;
+    return <svg viewBox="0 0 120 120" className="w-full max-w-[240px] h-auto">{segs}</svg>;
   }
 
   function radarSvg(r: Record<string, number>) {
@@ -117,7 +129,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
       return <text key={`lbl-${k}`} x={x} y={y} fontSize="8" textAnchor="middle" fill="#9ca3af">{k}</text>;
     });
     return (
-      <svg viewBox="0 0 140 140" className="w-32 h-32">
+      <svg viewBox="0 0 160 160" className="w-full max-w-[260px] h-auto">
         <g transform="translate(10,10)">
           <circle cx={60} cy={60} r={42} fill="none" stroke="#333" strokeWidth="0.5" />
           {axes}
@@ -129,14 +141,14 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-7xl px-4 py-8">
       <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-12 md:col-span-3">
           <div className="rounded-xl border border-neutral-800 p-4">
             <div className="text-sm font-semibold mb-2">Deck trends</div>
             <div className="flex flex-col items-center gap-4">
             <div className="flex flex-col items-center">
-              <div className="text-xs opacity-80 mb-1">Color balance</div>
+              <div className="text-xs opacity-80 mb-1"><span title="Derived from commander and title; falls back to deck cards">Color balance</span></div>
               {hasPie ? (
                 <>
                   {pieSvg(pieCounts)}
@@ -145,13 +157,14 @@ export default async function Page({ params, searchParams }: { params: Promise<P
                       <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {(pieCounts as any)[k]||0}</div>
                     ))}
                   </div>
+                  <div className="mt-1 text-[10px] opacity-70">Cards: <span className="font-mono">{totalCards}</span></div>
                 </>
               ) : (
                 <div className="text-[10px] opacity-60">Not enough data to calculate.</div>
               )}
             </div>
               <div className="flex flex-col items-center">
-                <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
+              <div className="text-xs opacity-80 mb-1"><span title="Heuristic based on types/keywords/curve">Playstyle radar</span></div>
                 {Object.values(radar).some(v=>v>0) ? (
                   <>
                     {radarSvg(radar)}
@@ -164,23 +177,30 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               <div className="text-[10px] text-neutral-400 text-center">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
             </div>
           </div>
+          {/* Analyzer under trends */}
+<div className="mt-4">{(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={id} proAuto={isPro} />; })()}</div>
         </aside>
 
         <section className="col-span-12 md:col-span-9">
           <header className="mb-4 flex items-center justify-between gap-2">
             <div>
+              <div className="text-xs opacity-70">Deck name:</div>
               <InlineDeckTitle deckId={id} initial={title} />
-              <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
+                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':' '}${t==='Control'?'counter/board wipes, instants/sorceries':''}${t==='Combo'?'tutors, search your library':''}${t==='Midrange'?'creatures at 5+ cmc':''}${t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`.trim()} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
+                    {t}
+                  </span>
+                ))}
+              </div>
+              {/* Deck ID removed per request */}
             </div>
             <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
-            <div className="flex items-center gap-2">
-              <CopyDecklistButton deckId={id} small />
-              <ExportDeckCSV deckId={id} small />
-              <DeckCsvUpload deckId={id} />
-            </div>
           </header>
           {/* key forces remount when ?r= changes */}
-          <Client deckId={id} key={r || "_"} />
+          {/* Right column: functions panel, then editor */}
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
+          <Client deckId={id} isPro={isPro} key={r || "_"} />
         </section>
       </div>
     </main>

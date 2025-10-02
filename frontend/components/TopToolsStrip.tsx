@@ -2,6 +2,9 @@
 import React from "react";
 
 export default function TopToolsStrip() {
+  const [flags, setFlags] = React.useState<any>(null);
+  React.useEffect(()=>{ (async()=>{ try{ const r=await fetch('/api/config?key=flags',{cache:'no-store'}); const j=await r.json(); if(j?.config?.flags) setFlags(j.config.flags);} catch{} })(); },[]);
+  const riskyOn = flags ? (flags.risky_betas !== false) : true;
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 overflow-x-auto md:overflow-visible">
       {/* W (White) */}
@@ -15,10 +18,12 @@ export default function TopToolsStrip() {
         <div className="text-xs opacity-70">Find cheaper alternatives to pricey cards in your deck.</div>
       </a>
       {/* B (Black) */}
-      <a href="/" className="block rounded-xl border border-purple-900 bg-black/30 p-4 hover:border-purple-700 hover:bg-black/40">
-        <div className="font-semibold mb-1">Deck Snapshot / Judger</div>
-        <div className="text-xs opacity-70">Paste a deck in chat to get score, curve, color identity & quick fixes.</div>
+      {riskyOn && (
+      <a href="/price-tracker" className="block rounded-xl border border-purple-900 bg-black/30 p-4 hover:border-purple-700 hover:bg-black/40">
+        <div className="font-semibold mb-1">Price Tracker</div>
+        <div className="text-xs opacity-70">Daily price snapshots with interactive charts. Watch cards, compare trends, export data.</div>
       </a>
+      )}
       {/* R (Red) */}
       <a href="/tools/probability" className="block rounded-xl border border-red-700 bg-red-900/20 p-4 hover:border-red-600 hover:bg-red-900/30">
         <div className="font-semibold mb-1">Probability Helpers</div>

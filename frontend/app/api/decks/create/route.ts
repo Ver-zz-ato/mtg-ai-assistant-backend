@@ -46,7 +46,7 @@ function aggregateCards(cards: Array<{ name: string; qty: number }>): Array<{ na
 
 async function _POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: userResp } = await supabase.auth.getUser();
     const user = userResp?.user;
     if (!user) return err("unauthorized", "unauthorized", 401);

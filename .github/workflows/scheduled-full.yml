@@ -1,0 +1,16 @@
+name: weekly-full-snapshot
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Sundays 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build FULL snapshot (ALL cards)
+        run: |
+          curl -sS -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            "${{ secrets.BASE_URL }}/api/admin/price/snapshot/bulk"

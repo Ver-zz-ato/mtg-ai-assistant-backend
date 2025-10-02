@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -87,6 +88,10 @@ export default function RightSidebar() {
         </p>
       </div>
 
+      {/* Custom Card Creator promo panel */}
+      <div className="relative z-20">
+        {require('react').createElement(require('./CustomCardCreator').default)}
+      </div>
 
       <div className="relative z-20 bg-gray-900 border border-gray-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
         <div className="font-semibold mb-2">Shoutbox (live)</div>

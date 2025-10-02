@@ -8,7 +8,7 @@ const Body = z.object({
 
 export async function POST(req: Request) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return err("unauthorized", "unauthorized", 401);
 

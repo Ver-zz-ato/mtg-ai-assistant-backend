@@ -11,15 +11,15 @@ export default function Page() {
     <>
       <ModeOptions />
       <div className="w-full">
-        <div className="max-w-7xl mx-auto px-4 pt-4">
+        <div className="max-w-[1600px] mx-auto px-4 pt-4">
           <TopToolsStrip />
         </div>
-        <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-12 gap-4">
-          <aside className="hidden lg:flex col-span-3"><LeftSidebar /></aside>
-          <section className="col-span-12 lg:col-span-6 flex flex-col gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 py-4 grid grid-cols-12 gap-4">
+          <aside className="hidden xl:flex xl:col-span-3"><LeftSidebar /></aside>
+          <section className="col-span-12 xl:col-span-5 flex flex-col gap-3">
             <Chat />
           </section>
-          <aside className="col-span-12 lg:col-span-3"><RightSidebar /></aside>
+          <aside className="col-span-12 xl:col-span-4"><RightSidebar /></aside>
         </div>
       </div>
       <FeedbackFab /> {/* ← floating feedback button */}

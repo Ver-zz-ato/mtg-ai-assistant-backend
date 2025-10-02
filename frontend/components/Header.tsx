@@ -55,11 +55,13 @@ export default function Header() {
   return (
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-semibold">
-          MTG Coach
+<Link href="/" className="font-semibold">
+          ManaTap AI
         </Link>
 
         <nav className="flex items-center gap-3">
+          {/* Pro badge to the far left of nav for visibility when signed in */}
+          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
           <Link href="/my-decks" className="text-sm hover:underline">
             My Decks
           </Link>
@@ -73,8 +75,13 @@ export default function Header() {
           {sessionUser ? (
             <>
               <span className="flex items-center gap-2 text-xs opacity-90">
+                {/* Pro badge */}
+                {/** Lazy import would be overkill; include inline */}
+              
                 {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : null}
                 <span>{displayName || sessionUser}</span>
+                {/* Mount ProBadge next to name */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
               </span>
               <button
                 onClick={signOut}

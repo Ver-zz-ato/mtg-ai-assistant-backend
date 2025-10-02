@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 
+import Tooltip from "@/components/Tooltip";
+
 export default function LikeButton({ deckId }: { deckId: string }) {
   const [count, setCount] = useState<number>(0);
   const [liked, setLiked] = useState<boolean>(false);
@@ -28,8 +30,10 @@ export default function LikeButton({ deckId }: { deckId: string }) {
   }
 
   return (
-    <button onClick={toggle} disabled={busy} className={`text-xs px-2 py-1 rounded bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}>
-      ❤ <span className={liked ? 'text-red-400' : 'text-neutral-200'}>{count}</span>
-    </button>
+    <Tooltip content={liked ? 'Unlike this deck' : 'Like this deck'}>
+      <button onClick={toggle} disabled={busy} className={`text-xs px-2 py-1 rounded bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}>
+        ❤ <span className={liked ? 'text-red-400' : 'text-neutral-200'}>{count}</span>
+      </button>
+    </Tooltip>
   );
 }

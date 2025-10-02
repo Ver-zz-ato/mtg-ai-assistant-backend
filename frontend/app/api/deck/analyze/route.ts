@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     colors?: string[]; // e.g. ["G","B"]
     currency?: "USD" | "EUR" | "GBP";
     useScryfall?: boolean; // true = do real lookups
+    commander?: string; // optional commander name for meta suggestions
   };
 
   const body = (await req.json().catch(() => ({}))) as AnalyzeBody;
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
   const plan: "Budget" | "Optimized" = body.plan ?? "Optimized";
   const useScryfall: boolean = Boolean(body.useScryfall);
   const selectedColors: string[] = Array.isArray(body.colors) ? body.colors : [];
+  const reqCommander: string | null = typeof body.commander === 'string' && body.commander.trim() ? String(body.commander).trim() : null;
 
   // Parse text into entries {count, name}
   const lines = deckText
@@ -262,7 +264,6 @@ export async function POST(req: Request) {
           if (!name) continue;
           const key = name.toLowerCase();
           const cur = inclMap.get(key) || { rate, commanders: new Set<string>() };
-          // keep the highest-looking rate if different
           const curNum = parseFloat((cur.rate || "0").replace(/[^0-9.]/g, "")) || 0;
           const newNum = parseFloat((rate || "0").replace(/[^0-9.]/g, "")) || 0;
           if (newNum > curNum) cur.rate = rate;
@@ -270,12 +271,41 @@ export async function POST(req: Request) {
           inclMap.set(key, cur);
         }
       }
-      // Gather for cards in this deck
+      // 1) For cards in this deck (contextual notes)
       for (const { name } of entries) {
         const m = inclMap.get(name.toLowerCase());
         if (m) metaHints.push({ card: name, inclusion_rate: m.rate, commanders: Array.from(m.commanders).slice(0, 3) });
       }
+      // 2) If commander provided, offer top includes not already in deck
+      if (reqCommander) {
+        const deckSet = new Set(entries.map(e => e.name.toLowerCase()));
+        const byCommander = (meta as any[]).find((e:any) => String(e?.commander_name || '').toLowerCase() === reqCommander.toLowerCase());
+        if (byCommander && Array.isArray(byCommander.top_cards)) {
+          const picks = [] as Array<{ card: string; inclusion_rate: string; commanders: string[] }>;
+          for (const tc of byCommander.top_cards as any[]) {
+            const name = String(tc?.card_name || '').trim();
+            if (!name) continue;
+            if (!deckSet.has(name.toLowerCase())) picks.push({ card: name, inclusion_rate: String(tc?.inclusion_rate || ''), commanders: [byCommander.commander_name] });
+            if (picks.length >= 12) break;
+          }
+          // If metaHints is empty, use these as suggestions; else append
+          metaHints = metaHints.concat(picks);
+        }
+      }
     }
+  } catch {}
+
+  // Combo detection (present + one piece missing) using the Scryfall data we already fetched
+  let combosPresent: Array<{ name: string; pieces: string[] }> = [];
+  let combosMissing: Array<{ name: string; have: string[]; missing: string[]; suggest: string }> = [];
+  try {
+    const { normalizeDeckNames, detectCombosSmart } = await import("@/lib/combos/detect");
+    const names = normalizeDeckNames(deckText);
+    const details: Record<string, { type_line?: string; oracle_text?: string | null; name?: string }> = {};
+    for (const [k, v] of byName.entries()) details[k] = { name: v.name, type_line: v.type_line, oracle_text: v.oracle_text };
+    const res = detectCombosSmart(names, details);
+    combosPresent = (res.present || []).map(p => ({ name: p.name, pieces: p.pieces }));
+    combosMissing = (res.missing || []).map(m => ({ name: m.name, have: m.have, missing: m.missing, suggest: m.suggest }));
   } catch {}
 
   return Response.json({
@@ -292,5 +322,7 @@ export async function POST(req: Request) {
     bannedExamples,
     tokenNeeds,
     metaHints,
+    combosPresent,
+    combosMissing,
   });
 }

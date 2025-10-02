@@ -24,6 +24,8 @@ type Result = {
   bannedCount?: number;
   bannedExamples?: string[];
   tokenNeeds?: string[];
+  combosPresent?: Array<{ name: string; pieces: string[] }>;
+  combosMissing?: Array<{ name: string; have: string[]; missing: string[]; suggest: string }>;
 };
 
 export default function DeckHealthCard({
@@ -75,6 +77,40 @@ export default function DeckHealthCard({
             </ul>
           </div>
         </div>
+
+        {(Array.isArray(result.combosPresent) && result.combosPresent.length > 0) || (Array.isArray(result.combosMissing) && result.combosMissing.length > 0) ? (
+          <div className="mt-2">
+            <div className="font-semibold text-sm mb-1">Combos</div>
+            {Array.isArray(result.combosPresent) && result.combosPresent.length > 0 && (
+              <div className="text-sm mb-1">
+                <div className="opacity-80 text-[12px]">Present:</div>
+                <ul className="list-disc pl-5 space-y-1">
+                  {result.combosPresent.slice(0,5).map((c,i)=> (
+                    <li key={'cp'+i}>
+                      <span className="font-medium">{c.name}</span>
+                      {Array.isArray(c.pieces) && c.pieces.length>0 && <span className="opacity-80"> — {c.pieces.join(' + ')}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {Array.isArray(result.combosMissing) && result.combosMissing.length > 0 && (
+              <div className="text-sm">
+                <div className="opacity-80 text-[12px]">One piece missing:</div>
+                <ul className="list-disc pl-5 space-y-1">
+                  {result.combosMissing.slice(0,5).map((c,i)=> (
+                    <li key={'cm'+i}>
+                      <span className="font-medium">{c.name}</span>
+                      {Array.isArray(c.have) && c.have.length>0 && (
+                        <span className="opacity-80"> — have {c.have.join(' + ')}, need {c.suggest}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div className="flex gap-2 pt-2">
           <button

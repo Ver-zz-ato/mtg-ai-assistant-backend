@@ -3,10 +3,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-// Synchronous variant used by API routes that call createClient() without awaiting.
-// Uses cookies() directly (not awaited) which is valid in Next.js route handlers.
-export function createClient() {
-  const cookieStore: any = cookies() as any;
+// Async variant for route handlers — await cookies() to avoid Next 15 sync dynamic API warnings.
+export async function createClient() {
+  const cookieStore: any = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -14,14 +13,13 @@ export function createClient() {
     {
       cookies: {
         get(name: string) {
-          // @ts-ignore cookieStore can be sync in route handlers
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          try { /* @ts-ignore */ cookieStore?.set?.({ name, value, ...options }); } catch {}
+          try { cookieStore.set({ name, value, ...options }); } catch {}
         },
         remove(name: string, options: any) {
-          try { /* @ts-ignore */ cookieStore?.set?.({ name, value: "", ...options }); } catch {}
+          try { cookieStore.set({ name, value: "", ...options }); } catch {}
         },
       },
     },
@@ -51,8 +49,8 @@ export async function getServerSupabase() {
     },
   );
 
-  // Dev diagnostics: confirm expected cookie name presence
-  if (process.env.NODE_ENV !== "production") {
+// Dev diagnostics removed to keep test/dev console clean. Toggle with NEXT_DEBUG_AUTH=1 if needed.
+  if (process.env.NEXT_DEBUG_AUTH === '1') {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const ref = (() => { try { return new URL(url).host.split(".")[0]; } catch { return ""; } })();
     const expected = ref ? `sb-${ref}-auth-token` : "";

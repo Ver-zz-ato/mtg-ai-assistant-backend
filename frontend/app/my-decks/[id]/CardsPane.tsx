@@ -40,6 +40,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
 
     window.dispatchEvent(new CustomEvent("toast", { detail: `Added x${q} ${n}` }));
     await load();
+    try { window.dispatchEvent(new Event('deck:changed')); } catch {}
   }
 
   async function delta(id: string, d: number) {
@@ -55,6 +56,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       if (!json.ok) throw new Error(json.error || "Update failed");
       window.dispatchEvent(new CustomEvent("toast", { detail: d > 0 ? "Added +1" : "Removed -1" }));
       await load();
+      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
     } catch (e: any) {
       alert(e?.message || "Error");
     } finally {
@@ -64,6 +66,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
 
   async function remove(id: string, name: string) {
     if (!deckId) return;
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
     setBusyId(id);
     try {
       const res = await fetch(`/api/decks/cards?id=${encodeURIComponent(id)}&deckid=${encodeURIComponent(deckId)}`, {
@@ -73,6 +76,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       if (!json.ok) throw new Error(json.error || "Delete failed");
       window.dispatchEvent(new CustomEvent("toast", { detail: `Deleted ${name}` }));
       await load();
+      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
     } catch (e: any) {
       alert(e?.message || "Error");
     } finally {
@@ -86,6 +90,45 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   // Scryfall images (thumb + hover)
   const [imgMap, setImgMap] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
+
+  // Currency toggle + snapshot prices per normalized name
+  // Important: avoid reading localStorage during initial render to prevent hydration mismatches.
+  const [currency, setCurrency] = useState<string>('USD');
+  useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
+  useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const names = Array.from(new Set(rows.map(r => r.name)));
+        if (!names.length) { setPriceMap({}); return; }
+        // Direct currency only; GBP requires snapshot rows (no FX fallback)
+        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }) });
+        const j1 = await r1.json().catch(()=>({ ok:false }));
+        if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
+        // Fallback: for missing names, fetch live from Scryfall collection
+        try {
+          const base = (j1?.prices || {}) as Record<string, number>;
+          const need = Array.from(new Set(rows.map(r=>r.name.toLowerCase()))).filter(n => !(n in base)).slice(0, 20);
+          if (need.length) {
+            const identifiers = need.map(n=>({ name: n }));
+            const r2 = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
+            const j2:any = await r2.json().catch(()=>({}));
+            const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
+            const map:any = { ...(j1?.prices||{}) };
+            for (const c of arr) {
+              const nm = String((c?.name||'')).toLowerCase();
+              const prices = c?.prices || {};
+              const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
+              const v = prices?.[key];
+              if (v!=null) map[nm] = Number(v);
+            }
+            setPriceMap(map);
+          }
+        } catch {}
+      } catch { setPriceMap({}); }
+    })();
+  }, [rows.map(r=>r.name).join('|'), currency]);
   useEffect(() => {
     (async () => {
       try {
@@ -122,41 +165,81 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
 
       {status && <p className="text-red-400 text-sm mt-2">{status}</p>}
 
+      {/* Currency toggle */}
+      <div className="mt-3 flex items-center justify-end gap-2 text-xs">
+        <label className="opacity-70">Currency</label>
+        <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+
       <div className="mt-3 flex flex-col gap-2">
         {rows.map((c) => (
           <div
             key={c.id}
             className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1"
           >
-            <span className="truncate pr-2 flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <input
+                type="number"
+                className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"
+                min={0}
+                step={1}
+                value={c.qty}
+                onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - c.qty; if (d!==0) delta(c.id, d); }}
+              />
               {(() => { const key = c.name.toLowerCase(); const src = imgMap[key]?.small; return src ? (
                 <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
-onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: imgMap[key]?.normal || src, x, y, shown: true, below }); }}
+                  onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: imgMap[key]?.normal || src, x, y, shown: true, below }); }}
                   onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
                   onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
                 />) : null; })()}
-              <a className="hover:underline" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
-            </span>
+              <a className="hover:underline truncate max-w-[40vw]" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
+            </div>
 
             <div className="flex items-center gap-2">
-              <button
-                className="px-2 py-0.5 rounded border border-neutral-600 hover:bg-neutral-800 disabled:opacity-50"
-                onClick={() => delta(c.id, -1)}
-                disabled={busyId === c.id}
-                aria-label={`Remove one ${c.name}`}
-              >
-                −
-              </button>
-              <span className="w-10 text-center opacity-80 select-none">x{c.qty}</span>
-              <button
-                className="px-2 py-0.5 rounded border border-neutral-600 hover:bg-neutral-800 disabled:opacity-50"
-                onClick={() => delta(c.id, +1)}
-                disabled={busyId === c.id}
-                aria-label={`Add one ${c.name}`}
-              >
-                +
-              </button>
-
+              {(() => { try { const key = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); const unit = priceMap[key]; const hasImg = !!imgMap[c.name.toLowerCase()]?.small; if (unit>0) { const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); return (
+                <span className="text-xs opacity-80 w-40 text-right tabular-nums">
+                  {sym}{(unit*c.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span>
+                </span>
+              ); } else { return (
+                <span className="text-xs opacity-60 w-40 text-right">
+                  — {(!hasImg) && (<button className="underline ml-1" onClick={async()=>{
+                    try {
+                      const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[c.name] }) });
+                      const j = await r.json();
+                      const sugg = j?.results?.[c.name]?.suggestion;
+                      if (!sugg) { alert('No suggestion found'); return; }
+                      if (!confirm(`Rename to "${sugg}"?`)) return;
+                      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId||'')}`, { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: c.id, new_name: sugg }) });
+                      const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed');
+                      await load();
+                    } catch(e:any){ alert(e?.message || 'Failed'); }
+                  }}>fix?</button>)}
+                </span>
+              ); } } catch {}
+              return (<span className="text-xs opacity-40 w-40 text-right">— <button className="underline ml-1" onClick={async()=>{
+                try {
+                  const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[c.name] }) });
+                  const j = await r.json();
+                  const list: string[] = j?.results?.[c.name]?.all || [];
+                  if (!Array.isArray(list) || list.length===0) { alert('No suggestion found'); return; }
+                  let choice = list[0];
+                  if (list.length>1) {
+                    const pick = prompt('Pick a number:\n' + list.map((s:any,i:number)=>`${i+1}. ${s}`).join('\n'), '1');
+                    const idx = Math.max(1, Math.min(list.length, parseInt(String(pick||'1'),10))) - 1;
+                    choice = list[idx];
+                  }
+                  if (!choice) return;
+                  if (!confirm(`Rename to "${choice}"?`)) return;
+                  const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId||'')}`, { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: c.id, new_name: choice }) });
+                  const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed');
+                  await load();
+                } catch(e:any){ alert(e?.message || 'Failed'); }
+              }}>fix?</button></span>);
+              })()}
               <button
                 className="ml-3 px-2 py-0.5 text-red-300 border border-red-400 rounded hover:bg-red-950/40 disabled:opacity-50"
                 onClick={() => remove(c.id, c.name)}
@@ -171,6 +254,19 @@ onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: img
         {rows.length === 0 && !status && (
           <p className="text-sm opacity-70">No cards yet — try adding <em>Sol Ring</em>?</p>
         )}
+      </div>
+
+      {/* Totals */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-xs opacity-70">Cards: <span className="font-mono">{rows.reduce((s,c)=>s+c.qty,0)}</span></div>
+        {(() => { try {
+          const total = rows.reduce((acc, c) => {
+            const norm = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+            const unit = priceMap[norm] || 0; return acc + unit * c.qty;
+          }, 0);
+          const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$');
+          return (<div className="text-sm opacity-90">Est. total (snapshot): <span className="font-mono">{sym}{total.toFixed(2)}</span></div>);
+        } catch { return null; } })()}
       </div>
 
       {/* Global hover preview for card images */}

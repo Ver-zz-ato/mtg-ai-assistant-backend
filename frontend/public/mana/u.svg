@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Blue mana">
+  <circle cx="16" cy="16" r="15" fill="#2f66d6"/>
+  <!-- droplet -->
+  <path d="M16 6 C 15 9, 10 12, 10 17 a6 6 0 0 0 12 0 c0-5-5-8-6-11z" fill="#ffffff"/>
+</svg>

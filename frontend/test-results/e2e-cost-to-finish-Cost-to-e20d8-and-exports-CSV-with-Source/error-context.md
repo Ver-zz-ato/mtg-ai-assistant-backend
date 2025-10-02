@@ -4,107 +4,207 @@
 - generic [active] [ref=e1]:
   - banner [ref=e2]:
     - generic [ref=e3]:
-      - link "MTG Coach" [ref=e4] [cursor=pointer]:
+      - link "ManaTap AI" [ref=e4] [cursor=pointer]:
         - /url: /
       - navigation [ref=e5]:
         - link "My Decks" [ref=e6] [cursor=pointer]:
           - /url: /my-decks
-        - generic [ref=e7]:
-          - textbox "email" [ref=e8]
-          - textbox "password" [ref=e9]
-          - button "Sign in" [ref=e10]
-  - main [ref=e11]:
-    - main [ref=e12]:
-      - heading "Cost to Finish" [level=1] [ref=e13]
-      - generic [ref=e14]:
-        - heading "Cost to Finish" [level=1] [ref=e15]
-        - generic [ref=e16]:
-          - generic [ref=e17]:
-            - generic [ref=e18]: Choose one of your decks
-            - combobox [ref=e19]:
+        - link "My Collections" [ref=e7] [cursor=pointer]:
+          - /url: /collections
+        - link "Profile" [ref=e8] [cursor=pointer]:
+          - /url: /profile
+        - 'button "Widgets: On" [ref=e9]':
+          - text: "Widgets:"
+          - generic [ref=e10]: "On"
+        - generic [ref=e11]:
+          - textbox "email" [ref=e12]
+          - textbox "password" [ref=e13]
+          - button "Sign in" [ref=e14]
+        - button "Create account" [ref=e15]
+        - button "Forgot?" [ref=e16]
+  - main [ref=e17]:
+    - main [ref=e18]:
+      - heading "Cost to Finish" [level=1] [ref=e19]
+      - generic [ref=e20]:
+        - heading "Cost to Finish" [level=1] [ref=e21]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - generic [ref=e24]: Choose one of your decks
+            - combobox [ref=e25]:
               - option "— None (paste below) —" [selected]
-            - generic [ref=e20]: Deck text
-            - textbox "Paste a deck list here..." [ref=e21]: 1 Sol Ring 1 Lightning Bolt 1 Thought Vessel 1 Brainstorm 1 Izzet Signet
-            - paragraph [ref=e22]:
+            - generic [ref=e26]: Deck text
+            - textbox "Paste a deck list here..." [ref=e27]: 1 Sol Ring 1 Lightning Bolt 1 Thought Vessel 1 Brainstorm 1 Izzet Signet
+            - paragraph [ref=e28]:
               - text: Or deep-link a public deck with
-              - code [ref=e23]: "?deck=<id>"
+              - code [ref=e29]: "?deck=<id>"
               - text: in the URL.
-          - generic [ref=e24]:
-            - generic [ref=e25]:
-              - generic [ref=e26]: Collection
-              - combobox [disabled] [ref=e28]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e32]: Collection
+              - combobox [disabled] [ref=e34]:
                 - option "— None —" [selected]
-              - generic [ref=e29]:
-                - checkbox "Subtract cards I already own" [ref=e30]
+              - generic [ref=e35]:
+                - checkbox "Subtract cards I already own" [ref=e36]
                 - text: Subtract cards I already own
-              - paragraph [ref=e31]: We’ll price only the copies you still need to buy.
-            - generic [ref=e32]:
-              - generic [ref=e33]: Currency
-              - combobox [ref=e34]:
+              - paragraph [ref=e37]: We’ll price only the copies you still need to buy.
+            - generic [ref=e38]:
+              - generic [ref=e39]: Currency
+              - combobox [ref=e40]:
                 - option "USD" [selected]
+                - option "EUR"
                 - option "GBP"
-            - button "Compute cost" [ref=e35]
-        - generic [ref=e36]:
-          - generic [ref=e37]: Prices cached 0h ago
-          - generic [ref=e38]:
-            - button "Copy shopping list" [ref=e39]
-            - button "Export CSV" [ref=e40]
-        - table [ref=e42]:
-          - rowgroup [ref=e43]:
-            - row "Card Need Unit Subtotal Source" [ref=e44]:
-              - cell "Card" [ref=e45]
-              - cell "Need" [ref=e46]
-              - cell "Unit" [ref=e47]
-              - cell "Subtotal" [ref=e48]
-              - cell "Source" [ref=e49]
-          - rowgroup [ref=e50]:
-            - row "Sol Ring 1 $1.93 $1.93 Scryfall" [ref=e51]:
-              - cell "Sol Ring" [ref=e52]
-              - cell "1" [ref=e53]
-              - cell "$1.93" [ref=e54]
-              - cell "$1.93" [ref=e55]
-              - cell "Scryfall" [ref=e56]
-            - row "Brainstorm 1 $1.38 $1.38 Scryfall" [ref=e57]:
-              - cell "Brainstorm" [ref=e58]
-              - cell "1" [ref=e59]
-              - cell "$1.38" [ref=e60]
-              - cell "$1.38" [ref=e61]
-              - cell "Scryfall" [ref=e62]
-            - row "Thought Vessel 1 $1.14 $1.14 Scryfall" [ref=e63]:
-              - cell "Thought Vessel" [ref=e64]
-              - cell "1" [ref=e65]
-              - cell "$1.14" [ref=e66]
-              - cell "$1.14" [ref=e67]
-              - cell "Scryfall" [ref=e68]
-            - row "Lightning Bolt 1 $1.07 $1.07 Scryfall" [ref=e69]:
-              - cell "Lightning Bolt" [ref=e70]
-              - cell "1" [ref=e71]
-              - cell "$1.07" [ref=e72]
-              - cell "$1.07" [ref=e73]
-              - cell "Scryfall" [ref=e74]
-            - row "Izzet Signet 1 $0.35 $0.35 Scryfall" [ref=e75]:
-              - cell "Izzet Signet" [ref=e76]
-              - cell "1" [ref=e77]
-              - cell "$0.35" [ref=e78]
-              - cell "$0.35" [ref=e79]
-              - cell "Scryfall" [ref=e80]
-            - row "Total $5.87" [ref=e81]:
-              - cell "Total" [ref=e82]
-              - cell "$5.87" [ref=e83]
-              - cell [ref=e84]
-  - contentinfo [ref=e85]:
-    - generic [ref=e86]:
-      - generic [ref=e87]: © 2025 MTG Coach
-      - navigation [ref=e88]:
-        - link "About" [ref=e89] [cursor=pointer]:
+              - generic [ref=e41]: Changing currency will recompute automatically.
+            - generic [ref=e43]:
+              - checkbox "Use today’s snapshot prices (faster, stable per-day)" [ref=e44]
+              - text: Use today’s snapshot prices (faster, stable per-day)
+            - button "Compute cost" [ref=e45]
+        - button "Export Shopping CSV" [ref=e47]
+        - generic [ref=e50]: Live
+        - generic [ref=e51]:
+          - generic [ref=e52]: Prices cached 0h ago
+          - generic [ref=e53]:
+            - button "Copy shopping list" [ref=e54]
+            - button "Export CSV" [ref=e55]
+        - generic [ref=e56]:
+          - generic [ref=e57]: Shopping list (enriched)
+          - generic [ref=e58]:
+            - generic [ref=e59]: low reprint risk
+            - generic [ref=e61]: medium
+            - generic [ref=e63]: high — consider waiting
+          - table [ref=e67]:
+            - rowgroup [ref=e68]:
+              - row "Card Cheapest print Qty Unit Subtotal Source Role Tier Link" [ref=e69]:
+                - cell [ref=e70]
+                - cell "Card" [ref=e71]
+                - cell "Cheapest print" [ref=e72]
+                - cell "Qty" [ref=e73]
+                - cell "Unit" [ref=e74]
+                - cell "Subtotal" [ref=e75]
+                - cell "Source" [ref=e76]
+                - cell "Role" [ref=e77]
+                - cell "Tier" [ref=e78]
+                - cell "Link" [ref=e79]
+            - rowgroup [ref=e80]:
+              - 'row "Brainstorm low risk: ~42 prints Brainstorm FCA #28 1 $1.18 $1.18 Scryfall other nice to have Scryfall" [ref=e81]':
+                - cell "Brainstorm" [ref=e82]:
+                  - img "Brainstorm" [ref=e83]
+                - 'cell "low risk: ~42 prints Brainstorm" [ref=e84]':
+                  - generic [ref=e87]: Brainstorm
+                - 'cell "FCA #28" [ref=e88]'
+                - cell "1" [ref=e89]
+                - cell "$1.18" [ref=e90]
+                - cell "$1.18" [ref=e91]
+                - cell "Scryfall" [ref=e92]:
+                  - generic [ref=e93]: Scryfall
+                - cell "other" [ref=e94]:
+                  - generic [ref=e95]: other
+                - cell "nice to have" [ref=e96]:
+                  - generic [ref=e97]: nice to have
+                - cell "Scryfall" [ref=e98]:
+                  - link "Scryfall" [ref=e99] [cursor=pointer]:
+                    - /url: https://api.scryfall.com/cards/c14f8bce-d5b3-4d01-8346-8a4923ec03d9
+              - 'row "Thought Vessel low risk: ~31 prints Thought Vessel BLC #289 1 $1.02 $1.02 Scryfall other nice to have Scryfall" [ref=e100]':
+                - cell "Thought Vessel" [ref=e101]:
+                  - img "Thought Vessel" [ref=e102]
+                - 'cell "low risk: ~31 prints Thought Vessel" [ref=e103]':
+                  - generic [ref=e106]: Thought Vessel
+                - 'cell "BLC #289" [ref=e107]'
+                - cell "1" [ref=e108]
+                - cell "$1.02" [ref=e109]
+                - cell "$1.02" [ref=e110]
+                - cell "Scryfall" [ref=e111]:
+                  - generic [ref=e112]: Scryfall
+                - cell "other" [ref=e113]:
+                  - generic [ref=e114]: other
+                - cell "nice to have" [ref=e115]:
+                  - generic [ref=e116]: nice to have
+                - cell "Scryfall" [ref=e117]:
+                  - link "Scryfall" [ref=e118] [cursor=pointer]:
+                    - /url: https://api.scryfall.com/cards/b7a24bfc-bae0-4b21-9054-68723a1adeae
+              - 'row "Sol Ring low risk: ~112 prints Sol Ring FIC #358 1 $0.96 $0.96 Scryfall other nice to have Scryfall" [ref=e119]':
+                - cell "Sol Ring" [ref=e120]:
+                  - img "Sol Ring" [ref=e121]
+                - 'cell "low risk: ~112 prints Sol Ring" [ref=e122]':
+                  - generic [ref=e125]: Sol Ring
+                - 'cell "FIC #358" [ref=e126]'
+                - cell "1" [ref=e127]
+                - cell "$0.96" [ref=e128]
+                - cell "$0.96" [ref=e129]
+                - cell "Scryfall" [ref=e130]:
+                  - generic [ref=e131]: Scryfall
+                - cell "other" [ref=e132]:
+                  - generic [ref=e133]: other
+                - cell "nice to have" [ref=e134]:
+                  - generic [ref=e135]: nice to have
+                - cell "Scryfall" [ref=e136]:
+                  - link "Scryfall" [ref=e137] [cursor=pointer]:
+                    - /url: https://api.scryfall.com/cards/9a34ac23-e318-4c0b-ab4c-e1eaa0e2547e
+              - 'row "Lightning Bolt low risk: ~65 prints Lightning Bolt CLB #401 1 $0.73 $0.73 Scryfall removal strong Scryfall" [ref=e138]':
+                - cell "Lightning Bolt" [ref=e139]:
+                  - img "Lightning Bolt" [ref=e140]
+                - 'cell "low risk: ~65 prints Lightning Bolt" [ref=e141]':
+                  - generic [ref=e144]: Lightning Bolt
+                - 'cell "CLB #401" [ref=e145]'
+                - cell "1" [ref=e146]
+                - cell "$0.73" [ref=e147]
+                - cell "$0.73" [ref=e148]
+                - cell "Scryfall" [ref=e149]:
+                  - generic [ref=e150]: Scryfall
+                - cell "removal" [ref=e151]:
+                  - generic [ref=e152]: removal
+                - cell "strong" [ref=e153]:
+                  - generic [ref=e154]: strong
+                - cell "Scryfall" [ref=e155]:
+                  - link "Scryfall" [ref=e156] [cursor=pointer]:
+                    - /url: https://api.scryfall.com/cards/c69f668b-cf28-495a-bbe1-24e9d0089fa1
+              - 'row "Izzet Signet low risk: ~23 prints Izzet Signet LCC #306 1 $0.24 $0.24 Scryfall ramp must have Scryfall" [ref=e157]':
+                - cell "Izzet Signet" [ref=e158]:
+                  - img "Izzet Signet" [ref=e159]
+                - 'cell "low risk: ~23 prints Izzet Signet" [ref=e160]':
+                  - generic [ref=e163]: Izzet Signet
+                - 'cell "LCC #306" [ref=e164]'
+                - cell "1" [ref=e165]
+                - cell "$0.24" [ref=e166]
+                - cell "$0.24" [ref=e167]
+                - cell "Scryfall" [ref=e168]:
+                  - generic [ref=e169]: Scryfall
+                - cell "ramp" [ref=e170]:
+                  - generic [ref=e171]: ramp
+                - cell "must have" [ref=e172]:
+                  - generic [ref=e173]: must have
+                - cell "Scryfall" [ref=e174]:
+                  - link "Scryfall" [ref=e175] [cursor=pointer]:
+                    - /url: https://api.scryfall.com/cards/8f4f9cb2-4003-4588-af80-d47ec57f65f4
+            - rowgroup [ref=e176]:
+              - row "Grand total $4.13 Live" [ref=e177]:
+                - cell "Grand total" [ref=e178]
+                - cell "$4.13" [ref=e179]
+                - cell "Live" [ref=e180]:
+                  - generic [ref=e181]: Live
+                - cell [ref=e182]
+  - generic [ref=e184]:
+    - generic [ref=e185]: This site uses cookies for analytics and login. By continuing, you accept this.
+    - button "Accept" [ref=e186]
+    - link "Learn more" [ref=e187] [cursor=pointer]:
+      - /url: /privacy
+  - contentinfo [ref=e188]:
+    - generic [ref=e189]:
+      - generic [ref=e190]: © 2025 ManaTap AI
+      - navigation [ref=e191]:
+        - link "About" [ref=e192] [cursor=pointer]:
           - /url: "#"
-        - link "Patreon" [ref=e90] [cursor=pointer]:
-          - /url: "#"
-        - link "Terms" [ref=e91] [cursor=pointer]:
-          - /url: "#"
-        - link "Privacy" [ref=e92] [cursor=pointer]:
-          - /url: "#"
-  - button "Open Next.js Dev Tools" [ref=e100]:
-    - img [ref=e101]
-  - alert [ref=e104]
+        - link "Stripe" [ref=e193] [cursor=pointer]:
+          - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - link "Ko‑fi" [ref=e194] [cursor=pointer]:
+          - /url: https://ko-fi.com/davydraws7/tip
+        - link "PayPal" [ref=e195] [cursor=pointer]:
+          - /url: https://paypal.me/DavyDraws7
+        - link "Terms" [ref=e196] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy" [ref=e197] [cursor=pointer]:
+          - /url: /privacy
+        - generic [ref=e198]: Card images and data courtesy of Scryfall. Not affiliated with Wizards of the Coast.
+  - button "Open Next.js Dev Tools" [ref=e206]:
+    - img [ref=e207]
+  - alert [ref=e210]
 ```

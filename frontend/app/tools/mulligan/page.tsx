@@ -2,6 +2,11 @@
 import React from "react";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
 
+// small hypergeometric helpers for heuristics
+function comb(n: number, k: number): number { if (k<0||k>n) return 0; if (k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
+function hypergeomPMF(k: number, K: number, N: number, n: number): number { const a=comb(K,k), b=comb(N-K, n-k), c=comb(N,n); return c===0?0:(a*b)/c; }
+function hypergeomCDFAtLeast(k: number, K: number, N: number, n: number): number { let p=0; for(let i=k;i<=Math.min(n,K);i++) p+=hypergeomPMF(i,K,N,n); return Math.max(0, Math.min(1, p)); }
+
 function drawSample(deckSize: number, successCount: number, n: number): number {
   // Without replacement; simple count of successes in n cards
   let successes = 0;
@@ -19,8 +24,21 @@ function drawSample(deckSize: number, successCount: number, n: number): number {
 export default function MulliganSimulatorPage() {
   const [deckSize, setDeckSize] = React.useState(99);
   const [successCards, setSuccessCards] = React.useState(10);
+  const [landsInDeck, setLandsInDeck] = React.useState(36);
   const [minKeep, setMinKeep] = React.useState(1); // keep if >= this many successes
+  const [minLands, setMinLands] = React.useState(2);
+  const [maxLands, setMaxLands] = React.useState(5);
   const [iterations, setIterations] = React.useState(20000);
+  const [freeMull7, setFreeMull7] = React.useState(true); // Commander free mulligan
+  const [onDraw, setOnDraw] = React.useState(false); // play/draw modeling
+  const [advanced, setAdvanced] = React.useState(false);
+  // optional heuristics
+  const [rampInDeck, setRampInDeck] = React.useState(10);
+  const [removalInDeck, setRemovalInDeck] = React.useState(10);
+  const [needRampBy, setNeedRampBy] = React.useState<0|2|3>(0);
+  const [needRemovalBy, setNeedRemovalBy] = React.useState<0|2|3>(0);
+  const [srcW,setSrcW]=React.useState(10); const [srcU,setSrcU]=React.useState(10); const [srcB,setSrcB]=React.useState(10); const [srcR,setSrcR]=React.useState(10); const [srcG,setSrcG]=React.useState(10);
+  const [reqW,setReqW]=React.useState(0); const [reqU,setReqU]=React.useState(0); const [reqB,setReqB]=React.useState(0); const [reqR,setReqR]=React.useState(0); const [reqG,setReqG]=React.useState(0); const [reqTurn,setReqTurn]=React.useState(0);
 
   // Load from localStorage or query params
   React.useEffect(() => {
@@ -28,45 +46,112 @@ export default function MulliganSimulatorPage() {
       const params = new URLSearchParams(window.location.search);
       const applyN = (k: string, setter: (n:number)=>void) => { const v = params.get(k); if (v!=null) { const n = parseInt(v,10); if (Number.isFinite(n)) setter(n); } };
       const lsN = (k: string, setter: (n:number)=>void) => { const v = localStorage.getItem('mull:'+k); if (v!=null) { const n = parseInt(v,10); if (Number.isFinite(n)) setter(n); } };
-      applyN('N', setDeckSize); applyN('K', setSuccessCards); applyN('k', setMinKeep); applyN('I', setIterations);
-      lsN('N', setDeckSize); lsN('K', setSuccessCards); lsN('k', setMinKeep); lsN('I', setIterations);
+      applyN('N', setDeckSize); applyN('K', setSuccessCards); applyN('L', setLandsInDeck); applyN('k', setMinKeep); applyN('I', setIterations); applyN('minL', setMinLands); applyN('maxL', setMaxLands);
+      lsN('N', setDeckSize); lsN('K', setSuccessCards); lsN('L', setLandsInDeck); lsN('k', setMinKeep); lsN('I', setIterations); lsN('minL', setMinLands); lsN('maxL', setMaxLands);
+      const fm = params.get('fm'); if (fm!=null) setFreeMull7(fm==='1'); else { const lsfm = localStorage.getItem('mull:fm'); if (lsfm!=null) setFreeMull7(lsfm==='1'); }
+      const dr = params.get('draw'); if (dr!=null) setOnDraw(dr==='1'); else { const lsd = localStorage.getItem('mull:draw'); if (lsd!=null) setOnDraw(lsd==='1'); }
+      const adv = localStorage.getItem('mull:adv'); if (adv!=null) setAdvanced(adv==='1');
     } catch {}
   }, []);
+
+  React.useEffect(()=>{ try{ localStorage.setItem('mull:adv', advanced ? '1':'0'); } catch{} }, [advanced]);
 
   // Persist + update URL
   React.useEffect(() => {
     try {
-      const params = new URLSearchParams(); params.set('N', String(deckSize)); params.set('K', String(successCards)); params.set('k', String(minKeep)); params.set('I', String(iterations));
+      const params = new URLSearchParams(); params.set('N', String(deckSize)); params.set('K', String(successCards)); params.set('L', String(landsInDeck)); params.set('k', String(minKeep)); params.set('I', String(iterations)); params.set('minL', String(minLands)); params.set('maxL', String(maxLands)); params.set('fm', freeMull7?'1':'0');
       const url = `${window.location.pathname}?${params.toString()}`;
       window.history.replaceState({}, '', url);
       localStorage.setItem('mull:N', String(deckSize));
       localStorage.setItem('mull:K', String(successCards));
+      localStorage.setItem('mull:L', String(landsInDeck));
       localStorage.setItem('mull:k', String(minKeep));
       localStorage.setItem('mull:I', String(iterations));
+      localStorage.setItem('mull:minL', String(minLands));
+      localStorage.setItem('mull:maxL', String(maxLands));
+      localStorage.setItem('mull:fm', freeMull7?'1':'0');
+      localStorage.setItem('mull:draw', onDraw?'1':'0');
     } catch {}
-  }, [deckSize, successCards, minKeep, iterations]);
+  }, [deckSize, successCards, landsInDeck, minKeep, iterations, minLands, maxLands, freeMull7, onDraw]);
 
-  const [result, setResult] = React.useState<{ keep7: number; keep6: number; keep5: number; successRate: number } | null>(null);
+  const [result, setResult] = React.useState<{ keep7: number; keep7Hands:number; keep6: number; keep5: number; successRate: number; ciLow:number; ciHigh:number } | null>(null);
   const [busy, setBusy] = React.useState(false);
+
+  function drawHandCounts(N:number, K:number, L:number, n:number){
+    // sample successes and lands jointly via sequential without replacement
+    // Draw lands first, then successes from remaining non-land pool approximatively
+    const lands = drawSample(N, L, n);
+    const nonLandDraws = n - Math.min(lands, n);
+    const remainingN = N - L;
+    const successesNonLand = Math.max(0, K - Math.min(K, Math.min(L, n))); // assume successes not lands; approximation
+    const succ = drawSample(remainingN, Math.max(0, K - Math.min(K, 0)), nonLandDraws); // fallback simple
+    return { successes: succ, lands };
+  }
+
+  function shouldKeep(hand:{successes:number;lands:number}){
+    const effMin = Math.max(0, minLands - (onDraw?1:0));
+    const effMax = maxLands;
+    if (hand.lands < effMin || hand.lands > effMax) return false;
+    if (hand.successes < minKeep) return false;
+    // Optional ramp/removal by turn using odds threshold
+    const startDraws = 7 + (onDraw?1:0);
+    if (needRampBy) { const draws = startDraws + needRampBy; const p = hypergeomCDFAtLeast(1, rampInDeck, deckSize, draws); if (p < 0.5) return false; }
+    if (needRemovalBy) { const draws = startDraws + needRemovalBy; const p = hypergeomCDFAtLeast(1, removalInDeck, deckSize, draws); if (p < 0.5) return false; }
+    if (reqTurn>0 && (reqW||reqU||reqB||reqR||reqG)){
+      const draws = startDraws + reqTurn;
+      const counts = [srcW,srcU,srcB,srcR,srcG]; const reqs=[reqW,reqU,reqB,reqR,reqG];
+      const others = Math.max(0, deckSize - counts.reduce((a,b)=>a+b,0));
+      function probColors(){
+        const lim = Math.min(draws, 10);
+        const bounds = counts.map(c=>Math.min(c, lim));
+        function probVector(xs:number[]){ const sx = xs.reduce((a,b)=>a+b,0); if (sx>draws) return 0; const rest=draws-sx; const top = xs.reduce((acc,x,i)=>acc*comb(counts[i],x),1)*comb(others,rest); const bot = comb(deckSize, draws); return bot===0?0:top/bot; }
+        let tot=0; function loop(i:number, acc:number[], left:number){ if(i===5){ tot+=probVector(acc); return;} const min=reqs[i]; for(let x=min;x<=Math.min(bounds[i],left);x++) loop(i+1,[...acc,x], left-x);} loop(0,[],draws); return tot; }
+      const pc = probColors(); if (pc < 0.5) return false;
+    }
+    return true;
+  }
 
   async function run() {
     setBusy(true);
     await new Promise(r => setTimeout(r, 0)); // yield to paint
 
-    let keep7 = 0, keep6 = 0, keep5 = 0, ok = 0;
+    let keep7 = 0, keep6 = 0, keep5 = 0, ok = 0, seen7=0;
+    let sumLandsKept = 0, keptCount = 0;
+    const examplesKeep: Array<{succ:number;lands:number}> = [];
+    const examplesShip: Array<{succ:number;lands:number}> = [];
     const iters = Math.max(1, iterations);
 
     for (let i = 0; i < iters; i++) {
-      // London mulligan approximation: try 7, else 6, else 5
-      const s7 = drawSample(deckSize, successCards, 7);
-      if (s7 >= minKeep) { keep7++; ok++; continue; }
-      const s6 = drawSample(deckSize, successCards, 6);
-      if (s6 >= minKeep) { keep6++; ok++; continue; }
-      const s5 = drawSample(deckSize, successCards, 5);
-      if (s5 >= minKeep) { keep5++; ok++; continue; }
+      // London mulligan with optional one free 7
+      let mullCount = 0;
+      let kept = false;
+      for (;;){
+        const hand7 = drawHandCounts(deckSize, successCards, landsInDeck, 7);
+        seen7++;
+        if (shouldKeep(hand7)) { keep7++; ok++; kept = true; sumLandsKept+=hand7.lands; keptCount++; if (examplesKeep.length<3) examplesKeep.push({succ:hand7.successes, lands:hand7.lands}); break; }
+        if (examplesShip.length<3) examplesShip.push({succ:hand7.successes, lands:hand7.lands});
+        if (freeMull7 && mullCount===0){ mullCount++; continue; }
+        // try at 6
+        const hand6 = drawHandCounts(deckSize, successCards, landsInDeck, 7);
+        // bottom one following simple strategy: prefer bottom excess lands, else non-success
+        let h6 = { ...hand6 };
+        if (h6.lands > maxLands) h6.lands--; else if (h6.successes>minKeep) h6.successes--; else h6.lands = Math.max(0, h6.lands-1);
+        if (shouldKeep(h6)) { keep6++; ok++; kept = true; sumLandsKept+=h6.lands; keptCount++; if (examplesKeep.length<3) examplesKeep.push({succ:h6.successes, lands:h6.lands}); break; }
+        // try at 5
+        const hand5 = drawHandCounts(deckSize, successCards, landsInDeck, 7);
+        let h5 = { ...hand5 };
+        for (let b=0;b<2;b++){ if (h5.lands > maxLands) h5.lands--; else if (h5.successes>minKeep) h5.successes--; else h5.lands=Math.max(0,h5.lands-1); }
+        if (shouldKeep(h5)) { keep5++; ok++; kept = true; sumLandsKept+=h5.lands; keptCount++; if (examplesKeep.length<3) examplesKeep.push({succ:h5.successes, lands:h5.lands}); break; }
+        break;
+      }
+      if (!kept) {}
     }
 
-    setResult({ keep7, keep6, keep5, successRate: ok / iters });
+    const p = ok / iters; const se = Math.sqrt(Math.max(1e-9,p*(1-p)/iters)); const ciLow = Math.max(0, p - 1.96*se); const ciHigh = Math.min(1, p + 1.96*se);
+    const avgLandsKept = keptCount ? (sumLandsKept/keptCount) : 0;
+    setResult({ keep7, keep7Hands: seen7, keep6, keep5, successRate: p, ciLow, ciHigh } as any);
+    (window as any)._mull_examples = { keep: examplesKeep, ship: examplesShip, avgLandsKept };
+    try{ fetch('/api/events/tools',{ method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ type:'mull_run', iters }) }); } catch{}
     setBusy(false);
   }
 
@@ -85,8 +170,13 @@ export default function MulliganSimulatorPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
       <h1 className="text-xl font-semibold">Hand / Mulligan Simulator</h1>
-      <p className="text-sm opacity-80">Approximate keep rates with simple London mulligan logic (keep if hand has at least k desired cards).</p>
+          <p className="text-sm opacity-80">Approximate keep rates with simple <span title="London mulligan: draw 7 each time, bottom cards equal to mulligans">London mulligan</span> logic (keep if hand has at least k desired cards).</p>
+        </div>
+        <button onClick={()=>setAdvanced(a=>!a)} className="text-xs border rounded px-2 py-1">{advanced? 'Hide advanced' : 'Advanced'}</button>
+      </div>
 
       {/* Import from My Decks */}
       <ImportDeckForMath
@@ -114,6 +204,11 @@ export default function MulliganSimulatorPage() {
             value={successCards} onChange={e=>setSuccessCards(parseInt(e.target.value||"0",10))} />
         </label>
         <label className="text-sm">
+          <div className="opacity-70 mb-1">Lands in deck</div>
+          <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+            value={landsInDeck} onChange={e=>setLandsInDeck(parseInt(e.target.value||"0",10))} />
+        </label>
+        <label className="text-sm">
           <div className="opacity-70 mb-1">Keep if at least (k)</div>
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={minKeep} onChange={e=>setMinKeep(parseInt(e.target.value||"0",10))} />
@@ -123,6 +218,69 @@ export default function MulliganSimulatorPage() {
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={iterations} onChange={e=>setIterations(parseInt(e.target.value||"0",10))} />
         </label>
+        <div className="sm:col-span-2 flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-2">Min lands <input type="number" className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={minLands} onChange={e=>setMinLands(parseInt(e.target.value||'0',10))}/></label>
+          <label className="inline-flex items-center gap-2">Max lands <input type="number" className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={maxLands} onChange={e=>setMaxLands(parseInt(e.target.value||'0',10))}/></label>
+          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={freeMull7} onChange={e=>setFreeMull7(e.target.checked)} /> Free 7 (Commander)</label>
+          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={onDraw} onChange={e=>setOnDraw(e.target.checked)} /> On the draw</label>
+          {advanced && (
+            <>
+              <label className="inline-flex items-center gap-2">Need ramp by
+                <select value={needRampBy} onChange={e=>setNeedRampBy(parseInt(e.target.value,10) as any)} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
+                  <option value={0}>—</option>
+                  <option value={2}>T2</option>
+                  <option value={3}>T3</option>
+                </select>
+              </label>
+              <label className="inline-flex items-center gap-2">Need removal by
+                <select value={needRemovalBy} onChange={e=>setNeedRemovalBy(parseInt(e.target.value,10) as any)} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
+                  <option value={0}>—</option>
+                  <option value={2}>T2</option>
+                  <option value={3}>T3</option>
+                </select>
+              </label>
+            </>
+          )}
+        </div>
+        {advanced && (
+          <>
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="text-sm">Ramp in deck
+                <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={rampInDeck} onChange={e=>setRampInDeck(parseInt(e.target.value||'0',10))} />
+              </label>
+              <label className="text-sm">Removal in deck
+                <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={removalInDeck} onChange={e=>setRemovalInDeck(parseInt(e.target.value||'0',10))} />
+              </label>
+            </div>
+            <div className="sm:col-span-2">
+              <div className="text-xs opacity-70 mb-1">Must-have colors by turn (optional)</div>
+              <div className="grid grid-cols-6 gap-2 items-end">
+                {[
+                  {l:'W',v:srcW,set:setSrcW},{l:'U',v:srcU,set:setSrcU},{l:'B',v:srcB,set:setSrcB},{l:'R',v:srcR,set:setSrcR},{l:'G',v:srcG,set:setSrcG},
+                ].map(c=> (
+                  <label key={c.l} className="text-xs">
+                    <div className="opacity-70 mb-1">{c.l} src</div>
+                    <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={c.v} onChange={e=>c.set(parseInt(e.target.value||'0',10))} />
+                  </label>
+                ))}
+                <label className="text-xs">
+                  <div className="opacity-70 mb-1">Turn</div>
+                  <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" min={0} max={4} value={reqTurn} onChange={e=>setReqTurn(parseInt(e.target.value||'0',10))} />
+                </label>
+              </div>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {[
+                  {l:'W',v:reqW,set:setReqW},{l:'U',v:reqU,set:setReqU},{l:'B',v:reqB,set:setReqB},{l:'R',v:reqR,set:setReqR},{l:'G',v:reqG,set:setReqG},
+                ].map(c=> (
+                  <label key={c.l} className="text-xs">
+                    <div className="opacity-70 mb-1">need {c.l}</div>
+                    <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" min={0} value={c.v} onChange={e=>c.set(parseInt(e.target.value||'0',10))} />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -142,14 +300,60 @@ export default function MulliganSimulatorPage() {
       </div>
 
       {result && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-1">
+        <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-2">
           <div className="text-sm">Keep on 7: <span className="font-mono">{result.keep7}</span></div>
           <div className="text-sm">Keep on 6: <span className="font-mono">{result.keep6}</span></div>
           <div className="text-sm">Keep on 5: <span className="font-mono">{result.keep5}</span></div>
-          <div className="text-lg mt-1">Success rate: <span className="font-semibold text-emerald-400">{(result.successRate*100).toFixed(2)}%</span></div>
-          <div className="text-xs opacity-60">This simple model ignores scry/put-on-bottom choices after mulligan; useful for quick estimates.</div>
+          <div className="text-lg mt-1">Success rate: <span className="font-semibold text-emerald-400">{(result.successRate*100).toFixed(2)}%</span> <span className="text-xs opacity-70">(95% CI {Math.round(result.ciLow*10000)/100}% – {Math.round(result.ciHigh*10000)/100}%)</span></div>
+          <div className="text-xs opacity-60">Model: London with simple bottom priorities (excess lands → non-essential). Free 7 toggle simulates the Commander mulligan.</div>
+          {advanced && <ExamplesBlock />}
+          {advanced && <AdviceBlock deckSize={deckSize} successCards={successCards} landsInDeck={landsInDeck} minKeep={minKeep} minLands={minLands} maxLands={maxLands} iterations={Math.min(4000, Math.max(500, Math.floor(iterations/5)))} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function ExamplesBlock(){
+  const ex = (window as any)._mull_examples as { keep:Array<{succ:number;lands:number}>; ship:Array<{succ:number;lands:number}>; avgLandsKept:number } | undefined;
+  if (!ex) return null;
+  return (
+    <div className="text-xs">
+      <div className="opacity-70">Examples</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+        <div>
+          <div className="font-medium">Sample keeps</div>
+          <ul className="list-disc ml-4">
+            {(ex.keep||[]).map((h,i)=>(<li key={i}>lands {h.lands}, desired {h.succ}</li>))}
+          </ul>
+        </div>
+        <div>
+          <div className="font-medium">Sample ships</div>
+          <ul className="list-disc ml-4">
+            {(ex.ship||[]).map((h,i)=>(<li key={i}>lands {h.lands}, desired {h.succ}</li>))}
+          </ul>
+        </div>
+      </div>
+      <div className="mt-1 opacity-70">Avg lands kept: {ex.avgLandsKept.toFixed(2)}</div>
+    </div>
+  );
+}
+
+function AdviceBlock({ deckSize, successCards, landsInDeck, minKeep, minLands, maxLands, iterations }:{ deckSize:number; successCards:number; landsInDeck:number; minKeep:number; minLands:number; maxLands:number; iterations:number }){
+  const simulate = (L:number, K:number)=>{
+    let ok=0; for(let i=0;i<iterations;i++){ const hand={ successes: drawSample(deckSize, K, 7), lands: drawSample(deckSize, L, 7) }; if (hand.lands>=minLands && hand.lands<=maxLands && hand.successes>=minKeep) ok++; }
+    return ok/iterations;
+  };
+  const base = simulate(landsInDeck, successCards);
+  const plusL = simulate(landsInDeck+2, successCards);
+  const plusK = simulate(landsInDeck, successCards+1);
+  const target = 0.8;
+  const recs:string[]=[];
+  if (base<target){ if (plusL>base+0.03) recs.push("+2 lands"); if (plusK>base+0.02) recs.push("+1 cheap draw/removal"); }
+  return (
+    <div className="text-xs">
+      <div className="opacity-70">What to change to hit 80% keepable</div>
+      <div>Now: {(base*100).toFixed(1)}%. Try {recs.length?recs.join(' or '):'tuning lands or cheap interaction'} → {(Math.max(plusL, plusK)*100).toFixed(1)}%.</div>
     </div>
   );
 }

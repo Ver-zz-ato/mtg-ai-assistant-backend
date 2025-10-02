@@ -7,4 +7,7 @@ declare namespace JSX {
     deckId?: any;
     onAdded?: any;
   }
+  interface IntrinsicElements {
+    "stripe-buy-button": any;
+  }
 }

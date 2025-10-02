@@ -20,6 +20,18 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    rules: {
+      // Prefer centralized fetch wrapper for consistency
+      "no-restricted-globals": [
+        "warn",
+        {
+          name: "fetch",
+          message: "Use fetchJson from lib/http.ts (or justify raw fetch with proper headers/cache handling)",
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -4,7 +4,7 @@ import Client from "./Client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Budget Swaps • MTG Coach",
+  title: "Budget Swaps • ManaTap AI",
   description: "Paste a decklist and see cheaper, similar alternatives for expensive cards.",
 };
 

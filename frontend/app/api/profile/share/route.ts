@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { captureServer } from "@/lib/server/analytics";
+import { sameOriginOk } from "@/lib/api/csrf";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    if (!sameOriginOk(req)) return NextResponse.json({ ok: false, error: 'bad_origin' }, { status: 403 });
     const body = await req.json().catch(()=>({}));
     const is_public = body?.is_public !== false; // default true
 

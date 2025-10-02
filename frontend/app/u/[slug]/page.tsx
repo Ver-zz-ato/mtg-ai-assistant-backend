@@ -1,7 +1,7 @@
 // app/u/[slug]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 180; // short ISR for public profile pages
 export const runtime = "nodejs";
 
 type Params = { slug: string };
@@ -83,10 +83,29 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim();
       if (data?.commander) list.push(clean(String(data.commander)));
       if (data?.title) list.push(clean(String(data.title)));
-      const first = String(data?.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
-      if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : first)); }
-      const imgMap = await getImagesForNamesCached(list);
-      for (const n of list) { const img = imgMap.get(norm(n)); if (img?.art_crop || img?.normal || img?.small) return img.art_crop || img.normal || img.small; }
+      // Take first up to 5 non-empty lines as candidates too
+      const lines = String(data?.deck_text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,5);
+      for (const line of lines) { const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : line)); }
+      // Fallback: fetch top few deck_cards for this deck to seed art candidates
+      try {
+        const { data: top } = await supabase.from('deck_cards').select('name, qty').eq('deck_id', deckId).order('qty', { ascending: false }).limit(5);
+        for (const r of (top as any[]) || []) list.push(clean(String(r.name)));
+      } catch {}
+      const candidates = Array.from(new Set(list));
+      console.log(JSON.stringify({ tag: 'public_profile_banner_candidates', deckId, candidates_count: candidates.length }));
+      const imgMap = await getImagesForNamesCached(candidates);
+      for (const n of candidates) { const img = imgMap.get(norm(n)); if (img?.art_crop || img?.normal || img?.small) return img.art_crop || img.normal || img.small; }
+      // Fuzzy fallback (gentle; cap a few requests)
+      for (const n of candidates.slice(0, 20)) {
+        try {
+          const fr = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(n)}`, { cache: 'no-store' });
+          if (!fr.ok) continue;
+          const card: any = await fr.json().catch(()=>({}));
+          const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
+          const url = img.art_crop || img.normal || img.small;
+          if (url) return url;
+        } catch {}
+      }
     } catch {}
     return undefined;
   }
@@ -95,8 +114,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const art = await getDeckArt(deckId);
     if (!art) return null as any;
     return (
-      <div className="absolute inset-0 rounded-xl overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `url(${art})` }} />
+      <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${art})` }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
       </div>
     );
   }
@@ -165,6 +185,25 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       </section>
     ) as any;
   }
+
+  async function PinnedDecks({ userId, deckIds }: { userId: string; deckIds: string[] }) {
+    const ids = Array.isArray(deckIds) ? deckIds.slice(0,3) : [];
+    if (!ids.length) return null as any;
+    let rows: any[] = [];
+    try {
+      const { data } = await supabase.from('decks').select('id, title').in('id', ids).eq('user_id', userId).eq('is_public', true);
+      rows = Array.isArray(data) ? data : [];
+    } catch {}
+    if (!rows.length) return null as any;
+    return (
+      <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
+        <div className="text-lg font-semibold">Pinned decks</div>
+        <ul className="space-y-1 text-sm">
+          {rows.map(r => (<li key={r.id} className="flex items-center justify-between"><a href={`/decks/${r.id}`} className="hover:underline truncate">{r.title || 'Untitled'}</a><span className="opacity-50">📌</span></li>))}
+        </ul>
+      </section>
+    ) as any;
+  }
   const { slug } = await params;
   const supabase = await createClient();
 
@@ -214,8 +253,8 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim();
     if (d.commander) list.push(clean(String(d.commander)));
     if (d.title) list.push(clean(String(d.title)));
-    const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
-    if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : first)); }
+    const lines = String(d.deck_text||'').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean).slice(0,3);
+    for (const line of lines) { const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : line)); }
     return list;
   }).filter(Boolean));
 
@@ -239,6 +278,49 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   try {
     imgMap = await getImagesForNamesCached(Array.from(nameSet));
   } catch {}
+
+  // Helper: pick first available art from precomputed imgMap and candidates (nameSet + top cards)
+  function pickAnyArt(): string | undefined {
+    const candidates = Array.from(nameSet);
+    for (const n of candidates) {
+      const img = imgMap.get(norm(n));
+      if (img?.art_crop || img?.normal || img?.small) return img.art_crop || img.normal || img.small;
+    }
+    return undefined;
+  }
+
+  // Compute a robust bannerArt with multiple fallbacks (signature deck -> first deck -> favorite commander -> any art)
+  let bannerArt: string | undefined = undefined;
+  try { if (prof.signature_deck_id) bannerArt = await getDeckArt(prof.signature_deck_id); } catch {}
+  if (!bannerArt && decks?.[0]?.id) { try { bannerArt = await getDeckArt(decks[0].id); } catch {} }
+  if (!bannerArt && prof.favorite_commander) {
+    try {
+      const m = await getImagesForNamesCached([String(prof.favorite_commander)]);
+      const v = m.get(norm(String(prof.favorite_commander)));
+      bannerArt = v?.art_crop || v?.normal || v?.small || undefined;
+    } catch {}
+  }
+  if (!bannerArt) {
+    // Try to mirror the exact tile art logic using the first recent deck and the same imgMap order (art_crop -> normal -> small)
+    try {
+      const d = decks?.[0];
+      if (d) {
+        const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
+        const candidates: string[] = [];
+        if (d.commander) candidates.push(clean(String(d.commander)));
+        if (d.title) candidates.push(clean(String(d.title)));
+        const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
+        if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(clean(m ? m[2] : first)); }
+        const tops = (topCardsByDeck.get(d.id) || []).map(s=>s.toLowerCase());
+        candidates.push(...tops);
+        for (const c of candidates) {
+          const img = imgMap.get(norm(c));
+          if (img?.art_crop || img?.normal || img?.small) { bannerArt = img.art_crop || img.normal || img.small; break; }
+        }
+      }
+    } catch {}
+  }
+  if (!bannerArt) bannerArt = pickAnyArt();
 
   // Build color pie (public decks: commander/title)
   const namePool = decks.flatMap(d => [String(d.commander||''), String(d.title||'')]).filter(Boolean);
@@ -286,10 +368,23 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
   return (
     <main className="max-w-3xl mx-auto p-6 space-y-4">
-      <div className="rounded-xl border border-neutral-800" style={{ background: gradient }}>
+      <div className="rounded-xl border border-neutral-800">
         <div className="relative">
-          {/* Signature overlay handled above */}
-          <div className="relative backdrop-blur-sm bg-black/50 rounded-xl p-4 flex items-center gap-4">
+          {bannerArt ? (
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerArt})` }} />
+            </div>
+          ) : null}
+          <div className="relative z-10 rounded-xl p-4 flex items-center gap-4">
+            {/* Custom card (if present) */}
+            {prof?.custom_card?.art && prof?.custom_card?.show_on_banner && (
+              <div className="relative group">
+                <img src={prof.custom_card.art} alt={prof.custom_card.name||'custom'} className="w-16 h-12 rounded object-cover border border-neutral-700" />
+                <div className="hidden group-hover:block absolute left-0 top-full mt-2 z-50 bg-black/90 border border-neutral-700 rounded p-2 shadow-xl w-[320px]">
+                  {require('react').createElement(require('@/components/ProfileCardEditor').default, { mode:'view', value: { nameParts: (String(prof.custom_card.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(prof.custom_card.sub||''), artUrl: String(prof.custom_card.art||''), artist: String(prof.custom_card.artist||''), scryUri: String(prof.custom_card.scryfall||''), colorHint: (String(prof.custom_card.color||'U') as any), typeText: '—', pt: { p: 1, t: 1 }, mana: 0 } })}
+                </div>
+              </div>
+            )}
             <img src={prof.avatar || '/next.svg'} alt="avatar" className="w-16 h-16 rounded-full object-cover bg-neutral-800" />
             <div className="flex-1 min-w-0">
               <div className="text-xl font-semibold truncate">{prof.display_name || prof.username || 'Mage'}</div>
@@ -338,6 +433,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
       {/* Top commanders panel */}
       <TopCommanders userId={prof.id} />
+      {Array.isArray(prof.pinned_deck_ids) && prof.pinned_deck_ids.length > 0 && (
+        <PinnedDecks userId={prof.id} deckIds={prof.pinned_deck_ids} />
+      )}
 
       {decks.length > 0 && (
         <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
@@ -360,6 +458,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               return (
                 <li key={d.id} className="relative overflow-hidden border rounded-md hover:border-gray-600">
                   {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
+                  {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
                   <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
                   <div className="relative p-3 flex items-center justify-between gap-3">
                     <div className="text-base font-semibold line-clamp-1">{d.title || 'Untitled'}</div>

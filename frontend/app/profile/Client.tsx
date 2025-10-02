@@ -36,11 +36,14 @@ export default function ProfileClient() {
   const [favCommander, setFavCommander] = useState<string>("");
   const [signatureDeckId, setSignatureDeckId] = useState<string>("");
   const [wishlist, setWishlist] = useState<string>("");
+  const [tools, setTools] = useState<{ prob_runs?:number; prob_saves?:number; mull_iters_total?:number }>({});
+  const [customCard, setCustomCard] = useState<any>(null);
 
   const [usage, setUsage] = useState<Usage | null>(null);
   const [deckCount, setDeckCount] = useState<number>(0);
   const [collectionCount, setCollectionCount] = useState<number>(0);
   const [recentDecks, setRecentDecks] = useState<Array<{ id:string; title:string; commander?: string|null; deck_text?: string|null }>>([]);
+  const [pinnedDeckIds, setPinnedDeckIds] = useState<string[]>([]);
   const [deckBg, setDeckBg] = useState<Record<string, string>>({});
   const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [topCards, setTopCards] = useState<Record<string, string[]>>({});
@@ -67,6 +70,8 @@ export default function ProfileClient() {
         setFavCommander((md.favorite_commander ?? "").toString());
         setSignatureDeckId((md.signature_deck_id ?? "").toString());
         setWishlist(Array.isArray(md.wishlist) ? (md.wishlist as string[]).join("\n") : "");
+        try { setTools((md.tools||{}) as any); } catch {}
+        try { if (md.custom_card) setCustomCard(md.custom_card); } catch {}
 
         // Usage summary
         try {
@@ -81,9 +86,15 @@ export default function ProfileClient() {
           setDeckCount(dcount ?? 0);
           const { count: ccount } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           setCollectionCount(ccount ?? 0);
-          const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(5);
+          const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
           const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null })) || [];
           setRecentDecks(list);
+          // Load current pinned list from public profile
+          try {
+            const { data: prof } = await sb.from('profiles_public').select('pinned_deck_ids').eq('id', u.id).maybeSingle();
+            const pins = Array.isArray((prof as any)?.pinned_deck_ids) ? (prof as any).pinned_deck_ids as string[] : [];
+            setPinnedDeckIds(pins.slice(0,3));
+          } catch {}
           // load likes for these
           try {
             const results = await Promise.all(list.map(async d => {
@@ -277,19 +288,70 @@ export default function ProfileClient() {
   // Derive badges on client to show in the right rail
   const badges = useMemo(() => {
     const out: { key: string; label: string; emoji: string; desc: string }[] = [];
-    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: '✨', desc: 'Created your first deck' });
-    if (deckCount >= 5) out.push({ key: 'brewer', label: 'Brewer', emoji: '🧪', desc: 'Built 5+ decks' });
-    if (deckCount >= 10) out.push({ key: 'master_builder', label: 'Master Builder', emoji: '🏗️', desc: 'Built 10+ decks' });
-    if (collectionCount >= 3) out.push({ key: 'collector', label: 'Collector', emoji: '📚', desc: '3+ collections' });
+    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: '🏆', desc: 'Created your first deck' });
+    if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: '⚗️', desc: 'Built 5+ decks' });
+    if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: '⚗️', desc: 'Built 15+ decks' });
+    if (deckCount >= 30) out.push({ key: 'brewer_iii', label: 'Brewer III', emoji: '⚗️', desc: 'Built 30+ decks' });
+    if (collectionCount >= 3) out.push({ key: 'curator_i', label: 'Curator I', emoji: '📚', desc: 'Maintain 3+ collections' });
+    if (collectionCount >= 10) out.push({ key: 'curator_ii', label: 'Curator II', emoji: '📚', desc: 'Maintain 10+ collections' });
+    if (collectionCount >= 25) out.push({ key: 'curator_iii', label: 'Curator III', emoji: '📚', desc: 'Maintain 25+ collections' });
     if ((usage?.messages || 0) >= 50) out.push({ key: 'chatterbox', label: 'Chatterbox', emoji: '💬', desc: '50+ messages in 30d' });
+    if ((tools?.prob_runs||0) >= 10) out.push({ key:'mathlete', label:'Mathlete', emoji:'∑', desc:'Run Probability tool 10 times' });
+    if ((tools?.prob_saves||0) >= 5) out.push({ key:'scenario_collector', label:'Scenario Collector', emoji:'💾', desc:'Save 5 probability scenarios' });
+    if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'♻️', desc:'Run 25k+ mulligan iterations' });
     return out;
-  }, [deckCount, collectionCount, usage?.messages]);
+  }, [deckCount, collectionCount, usage?.messages, tools?.prob_runs, tools?.prob_saves, tools?.mull_iters_total]);
+
+  // Extra analytical badges derived from recent decks: On-Curve 90, Mana Maestro, Combomancer
+  const [extraBadges, setExtraBadges] = useState<Array<{ key:string; label:string; emoji:string; desc:string }>>([]);
+  React.useEffect(()=>{
+    (async()=>{
+      try{
+        const picks = recentDecks.slice(0,5);
+        if (!picks.length) { setExtraBadges([]); return; }
+        function comb(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
+        function hyperAtLeast(k:number,K:number,N:number,n:number){ let p=0; for(let i=k;i<=Math.min(n,K);i++){ const a=comb(K,i), b=comb(N-K, n-i), c=comb(N,n); p+= c===0?0:(a*b)/c; } return Math.max(0, Math.min(1,p)); }
+        async function landCount(deckId:string){ const r=await fetch(`/api/deck/analyze`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText: (await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`)).json()).cards.map((c:any)=>`${c.qty} ${c.name}`).join('\n'), format:'Commander', useScryfall:true }) }); const j=await r.json().catch(()=>({})); return { lands:Number(j?.counts?.lands||0), total:Number((await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`)).json()).cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99) }; }
+        async function colorSources(deckId:string){ const jr=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`); const jj=await jr.json().catch(()=>({})); const cards:Array<{name:string;qty:number}>=Array.isArray(jj?.cards)?jj.cards:[]; const sr=await fetch('/api/deck/color-sources',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({cards})}); const sj=await sr.json().catch(()=>({})); const src=sj?.sources||{W:0,U:0,B:0,R:0,G:0}; return src; }
+        async function hasCombo(deckId:string){ const r=await fetch('/api/deck/combos',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckId})}); const j=await r.json().catch(()=>({})); return Array.isArray(j?.present) && j.present.length>0; }
+        let onCurve=false, maestro=false, combo=false;
+        for (const d of picks){
+          try{
+            const { lands, total } = await landCount(d.id);
+            const p4 = hyperAtLeast(4, lands, total||99, 7+3); if (p4>=0.90) onCurve = true;
+          } catch{}
+          try{
+            const src = await colorSources(d.id);
+            const cols = ['W','U','B','R','G'].filter(k=> (src as any)[k]>0);
+            if (cols.length>=1){
+              const counts = cols.map(k=>(src as any)[k]); const N = (await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(d.id)}`)).json()).cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99; const draws=7+2; const others = Math.max(0, N - counts.reduce((a,b)=>a+b,0)); function prob(){ function c(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; } const bounds = counts.map(cn=>Math.min(cn, draws)); let totalP=0; function loop(i:number, acc:number[], left:number){ if(i===counts.length){ const sx=acc.reduce((a,b)=>a+b,0); if (sx>draws) return; const rest=draws-sx; const top=acc.reduce((accu,x,ii)=>accu*c(counts[ii],x),1)*c(others,rest); const bot=c(N,draws); totalP += bot===0?0:top/bot; return;} const min=1; for(let x=min;x<=Math.min(bounds[i], left); x++) loop(i+1,[...acc,x], left-x); } loop(0,[],draws); return Math.max(0, Math.min(1,totalP)); } const p=prob(); if (p>=0.85) maestro=true; }
+          } catch{}
+          try{ if (await hasCombo(d.id)) combo=true; } catch{}
+        }
+        const extra: any[] = [];
+        if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'📈', desc:'≥90% to hit land drops T1–T4' });
+        if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'💧', desc:'High color odds by T3' });
+        if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'✨', desc:'Includes at least one detected combo' });
+        setExtraBadges(extra);
+      } catch{ setExtraBadges([]); }
+    })();
+  }, [recentDecks.map(d=>d.id).join(',')]);
 
   return (
     <div className="space-y-6">
       {/* Header card */}
       <div className="rounded-xl border border-neutral-800" style={{ background: gradient }}>
         <div className="backdrop-blur-sm bg-black/50 rounded-xl p-4 flex items-center gap-4">
+          <div className="relative z-[10000] group">
+            {customCard?.art && (
+              <>
+                <img src={customCard.art} alt={customCard.name||'custom'} className="w-16 h-12 rounded object-cover border border-neutral-700" />
+                <div className="hidden group-hover:block absolute left-0 top-full mt-2 z-[9999] bg-black/90 border border-neutral-700 rounded p-2 shadow-xl w-[320px]">
+{require('react').createElement(require('@/components/ProfileCardEditor').default, { mode:'view', onChange: () => {}, value: { nameParts: (String(customCard.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(customCard.sub||''), artUrl: String(customCard.art||''), artist: String(customCard.artist||''), scryUri: String(customCard.scryfall||''), colorHint: (String(customCard.color||'U') as any), typeText: '—', pt: { p: 1, t: 1 }, mana: 0 } })}
+                </div>
+              </>
+            )}
+          </div>
           <img src={avatar || AVATAR_FILES[0]} alt="avatar" className="w-16 h-16 rounded-full object-cover bg-neutral-800" onError={(e:any)=>{e.currentTarget.src='/next.svg';}} />
           <div className="flex-1 min-w-0">
             <div className="text-xl font-semibold truncate">{username || userEmail || 'Anonymous Mage'}</div>
@@ -319,10 +381,10 @@ export default function ProfileClient() {
               let img = '';
               for (const c of candidates) { const v = deckBg[norm(c)]; if (v) { img = v; break; } }
               return (
-                <li key={d.id} className="rounded overflow-hidden border border-neutral-800">
+                <li key={d.id} className="relative z-0 rounded overflow-hidden border border-neutral-800">
                   <div className="relative">
                     {img && (<div className="h-24 bg-center bg-cover" style={{ backgroundImage: `url(${img})` }} />)}
-                    {!img && (<div className="h-24 bg-neutral-900" />)}
+                    {!img && (<div className="h-24 bg-neutral-900 skeleton-shimmer" />)}
                     <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center justify-between">
                       <a href={`/my-decks/${d.id}`} className="truncate hover:underline">{d.title}</a>
                       <div className="flex items-center gap-2">
@@ -353,9 +415,29 @@ export default function ProfileClient() {
                 <input value={favCommander} onChange={(e)=>setFavCommander(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Atraxa, Praetors' Voice" />
               </label>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <label className="text-sm">
+                <div className="opacity-70 mb-1">Signature deck</div>
+                <select value={signatureDeckId} onChange={(e)=>setSignatureDeckId(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+                  <option value="">None</option>
+                  {recentDecks.map(d => (<option key={d.id} value={d.id}>{d.title}</option>))}
+                </select>
+              </label>
+              <div className="text-xs opacity-70 self-end">Shown as a banner overlay on your public profile.</div>
+              <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={!!customCard?.show_on_banner} onChange={async(e)=>{ try{ const r = await fetch('/api/profile/custom-card', { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify({ show_on_banner: e.target.checked }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setCustomCard(j.custom_card||{...(customCard||{}), show_on_banner: e.target.checked}); else throw new Error(j?.error||'Failed to update'); } catch{} }} /> Show custom card on my banner</label>
+            </div>
             <div className="text-sm space-y-2">
               <div className="opacity-70">Commander avatars</div>
               <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                {popularCommanderAvatars.length === 0 && (
+                  <>
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <div key={`sk-${i}`} className="border rounded overflow-hidden border-neutral-700">
+                        <div className="w-full h-16 animate-pulse bg-neutral-900" />
+                      </div>
+                    ))}
+                  </>
+                )}
                 {popularCommanderAvatars.map((src, i) => (
                   <button key={`pc-${i}`} className={`border rounded overflow-hidden ${avatar===src?'border-emerald-500':'border-neutral-700'}`} onClick={()=>{ setAvatar(src); try{ capture('profile_avatar_change', { src, type:'commander' }); } catch{} }}>
                     <img src={src} alt="avatar" className="w-full h-16 object-cover" />
@@ -421,6 +503,31 @@ export default function ProfileClient() {
             </div>
           </section>
 
+          {/* Pins */}
+          <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+            <div className="text-lg font-semibold">Pinned decks</div>
+            <div className="text-xs opacity-80">Pick up to 3 decks to show on your public profile.</div>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              {recentDecks.map(d => {
+                const checked = pinnedDeckIds.includes(d.id);
+                const disabled = !checked && pinnedDeckIds.length >= 3;
+                return (
+                  <li key={d.id} className="flex items-center gap-2">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e)=>{
+                        setPinnedDeckIds(prev => e.target.checked ? [...prev.filter(x=>x!==d.id), d.id] : prev.filter(x=>x!==d.id));
+                      }} />
+                      <span className="truncate">{d.title}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="text-right">
+              <button onClick={async()=>{ try{ const r = await fetch('/api/profile/pins', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify({ pinned_deck_ids: pinnedDeckIds.slice(0,3) }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Save failed'); alert('Pinned decks updated'); } catch(e:any){ alert(e?.message||'Save failed'); } }} className="px-3 py-2 rounded bg-white text-black text-sm">Save pins</button>
+            </div>
+          </section>
+
           {/* Activity */}
           <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
             <div className="text-lg font-semibold">Activity</div>
@@ -432,8 +539,12 @@ export default function ProfileClient() {
           </section>
 
           {/* Wishlist */}
-          <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+          <section id="wishlist" className="rounded-xl border border-neutral-800 p-4 space-y-3">
             <div className="text-lg font-semibold">Wishlist</div>
+            <div className="flex items-center gap-2 text-sm">
+              <input placeholder="Quick add card…" className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" onKeyDown={(e:any)=>{ if(e.key==='Enter'){ e.preventDefault(); const v=String(e.currentTarget.value||'').trim(); if(!v) return; setWishlist((prev)=> (prev? prev+"\n" : "") + v); e.currentTarget.value=''; } }} />
+              <button onClick={(e)=>{ const inp=(e.currentTarget.previousSibling as HTMLInputElement); const v=String(inp?.value||'').trim(); if(!v) return; setWishlist((prev)=> (prev? prev+"\n" : "") + v); try{ inp.value=''; }catch{} }} className="px-3 py-1.5 rounded border border-neutral-700">Add</button>
+            </div>
             <div className="text-xs opacity-80">Paste one card name per line. This integrates later with Cost-to-Finish.</div>
             <textarea value={wishlist} onChange={(e)=>setWishlist(e.target.value)} className="w-full h-40 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" placeholder={"Sol Ring\nCyclonic Rift"} />
             <div className="text-right">
@@ -458,8 +569,8 @@ export default function ProfileClient() {
             <div className="text-lg font-semibold">Badges</div>
             {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
             <ul className="space-y-2">
-              {badges.map(b => (
-                <li key={b.key} className="rounded-lg overflow-hidden border border-neutral-700 bg-gradient-to-r from-neutral-900 to-neutral-800">
+              {[...badges, ...extraBadges].map(b => (
+                <li key={b.key} title={b.desc} className="rounded-lg overflow-hidden border border-neutral-700 bg-gradient-to-r from-neutral-900 to-neutral-800">
                   <div className="p-3 flex items-center gap-3">
                     <div className="text-xl">{b.emoji}</div>
                     <div>
@@ -470,12 +581,80 @@ export default function ProfileClient() {
                 </li>
               ))}
             </ul>
+            <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedDeckIds.length} signatureSet={!!signatureDeckId} likesMap={likes} />
+            <ToolUsageMini tools={tools} />
           </div>
+
+          {/* Stats charts under badges */}
+          <StatsCharts sb={sb} userEmail={userEmail} />
 
           {/* Stats charts under badges */}
           <StatsCharts sb={sb} userEmail={userEmail} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function NextBadgesProgress({ deckCount, collectionCount, pinnedCount, signatureSet, likesMap }: { deckCount:number; collectionCount:number; pinnedCount:number; signatureSet:boolean; likesMap: Record<string, {count:number; liked:boolean}> }){
+  function nextTarget(thresholds:number[], val:number){ for (const t of thresholds){ if (val < t) return t; } return null; }
+  const items: Array<{ key:string; label:string; current:number; target:number; emoji:string }> = [];
+  const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'⚗️' });
+  const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'📚' });
+  if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'👑' });
+  if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'📌' });
+  // Likes-based progress (approx using recent decks only)
+  const maxLikes = Object.values(likesMap||{}).reduce((m,v)=> Math.max(m, Number(v?.count||0)), 0);
+  if (maxLikes < 10) items.push({ key:'apprentice_teacher', label:'Apprentice Teacher (10 likes on a deck)', current: maxLikes, target: 10, emoji:'🥇' });
+  else if (maxLikes < 25) items.push({ key:'master_teacher', label:'Master Teacher (25 likes on a deck)', current: maxLikes, target: 25, emoji:'🎖️' });
+
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="text-sm font-medium">Progress toward next badges</div>
+      <ul className="space-y-2">
+        {items.map(it => {
+          const pct = Math.max(0, Math.min(100, Math.round((it.current/Math.max(1,it.target))*100)));
+          const reqMap: any = {
+            brewer_next: 'Build more decks to reach the next Brewer tier.',
+            curator_next: 'Maintain more collections to reach the next Curator tier.',
+            signature: 'Pick a signature deck to unlock this badge.',
+            showcase: 'Pin 3 decks on your public profile.',
+            apprentice_teacher: 'Reach 10 likes on any single deck.',
+            master_teacher: 'Reach 25 likes on any single deck.',
+          };
+          const title = reqMap[it.key] || `${it.current}/${it.target} progress`;
+          return (
+            <li key={it.key} className="text-xs" title={title}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2"><span className="text-base">{it.emoji}</span><span>{it.label}</span></div>
+                <div className="font-mono">{it.current}/{it.target}</div>
+              </div>
+              <div className="mt-1 h-2 w-full rounded bg-neutral-800 overflow-hidden">
+                <div className="h-full bg-emerald-500" style={{ width: pct+"%" }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="text-[10px] opacity-60">More badges coming soon. Progress bars estimate using your recent activity.</div>
+    </div>
+  );
+}
+
+function ToolUsageMini({ tools }: { tools: { prob_runs?:number; prob_saves?:number; mull_iters_total?:number } }){
+  const runs = tools?.prob_runs||0; const saves = tools?.prob_saves||0; const iters = tools?.mull_iters_total||0;
+  const needRuns = Math.max(0, 10 - runs);
+  const needSaves = Math.max(0, 5 - saves);
+  const needIters = Math.max(0, 25000 - iters);
+  return (
+    <div className="mt-3 rounded border border-neutral-800 p-2 text-[11px]">
+      <div className="font-medium mb-1">Tool usage</div>
+      <ul className="grid grid-cols-1 gap-1">
+        <li title="Run Probability tool 10 times to unlock Mathlete">Mathlete ∑ — runs: <span className="font-mono">{runs}</span>{needRuns>0?` (need ${needRuns} more)`:''}</li>
+        <li title="Save 5 scenarios to unlock Scenario Collector">Scenario Collector 💾 — saves: <span className="font-mono">{saves}</span>{needSaves>0?` (need ${needSaves} more)`:''}</li>
+        <li title="Accumulate 25,000 mulligan iterations to unlock Mulligan Master">Mulligan Master ♻️ — iterations: <span className="font-mono">{iters}</span>{needIters>0?` (need ${needIters} more)`:''}</li>
+      </ul>
     </div>
   );
 }

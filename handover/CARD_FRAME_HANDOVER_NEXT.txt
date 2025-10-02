@@ -1,0 +1,137 @@
+Card Frame Handover (Next Warp Conversation)
+===========================================
+
+Goal
+- Enable the next Warp session to continue iterating on the MTG-style card editor with minimal re-discovery. This doc captures the exact technical state, APIs, file map, and open tasks.
+
+Current State (as of now)
+- We refactored the card UI to a single-object prop API and moved ambient matte extraction out of the frame component.
+- Diegetic editing controls are all inside the card (chevrons/dice), with only external buttons handled elsewhere.
+- Reroll icon in the rules/subtext box has been moved to the top-right of that box per the latest request.
+
+Key Files
+- frontend/components/cardTypes.ts
+  - Shared types for ProfileCardValue, ArtOption, CardFrameProps.
+- frontend/components/CardFrame.tsx
+  - Presentational component that renders the card UI and handles diegetic in-frame controls.
+  - Accepts value, mode, onChange (partial), artOptions, matte, width.
+  - Renders nameplate, art window (with in-window ‹ › arrows and filmstrip overlay), type strip (dice at top-right), rules box (reroll top-right), and a single bottom-right P/T box.
+  - Uses aspect-ratio on the inner face, MTG-ish strip gradients, and Tailwind utility classes only.
+- frontend/components/ProfileCardEditor.tsx
+  - Stateful wrapper around CardFrame.
+  - Fetches a curated set of art options from Scryfall and passes them to CardFrame.
+  - Preloads a random art if none is set (respects colorHint if provided).
+  - Computes ambient matte colors from current art with a 60ms debounce and passes matte down to the frame.
+  - Provides an onChange handler that merges partial updates from CardFrame back into the full value.
+
+Component APIs
+- ProfileCardValue (cardTypes.ts)
+  {
+    nameParts: [string, string, string];
+    typeLine: string;               // e.g., "Creature — Wizard"
+    subtext: string;                // rules/subtext/flavor
+    pt: { p: number; t: number };   // single P/T box (bottom-right)
+    cost?: number;                  // top-right orb number (1..9 cycling)
+    colorHint?: 'W'|'U'|'B'|'R'|'G'|'C'|'M'|'L'|''; // also used as art filter hint
+    art: { url: string; artist: string; id?: string }; // id can be a Scryfall URL
+  }
+
+- ArtOption (cardTypes.ts)
+  { url: string; artist: string; id: string; color?: string; name?: string }
+
+- CardFrameProps (cardTypes.ts)
+  {
+    value: ProfileCardValue;
+    mode?: 'edit' | 'view';
+    onChange?: (next: Partial<ProfileCardValue>) => void; // always partial updates
+    artOptions?: ArtOption[];            // for filmstrip + inline ‹ ›
+    matte?: { primary?: string; secondary?: string }; // ambient matte background
+    width?: string;                      // optional external sizing clamp
+  }
+
+Responsibilities
+- CardFrame.tsx:
+  - Purely presentational + diegetic interactions.
+  - Sends partial updates via onChange for: nameParts, cost, colorHint, typeLine, subtext (reroll), pt (+/-), art selection and inline cycling.
+  - Uses inline Tailwind classes; no external CSS files.
+- ProfileCardEditor.tsx:
+  - Owns/merges full card value, art pack fetch, randomization orchestration.
+  - Matte extraction from art (offscreen canvas 24x24, HSL tweak) with debounce.
+  - Passes matte to CardFrame.
+
+Layout & Visual Anchors (MTG-ish feel)
+- Outer shell: rounded-2xl, overflow-hidden. Ambient matte gradient behind the card.
+- Inner card face: aspectRatio: '63 / 88', rounded-xl, border-2 black, inset hairline.
+- Nameplate: absolute left 5%, right 5%, top 3%, height 7%.
+  - Left: Prefix • Descriptor • Title, each with tiny chevrons to cycle.
+  - Right: 🎲 (randomize name only), cost orb (1..9), color symbol button.
+- Art window: absolute left/right 6%, top 14%, height 48%.
+  - Inline ‹ and › arrows on left/right edges.
+  - Click art opens filmstrip overlay inside the art window.
+  - Art credit bottom-right: "Art: {Artist} • via Scryfall" (link uses art.id when present).
+- Type line: absolute left/right 6%, top 64%, height 7%.
+  - Text centered area + 🎲 pinned top-right that randomizes Type — Subtype.
+- Rules/Subtext box: absolute left/right 6%, top 72%, height 16%.
+  - Subtext text block.
+  - Reroll control now at top-right (per latest request).
+- P/T box: single beveled rectangle at bottom-right (right 6%, bottom 6%, height ~9%, min-w 18%).
+  - Shows "P/T" with small +/- controls; keyboard focusable.
+
+Ambient Matte
+- Computed in ProfileCardEditor using current art URL.
+- Sampling: draw 24x24 canvas; compute average color; convert to HSL.
+- Adjustments: reduce saturation slightly, primary L+0.12 (cap <= 0.70), secondary L-0.10 (floor >= 0.12); fallback to #0f1218/#1a2230 if too grey.
+- Debounced by 60ms; passed to CardFrame as matte={ primary, secondary }.
+- CardFrame renders the matte as a radial-gradient background behind the card face.
+
+A11y & Interaction
+- In edit mode:
+  - Art window is focusable; Left/Right arrows cycle art.
+  - P/T box accepts focus; +/- clicks adjust values; can be extended to keyboard if desired.
+  - Buttons have aria-labels; hover/focus rings provide affordances.
+- Overlay uses role="dialog" and a close button.
+
+What Changed Just Now
+- Moved the subtext reroll button to the top-right of the rules box in CardFrame.tsx.
+  - File: frontend/components/CardFrame.tsx
+  - Change: "bottom-1 right-1" -> "top-1 right-1" for the reroll button inside the rules box.
+
+Known Gaps / Next Actions (good first tasks)
+1) Layout scale on wide screens
+   - Consider widening the homepage grid to 8:4 and increasing max width so the card can scale a bit larger.
+2) Reduced motion option
+   - Respect prefers-reduced-motion by disabling matte background transitions.
+3) External buttons (outside the card)
+   - Only two should remain in the page context: "Randomize All" (top) and "Attach to my profile" (bottom). Ensure their handlers update ProfileCardEditor value.
+4) Profile integrations
+   - Embed the view-mode card on the profile/public profile pages with hover enlarge and visible art credit.
+   - Add an on-demand revalidate endpoint to instantly update profile banners after toggles.
+5) Art overlay polish
+   - Confirm filmstrip index sync with inline ‹/› arrows.
+   - Expand filter chips if needed (currently W,U,B,R,G,C,L).
+6) Fonts
+   - Consider Cinzel/Cormorant SC for name/type and EB Garamond for rules for a more MTG-ish feel.
+
+How to Use the Components
+- The recommended value shape (ProfileCardValue):
+  {
+    nameParts: ['Dr.','Arcane','Whisper'],
+    typeLine: 'Creature — Wizard',
+    subtext: 'Feeds on treasure and overconfidence.',
+    pt: { p: 2, t: 3 },
+    cost: 2,
+    colorHint: 'U',
+    art: { url: 'https://...', artist: 'Artist Name', id: 'https://scryfall.com/card/...'},
+  }
+- Render the editor:
+  <ProfileCardEditor value={value} onChange={setValue} mode="edit" />
+- CardFrame is presentational; if used directly, pass value/onChange and (optionally) artOptions and matte.
+
+How to Zip (PowerShell)
+- From repo root:
+  Compress-Archive -Path .\handover\card-frame -DestinationPath .\handover\card-frame.zip -Force
+
+Ready for Next Conversation
+- The next agent can load ProfileCardEditor and CardFrame in isolation using the types in cardTypes.ts.
+- Immediate request to implement: Any visual tweaks shown via screenshots (e.g., further token adjustments, fonts, spacing). All regions are percentage-anchored, so nudging is straightforward.
+- If screenshots show layout needs, adjust anchors in CardFrame.tsx (search for sections labeled Nameplate, Art window, Type line, Rules/Subtext, P/T).

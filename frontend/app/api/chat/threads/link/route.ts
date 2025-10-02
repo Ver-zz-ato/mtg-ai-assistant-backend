@@ -3,7 +3,7 @@ import { ok, err } from "@/app/api/_utils/envelope";
 import { LinkThreadSchema } from "@/lib/validate";
 
 export async function POST(req: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return err("unauthorized", "unauthorized", 401);
 
