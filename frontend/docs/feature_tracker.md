@@ -37,6 +37,12 @@ Chat “Supercharge” items
 
 ☑ Custom Card Creator — initial implementation <!-- id:cardcreator.scaffold -->
   - Homepage right-rail creator with MTG-like frame; attach to profile; profile banner hover; public profile support; Scryfall credit. Toggle to show on banner.
+☑ Enhanced Card Creator — authentic MTG styling and editability <!-- id:cardcreator.enhanced_styling -->
+  - Improved card frame with authentic MTG materials, gradients, and shadows; enhanced mana cost system with multiple symbols; set symbol and rarity gems; inline editing for all text fields; proper MTG text formatting with italics for flavor text; diegetic interface elements that blend seamlessly with card design.
+☑ Authentic MTG Card Redesign — complete visual overhaul <!-- id:cardcreator.authentic_redesign -->
+  - Complete rebuild using proper MTG card proportions (2.5"x3.5", 5:7 ratio); authentic frame design with color-specific borders and textures; correct positioning of all elements (name bar, art area, type line, text box, P/T); proper mana cost layout in top-right; inline editing that feels natural; art selection overlay; authentic typography and spacing matching real MTG cards.
+☑ Interactive Card Creator — diegetic controls and smart features <!-- id:cardcreator.interactive_controls -->
+  - Auto-fill random art on page load; art-based frame color extraction; clickable P/T numbers (1-9 cycling); clickable mana cost cycling; dice randomizers for name/type/text integrated into card frame; clickable rarity gem cycling; art credit moved inside art area with disclaimer; paper texture effect on text box; mana symbol fallback handling; removed external controls for cleaner interface.
 ☐ Pro polish: foil shimmer & seasonal frames <!-- id:cardcreator.foil_frames -->
   - Homepage right-rail interactive creator; attaches to user profile; shows on profile and public profile with hover enlarge; Scryfall credit shown. First pass.
 
@@ -62,6 +68,21 @@ Chat “Supercharge” items
 ☑ Glossary & hover tooltips for MTG terms ("ramp," "midrange," etc.) <!-- id:ux.glossary_tooltips -->
   - Implemented component and added tooltips on Probability, Mulligan, and Analyzer bands.
 ☑ Quick bug/feedback widget (bottom-right dock with screenshot + context auto-attached) <!-- id:ux.feedback_widget -->
+☑ Public profile featured custom card (right rail) with art and badges showing properly <!-- id:profile.public_featured_card_badges -->
+  - Status: Implemented. Wallet tile pin toggles to Pinned; public profile shows full-size preview in right rail; badges appear on banners; dynamic pages for live updates.
+☑ Wishlist Editor v1 — tiles with thumbnails, prices, and +/- controls <!-- id:wishlist.editor_v1 -->
+  - Status: Implemented. New wishlist API routes (items/update/remove); Profile → Wishlist tab renders grid with card thumbnails, price per unit (currency selectable), quantity +/- controls, remove, total; add-by-name using existing add endpoint. Legacy textarea retained under details for quick paste/backups.
+☑ Wishlist Editor v2 — typeahead, hover previews, CSV, sticky header, batch remove, and name fixes <!-- id:wishlist.editor_v2 -->
+  - Status: Implemented. Enhancements include:
+    - Typeahead search on Add card with Enter-to-add and keyboard navigation.
+    - Bulk add modal (increment or set exact quantities) and keyboard shortcuts (+/−/Delete, Ctrl+F focus, Ctrl+B bulk).
+    - Hover previews with full-size image; internal scroll area with sticky table header.
+    - Selection checkboxes + action bar with Select all, Clear, and Remove selected (batch via /api/wishlists/remove-batch).
+    - CSV import/export for wishlists (/api/wishlists/upload-csv and /api/wishlists/export).
+    - Inline “fix?” rename for price-missing items and Batch Fix Names modal (Pro‑gated) with server apply at /api/wishlists/fix-names/apply.
+    - Auth user metadata kept in sync after CSV import/rename/remove (wishlist and wishlist_canonical).
+☑ Deck pages: curve/types/core meters and price mini <!-- id:decks.sidebar_meters_price -->
+  - Status: Implemented. Public decks left sidebar now includes Mana curve, Type distribution, Core needs meters (format-aware targets for Commander) and a Deck Value mini with currency selector (snapshot pricing). My Decks sidebar already had the meters; added a Deck Value mini there as well.
 ☑ Glossary & hover tooltips for MTG terms ("ramp," "midrange," etc.) <!-- id:ux.glossary_tooltips -->
 ☑ Probability & synergy charts (Deckstats/EDHREC-style, hoverable odds + synergy %) <!-- id:ux.prob_synergy_charts -->
 ☑ Probability helper refinements (K‑chips, play/draw, sensitivity, color solver, deep‑links, explainer, server color sources, advanced toggle persisted, detected summary) <!-- id:tools.prob_refine -->

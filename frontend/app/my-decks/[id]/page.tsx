@@ -98,6 +98,69 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   }
   hasPie = Object.values(pieCounts).some(n=>n>0);
 
+  // Mana curve (1–7+)
+  function toManaValue(card:any): number {
+    try {
+      // Prefer modern field
+      if (Number.isFinite(card?.mana_value)) return Number(card.mana_value);
+      if (Number.isFinite(card?.cmc)) return Number(card.cmc);
+      if (Array.isArray(card?.card_faces)) {
+        const f0:any = card.card_faces?.[0] || {};
+        if (Number.isFinite(f0?.mana_value)) return Number(f0.mana_value);
+        if (Number.isFinite(f0?.cmc)) return Number(f0.cmc);
+        if (typeof f0?.mana_cost === 'string' && f0.mana_cost) {
+          return parseManaCost(f0.mana_cost);
+        }
+      }
+      const cost = String(card?.mana_cost || '');
+      return parseManaCost(cost);
+    } catch { return 0; }
+  }
+  function parseManaCost(cost: string): number {
+    const m = cost.match(/\{[^}]+\}/g) || [];
+    let total = 0;
+    for (const sym of m) {
+      const t = sym.slice(1, -1); // strip {}
+      if (/^\d+$/.test(t)) total += parseInt(t, 10);
+      else if (t === 'X') total += 0; // treat X as 0 for curve
+      else total += 1; // colored/hybrid/phyrexian as 1 pip
+    }
+    return total;
+  }
+  const curve: Record<string, number> = { '1':0,'2':0,'3':0,'4':0,'5':0,'6':0,'7+':0 };
+  const debugSamples: Array<{ name:string; mv:number }> = []; // retained (unused) for future diagnostics
+  for (const { name, qty } of arr) {
+    const d = details[norm(name)] || {};
+    const mvRaw = toManaValue(d);
+    const mv = Number.isFinite(mvRaw) ? Math.max(0, Math.round(Number(mvRaw))) : 0;
+    if (debugSamples.length < 12) debugSamples.push({ name, mv });
+    const bucket = mv>=7? '7+' : String(Math.max(0, Math.min(6, Math.max(0, mv)))) as any;
+    const key = bucket === '0' ? '1' : bucket; // Shift 0 MV to 1 bucket in UI
+    curve[key] = (curve[key]||0) + Math.max(1, Number(qty)||1);
+  }
+
+  // Type distribution
+  const types: Record<string, number> = { Creature:0, Instant:0, Sorcery:0, Artifact:0, Enchantment:0, Planeswalker:0, Land:0 };
+  for (const { name, qty } of arr) {
+    const d = details[norm(name)];
+    const tl = String(d?.type_line||'');
+    const q = Math.max(1, Number(qty)||1);
+    (Object.keys(types) as Array<keyof typeof types>).forEach(k => { if (tl.includes(k)) types[k] += q; });
+  }
+
+  // Core meters: lands/ramp/draw/removal heuristic counts
+  const core = { lands:0, ramp:0, draw:0, removal:0 } as Record<string, number>;
+  for (const { name, qty } of arr) {
+    const d = details[norm(name)];
+    const tl = String(d?.type_line||'');
+    const text = String(d?.oracle_text||'').toLowerCase();
+    const q = Math.max(1, Number(qty)||1);
+    if (tl.includes('Land')) core.lands += q;
+    if (/add \{[wubrgc]/i.test(text) || /search your library.*land/i.test(text) || /rampant growth|cultivate|kodama's reach|signet|talisman|sol ring/i.test(text)) core.ramp += q;
+    if (/draw .* card|investigate|impulse|cantrip|scry \d+/i.test(text)) core.draw += q;
+    if (/destroy target|exile target|counter target|fight target|deal .* damage to any target/i.test(text)) core.removal += q;
+  }
+
   function pieSvg(counts: Record<string, number>) {
     const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
     let start = -Math.PI/2; const R=42, CX=50, CY=50; const colors: Record<string,string> = { W:'#e5e7eb', U:'#60a5fa', B:'#64748b', R:'#f87171', G:'#34d399' };
@@ -143,7 +206,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <div className="grid grid-cols-12 gap-6">
-        <aside className="col-span-12 md:col-span-3">
+        <aside className="col-span-12 md:col-span-3 space-y-4">
           <div className="rounded-xl border border-neutral-800 p-4">
             <div className="text-sm font-semibold mb-2">Deck trends</div>
             <div className="flex flex-col items-center gap-4">
@@ -177,8 +240,70 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               <div className="text-[10px] text-neutral-400 text-center">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
             </div>
           </div>
+
+          {/* Mana curve */}
+          <div className="rounded-xl border border-neutral-800 p-4">
+            <div className="text-sm font-semibold mb-2">Mana curve</div>
+            <div className="grid grid-cols-7 gap-1 items-end h-24">
+              {(['1','2','3','4','5','6','7+'] as const).map(k => {
+                const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
+                const h = Math.round(((curve[k]||0)/max)*100);
+                return (
+                  <div key={`curve-${k}`} className="flex flex-col items-center gap-1 h-full justify-end">
+                    <div className="relative w-6 bg-emerald-600/80" style={{ height: `${Math.max(6,h)}%` }}>
+                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{curve[k]||0}</span>
+                    </div>
+                    <div className="text-[10px] opacity-70">{k}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Type distribution */}
+          <div className="rounded-xl border border-neutral-800 p-4">
+            <div className="text-sm font-semibold mb-2">Types</div>
+            <div className="space-y-1 text-[11px]">
+              {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
+                const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
+                const pct = Math.round(((types[k]||0)/total)*100);
+                return (
+                  <div key={`type-${k}`}> 
+                    <div className="flex items-center justify-between"><span>{k}</span><span className="font-mono">{pct}%</span></div>
+                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className="h-1.5 bg-sky-500" style={{ width: `${pct}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Core needs meters */}
+          <div className="rounded-xl border border-neutral-800 p-4">
+            <div className="text-sm font-semibold mb-2">Core needs</div>
+            <div className="space-y-2 text-[11px]">
+              {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
+                const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
+                const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
+                return (
+                  <div key={String(key)}>
+                    <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
+                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
+                    <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pricing mini */}
+          <div className="rounded-xl border border-neutral-800 p-3">
+            {(() => { const PriceMini = require('@/components/DeckPriceMini').default; return <PriceMini deckId={id} />; })()}
+          </div>
+
           {/* Analyzer under trends */}
-<div className="mt-4">{(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={id} proAuto={isPro} />; })()}</div>
+          <div className="rounded-xl border border-neutral-800 p-3">
+            {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={id} proAuto={isPro} />; })()}
+          </div>
         </aside>
 
         <section className="col-span-12 md:col-span-9">

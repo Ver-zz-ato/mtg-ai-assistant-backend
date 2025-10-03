@@ -35,6 +35,7 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
         <ExportDeckCSV deckId={deckId} className="text-xs border rounded px-2 py-1" />
         <DeckCsvUpload deckId={deckId} />
         <RecomputeButton />
+        {pub && (<a href={`/decks/${deckId}`} className="text-xs border rounded px-2 py-1" title="View public page" target="_blank" rel="noreferrer">Public preview</a>)}
         <button onClick={share} className="text-xs border rounded px-2 py-1">Share deck</button>
         <button onClick={async()=>{ if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { /* fallback */ alert('This is a Pro feature. Upgrade to unlock.'); } return; } setFixOpen(true); }} className="text-xs border rounded px-2 py-1">Fix card names</button>
         {!isPro && (<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>)}

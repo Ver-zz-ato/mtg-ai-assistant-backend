@@ -33,13 +33,21 @@ function RegisterToastApi({ showToast, showError }: { showToast: (m:string,t?:an
 
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const seqRef = React.useRef(0);
+  const lastRef = React.useRef<{ msg: string; at: number } | null>(null);
 
   const showToast = useCallback((message: string, type: Toast["type"] = "info") => {
-    const id = Date.now().toString();
+    const now = Date.now();
+    const last = lastRef.current;
+    if (last && last.msg === message && (now - last.at) < 1200) return;
+    lastRef.current = { msg: message, at: now };
+
+    seqRef.current = (seqRef.current + 1) % 1000000;
+    const id = `${now}-${seqRef.current}-${Math.random().toString(36).slice(2,8)}`;
     const toast: Toast = { id, message, type };
-    
+
     setToasts(prev => [...prev, toast]);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));

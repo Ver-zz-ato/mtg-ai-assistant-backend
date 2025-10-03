@@ -120,8 +120,9 @@ try {
       setMessages(Array.isArray(messages) ? messages : []);
     } catch (e: any) {
       if (String(e?.message || "").toLowerCase().includes("thread not found")) {
-        // keep current view; don't clear state abruptly
-        try { const tc = await import("@/lib/toast-client"); tc.toast('Thread not found', 'error'); } catch {}
+        // Clear stale local storage silently without toasting
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); } catch {}
+        setThreadId(null);
         return;
       }
       throw e;

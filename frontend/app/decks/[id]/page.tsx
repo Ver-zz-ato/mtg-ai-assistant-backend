@@ -115,6 +115,53 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
   const hasPie = Object.values(pieCounts).some((n)=>n>0);
 
+  // Derive details for deck cards (for curve/types/core)
+  const cardNames = Array.from(new Set((cards||[]).map(c=>String(c.name))));
+  const detailsAll: Record<string, any> = detailsForRadar || (cardNames.length ? await scryfallBatch(cardNames) : {});
+
+  // Mana value helper
+  function toManaValue(card:any): number {
+    try {
+      if (Number.isFinite(card?.mana_value)) return Number(card.mana_value);
+      if (Number.isFinite(card?.cmc)) return Number(card.cmc);
+      const f0:any = Array.isArray(card?.card_faces) ? card.card_faces[0] : null;
+      if (Number.isFinite(f0?.mana_value)) return Number(f0.mana_value);
+      if (Number.isFinite(f0?.cmc)) return Number(f0.cmc);
+      const cost = String(f0?.mana_cost || card?.mana_cost || '');
+      const m = cost.match(/\{[^}]+\}/g) || [];
+      let total = 0; for (const sym of m){ const t=sym.slice(1,-1); if(/^\d+$/.test(t)) total+=parseInt(t,10); else if(t==='X') total+=0; else total+=1; }
+      return total;
+    } catch { return 0; }
+  }
+  // Curve buckets
+  const curve: Record<string, number> = { '1':0,'2':0,'3':0,'4':0,'5':0,'6':0,'7+':0 };
+  for (const { name, qty } of (cards||[])){
+    const d = detailsAll[norm(name)] || {};
+    const mv = Math.max(0, Math.round(Number(toManaValue(d)||0)));
+    const bucket = mv>=7? '7+' : String(Math.max(1, Math.min(6, mv)));
+    curve[bucket] = (curve[bucket]||0) + Math.max(1, Number(qty)||1);
+  }
+  // Type distribution
+  const types: Record<string, number> = { Creature:0, Instant:0, Sorcery:0, Artifact:0, Enchantment:0, Planeswalker:0, Land:0 };
+  for (const { name, qty } of (cards||[])){
+    const d = detailsAll[norm(name)] || {};
+    const tl = String(d?.type_line||'');
+    const q = Math.max(1, Number(qty)||1);
+    (Object.keys(types) as Array<keyof typeof types>).forEach(k => { if (tl.includes(k)) types[k] += q; });
+  }
+  // Core needs heuristic
+  const core = { lands:0, ramp:0, draw:0, removal:0 } as Record<string, number>;
+  for (const { name, qty } of (cards||[])){
+    const d = detailsAll[norm(name)] || {};
+    const tl = String(d?.type_line||'');
+    const text = String(d?.oracle_text||'').toLowerCase();
+    const q = Math.max(1, Number(qty)||1);
+    if (tl.includes('Land')) core.lands += q;
+    if (/add \{[wubrgc]/i.test(text) || /search your library.*land/i.test(text) || /rampant growth|cultivate|kodama's reach|signet|talisman|sol ring/i.test(text)) core.ramp += q;
+    if (/draw .* card|investigate|impulse|cantrip|scry \d+/i.test(text)) core.draw += q;
+    if (/destroy target|exile target|counter target|fight target|deal .* damage to any target/i.test(text)) core.removal += q;
+  }
+
   function pieSvg(counts: Record<string, number>) {
     const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
     let start = -Math.PI/2; const R=42, CX=50, CY=50;
@@ -189,6 +236,64 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </div>
               <div className="text-[10px] text-neutral-400 text-center">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
             </div>
+          </div>
+          {/* Mana curve */}
+          <div className="rounded-xl border border-neutral-800 p-4 mt-4">
+            <div className="text-sm font-semibold mb-2">Mana curve</div>
+            <div className="grid grid-cols-7 gap-1 items-end h-24">
+              {(['1','2','3','4','5','6','7+'] as const).map(k => {
+                const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
+                const h = Math.round(((curve[k]||0)/max)*100);
+                return (
+                  <div key={`curve-${k}`} className="flex flex-col items-center gap-1 h-full justify-end">
+                    <div className="relative w-6 bg-emerald-600/80" style={{ height: `${Math.max(6,h)}%` }}>
+                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{curve[k]||0}</span>
+                    </div>
+                    <div className="text-[10px] opacity-70">{k}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Types */}
+          <div className="rounded-xl border border-neutral-800 p-4 mt-4">
+            <div className="text-sm font-semibold mb-2">Types</div>
+            <div className="space-y-1 text-[11px]">
+              {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
+                const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
+                const pct = Math.round(((types[k]||0)/total)*100);
+                return (
+                  <div key={`type-${k}`}>
+                    <div className="flex items-center justify-between"><span>{k}</span><span className="font-mono">{pct}%</span></div>
+                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className="h-1.5 bg-sky-500" style={{ width: `${pct}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Core needs */}
+          <div className="rounded-xl border border-neutral-800 p-4 mt-4">
+            <div className="text-sm font-semibold mb-2">Core needs</div>
+            <div className="space-y-2 text-[11px]">
+              {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
+                const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
+                const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
+                return (
+                  <div key={String(key)}>
+                    <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
+                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
+                    <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pricing mini */}
+          <div className="rounded-xl border border-neutral-800 p-4 mt-4">
+            {(() => { const PriceMini = require('@/components/DeckPriceMini').default; return <PriceMini deckId={id} />; })()}
           </div>
         </aside>
 

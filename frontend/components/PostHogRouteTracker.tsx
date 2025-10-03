@@ -1,7 +1,7 @@
 'use client';
 import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import posthog from 'posthog-js';
+import { capture } from '@/lib/ph';
 
 function TrackerInner() {
   const pathname = usePathname();
@@ -10,7 +10,8 @@ function TrackerInner() {
   useEffect(() => {
     const href = typeof window !== 'undefined' ? window.location.href : (pathname || '/');
     try {
-      posthog.capture('$pageview', { $current_url: href });
+      // Use safe capture wrapper (consent + initialized check)
+      capture('$pageview', { $current_url: href });
     } catch {}
   }, [pathname, searchParams?.toString()]);
 

@@ -10,6 +10,8 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   const [cards, setCards] = useState<CardRow[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const addBarRef = React.useRef<HTMLDivElement|null>(null);
+  const listRef = React.useRef<HTMLDivElement|null>(null);
 
   async function load() {
     if (!deckId) return;
@@ -159,9 +161,16 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   };
 
   return (
-    <div className="mt-2">
+    <div className="mt-2" onKeyDown={(e)=>{
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
+      if (!isTyping && e.key === '/') {
+        e.preventDefault();
+        try { const el = addBarRef.current?.querySelector('input,textarea'); (el as any)?.focus?.(); } catch {}
+      }
+    }}>
       {/* Search + quick add */}
-      <div className="max-w-xl"><EditorAddBar onAdd={add} /></div>
+      <div className="max-w-xl" ref={addBarRef}><EditorAddBar onAdd={add} /></div>
 
       {status && <p className="text-red-400 text-sm mt-2">{status}</p>}
 
@@ -175,11 +184,27 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
         </select>
       </div>
 
-      <div className="mt-3 flex flex-col gap-2">
-        {rows.map((c) => (
+      <div className="mt-3 flex flex-col gap-2" ref={listRef}>
+        {rows.map((c, idx) => (
           <div
             key={c.id}
-            className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1"
+            data-row-index={idx}
+            className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            tabIndex={0}
+            onKeyDown={(e)=>{
+              if ((e.target as HTMLElement)?.tagName?.toLowerCase() === 'input') return;
+              if (/^[1-9]$/.test(e.key)) { const to = parseInt(e.key,10); if (Number.isFinite(to)) { const diff = to - c.qty; if (diff !== 0) delta(c.id, diff); e.preventDefault(); } }
+              if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(c.id, c.name); }
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const parent = listRef.current; if (!parent) return;
+                const nodes = parent.querySelectorAll('[data-row-index]');
+                const me = e.currentTarget as HTMLElement;
+                const myIndex = Number((me.getAttribute('data-row-index')||'0'));
+                const next = e.key === 'ArrowDown' ? Math.min(nodes.length - 1, myIndex + 1) : Math.max(0, myIndex - 1);
+                const target = nodes.item(next) as HTMLElement | null; target?.focus?.();
+              }
+            }}
           >
             <div className="flex items-center gap-2 min-w-0">
               <input

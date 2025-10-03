@@ -156,7 +156,6 @@ export default async function Page() {
                   <div className="flex items-center gap-3 p-3">
                     <div className="min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">{title}</div>
-                      <div className="text-xs text-gray-300">{created}</div>
                       {/* timeline tiny at bottom */}
                       <div className="text-[10px] opacity-70 mt-1">{r.updated_at? `Updated ${new Date(r.updated_at).toLocaleDateString()}`: ''}{r.created_at? ` · Created ${new Date(r.created_at).toLocaleDateString()}`:''}</div>
                     </div>

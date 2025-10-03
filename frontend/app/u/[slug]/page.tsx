@@ -1,7 +1,8 @@
 // app/u/[slug]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 
-export const revalidate = 180; // short ISR for public profile pages
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 
 type Params = { slug: string };
@@ -367,7 +368,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6 space-y-4">
+<main className="max-w-5xl mx-auto p-6">
       <div className="rounded-xl border border-neutral-800">
         <div className="relative">
           {bannerArt ? (
@@ -376,23 +377,14 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             </div>
           ) : null}
           <div className="relative z-10 rounded-xl p-4 flex items-center gap-4">
-            {/* Custom card (if present) */}
-            {prof?.custom_card?.art && prof?.custom_card?.show_on_banner && (
-              <div className="relative group">
-                <img src={prof.custom_card.art} alt={prof.custom_card.name||'custom'} className="w-16 h-12 rounded object-cover border border-neutral-700" />
-                <div className="hidden group-hover:block absolute left-0 top-full mt-2 z-50 bg-black/90 border border-neutral-700 rounded p-2 shadow-xl w-[320px]">
-                  {require('react').createElement(require('@/components/ProfileCardEditor').default, { mode:'view', value: { nameParts: (String(prof.custom_card.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(prof.custom_card.sub||''), artUrl: String(prof.custom_card.art||''), artist: String(prof.custom_card.artist||''), scryUri: String(prof.custom_card.scryfall||''), colorHint: (String(prof.custom_card.color||'U') as any), typeText: '—', pt: { p: 1, t: 1 }, mana: 0 } })}
-                </div>
-              </div>
-            )}
             <img src={prof.avatar || '/next.svg'} alt="avatar" className="w-16 h-16 rounded-full object-cover bg-neutral-800" />
             <div className="flex-1 min-w-0">
               <div className="text-xl font-semibold truncate">{prof.display_name || prof.username || 'Mage'}</div>
               <div className="text-xs opacity-80">{(Array.isArray(prof.favorite_formats)? prof.favorite_formats : []).join(', ')}</div>
             </div>
-            {Array.isArray(prof.badges) && prof.badges.length > 0 && (
+{Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {prof.badges.map((b: string, i: number) => (
+                {prof.pinned_badges.slice(0,3).map((b: string, i: number) => (
                   <span key={`${b}-${i}`} className="px-2 py-1 rounded bg-neutral-800 text-xs border border-neutral-700">{b}</span>
                 ))}
               </div>
@@ -401,82 +393,88 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         </div>
       </div>
 
-      {/* Trends (public decks only) */}
-      {(() => {
-        // Build color pie (public decks: commander/title)
-        const namePool = decks.flatMap(d => [String(d.commander||''), String(d.title||'')]).filter(Boolean);
-        const pieCards = Object.values(namePool).length ? undefined : undefined; // placeholder to satisfy TS
-        return null;
-      })()}
-      <section className="rounded-xl border border-neutral-800 p-4">
-        <div className="text-lg font-semibold mb-2">Deck trends</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          <div className="flex flex-col items-center">
-            <div className="text-xs opacity-80 mb-1">Color balance</div>
-            {pieSvg(pieCounts)}
-            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-              {['W','U','B','R','G'].map(k => (
-                <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {pieCounts[k]||0}</div>
-              ))}
+      <div className="grid grid-cols-12 gap-6 mt-4">
+        <section className="col-span-12 md:col-span-8 space-y-4">
+          <section className="rounded-xl border border-neutral-800 p-4">
+            <div className="text-lg font-semibold mb-2">Deck trends</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              <div className="flex flex-col items-center">
+                <div className="text-xs opacity-80 mb-1">Color balance</div>
+                {pieSvg(pieCounts)}
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                  {['W','U','B','R','G'].map(k => (
+                    <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {pieCounts[k]||0}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
+                <div className="w-full flex justify-center">{radarSvg(radarAgg)}</div>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                  {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
-            <div className="w-full flex justify-center">{radarSvg(radarAgg)}</div>
-            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-              {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
-            </div>
-          </div>
-        </div>
-        <div className="mt-2 text-[10px] text-neutral-400">Derived from public decklists: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
-      </section>
+            <div className="mt-2 text-[10px] text-neutral-400">Derived from public decklists: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
+          </section>
 
-      {/* Top commanders panel */}
-      <TopCommanders userId={prof.id} />
-      {Array.isArray(prof.pinned_deck_ids) && prof.pinned_deck_ids.length > 0 && (
-        <PinnedDecks userId={prof.id} deckIds={prof.pinned_deck_ids} />
-      )}
+          <TopCommanders userId={prof.id} />
+          {Array.isArray(prof.pinned_deck_ids) && prof.pinned_deck_ids.length > 0 && (
+            <PinnedDecks userId={prof.id} deckIds={prof.pinned_deck_ids} />
+          )}
 
-      {decks.length > 0 && (
-        <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
-          <div className="text-lg font-semibold">Recent decks</div>
-          <ul className="space-y-2">
-            {decks.map((d) => {
-              const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
-              const candidates: string[] = [];
-              if (d.commander) candidates.push(clean(String(d.commander)));
-              if (d.title) candidates.push(clean(String(d.title)));
-              const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
-              if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(clean(m ? m[2] : first)); }
-              const tops = (topCardsByDeck.get(d.id) || []).map(s=>s.toLowerCase());
-              candidates.push(...tops);
-              let art: string | undefined;
-              for (const c of candidates) {
-                const img = imgMap.get(norm(c));
-                if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; }
-              }
-              return (
-                <li key={d.id} className="relative overflow-hidden border rounded-md hover:border-gray-600">
-                  {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
-                  {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-                  <div className="relative p-3 flex items-center justify-between gap-3">
-                    <div className="text-base font-semibold line-clamp-1">{d.title || 'Untitled'}</div>
-                    <LikeButton deckId={d.id} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          {decks.length > 0 && (
+            <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
+              <div className="text-lg font-semibold">Recent decks</div>
+              <ul className="space-y-2">
+                {decks.map((d) => {
+                  const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
+                  const candidates: string[] = [];
+                  if (d.commander) candidates.push(clean(String(d.commander)));
+                  if (d.title) candidates.push(clean(String(d.title)));
+                  const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
+                  if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(clean(m ? m[2] : first)); }
+                  const tops = (topCardsByDeck.get(d.id) || []).map(s=>s.toLowerCase());
+                  candidates.push(...tops);
+                  let art: string | undefined;
+                  for (const c of candidates) {
+                    const img = imgMap.get(norm(c));
+                    if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; }
+                  }
+                  return (
+                    <li key={d.id} className="relative overflow-hidden border rounded-md hover:border-gray-600">
+                      {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
+                      {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
+                      <div className="relative p-3 flex items-center justify-between gap-3">
+                        <div className="text-base font-semibold line-clamp-1">{d.title || 'Untitled'}</div>
+                        <LikeButton deckId={d.id} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
+          <MostLikedDecks userId={prof.id} />
+
+          <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
+            <div className="text-lg font-semibold">Favorite Commander</div>
+            <div className="text-sm">{prof.favorite_commander || '—'}</div>
+          </section>
         </section>
-      )}
-
-      <MostLikedDecks userId={prof.id} />
-
-      <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
-        <div className="text-lg font-semibold">Favorite Commander</div>
-        <div className="text-sm">{prof.favorite_commander || '—'}</div>
-      </section>
+        <aside className="col-span-12 md:col-span-4 space-y-4">
+          {prof?.custom_card?.art && (
+            <section className="rounded-xl border border-neutral-800 p-3">
+              <div className="text-lg font-semibold mb-2">Featured custom card</div>
+              <div className="flex justify-center">
+{require('react').createElement(require('@/components/AuthenticMTGCard').default, { mode:'view', value: { nameParts: (String(prof.custom_card.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(prof.custom_card.sub||''), typeLine: '—', pt: { p: 1, t: 1 }, cost: 1, manaCost: ['1'], colorHint: (String(prof.custom_card.color||'U') as any), rarity: 'uncommon', setSymbol: 'CCC', art: { url: String(prof.custom_card.art||''), artist: String(prof.custom_card.artist||''), id: String(prof.custom_card.scryfall||'') } } })}
+              </div>
+            </section>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }

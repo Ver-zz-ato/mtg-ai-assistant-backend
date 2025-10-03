@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import type { CardFrameProps, ProfileCardValue, ArtOption } from "./cardTypes";
+import { ManaCost } from "./ManaSymbol";
 
 export default function CardFrame({ value, mode='view', onChange, artOptions=[], matte, width }: CardFrameProps){
   const [showOverlay, setShowOverlay] = React.useState(false);
@@ -39,14 +40,18 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
     transition: 'background 300ms ease-out'
   } as React.CSSProperties;
 
-  // Neutral MTG-ish base materials per contract
+  // Enhanced MTG-authentic materials with better depth and authenticity
   const materials = React.useMemo(() => ({
-    nameBg: 'linear-gradient(#171c25,#121722)',
-    typeBg: 'linear-gradient(#171c25,#121722)',
-    rulesBg: 'linear-gradient(#161b24,#121722)',
-    ptBg: 'linear-gradient(#232b3a,#1b2333)',
-    stripTopHighlight: 'inset 0 1px 0 rgba(255,255,255,.08)',
-    stripBorder: '#1f2633',
+    nameBg: 'linear-gradient(180deg, #2a3142 0%, #1e2532 50%, #161c27 100%)',
+    typeBg: 'linear-gradient(180deg, #2a3142 0%, #1e2532 50%, #161c27 100%)',
+    // Parchment-style rules box (layered): warm paper gradient + subtle grain overlay via repeating-linear-gradient
+    rulesBg: 'linear-gradient(180deg, #efe2c2 0%, #e6d6b0 50%, #dcc89a 100%)',
+    rulesTexture: 'repeating-linear-gradient(45deg, rgba(120,94,50,0.06) 0, rgba(120,94,50,0.06) 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px)',
+    ptBg: 'linear-gradient(180deg, #3a4356 0%, #2d3444 50%, #1f2633 100%)',
+    stripTopHighlight: 'inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.25)',
+    stripBorder: '#2c3441',
+    cardBorder: 'linear-gradient(145deg, #3a4356 0%, #2d3444 50%, #1f2633 100%)',
+    innerShadow: 'inset 0 2px 4px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(255,255,255,0.05)',
   }), []);
 
   const showPT = /\bCreature\b/i.test(value.typeLine || '');
@@ -56,7 +61,19 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
       {/* Grain + vignette overlays */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.07] -z-10" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)', backgroundSize: '3px 3px' }} />
       <div className="pointer-events-none absolute inset-0 -z-10" style={{ background: 'radial-gradient(140% 120% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.24) 100%)' }} />
-      <div className="rounded-[18px] border-[3px] border-black overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.35)] bg-[linear-gradient(#0f131a,#0b0f15)] p-2 relative z-10" style={{ aspectRatio: '63 / 88', boxShadow: 'inset 0 0 0 1px #1c2330, inset 0 0 0 2px rgba(255,255,255,0.04), 0 18px 40px rgba(0,0,0,.35)' }}>
+      <div className="rounded-[18px] border-[3px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.45)] p-2 relative z-10" style={{ 
+        aspectRatio: '63 / 88', 
+        background: materials.cardBorder,
+        border: '3px solid #1a1f2a',
+        boxShadow: `
+          inset 0 0 0 1px #2c3441, 
+          inset 0 0 0 2px rgba(255,255,255,0.06), 
+          inset 0 2px 4px rgba(255,255,255,0.08),
+          inset 0 -2px 4px rgba(0,0,0,0.3),
+          0 20px 50px rgba(0,0,0,.45),
+          0 8px 16px rgba(0,0,0,.25)
+        ` 
+      }}>
         {/* Nameplate */}
         <div className={`absolute left-[5%] right-[5%] top-[3%] h-[8.5%] rounded-md text-slate-100 border px-2 py-1 font-[600] tracking-[.3px] [font-variant:small-caps] truncate flex items-center ${mode==='edit'?'hover:ring-amber-400/20 focus-within:ring-amber-400/30 ring-1 ring-transparent':''} relative`} style={{ background: materials.nameBg, boxShadow: materials.stripTopHighlight, borderColor: materials.stripBorder }}>
 <span ref={nameAreaRef} className="truncate flex items-center gap-2 flex-1 min-w-0 overflow-hidden font-serif pr-[22%]" style={{ fontSize: tight? 'clamp(10.6px,1.0vw,14px)' : 'clamp(12px,1.35vw,16px)' }}>
@@ -97,18 +114,52 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
     presetsC[Math.floor(Math.random()*presetsC.length)],
   ]; onChange?.({ nameParts: np });
 }} className="text-base px-2.5 py-0 rounded bg-black/60 text-white/90 border border-neutral-700 opacity-90 hover:opacity-100" title="Randomize name" aria-label="Randomize name">🎲</button>)}
-            {/* Cost pips sized relative to card width */}
-            <button onClick={mode==='edit'?()=>{ const c=Math.max(0, Math.min(9, Number(value.cost||1))); const next=c>=9?0:c+1; onChange?.({ cost: next }); }:undefined} className="rounded-full grid place-content-center border text-white font-bold shadow-[inset_0_0_0_1px_rgba(69,80,107,.9)]" style={{ background:'radial-gradient(circle at 40% 35%, #3a4662, #27324a 60%, #1b2439 100%)', borderColor:'#45506b', width:'7.5%', aspectRatio:'1 / 1', fontSize:'clamp(10px,1vw,14px)' }} title="Increase generic cost" aria-label="Increase generic cost">{Math.max(0, Math.min(9, Number.isFinite(value.cost as any)?(value.cost as any):1))}</button>
-            <button onClick={mode==='edit'?()=>{ const cols: any = ['W','U','B','R','G']; const i = Math.max(0, cols.indexOf(value.colorHint||'W')); onChange?.({ colorHint: cols[(i+1)%cols.length] }); }:undefined} className="inline-flex items-center justify-center rounded-full border bg-[linear-gradient(#2a2f3a,#1b2333)] shadow-[inset_0_0_0_1px_rgba(255,255,255,.06)]" style={{ borderColor: 'rgba(0,0,0,.35)', width:'7%', aspectRatio:'1 / 1' }} title="Cycle mana color" aria-label="Cycle mana color">
-              <img src={`https://svgs.scryfall.io/card-symbols/${(value.colorHint||'C')}.svg`} alt={String(value.colorHint||'C')} style={{ width:'70%', height:'70%' }} />
-            </button>
+            
+            {/* Mana Cost Display */}
+            <div className="inline-flex items-center gap-0.5">
+              {value.manaCost && value.manaCost.length > 0 ? (
+                <ManaCost cost={value.manaCost} size="small" />
+              ) : (
+                // Fallback to legacy cost display
+                <div className="rounded-full flex items-center justify-center leading-none border text-white font-bold shadow-[inset_0_0_0_1px_rgba(69,80,107,.9)]" 
+                     style={{ background:'radial-gradient(circle at 40% 35%, #3a4662, #27324a 60%, #1b2439 100%)', borderColor:'#45506b', width:'20px', height:'20px', fontSize:'11px', lineHeight:'20px' }}>
+                  {Math.max(0, Math.min(9, Number.isFinite(value.cost as any)?(value.cost as any):1))}
+                </div>
+              )}
+              
+              {mode==='edit' && (
+                <button onClick={()=>{ 
+                  // Cycle through common mana cost patterns
+                  const patterns = [
+                    ['1'],
+                    ['2'],
+                    ['3'],
+                    ['1', 'U'],
+                    ['2', 'U'],
+                    ['1', 'U', 'U'],
+                    ['2', 'U', 'U'],
+                    ['U', 'R'],
+                    ['1', 'U', 'R'],
+                    ['2', 'U', 'R'],
+                    ['W', 'U'],
+                    ['1', 'W', 'U'],
+                    ['X', 'U', 'U'],
+                  ];
+                  const current = value.manaCost || ['1'];
+                  const currentStr = current.join(',');
+                  const currentIndex = patterns.findIndex(p => p.join(',') === currentStr);
+                  const nextIndex = (currentIndex + 1) % patterns.length;
+                  onChange?.({ manaCost: patterns[nextIndex] });
+                }} className="text-xs px-1.5 py-0.5 rounded bg-black/60 text-white/90 border border-neutral-700 opacity-90 hover:opacity-100" title="Cycle mana cost" aria-label="Cycle mana cost">⚡</button>
+              )}
+            </div>
           </span>
         </div>
         {/* Art window */}
         <div className={`absolute left-[6%] right-[6%] top-[14%] h-[49%] rounded-[10px] overflow-hidden bg-neutral-800 border shadow-[inset_0_0_0_2px_rgba(255,255,255,.04)] ${mode==='edit'?'hover:ring-amber-400/20 focus-within:ring-amber-400/30 ring-1 ring-transparent':''}`} style={{ borderColor: '#1f2633' }} tabIndex={mode==='edit'?0:undefined} onKeyDown={(e)=>{ if(mode!=='edit') return; if(e.key==='ArrowLeft') { e.preventDefault(); nextArt(-1); } else if(e.key==='ArrowRight'){ e.preventDefault(); nextArt(1);} }} aria-label="Change art (Left/Right to cycle)">
           {/* Art credit bottom-right */}
           {(value.art?.artist || undefined) ? (
-          <div className="absolute bottom-[6%] right-[8%] text-[10px] bg-black/55 px-1 py-0.5 rounded pointer-events-auto">
+          <div className="absolute bottom-[2%] right-[12%] text-[10px] bg-black/55 px-1 py-0.5 rounded pointer-events-auto">
               Art: {value.art.artist||'Unknown'} • {value.art?.id ? (<a href={value.art.id} target="_blank" rel="noreferrer" title="View on Scryfall" className="underline">via Scryfall</a>) : 'via Scryfall'}
             </div>
           ) : null}
@@ -155,9 +206,49 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
             </div>
           )}
         </div>
+        
+        {/* Set Symbol and Rarity */}
+        <div className="absolute right-[8%] top-[58%] w-[8%] h-[5%] flex items-center justify-center">
+          {value.rarity && (
+            <div className={`w-full h-full rounded-full border-2 flex items-center justify-center text-xs font-bold shadow-lg ${
+              value.rarity === 'mythic' ? 'bg-gradient-to-br from-orange-400 to-red-600 border-orange-300 text-white' :
+              value.rarity === 'rare' ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 border-yellow-300 text-black' :
+              value.rarity === 'uncommon' ? 'bg-gradient-to-br from-gray-300 to-gray-500 border-gray-200 text-black' :
+              'bg-gradient-to-br from-gray-700 to-gray-900 border-gray-600 text-white'
+            }`} title={`${value.rarity} rarity`}>
+              {value.setSymbol || 'S'}
+            </div>
+          )}
+          {mode === 'edit' && (
+            <button
+              onClick={() => {
+                const rarities: Array<'common'|'uncommon'|'rare'|'mythic'> = ['common', 'uncommon', 'rare', 'mythic'];
+                const current = value.rarity || 'common';
+                const currentIndex = rarities.indexOf(current);
+                const nextRarity = rarities[(currentIndex + 1) % rarities.length];
+                onChange?.({ rarity: nextRarity, setSymbol: value.setSymbol || 'S' });
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 hover:opacity-20 bg-white rounded-full cursor-pointer"
+              title="Cycle rarity"
+              aria-label="Cycle rarity"
+            />
+          )}
+        </div>
+        
         {/* Type line strip */}
         <div className={`absolute left-[6%] right-[6%] top-[64%] h-[7%] rounded-md text-slate-100 border px-2 py-1 text-[11px] flex items-center gap-2 ${mode==='edit'?'hover:ring-amber-400/20 focus-within:ring-amber-400/30 ring-1 ring-transparent':''} relative`} style={{ background: materials.typeBg, boxShadow: materials.stripTopHighlight, borderColor: materials.stripBorder }}>
-          <span className="flex-1 font-serif [font-variant:small-caps]" style={{ fontSize: 'clamp(11px,1.1vw,14px)' }}>{value.typeLine || '—'}</span>
+          {mode === 'edit' ? (
+            <input
+              type="text"
+              value={value.typeLine || ''}
+              onChange={(e) => onChange?.({ typeLine: e.target.value })}
+              className="flex-1 bg-transparent font-serif [font-variant:small-caps] border-none outline-none text-slate-100 placeholder-slate-400"
+              style={{ fontSize: 'clamp(11px,1.1vw,14px)' }}
+              placeholder="Card Type — Subtype"
+            />
+          ) : (
+            <span className="flex-1 font-serif [font-variant:small-caps]" style={{ fontSize: 'clamp(11px,1.1vw,14px)' }}>{value.typeLine || '—'}</span>
+          )}
           {mode==='edit' && (
             <button className="absolute top-1 right-1 text-base px-2.5 py-0 rounded bg-black/60 text-white/90 border border-neutral-700 opacity-90 hover:opacity-100" onClick={()=>{
               const types=['Creature','Artifact','Enchantment','Sorcery','Instant','Planeswalker']; const subs=['Troll','Wizard','Rogue','Knight','Angel','Dragon']; const t = types[Math.floor(Math.random()*types.length)]; const s = subs[Math.floor(Math.random()*subs.length)]; onChange?.({ typeLine: `${t} — ${s}` });
@@ -165,10 +256,56 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
           )}
         </div>
         {/* Rules/Subtext box */}
-        <div className={`absolute left-[6%] right-[6%] top-[72%] h-[16%] rounded-md border p-2 text-slate-100 ${mode==='edit'?'hover:ring-amber-400/20 focus-within:ring-amber-400/30 ring-1 ring-transparent':''}`} style={{ background: materials.rulesBg, borderColor: materials.stripBorder }}>
-          <div className="text-[#e9eef9] leading-tight font-serif" style={{ fontSize: 'clamp(11px,1.05vw,13px)' }}>{value.subtext || '—'}</div>
+        <div className={`absolute left-[6%] right-[6%] top-[72%] h-[16%] rounded-md border p-2 ${mode==='edit'?'hover:ring-amber-400/20 focus-within:ring-amber-400/30 ring-1 ring-transparent':''}`} style={{ background: `${materials.rulesBg}`, borderColor: materials.stripBorder, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(120,94,50,0.25)' }}>
+          <div className="pointer-events-none absolute inset-0 rounded-md opacity-[0.2]" style={{ backgroundImage: materials.rulesTexture }} />
+          {mode === 'edit' ? (
+            <textarea
+              value={value.subtext || ''}
+              onChange={(e) => onChange?.({ subtext: e.target.value })}
+              className="w-full h-full bg-transparent text-[#1b1a18] leading-tight font-serif border-none outline-none resize-none placeholder-black/40"
+              style={{ fontSize: 'clamp(11px,1.05vw,13px)' }}
+              placeholder="Enter card text..."
+            />
+          ) : (
+            <div className="text-[#1b1a18] leading-tight font-serif overflow-y-auto" style={{ fontSize: 'clamp(11px,1.05vw,13px)' }}>
+              {value.subtext ? (
+                // Format MTG text with italics for flavor text
+                value.subtext.split('\n').map((line, i) => (
+                  <div key={i} className={line.startsWith('\"') || line.includes('—') ? 'italic opacity-90' : ''}>
+                    {line || '\\u00A0'}
+                  </div>
+                ))
+              ) : '—'}
+            </div>
+          )}
           {mode==='edit' && (
-            <button onClick={()=>{ const pool=["Feeds on treasure and overconfidence.","Prefers symmetry—if you can survive it.","Writes contracts in blood and tiny print.","Dreams in turn-three and two-land keeps.","Always has the second spell."]; const sub = pool[Math.floor(Math.random()*pool.length)]; onChange?.({ subtext: sub }); }} className="absolute top-1 right-1 text-base leading-none px-2 py-0 rounded bg-black/60 text-white/90 border border-neutral-700 opacity-90 hover:opacity-100" title="Reroll tagline" aria-label="Reroll tagline">🎲</button>
+            <button onClick={()=>{ 
+              const abilities = [
+                "Flying",
+                "Trample", 
+                "Haste",
+                "Vigilance",
+                "Lifelink",
+                "First strike",
+                "Deathtouch",
+                "Hexproof",
+                "Flash",
+                "Defender"
+              ];
+              const flavorTexts = [
+                '"Feeds on treasure and overconfidence."',
+                '"Prefers symmetry—if you can survive it."',
+                '"Writes contracts in blood and tiny print."',
+                '"Dreams in turn-three and two-land keeps."',
+                '"Always has the second spell."',
+                '"The spark that ignites possibility."',
+                '"Where magic meets ambition."'
+              ];
+              const ability = abilities[Math.floor(Math.random() * abilities.length)];
+              const flavor = flavorTexts[Math.floor(Math.random() * flavorTexts.length)];
+              const combined = Math.random() > 0.5 ? `${ability}\n${flavor}` : ability;
+              onChange?.({ subtext: combined }); 
+            }} className="absolute top-1 right-1 text-base leading-none px-2 py-0 rounded bg-black/60 text-white/90 border border-neutral-700 opacity-90 hover:opacity-100" title="Generate ability text" aria-label="Generate ability text">🎲</button>
           )}
         </div>
         {/* P/T box bottom-right of the card */}

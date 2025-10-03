@@ -3,9 +3,10 @@ import React from "react";
 import CardFrame from "./CardFrame";
 import type { ProfileCardValue, ArtOption } from "./cardTypes";
 
-export default function ProfileCardEditor({ value, onChange, mode = 'edit', randomizeKey }: { value: ProfileCardValue; onChange: (next: ProfileCardValue) => void; mode?: 'edit'|'view'; randomizeKey?: number }){
+export default function ProfileCardEditor({ value, onChange, mode = 'edit', randomizeKey }: { value: ProfileCardValue; onChange?: (next: ProfileCardValue) => void; mode?: 'edit'|'view'; randomizeKey?: number }){
   const v = value;
   const applyPartial = React.useCallback((patch: Partial<ProfileCardValue>) => {
+    if (typeof onChange !== 'function') return;
     onChange({
       ...v,
       ...patch,
@@ -47,7 +48,7 @@ export default function ProfileCardEditor({ value, onChange, mode = 'edit', rand
     } catch{} finally{ setBusy(false);} })(); },[]);
 
   // Helpers for randomize/filmstrip remain here; CardFrame only sends partial updates
-  function cycleName(i:0|1|2){ const arr = i===0?PREFIX: i===1?DESC:TITLE; const cur = v.nameParts[i]; const idx = Math.max(0, arr.findIndex(x => x === cur)); const nextTxt = arr[(idx+1)%arr.length]; const np = [...v.nameParts] as [string,string,string]; np[i] = nextTxt; onChange({ ...v, nameParts: np }); }
+function cycleName(i:0|1|2){ const arr = i===0?PREFIX: i===1?DESC:TITLE; const cur = v.nameParts[i]; const idx = Math.max(0, arr.findIndex(x => x === cur)); const nextTxt = arr[(idx+1)%arr.length]; const np = [...v.nameParts] as [string,string,string]; np[i] = nextTxt; if (typeof onChange==='function') onChange({ ...v, nameParts: np }); }
   function rerollSubInternal(){
     const color = (v.colorHint||'').toUpperCase();
     const hooks: Record<string,string[]> = {
@@ -74,17 +75,19 @@ export default function ProfileCardEditor({ value, onChange, mode = 'edit', rand
     const parts: string[] = [];
     for (let i=0;i<lines;i++) parts.push(pick());
     const s = parts.join(' ');
-    onChange({ ...v, subtext: s });
+    if (typeof onChange==='function') onChange({ ...v, subtext: s });
   }
-  function randomizeType(){ const types=['Creature','Artifact','Enchantment','Sorcery','Instant','Planeswalker']; const subs=['Troll','Wizard','Rogue','Knight','Angel','Dragon','Druid','Elf','Goblin','Giant','Spirit','Zombie','Merfolk','Vampire','Warrior','Cleric','Elemental','Construct','Beast','Human']; const t = types[Math.floor(Math.random()*types.length)]; const s = subs[Math.floor(Math.random()*subs.length)]; onChange({ ...v, typeLine: `${t} — ${s}` }); }
-  function randomizeName(){ const np: [string,string,string] = [PREFIX[Math.floor(Math.random()*PREFIX.length)], DESC[Math.floor(Math.random()*DESC.length)], TITLE[Math.floor(Math.random()*TITLE.length)]]; onChange({ ...v, nameParts: np }); }
+function randomizeType(){ const types=['Creature','Artifact','Enchantment','Sorcery','Instant','Planeswalker']; const subs=['Troll','Wizard','Rogue','Knight','Angel','Dragon','Druid','Elf','Goblin','Giant','Spirit','Zombie','Merfolk','Vampire','Warrior','Cleric','Elemental','Construct','Beast','Human']; const t = types[Math.floor(Math.random()*types.length)]; const s = subs[Math.floor(Math.random()*subs.length)]; if (typeof onChange==='function') onChange({ ...v, typeLine: `${t} — ${s}` }); }
+function randomizeName(){ const np: [string,string,string] = [PREFIX[Math.floor(Math.random()*PREFIX.length)], DESC[Math.floor(Math.random()*DESC.length)], TITLE[Math.floor(Math.random()*TITLE.length)]]; if (typeof onChange==='function') onChange({ ...v, nameParts: np }); }
   // Preload random art once pack is ready and value has no art yet
   React.useEffect(()=>{
     if (initializedOnce.current) return;
     if (!(v.art?.url) && pack.length){
       const list = v.colorHint? pack.filter(x=> (x.color||'').toUpperCase()===(v.colorHint||'').toUpperCase()) : pack;
       const pick = list.length? list[Math.floor(Math.random()*list.length)] : pack[Math.floor(Math.random()*pack.length)];
-      onChange({ ...v, art: { url: pick.url, artist: pick.artist, id: pick.id }, colorHint: (pick.color as any)||v.colorHint });
+      if (mode==='edit' && typeof onChange === 'function') {
+        onChange({ ...v, art: { url: pick.url, artist: pick.artist, id: pick.id }, colorHint: (pick.color as any)||v.colorHint });
+      }
       initializedOnce.current = true;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,7 +100,21 @@ export default function ProfileCardEditor({ value, onChange, mode = 'edit', rand
     const types=['Creature','Artifact','Enchantment','Sorcery','Instant','Planeswalker']; const subs=['Troll','Wizard','Rogue','Knight','Angel','Dragon','Druid','Elf','Goblin','Giant','Spirit','Zombie','Merfolk','Vampire','Warrior','Cleric','Elemental','Construct','Beast','Human'];
     const tt = `${types[Math.floor(Math.random()*types.length)]} — ${subs[Math.floor(Math.random()*subs.length)]}`;
     const p = Math.floor(Math.random()*9)+1; const t = Math.floor(Math.random()*9)+1;
-    const cost = Math.floor(Math.random()*9)+1; const colors: any = ['W','U','B','R','G']; const colorHint = colors[Math.floor(Math.random()*5)];
+    const cost = Math.floor(Math.random()*9)+1; 
+    const colors: any = ['W','U','B','R','G']; 
+    const colorHint = colors[Math.floor(Math.random()*5)];
+    const rarities: Array<'common'|'uncommon'|'rare'|'mythic'> = ['common', 'uncommon', 'rare', 'mythic'];
+    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+    
+    // Generate random mana cost based on color
+    const manaCostPatterns = [
+      ['1'], ['2'], ['3'],
+      ['1', colorHint], ['2', colorHint],
+      ['1', colorHint, colorHint], ['2', colorHint, colorHint],
+      [colorHint, colorHint], ['X', colorHint]
+    ];
+    const manaCost = manaCostPatterns[Math.floor(Math.random() * manaCostPatterns.length)];
+    
     let art = v.art;
     if (pack.length) {
       const list = (v.colorHint? pack.filter(x=> (x.color||'').toUpperCase()===(v.colorHint||'').toUpperCase()) : pack);
@@ -107,7 +124,7 @@ export default function ProfileCardEditor({ value, onChange, mode = 'edit', rand
     const hooks: Record<string,string[]> = { W:["Keeps tidy ledgers and tidy boards."], U:["Trusts the process, and the counterspell."], B:["Ambition with a graveyard plan."], R:["Chaos, speed, and a smile."], G:["Draws strength from the forest—and two extra lands."], C:["Prefers perfect symmetry."], L:["Wanders far, remembers all."] };
     const base=["Feeds on treasure and overconfidence.","Prefers symmetry—if you can survive it.","Writes contracts in blood and tiny print.","Dreams in turn-three and two-land keeps.","Always has the second spell."];
     const arr=[...base, ...(hooks[colorHint]||[])]; const sub = arr[Math.floor(Math.random()*arr.length)] || base[0];
-    onChange({ ...v, nameParts: np, typeLine: tt, pt: { p, t }, cost, colorHint, art, subtext: sub });
+    if (typeof onChange==='function') onChange({ ...v, nameParts: np, typeLine: tt, pt: { p, t }, cost, manaCost, colorHint, art, subtext: sub, rarity, setSymbol: 'CCC' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [randomizeKey]);
 

@@ -105,6 +105,10 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - ☐ Optional “Apply” mode for filters (toggle immediate vs staged). <!-- id:ui.filters_apply_toggle -->
 
 - ☐ Wishlist UX revamp: dedicate Wishlists page (lists + items), reflect Add-to-Wishlist from Collections, quick add/search, move out of Profile box for better visibility. <!-- id:ui.wishlist_revamp -->
+☑ Wishlist Editor upgrades in Profile — typeahead, hover preview, CSV, sticky header, bulk remove, name fixes (Pro) <!-- id:ui.wishlist_profile_upgrades -->
+  - Implemented endpoints: /api/wishlists/upload-csv, /api/wishlists/export, /api/wishlists/remove-batch, /api/wishlists/fix-names, /api/wishlists/fix-names/apply, /api/wishlists/rename.
+  - Editor now supports: typeahead add, bulk add modal, keyboard shortcuts (+/−/Delete, Ctrl+F, Ctrl+B), hover previews, internal scroll with sticky header, selection + Remove selected, inline fix?, and Pro‑gated batch fix with server enforcement.
+  - Auth user metadata kept in sync after CSV import/rename/remove.
 
 ☑ Clean Tailwind components <!-- id:ui.tailwind_clean -->
 ☑ Homepage: moved “Most liked decks” under Recent Public Decks (left rail) <!-- id:ui.homepage_most_liked_position -->
