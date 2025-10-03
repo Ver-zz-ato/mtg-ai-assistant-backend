@@ -60,7 +60,7 @@ export async function POST(req: NextRequest){
     // Embed compact intent in URL (?i=base64url) for Build Assistant prefill
     let enc = '';
     try { const raw = JSON.stringify(intent||{}); enc = Buffer.from(raw).toString('base64url'); } catch {}
-    const url = `${req.nextUrl.origin}/my-decks/${encodeURIComponent(deckId)}${enc?`?i=${enc}`:''}`;
+    const url = `/my-decks/${encodeURIComponent(deckId)}${enc?`?i=${enc}`:''}`;
     return NextResponse.json({ ok:true, id: deckId, title: deckTitle, url, intent });
   } catch(e:any){
     return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 });

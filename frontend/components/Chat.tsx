@@ -206,12 +206,29 @@ try {
     try{
       const { extractIntent } = await import('@/lib/chat/deckIntent');
       const intent = extractIntent(text);
+      const val = text;
+      const looksDeckPre = isDecklist(val);
+      if (looksDeckPre) setLastDeck(val);
       if (intent) {
-        const res = await createDeckFromIntent(intent);
-        if (res && res.id) {
-          const cta = { type:'deck_scaffold', data: { id: res.id, url: res.url, title: res.title, intent } };
-          try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
-          setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+        if (looksDeckPre) {
+          // If the user pasted a decklist, create a real deck from that text instead of a scaffold
+          try {
+            const title = (val.split("\n").find(Boolean) || "Imported Deck").replace(/^\d+\s*[xX]?\s*/, "").slice(0, 64);
+            const res = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title, format:'Commander', plan:'Optimized', colors:[], currency:'USD', deck_text: val, data:{ source:'chat-builder' } }) });
+            const j = await res.json().catch(()=>({}));
+            if (res.ok && j?.ok && j?.id) {
+              const cta = { type:'deck_scaffold', data: { id: j.id, url: `/my-decks/${encodeURIComponent(j.id)}`, title, intent } };
+              try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
+              setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+            }
+          } catch {}
+        } else {
+          const res = await createDeckFromIntent(intent);
+          if (res && res.id) {
+            const cta = { type:'deck_scaffold', data: { id: res.id, url: res.url, title: res.title, intent } };
+            try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
+            setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+          }
         }
       }
     } catch {}
