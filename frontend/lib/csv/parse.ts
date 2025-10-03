@@ -126,6 +126,9 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
       // "2 Card Name"
       let m = line.match(/^\s*(\d+)\s+(.+?)\s*$/);
       if (m) { pushItem(m[2], parseInt(m[1], 10)); continue; }
+      // "2&Card Name" (ampersand artifact from some exporters)
+      m = line.match(/^\s*(\d+)\s*&\s*(.+?)\s*$/);
+      if (m) { pushItem(m[2], parseInt(m[1], 10)); continue; }
       // "Card Name x2" / "Card Name ×2" / "Card Name - 2"
       m = line.match(/^(.+?)\s*[x\-]\s*(\d+)\s*$/i);
       if (m) { pushItem(m[1], parseInt(m[2], 10)); continue; }

@@ -127,7 +127,9 @@ export default async function Page() {
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">My Decks</h1>
-        {/* Create moved to FAB modal */}
+        <div>
+          {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
+        </div>
       </div>
       <div className="mb-3 text-sm"><a className="underline underline-offset-4" href="/collections/cost-to-finish">Open Cost to Finish →</a></div>
 

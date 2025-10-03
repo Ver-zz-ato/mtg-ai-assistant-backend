@@ -51,7 +51,10 @@ async function _POST(req: NextRequest) {
     const user = userResp?.user;
     if (!user) return err("unauthorized", "unauthorized", 401);
 
-    const parsed = Req.safeParse(await req.json().catch(() => ({} as any)));
+    const raw = await req.json().catch(() => ({} as any));
+    // Normalize deckText -> deck_text if caller used camelCase
+    if (typeof raw?.deckText === 'string' && !raw?.deck_text) raw.deck_text = raw.deckText;
+    const parsed = Req.safeParse(raw);
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
 
