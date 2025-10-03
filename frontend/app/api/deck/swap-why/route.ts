@@ -31,16 +31,17 @@ export async function POST(req: Request){
           { role:'system', content:[{ type:'input_text', text: system }] },
           { role:'user', content:[{ type:'input_text', text: user }] },
         ],
-        max_output_tokens: 120,
-        temperature: 0.4,
+        max_output_tokens: 80,
+        temperature: 0.2,
       }),
     }).catch(()=>null as any);
 
     const j:any = await r?.json().catch(()=>({}));
-    const text = (j?.output_text || '').toString().trim();
-    if (!r || !r.ok || !text) {
-      const fallback = `${to} is a cheaper alternative to ${from}: it covers a similar role and supports your plan at a lower cost.`;
-      return NextResponse.json({ ok:true, text: fallback, provider:'fallback' });
+    let text = (j?.output_text || '').toString().trim();
+    const bad = /tighten|tightened|paste the (?:answer|text)|audience and goal|desired tone|word limit|must-keep/i.test(text||'');
+    if (!r || !r.ok || !text || bad) {
+      const fallback = `${to} is a cheaper alternative to ${from}: it fills a similar role in your list and supports the same game plan at a lower cost (with minor trade‑offs in speed/flexibility).`;
+      return NextResponse.json({ ok:true, text: fallback, provider: (!r || !r.ok || !text)?'fallback':'sanitized' });
     }
     return NextResponse.json({ ok:true, text });
   } catch(e:any){
