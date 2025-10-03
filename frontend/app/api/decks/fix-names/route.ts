@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const sp = new URL(req.url).searchParams;
@@ -55,15 +57,6 @@ export async function GET(req: NextRequest) {
     } catch (e:any) {
       return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
     }
-    const map = j?.results || {};
-
-    const items = unknown.map(r => {
-      const all: string[] = Array.isArray(map[r.name]?.all) ? map[r.name].all : [];
-      // If best suggestion equals original ignoring case/diacritics, skip the entry
-      if (all.length && norm(all[0]) === norm(r.name)) return null as any;
-      return { id: r.id, name: r.name, suggestions: all };
-    }).filter(Boolean);
-    return NextResponse.json({ ok:true, items });
   } catch (e:any) {
     return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
   }

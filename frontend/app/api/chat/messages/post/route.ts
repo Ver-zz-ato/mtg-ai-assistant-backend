@@ -48,6 +48,8 @@ function parseTolerantBody(raw: string, contentType: string | null): { text: str
   return { text };
 }
 
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
 
