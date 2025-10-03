@@ -58,7 +58,7 @@ export default function FixNamesModal({ deckId, open, onClose }: { deckId: strin
         )}
         <div className="mt-3 flex items-center justify-end gap-2">
           <button onClick={onClose} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Close</button>
-          <button onClick={apply} disabled={saving || loading || items.length===0} className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-xs">Apply</button>
+          <button onClick={apply} disabled={saving || loading || items.length===0} className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-xs">{saving? 'Applying…' : 'Apply'}</button>
         </div>
       </div>
     </div>

@@ -81,12 +81,23 @@ export default function RightSidebar() {
 
   return (
     <div className="flex flex-col gap-4 w-full relative z-0">
-      <div className="rounded-xl border border-violet-700/60 bg-neutral-950 p-4 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
-        <div className="font-semibold mb-1">🧪 Deck Snapshot/Judger</div>
-        <p className="text-xs opacity-80">
-          Curve, color, and quick fixes from your current list.
-        </p>
-      </div>
+      {/* Deck Snapshot: allow custom horizontal badge/component override */}
+      {(() => {
+        try {
+          const Custom = (require as any)("@/badges/DeckSnapshotHorizontal")?.default
+            || (require as any)("@/badges/Deck-Snapshot-Horizontal")?.default
+            || (require as any)("@/badges/Deck_Snapshot_Horizontal")?.default;
+          if (Custom) return (require('react').createElement(Custom));
+        } catch {}
+        return (
+          <div className="rounded-xl border border-violet-700/60 bg-neutral-950 p-4 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
+            <div className="font-semibold mb-1">🧪 Deck Snapshot/Judger</div>
+            <p className="text-xs opacity-80">
+              Curve, color, and quick fixes from your current list.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Custom Card Creator promo panel */}
       <div className="relative z-20">

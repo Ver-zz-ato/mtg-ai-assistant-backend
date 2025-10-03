@@ -5,6 +5,23 @@ export default function TopToolsStrip() {
   const [flags, setFlags] = React.useState<any>(null);
   React.useEffect(()=>{ (async()=>{ try{ const r=await fetch('/api/config?key=flags',{cache:'no-store'}); const j=await r.json(); if(j?.config?.flags) setFlags(j.config.flags);} catch{} })(); },[]);
   const riskyOn = flags ? (flags.risky_betas !== false) : true;
+
+  // If a custom badges strip is present, render that instead
+  try {
+    // Try a few common module names for flexibility
+    const mod = (require as any)("@/badges/TopBadges")?.default
+      || (require as any)("@/badges/TopRow")?.default
+      || (require as any)("@/badges/index")?.default;
+    if (mod) {
+      const El = mod as React.ComponentType;
+      return (
+        <div className="w-full mb-4">
+          {React.createElement(El)}
+        </div>
+      );
+    }
+  } catch {}
+
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 overflow-x-auto md:overflow-visible">
       {/* 💰 Cost to Finish (White) */}

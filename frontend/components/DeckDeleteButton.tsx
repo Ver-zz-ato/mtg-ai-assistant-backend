@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function DeckDeleteButton({ deckId, small }: { deckId: string; small?: boolean }) {
+export default function DeckDeleteButton({ deckId, small, redirectTo }: { deckId: string; small?: boolean; redirectTo?: string }) {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
 
-  async function del() {
-    if (!confirm("Delete this deck? This cannot be undone.")) return;
+  const [open, setOpen] = useState(false);
+
+  async function actuallyDelete(){
     setBusy(true);
     try {
       const res = await fetch("/api/decks/delete", {
@@ -18,7 +19,9 @@ export default function DeckDeleteButton({ deckId, small }: { deckId: string; sm
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.ok === false) throw new Error(json?.error || "Delete failed");
-      // Refresh list page after deletion
+      if (redirectTo) {
+        try { window.location.href = redirectTo; return; } catch {}
+      }
       router.refresh();
     } catch (e) {
       alert((e as any)?.message || "Delete failed");
@@ -28,8 +31,17 @@ export default function DeckDeleteButton({ deckId, small }: { deckId: string; sm
   }
 
   return (
-    <button onClick={del} disabled={busy} className={small ? "text-xs text-red-500 underline" : "px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-500/10"}>
-      {busy ? "Deleting…" : "Delete"}
-    </button>
+    <>
+      <button onClick={()=>setOpen(true)} disabled={busy} className={small ? "text-xs text-red-500 underline" : "px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-500/10"}>
+        Delete
+      </button>
+      {open && (()=>{ const Modal = require('./ConfirmDeleteModal').default; return (
+        <Modal
+          open={open}
+          onCancel={()=>setOpen(false)}
+          onConfirm={async()=>{ await actuallyDelete(); setOpen(false); }}
+        />
+      ); })()}
+    </>
   );
 }
