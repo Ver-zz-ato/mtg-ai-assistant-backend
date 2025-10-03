@@ -1,0 +1,58 @@
+<svg width="300" height="420" viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer border -->
+  <rect x="8" y="8" width="284" height="404" rx="12" ry="12" fill="none" stroke="#000000" stroke-width="4"/>
+  
+  <!-- Inner border -->
+  <rect x="16" y="16" width="268" height="388" rx="8" ry="8" fill="none" stroke="#000000" stroke-width="2"/>
+  
+  <!-- Background -->
+  <rect x="20" y="20" width="260" height="380" rx="6" ry="6" fill="#D4B896"/>
+  
+  <!-- Top banner -->
+  <rect x="30" y="30" width="240" height="40" rx="6" ry="6" fill="#F5E6D3" stroke="#000000" stroke-width="1"/>
+  <text x="150" y="55" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="#000000">ManaTap.ai</text>
+  
+  <!-- Main graphic area -->
+  <g transform="translate(150, 200)">
+    <!-- Mana symbols arranged in semi-circle -->
+    
+    <!-- White/Yellow mana (top center) -->
+    <circle cx="0" cy="-60" r="25" fill="#FFF8DC" stroke="#000000" stroke-width="2"/>
+    <circle cx="0" cy="-60" r="20" fill="#FFD700"/>
+    <text x="0" y="-55" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#000000">W</text>
+    
+    <!-- Green mana (top left) -->
+    <circle cx="-45" cy="-30" r="25" fill="#90EE90" stroke="#000000" stroke-width="2"/>
+    <circle cx="-45" cy="-30" r="20" fill="#228B22"/>
+    <text x="-45" y="-25" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#FFFFFF">G</text>
+    
+    <!-- Red mana (bottom left) -->
+    <circle cx="-45" cy="30" r="25" fill="#FFB6C1" stroke="#000000" stroke-width="2"/>
+    <circle cx="-45" cy="30" r="20" fill="#DC143C"/>
+    <text x="-45" y="35" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#FFFFFF">R</text>
+    
+    <!-- Blue mana (top right) -->
+    <circle cx="45" cy="-30" r="25" fill="#87CEEB" stroke="#000000" stroke-width="2"/>
+    <circle cx="45" cy="-30" r="20" fill="#4169E1"/>
+    <text x="45" y="-25" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#FFFFFF">U</text>
+    
+    <!-- Black mana (bottom right) -->
+    <circle cx="45" cy="30" r="25" fill="#D3D3D3" stroke="#000000" stroke-width="2"/>
+    <circle cx="45" cy="30" r="20" fill="#000000"/>
+    <text x="45" y="35" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="#FFFFFF">B</text>
+    
+    <!-- Central curved arrow -->
+    <path d="M -30 20 Q 0 -10 30 20" stroke="#FFFFFF" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M 25 15 L 30 20 L 25 25" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Empty banners -->
+  <rect x="30" y="320" width="240" height="25" rx="4" ry="4" fill="#F5E6D3" stroke="#000000" stroke-width="1"/>
+  <rect x="30" y="350" width="240" height="25" rx="4" ry="4" fill="#F5E6D3" stroke="#000000" stroke-width="1"/>
+  
+  <!-- Bottom banner -->
+  <rect x="30" y="380" width="240" height="35" rx="6" ry="6" fill="#F5E6D3" stroke="#000000" stroke-width="1"/>
+  <text x="150" y="395" text-anchor="middle" font-family="serif" font-size="12" font-weight="bold" fill="#000000">Your Complete</text>
+  <text x="150" y="408" text-anchor="middle" font-family="serif" font-size="12" font-weight="bold" fill="#000000">Magic Companion</text>
+</svg>
+

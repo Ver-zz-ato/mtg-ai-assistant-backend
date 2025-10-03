@@ -27,6 +27,7 @@ export default function CustomCardCreator(){
   const [toast,setToast]=React.useState<string|null>(null);
   const [artOptions, setArtOptions] = React.useState<any[]>([]);
   const [userEditedSub, setUserEditedSub] = React.useState(false);
+  const [shareUrl, setShareUrl] = React.useState<string | null>(null);
 
   // Single value object powering the editor
   const [value, setValue] = React.useState({
@@ -305,11 +306,16 @@ export default function CustomCardCreator(){
         This fan-made card is for personal, non‑commercial use. Artwork is credited to the listed artist and linked via Scryfall; all Magic: The Gathering trademarks and related properties are owned by Wizards of the Coast. No affiliation or endorsement is implied, and images are used under fair‑use/fan‑work principles.
       </p>
 
+      {/* Profanity notice */}
+      { (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) && (
+        <div className="text-xs text-red-300">Please avoid profanity in name, type line, or text.</div>
+      )}
+
       {/* Attach + Share CTA */}
       <div className="flex items-center gap-2">
-        <button onClick={async()=>{ await attach(); try{ fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'card_attach'})}); }catch{} }} className="px-3 py-1 rounded bg-emerald-600 text-white text-sm">Attach to my profile</button>
-        <button onClick={async()=>{
-          try {
+        <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{ await attach(); try{ fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'card_attach'})}); }catch{} }} className={`px-3 py-1 rounded text-sm ${ (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) ? 'bg-gray-500 text-white opacity-60 cursor-not-allowed' : 'bg-emerald-600 text-white' }`}>Attach to my profile</button>
+        <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{
+        try {
             const res = await fetch('/api/custom-cards/save?public=1', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: (value.nameParts||[]).join(' '), value }) });
             const j = await res.json().catch(()=>({}));
             if (!res.ok || j?.ok===false) {
@@ -318,13 +324,33 @@ export default function CustomCardCreator(){
               else { alert(j?.error||'Share failed'); }
               return;
             }
-            const url = j?.url || `${window.location.origin}/cards/${encodeURIComponent(j?.slug||j?.id)}`;
+            // Ensure absolute URL regardless of environment or server response
+            let url = String(j?.url||'');
+            const slug = String(j?.slug||j?.id||'');
+            const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+            if (!url || !/^https?:\/\//i.test(url)) {
+              // If server returned relative or empty URL, compose from origin
+              url = slug ? `${origin}/cards/${encodeURIComponent(slug)}` : `${origin}/cards`;
+            }
+            setShareUrl(url);
             await navigator.clipboard?.writeText?.(url);
             setToast('Share link copied.');
           } catch(e:any){ alert(e?.message||'Share failed'); }
         }} className="px-3 py-1 rounded border border-neutral-700 text-sm">Share this creation</button>
       </div>
-      {toast && <div className="text-xs text-amber-300">{toast} <a href="/profile" className="underline">View my profile</a></div>}
+      {toast && (
+        <div className="text-xs text-amber-300">
+          {toast}
+          {' '}
+          <a href="/profile" className="underline">View my profile</a>
+          {shareUrl && (
+            <>
+              {' '}
+              • <a href={shareUrl} target="_blank" rel="noreferrer" className="underline">Open now</a>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

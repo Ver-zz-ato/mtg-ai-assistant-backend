@@ -9,13 +9,21 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      - name: Validate BASE_URL secret
+        run: |
+          if [ -z "${{ secrets.BASE_URL }}" ]; then
+            echo "Error: BASE_URL is not set in repo secrets (e.g., https://your.app)." >&2
+            exit 1
+          fi
       - name: Prewarm Scryfall cache
         run: |
-          curl -sS -X POST \
-            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
-            "${{ secrets.BASE_URL }}/api/cron/prewarm-scryfall"
+          set -e
+          URL="${{ secrets.BASE_URL }}/api/cron/prewarm-scryfall"
+          echo "POST $URL"
+          curl -f -sS -X POST -H "x-cron-key: ${{ secrets.CRON_KEY }}" "$URL"
       - name: Build price snapshot (today)
         run: |
-          curl -sS -X POST \
-            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
-            "${{ secrets.BASE_URL }}/api/admin/price/snapshot/build"
+          set -e
+          URL="${{ secrets.BASE_URL }}/api/admin/price/snapshot/build"
+          echo "POST $URL"
+          curl -f -sS -X POST -H "x-cron-key: ${{ secrets.CRON_KEY }}" "$URL"

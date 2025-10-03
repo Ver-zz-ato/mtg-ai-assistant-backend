@@ -25,8 +25,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Cost to Finish</h1>
+    <main className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
       <Client />
     </main>
   );

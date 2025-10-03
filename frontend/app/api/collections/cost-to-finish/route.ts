@@ -75,10 +75,13 @@ export async function POST(req: Request) {
 
     let upstreamResp: Response | null = null;
     let lastText = "";
+    // Forward cookies to preserve auth when proxying to same-origin endpoints (important in production)
+    const fwdCookie = (()=>{ try { return (new Headers(req.headers)).get('cookie') || ''; } catch { return ''; } })();
     for (const url of candidates) {
       const r = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        // Forward cookies so downstream can read user session via Supabase
+        headers: { "content-type": "application/json", ...(fwdCookie ? { cookie: fwdCookie } : {}) },
         body: JSON.stringify(payload),
       }).catch(() => null as any);
 

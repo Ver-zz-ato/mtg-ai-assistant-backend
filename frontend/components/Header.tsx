@@ -68,6 +68,9 @@ export default function Header() {
           <Link href="/collections" className="text-sm hover:underline">
             My Collections
           </Link>
+          <Link href="/profile?tab=wishlist" className="text-sm hover:underline">
+            My Wishlist
+          </Link>
           <Link href="/profile" className="text-sm hover:underline">
             Profile
           </Link>

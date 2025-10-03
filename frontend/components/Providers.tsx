@@ -11,17 +11,30 @@ function hasConsent(): boolean {
 }
 
 function initPosthogIfNeeded() {
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY || '';
+  if (!key) return; // no key configured -> do not init
+  if (typeof window === 'undefined') return;
+  if ((navigator as any)?.onLine === false) return; // offline -> skip init to avoid failed fetch noise
+
   const ph: any = posthog as any;
   if (ph?._loaded) {
-    (posthog as any).set_config({ capture_pageview: false, disable_toolbar: true });
-    try { (ph.toolbar && ph.toolbar.close && ph.toolbar.close()); } catch {}
+    try {
+      (posthog as any).set_config({ capture_pageview: false, disable_toolbar: true, autocapture: false });
+      (ph.toolbar && ph.toolbar.close && ph.toolbar.close());
+    } catch {}
     return;
   }
-  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY || '', ({
-    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    capture_pageview: false,
-    disable_toolbar: true,
-  }) as any);
+  try {
+    posthog.init(key, ({
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest',
+      capture_pageview: false,
+      autocapture: false,
+      capture_pageleave: true,
+      disable_session_recording: true,
+      disable_toolbar: true,
+      debug: false,
+    }) as any);
+  } catch {}
 }
 
 /**

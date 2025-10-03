@@ -81,10 +81,10 @@ export default function RightSidebar() {
 
   return (
     <div className="flex flex-col gap-4 w-full relative z-0">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <div className="font-semibold mb-2">Deck Snapshot/Judger</div>
-        <p className="text-xs opacity-70">
-          Paste a deck into chat to get score, curve, color identity & quick fixes.
+      <div className="rounded-xl border border-violet-700/60 bg-neutral-950 p-4 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
+        <div className="font-semibold mb-1">🧪 Deck Snapshot/Judger</div>
+        <p className="text-xs opacity-80">
+          Curve, color, and quick fixes from your current list.
         </p>
       </div>
 
@@ -93,13 +93,16 @@ export default function RightSidebar() {
         {require('react').createElement(require('./CustomCardCreator').default)}
       </div>
 
-      <div className="relative z-20 bg-gray-900 border border-gray-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
+      <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
         <div className="font-semibold mb-2">Shoutbox (live)</div>
-        <div ref={listRef} className="flex-1 overflow-y-auto space-y-2 text-sm">
+        <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm">
           {items.map((t, idx) => (
-            <div key={`${t.id}-${idx}`} className="bg-gray-800/60 rounded-lg px-3 py-2">
-              <span className="text-yellow-300 mr-2">{t.user}:</span>
-              <span className="text-gray-200">{t.text}</span>
+            <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">
+              <div className="bg-emerald-950/40 border border-emerald-700 text-emerald-100 rounded-lg px-3 py-2">
+                <span className="text-emerald-300 mr-2">{t.user}:</span>
+                <span>{t.text}</span>
+              </div>
+              <div className="absolute left-2 -bottom-1 w-0 h-0 border-t-8 border-t-emerald-700 border-l-8 border-l-transparent"></div>
             </div>
           ))}
         </div>

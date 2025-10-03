@@ -25,9 +25,13 @@ export async function POST(req: NextRequest){
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthenticated' }, { status:401 });
     const body = await req.json().catch(()=>({}));
+    const name = String(body?.name||'').slice(0,120);
+    const sub = String(body?.sub||'').slice(0,200);
+    // Profanity guard
+    try { const { containsProfanity } = await import('@/lib/profanity'); if (containsProfanity(name) || containsProfanity(sub)) { return NextResponse.json({ ok:false, error:'profanity_not_allowed' }, { status:400 }); } } catch {}
     const payload = {
-      name: String(body?.name||'').slice(0,120),
-      sub: String(body?.sub||'').slice(0,200),
+      name,
+      sub,
       art: String(body?.art||''),
       artist: String(body?.artist||''),
       scryfall: String(body?.scryfall||''),

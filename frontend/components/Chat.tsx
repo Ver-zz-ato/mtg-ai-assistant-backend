@@ -52,6 +52,14 @@ async function appendAssistant(threadId: string, content: string) {
 }
 
 export default function Chat() {
+  async function createDeckFromIntent(intent:any){
+    try{
+      const r = await fetch('/api/decks/scaffold', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ intent }) });
+      const j = await r.json().catch(()=>({}));
+      if (r.ok && j?.ok) return j;
+    } catch{}
+    return null;
+  }
   function InlineFeedback({ msgId, content }: { msgId: string; content: string }) {
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -194,6 +202,19 @@ try {
 
   async function send() {
     if (!text.trim() || busy) return;
+    // Detect deck intent and create scaffold proactively
+    try{
+      const { extractIntent } = await import('@/lib/chat/deckIntent');
+      const intent = extractIntent(text);
+      if (intent) {
+        const res = await createDeckFromIntent(intent);
+        if (res && res.id) {
+          const cta = { type:'deck_scaffold', data: { id: res.id, url: res.url, title: res.title, intent } };
+          try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
+          setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+        }
+      }
+    } catch {}
     const val = text;
     const looksDeck = isDecklist(val);
     if (looksDeck) setLastDeck(val);
@@ -351,7 +372,13 @@ try {
     if (keys.length === 0) return null;
     const MAX = 5; const shown = keys.slice(0, MAX); const more = keys.length - shown.length;
     return (
-      <div className="mt-2 flex items-center gap-1">
+      <div className="mt-2 flex items-center gap-3">
+        <div className="flex flex-wrap gap-2 text-[11px] opacity-90">
+          <button className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-700" onClick={()=>setText('Brew EDH by budget: mono-red tokens under £75')}>Brew EDH by budget</button>
+          <button className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-700" onClick={()=>setText('Upgrade my [precon name] for £40; keep theme and color identity')}>Upgrade a precon</button>
+          <button className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-700" onClick={()=>setText('Port lifegain theme to Selesnya (GW) for Commander, casual power')}>Port a theme to another color</button>
+          <button className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-700" onClick={()=>setText('Standard Dimir Control with 24 lands; include Go for the Throat')}>Standard/Modern shell by archetype</button>
+        </div>
         {shown.map(k => (
           <div
             key={k}
@@ -402,7 +429,7 @@ try {
         alt={`${COLOR_LABEL[c]} mana`}
         width={18}
         height={18}
-        style={{ filter: active ? 'none' : 'grayscale(1)', opacity: active ? 1 : 0.75 }}
+        style={{ filter: 'none', opacity: 1 }}
       />
     );
   }
@@ -442,11 +469,13 @@ try {
               <button
                 key={c}
                 onClick={()=>setColors(s=>({...s,[c]:!s[c]}))}
-                className={`px-2 py-1 rounded border ${colors[c]?'bg-green-700 text-white border-green-600':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'} flex flex-col items-center gap-1`}
+                className={`px-2 py-1 rounded border ${colors[c]?'bg-neutral-900 border-neutral-600':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'} flex flex-col items-center gap-1`}
                 title={`Color identity filter: ${COLOR_LABEL[c]}`}
                 aria-label={`Color identity filter: ${COLOR_LABEL[c]}`}
               >
-                <ManaIcon c={c as any} active={!!colors[c]} />
+                <span className={`relative inline-flex items-center justify-center rounded-full ${colors[c] ? 'ring-2 ring-offset-2 ring-offset-neutral-900 ' + (c==='W'?'ring-amber-300':c==='U'?'ring-sky-400':c==='B'?'ring-slate-400':c==='R'?'ring-red-400':'ring-emerald-400') : ''}`} style={{ width: 24, height: 24 }}>
+                  <ManaIcon c={c as any} active={true} />
+                </span>
                 <span className="text-[10px] opacity-80">{COLOR_LABEL[c]}</span>
               </button>
             ))}
@@ -467,10 +496,10 @@ try {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <span className="opacity-70">Teaching:</span>
+            <span className="opacity-70">Teaching Mode:</span>
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={!!teaching} onChange={e=>setTeaching(e.target.checked)} />
-              <span className="opacity-80">Explain more</span>
+              <span className="opacity-80">Explain in more detail</span>
             </label>
           </div>
         </div>
@@ -491,6 +520,11 @@ try {
         />
       </div>
 
+      {/* Assistant spotlight header */}
+      <div className="mt-1 mb-1">
+        <div className="text-sm font-semibold opacity-90">Your deck-building assistant</div>
+      </div>
+
       <div className="min-h-[40vh] space-y-4 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 pb-8 overflow-x-hidden">
         {(!Array.isArray(messages) || messages.length === 0) ? (
           <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
@@ -505,6 +539,21 @@ try {
                 <div key={m.id} className="text-right">
                   <div className="inline-block max-w-[100%] sm:max-w-[80%]">
                     <DeckHealthCard result={obj.data} onSave={saveDeck} onMyDecks={gotoMyDecks} />
+                  </div>
+                </div>
+              );
+            }
+            if (obj && obj.type === "deck_scaffold" && obj.data) {
+              const d:any = obj.data;
+              return (
+                <div key={m.id} className="text-right">
+                  <div className="inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 bg-emerald-900/30 whitespace-pre-wrap relative overflow-visible">
+                    <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2"><span>assistant</span></div>
+                    <div className="space-y-2 text-[12px]">
+                      <div className="font-semibold">Draft deck ready</div>
+                      <div className="opacity-80">{d?.title || 'Draft'} created from your prompt.</div>
+                      <a className="inline-block px-3 py-1 rounded bg-emerald-600 text-white" href={d?.url || ('/my-decks/'+String(d?.id||''))}>Open in Builder →</a>
+                    </div>
                   </div>
                 </div>
               );
@@ -893,6 +942,20 @@ try {
           <a className="underline underline-offset-4" href="/tools/mulligan" onClick={() => { try { capture('nudge_mulligan'); } catch {} }}>Open Mulligan Simulator</a>
         </div>
       )}
+
+      {/* Suggested prompt chips */}
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] opacity-90">
+        {[
+          { label: '“Build me a Commander deck”', text: 'Build me a Commander deck' },
+          { label: '“Find budget swaps”', text: 'Find budget swaps' },
+          { label: '“Upgrade a precon”', text: 'Upgrade a precon' },
+          { label: '“Snapshot my deck”', text: 'Snapshot my deck' },
+        ].map((p, i) => (
+          <button key={i} onClick={()=>setText(p.text)} className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-800">
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex gap-2">
         <textarea

@@ -28,8 +28,4 @@ export default function LeftSidebar() {
   );
 }
 
-      <a href="/collections/cost-to-finish" className="block rounded-xl border border-gray-700 p-4 hover:border-gray-500 transition">
-        <div className="text-sm font-medium">Cost to Finish</div>
-        <div className="text-xs text-gray-400">Estimate price gaps; subtract owned from collection.</div>
-      </a>
     

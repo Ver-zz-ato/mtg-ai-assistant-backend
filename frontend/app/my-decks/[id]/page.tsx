@@ -21,9 +21,9 @@ function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 }
 
-export default async function Page({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
+export default async function Page({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search & { i?: string }> }) {
   const { id } = await params;
-  const { r } = await searchParams;
+  const { r, i } = await searchParams;
   const supabase = await createClient();
   const { data: ures } = await supabase.auth.getUser();
   const isPro = Boolean((ures?.user as any)?.user_metadata?.pro);
@@ -322,6 +322,8 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
             <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
           </header>
+          {/* Build Assistant (sticky) */}
+          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} />; })()}
           {/* key forces remount when ?r= changes */}
           {/* Right column: functions panel, then editor */}
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />

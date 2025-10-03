@@ -38,12 +38,19 @@ export default async function MostLikedPublicDecks({ limit = 5 }: { limit?: numb
     <div className="rounded-xl border border-gray-800 p-4">
       <div className="text-sm font-semibold mb-2">Most liked decks</div>
       <ul className="space-y-1 text-sm">
-        {top.map(p => (
-          <li key={p.id} className="flex items-center justify-between">
-            <Link href={`/decks/${p.id}`} className="hover:underline truncate">{p.title}</Link>
-            <span className="opacity-80">❤ {p.count}</span>
-          </li>
-        ))}
+        {top.map((p, i) => {
+          const medal = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : '';
+          const rowClass = i===0 ? 'bg-amber-900/20 border-amber-700' : i===1 ? 'bg-slate-900/20 border-slate-600' : i===2 ? 'bg-orange-900/20 border-orange-700' : 'bg-transparent border-transparent';
+          return (
+            <li key={p.id} className={`flex items-center justify-between rounded px-2 py-1 border ${rowClass}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                {medal && <span aria-hidden>{medal}</span>}
+                <Link href={`/decks/${p.id}`} className="hover:underline truncate">{p.title}</Link>
+              </div>
+              <span className="opacity-80 shrink-0">❤ {p.count}</span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

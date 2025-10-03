@@ -279,3 +279,33 @@ Legend: ☑ done · ◪ partial · ☐ todo
 ☑ CSP (report-only) added via headers() <!-- id:security.csp_report_only -->
 ☑ Ko‑fi overlay disabled to avoid white screen; support dock pointer-events isolated; local dev hard-off <!-- id:ui.support_widgets_overlay_fix -->
 ◪ Tests: unit color-pie quantity/identity done; E2E running via Playwright webServer, smoke passes; Analyzer/Share/Quick-Add specs pending <!-- id:tests.reliability_suite -->
+
+## Recent Additions (2025-10-03)
+
+☑ Build Assistant (sticky) on My Decks — constraints display + edit, Pro-gated actions, history <!-- id:assistant.sticky_panel -->
+- Shows intent constraints (format/colors/budget/plan/archetype); edits persist via ?i= base64url. <!-- id:assistant.constraints_editable -->
+- Next Best Actions: Check legality & tokens (hotlinked), Balance curve (Pro), Budget swaps (Pro), Re-analyze (Pro). <!-- id:assistant.actions -->
+- Undo/Redo stacks for AI-driven changes (snapshot diff per action). <!-- id:assistant.history_undo_redo -->
+
+☑ Interactive approval panels (anchored, large) <!-- id:ui.interactive_panels -->
+- Balance curve and Budget swaps now present line-by-line suggestions with Approve and Approve All; anchored above cursor. <!-- id:assistant.approval_flow -->
+- Budget swaps panel shows estimated total savings in header (uses snapshot/live prices per currency). <!-- id:assistant.budget_savings_header -->
+- Curve balancing has “On-color adds” toggle: only suggests cards within deck color identity (CI ⊆ deck colors). <!-- id:assistant.oncolor_toggle -->
+- Panels auto-close after inactivity (12s), or upon Approve All / Close. <!-- id:assistant.panel_autoclose -->
+
+☑ Legality & Tokens integration polish <!-- id:deck.legality_integration_polish -->
+- Button runs analyze + price snapshot and shows a large anchored summary panel. <!-- id:deck.legality_toast_panel -->
+- Auto-opens the Legality & Tokens panel and hydrates with result via custom event. <!-- id:deck.legality_auto_open -->
+
+☑ Analytics hardening (PostHog) <!-- id:analytics.posthog_harden -->
+- Removed auto-init from instrumentation-client; init guarded by Providers (key present, online, consent). <!-- id:analytics.posthog_guarded_init -->
+- Prevents “Failed to fetch” console noise offline or without keys; keeps toolbar disabled. <!-- id:analytics.posthog_fetch_fix -->
+
+☑ Unit tests for assistant helpers <!-- id:tests.assistant_helpers -->
+- base64url encode/decode round-trip and snapshot diff helper. <!-- id:tests.base64url_diff -->
+
+☑ Homepage polish (initial pass) <!-- id:ui.homepage_rework_pass1 -->
+- Top tools as feature cards with emojis and MTG-flavored accents; added 🧪 Deck Snapshot/Judger. <!-- id:ui.home.feature_cards -->
+- Left rail: Most liked decks styled as mini leaderboard (🥇/🥈/🥉). <!-- id:ui.home.leaderboard -->
+- Center chat: header “Your deck-building assistant” + suggested prompt chips (Build, Swaps, Precon, Snapshot). <!-- id:ui.home.chat_header_chips -->
+- Right rail: Shoutbox with distinct chat-bubble styling (emerald theme). <!-- id:ui.home.shout_bubbles -->

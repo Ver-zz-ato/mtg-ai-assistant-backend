@@ -44,6 +44,11 @@ export default function DeckAnalyzerPanel({ deckId, proAuto }: { deckId: string;
   }
 
   React.useEffect(() => { run(); /* one-time on load */ }, []);
+  React.useEffect(() => {
+    const h = () => run();
+    window.addEventListener('analyzer:run', h);
+    return () => window.removeEventListener('analyzer:run', h);
+  }, []);
 
   React.useEffect(() => {
     if (!proAuto) return;

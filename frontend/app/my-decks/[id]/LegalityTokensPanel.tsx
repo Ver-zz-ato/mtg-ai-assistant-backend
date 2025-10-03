@@ -63,6 +63,14 @@ export default function LegalityTokensPanel({ deckId }: { deckId: string }) {
     } catch {}
   };
 
+  React.useEffect(() => {
+    const h = (e: any) => {
+      try { setOpen(true); if (e?.detail?.result) setResult(e.detail.result); } catch {}
+    };
+    window.addEventListener('legality:open', h as any);
+    return () => window.removeEventListener('legality:open', h as any);
+  }, []);
+
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between">

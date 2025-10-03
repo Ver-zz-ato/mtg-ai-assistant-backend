@@ -39,7 +39,9 @@ export async function POST(req: NextRequest){
 
     const id = ins?.id;
     const slug = ins?.public_slug || id;
-    const base = process.env.NEXT_PUBLIC_BASE_URL || '';
+    // Prefer absolute base from env if valid; otherwise fall back to current origin
+    const envBase = (process.env.NEXT_PUBLIC_BASE_URL || '').trim();
+    const base = /^https?:\/\//i.test(envBase) ? envBase.replace(/\/$/, '') : (req.nextUrl?.origin || '');
     const url = slug ? `${base}/cards/${encodeURIComponent(slug)}` : null;
     return NextResponse.json({ ok:true, id, slug, url, max });
   } catch(e: any){

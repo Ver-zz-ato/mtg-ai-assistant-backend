@@ -115,3 +115,32 @@ Chat “Supercharge” items
 
 ☑ Curated rules index and rules search API <!-- id:rules.index -->
 ☑ SearchNLWidget (inline NL→Scryfall UI) <!-- id:search.widget -->
+
+---
+
+## Cost to Finish — October 2025 redesign and production fixes <!-- id:ctf.oct2025 -->
+
+Status: Completed and deployed.
+
+Highlights
+- Full UX redesign with clear, two-pane layout: fixed left controls, fluid right results. <!-- id:ctf.layout_two_pane -->
+- Summary panel with Missing, Total cost, Biggest card, core category counts (Lands/Ramp/Draw/Removal) and Pro-only 30‑day sparkline. <!-- id:ctf.summary_cards -->
+- Price bucket and Rarity charts under Summary, aligned width with Shopping list. <!-- id:ctf.charts_width_match -->
+- "Exclude lands" toggle; polite toast when computing with empty input. <!-- id:ctf.controls_toggles -->
+- Commander art preview in deck header using server banner-art API (robust fallbacks; cached Scryfall). <!-- id:ctf.commander_art -->
+- Shopping list (enriched) with image hovers, reprint risk dots, vendor CSV export, and "Add missing → Wishlist" button. <!-- id:ctf.shopping_list_enhanced -->
+- Pro‑gated "Why?" per shopping row (AI explanation, portals above table). <!-- id:ctf.why_button_pro -->
+
+Production hardening
+- Proxy auth: forward cookies from /api/collections/cost-to-finish proxy so Render prod sessions are honored; solved 503 Upstream in prod only. <!-- id:ctf.proxy_cookie_fix -->
+- CSRF origin relax: sameOriginOk now accepts host match and RENDER_EXTERNAL_URL; fixed like/unlike failing in prod. <!-- id:ctf.csrf_render_fix -->
+- Nightly prewarm workflow hardened: BASE_URL secret check + curl -f with explicit POSTs; clear error messaging. <!-- id:ops.nightly_prewarm_hardening -->
+
+Layout polish
+- True full‑bleed page (removed route-level max‑width caps); right pane fills remaining width. <!-- id:ctf.full_bleed -->
+- Z‑index flip (right above left) + removed overflow-hidden on ancestors; menus portal to body; no clipping. <!-- id:ctf.z_index_overflow -->
+- Explicit width clamp only on right stack (Summary, Charts, and List share the same inner width): xl:max-w-[1100px], 2xl:max-w-[1300px]. <!-- id:ctf.unified_clamp -->
+- Shopping list autoadjust: switched to table-auto; removed colgroup; cells wrap; non-essential cols (Source/Role/Tier/Link/Why) hidden at xl and shown at 2xl. No horizontal scrollbar at xl/2xl. <!-- id:ctf.table_auto_adjust -->
+
+Navigation
+- Added persistent "My Wishlist" link to top nav. <!-- id:nav.my_wishlist_link -->

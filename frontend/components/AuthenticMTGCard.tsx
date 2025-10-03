@@ -2,6 +2,7 @@
 import React from "react";
 import type { ProfileCardValue } from "./cardTypes";
 import { ManaCost } from "./ManaSymbol";
+import { containsProfanity } from "@/lib/profanity";
 
 interface AuthenticMTGCardProps {
   value: ProfileCardValue;
@@ -234,10 +235,12 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
                 type="text"
                 value={value.nameParts?.join(' ') || ''}
                 onChange={(e) => {
-                  const parts = e.target.value.split(' ');
+                  const next = e.target.value;
+                  // allow typing but do not block here; parent can disable actions
+                  const parts = next.split(' ');
                   onChange?.({ nameParts: [parts[0] || '', parts[1] || '', parts[2] || ''] as [string,string,string] });
                 }}
-                className="flex-1 bg-transparent text-black font-bold outline-none"
+                className={`flex-1 bg-transparent text-black font-bold outline-none ${containsProfanity(value.nameParts?.join(' ')||'') ? 'ring-1 ring-red-500' : ''}`}
                 style={{
                   fontSize: 'clamp(10px, 2.5vw, 14px)',
                   minWidth: 0 // Allow shrinking
@@ -411,8 +414,9 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
                 type="text"
                 value={value.typeLine || ''}
                 onChange={(e) => onChange?.({ typeLine: e.target.value })}
-                className="flex-1 bg-transparent text-black font-medium text-xs outline-none"
+                className={`flex-1 bg-transparent text-black font-medium text-xs outline-none ${containsProfanity(value.typeLine||'') ? 'ring-1 ring-red-500' : ''}`}
                 placeholder="Type Line"
+                aria-invalid={containsProfanity(value.typeLine||'')}
               />
             ) : (
               <span className="flex-1 text-black font-medium text-xs">
@@ -490,7 +494,8 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
               <textarea
                 value={value.subtext || ''}
                 onChange={(e) => { onChange?.({ subtext: e.target.value }); onUserEditSubtext?.(); }}
-                className="w-full h-full bg-transparent text-black text-xs leading-relaxed resize-none outline-none"
+                className={`w-full h-full bg-transparent text-black text-xs leading-relaxed resize-none outline-none ${containsProfanity(value.subtext||'') ? 'ring-1 ring-red-500' : ''}`}
+                aria-invalid={containsProfanity(value.subtext||'')}
                 style={{
                   fontFamily: 'serif',
                   textShadow: '0 1px 1px rgba(255,255,255,0.8)',
