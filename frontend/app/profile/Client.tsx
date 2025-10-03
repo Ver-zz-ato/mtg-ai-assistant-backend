@@ -720,7 +720,12 @@ function Wallet(){
   async function del(id:string){ if(!confirm('Delete this custom card?')) return; const r = await fetch('/api/custom-cards/delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setRows(rs=>rs.filter(x=>x.id!==id)); else alert(j?.error||'Delete failed'); }
   if (loading) return <div className="text-xs opacity-70">Loading…</div>;
   if (error) return <div className="text-xs text-red-400">{error}</div>;
-  if (!rows.length) return <div className="text-xs opacity-70">No saved custom cards yet.</div>;
+  if (!rows.length) return (
+    <div className="text-xs opacity-80">
+      No saved custom cards yet. You can create one from the homepage.
+      {' '}<a className="underline" href="/">Go to homepage</a>
+    </div>
+  );
   const base = typeof window !== 'undefined' ? window.location.origin : '';
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(360px,1fr))]">

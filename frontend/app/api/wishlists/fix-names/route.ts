@@ -23,13 +23,21 @@ export async function GET(req: NextRequest){
     const unknown = Array.from(new Set(items.filter(n => !knownSet.has(norm(n)))));
     if (unknown.length === 0) return NextResponse.json({ ok:true, items: [] });
 
-    // Ask fuzzy endpoint for suggestions
-    const origin = req.nextUrl?.origin || process.env.NEXT_PUBLIC_BASE_URL || '';
-    const urlF = origin ? `${origin}/api/cards/fuzzy` : new URL('/api/cards/fuzzy', req.url).toString();
-    const rf = await fetch(urlF, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: unknown.slice(0,50) }) });
-    const jf:any = await rf.json().catch(()=>({}));
-    const map = jf?.results || {};
-    const out = unknown.map(n => ({ name: n, suggestions: (map[n]?.all||[]).filter(Boolean) }));
-    return NextResponse.json({ ok:true, items: out });
+    // Ask fuzzy endpoint for suggestions by calling handler directly (avoid self-fetch TLS issues)
+    try {
+      const { POST: fuzzy } = await import("@/app/api/cards/fuzzy/route");
+      const fuzzyReq = new (await import('next/server')).NextRequest(new URL('/api/cards/fuzzy', req.url), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' } as any,
+        body: JSON.stringify({ names: unknown.slice(0,50) }),
+      } as any);
+      const fuzzyRes = await fuzzy(fuzzyReq);
+      const jf:any = await fuzzyRes.json().catch(()=>({}));
+      const map = jf?.results || {};
+      const out = unknown.map(n => ({ name: n, suggestions: (map[n]?.all||[]).filter(Boolean) }));
+      return NextResponse.json({ ok:true, items: out });
+    } catch (e:any) {
+      return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
+    }
   }catch(e:any){ return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 }); }
 }

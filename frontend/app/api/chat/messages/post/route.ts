@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
+import { POST as chatPOST } from "@/app/api/chat/route";
 
 function codeAndHint(status: number) {
   if (status === 401) return { code: "AUTH_MISSING", hint: "Please sign in again." };
@@ -70,18 +71,16 @@ export async function POST(req: NextRequest) {
     ...(parsed.context ? { context: parsed.context } : {}),
   };
 
-  const res = await fetch(new URL("/api/chat", req.url), {
+  // Avoid network fetch to self to prevent TLS/proxy issues on some hosts: call the handler directly
+  const internalReq = new NextRequest(new URL("/api/chat", req.url), {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      cookie: cookieHeader,
-    },
+    headers: { "content-type": "application/json", cookie: cookieHeader } as any,
     body: JSON.stringify(forwardPayload),
-    cache: "no-store",
-  });
+  } as any);
+  const internalRes = await chatPOST(internalReq);
 
-  const status = res.status;
-  const txt = await res.text();
+  const status = internalRes.status;
+  const txt = await internalRes.text();
 
   const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
   const ms = Math.round((t1 as number) - (t0 as number));
