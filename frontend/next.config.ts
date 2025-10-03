@@ -33,11 +33,13 @@ const nextConfig: NextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      "img-src 'self' data: https://cards.scryfall.io",
+      // Images from Scryfall (cards + SVG mana symbols) and data URIs
+      "img-src 'self' data: https://cards.scryfall.io https://svgs.scryfall.io",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      "connect-src 'self' https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in",
+      // Allow Scryfall API calls and Supabase/PostHog
+      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in",
       "frame-src https://js.stripe.com https://ko-fi.com",
     ].join('; ');
     return [

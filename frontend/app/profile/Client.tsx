@@ -193,6 +193,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       try { capture('profile_wishlist_save', { count: wishlist.split(/\r?\n/).filter(Boolean).length }); } catch {}
       if (username) { try { capture('profile_username_change'); } catch {} }
       if (favCommander) { try { capture('profile_fav_commander_set'); } catch {} }
+      try {
+        // Also refresh the public profile snapshot so avatar and identity show publicly
+        await fetch('/api/profile/share', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ is_public: true }) });
+      } catch {}
       alert("Profile saved");
     } catch (e:any) {
       alert(e?.message || "Save failed");
@@ -218,7 +222,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     }
   }
 
-  const [showDbg, setShowDbg] = useState(false);
   const gradient = useMemo(() => {
     const map: Record<string,string> = { W: '#e5e7eb', U: '#60a5fa', B: '#64748b', R: '#f87171', G: '#34d399' };
     const cols = (colors.length ? colors : ["U","B"]).map(c => map[c] || '#888');
@@ -365,7 +368,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <PinnedBadgesChips />
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <button onClick={()=>setShowDbg(v=>!v)} className="text-[10px] px-2 py-0.5 rounded border border-neutral-700">DBG</button>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={pro} onChange={(e)=>setPro(e.target.checked)} /> Pro
               </label>
@@ -373,14 +375,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           </div>
         </div>
       </div>
-      {showDbg && (
-        <div className="mt-2 p-2 text-[10px] rounded border border-neutral-800 bg-black/60">
-          <div>Banner debug: source={initialBannerDebug?.source||'none'} method={initialBannerDebug?.method||'none'} art={initialBannerDebug?.art? 'yes':'no'}</div>
-          <div className="mt-1 max-h-32 overflow-auto">
-            <pre>{JSON.stringify((initialBannerDebug?.candidates||[]).slice(0,25), null, 2)}</pre>
-          </div>
-        </div>
-      )}
 
       {/* Body grid with left menu */}
       <div className="grid grid-cols-12 gap-6">
@@ -492,6 +486,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       );
                     })}
                   </div>
+                </div>
+
+                <div className="text-right mt-4">
+                  <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Saving…':'Save profile'}</button>
                 </div>
 
                 </section>

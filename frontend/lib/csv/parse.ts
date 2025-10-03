@@ -123,6 +123,18 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (isHeadingOrComment(line)) continue;
+      // Ampersand-delimited exports like "10x&Forest&The Lord of the Rings"
+      if (line.includes('&')) {
+        const parts = line.split('&').map(s => s.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          // First token can be "10x" or "10"
+          const qtok = parts[0]?.toLowerCase() || '';
+          const qmatch = qtok.match(/^(\d+)x?$/i);
+          const qty = qmatch ? parseInt(qmatch[1], 10) : (qtok.match(/^(\d+)$/) ? parseInt(qtok, 10) : 0);
+          const name = parts[1] || '';
+          if (name && qty > 0) { pushItem(name, qty); continue; }
+        }
+      }
       // "2 Card Name"
       let m = line.match(/^\s*(\d+)\s+(.+?)\s*$/);
       if (m) { pushItem(m[2], parseInt(m[1], 10)); continue; }
