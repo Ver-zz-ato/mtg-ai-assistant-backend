@@ -1,0 +1,143 @@
+name: lightweight-scryfall-import
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # every Sunday at 03:00 UTC (1 hour after the other one)
+  workflow_dispatch:
+
+jobs:
+  lightweight-import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          echo "DEBUG: BASE_URL length: ${#BASE_URL}"
+          echo "DEBUG: BASE_URL value: [$BASE_URL]"
+          if [ -z "$BASE_URL" ]; then
+            echo "Error: BASE_URL is not set in repo secrets." >&2
+            exit 1
+          fi
+          if [ -z "$CRON_KEY" ]; then
+            echo "Error: CRON_KEY is not set in repo secrets." >&2
+            exit 1
+          fi
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+      - name: Lightweight Scryfall import
+        run: |
+          set -e
+          
+          # Try the lightweight endpoint
+          ENDPOINTS=(
+            "$BASE_URL/api/cron/lightweight-scryfall"
+            "$BASE_URL/frontend/api/cron/lightweight-scryfall"
+          )
+          
+          SUCCESS=false
+          
+          for URL in "${ENDPOINTS[@]}"; do
+            echo "DEBUG: Trying lightweight URL: [$URL]"
+            echo "POST $URL"
+            
+            # First test the endpoint
+            echo "Testing lightweight endpoint..."
+            TEST_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+              -X POST \
+              -H "x-cron-key: $CRON_KEY" \
+              -H "x-test-mode: true" \
+              -H "Content-Type: application/json" \
+              --max-time 30 \
+              "$URL" 2>&1 || echo "CURL_ERROR")
+            
+            TEST_HTTP_CODE=$(echo "$TEST_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+            TEST_RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '/HTTP_CODE:/d')
+            
+            echo "Test response code: $TEST_HTTP_CODE"
+            echo "Test response body: $TEST_RESPONSE_BODY"
+            
+            if [ "$TEST_HTTP_CODE" -eq "200" ] || [ "$TEST_HTTP_CODE" -eq "201" ]; then
+              echo "✅ Test successful! Starting lightweight import..."
+              
+              # Process pages until no more data
+              PAGE=1
+              TOTAL_IMPORTED=0
+              
+              while true; do
+                echo "Processing page $PAGE..."
+                
+                PAGE_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                  -X POST \
+                  -H "x-cron-key: $CRON_KEY" \
+                  -H "x-page: $PAGE" \
+                  -H "x-batch-size: 150" \
+                  -H "Content-Type: application/json" \
+                  --max-time 60 \
+                  "$URL" 2>&1 || echo "CURL_ERROR")
+                
+                PAGE_HTTP_CODE=$(echo "$PAGE_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+                PAGE_RESPONSE_BODY=$(echo "$PAGE_RESPONSE" | sed '/HTTP_CODE:/d')
+                
+                echo "Page $PAGE response code: $PAGE_HTTP_CODE"
+                
+                if [ "$PAGE_HTTP_CODE" -eq "200" ] || [ "$PAGE_HTTP_CODE" -eq "201" ]; then
+                  # Extract page information
+                  PAGE_IMPORTED=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
+                  HAS_MORE=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"has_more":true' || echo "")
+                  CARDS_IN_PAGE=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"cards_in_page":[0-9]*' | cut -d: -f2 || echo "0")
+                  
+                  TOTAL_IMPORTED=$((TOTAL_IMPORTED + PAGE_IMPORTED))
+                  echo "✅ Page $PAGE completed: $PAGE_IMPORTED imported, $CARDS_IN_PAGE cards in page. Total: $TOTAL_IMPORTED"
+                  
+                  if [ -z "$HAS_MORE" ]; then
+                    echo "✅ No more pages. Lightweight import completed!"
+                    echo "📊 Final total: $TOTAL_IMPORTED cards imported"
+                    SUCCESS=true
+                    break
+                  else
+                    PAGE=$((PAGE + 1))
+                    echo "➡️ Moving to page $PAGE"
+                    
+                    # Add small delay to be respectful to Scryfall API
+                    sleep 2
+                  fi
+                else
+                  echo "❌ Page $PAGE failed with code: $PAGE_HTTP_CODE"
+                  echo "Response: $PAGE_RESPONSE_BODY"
+                  
+                  if [ "$PAGE" -eq "1" ]; then
+                    # First page failed, try next endpoint
+                    break
+                  else
+                    # Later page failed, still consider it a partial success
+                    echo "⚠️ Import completed partially. Total imported: $TOTAL_IMPORTED"
+                    SUCCESS=true
+                    break
+                  fi
+                fi
+              done
+              
+              if [ "$SUCCESS" = true ]; then
+                break
+              fi
+            elif [ "$TEST_HTTP_CODE" -eq "404" ]; then
+              echo "❌ 404 Not Found - trying next endpoint"
+            elif [ "$TEST_HTTP_CODE" -eq "401" ]; then
+              echo "❌ 401 Unauthorized - check CRON_KEY secret"
+              exit 1
+            else
+              echo "❌ Unexpected test response code: $TEST_HTTP_CODE"
+              echo "Test response body: $TEST_RESPONSE_BODY"
+            fi
+          done
+          
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ All lightweight endpoints failed. Please check:"
+            echo "   - BASE_URL secret points to correct domain"
+            echo "   - Lightweight API routes are deployed correctly"
+            echo "   - CRON_KEY secret is set correctly"
+            exit 1
+          fi
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}

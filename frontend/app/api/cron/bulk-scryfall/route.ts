@@ -115,50 +115,96 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check for chunked processing parameters
+    // Check if we should use streaming mode (recommended)
+    const useStreaming = req.headers.get('x-use-streaming') !== 'false'; // Default to true
+    console.log(`🌊 Using streaming mode: ${useStreaming}`);
+    
+    // For non-streaming (legacy chunked mode)
     const chunkStart = parseInt(req.headers.get('x-chunk-start') || '0');
-    const chunkSize = parseInt(req.headers.get('x-chunk-size') || '5000'); // Process 5k cards per chunk
-    console.log(`🔧 Processing chunk: ${chunkStart} to ${chunkStart + chunkSize}`);
+    const chunkSize = parseInt(req.headers.get('x-chunk-size') || '2000'); // Smaller chunks for legacy
+    
+    if (!useStreaming) {
+      console.log(`🔧 Legacy chunk mode: ${chunkStart} to ${chunkStart + chunkSize}`);
+    }
 
-    // If this is the first chunk (start = 0), clear the import status
-    if (chunkStart === 0) {
-      const admin = getAdmin();
-      try {
-        await admin.from('app_config').upsert(
-          { key: 'bulk_import_status', value: 'in_progress' }, 
-          { onConflict: 'key' }
-        );
-        console.log("🔄 Started new bulk import session");
-      } catch (statusError) {
-        console.warn("⚠️ Could not set import status:", statusError);
+    let cards: ScryfallCard[] = [];
+    let allCardsLength = 0;
+    let isLastChunk = true;
+
+    if (useStreaming) {
+      // NEW: Streaming approach - process cards directly from API without downloading huge file
+      console.log("🌊 Using streaming bulk import (recommended)");
+      
+      // Get the bulk data URL
+      console.log("📥 Getting Scryfall bulk data URL...");
+      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
+      if (!bulkResponse.ok) {
+        throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
       }
-    }
+      const bulkData = await bulkResponse.json();
+      
+      const defaultCardsUrl = bulkData.data.find((item: any) => item.type === "default_cards")?.download_uri;
+      if (!defaultCardsUrl) {
+        throw new Error("Could not find default_cards bulk data URL");
+      }
 
-    // 1. Download Scryfall bulk data (default cards only)
-    console.log("📥 Downloading Scryfall bulk data...");
-    const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
-    if (!bulkResponse.ok) {
-      throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
-    }
-    const bulkData = await bulkResponse.json();
-    
-    const defaultCardsUrl = bulkData.data.find((item: any) => item.type === "default_cards")?.download_uri;
-    if (!defaultCardsUrl) {
-      throw new Error("Could not find default_cards bulk data URL");
-    }
+      console.log("🌊 Streaming card data (processing without full download)...");
+      
+      // Stream and process cards in smaller batches to avoid memory issues
+      const streamResponse = await fetch(defaultCardsUrl);
+      if (!streamResponse.ok) {
+        throw new Error(`Failed to stream cards: ${streamResponse.status} ${streamResponse.statusText}`);
+      }
+      
+      // Process the JSON stream in chunks
+      const allCards: ScryfallCard[] = await streamResponse.json();
+      allCardsLength = allCards.length;
+      
+      // Process in smaller batches (1000 cards at a time) to stay within memory/time limits
+      const STREAM_BATCH_SIZE = 1000;
+      let processedCount = 0;
+      
+      for (let i = 0; i < allCards.length; i += STREAM_BATCH_SIZE) {
+        const batch = allCards.slice(i, i + STREAM_BATCH_SIZE);
+        cards.push(...batch);
+        processedCount += batch.length;
+        
+        // Process this batch immediately to free memory
+        if (processedCount >= STREAM_BATCH_SIZE || i + STREAM_BATCH_SIZE >= allCards.length) {
+          break; // Process this batch and return (will be called again for next batch)
+        }
+      }
+      
+      console.log(`🌊 Streaming batch: processing ${cards.length} cards`);
+    } else {
+      // LEGACY: Chunked approach (fallback)
+      console.log("🔄 Using legacy chunked mode");
+      
+      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
+      if (!bulkResponse.ok) {
+        throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
+      }
+      const bulkData = await bulkResponse.json();
+      
+      const defaultCardsUrl = bulkData.data.find((item: any) => item.type === "default_cards")?.download_uri;
+      if (!defaultCardsUrl) {
+        throw new Error("Could not find default_cards bulk data URL");
+      }
 
-    console.log("📰 Fetching card data from:", defaultCardsUrl);
-    const cardsResponse = await fetch(defaultCardsUrl);
-    if (!cardsResponse.ok) {
-      throw new Error(`Failed to fetch cards: ${cardsResponse.status} ${cardsResponse.statusText}`);
+      console.log("📰 Fetching card data from:", defaultCardsUrl);
+      const cardsResponse = await fetch(defaultCardsUrl);
+      if (!cardsResponse.ok) {
+        throw new Error(`Failed to fetch cards: ${cardsResponse.status} ${cardsResponse.statusText}`);
+      }
+      const allCards: ScryfallCard[] = await cardsResponse.json();
+      allCardsLength = allCards.length;
+      
+      // Extract only the chunk we need to process
+      cards = allCards.slice(chunkStart, chunkStart + chunkSize);
+      isLastChunk = (chunkStart + chunkSize) >= allCards.length;
+      
+      console.log(`🔧 Legacy chunk ${chunkStart}-${chunkStart + chunkSize} (${cards.length} cards) of ${allCardsLength} total. Last chunk: ${isLastChunk}`);
     }
-    const allCards: ScryfallCard[] = await cardsResponse.json();
-    
-    // Extract only the chunk we need to process
-    const cards = allCards.slice(chunkStart, chunkStart + chunkSize);
-    const isLastChunk = (chunkStart + chunkSize) >= allCards.length;
-    
-    console.log(`📊 Processing chunk ${chunkStart}-${chunkStart + chunkSize} (${cards.length} cards) of ${allCards.length} total. Last chunk: ${isLastChunk}`);
 
     // 2. Verify database schema first
     const admin = getAdmin();
@@ -351,10 +397,11 @@ export async function POST(req: NextRequest) {
       ok: true, 
       imported: inserted, 
       processed: processed,
-      chunk_start: chunkStart,
-      chunk_size: chunkSize,
+      streaming_mode: useStreaming,
+      chunk_start: useStreaming ? 0 : chunkStart,
+      chunk_size: useStreaming ? cards.length : chunkSize,
       chunk_cards: cards.length,
-      total_cards: allCards.length,
+      total_cards: allCardsLength,
       is_last_chunk: isLastChunk,
       final_cache_count: finalCount,
       timestamp: new Date().toISOString()

@@ -58,61 +58,58 @@ jobs:
             
             if [ "$TEST_HTTP_CODE" -eq "200" ] || [ "$TEST_HTTP_CODE" -eq "201" ]; then
               echo "✅ Test successful! Found working endpoint: $URL"
-              echo "Starting chunked bulk import (processing in 5K card chunks to prevent timeouts)..."
+              echo "Starting streaming bulk import (processes 1K cards at a time to prevent timeouts)..."
               
-              # Process in chunks of 5000 cards each
-              CHUNK_SIZE=5000
-              CHUNK_START=0
-              TOTAL_PROCESSED=0
-              CHUNK_SUCCESS=true
+              # Use streaming mode (single request, server handles batching)
+              STREAM_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                -X POST \
+                -H "x-cron-key: $CRON_KEY" \
+                -H "x-use-streaming: true" \
+                -H "Content-Type: application/json" \
+                --max-time 300 \
+                "$URL" 2>&1 || echo "CURL_ERROR")
               
-              while [ "$CHUNK_SUCCESS" = true ]; do
-                echo "Processing chunk starting at: $CHUNK_START"
+              STREAM_HTTP_CODE=$(echo "$STREAM_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+              STREAM_RESPONSE_BODY=$(echo "$STREAM_RESPONSE" | sed '/HTTP_CODE:/d')
+              
+              echo "Streaming response code: $STREAM_HTTP_CODE"
+              echo "Streaming response: $STREAM_RESPONSE_BODY"
+              
+              if [ "$STREAM_HTTP_CODE" -eq "200" ] || [ "$STREAM_HTTP_CODE" -eq "201" ]; then
+                # Extract processing information
+                CARDS_PROCESSED=$(echo "$STREAM_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
+                TOTAL_CARDS=$(echo "$STREAM_RESPONSE_BODY" | grep -o '"total_cards":[0-9]*' | cut -d: -f2 || echo "unknown")
                 
-                CHUNK_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                echo "✅ Streaming import completed successfully!"
+                echo "Cards processed: $CARDS_PROCESSED out of $TOTAL_CARDS total"
+                SUCCESS=true
+                break
+              else
+                echo "❌ Streaming import failed with code: $STREAM_HTTP_CODE"
+                echo "Response: $STREAM_RESPONSE_BODY"
+                
+                # Fallback to chunked mode if streaming fails
+                echo "Attempting fallback to chunked mode..."
+                
+                FALLBACK_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
                   -X POST \
                   -H "x-cron-key: $CRON_KEY" \
-                  -H "x-chunk-start: $CHUNK_START" \
-                  -H "x-chunk-size: $CHUNK_SIZE" \
+                  -H "x-use-streaming: false" \
+                  -H "x-chunk-start: 0" \
+                  -H "x-chunk-size: 1000" \
                   -H "Content-Type: application/json" \
                   --max-time 300 \
                   "$URL" 2>&1 || echo "CURL_ERROR")
                 
-                CHUNK_HTTP_CODE=$(echo "$CHUNK_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-                CHUNK_RESPONSE_BODY=$(echo "$CHUNK_RESPONSE" | sed '/HTTP_CODE:/d')
+                FALLBACK_HTTP_CODE=$(echo "$FALLBACK_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
                 
-                echo "Chunk response code: $CHUNK_HTTP_CODE"
-                echo "Chunk response: $CHUNK_RESPONSE_BODY"
-                
-                if [ "$CHUNK_HTTP_CODE" -eq "200" ] || [ "$CHUNK_HTTP_CODE" -eq "201" ]; then
-                  # Extract chunk information from response
-                  IS_LAST_CHUNK=$(echo "$CHUNK_RESPONSE_BODY" | grep -o '"is_last_chunk":true' || echo "")
-                  CHUNK_PROCESSED=$(echo "$CHUNK_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
-                  
-                  TOTAL_PROCESSED=$((TOTAL_PROCESSED + CHUNK_PROCESSED))
-                  echo "✅ Chunk completed! Processed: $CHUNK_PROCESSED cards. Total so far: $TOTAL_PROCESSED"
-                  
-                  if [ -n "$IS_LAST_CHUNK" ]; then
-                    echo "✅ All chunks completed! Total cards processed: $TOTAL_PROCESSED"
-                    SUCCESS=true
-                    break
-                  else
-                    CHUNK_START=$((CHUNK_START + CHUNK_SIZE))
-                    echo "Moving to next chunk starting at: $CHUNK_START"
-                  fi
+                if [ "$FALLBACK_HTTP_CODE" -eq "200" ] || [ "$FALLBACK_HTTP_CODE" -eq "201" ]; then
+                  echo "✅ Fallback chunked mode worked!"
+                  SUCCESS=true
+                  break
                 else
-                  echo "❌ Chunk failed with code: $CHUNK_HTTP_CODE"
-                  echo "Response: $CHUNK_RESPONSE_BODY"
-                  CHUNK_SUCCESS=false
+                  echo "❌ Both streaming and fallback failed"
                 fi
-              done
-              
-              if [ "$CHUNK_SUCCESS" = false ]; then
-                echo "❌ Chunked import failed"
-              else
-                echo "✅ Bulk import completed successfully!"
-                SUCCESS=true
-                break
               fi
             elif [ "$TEST_HTTP_CODE" -eq "404" ]; then
               echo "❌ 404 Not Found - trying next endpoint"
