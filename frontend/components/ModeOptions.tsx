@@ -22,7 +22,7 @@ export default function ModeOptions() {
   const safeClearColors = clearColors ?? (() => {});
   const safeSetCurrency = setCurrency ?? ((_: string) => {});
 const pill = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg border text-sm ${
+    `px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border text-xs sm:text-sm ${
       active ? "bg-gray-700 border-gray-600" : "bg-gray-800 border-gray-700 hover:bg-gray-700"
     }`;
 
@@ -30,24 +30,24 @@ const pill = (active: boolean) =>
 
   return (
     <div className="border-b border-gray-800 bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap gap-3 items-center">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 flex flex-wrap gap-1 sm:gap-2 md:gap-3 items-center text-sm sm:text-base">
         {mode === "deck" && (
           <>
-            <span className="text-gray-400 mr-1">Format</span>
+            <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
             {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
               <button key={f} className={pill(format === f)} onClick={() => safeSetFormat(f)}>{f}</button>
             ))}
-            <span className="mx-2 text-gray-600">|</span>
-            <span className="text-gray-400 mr-1">Plan</span>
+            <span className="mx-1 sm:mx-2 text-gray-600 hidden sm:inline">|</span>
+            <span className="text-gray-400 mr-1 text-xs sm:text-sm">Plan</span>
             {(["Budget", "Optimized"] as const).map((p) => (
               <button key={p} className={pill(plan === p)} onClick={() => safeSetPlan(p)}>{p}</button>
             ))}
-            <span className="mx-2 text-gray-600">|</span>
-            <span className="text-gray-400 mr-1">Colors</span>
+            <span className="mx-1 sm:mx-2 text-gray-600 hidden sm:inline">|</span>
+            <span className="text-gray-400 mr-1 text-xs sm:text-sm">Colors</span>
             {(["W","U","B","R","G"] as const).map((c) => (
               <button
                 key={c}
-                className={`px-3 py-1.5 rounded-lg border text-sm ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border text-xs sm:text-sm ${
                   colorsList.includes(c)
                     ? "bg-yellow-500/20 border-yellow-400 text-yellow-300"
                     : "bg-gray-800 border-gray-700 hover:bg-gray-700"
@@ -59,7 +59,7 @@ const pill = (active: boolean) =>
               </button>
             ))}
             <button
-              className="px-3 py-1.5 rounded-lg border text-sm bg-gray-800 border-gray-700 hover:bg-gray-700"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border text-xs sm:text-sm bg-gray-800 border-gray-700 hover:bg-gray-700"
               onClick={safeClearColors}
             >
               Clear
@@ -69,7 +69,7 @@ const pill = (active: boolean) =>
 
         {mode === "rules" && (
           <>
-            <span className="text-gray-400 mr-1">Format</span>
+            <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
             {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
               <button key={f} className={pill(format === f)} onClick={() => safeSetFormat(f)}>{f}</button>
             ))}
@@ -78,10 +78,10 @@ const pill = (active: boolean) =>
 
         {(mode === "deck" || mode === "price") && (
           <>
-            <span className="mx-2 text-gray-600">|</span>
-            <span className="text-gray-400 mr-1">Currency</span>
+            <span className="mx-1 sm:mx-2 text-gray-600 hidden sm:inline">|</span>
+            <span className="text-gray-400 mr-1 text-xs sm:text-sm">Currency</span>
             <select
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm"
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
               value={currency ?? "USD"}
               onChange={onCurrencyChange}
             >

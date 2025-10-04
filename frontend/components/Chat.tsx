@@ -805,7 +805,7 @@ try {
               const isAssistant = true;
               return (
                 <div key={m.id} className="text-right">
-                  <div className="group inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
+                  <div className="group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
                     <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                       <span>assistant</span>
                     </div>
@@ -862,7 +862,7 @@ try {
               const d:any = obj.data;
               return (
                 <div key={m.id} className="text-right">
-                  <div className="group inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
+                  <div className="group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
                     <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2"><span>assistant</span></div>
                     <div className="text-[12px] opacity-90">
                       <div className="font-semibold mb-1">Rules references</div>
@@ -882,7 +882,7 @@ try {
               const isAssistant = true;
               return (
                 <div key={m.id} className="text-right">
-                  <div className="group inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
+                  <div className="group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
                     <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2"><span>assistant</span></div>
                     <div className="text-[12px] opacity-90">
                       <div className="mb-1">Translated: <code className="px-1 py-[1px] rounded bg-neutral-800 border border-neutral-700">{d?.scryfall_query}</code></div>
@@ -921,7 +921,7 @@ try {
               const isAssistant = true;
               return (
                 <div key={m.id} className="text-right">
-                  <div className="group inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
+                  <div className="group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap relative overflow-visible">
                     <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                       <span>assistant</span>
                     </div>
@@ -1024,7 +1024,7 @@ try {
             <div key={m.id} className={isAssistant ? "text-right" : "text-left"}>
               <div
                 className={
-                  "group inline-block max-w-[100%] sm:max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
+                  "group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
                   (isAssistant ? "bg-blue-900/40" : "bg-neutral-800")
                 }
               >
@@ -1103,7 +1103,7 @@ try {
       )}
 
       {/* Suggested prompt chips */}
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] opacity-90">
+      <div className="mb-2 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] opacity-90">
         {[
           { label: '“Build me a Commander deck”', text: 'Build me a Commander deck' },
           { label: '“Find budget swaps”', text: 'Find budget swaps' },
@@ -1116,7 +1116,7 @@ try {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-col sm:flex-row">
         <textarea
           data-testid="chat-textarea"
           value={text}
@@ -1129,9 +1129,9 @@ try {
           }}
           placeholder="Ask anything or paste a decklist… (Shift+Enter for newline)"
           rows={3}
-          className="flex-1 bg-neutral-900 text-white border border-neutral-700 rounded px-3 py-2 resize-y"
+          className="flex-1 bg-neutral-900 text-white border border-neutral-700 rounded px-3 py-2 resize-y min-h-[80px]"
         />
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2 sm:flex-col justify-center sm:justify-start">
           <button 
             onClick={toggleVoiceInput} 
             className={`px-3 py-2 h-fit rounded border text-white transition-colors ${

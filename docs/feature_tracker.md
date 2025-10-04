@@ -16,8 +16,8 @@ Legend: ☑ done · ◪ partial · ☐ todo
 
 ## Data & Sync
 
-☐ Scryfall bulk sync <!-- id:data.scryfall_bulk -->
-☐ Nightly Scryfall refresh <!-- id:data.nightly_jobs -->
+☑ Scryfall bulk sync <!-- id:data.scryfall_bulk -->
+☑ Nightly Scryfall refresh <!-- id:data.nightly_jobs -->
 ☑ Cached price snapshots for Cost-to-Finish (persistent toggle, delta vs yesterday) <!-- id:data.price_snapshots -->
 ☑ Scryfall server-side cache (DB table + helpers; upsert on save/update; batch fetch) <!-- id:data.scryfall_cache -->
 ☑ Scryfall cache TTL + on-demand refresh (30d; per-request cap; prewarm cron) <!-- id:data.scryfall_cache_ttl -->
@@ -41,12 +41,12 @@ Legend: ☑ done · ◪ partial · ☐ todo
 
 ## Personas
 
-☐ Brewer persona <!-- id:persona.brewer -->
-☐ Judge persona <!-- id:persona.judge -->
-☐ Tutor persona <!-- id:persona.tutor -->
-☐ Seed persona per thread <!-- id:persona.system_seed -->
-☐ Persona toggle in UI <!-- id:persona.ui_toggle -->
-☐ AI coach persona (step-by-step deck feedback) <!-- id:persona.coach -->
+☑ Brewer persona <!-- id:persona.brewer -->
+☑ Judge persona <!-- id:persona.judge -->
+☑ Tutor persona <!-- id:persona.tutor -->
+☑ Seed persona per thread <!-- id:persona.system_seed -->
+☑ Persona toggle in UI <!-- id:persona.ui_toggle -->
+☑ AI coach persona (step-by-step deck feedback) <!-- id:persona.coach -->
 
 ## Decks & Collections
 
@@ -76,7 +76,7 @@ Legend: ☑ done · ◪ partial · ☐ todo
 ☑ Collection manager <!-- id:deck.collection_mgr -->
 ☑ CSV import (Arena unclear) <!-- id:deck.import_csv -->
 ☑ Export deck CSV + copy list <!-- id:deck.export_csv_copy -->
-☐ Export to Moxfield/Arena text formats <!-- id:deck.export_moxfield_arena -->
+☑ Export to Moxfield/Arena text formats <!-- id:deck.export_moxfield_arena -->
 ☑ SnapshotFromMessage wired <!-- id:deck.snapshot_from_msg -->
 ☑ Cost-to-Finish (live pricing + FX) <!-- id:deck.cost_to_finish -->
 ☑ Budget Swaps page + API (respects snapshot pricing; shared snapshot prefs) <!-- id:deck.budget_swaps -->
@@ -101,10 +101,10 @@ Legend: ☑ done · ◪ partial · ☐ todo
 
 ☑ Collections: internal list scrollbar within the editor panel (prevents full-page growth). <!-- id:ui.collections_scrollpanel -->
 ☑ Collections: Wishlist compare moved above advanced analytics; panels show chevrons. <!-- id:ui.collections_wishlist_compare_move -->
-- ☐ Set icons sprite: replace text badge with real SVG set icons (WUBRG‑themed). <!-- id:ui.set_icons_svg -->
-- ☐ Optional “Apply” mode for filters (toggle immediate vs staged). <!-- id:ui.filters_apply_toggle -->
+- ☑ Set icons sprite: replace text badge with real SVG set icons (WUBRG‑themed). <!-- id:ui.set_icons_svg -->
+- ☑ Optional "Apply" mode for filters (toggle immediate vs staged). <!-- id:ui.filters_apply_toggle -->
 
-- ☐ Wishlist UX revamp: dedicate Wishlists page (lists + items), reflect Add-to-Wishlist from Collections, quick add/search, move out of Profile box for better visibility. <!-- id:ui.wishlist_revamp -->
+- ☑ Wishlist UX revamp: dedicate Wishlists page (lists + items), reflect Add-to-Wishlist from Collections, quick add/search, move out of Profile box for better visibility. <!-- id:ui.wishlist_revamp -->
 ☑ Wishlist Editor upgrades in Profile — typeahead, hover preview, CSV, sticky header, bulk remove, name fixes (Pro) <!-- id:ui.wishlist_profile_upgrades -->
   - Implemented endpoints: /api/wishlists/upload-csv, /api/wishlists/export, /api/wishlists/remove-batch, /api/wishlists/fix-names, /api/wishlists/fix-names/apply, /api/wishlists/rename.
   - Editor now supports: typeahead add, bulk add modal, keyboard shortcuts (+/−/Delete, Ctrl+F, Ctrl+B), hover previews, internal scroll with sticky header, selection + Remove selected, inline fix?, and Pro‑gated batch fix with server enforcement.
@@ -118,12 +118,12 @@ Legend: ☑ done · ◪ partial · ☐ todo
 ☑ Collections: deep-link to Cost-to-Finish with collection preselected <!-- id:ui.collections_ctf_deeplink -->
 ☑ Header: My Collections link added <!-- id:ui.header_collections_link -->
 ☑ Header auth: Sign up + Forgot password (modal entries) <!-- id:ui.auth_quick -->
-◪ History dropdown reload resilience <!-- id:ui.history_resilience -->
+☑ History dropdown reload resilience <!-- id:ui.history_resilience -->
 ☑ Error toasts present across API calls <!-- id:ui.error_toasts -->
-◪ Mobile responsiveness verified <!-- id:ui.mobile_responsive -->
+◪ Mobile responsiveness verified (IN PROGRESS) <!-- id:ui.mobile_responsive -->
 ☑ Probability/Mulligan: deep-link + presets + persistence + copy summary <!-- id:ui.tools_polish -->
-☐ Finetune Probability Helpers UI <!-- id:ui.finetune_prob -->
-☐ Finetune Mulligan Simulator UI <!-- id:ui.finetune_mull -->
+☑ Finetune Probability Helpers UI <!-- id:ui.finetune_prob -->
+☑ Finetune Mulligan Simulator UI <!-- id:ui.finetune_mull -->
 
 ## UI / Images
 

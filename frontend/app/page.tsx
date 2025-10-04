@@ -14,12 +14,21 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 pt-0">
           <TopToolsStrip />
         </div>
-        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-12 gap-4">
-          <aside className="hidden xl:flex xl:col-span-3"><LeftSidebar /></aside>
-          <section className="col-span-12 xl:col-span-5 flex flex-col gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left sidebar - hidden on mobile, shown on large screens */}
+          <aside className="hidden lg:block lg:col-span-3">
+            <LeftSidebar />
+          </aside>
+          
+          {/* Main chat area */}
+          <section className="col-span-1 lg:col-span-6 xl:col-span-5 flex flex-col gap-3">
             <Chat />
           </section>
-          <aside className="col-span-12 xl:col-span-4"><RightSidebar /></aside>
+          
+          {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop */}
+          <aside className="col-span-1 lg:col-span-3 xl:col-span-4 order-last lg:order-none">
+            <RightSidebar />
+          </aside>
         </div>
       </div>
       <FeedbackFab /> {/* ← floating feedback button */}

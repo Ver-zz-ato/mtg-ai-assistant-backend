@@ -17,6 +17,7 @@ export default function Header() {
   const [signupPassword, setSignupPassword] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -56,13 +57,13 @@ export default function Header() {
   return (
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-<Link href="/" className="font-semibold flex items-center gap-2">
+        <Link href="/" className="font-semibold flex items-center gap-2">
           <Logo size={28} />
-          ManaTap AI
+          <span className="hidden sm:block">ManaTap AI</span>
         </Link>
 
-        <nav className="flex items-center gap-3">
-          {/* Pro badge to the far left of nav for visibility when signed in */}
+        {/* Desktop Navigation */}
+        <nav className="hidden lg:flex items-center gap-3">
           {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
           <Link href="/my-decks" className="text-sm hover:underline">
             My Decks
@@ -80,13 +81,8 @@ export default function Header() {
           {sessionUser ? (
             <>
               <span className="flex items-center gap-2 text-xs opacity-90">
-                {/* Pro badge */}
-                {/** Lazy import would be overkill; include inline */}
-              
                 {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : null}
-                <span>{displayName || sessionUser}</span>
-                {/* Mount ProBadge next to name */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <span className="hidden md:block">{displayName || sessionUser}</span>
               </span>
               <button
                 onClick={signOut}
@@ -97,48 +93,152 @@ export default function Header() {
             </>
           ) : (
             <>
-            <form onSubmit={signIn} className="flex items-center gap-2">
-              <input
-                type="email"
-                placeholder="email"
-                className="rounded-lg border px-2 py-1 text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="password"
-                className="rounded-lg border px-2 py-1 text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <form onSubmit={signIn} className="flex items-center gap-2">
+                <input
+                  type="email"
+                  placeholder="email"
+                  className="rounded-lg border px-2 py-1 text-sm w-24"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="password"
+                  className="rounded-lg border px-2 py-1 text-sm w-24"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+                >
+                  Sign in
+                </button>
+              </form>
               <button
-                type="submit"
+                type="button"
+                onClick={() => setShowSignUp(true)}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
               >
-                Sign in
+                Sign up
               </button>
-            </form>
-            <button
-              type="button"
-              onClick={() => setShowSignUp(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-            >
-              Create account
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForgot(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-            >
-              Forgot?
-            </button>
             </>
           )}
         </nav>
+
+        {/* Mobile Navigation */}
+        <div className="lg:hidden flex items-center gap-2">
+          {sessionUser && avatar && (
+            <img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
+          )}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t bg-white dark:bg-gray-900">
+          <div className="px-4 py-3 space-y-3">
+            {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
+            
+            <Link 
+              href="/my-decks" 
+              className="block py-2 text-sm hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              My Decks
+            </Link>
+            <Link 
+              href="/collections" 
+              className="block py-2 text-sm hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              My Collections
+            </Link>
+            <Link 
+              href="/profile?tab=wishlist" 
+              className="block py-2 text-sm hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              My Wishlist
+            </Link>
+            <Link 
+              href="/profile" 
+              className="block py-2 text-sm hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Profile
+            </Link>
+
+            {sessionUser ? (
+              <>
+                <div className="py-2 text-xs text-gray-600 border-t">
+                  {displayName || sessionUser}
+                </div>
+                <button
+                  onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                  className="w-full text-left py-2 text-sm text-red-600 hover:text-red-800"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <div className="border-t pt-3 space-y-2">
+                <form onSubmit={(e) => { signIn(e); setMobileMenuOpen(false); }} className="space-y-2">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
+                  >
+                    Sign in
+                  </button>
+                </form>
+                <button
+                  onClick={() => { setShowSignUp(true); setMobileMenuOpen(false); }}
+                  className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Create account
+                </button>
+                <button
+                  onClick={() => { setShowForgot(true); setMobileMenuOpen(false); }}
+                  className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sign up modal */}
       {showSignUp && (

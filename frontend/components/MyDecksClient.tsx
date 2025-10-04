@@ -48,7 +48,7 @@ export default function MyDecksClient({ decks }: { decks: Array<{ id:string; tit
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-label="Deck details">
       <button className="absolute inset-0 bg-black/50" onClick={()=> router.push('/my-decks', { scroll:false } as any)} aria-label="Close" />
-      <div className="absolute right-0 top-0 bottom-0 w-[90vw] sm:w-[520px] bg-neutral-950 border-l border-neutral-800 p-4 overflow-y-auto">
+      <div className="absolute inset-x-0 sm:inset-x-auto sm:right-0 top-0 bottom-0 sm:w-[520px] bg-neutral-950 border-l border-neutral-800 p-4 overflow-y-auto">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="text-lg font-semibold truncate" title={deck.title}>{deck.title}</div>

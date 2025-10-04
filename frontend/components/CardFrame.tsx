@@ -57,7 +57,7 @@ export default function CardFrame({ value, mode='view', onChange, artOptions=[],
   const showPT = /\bCreature\b/i.test(value.typeLine || '');
 
   return (
-    <div className="relative mx-auto select-none overflow-hidden rounded-2xl" style={{ width: width || 'clamp(300px, 36vw, 560px)', ...bgStyle }}>
+    <div className="relative mx-auto select-none overflow-hidden rounded-2xl" style={{ width: width || 'clamp(280px, 90vw, 560px)', maxWidth: '100%', ...bgStyle }}>
       {/* Grain + vignette overlays */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.07] -z-10" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)', backgroundSize: '3px 3px' }} />
       <div className="pointer-events-none absolute inset-0 -z-10" style={{ background: 'radial-gradient(140% 120% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.24) 100%)' }} />
