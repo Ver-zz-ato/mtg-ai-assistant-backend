@@ -28,10 +28,10 @@ jobs:
         run: |
           set -e
           
-          # Try the lightweight endpoint
+          # Try the existing bulk endpoint with safe streaming parameters
           ENDPOINTS=(
-            "$BASE_URL/api/cron/lightweight-scryfall"
-            "$BASE_URL/frontend/api/cron/lightweight-scryfall"
+            "$BASE_URL/api/cron/bulk-scryfall"
+            "$BASE_URL/frontend/api/cron/bulk-scryfall"
           )
           
           SUCCESS=false
