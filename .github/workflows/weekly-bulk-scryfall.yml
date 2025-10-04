@@ -1,9 +1,10 @@
-name: weekly-bulk-scryfall-import
+name: weekly-bulk-scryfall-import-DISABLED
 
-on:
-  schedule:
-    - cron: "0 2 * * 0" # every Sunday at 02:00 UTC
-  workflow_dispatch:
+# DISABLED - using lightweight-scryfall.yml instead due to 502 errors
+# on:
+#   schedule:
+#     - cron: "0 2 * * 0" # every Sunday at 02:00 UTC
+#   workflow_dispatch:
 
 jobs:
   bulk-import:
