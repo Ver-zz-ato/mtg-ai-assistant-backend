@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withLogging } from "@/lib/api/withLogging";
 import { ok, err } from "@/lib/api/envelope";
 import { PriceBody } from "@/lib/validation";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Normalize a card name so the client and server use the exact same key.
@@ -70,6 +71,61 @@ function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
+}
+
+/**
+ * Check price cache for existing prices (24-hour TTL)
+ */
+async function getCachedPrices(names: string[]): Promise<Record<string, { usd?: number; eur?: number; gbp?: number }>> {
+  try {
+    const supabase = await createClient();
+    const normalizedNames = names.map(normalizeName);
+    
+    const { data } = await supabase
+      .from('price_cache')
+      .select('name, usd, eur, gbp, updated_at')
+      .in('name', normalizedNames)
+      .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // 24 hours ago
+    
+    const cached: Record<string, { usd?: number; eur?: number; gbp?: number }> = {};
+    for (const row of (data || [])) {
+      cached[row.name] = {
+        usd: row.usd ? Number(row.usd) : undefined,
+        eur: row.eur ? Number(row.eur) : undefined,
+        gbp: row.gbp ? Number(row.gbp) : undefined
+      };
+    }
+    
+    return cached;
+  } catch (error) {
+    console.warn('Price cache lookup failed:', error);
+    return {};
+  }
+}
+
+/**
+ * Cache prices for 24 hours
+ */
+async function cachePrices(priceData: Record<string, { usd?: number; eur?: number; gbp?: number }>): Promise<void> {
+  try {
+    const supabase = await createClient();
+    
+    const rows = Object.entries(priceData).map(([name, prices]) => ({
+      name,
+      usd: prices.usd || null,
+      eur: prices.eur || null,
+      gbp: prices.gbp || null,
+      updated_at: new Date().toISOString()
+    }));
+    
+    if (rows.length > 0) {
+      await supabase
+        .from('price_cache')
+        .upsert(rows, { onConflict: 'name' });
+    }
+  } catch (error) {
+    console.warn('Price caching failed:', error);
+  }
 }
 
 /**
@@ -149,25 +205,83 @@ export const POST = withLogging(async (req: NextRequest) => {
 
     const want: Currency = (currency ?? "USD").toUpperCase() as Currency;
 
-    // Fetch raw Scryfall prices
-    const scry = await fetchScryfallPrices(names);
+    // Step 1: Check cache for existing prices
+    const cachedPrices = await getCachedPrices(names);
+    const cacheHits = new Set(Object.keys(cachedPrices));
+    
+    // Step 2: Identify names that need fresh data
+    const uniqueNames = Array.from(new Set(names.map(normalizeName)));
+    const needsFresh = uniqueNames.filter(name => !cacheHits.has(name));
+    
+    console.log(`Price cache: ${cacheHits.size} hits, ${needsFresh.length} misses for ${uniqueNames.length} unique cards`);
+    
+    // Step 3: Fetch missing prices from Scryfall
+    let freshPrices: Record<string, ScryfallCard> = {};
+    let newCacheData: Record<string, { usd?: number; eur?: number; gbp?: number }> = {};
+    
+    if (needsFresh.length > 0) {
+      freshPrices = await fetchScryfallPrices(needsFresh);
+      
+      // Prepare fresh data for caching
+      const { USD_EUR, USD_GBP } = await getFxRates();
+      
+      for (const [normName, card] of Object.entries(freshPrices)) {
+        const usdRaw = card.prices.usd ? Number(card.prices.usd) : undefined;
+        const eurRaw = card.prices.eur ? Number(card.prices.eur) : undefined;
+        const gbpCalculated = usdRaw ? Number((usdRaw * USD_GBP).toFixed(2)) : undefined;
+        
+        newCacheData[normName] = {
+          usd: usdRaw,
+          eur: eurRaw || (usdRaw ? Number((usdRaw * USD_EUR).toFixed(2)) : undefined),
+          gbp: gbpCalculated
+        };
+      }
+      
+      // Cache the fresh data
+      await cachePrices(newCacheData);
+    }
 
-    // Build the final price map keyed by *normalized name*
+    // Step 4: Build final response using cached + fresh data
     const prices: PriceMap = {};
     const missing: string[] = [];
 
-    // Compute price for each incoming name (not just the deduped set)
     for (const raw of names) {
       const norm = normalizeName(raw);
-      const card = scry[norm];
-      const unit = await toCurrencyUnit(card, want);
-      if (unit === 0) missing.push(raw);
-      prices[norm] = unit;
+      let price = 0;
+      
+      // Try cache first
+      if (cachedPrices[norm]) {
+        const cached = cachedPrices[norm];
+        if (want === "USD" && cached.usd) price = cached.usd;
+        else if (want === "EUR" && cached.eur) price = cached.eur;
+        else if (want === "GBP" && cached.gbp) price = cached.gbp;
+      }
+      
+      // Fall back to fresh data
+      if (price === 0 && newCacheData[norm]) {
+        const fresh = newCacheData[norm];
+        if (want === "USD" && fresh.usd) price = fresh.usd;
+        else if (want === "EUR" && fresh.eur) price = fresh.eur;
+        else if (want === "GBP" && fresh.gbp) price = fresh.gbp;
+      }
+      
+      if (price === 0) missing.push(raw);
+      prices[norm] = price;
     }
 
-    return NextResponse.json({ ok: true, currency: want, prices, missing });
+    return NextResponse.json({ 
+      ok: true, 
+      currency: want, 
+      prices, 
+      missing,
+      cache_stats: {
+        hits: cacheHits.size,
+        misses: needsFresh.length,
+        total: uniqueNames.length
+      }
+    });
   } catch (err) {
-    // Never throw HTML at the client; always JSON with a friendly message.
+    console.error('Price API error:', err);
     return NextResponse.json(
       {
         ok: false,

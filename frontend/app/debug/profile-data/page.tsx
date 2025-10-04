@@ -1,6 +1,7 @@
 // app/debug/profile-data/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import PriceCacheTest from "@/components/PriceCacheTest";
 
 export default async function ProfileDataDebugPage() {
   const supabase = await createClient();
@@ -259,6 +260,7 @@ export default async function ProfileDataDebugPage() {
                   Bulk Import All Cards
                 </button>
               </form>
+              <PriceCacheTest />
             </div>
           </div>
           <div className="space-y-2 text-sm">

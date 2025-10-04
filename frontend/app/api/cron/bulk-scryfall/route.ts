@@ -160,8 +160,8 @@ export async function POST(req: NextRequest) {
       const allCards: ScryfallCard[] = await streamResponse.json();
       allCardsLength = allCards.length;
       
-      // Process in smaller batches (1000 cards at a time) to stay within memory/time limits
-      const STREAM_BATCH_SIZE = 1000;
+      // Process in larger batches (5000 cards at a time) for better coverage while staying within limits
+      const STREAM_BATCH_SIZE = 5000;
       let processedCount = 0;
       
       for (let i = 0; i < allCards.length; i += STREAM_BATCH_SIZE) {
