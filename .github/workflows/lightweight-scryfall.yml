@@ -41,11 +41,12 @@ jobs:
             echo "POST $URL"
             
             # First test the endpoint
-            echo "Testing lightweight endpoint..."
+            echo "Testing endpoint with streaming mode..."
             TEST_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
               -X POST \
               -H "x-cron-key: $CRON_KEY" \
               -H "x-test-mode: true" \
+              -H "x-use-streaming: true" \
               -H "Content-Type: application/json" \
               --max-time 30 \
               "$URL" 2>&1 || echo "CURL_ERROR")
@@ -57,65 +58,37 @@ jobs:
             echo "Test response body: $TEST_RESPONSE_BODY"
             
             if [ "$TEST_HTTP_CODE" -eq "200" ] || [ "$TEST_HTTP_CODE" -eq "201" ]; then
-              echo "✅ Test successful! Starting lightweight import..."
+              echo "✅ Test successful! Starting streaming import..."
               
-              # Process pages until no more data
-              PAGE=1
-              TOTAL_IMPORTED=0
+              # Single streaming request with safer parameters
+              echo "Processing cards in streaming mode..."
               
-              while true; do
-                echo "Processing page $PAGE..."
+              STREAM_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                -X POST \
+                -H "x-cron-key: $CRON_KEY" \
+                -H "x-use-streaming: true" \
+                -H "Content-Type: application/json" \
+                --max-time 300 \
+                "$URL" 2>&1 || echo "CURL_ERROR")
+              
+              STREAM_HTTP_CODE=$(echo "$STREAM_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+              STREAM_RESPONSE_BODY=$(echo "$STREAM_RESPONSE" | sed '/HTTP_CODE:/d')
+              
+              echo "Streaming response code: $STREAM_HTTP_CODE"
+              echo "Streaming response: $STREAM_RESPONSE_BODY"
+              
+              if [ "$STREAM_HTTP_CODE" -eq "200" ] || [ "$STREAM_HTTP_CODE" -eq "201" ]; then
+                # Extract processing information
+                CARDS_IMPORTED=$(echo "$STREAM_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
+                TOTAL_CARDS=$(echo "$STREAM_RESPONSE_BODY" | grep -o '"total_cards":[0-9]*' | cut -d: -f2 || echo "unknown")
                 
-                PAGE_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
-                  -X POST \
-                  -H "x-cron-key: $CRON_KEY" \
-                  -H "x-page: $PAGE" \
-                  -H "x-batch-size: 150" \
-                  -H "Content-Type: application/json" \
-                  --max-time 60 \
-                  "$URL" 2>&1 || echo "CURL_ERROR")
-                
-                PAGE_HTTP_CODE=$(echo "$PAGE_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-                PAGE_RESPONSE_BODY=$(echo "$PAGE_RESPONSE" | sed '/HTTP_CODE:/d')
-                
-                echo "Page $PAGE response code: $PAGE_HTTP_CODE"
-                
-                if [ "$PAGE_HTTP_CODE" -eq "200" ] || [ "$PAGE_HTTP_CODE" -eq "201" ]; then
-                  # Extract page information
-                  PAGE_IMPORTED=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
-                  HAS_MORE=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"has_more":true' || echo "")
-                  CARDS_IN_PAGE=$(echo "$PAGE_RESPONSE_BODY" | grep -o '"cards_in_page":[0-9]*' | cut -d: -f2 || echo "0")
-                  
-                  TOTAL_IMPORTED=$((TOTAL_IMPORTED + PAGE_IMPORTED))
-                  echo "✅ Page $PAGE completed: $PAGE_IMPORTED imported, $CARDS_IN_PAGE cards in page. Total: $TOTAL_IMPORTED"
-                  
-                  if [ -z "$HAS_MORE" ]; then
-                    echo "✅ No more pages. Lightweight import completed!"
-                    echo "📊 Final total: $TOTAL_IMPORTED cards imported"
-                    SUCCESS=true
-                    break
-                  else
-                    PAGE=$((PAGE + 1))
-                    echo "➡️ Moving to page $PAGE"
-                    
-                    # Add small delay to be respectful to Scryfall API
-                    sleep 2
-                  fi
-                else
-                  echo "❌ Page $PAGE failed with code: $PAGE_HTTP_CODE"
-                  echo "Response: $PAGE_RESPONSE_BODY"
-                  
-                  if [ "$PAGE" -eq "1" ]; then
-                    # First page failed, try next endpoint
-                    break
-                  else
-                    # Later page failed, still consider it a partial success
-                    echo "⚠️ Import completed partially. Total imported: $TOTAL_IMPORTED"
-                    SUCCESS=true
-                    break
-                  fi
-                fi
-              done
+                echo "✅ Streaming import completed successfully!"
+                echo "📊 Cards imported: $CARDS_IMPORTED out of $TOTAL_CARDS total"
+                SUCCESS=true
+              else
+                echo "❌ Streaming import failed with code: $STREAM_HTTP_CODE"
+                echo "Response: $STREAM_RESPONSE_BODY"
+              fi
               
               if [ "$SUCCESS" = true ]; then
                 break
