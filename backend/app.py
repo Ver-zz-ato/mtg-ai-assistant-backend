@@ -21,19 +21,31 @@ except Exception:
 app = Flask(__name__)
 
 # ---- CORS ---------------------------------------------------------
-raw_origins = os.getenv("CORS_ORIGINS", "https://manatap.ai,http://localhost:3000")
+raw_origins = os.getenv("CORS_ORIGINS", "https://manatap.ai,https://app.manatap.ai,http://localhost:3000")
 ALLOWED_ORIGINS = [o.strip() for o in raw_origins.replace(" ", "").split(",") if o.strip()]
 CORS(
     app,
-    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
-    supports_credentials=False,
+    resources={r"/api/*": {
+        "origins": ALLOWED_ORIGINS,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
+    }},
+    supports_credentials=True,
 )
 
 @app.after_request
 def add_cors_headers(resp):
     resp.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    resp.headers.setdefault("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    resp.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    resp.headers.setdefault("Access-Control-Allow-Credentials", "true")
     return resp
+
+# Handle preflight OPTIONS requests explicitly
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_preflight(path):
+    response = jsonify({"ok": True, "message": "Preflight OK"})
+    response.status_code = 200
+    return response
 # ------------------------------------------------------------------
 
 # -------------------------

@@ -12,7 +12,18 @@ dotenv.config();
 const app = express();
 const port = 5000;
 
-app.use(cors());
+// Configure CORS for production domains
+app.use(cors({
+  origin: [
+    'https://manatap.ai',
+    'https://app.manatap.ai',
+    'http://localhost:3000' // For development
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+
 app.use(express.json());
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
