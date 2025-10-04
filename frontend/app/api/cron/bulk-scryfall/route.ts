@@ -84,15 +84,44 @@ export async function POST(req: NextRequest) {
     
     console.log(`📊 Processing ${cards.length} cards...`);
 
-    // 2. Process cards in batches
+    // 2. Verify database schema first
     const admin = getAdmin();
     if (!admin) {
       throw new Error("Admin client not available");
     }
 
+    // Test schema with a small sample first
+    console.log("🔍 Verifying database schema...");
+    try {
+      const testCard = cards[0];
+      if (testCard) {
+        const testRow = {
+          name: norm(testCard.name),
+          color_identity: testCard.color_identity || [],
+          small: testCard.image_uris?.small || null,
+          normal: testCard.image_uris?.normal || null,
+          art_crop: testCard.image_uris?.art_crop || null,
+          updated_at: new Date().toISOString()
+        };
+        
+        const { error: schemaError } = await admin
+          .from('scryfall_cache')
+          .upsert([testRow], { onConflict: 'name' });
+          
+        if (schemaError) {
+          console.warn("⚠️ Schema validation failed, using basic fields only:", schemaError.message);
+        } else {
+          console.log("✅ Schema validation passed");
+        }
+      }
+    } catch (schemaError: any) {
+      console.warn("⚠️ Schema test failed, proceeding with basic fields:", schemaError.message);
+    }
+
     const BATCH_SIZE = 1000;
     let processed = 0;
     let inserted = 0;
+    let errors = 0;
 
     for (let i = 0; i < cards.length; i += BATCH_SIZE) {
       const batch = cards.slice(i, i + BATCH_SIZE);
@@ -105,18 +134,27 @@ export async function POST(req: NextRequest) {
         const normalizedName = norm(card.name);
         const images = card.image_uris || card.card_faces?.[0]?.image_uris || {};
         const colorIdentity = Array.isArray(card.color_identity) ? card.color_identity : [];
+        const cmc = typeof card.cmc === 'number' ? Math.round(card.cmc) : 0;
 
-        rows.push({
+        // Build row object with only fields that exist in the database schema
+        const row: any = {
           name: normalizedName,
-          type_line: card.type_line || null,
-          oracle_text: card.oracle_text || card.card_faces?.[0]?.oracle_text || null,
           color_identity: colorIdentity,
-          mana_cost: card.mana_cost || null,
           small: images.small || null,
           normal: images.normal || null,
           art_crop: images.art_crop || null,
           updated_at: new Date().toISOString()
-        });
+        };
+        
+        // Add optional fields only if they have values (to avoid schema errors)
+        if (card.type_line) row.type_line = card.type_line;
+        if (card.oracle_text || card.card_faces?.[0]?.oracle_text) {
+          row.oracle_text = card.oracle_text || card.card_faces?.[0]?.oracle_text;
+        }
+        if (card.mana_cost) row.mana_cost = card.mana_cost;
+        if (cmc > 0) row.cmc = cmc;
+        
+        rows.push(row);
       }
 
       if (rows.length > 0) {
@@ -126,15 +164,24 @@ export async function POST(req: NextRequest) {
 
         if (error) {
           console.error(`❌ Batch ${i}-${i + BATCH_SIZE} failed:`, error.message);
+          errors++;
+          
+          // If too many consecutive errors, stop (schema issue)
+          if (errors >= 5) {
+            console.error("🛑 Too many consecutive errors, stopping bulk import. Please check database schema.");
+            break;
+          }
         } else {
           inserted += rows.length;
-          processed += batch.length;
+          errors = 0; // Reset error counter on success
           
           // Log progress every 10 batches
           if (Math.floor(i / BATCH_SIZE) % 10 === 0) {
-            console.log(`⚡ Progress: ${processed}/${cards.length} (${Math.round(processed/cards.length*100)}%)`);
+            console.log(`⚡ Progress: ${inserted}/${cards.length} (${Math.round(inserted/cards.length*100)}%)`);
           }
         }
+        
+        processed += batch.length;
       }
     }
 

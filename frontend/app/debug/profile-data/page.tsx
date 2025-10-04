@@ -241,6 +241,15 @@ export default async function ProfileDataDebugPage() {
                   Quick Refresh
                 </button>
               </form>
+              <form action="/api/admin/migrate-cache-schema" method="POST" className="inline">
+                <button 
+                  type="submit"
+                  className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 rounded transition-colors"
+                  title="Add missing database columns"
+                >
+                  Fix Schema
+                </button>
+              </form>
               <form action="/api/cron/bulk-scryfall" method="POST" className="inline">
                 <button 
                   type="submit"
