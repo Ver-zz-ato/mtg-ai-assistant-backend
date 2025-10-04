@@ -850,30 +850,62 @@ function StatsCharts(props: StatsChartsProps) {
         // Pull user's decks (ids, commanders, titles)
         const { data: decks } = await sb.from('decks').select('id, commander, title').eq('user_id', u.id).limit(30);
         const list = Array.isArray(decks) ? decks as any[] : [];
-        const namePool = list.flatMap(x=>[String(x.commander||''), String(x.title||'')]).filter(Boolean);
-        setCmdrs(namePool);
+        const titleCmdPool = list.flatMap(x=>[String(x.commander||''), String(x.title||'')]).filter(Boolean);
+        setCmdrs(titleCmdPool); // Keep for backward compatibility
 
-        // Color pie by commander/title (using cached data to avoid rate limiting)
+        // Get actual deck cards for pie chart (same as radar below)
+        const cardsByDeck = new Map<string, { name: string; qty: number }[]>();
+        const uniqueCardNames = new Set<string>();
+        await Promise.all(list.map(async d => {
+          const { data } = await sb.from('deck_cards').select('name, qty').eq('deck_id', d.id).limit(100); // Limit per deck to manage load
+          const rows = Array.isArray(data) ? (data as any[]) : [];
+          const arr = rows.map(x => ({ name: String(x.name), qty: Number(x.qty||1) }));
+          cardsByDeck.set(d.id, arr);
+          for (const r of arr) uniqueCardNames.add(r.name);
+        }));
+        const namePool = Array.from(uniqueCardNames).slice(0, 500); // Use actual card names
+
+        // Color pie by actual deck cards (using cached data to avoid rate limiting)
         let pieDone = false;
         try {
           if (namePool.length) {
+            // Normalize card names before sending to ensure cache hit
+            const normalizedNames = namePool.map(name => norm(cleanName(name))).filter(Boolean);
             const response = await fetch('/api/profile/trends-data', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ cardNames: namePool })
+              body: JSON.stringify({ cardNames: normalizedNames })
             });
             const result = await response.json();
             const cardData: Record<string, any> = result?.ok ? result.cardData : {};
             const sum: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
+            let processedCards = 0;
+            
+            // The API returns cards keyed by both original and normalized names
+            // We need to deduplicate to avoid double counting
+            const processedNames = new Set<string>();
+            
             for (const [name, data] of Object.entries(cardData)) {
+              if (!data) continue;
+              
+              // Skip if we've already processed this normalized name
+              const normalizedName = norm(name);
+              if (processedNames.has(normalizedName)) continue;
+              processedNames.add(normalizedName);
+              
+              processedCards++;
               const ci: string[] = Array.isArray(data?.color_identity) ? data.color_identity : [];
-              for (const c of ci) sum[c] = (sum[c]||0) + 1;
+              for (const c of ci) {
+                if (sum[c] !== undefined) sum[c] = (sum[c]||0) + 1;
+              }
             }
             if (Object.values(sum).some(v => v > 0)) {
               setColorCounts(sum); pieDone = true;
             }
           }
-        } catch {}
+        } catch (error) {
+          console.error('[Profile Charts] Error fetching trends:', error);
+        }
         if (!pieDone) {
           // Fallback: derive color presence from deck color sources
           const sum: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
@@ -891,26 +923,18 @@ function StatsCharts(props: StatsChartsProps) {
           setColorCounts(sum);
         }
 
-        // Archetype radar: analyze deck_cards and Scryfall keywords
-        const cardsByDeck = new Map<string, { name: string; qty: number }[]>();
-        const uniqueNames = new Set<string>();
-        await Promise.all(list.map(async d => {
-          const { data } = await sb.from('deck_cards').select('name, qty').eq('deck_id', d.id).limit(200);
-          const rows = Array.isArray(data) ? (data as any[]) : [];
-          const arr = rows.map(x => ({ name: String(x.name), qty: Number(x.qty||1) }));
-          cardsByDeck.set(d.id, arr);
-          for (const r of arr) uniqueNames.add(r.name);
-        }));
-
+        // Archetype radar: analyze deck_cards and Scryfall keywords (reuse card data from above)
         // Use cached card data instead of making Scryfall API calls
-        const cardNames = Array.from(uniqueNames).slice(0,300);
+        const cardNames = Array.from(uniqueCardNames).slice(0,300); // Reuse the uniqueCardNames from pie chart
         let scry: Record<string, any> = {};
         if (cardNames.length) {
           try {
+            // Normalize card names before sending to ensure cache hit
+            const normalizedCardNames = cardNames.map(name => norm(cleanName(name))).filter(Boolean);
             const response = await fetch('/api/profile/trends-data', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ cardNames })
+              body: JSON.stringify({ cardNames: normalizedCardNames })
             });
             const result = await response.json();
             if (result?.ok) {
@@ -920,7 +944,8 @@ function StatsCharts(props: StatsChartsProps) {
         }
 
         function info(n: string) {
-          const k = String(n||'').toLowerCase();
+          // Use same normalization as cache (matches scryfallCache.ts norm function)
+          const k = String(n||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
           return scry[k] || null;
         }
 
@@ -1048,9 +1073,14 @@ function StatsCharts(props: StatsChartsProps) {
               <>
                 <Pie />
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                  {['W','U','B','R','G'].map(k => (
-                    <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {colorCounts[k as 'W'|'U'|'B'|'R'|'G']||0}</div>
-                  ))}
+                  {['W','U','B','R','G'].map(k => {
+                    const count = colorCounts[k as 'W'|'U'|'B'|'R'|'G'] || 0;
+                    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                    const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
+                    return (
+                      <div key={`leg-${k}`}>{colorName}: {count} ({percentage}%)</div>
+                    );
+                  })}
                 </div>
               </>
             ) : (
@@ -1063,7 +1093,11 @@ function StatsCharts(props: StatsChartsProps) {
               <>
                 <div className="w-full flex justify-center"><Radar /></div>
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                  {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                  {['Aggro','Control','Combo','Midrange','Stax'].map((t, i) => {
+                    const key = t.toLowerCase() as keyof typeof radar;
+                    const value = radar[key] || 0;
+                    return (<div key={t}>{t}: {value.toFixed(1)}</div>);
+                  })}
                 </div>
               </>
             ) : (

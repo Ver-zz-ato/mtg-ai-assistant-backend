@@ -323,15 +323,42 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
   if (!bannerArt) bannerArt = pickAnyArt();
 
-  // Build color pie (public decks: commander/title) using cached data to avoid rate limits
-  const namePool = decks.flatMap(d => [String(d.commander||''), String(d.title||'')]).filter(Boolean);
+  // Build color pie from actual deck cards (not just commanders/titles)
   let pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
+  
+  // Get unique card names from ALL user decks (not just public ones) for stats
+  // This ensures public profile shows full deck-building style
+  let allUserDecks: any[] = [];
+  try {
+    const { data } = await supabase
+      .from('decks')
+      .select('id')
+      .eq('user_id', prof.id)
+      .limit(30); // Same limit as private profile
+    allUserDecks = Array.isArray(data) ? data : [];
+  } catch {}
+  
+  const uniquePieCardNames = new Set<string>();
+  await Promise.all(allUserDecks.map(async d => {
+    try {
+      const { data } = await supabase.from('deck_cards').select('name').eq('deck_id', d.id).limit(100); // Limit per deck
+      const rows = Array.isArray(data) ? (data as any[]) : [];
+      rows.forEach(x => uniquePieCardNames.add(String(x.name)));
+    } catch {}
+  }));
+  const namePool = Array.from(uniquePieCardNames).slice(0, 500); // Use actual card names
   
   // Try to use cached data first, fallback to direct API if necessary
   try {
     const { getCardDataForProfileTrends } = await import('@/lib/server/scryfallCache');
     const cardData = await getCardDataForProfileTrends(namePool);
+    // Deduplicate to avoid double counting (same fix as private profile)
+    const processedNames = new Set<string>();
     for (const [name, data] of cardData.entries()) {
+      const normalizedName = norm(name);
+      if (processedNames.has(normalizedName)) continue;
+      processedNames.add(normalizedName);
+      
       const ci: string[] = Array.isArray(data?.color_identity) ? data.color_identity : [];
       ci.forEach(c => { pieCounts[c] = (pieCounts[c]||0) + 1; });
     }
@@ -344,10 +371,10 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     });
   }
 
-  // Build radar (aggregate over deck_cards per public deck)
+  // Build radar (aggregate over deck_cards per ALL user decks, not just public)
   const cardsByDeck: Map<string, { name: string; qty: number }[]> = new Map();
   const radarNames = new Set<string>();
-  await Promise.all(decks.map(async d => {
+  await Promise.all(allUserDecks.map(async d => {
     try {
       const { data } = await supabase.from('deck_cards').select('name, qty').eq('deck_id', d.id).limit(200);
       const rows = Array.isArray(data) ? (data as any[]) : [];
@@ -449,9 +476,15 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                       <>
                         {pieSvg(pieCounts)}
                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                          {['W','U','B','R','G'].map(k => (
-                            <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {pieCounts[k]||0}</div>
-                          ))}
+                          {['W','U','B','R','G'].map(k => {
+                            const count = pieCounts[k as keyof typeof pieCounts] || 0;
+                            const total = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
+                            const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                            const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
+                            return (
+                              <div key={`leg-${k}`}>{colorName}: {count} ({percentage}%)</div>
+                            );
+                          })}
                         </div>
                       </>
                     ) : (
@@ -464,7 +497,11 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                       <>
                         <div className="w-full flex justify-center">{radarSvg(radarAgg)}</div>
                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                          {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                          {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> {
+                            const key = t.toLowerCase() as keyof typeof radarAgg;
+                            const value = radarAgg[key] || 0;
+                            return (<div key={t}>{t}: {value.toFixed(1)}</div>);
+                          })}
                         </div>
                       </>
                     ) : (

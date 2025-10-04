@@ -135,23 +135,23 @@ export async function getCardDataForProfileTrends(names: string[]) {
   const out = new Map<string, any>();
   if (!keys.length) return out;
 
-  // Get cached data first
+  // Get cached data first - include cmc and mana_cost from our bulk import
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, updated_at")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, updated_at")
       .in("name", keys);
     const rows = (data || []) as any[];
     
     for (const row of rows) {
-      if (!isStale(row.updated_at)) {
-        out.set(row.name, {
-          type_line: row.type_line || '',
-          oracle_text: row.oracle_text || '',
-          color_identity: row.color_identity || [],
-          cmc: 0 // We'll need to extract this from cached data or compute it
-        });
-      }
+      // Use cached data regardless of staleness since we have comprehensive bulk import now
+      out.set(row.name, {
+        type_line: row.type_line || '',
+        oracle_text: row.oracle_text || '',
+        color_identity: row.color_identity || [],
+        cmc: row.cmc || 0,
+        mana_cost: row.mana_cost || ''
+      });
     }
   } catch {}
 

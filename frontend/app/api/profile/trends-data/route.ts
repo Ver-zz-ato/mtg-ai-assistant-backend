@@ -20,11 +20,28 @@ export async function POST(request: Request) {
     // Get cached card data
     const cardData = await getCardDataForProfileTrends(cardNames);
     
-    // Convert Map to object for JSON serialization
+    // Convert Map to object for JSON serialization, using original names as keys for easier lookup
     const result: Record<string, any> = {};
-    for (const [key, value] of cardData.entries()) {
-      result[key] = value;
+    
+    // Create a map from normalized name back to original names
+    const norm = (name: string) => String(name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    const originals = new Map<string, string>();
+    for (const original of cardNames) {
+      const normalized = norm(original);
+      if (!originals.has(normalized)) {
+        originals.set(normalized, original);
+      }
     }
+    
+    // Return data keyed by both original and normalized names for compatibility
+    for (const [normalizedKey, value] of cardData.entries()) {
+      const originalKey = originals.get(normalizedKey) || normalizedKey;
+      result[originalKey] = value; // Original name as key
+      result[normalizedKey] = value; // Normalized name as key (for backward compatibility)
+    }
+
+    // Debug logging to track what's happening
+    console.log(`Profile trends-data: Requested ${cardNames.length} cards, got ${cardData.size} results`);
 
     return NextResponse.json({ ok: true, cardData: result });
   } catch (error: any) {

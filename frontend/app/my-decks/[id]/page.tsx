@@ -35,40 +35,50 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", id).limit(400);
   const arr = Array.isArray(cards) ? (cards as any[]).map(x=>({ name:String(x.name), qty:Number(x.qty||1) })) : [];
 
-  // Scryfall helper and caching
+  // Use cached Scryfall data via our cache system instead of live API
   async function scryfallBatch(names: string[]) {
-    const identifiers = Array.from(new Set(names.filter(Boolean))).slice(0, 400).map(n=>({ name:n }));
+    const uniqueNames = Array.from(new Set(names.filter(Boolean))).slice(0, 400);
     const out: Record<string, any> = {};
-    if (!identifiers.length) return out;
+    if (!uniqueNames.length) return out;
+    
     try {
-      const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
-      const j:any = await r.json().catch(()=>({}));
-      const rows:any[] = Array.isArray(j?.data) ? j.data : [];
-      for (const c of rows) out[norm(c?.name||'')] = c;
-      try {
-        const up = rows.map((c:any)=>{
-          const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
-          return {
-            name: norm(c?.name||''), small: img.small||null, normal: img.normal||null, art_crop: img.art_crop||null,
-            type_line: c?.type_line || null, oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
-            updated_at: new Date().toISOString(),
-          };
-        });
-        if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
-      } catch {}
-    } catch {}
+      // Use the cached getCardDataForProfileTrends function
+      const { getCardDataForProfileTrends } = await import('@/lib/server/scryfallCache');
+      const cardData = await getCardDataForProfileTrends(uniqueNames);
+      
+      // Convert to expected format (keyed by normalized name)
+      for (const [normalizedKey, value] of cardData.entries()) {
+        out[normalizedKey] = {
+          name: normalizedKey, // This will be the normalized name
+          type_line: value.type_line,
+          oracle_text: value.oracle_text,
+          color_identity: value.color_identity,
+          cmc: value.cmc,
+          mana_cost: value.mana_cost
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load cached card data:', error);
+    }
     return out;
   }
 
   // Build details from deck cards (for both pie and radar)
   const details = await scryfallBatch(arr.map(a=>a.name));
-  // Pie from actual deck composition
+  // Pie from actual deck composition - count each CARD once per color identity
   const pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
   for (const { name, qty } of arr) {
     const d = details[norm(name)];
     const ci: string[] = Array.isArray(d?.color_identity) ? d.color_identity : [];
     const q = Math.max(1, Number(qty)||1);
-    for (const c of ci) pieCounts[c] = (pieCounts[c]||0) + q;
+    // Each card contributes its full quantity to each of its colors
+    // This means multicolored cards will be counted multiple times
+    // which is correct for showing color distribution in the deck
+    for (const c of ci) {
+      if (pieCounts.hasOwnProperty(c)) {
+        pieCounts[c] = (pieCounts[c]||0) + q;
+      }
+    }
   }
 
   // Radar
@@ -218,11 +228,24 @@ export default async function Page({ params, searchParams }: { params: Promise<P
                 <>
                   {pieSvg(pieCounts)}
                   <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                    {(['W','U','B','R','G'] as const).map(k => (
-                      <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {(pieCounts as any)[k]||0}</div>
-                    ))}
+                    {(['W','U','B','R','G'] as const).map(k => {
+                      const count = (pieCounts as any)[k] || 0;
+                      const colorTotal = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
+                      const percentage = colorTotal > 0 ? Math.round((count / colorTotal) * 100) : 0;
+                      const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
+                      return (
+                        <div key={`leg-${k}`}>{colorName}: {count} ({percentage}%)</div>
+                      );
+                    })}
                   </div>
-                  <div className="mt-1 text-[10px] opacity-70">Cards: <span className="font-mono">{totalCards}</span></div>
+                  <div className="mt-1 text-[10px] opacity-70">
+                    Cards: <span className="font-mono">{totalCards}</span>
+                    {Object.values(pieCounts).reduce((a,b)=>a+b,0) !== totalCards && (
+                      <span className="ml-2" title="Multicolored cards contribute to multiple colors">
+                        • Color instances: <span className="font-mono">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
+                      </span>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="text-[10px] opacity-60">Not enough data to calculate.</div>
@@ -234,7 +257,11 @@ export default async function Page({ params, searchParams }: { params: Promise<P
                   <>
                     {radarSvg(radar)}
                     <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                      {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                      {['Aggro','Control','Combo','Midrange','Stax'].map((t) => {
+                        const key = t.toLowerCase() as keyof typeof radar;
+                        const value = radar[key] || 0;
+                        return (<div key={t}>{t}: {value.toFixed(1)}</div>);
+                      })}
                     </div>
                   </>
                 ) : (<div className="text-[10px] opacity-60">Not enough data to calculate.</div>)}

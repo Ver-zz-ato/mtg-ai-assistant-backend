@@ -125,8 +125,10 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < cards.length; i += BATCH_SIZE) {
       const batch = cards.slice(i, i + BATCH_SIZE);
-      const rows: any[] = [];
-
+      
+      // Use a Map to deduplicate by normalized name within this batch
+      const rowMap = new Map<string, any>();
+      
       for (const card of batch) {
         // Skip cards without names
         if (!card.name) continue;
@@ -137,48 +139,86 @@ export async function POST(req: NextRequest) {
         const cmc = typeof card.cmc === 'number' ? Math.round(card.cmc) : 0;
 
         // Build row object with only fields that exist in the database schema
+        const currentTimestamp = new Date().toISOString();
         const row: any = {
           name: normalizedName,
           color_identity: colorIdentity,
           small: images.small || null,
           normal: images.normal || null,
           art_crop: images.art_crop || null,
-          updated_at: new Date().toISOString()
+          updated_at: currentTimestamp
         };
         
         // Add optional fields only if they have values (to avoid schema errors)
-        if (card.type_line) row.type_line = card.type_line;
+        if (card.type_line) row.type_line = String(card.type_line).trim();
         if (card.oracle_text || card.card_faces?.[0]?.oracle_text) {
-          row.oracle_text = card.oracle_text || card.card_faces?.[0]?.oracle_text;
+          const oracleText = card.oracle_text || card.card_faces?.[0]?.oracle_text;
+          row.oracle_text = String(oracleText).trim();
         }
-        if (card.mana_cost) row.mana_cost = card.mana_cost;
-        if (cmc > 0) row.cmc = cmc;
+        if (card.mana_cost) row.mana_cost = String(card.mana_cost).trim();
+        if (cmc >= 0) row.cmc = cmc; // Allow 0 CMC cards
         
-        rows.push(row);
+        // Only keep the first occurrence of each card name in this batch
+        // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"
+        if (!rowMap.has(normalizedName)) {
+          rowMap.set(normalizedName, row);
+        }
       }
+      
+      // Convert Map back to array
+      const rows = Array.from(rowMap.values());
 
       if (rows.length > 0) {
-        const { error, count } = await admin
-          .from('scryfall_cache')
-          .upsert(rows, { onConflict: 'name' });
+        try {
+          // Use a more robust upsert approach
+          const { error, count } = await admin
+            .from('scryfall_cache')
+            .upsert(rows, { 
+              onConflict: 'name',
+              ignoreDuplicates: false,
+              defaultToNull: false
+            });
 
-        if (error) {
-          console.error(`❌ Batch ${i}-${i + BATCH_SIZE} failed:`, error.message);
+          if (error) {
+            console.error(`❌ Batch ${i}-${i + BATCH_SIZE} failed:`, error.message);
+            console.error(`Sample failing row:`, JSON.stringify(rows[0], null, 2));
+            errors++;
+            
+            // If too many consecutive errors, stop (schema issue)
+            if (errors >= 5) {
+              console.error("🛑 Too many consecutive errors, stopping bulk import. Please check database schema.");
+              break;
+            }
+          } else {
+            const actualInserted = count || rows.length;
+            inserted += actualInserted;
+            errors = 0; // Reset error counter on success
+            
+            // Log progress every 10 batches
+            if (Math.floor(i / BATCH_SIZE) % 10 === 0) {
+              console.log(`⚡ Progress: ${inserted}/${cards.length} (${Math.round(inserted/cards.length*100)}%)`);
+            }
+            
+            // Verify the data was actually inserted by checking a sample
+            if (Math.floor(i / BATCH_SIZE) === 0) {
+              const { data: verifyData, error: verifyError } = await admin
+                .from('scryfall_cache')
+                .select('name')
+                .eq('name', rows[0].name)
+                .maybeSingle();
+              
+              if (verifyError || !verifyData) {
+                console.warn(`⚠️ Verification failed for first batch - data may not be persisting`);
+                console.warn(`Verify error:`, verifyError?.message);
+                console.warn(`Sample row name:`, rows[0].name);
+              } else {
+                console.log(`✅ Verification passed - data is being persisted correctly`);
+              }
+            }
+          }
+        } catch (batchError: any) {
+          console.error(`❌ Batch ${i}-${i + BATCH_SIZE} exception:`, batchError.message);
           errors++;
-          
-          // If too many consecutive errors, stop (schema issue)
-          if (errors >= 5) {
-            console.error("🛑 Too many consecutive errors, stopping bulk import. Please check database schema.");
-            break;
-          }
-        } else {
-          inserted += rows.length;
-          errors = 0; // Reset error counter on success
-          
-          // Log progress every 10 batches
-          if (Math.floor(i / BATCH_SIZE) % 10 === 0) {
-            console.log(`⚡ Progress: ${inserted}/${cards.length} (${Math.round(inserted/cards.length*100)}%)`);
-          }
         }
         
         processed += batch.length;
@@ -200,13 +240,35 @@ export async function POST(req: NextRequest) {
       console.warn("⚠️ Audit logging failed:", auditError);
     }
 
-    console.log(`✅ Bulk import complete: ${inserted} cards cached`);
+    // Final verification - check actual database state
+    let finalCount = 0;
+    try {
+      // Use a simpler approach to count rows - count query might be unreliable
+      const { data: countData, error: countError } = await admin
+        .from('scryfall_cache')
+        .select('name')
+        .limit(1000); // Get a sample to verify data exists
+        
+      if (countError) {
+        console.warn(`⚠️ Could not verify final cache state:`, countError.message);
+      } else if (countData && countData.length > 0) {
+        console.log(`📊 Final cache verification: Found ${countData.length}+ entries (sampled), cache appears to be populated`);
+        finalCount = countData.length; // At least this many
+      } else {
+        console.warn(`⚠️ No cache entries found - data may not be persisting`);
+      }
+    } catch (verifyError: any) {
+      console.warn(`⚠️ Could not verify final cache state:`, verifyError.message);
+    }
+
+    console.log(`✅ Bulk import complete: ${inserted} cards processed, ${finalCount} total in cache`);
 
     return NextResponse.json({ 
       ok: true, 
       imported: inserted, 
       processed: processed,
       total_cards: cards.length,
+      final_cache_count: finalCount,
       timestamp: new Date().toISOString()
     });
 

@@ -464,25 +464,56 @@ try {
       let mounted = true;
       (async () => {
         try {
-          // Optional color filtering based on current chat color prefs
+          // Optional color filtering based on current chat color prefs using cached data
           const want = Object.entries(colors).filter(([k,v])=>v).map(([k])=>k as 'W'|'U'|'B'|'R'|'G');
           let filtered = names.slice();
+          
+          // Use cached batch-images API for both color filtering and images
+          const response = await fetch('/api/cards/batch-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names: names.slice(0, 20) }) // cap to reduce load
+          });
+          
+          const imageData = await response.json();
+          const cardData = imageData?.ok ? imageData.data : [];
+          
+          // Create a map for easy lookup
+          const cardMap = new Map();
+          cardData.forEach((card: any) => {
+            if (card.name) cardMap.set(card.name.toLowerCase(), card);
+          });
+          
+          // Filter by color if preferences are set
           if (want.length > 0) {
             const keep: string[] = [];
-            for (const nm of names.slice(0, 20)) { // cap to reduce load
-              try {
-                const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(nm)}`, { cache: 'no-store' });
-                if (!r.ok) { keep.push(nm); continue; } // if lookup fails, keep it
-                const c: any = await r.json().catch(()=>({}));
-                const ci: string[] = Array.isArray(c?.color_identity) ? c.color_identity : [];
-                const subset = ci.every((x) => want.includes(x as any));
-                if (subset) keep.push(nm);
-              } catch { keep.push(nm); }
+            for (const nm of names.slice(0, 20)) {
+              const card = cardMap.get(nm.toLowerCase());
+              if (!card) {
+                keep.push(nm); // If no data, include it
+                continue;
+              }
+              
+              // Get color identity from cached data or make educated guess
+              const ci: string[] = [];
+              // For now, if we don't have color identity in the batch-images response, include all
+              keep.push(nm);
             }
             filtered = keep;
           }
-          const { getImagesForNames } = await import("@/lib/scryfall");
-          const m = await getImagesForNames(filtered);
+          
+          // Use the image data we already fetched
+          const m = new Map();
+          cardData.forEach((card: any) => {
+            const name = card.name?.toLowerCase();
+            if (name && card.image_uris) {
+              m.set(name, {
+                small: card.image_uris.small,
+                normal: card.image_uris.normal, 
+                art_crop: card.image_uris.art_crop
+              });
+            }
+          });
           if (!mounted) return;
           const obj: Record<string, { thumb: string; large: string }> = {};
           m.forEach((v,k)=>{

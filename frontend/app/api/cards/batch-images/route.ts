@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -19,26 +20,33 @@ export const POST = withLogging(async (req: NextRequest) => {
       return NextResponse.json(cached, { status: 200 });
     }
 
-    // Format for Scryfall collection API
-    const identifiers = names.map((name: string) => ({ name: name.trim() }));
+    // Use our scryfall cache instead of making live API calls
+    const imageMap = await getImagesForNamesCached(names.map((name: string) => name.trim()));
     
-    const response = await fetch('https://api.scryfall.com/cards/collection', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifiers })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Scryfall API error: ${response.status}`);
+    // Transform cached data to Scryfall API format for compatibility
+    const data: any[] = [];
+    const not_found: any[] = [];
+    
+    for (const name of names) {
+      const cleanName = name.trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+      const imageInfo = imageMap.get(cleanName);
+      
+      if (imageInfo && (imageInfo.small || imageInfo.normal || imageInfo.art_crop)) {
+        // Format as Scryfall card object
+        data.push({
+          name: name.trim(),
+          image_uris: {
+            small: imageInfo.small,
+            normal: imageInfo.normal,
+            art_crop: imageInfo.art_crop
+          }
+        });
+      } else {
+        not_found.push({ name: name.trim() });
+      }
     }
-
-    const data = await response.json();
     
-    // Transform to expected format
-    const result = {
-      data: data.data || [],
-      not_found: data.not_found || []
-    };
+    const result = { data, not_found };
 
     // Cache for 1 day
     memoSet(cacheKey, result, DAY);

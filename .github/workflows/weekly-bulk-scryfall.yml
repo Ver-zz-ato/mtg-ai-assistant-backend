@@ -27,17 +27,64 @@ jobs:
       - name: Bulk import Scryfall data
         run: |
           set -e
-          URL="$BASE_URL/api/cron/bulk-scryfall"
-          echo "DEBUG: Full URL: [$URL]"
-          echo "POST $URL"
-          echo "This may take several minutes for ~30,000 cards..."
           
-          # Use longer timeout for bulk import
-          curl -f -sS -X POST \
-            -H "x-cron-key: $CRON_KEY" \
-            -H "Content-Type: application/json" \
-            --max-time 600 \
-            "$URL"
+          # Try multiple possible API endpoint paths
+          ENDPOINTS=(
+            "$BASE_URL/api/cron/bulk-scryfall"
+            "$BASE_URL/frontend/api/cron/bulk-scryfall"
+          )
+          
+          SUCCESS=false
+          
+          for URL in "${ENDPOINTS[@]}"; do
+            echo "DEBUG: Trying URL: [$URL]"
+            echo "POST $URL"
+            
+            # Test the endpoint first with detailed response
+            echo "Testing endpoint with curl..."
+            RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+              -X POST \
+              -H "x-cron-key: $CRON_KEY" \
+              -H "Content-Type: application/json" \
+              --max-time 10 \
+              "$URL" 2>&1 || echo "CURL_ERROR")
+            
+            HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+            RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_CODE:/d')
+            
+            echo "Response code: $HTTP_CODE"
+            echo "Response body: $RESPONSE_BODY"
+            
+            if [ "$HTTP_CODE" -eq "200" ] || [ "$HTTP_CODE" -eq "201" ]; then
+              echo "✅ Found working endpoint: $URL"
+              echo "Starting bulk import (this may take 5-10 minutes for ~30,000 cards)..."
+              
+              # Use longer timeout for actual import
+              curl -f -sS -X POST \
+                -H "x-cron-key: $CRON_KEY" \
+                -H "Content-Type: application/json" \
+                --max-time 600 \
+                "$URL"
+              
+              SUCCESS=true
+              break
+            elif [ "$HTTP_CODE" -eq "404" ]; then
+              echo "❌ 404 Not Found - trying next endpoint"
+            elif [ "$HTTP_CODE" -eq "401" ]; then
+              echo "❌ 401 Unauthorized - check CRON_KEY secret"
+              exit 1
+            else
+              echo "❌ Unexpected response code: $HTTP_CODE"
+            fi
+          done
+          
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ All endpoints failed. Please check:"
+            echo "   - BASE_URL secret points to correct domain"
+            echo "   - API routes are deployed correctly"
+            echo "   - CRON_KEY secret is set correctly"
+            exit 1
+          fi
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
           CRON_KEY: ${{ secrets.CRON_KEY }}

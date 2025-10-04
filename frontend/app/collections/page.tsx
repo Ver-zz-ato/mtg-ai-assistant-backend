@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
-import { getImagesForNames } from "@/lib/scryfall";
+// Using cached batch-images API instead of live Scryfall calls
 import { useRouter, useSearchParams } from "next/navigation";
 import CollectionEditor from "@/components/CollectionEditor";
 import CollectionSnapshotDrawer from "@/components/CollectionSnapshotDrawer";
@@ -81,14 +81,26 @@ function CollectionsPageClientBody() {
             }
           } catch {}
 
-          // Images for cover
+          // Images for cover using cached batch-images API
           let cover: Stats['cover'] = undefined;
           try {
             const pick = coverName || names[0];
             if (pick) {
-              const m = await getImagesForNames([pick]);
-              const info = m.get(pick.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim());
-              cover = { small: info?.normal || info?.small, art: info?.art_crop };
+              const imageResponse = await fetch('/api/cards/batch-images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ names: [pick] })
+              });
+              if (imageResponse.ok) {
+                const imageData = await imageResponse.json();
+                const card = imageData?.data?.[0];
+                if (card?.image_uris) {
+                  cover = { 
+                    small: card.image_uris.normal || card.image_uris.small, 
+                    art: card.image_uris.art_crop 
+                  };
+                }
+              }
             }
           } catch {}
 

@@ -87,10 +87,10 @@ export default async function ProfileDataDebugPage() {
       return daysSinceUpdate < 7; // Consider data fresh if less than 7 days old
     });
     
-    // Also check general cache health
+    // Also check general cache health - use name since it's the primary key
     const { count: totalCacheCount } = await supabase
       .from('scryfall_cache')
-      .select('id', { count: 'exact', head: true });
+      .select('name', { count: 'exact', head: true });
     
     const { data: recentCacheData } = await supabase
       .from('scryfall_cache')
