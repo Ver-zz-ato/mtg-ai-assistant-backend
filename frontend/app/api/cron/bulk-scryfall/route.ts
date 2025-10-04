@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
-export const maxDuration = 600; // 10 minutes for bulk processing (30k cards)
+export const maxDuration = 300; // 5 minutes per chunk
 
 interface ScryfallCard {
   name: string;
@@ -115,6 +115,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Check for chunked processing parameters
+    const chunkStart = parseInt(req.headers.get('x-chunk-start') || '0');
+    const chunkSize = parseInt(req.headers.get('x-chunk-size') || '5000'); // Process 5k cards per chunk
+    console.log(`🔧 Processing chunk: ${chunkStart} to ${chunkStart + chunkSize}`);
+
+    // If this is the first chunk (start = 0), clear the import status
+    if (chunkStart === 0) {
+      const admin = getAdmin();
+      try {
+        await admin.from('app_config').upsert(
+          { key: 'bulk_import_status', value: 'in_progress' }, 
+          { onConflict: 'key' }
+        );
+        console.log("🔄 Started new bulk import session");
+      } catch (statusError) {
+        console.warn("⚠️ Could not set import status:", statusError);
+      }
+    }
+
     // 1. Download Scryfall bulk data (default cards only)
     console.log("📥 Downloading Scryfall bulk data...");
     const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
@@ -133,9 +152,13 @@ export async function POST(req: NextRequest) {
     if (!cardsResponse.ok) {
       throw new Error(`Failed to fetch cards: ${cardsResponse.status} ${cardsResponse.statusText}`);
     }
-    const cards: ScryfallCard[] = await cardsResponse.json();
+    const allCards: ScryfallCard[] = await cardsResponse.json();
     
-    console.log(`📊 Processing ${cards.length} cards...`);
+    // Extract only the chunk we need to process
+    const cards = allCards.slice(chunkStart, chunkStart + chunkSize);
+    const isLastChunk = (chunkStart + chunkSize) >= allCards.length;
+    
+    console.log(`📊 Processing chunk ${chunkStart}-${chunkStart + chunkSize} (${cards.length} cards) of ${allCards.length} total. Last chunk: ${isLastChunk}`);
 
     // 2. Verify database schema first
     const admin = getAdmin();
@@ -278,16 +301,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Record completion
+    // 3. Record completion (only on last chunk)
     try {
-      await admin.from('app_config').upsert(
-        { key: 'job:last:bulk_scryfall', value: new Date().toISOString() }, 
-        { onConflict: 'key' }
-      );
+      if (isLastChunk) {
+        await admin.from('app_config').upsert(
+          { key: 'job:last:bulk_scryfall', value: new Date().toISOString() }, 
+          { onConflict: 'key' }
+        );
+        await admin.from('app_config').upsert(
+          { key: 'bulk_import_status', value: 'completed' }, 
+          { onConflict: 'key' }
+        );
+        console.log("✅ Bulk import session completed!");
+      }
       await admin.from('admin_audit').insert({ 
         actor_id: actor || 'cron', 
-        action: 'bulk_scryfall_import', 
-        target: inserted 
+        action: 'bulk_scryfall_chunk', 
+        target: inserted,
+        details: `chunk_${chunkStart}-${chunkStart + chunkSize}${isLastChunk ? '_final' : ''}` 
       });
     } catch (auditError) {
       console.warn("⚠️ Audit logging failed:", auditError);
@@ -314,13 +345,17 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ Could not verify final cache state:`, verifyError.message);
     }
 
-    console.log(`✅ Bulk import complete: ${inserted} cards processed, ${finalCount} total in cache`);
+    console.log(`✅ Chunk ${chunkStart}-${chunkStart + chunkSize} complete: ${inserted} cards processed, ${finalCount} total in cache`);
 
     return NextResponse.json({ 
       ok: true, 
       imported: inserted, 
       processed: processed,
-      total_cards: cards.length,
+      chunk_start: chunkStart,
+      chunk_size: chunkSize,
+      chunk_cards: cards.length,
+      total_cards: allCards.length,
+      is_last_chunk: isLastChunk,
       final_cache_count: finalCount,
       timestamp: new Date().toISOString()
     });

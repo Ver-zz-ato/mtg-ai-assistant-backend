@@ -58,29 +58,61 @@ jobs:
             
             if [ "$TEST_HTTP_CODE" -eq "200" ] || [ "$TEST_HTTP_CODE" -eq "201" ]; then
               echo "✅ Test successful! Found working endpoint: $URL"
-              echo "Starting full bulk import (this may take 5-10 minutes for ~30,000 cards)..."
+              echo "Starting chunked bulk import (processing in 5K card chunks to prevent timeouts)..."
               
-              # Use longer timeout for actual import (without test mode)
-              FULL_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
-                -X POST \
-                -H "x-cron-key: $CRON_KEY" \
-                -H "Content-Type: application/json" \
-                --max-time 600 \
-                "$URL" 2>&1 || echo "CURL_ERROR")
+              # Process in chunks of 5000 cards each
+              CHUNK_SIZE=5000
+              CHUNK_START=0
+              TOTAL_PROCESSED=0
+              CHUNK_SUCCESS=true
               
-              FULL_HTTP_CODE=$(echo "$FULL_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-              FULL_RESPONSE_BODY=$(echo "$FULL_RESPONSE" | sed '/HTTP_CODE:/d')
+              while [ "$CHUNK_SUCCESS" = true ]; do
+                echo "Processing chunk starting at: $CHUNK_START"
+                
+                CHUNK_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                  -X POST \
+                  -H "x-cron-key: $CRON_KEY" \
+                  -H "x-chunk-start: $CHUNK_START" \
+                  -H "x-chunk-size: $CHUNK_SIZE" \
+                  -H "Content-Type: application/json" \
+                  --max-time 300 \
+                  "$URL" 2>&1 || echo "CURL_ERROR")
+                
+                CHUNK_HTTP_CODE=$(echo "$CHUNK_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+                CHUNK_RESPONSE_BODY=$(echo "$CHUNK_RESPONSE" | sed '/HTTP_CODE:/d')
+                
+                echo "Chunk response code: $CHUNK_HTTP_CODE"
+                echo "Chunk response: $CHUNK_RESPONSE_BODY"
+                
+                if [ "$CHUNK_HTTP_CODE" -eq "200" ] || [ "$CHUNK_HTTP_CODE" -eq "201" ]; then
+                  # Extract chunk information from response
+                  IS_LAST_CHUNK=$(echo "$CHUNK_RESPONSE_BODY" | grep -o '"is_last_chunk":true' || echo "")
+                  CHUNK_PROCESSED=$(echo "$CHUNK_RESPONSE_BODY" | grep -o '"imported":[0-9]*' | cut -d: -f2 || echo "0")
+                  
+                  TOTAL_PROCESSED=$((TOTAL_PROCESSED + CHUNK_PROCESSED))
+                  echo "✅ Chunk completed! Processed: $CHUNK_PROCESSED cards. Total so far: $TOTAL_PROCESSED"
+                  
+                  if [ -n "$IS_LAST_CHUNK" ]; then
+                    echo "✅ All chunks completed! Total cards processed: $TOTAL_PROCESSED"
+                    SUCCESS=true
+                    break
+                  else
+                    CHUNK_START=$((CHUNK_START + CHUNK_SIZE))
+                    echo "Moving to next chunk starting at: $CHUNK_START"
+                  fi
+                else
+                  echo "❌ Chunk failed with code: $CHUNK_HTTP_CODE"
+                  echo "Response: $CHUNK_RESPONSE_BODY"
+                  CHUNK_SUCCESS=false
+                fi
+              done
               
-              echo "Full import response code: $FULL_HTTP_CODE"
-              echo "Full import response body: $FULL_RESPONSE_BODY"
-              
-              if [ "$FULL_HTTP_CODE" -eq "200" ] || [ "$FULL_HTTP_CODE" -eq "201" ]; then
+              if [ "$CHUNK_SUCCESS" = false ]; then
+                echo "❌ Chunked import failed"
+              else
                 echo "✅ Bulk import completed successfully!"
                 SUCCESS=true
                 break
-              else
-                echo "❌ Full import failed with code: $FULL_HTTP_CODE"
-                echo "Response: $FULL_RESPONSE_BODY"
               fi
             elif [ "$TEST_HTTP_CODE" -eq "404" ]; then
               echo "❌ 404 Not Found - trying next endpoint"
