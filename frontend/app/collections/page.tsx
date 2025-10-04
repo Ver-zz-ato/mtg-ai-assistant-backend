@@ -206,7 +206,7 @@ function CollectionsPageClientBody() {
                   {s?.cover?.art || s?.cover?.small ? (
                     <img src={s?.cover?.art || s?.cover?.small} alt="cover" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
+                    <div className="w-full h-full bg-black" />
                   )}
                   {/* Hover actions */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />

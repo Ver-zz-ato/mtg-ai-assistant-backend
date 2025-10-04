@@ -57,7 +57,7 @@ export async function getImagesForNamesCached(names: string[]) {
   return out;
 }
 
-// Returns a map of normalized name -> rich card object containing type_line, oracle_text, and image URIs
+// Returns a map of normalized name -> rich card object containing type_line, oracle_text, color_identity, and image URIs
 export async function getDetailsForNamesCached(names: string[]) {
   const supabase = await createClient();
   const uniq = Array.from(new Set((names || []).filter(Boolean)));
@@ -65,12 +65,12 @@ export async function getDetailsForNamesCached(names: string[]) {
   const out = new Map<string, any>();
   if (!keys.length) return out;
 
-  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; updated_at?: string|null };
+  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; updated_at?: string|null };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, small, normal, art_crop, type_line, oracle_text, updated_at")
+      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, updated_at")
       .in("name", keys);
     rows = (data || []) as any;
     for (const row of rows) {
@@ -78,6 +78,7 @@ export async function getDetailsForNamesCached(names: string[]) {
         image_uris: { small: row.small || undefined, normal: row.normal || undefined, art_crop: row.art_crop || undefined },
         type_line: row.type_line || undefined,
         oracle_text: row.oracle_text || undefined,
+        color_identity: row.color_identity || [],
       });
     }
   } catch {}
@@ -101,7 +102,13 @@ export async function getDetailsForNamesCached(names: string[]) {
       for (const c of dataRows) {
         const key = norm(c?.name || "");
         const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
-        out.set(key, { image_uris: img, type_line: c?.type_line, oracle_text: c?.oracle_text || c?.card_faces?.[0]?.oracle_text });
+        const colorIdentity = Array.isArray(c?.color_identity) ? c.color_identity : [];
+        out.set(key, { 
+          image_uris: img, 
+          type_line: c?.type_line, 
+          oracle_text: c?.oracle_text || c?.card_faces?.[0]?.oracle_text,
+          color_identity: colorIdentity
+        });
         up.push({
           name: key,
           small: img.small || null,
@@ -109,6 +116,7 @@ export async function getDetailsForNamesCached(names: string[]) {
           art_crop: img.art_crop || null,
           type_line: c?.type_line || null,
           oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
+          color_identity: colorIdentity,
           updated_at: new Date().toISOString(),
         });
       }
@@ -116,5 +124,40 @@ export async function getDetailsForNamesCached(names: string[]) {
     } catch {}
   }
 
+  return out;
+}
+
+// Specialized function for profile trends - gets color identity and card details for analysis
+export async function getCardDataForProfileTrends(names: string[]) {
+  const supabase = await createClient();
+  const uniq = Array.from(new Set((names || []).filter(Boolean)));
+  const keys = uniq.map(norm);
+  const out = new Map<string, any>();
+  if (!keys.length) return out;
+
+  // Get cached data first
+  try {
+    const { data } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity, updated_at")
+      .in("name", keys);
+    const rows = (data || []) as any[];
+    
+    for (const row of rows) {
+      if (!isStale(row.updated_at)) {
+        out.set(row.name, {
+          type_line: row.type_line || '',
+          oracle_text: row.oracle_text || '',
+          color_identity: row.color_identity || [],
+          cmc: 0 // We'll need to extract this from cached data or compute it
+        });
+      }
+    }
+  } catch {}
+
+  // For any missing or stale data, we'd normally fetch from Scryfall here
+  // But to avoid rate limiting, we'll work with what we have in cache
+  // Missing cards will just not contribute to the analysis
+  
   return out;
 }

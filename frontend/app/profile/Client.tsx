@@ -564,7 +564,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       <li key={d.id} className="relative z-0 rounded overflow-hidden border border-neutral-800">
                         <div className="relative">
                           {img && (<div className="h-24 bg-center bg-cover" style={{ backgroundImage: `url(${img})` }} />)}
-                          {!img && (<div className="h-24 bg-neutral-900 skeleton-shimmer" />)}
+                          {!img && (<div className="h-24 bg-black" />)}
                           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center justify-between">
                             <a href={`/my-decks/${d.id}`} className="truncate hover:underline">{d.title}</a>
                             <div className="flex items-center gap-2">
@@ -853,20 +853,25 @@ function StatsCharts(props: StatsChartsProps) {
         const namePool = list.flatMap(x=>[String(x.commander||''), String(x.title||'')]).filter(Boolean);
         setCmdrs(namePool);
 
-        // Color pie by commander/title (primary path via Scryfall)
+        // Color pie by commander/title (using cached data to avoid rate limiting)
         let pieDone = false;
         try {
           if (namePool.length) {
-            const identifiers = Array.from(new Set(namePool)).map(n=>({ name: n }));
-            const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
-            const j:any = await r.json().catch(()=>({}));
-            const rows:any[] = Array.isArray(j?.data) ? j.data : [];
+            const response = await fetch('/api/profile/trends-data', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ cardNames: namePool })
+            });
+            const result = await response.json();
+            const cardData: Record<string, any> = result?.ok ? result.cardData : {};
             const sum: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
-            for (const row of rows) {
-              const ci: string[] = Array.isArray(row?.color_identity) ? row.color_identity : [];
+            for (const [name, data] of Object.entries(cardData)) {
+              const ci: string[] = Array.isArray(data?.color_identity) ? data.color_identity : [];
               for (const c of ci) sum[c] = (sum[c]||0) + 1;
             }
-            setColorCounts(sum); pieDone = true;
+            if (Object.values(sum).some(v => v > 0)) {
+              setColorCounts(sum); pieDone = true;
+            }
           }
         } catch {}
         if (!pieDone) {
@@ -897,17 +902,19 @@ function StatsCharts(props: StatsChartsProps) {
           for (const r of arr) uniqueNames.add(r.name);
         }));
 
-        // Limit unique names to 300 to be gentle
-        const idents = Array.from(uniqueNames).slice(0,300).map(n=>({ name: n }));
-        const scry: Record<string, any> = {};
-        if (idents.length) {
+        // Use cached card data instead of making Scryfall API calls
+        const cardNames = Array.from(uniqueNames).slice(0,300);
+        let scry: Record<string, any> = {};
+        if (cardNames.length) {
           try {
-            const rr = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers: idents }) });
-            const jj:any = await rr.json().catch(()=>({}));
-            const data:any[] = Array.isArray(jj?.data) ? jj.data : [];
-            for (const c of data) {
-              const key = String(c?.name||'').toLowerCase();
-              scry[key] = c;
+            const response = await fetch('/api/profile/trends-data', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ cardNames })
+            });
+            const result = await response.json();
+            if (result?.ok) {
+              scry = result.cardData || {};
             }
           } catch {}
         }
@@ -1025,27 +1032,55 @@ function StatsCharts(props: StatsChartsProps) {
     );
   }
 
+  // Check if we have meaningful data to display
+  const hasColorData = Object.values(colorCounts).some(v => v > 0);
+  const hasRadarData = Object.values(radar).some(v => v > 0);
+  const hasAnyData = hasColorData || hasRadarData;
+
   return (
     <section className="rounded-xl border border-neutral-800 p-4">
       <div className="text-lg font-semibold mb-2">Your deck trends</div>
-      <div className="flex flex-col items-center">
+      {hasAnyData ? (
         <div className="flex flex-col items-center">
-          <div className="text-xs opacity-80 mb-1">Color balance</div>
-          <Pie />
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-            {['W','U','B','R','G'].map(k => (
-              <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {colorCounts[k as 'W'|'U'|'B'|'R'|'G']||0}</div>
-            ))}
+          <div className="flex flex-col items-center">
+            <div className="text-xs opacity-80 mb-1">Color balance</div>
+            {hasColorData ? (
+              <>
+                <Pie />
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                  {['W','U','B','R','G'].map(k => (
+                    <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {colorCounts[k as 'W'|'U'|'B'|'R'|'G']||0}</div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-[10px] opacity-60 text-center py-4">No color data available.<br/>Need decks with commanders or card data.</div>
+            )}
+          </div>
+          <div className="mt-4 flex flex-col items-center w-full">
+            <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
+            {hasRadarData ? (
+              <>
+                <div className="w-full flex justify-center"><Radar /></div>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                  {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                </div>
+              </>
+            ) : (
+              <div className="text-[10px] opacity-60 text-center py-4">No playstyle data available.<br/>Need decks with detailed card lists.</div>
+            )}
           </div>
         </div>
-        <div className="mt-4 flex flex-col items-center w-full">
-          <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
-          <div className="w-full flex justify-center"><Radar /></div>
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-            {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+      ) : (
+        <div className="text-center py-8 text-sm opacity-70">
+          <div className="mb-2">📊 No deck trends data available</div>
+          <div className="text-xs">
+            Create some decks and add cards to see your deck trends here.
+            <br />
+            <a href="/debug/profile-data" className="underline hover:text-blue-400">Debug profile data</a>
           </div>
         </div>
-      </div>
+      )}
       <div className="mt-2 text-[10px] text-neutral-400">Derived from your decklists: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces) and aggregate across your decks.</div>
     </section>
   );

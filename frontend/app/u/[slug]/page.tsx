@@ -323,14 +323,26 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
   if (!bannerArt) bannerArt = pickAnyArt();
 
-  // Build color pie (public decks: commander/title)
+  // Build color pie (public decks: commander/title) using cached data to avoid rate limits
   const namePool = decks.flatMap(d => [String(d.commander||''), String(d.title||'')]).filter(Boolean);
-  const pieCards = await scryfallBatch(namePool);
-  const pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
-  Object.values(pieCards).forEach((card:any) => {
-    const ci: string[] = Array.isArray(card?.color_identity) ? card.color_identity : [];
-    ci.forEach(c => { pieCounts[c] = (pieCounts[c]||0) + 1; });
-  });
+  let pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
+  
+  // Try to use cached data first, fallback to direct API if necessary
+  try {
+    const { getCardDataForProfileTrends } = await import('@/lib/server/scryfallCache');
+    const cardData = await getCardDataForProfileTrends(namePool);
+    for (const [name, data] of cardData.entries()) {
+      const ci: string[] = Array.isArray(data?.color_identity) ? data.color_identity : [];
+      ci.forEach(c => { pieCounts[c] = (pieCounts[c]||0) + 1; });
+    }
+  } catch {
+    // Fallback to direct Scryfall call if cache fails (though this may hit rate limits)
+    const pieCards = await scryfallBatch(namePool);
+    Object.values(pieCards).forEach((card:any) => {
+      const ci: string[] = Array.isArray(card?.color_identity) ? card.color_identity : [];
+      ci.forEach(c => { pieCounts[c] = (pieCounts[c]||0) + 1; });
+    });
+  }
 
   // Build radar (aggregate over deck_cards per public deck)
   const cardsByDeck: Map<string, { name: string; qty: number }[]> = new Map();
@@ -344,8 +356,20 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       arr.forEach(r => radarNames.add(r.name));
     } catch {}
   }));
-  const radarCards = await scryfallBatch(Array.from(radarNames));
-  function cardInfo(n: string) { return radarCards[norm(n)] || null; }
+  // Use cached data for radar computation to avoid rate limits
+  let cardInfoMap: Record<string, any> = {};
+  try {
+    const { getCardDataForProfileTrends } = await import('@/lib/server/scryfallCache');
+    const cardData = await getCardDataForProfileTrends(Array.from(radarNames));
+    for (const [key, value] of cardData.entries()) {
+      cardInfoMap[key] = value;
+    }
+  } catch {
+    // Fallback to direct Scryfall if cache fails
+    const radarCards = await scryfallBatch(Array.from(radarNames));
+    cardInfoMap = radarCards;
+  }
+  function cardInfo(n: string) { return cardInfoMap[norm(n)] || null; }
   const radarAgg: Record<string, number> = { aggro:0, control:0, combo:0, midrange:0, stax:0 };
   for (const arr of cardsByDeck.values()) {
     const w = { aggro:0, control:0, combo:0, midrange:0, stax:0 } as Record<string, number>;
@@ -397,24 +421,59 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         <section className="col-span-12 md:col-span-8 space-y-4">
           <section className="rounded-xl border border-neutral-800 p-4">
             <div className="text-lg font-semibold mb-2">Deck trends</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <div className="flex flex-col items-center">
-                <div className="text-xs opacity-80 mb-1">Color balance</div>
-                {pieSvg(pieCounts)}
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                  {['W','U','B','R','G'].map(k => (
-                    <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {pieCounts[k]||0}</div>
-                  ))}
+            {(() => {
+              const hasColorData = Object.values(pieCounts).some(v => v > 0);
+              const hasRadarData = Object.values(radarAgg).some(v => v > 0);
+              const hasAnyData = hasColorData || hasRadarData;
+              
+              if (!hasAnyData) {
+                return (
+                  <div className="text-center py-8 text-sm opacity-70">
+                    <div className="mb-2">📊 No public deck trends data available</div>
+                    <div className="text-xs">
+                      {decks.length === 0 ? (
+                        'This user has no public decks.'
+                      ) : (
+                        'Public decks found but no analyzable data yet.'
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs opacity-80 mb-1">Color balance</div>
+                    {hasColorData ? (
+                      <>
+                        {pieSvg(pieCounts)}
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                          {['W','U','B','R','G'].map(k => (
+                            <div key={`leg-${k}`}>{k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green'}: {pieCounts[k]||0}</div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[10px] opacity-60 text-center py-4">No color data available.<br/>Need commanders or card data.</div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
+                    {hasRadarData ? (
+                      <>
+                        <div className="w-full flex justify-center">{radarSvg(radarAgg)}</div>
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                          {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[10px] opacity-60 text-center py-4">No playstyle data available.<br/>Need detailed card lists.</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="text-xs opacity-80 mb-1">Playstyle radar</div>
-                <div className="w-full flex justify-center">{radarSvg(radarAgg)}</div>
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
-                  {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (<div key={t}>{t}</div>))}
-                </div>
-              </div>
-            </div>
+              );
+            })()}
             <div className="mt-2 text-[10px] text-neutral-400">Derived from public decklists: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
           </section>
 

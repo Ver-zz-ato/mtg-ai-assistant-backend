@@ -1,0 +1,43 @@
+name: weekly-bulk-scryfall-import
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # every Sunday at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  bulk-import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          echo "DEBUG: BASE_URL length: ${#BASE_URL}"
+          echo "DEBUG: BASE_URL value: [$BASE_URL]"
+          if [ -z "$BASE_URL" ]; then
+            echo "Error: BASE_URL is not set in repo secrets." >&2
+            exit 1
+          fi
+          if [ -z "$CRON_KEY" ]; then
+            echo "Error: CRON_KEY is not set in repo secrets." >&2
+            exit 1
+          fi
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+      - name: Bulk import Scryfall data
+        run: |
+          set -e
+          URL="$BASE_URL/api/cron/bulk-scryfall"
+          echo "DEBUG: Full URL: [$URL]"
+          echo "POST $URL"
+          echo "This may take several minutes for ~30,000 cards..."
+          
+          # Use longer timeout for bulk import
+          curl -f -sS -X POST \
+            -H "x-cron-key: $CRON_KEY" \
+            -H "Content-Type: application/json" \
+            --max-time 600 \
+            "$URL"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}

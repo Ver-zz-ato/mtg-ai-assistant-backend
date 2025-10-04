@@ -353,3 +353,17 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Removed from mulligan simulator page with helpful message directing users to individual deck pages.
 - Full-width responsive layout updates for deck pages (matching homepage/cost-to-finish pattern).
 - Smart position calculation for hover previews to stay within viewport bounds.
+
+## Voice Input Integration (2025-10-04)
+
+☑ Voice-to-Text Chat Input (Speech Recognition) <!-- id:chat.voice_input -->
+- Microphone button added to main homepage chat and individual deck page mini chats.
+- Uses browser's native Web Speech API (webkitSpeechRecognition/SpeechRecognition) for reliable speech-to-text.
+- Visual feedback: gray microphone icon when inactive, red pulsing icon when actively listening.
+- Single-shot recognition mode with automatic restart for continuous listening experience.
+- Automatic speech recognition stops when sending messages to prevent interference.
+- Graceful error handling for microphone permission denials, network issues, and unsupported browsers.
+- Cross-browser compatibility (Chrome, Edge, other Chromium browsers) with clear fallback messages.
+- Speech transcripts automatically appear in chat input field, ready for editing or immediate sending.
+- Seamless integration with existing chat UI without disrupting current workflows.
+- Production-ready with clean code (debug logging and test functions removed).
