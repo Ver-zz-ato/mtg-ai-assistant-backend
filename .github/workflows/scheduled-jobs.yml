@@ -11,19 +11,31 @@ jobs:
     steps:
       - name: Validate BASE_URL secret
         run: |
-          if [ -z "${{ secrets.BASE_URL }}" ]; then
+          echo "DEBUG: BASE_URL length: ${#BASE_URL}"
+          echo "DEBUG: BASE_URL value: [$BASE_URL]"
+          if [ -z "$BASE_URL" ]; then
             echo "Error: BASE_URL is not set in repo secrets (e.g., https://your.app)." >&2
             exit 1
           fi
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
       - name: Prewarm Scryfall cache
         run: |
           set -e
-          URL="${{ secrets.BASE_URL }}/api/cron/prewarm-scryfall"
+          URL="$BASE_URL/api/cron/prewarm-scryfall"
+          echo "DEBUG: Full URL: [$URL]"
           echo "POST $URL"
-          curl -f -sS -X POST -H "x-cron-key: ${{ secrets.CRON_KEY }}" "$URL"
+          curl -f -sS -X POST -H "x-cron-key: $CRON_KEY" "$URL"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
       - name: Build price snapshot (today)
         run: |
           set -e
-          URL="${{ secrets.BASE_URL }}/api/admin/price/snapshot/build"
+          URL="$BASE_URL/api/admin/price/snapshot/build"
+          echo "DEBUG: Full URL: [$URL]"
           echo "POST $URL"
-          curl -f -sS -X POST -H "x-cron-key: ${{ secrets.CRON_KEY }}" "$URL"
+          curl -f -sS -X POST -H "x-cron-key: $CRON_KEY" "$URL"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
