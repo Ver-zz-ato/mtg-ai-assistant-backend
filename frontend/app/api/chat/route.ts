@@ -4,7 +4,7 @@ import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/app/api/_utils/envelope";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const OPENAI_URL = "https://api.openai.com/v1/responses";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
 
 // simple 10-min cache for rules hints
@@ -14,23 +14,16 @@ var __rulesHintCache: Map<string,{note:string;ts:number}> = (globalThis as any).
 
 function firstOutputText(json: any): string | null {
   if (!json) return null;
+  
+  // OpenAI chat completions format
+  const maybe = json?.choices?.[0]?.message?.content;
+  if (typeof maybe === "string" && maybe.trim()) return maybe.trim();
+  
+  // Fallback for other formats
   if (typeof json.output_text === "string" && json.output_text.trim()) {
     return json.output_text.trim();
   }
-  // Responses API canonical path
-  try {
-    const contents = (json.output ?? [])
-      .flatMap((x: any) => Array.isArray(x?.content) ? x.content : [])
-      .filter((c: any) => c && typeof c === "object");
-    for (const c of contents) {
-      if (c.type === "output_text" && typeof c.text === "string" && c.text.trim()) {
-        return c.text.trim();
-      }
-    }
-  } catch {}
-  // Legacy-ish fallbacks
-  const maybe = json?.choices?.[0]?.message?.content;
-  if (typeof maybe === "string" && maybe.trim()) return maybe.trim();
+  
   return null;
 }
 
@@ -44,13 +37,18 @@ async function callOpenAI(userText: string, sys?: string) {
   const fallbackModel = (process.env.OPENAI_FALLBACK_MODEL || "gpt-4o-mini").trim();
 
   async function invoke(model: string, tokens: number) {
+    const messages: any[] = [];
+    if (sys && sys.trim()) {
+      messages.push({ role: "system", content: sys });
+    }
+    messages.push({ role: "user", content: userText });
+    
     const body: any = {
       model,
-      input: [{ role: "user", content: [{ type: "input_text", text: userText }]}],
-      max_output_tokens: Math.max(16, tokens|0),
+      messages,
+      max_tokens: Math.max(16, tokens|0),
       temperature: 1,
     };
-    if (sys && sys.trim()) body.instructions = sys;
     const res = await fetch(OPENAI_URL, {
       method: "POST",
       headers: { "content-type": "application/json", "authorization": `Bearer ${apiKey}` },
@@ -113,8 +111,8 @@ async function callOpenAI(userText: string, sys?: string) {
   const usage = (() => {
     try {
       const u = (json as any)?.usage || {};
-      const i = Number(u.input_tokens ?? u.prompt_tokens ?? 0);
-      const o = Number(u.output_tokens ?? u.completion_tokens ?? 0);
+      const i = Number(u.prompt_tokens ?? u.input_tokens ?? 0);
+      const o = Number(u.completion_tokens ?? u.output_tokens ?? 0);
       return { input_tokens: isFinite(i) ? i : 0, output_tokens: isFinite(o) ? o : 0 };
     } catch { return { input_tokens: 0, output_tokens: 0 }; }
   })();

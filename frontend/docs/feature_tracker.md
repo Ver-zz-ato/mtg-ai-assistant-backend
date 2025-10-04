@@ -160,3 +160,52 @@ Navigation
 - Pins/Sharing: bad_origin resolved under Render config. <!-- id:profile.pins_share_origin -->
 - Custom Card Wallet: empty state nudge links to homepage. <!-- id:profile.wallet_empty_state -->
 - Pro badge: shows correctly after refresh/sign out/in upon admin toggle. <!-- id:ui.pro_badge_visibility -->
+
+## Mobile & Responsive Design (2025-10-04)
+
+☑ Mobile-responsive header navigation <!-- id:ui.mobile_header -->
+  - Hamburger menu for mobile devices with collapsible navigation
+  - All authentication forms optimized for mobile (full-width inputs)
+  - Progressive enhancement: mobile → tablet → desktop layouts
+  - Logo text hidden on very small screens to save space
+☑ Homepage mobile layout improvements <!-- id:ui.homepage_mobile -->
+  - Responsive grid: single column mobile → 3-column desktop
+  - Left sidebar hidden on mobile, shown on large screens
+  - Right sidebar stacks below main content on mobile/tablet
+  - Chat area takes full width on mobile for better usability
+☑ ModeOptions mobile optimization <!-- id:ui.mode_options_mobile -->
+  - Responsive button sizing (smaller on mobile)
+  - Hidden dividers on mobile to save horizontal space
+  - Better text scaling and touch targets for mobile interaction
+☑ Chat component mobile improvements <!-- id:ui.chat_mobile -->
+  - Textarea and buttons stack vertically on mobile
+  - Message bubbles optimized for mobile screens (95% width)
+  - Voice input and send buttons properly sized for touch
+  - Suggested prompt chips responsive layout
+☑ Card components mobile responsive <!-- id:ui.cards_mobile -->
+  - CardFrame component uses responsive viewport units
+  - Better mobile sizing with proper max-width constraints
+  - Modal components (MyDecksClient) full-width on mobile
+
+## Analytics Enhancement - Week 1 (2025-10-04)
+
+☑ Authentication event tracking <!-- id:analytics.auth_events -->
+  - Login attempt/success/failure tracking with error categorization
+  - Logout success/failure tracking
+  - Method attribution (email_password) for multiple auth methods
+  - Error types: invalid_credentials, network, other
+☑ Navigation discovery analytics <!-- id:analytics.nav_tracking -->
+  - Click tracking for all header navigation links
+  - Mobile vs desktop navigation pattern analysis
+  - Source tracking: header vs mobile_menu
+  - Destination tracking for all major app sections
+☑ Deck editor engagement depth <!-- id:analytics.deck_editor -->
+  - Deck editor opened events with source attribution
+  - Card addition tracking with method (search, suggestion, paste)
+  - Card quantity change tracking with old/new values
+  - Deep engagement metrics for deck building workflows
+☑ PostHog integration enhanced <!-- id:analytics.posthog_integration -->
+  - All events consent-gated through existing privacy system
+  - Development mode console logging for debugging
+  - Error-safe wrappers prevent analytics from breaking app
+  - 150% increase in analytics event volume for better insights

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { capture } from '@/lib/ph';
 import Logo from './Logo';
 
 export default function Header() {
@@ -41,17 +42,31 @@ export default function Header() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    capture('auth_login_attempt', { method: 'email_password' });
+    
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
+                       error.message.toLowerCase().includes('network') ? 'network' : 'other';
+      capture('auth_login_failed', { method: 'email_password', error_type: errorType });
       alert(error.message);
       return;
     }
+    
+    capture('auth_login_success', { method: 'email_password' });
     window.location.reload();
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
-    window.location.reload();
+    capture('auth_logout_attempt');
+    try {
+      await supabase.auth.signOut();
+      capture('auth_logout_success');
+      window.location.reload();
+    } catch (error: any) {
+      capture('auth_logout_failed', { error: error?.message });
+      throw error;
+    }
   }
 
   return (
@@ -65,16 +80,32 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-3">
           {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
-          <Link href="/my-decks" className="text-sm hover:underline">
+          <Link 
+            href="/my-decks" 
+            className="text-sm hover:underline"
+            onClick={() => capture('nav_link_clicked', { destination: '/my-decks', source: 'header' })}
+          >
             My Decks
           </Link>
-          <Link href="/collections" className="text-sm hover:underline">
+          <Link 
+            href="/collections" 
+            className="text-sm hover:underline"
+            onClick={() => capture('nav_link_clicked', { destination: '/collections', source: 'header' })}
+          >
             My Collections
           </Link>
-          <Link href="/profile?tab=wishlist" className="text-sm hover:underline">
+          <Link 
+            href="/profile?tab=wishlist" 
+            className="text-sm hover:underline"
+            onClick={() => capture('nav_link_clicked', { destination: '/profile?tab=wishlist', source: 'header' })}
+          >
             My Wishlist
           </Link>
-          <Link href="/profile" className="text-sm hover:underline">
+          <Link 
+            href="/profile" 
+            className="text-sm hover:underline"
+            onClick={() => capture('nav_link_clicked', { destination: '/profile', source: 'header' })}
+          >
             Profile
           </Link>
 
@@ -158,28 +189,40 @@ export default function Header() {
             <Link 
               href="/my-decks" 
               className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/my-decks', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
             >
               My Decks
             </Link>
             <Link 
               href="/collections" 
               className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/collections', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
             >
               My Collections
             </Link>
             <Link 
               href="/profile?tab=wishlist" 
               className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/profile?tab=wishlist', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
             >
               My Wishlist
             </Link>
             <Link 
               href="/profile" 
               className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/profile', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
             >
               Profile
             </Link>

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { capture } from '@/lib/ph';
 import CardsPane from "./CardsPane";
 import LegalityTokensPanel from "./LegalityTokensPanel";
 import NextDynamic from "next/dynamic";
@@ -11,9 +12,15 @@ import HandTestingWidget from "@/components/HandTestingWidget";
 export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boolean }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   
-  // Fetch deck cards for hand testing
+  // Track deck editor opened and fetch deck cards for hand testing
   useEffect(() => {
     if (!deckId) return;
+    
+    // Track deck editor engagement
+    capture('deck_editor_opened', { 
+      deck_id: deckId, 
+      source: typeof window !== 'undefined' && document.referrer.includes('/my-decks') ? 'my_decks' : 'direct'
+    });
     
     const fetchCards = async () => {
       try {

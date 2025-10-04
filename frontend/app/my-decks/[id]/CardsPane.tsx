@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { capture } from '@/lib/ph';
 import EditorAddBar from "@/components/EditorAddBar";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
@@ -40,6 +41,14 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
     if (!json.ok) { alert(json.error || "Failed to add"); return; }
 
+    // Track successful card addition
+    capture('deck_card_added', {
+      deck_id: deckId,
+      card_name: n,
+      quantity: q,
+      method: 'search'
+    });
+
     window.dispatchEvent(new CustomEvent("toast", { detail: `Added x${q} ${n}` }));
     await load();
     try { window.dispatchEvent(new Event('deck:changed')); } catch {}
@@ -56,6 +65,19 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       });
       const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
       if (!json.ok) throw new Error(json.error || "Update failed");
+      
+      // Track card quantity changes
+      const card = cards.find(c => c.id === id);
+      if (card) {
+        capture('deck_card_quantity_changed', {
+          deck_id: deckId,
+          card_name: card.name,
+          old_quantity: card.qty,
+          new_quantity: card.qty + d,
+          method: 'button_click'
+        });
+      }
+      
       window.dispatchEvent(new CustomEvent("toast", { detail: d > 0 ? "Added +1" : "Removed -1" }));
       await load();
       try { window.dispatchEvent(new Event('deck:changed')); } catch {}
