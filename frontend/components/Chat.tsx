@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import { listMessages, postMessage } from "@/lib/threads";
 import { capture } from "@/lib/ph";
+import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
@@ -115,6 +116,8 @@ export default function Chat() {
   const [lastCombos, setLastCombos] = useState<Array<{ line: string }>>([]);
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   const [displayName, setDisplayName] = useState<string>("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   useEffect(() => { (async () => { try { const sb = createBrowserSupabaseClient(); const { data } = await sb.auth.getUser(); const u:any = data?.user; const md:any = u?.user_metadata || {}; setDisplayName(String(md.username || u?.email || 'you')); } catch {} })(); }, []);
 
   let currentAbort: AbortController | null = null;
@@ -145,6 +148,7 @@ try {
       }
     } catch {}
   }, []);
+
   useEffect(() => {
     try {
       if (threadId) {
@@ -173,6 +177,8 @@ try {
   async function saveDeck() {
     if (!lastDeck?.trim()) return;
     
+    trackDeckCreationWorkflow('started', { source: 'chat_save_button' });
+    
 try {
   if (currentAbort) { try { currentAbort.abort(); } catch {} }
   currentAbort = new AbortController();
@@ -192,16 +198,103 @@ try {
       });
       const json = await res.json();
       if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Save failed");
+      trackDeckCreationWorkflow('saved', { deck_id: json?.id, source: 'chat_save_button' });
       try { const tc = await import("@/lib/toast-client"); tc.toast("Saved! Check My Decks.", "success"); } catch { alert("Saved! Check My Decks."); }
     } catch (e: any) {
+      trackDeckCreationWorkflow('abandoned', { current_step: 2, abandon_reason: 'save_failed' });
       try { const tc = await import("@/lib/toast-client"); tc.toastError(e?.message ?? "Save failed"); } catch { alert(e?.message ?? "Save failed"); }
     }
   }
 
   function gotoMyDecks() { window.location.href = "/my-decks"; }
 
+  const toggleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice input is not supported in this browser. Please try Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+    } else {
+      // Start listening
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      // Configuration for reliable speech recognition
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          }
+        }
+
+        // Update text with final results
+        if (finalTranscript) {
+          setText(prev => prev + (prev ? ' ' : '') + finalTranscript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access denied. Please enable microphone permissions for this site.');
+        } else if (event.error === 'network') {
+          alert('Network error during voice recognition. Please check your internet connection.');
+        } else if (event.error !== 'no-speech') {
+          // Only show error for non-silent issues
+          alert(`Voice input error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        // In single-shot mode, automatically restart if user hasn't manually stopped
+        if (recognitionRef.current === recognition && isListening) {
+          setTimeout(() => {
+            if (recognitionRef.current === recognition && isListening) {
+              try {
+                recognition.start();
+              } catch (e) {
+                setIsListening(false);
+              }
+            }
+          }, 100);
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    }
+  };
+
+
   async function send() {
     if (!text.trim() || busy) return;
+    
+    // Stop voice input if it's active
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+    
     // Detect deck intent and create scaffold proactively
     try{
       const { extractIntent } = await import('@/lib/chat/deckIntent');
@@ -213,21 +306,31 @@ try {
         if (looksDeckPre) {
           // If the user pasted a decklist, create a real deck from that text instead of a scaffold
           try {
+            trackDeckCreationWorkflow('started', { source: 'chat_paste', format: 'Commander' });
             const title = (val.split("\n").find(Boolean) || "Imported Deck").replace(/^\d+\s*[xX]?\s*/, "").slice(0, 64);
             const res = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title, format:'Commander', plan:'Optimized', colors:[], currency:'USD', deck_text: val, data:{ source:'chat-builder' } }) });
             const j = await res.json().catch(()=>({}));
             if (res.ok && j?.ok && j?.id) {
+              trackDeckCreationWorkflow('saved', { deck_id: j.id, source: 'chat_paste' });
               const cta = { type:'deck_scaffold', data: { id: j.id, url: `/my-decks/${encodeURIComponent(j.id)}`, title, intent } };
               try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
               setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+            } else {
+              trackDeckCreationWorkflow('abandoned', { current_step: 2, abandon_reason: 'api_error' });
             }
-          } catch {}
+          } catch {
+            trackDeckCreationWorkflow('abandoned', { current_step: 2, abandon_reason: 'exception' });
+          }
         } else {
+          trackDeckCreationWorkflow('started', { source: 'chat_intent', intent: intent.toString() });
           const res = await createDeckFromIntent(intent);
           if (res && res.id) {
+            trackDeckCreationWorkflow('saved', { deck_id: res.id, source: 'chat_intent' });
             const cta = { type:'deck_scaffold', data: { id: res.id, url: res.url, title: res.title, intent } };
             try { await appendAssistant(threadId || '', JSON.stringify(cta)); } catch {}
             setMessages(m => [...m, { id: Date.now()+5, thread_id: threadId||'', role:'assistant', content: JSON.stringify(cta), created_at: new Date().toISOString() } as any]);
+          } else {
+            trackDeckCreationWorkflow('abandoned', { current_step: 2, abandon_reason: 'scaffold_failed' });
           }
         }
       }
@@ -244,7 +347,15 @@ try {
       { id: Date.now(), thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
     ]);
 
-capture('chat_sent', { chars: (val?.length ?? 0), thread_id: threadId ?? null });
+    // Track chat analytics
+    capture('chat_sent', { 
+      chars: (val?.length ?? 0), 
+      thread_id: threadId ?? null,
+      is_decklist: looksDeck,
+      format: fmt,
+      budget: budget,
+      teaching_mode: teaching
+    });
     const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching };
     const context: any = { deckId: linkedDeckId || null, budget, colors: prefs.colors, teaching };
     const res = await postMessage({ text: val, threadId, context }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
@@ -989,9 +1100,25 @@ try {
           rows={3}
           className="flex-1 bg-neutral-900 text-white border border-neutral-700 rounded px-3 py-2 resize-y"
         />
-        <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit self-end rounded bg-blue-600 text-white disabled:opacity-60" data-testid="chat-send">
-          {busy ? "…" : "Send"}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button 
+            onClick={toggleVoiceInput} 
+            className={`px-3 py-2 h-fit rounded border text-white transition-colors ${
+              isListening 
+                ? 'bg-red-600 border-red-500 animate-pulse' 
+                : 'bg-neutral-700 border-neutral-600 hover:bg-neutral-600'
+            }`}
+            title={isListening ? 'Stop voice input' : 'Start voice input'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </button>
+          <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit rounded bg-blue-600 text-white disabled:opacity-60" data-testid="chat-send">
+            {busy ? "…" : "Send"}
+          </button>
+        </div>
       </div>
   </div>
   );

@@ -309,3 +309,47 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Left rail: Most liked decks styled as mini leaderboard (🥇/🥈/🥉). <!-- id:ui.home.leaderboard -->
 - Center chat: header “Your deck-building assistant” + suggested prompt chips (Build, Swaps, Precon, Snapshot). <!-- id:ui.home.chat_header_chips -->
 - Right rail: Shoutbox with distinct chat-bubble styling (emerald theme). <!-- id:ui.home.shout_bubbles -->
+
+## Recent Fixes & Additions (2025-10-04)
+
+- Chat post proxy and TLS hardening <!-- id:chat.post_proxy_tls -->
+  - Added /api/chat/messages/post proxy to route client posts to /api/chat; resolves TLS/fetch failed in production.
+  - Verified normal replies or offline fallback without 500s.
+- CSP allowances for Scryfall API and mana symbol images <!-- id:security.csp_scryfall_allow -->
+  - connect-src: https://api.scryfall.com; img-src: https://svgs.scryfall.io (and existing hosts).
+- CSV import: ampersand-delimited parsing <!-- id:deck.csv_ampersand -->
+  - Lines like `10x&Forest&The Lord of the Rings` now parse correctly.
+- Safer deck deletion with typed modal confirmation <!-- id:ui.delete_typed_modal -->
+  - Replaced confirm() with modal requiring the user to type DELETE on /mydecks and deck pages.
+- Homepage badges integration (PNG) and right-rail snapshot <!-- id:ui.home.badges_png -->
+  - Replaced top tools cards with 5 PNG badges, wired to routes; right sidebar uses Deck Snapshot Horizontal PNG.
+  - Switched to static image imports for reliable asset paths; removed decorative borders/padding; added subtle drop shadows to images.
+  - Tightened vertical spacing around badges and right-rail snapshot + Custom Card Creator.
+- Spacing debug tooling (dev-only) <!-- id:dev.spacing_debug -->
+  - Toggle via ?dbg=space or small DBG button in right rail; shows colored outlines and ruler bars to visualize exact gaps above/below snapshot and creator, and top badges container.
+- Fix Names pipeline hardening <!-- id:fix.fixnames_pipeline_tls -->
+  - Batch and individual Fix Names call internal handlers directly to avoid TLS/proxy issues; deck fix-names route stray variable removed.
+  - Added explicit runtime = "nodejs" for routes that require Node APIs to avoid Edge runtime errors.
+- Profile polish <!-- id:profile.save_publish -->
+  - Save Profile button immediately updates public profile; removed legacy DBG button from Profile UI.
+- Sharing and pins reliability <!-- id:profile.pins_share_origin -->
+  - Resolved bad_origin issues for saving pins/sharing profile under Render domain config.
+- Custom Card Wallet empty state <!-- id:profile.wallet_empty_state -->
+  - When empty, shows a friendly nudge with a link to the homepage.
+- Pro badge visibility <!-- id:ui.pro_badge_visibility -->
+  - Pro badge now reflects correctly after refresh or sign-out/in when toggled by admin.
+
+## Hand Testing Widget (2025-10-04)
+
+☑ Interactive Hand Testing Widget (PRO-gated) <!-- id:deck.hand_testing_widget -->
+- Full London mulligan simulation with animated card draws and keep/mulligan decisions.
+- Real MTG card artwork fetched via Scryfall API with caching (/api/cards/batch-images endpoint).
+- Hover preview system (same as deck list cards) with high-quality image enlargement following cursor.
+- Recording and tracking of mulligan sequences with shareable results.
+- PRO feature gating with attractive upgrade prompt for non-PRO users.
+- Integrated into individual deck pages sidebar with proper layout and responsiveness.
+- Production URL handling for share links (replaces localhost:3000 with manatap.ai).
+- Card image optimization: uses normal quality for better visibility, with smart fallbacks.
+- Removed from mulligan simulator page with helpful message directing users to individual deck pages.
+- Full-width responsive layout updates for deck pages (matching homepage/cost-to-finish pattern).
+- Smart position calculation for hover previews to stay within viewport bounds.

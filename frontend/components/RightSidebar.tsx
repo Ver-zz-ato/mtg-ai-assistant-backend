@@ -9,6 +9,7 @@ export default function RightSidebar() {
   const [name, setName] = useState<string>("Anon");
   const [text, setText] = useState<string>("");
   const [toast, setToast] = useState<string | null>(null);
+  const [debugSpace, setDebugSpace] = useState<boolean>(false);
   const evRef = useRef<EventSource | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -16,6 +17,16 @@ export default function RightSidebar() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [items.length]);
+
+  // capture ?dbg=space for spacing debug
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const q = new URLSearchParams(window.location.search);
+        if ((q.get('dbg') || '').toLowerCase() === 'space') setDebugSpace(true);
+      }
+    } catch {}
+  }, []);
 
   // load history and connect SSE
   useEffect(() => {
@@ -80,32 +91,33 @@ export default function RightSidebar() {
   }
 
   return (
-    <div className="flex flex-col gap-4 w-full relative z-0">
-      {/* Deck Snapshot: allow custom horizontal badge/component override */}
-      {(() => {
-        try {
-          const Custom = (require as any)("@/badges/DeckSnapshotHorizontal")?.default
-            || (require as any)("@/badges/Deck-Snapshot-Horizontal")?.default
-            || (require as any)("@/badges/Deck_Snapshot_Horizontal")?.default;
-          if (Custom) return (require('react').createElement(Custom));
-        } catch {}
-        return (
-          <div className="rounded-xl border border-violet-700/60 bg-neutral-950 p-4 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
-            <div className="font-semibold mb-1">🧪 Deck Snapshot/Judger</div>
-            <p className="text-xs opacity-80">
-              Curve, color, and quick fixes from your current list.
-            </p>
-          </div>
-        );
-      })()}
+    <div className={`flex flex-col w-full relative z-0 text-[0px] leading-none [&>*]:m-0 [&>*]:p-0 [&_img]:block [&_img]:align-top [&_img]:m-0 [&_img]:p-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`} style={{ gap: 0, margin: 0, padding: 0 }}>
+      {/* Debug toggle */}
+      <button onClick={()=>setDebugSpace(x=>!x)} className="absolute top-1 right-1 z-30 text-[10px] px-2 py-0.5 rounded bg-fuchsia-700/80 hover:bg-fuchsia-600 text-white">
+        {debugSpace ? 'DBG:ON' : 'DBG'}
+      </button>
 
-      {/* Custom Card Creator promo panel */}
-      <div className="relative z-20">
-        {require('react').createElement(require('./CustomCardCreator').default)}
+
+      {/* Deck Snapshot: clickable link to /my-decks - full width like shoutbox */}
+      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-4`}>
+        <a href="/my-decks" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+          <img src="/Deck_Snapshot_Horizontal_cropped.png" alt="Deck Snapshot - View My Decks" className="w-full h-auto" />
+        </a>
+      </div>
+
+      {/* Custom Card Creator promo panel with proper borders */}
+      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-4 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
+        {debugSpace && (
+          <>
+            {require('react').createElement('div', { key:'top', className:'absolute -top-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
+            {require('react').createElement('div', { key:'bot', className:'absolute -bottom-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
+          </>
+        )}
+        {require('react').createElement(require('./CustomCardCreator').default, { compact: true })}
       </div>
 
       <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
-        <div className="font-semibold mb-2">Shoutbox (live)</div>
+        <div className="font-bold mb-3 text-lg text-center">Shoutbox (live)</div>
         <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm">
           {items.map((t, idx) => (
             <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">

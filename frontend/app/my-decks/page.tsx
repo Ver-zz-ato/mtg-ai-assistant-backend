@@ -1,10 +1,7 @@
 // app/my-decks/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import NewDeckInline from "@/components/NewDeckInline";
-import DeckDeleteButton from "@/components/DeckDeleteButton";
-import LikeButton from "@/components/likes/LikeButton";
-import DeckRowActions from "@/components/DeckRowActions";
-import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import MyDecksList from "@/components/MyDecksList";
 
 type DeckRow = {
   id: string;
@@ -57,25 +54,14 @@ export default async function Page() {
     if (ap!==bp) return ap-bp; return String(b.created_at||'').localeCompare(String(a.created_at||''));
   });
 
-  const ids = rows.map(r => r.id);
+  // Skip complex deck_cards query for now - load this client-side for better performance
   const topByDeck = new Map<string, string[]>();
-  try {
-    const { data: cards } = await supabase
-      .from('deck_cards')
-      .select('deck_id, name, qty')
-      .in('deck_id', ids)
-      .order('qty', { ascending: false });
-    const grp = new Map<string, Array<{ name:string; qty:number }>>();
-    for (const c of (cards || []) as any[]) {
-      const arr = grp.get(c.deck_id) || []; arr.push({ name: String(c.name), qty: Number(c.qty||1) }); grp.set(c.deck_id, arr);
-    }
-    for (const [deckId, arr] of grp.entries()) {
-      const names = arr.sort((a,b)=> (b.qty||0)-(a.qty||0)).slice(0, 8).map(x => String(x.name));
-      topByDeck.set(deckId, names);
-    }
-  } catch {}
 
-  // Prefetch art: commander/title/first card + top cards
+  // Skip heavy image processing for now - this was causing page hangs
+  // TODO: Load images client-side or with streaming for better UX
+  const imgMap = new Map(); // Empty map to avoid breaking existing code
+  const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  
   function cleanName(s: string): string {
     return String(s||'')
       .replace(/\s*\(.*?\)\s*$/, '') // strip parentheticals
@@ -85,43 +71,6 @@ export default async function Page() {
       .replace(/\s+/g, ' ')
       .trim();
   }
-  function extractNamesFromText(deckText: string): string[] {
-    const out: string[] = [];
-    const lines = String(deckText||'').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean);
-    const rxQtyPrefix = /^(\d+)\s*[xX]?\s+(.+)$/;           // "1 Sol Ring" or "2x Sol Ring"
-    const rxCsv = /^(.+?),(?:\s*)"?\d+"?\s*$/;              // "Sol Ring,\"18\"" or "Sol Ring,18"
-    const rxDash = /^[-•]\s*(.+)$/;                            // "- Sol Ring"
-    for (const l of lines.slice(0, 50)) { // be generous but bounded
-      let name = '';
-      let m = l.match(rxQtyPrefix);
-      if (m) name = m[2]; else {
-        m = l.match(rxCsv);
-        if (m) name = m[1]; else {
-          m = l.match(rxDash);
-          if (m) name = m[1];
-        }
-      }
-      if (!name) {
-        // If line has a comma but didn't match CSV (e.g., trailing comments), take left half conservatively
-        if (/,/.test(l)) name = l.split(',')[0];
-      }
-      if (name) out.push(cleanName(name));
-      if (out.length >= 20) break; // cap to avoid over-fetch
-    }
-    return out.filter(Boolean);
-  }
-
-  const nameSet = new Set<string>(rows.flatMap((d) => {
-    const list: string[] = [];
-    if (d.commander) list.push(cleanName(String(d.commander)));
-    if (d.title) list.push(cleanName(String(d.title)));
-    extractNamesFromText(String(d.deck_text||'')).forEach(n => list.push(n));
-    const tops = topByDeck.get(d.id) || [];
-    tops.forEach(n => list.push(cleanName(n)));
-    return list;
-  }).filter(Boolean));
-  const imgMap = await getImagesForNamesCached(Array.from(nameSet));
-  const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -133,51 +82,27 @@ export default async function Page() {
       </div>
       <div className="mb-3 text-sm"><a className="underline underline-offset-4" href="/collections/cost-to-finish">Open Cost to Finish →</a></div>
 
-      {rows.length === 0 && <div className="text-gray-400">No decks saved yet.</div>}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {rows.map((r) => {
-          const title = r.title ?? "Untitled Deck";
-          const created = r.created_at ? new Date(r.created_at).toLocaleString() : "";
-          // Build candidate art list similar to public profile fallbacks
-          const candidates: string[] = [];
-          if (r.commander) candidates.push(cleanName(String(r.commander)));
-          if (r.title) candidates.push(cleanName(String(r.title)));
-          extractNamesFromText(String(r.deck_text||''))?.forEach(n => candidates.push(n));
-          const tops = topByDeck.get(r.id) || [];
-          for (const n of tops) candidates.push(cleanName(n));
-          let art: string | undefined;
-          for (const c of candidates) { const img = imgMap.get(norm(c)); if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; } }
-          return (
-            <div key={r.id} className="relative border rounded overflow-hidden group bg-neutral-950 min-h-[96px]">
-              {/* Banner background with gradient overlay */}
-              <div className="absolute inset-0 bg-center bg-cover opacity-60" style={art ? { backgroundImage: `url(${art})` } : undefined} />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
-              <div className="relative flex items-center justify-between">
-                <a href={`/my-decks?deckId=${encodeURIComponent(r.id)}`} className="flex-1 min-w-0 p-0 block" title="Quick view">
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate flex items-center gap-2">{title}</div>
-                      {/* timeline tiny at bottom */}
-                      <div className="text-[10px] opacity-70 mt-1">{r.updated_at? `Updated ${new Date(r.updated_at).toLocaleDateString()}`: ''}{r.created_at? ` · Created ${new Date(r.created_at).toLocaleDateString()}`:''}</div>
-                    </div>
-                  </div>
-                </a>
-                <div className="px-3 py-2 flex items-center gap-2">
-                  <LikeButton deckId={r.id} />
-                  {/* Pin button */}
-                  {(()=>{ const Pin = require('@/components/PinDeckButton').default; return (<Pin deckId={r.id} pinned={pinnedIds.includes(r.id)} currentPinned={pinnedIds} />); })()}
-                  <a href={`/my-decks/${encodeURIComponent(r.id)}`} className="text-xs px-2 py-1 rounded border border-neutral-700">Edit</a>
-                  {(()=>{ const Menu = require('@/components/DeckCardMenu').default; return (<Menu id={r.id} title={r.title} is_public={r.is_public} />); })()}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <MyDecksList rows={rows} pinnedIds={pinnedIds} />
 
       {/* Right drawer */}
-      {(()=>{ const MyDecksClient = require('@/components/MyDecksClient').default; const decks = rows.map((r:any)=>({ id:r.id, title: (r.title||'Untitled Deck'), is_public: !!r.is_public, updated_at: r.updated_at, created_at: r.created_at, art: (()=>{ const candidates:string[]=[]; if(r.commander) candidates.push(cleanName(String(r.commander))); if(r.title) candidates.push(cleanName(String(r.title))); extractNamesFromText(String(r.deck_text||''))?.forEach(n=>candidates.push(n)); const tops=topByDeck.get(r.id)||[]; for(const n of tops) candidates.push(cleanName(n)); for(const c of candidates){ const img=imgMap.get(norm(c)); if(img?.art_crop||img?.normal||img?.small) return img.art_crop||img.normal||img.small; } return undefined; })() })); const CreateFAB = require('@/components/CreateDeckFAB').default; return (<><MyDecksClient decks={decks} /><CreateFAB /></>); })()}
+      {(()=>{ 
+        try {
+          const MyDecksClient = require('@/components/MyDecksClient').default; 
+          const decks = rows.map((r:any)=>({ 
+            id:r.id, 
+            title: (r.title||'Untitled Deck'), 
+            is_public: !!r.is_public, 
+            updated_at: r.updated_at, 
+            created_at: r.created_at, 
+            art: undefined // Skip art processing for now
+          })); 
+          const CreateFAB = require('@/components/CreateDeckFAB').default; 
+          return (<><MyDecksClient decks={decks} /><CreateFAB /></>);
+        } catch (e) {
+          console.error('Error loading components:', e);
+          return null;
+        }
+      })()}
     </div>
   );
 }

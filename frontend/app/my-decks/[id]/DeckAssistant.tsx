@@ -26,6 +26,8 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
   const [fmt, setFmt] = React.useState<string>("commander");
   const [plan, setPlan] = React.useState<string>("optimized");
   const [teaching, setTeaching] = React.useState<boolean>(false);
+  const [isListening, setIsListening] = React.useState(false);
+  const recognitionRef = React.useRef<any>(null);
 
   async function deckContext(): Promise<string> {
     try {
@@ -86,8 +88,90 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
     try { window.dispatchEvent(new CustomEvent('quickadd:prefill', { detail: line })); } catch {}
   }
 
+  const toggleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice input is not supported in this browser. Please try Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+    } else {
+      // Start listening
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          }
+        }
+
+        // Update text with final results
+        if (finalTranscript) {
+          setText(prev => prev + (prev ? ' ' : '') + finalTranscript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access denied. Please enable microphone permissions for this site.');
+        } else if (event.error === 'network') {
+          alert('Network error during voice recognition. Please check your internet connection.');
+        } else if (event.error !== 'no-speech') {
+          // Only show error for non-silent issues
+          alert(`Voice input error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        // In single-shot mode, automatically restart if user hasn't manually stopped
+        if (recognitionRef.current === recognition && isListening) {
+          setTimeout(() => {
+            if (recognitionRef.current === recognition && isListening) {
+              try {
+                recognition.start();
+              } catch (e) {
+                setIsListening(false);
+              }
+            }
+          }, 100);
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    }
+  };
+
   async function send() {
     if (!text.trim() || busy) return;
+    
+    // Stop voice input if it's active
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+    
     setBusy(true);
     try {
       const ctx = await deckContext();
@@ -276,15 +360,31 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
           );
         })}
       </div>
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-2 space-y-2">
         <label className="inline-flex items-center gap-1">
           <input type="checkbox" checked={!!teaching} onChange={e=>setTeaching(e.target.checked)} />
           <span>Teaching</span>
         </label>
-        <input value={text} onChange={e=>setText(e.target.value)} placeholder="Ask the assistant…"
-          onKeyDown={e=>{ if (e.key==='Enter') send(); }}
-          className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-        <button onClick={send} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Send</button>
+        <div className="flex items-center gap-2">
+          <input value={text} onChange={e=>setText(e.target.value)} placeholder="Ask the assistant…"
+            onKeyDown={e=>{ if (e.key==='Enter') send(); }}
+            className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+          <button 
+            onClick={toggleVoiceInput} 
+            className={`px-2 py-1 rounded border text-white transition-colors ${
+              isListening 
+                ? 'bg-red-600 border-red-500 animate-pulse' 
+                : 'bg-neutral-700 border-neutral-600 hover:bg-neutral-600'
+            }`}
+            title={isListening ? 'Stop voice input' : 'Start voice input'}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </button>
+          <button onClick={send} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Send</button>
+        </div>
       </div>
     </div>
   );

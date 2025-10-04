@@ -19,7 +19,8 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
   const share = async () => {
     try {
       if (!pub) { alert('This deck is private. Make it Public first to get a shareable link.'); return; }
-      const url = `${window.location.origin}/decks/${deckId}`;
+      const baseUrl = window.location.hostname === 'localhost' ? 'https://manatap.ai' : window.location.origin;
+      const url = `${baseUrl}/decks/${deckId}`;
       if ((navigator as any).share) { try { await (navigator as any).share({ title: 'Share deck', url }); return; } catch {} }
       await navigator.clipboard?.writeText?.(url);
       try { const { toast } = await import('@/lib/toast-client'); toast('Share link copied', 'success'); } catch { /* fallback */ }

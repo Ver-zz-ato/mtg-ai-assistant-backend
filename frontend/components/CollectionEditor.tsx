@@ -279,6 +279,7 @@ type Item = { id?: string; name: string; qty: number; created_at?: string };
 import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
 import { usePro } from "@/components/ProContext";
 import { DualRange } from "@/components/shared/DualRange";
+import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
 import PriceChip from "@/components/shared/PriceChip";
 import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
@@ -287,12 +288,42 @@ import CardAutocomplete from "@/components/CardAutocomplete";
 function FixNamesButton({ collectionId }: { collectionId: string }){
   const { isPro } = usePro();
   const [open, setOpen] = React.useState(false);
+  
+  // Track PRO gate view when component renders for non-PRO users
+  React.useEffect(() => {
+    if (!isPro) {
+      trackProGateViewed('fix_card_names', 'collection_editor');
+    }
+  }, [isPro]);
+  
   if (!isPro) {
-    return <button disabled title="PRO only" className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60">Fix names</button>;
+    return (
+      <button 
+        disabled 
+        title="PRO only"
+        onClick={() => {
+          trackProGateClicked('fix_card_names', 'collection_editor');
+        }}
+        className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60"
+      >
+        Fix names
+        <span className="ml-1 inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1 py-0.5 uppercase tracking-wide">
+          PRO
+        </span>
+      </button>
+    );
   }
   return (
     <>
-      <button onClick={()=>setOpen(true)} className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-900">Fix names</button>
+      <button 
+        onClick={() => {
+          setOpen(true);
+          trackProFeatureUsed('fix_card_names');
+        }} 
+        className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-900"
+      >
+        Fix names
+      </button>
       <FixCollectionNamesModal collectionId={collectionId} open={open} onClose={()=>setOpen(false)} />
     </>
   );
@@ -799,9 +830,24 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             </div>
             <Sparkline names={items.map(i=>i.name)} currency={currency} />
             {isPro ? (
-              <button onClick={async()=>{ try{ const r=await fetch('/api/cron/price/snapshot',{ method:'POST' }); if(r.ok){ setLastSnapshotAt(new Date().toISOString()); } }catch{} }} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Take snapshot now</button>
+              <button onClick={async()=>{ 
+                trackProFeatureUsed('price_snapshot');
+                try{ const r=await fetch('/api/cron/price/snapshot',{ method:'POST' }); if(r.ok){ setLastSnapshotAt(new Date().toISOString()); } }catch{} 
+              }} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Take snapshot now</button>
             ) : (
-              <button disabled className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60" title="PRO only">Take snapshot now</button>
+              <button 
+                disabled 
+                onClick={() => {
+                  trackProGateClicked('price_snapshot', 'collection_editor');
+                }}
+                className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60" 
+                title="PRO only"
+              >
+                Take snapshot now
+                <span className="ml-1 inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1 py-0.5 uppercase tracking-wide">
+                  PRO
+                </span>
+              </button>
             )}
           </div>
         </details>
@@ -829,7 +875,12 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         <div className="fixed bottom-16 right-6 left-6 lg:left-[calc(50%+20px)] lg:right-6 z-20 rounded border border-neutral-800 bg-neutral-950/95 px-4 py-3 flex items-center gap-3 shadow-2xl text-sm">
           <div className="opacity-80">Selected: {selected.size}</div>
           <button onClick={async()=>{
-            if(!isPro){ alert('Set to playset is a PRO feature.'); return; }
+            if(!isPro){ 
+              trackProGateClicked('set_to_playset', 'bulk_actions');
+              alert('Set to playset is a PRO feature.'); 
+              return; 
+            }
+            trackProFeatureUsed('set_to_playset');
             // record previous qty for undo
             const prev = new Map<string, number>();
             for(const key of selected){ const it = items.find(x=> (x.id||x.name)===key); if(!it) continue; prev.set(it.id!, it.qty); const delta = 4 - (pending.has(key)? pending.get(key)! : it.qty); if(delta!==0){ await fetch('/api/collections/cards', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id, delta }) }); } }

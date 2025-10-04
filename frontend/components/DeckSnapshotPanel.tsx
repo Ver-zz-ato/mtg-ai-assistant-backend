@@ -2,6 +2,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import { capture } from "@/lib/analytics"
+import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
+import { trackApiCall, trackError } from '@/lib/analytics-performance';
 
 type AnalyzeResult = {
   score: number;
@@ -31,7 +33,8 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
   const analyzeWithText = useCallback(async (text: string) => {
     if (!text?.trim()) return;
     setLoading(true); setError(null);
-    try {
+    
+    await trackApiCall("/analyze", "deck_analysis", async () => {
       const res = await fetch("/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -46,11 +49,23 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
       try { json = JSON.parse(body); } catch { json = null; }
       if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Analyze failed");
       setResult(json?.result ?? json);
-    } catch (e: any) {
+      
+      // Track successful analysis
+      capture('deck_analyzed', {
+        format,
+        plan,
+        colors: colors.join(','),
+        score: json?.result?.score || json?.score,
+        card_count: text.split('\n').filter(Boolean).length
+      });
+      
+      return json;
+    }).catch((e: any) => {
       setError(e?.message ?? "Analyze failed");
-    } finally {
+      throw e;
+    }).finally(() => {
       setLoading(false);
-    }
+    });
   }, [format, plan, colors, currency]);
 
   async function analyze() {
@@ -58,24 +73,47 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
   }
 
   async function saveDeck() {
+    trackDeckCreationWorkflow('started', { source: 'analysis_panel' });
+    
     try {
-      const res = await fetch("/api/decks/create", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: "Imported Deck",
-          format, plan, colors, currency,
-          deck_text: deckText,
-          data: { analyze: result },
-        }),
+      const res = await trackApiCall('/api/decks/create', 'deck_creation', async () => {
+        return fetch("/api/decks/create", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            title: "Imported Deck",
+            format, plan, colors, currency,
+            deck_text: deckText,
+            data: { analyze: result },
+          }),
+        });
       });
+      
       const json = await res.json();
       if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Save failed");
-      capture('deck_created');
-      console.debug('[analytics] deck_created');
-      try { capture('deck_created', { deck_id: (json?.id ?? null), format }); } catch {}
+      
+      // Enhanced deck creation tracking
+      trackDeckCreationWorkflow('saved', { 
+        deck_id: json?.id, 
+        source: 'analysis_panel',
+        has_analysis: !!result,
+        analysis_score: result?.score
+      });
+      
+      capture('deck_created', { 
+        deck_id: (json?.id ?? null), 
+        format,
+        source: 'analysis_panel',
+        analysis_score: result?.score
+      });
+      
       alert("Saved! Check My Decks.");
     } catch (e: any) {
+      trackDeckCreationWorkflow('abandoned', { 
+        current_step: 2, 
+        abandon_reason: 'save_failed',
+        error_message: e?.message 
+      });
       alert(e?.message ?? "Save failed");
     }
   }

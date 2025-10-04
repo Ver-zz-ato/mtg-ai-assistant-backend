@@ -9,13 +9,14 @@ export default function TopToolsStrip() {
   // If a custom badges strip is present, render that instead
   try {
     // Try a few common module names for flexibility
-    const mod = (require as any)("@/badges/TopBadges")?.default
+    const mod = (require as any)("@/Badges/TopBadges")?.default
+      || (require as any)("@/badges/TopBadges")?.default
       || (require as any)("@/badges/TopRow")?.default
       || (require as any)("@/badges/index")?.default;
     if (mod) {
       const El = mod as React.ComponentType;
       return (
-        <div className="w-full mb-4">
+        <div className="w-full m-0 p-0">
           {React.createElement(El)}
         </div>
       );
@@ -23,33 +24,28 @@ export default function TopToolsStrip() {
   } catch {}
 
   return (
-    <div className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 overflow-x-auto md:overflow-visible">
-      {/* 💰 Cost to Finish (White) */}
-      <a href="/collections/cost-to-finish" className="block rounded-xl border border-white/70 bg-neutral-950 p-4 hover:border-white hover:shadow-[0_0_12px_rgba(255,255,255,0.35)] transition">
-        <div className="font-semibold mb-1">💰 Cost to Finish</div>
-        <div className="text-xs opacity-70">What’s left to buy?</div>
+    <div className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 mb-0 overflow-x-auto md:overflow-visible">
+      {/* Cost to Finish */}
+      <a href="/collections/cost-to-finish" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+        <img src="/Cost To Finish.png" alt="Cost to Finish" className="w-full h-auto" />
       </a>
-      {/* 🔄 Budget Swaps (Blue) */}
-      <a href="/deck/swap-suggestions" className="block rounded-xl border border-sky-600/70 bg-neutral-950 p-4 hover:border-sky-400 hover:shadow-[0_0_12px_rgba(56,189,248,0.35)] transition">
-        <div className="font-semibold mb-1">🔄 Budget Swaps</div>
-        <div className="text-xs opacity-70">Trade power for pennies.</div>
+      {/* Budget Swaps */}
+      <a href="/deck/swap-suggestions" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+        <img src="/Budget Swaps.png" alt="Budget Swaps" className="w-full h-auto" />
       </a>
-      {/* 📈 Price Tracker (Black) */}
+      {/* Price Tracker */}
       {riskyOn && (
-        <a href="/price-tracker" className="block rounded-xl border border-black bg-white/10 p-4 hover:border-black hover:bg-white/15 hover:shadow-[0_0_12px_rgba(0,0,0,0.5)] transition">
-          <div className="font-semibold mb-1">📈 Price Tracker</div>
-          <div className="text-xs opacity-70">Stay ahead of spikes.</div>
+        <a href="/price-tracker" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+          <img src="/Price Tracker.png" alt="Price Tracker" className="w-full h-auto" />
         </a>
       )}
-      {/* 🎲 Mulligan Simulator (Red) */}
-      <a href="/tools/mulligan" className="block rounded-xl border border-red-700/70 bg-neutral-950 p-4 hover:border-red-500 hover:shadow-[0_0_12px_rgba(239,68,68,0.35)] transition">
-        <div className="font-semibold mb-1">🎲 Mulligan Simulator</div>
-        <div className="text-xs opacity-70">Test your hands.</div>
+      {/* Mulligan Simulator */}
+      <a href="/tools/mulligan" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+        <img src="/Mulligan Simulator.png" alt="Mulligan Simulator" className="w-full h-auto" />
       </a>
-      {/* 🧮 Probability Helpers (Green) */}
-      <a href="/tools/probability" className="block rounded-xl border border-green-700/70 bg-neutral-950 p-4 hover:border-green-500 hover:shadow-[0_0_12px_rgba(34,197,94,0.35)] transition">
-        <div className="font-semibold mb-1">🧮 Probability Helpers</div>
-        <div className="text-xs opacity-70">Odds of drawing X by turn Y.</div>
+      {/* Probability Helpers */}
+      <a href="/tools/probability" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
+        <img src="/Probability Helpers.png" alt="Probability Helpers" className="w-full h-auto" />
       </a>
     </div>
   );

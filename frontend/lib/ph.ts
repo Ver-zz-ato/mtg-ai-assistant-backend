@@ -33,11 +33,29 @@ export function capture(event: string, props?: Props): void {
 export function identify(distinctId: string, props?: Props): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
+    // Enrich user properties with app-specific context
+    const enrichedProps = {
+      ...props,
+      $set: {
+        ...props?.$set,
+        app_version: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
+        platform: 'web',
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: typeof navigator !== 'undefined' ? navigator.language : 'unknown',
+        identified_at: new Date().toISOString(),
+      },
+      $set_once: {
+        ...props?.$set_once,
+        first_seen: new Date().toISOString(),
+      }
+    };
+    
     // @ts-ignore
-    window.posthog?.identify?.(distinctId, props);
+    window.posthog?.identify?.(distinctId, enrichedProps);
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
-      console.debug('[analytics] identify', distinctId, props ?? {});
+      console.debug('[analytics] identify', distinctId, enrichedProps ?? {});
     }
   } catch {}
 }

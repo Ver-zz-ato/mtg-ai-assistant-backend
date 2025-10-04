@@ -25,6 +25,7 @@ export default function MulliganSimulatorPage() {
   const [deckSize, setDeckSize] = React.useState(99);
   const [successCards, setSuccessCards] = React.useState(10);
   const [landsInDeck, setLandsInDeck] = React.useState(36);
+  
   const [minKeep, setMinKeep] = React.useState(1); // keep if >= this many successes
   const [minLands, setMinLands] = React.useState(2);
   const [maxLands, setMaxLands] = React.useState(5);
@@ -169,7 +170,8 @@ export default function MulliganSimulatorPage() {
   const kChips = [1, 2, 3];
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-4">
+    <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
+      <div className="max-w-[1400px] mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <div>
       <h1 className="text-xl font-semibold">Hand / Mulligan Simulator</h1>
@@ -191,6 +193,27 @@ export default function MulliganSimulatorPage() {
           } catch {}
         }}
       />
+      
+      {/* Interactive Hand Testing Info */}
+      <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center text-black">
+            🃏
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-amber-200 text-sm">Want Interactive Hand Testing?</h3>
+            <p className="text-xs opacity-80 mt-1">
+              Visit your <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> for PRO hand testing with real card images, 
+              London mulligan simulation, and shareable results!
+            </p>
+          </div>
+          <div className="">
+            <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide">
+              PRO
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-900 border border-neutral-800 rounded p-3">
         <label className="text-sm">
@@ -310,6 +333,7 @@ export default function MulliganSimulatorPage() {
           {advanced && <AdviceBlock deckSize={deckSize} successCards={successCards} landsInDeck={landsInDeck} minKeep={minKeep} minLands={minLands} maxLands={maxLands} iterations={Math.min(4000, Math.max(500, Math.floor(iterations/5)))} />}
         </div>
       )}
+      </div>
     </div>
   );
 }

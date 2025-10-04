@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { capture } from "@/lib/ph";
+import { trackApiCall, trackPerformance } from '@/lib/analytics-performance';
 
 import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -61,10 +62,22 @@ export default function CostToFinishClient() {
       </div>
     );
   }
-  React.useEffect(() => { try { capture('cost_to_finish_opened'); } catch {} }, []);
   const params = useSearchParams();
   const initialDeckId = params.get("deck") || "";
   const initialCollectionId = params.get("collectionId") || "";
+  
+  const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
+  const currency = (globalCurrency as any as "USD" | "EUR" | "GBP") || "USD";
+  
+  React.useEffect(() => { 
+    try { 
+      capture('cost_to_finish_opened', {
+        initial_deck_id: initialDeckId,
+        initial_collection_id: initialCollectionId,
+        currency
+      }); 
+    } catch {} 
+  }, [initialDeckId, initialCollectionId, currency]);
 
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -74,8 +87,6 @@ export default function CostToFinishClient() {
 
   const [deckId, setDeckId] = React.useState(initialDeckId);
   const [deckText, setDeckText] = React.useState("");
-  const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
-  const currency = (globalCurrency as any as "USD" | "EUR" | "GBP") || "USD";
   const setCurrency = (c: "USD" | "EUR" | "GBP") => setGlobalCurrency?.(c);
   const [useOwned, setUseOwned] = React.useState(false);
   const [collectionId, setCollectionId] = React.useState<string>("");

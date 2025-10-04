@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import Logo from './Logo';
 
 export default function Header() {
   const supabase = createBrowserSupabaseClient();
@@ -55,7 +56,8 @@ export default function Header() {
   return (
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-<Link href="/" className="font-semibold">
+<Link href="/" className="font-semibold flex items-center gap-2">
+          <Logo size={28} />
           ManaTap AI
         </Link>
 

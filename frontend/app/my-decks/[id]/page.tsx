@@ -11,6 +11,7 @@ import ProAutoToggle from "./ProAutoToggle";
 import FunctionsPanel from "./FunctionsPanel";
 import NextDynamic from "next/dynamic";
 import DeckProbabilityPanel from "./DeckProbabilityPanel";
+import HandTestingWidget from "@/components/HandTestingWidget";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -204,8 +205,9 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
-      <div className="grid grid-cols-12 gap-6">
+    <main className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-8">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-12 md:col-span-3 space-y-4">
           <div className="rounded-xl border border-neutral-800 p-4">
             <div className="text-sm font-semibold mb-2">Deck trends</div>
@@ -332,6 +334,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
           <Client deckId={id} isPro={isPro} key={r || "_"} />
         </section>
+        </div>
       </div>
     </main>
   );

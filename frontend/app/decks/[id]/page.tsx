@@ -291,6 +291,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             </div>
           </div>
 
+
           {/* Pricing mini */}
           <div className="rounded-xl border border-neutral-800 p-4 mt-4">
             {(() => { const PriceMini = require('@/components/DeckPriceMini').default; return <PriceMini deckId={id} />; })()}

@@ -144,3 +144,19 @@ Layout polish
 
 Navigation
 - Added persistent "My Wishlist" link to top nav. <!-- id:nav.my_wishlist_link -->
+
+---
+
+## Recent Fixes & Additions (2025-10-04)
+
+- Chat: post proxy to avoid TLS fetch errors; normal replies or offline fallback without 500s. <!-- id:chat.post_proxy_tls -->
+- CSP: allow Scryfall API and mana symbol images hosts (api.scryfall.com, svgs.scryfall.io). <!-- id:security.csp_scryfall_allow -->
+- CSV import: ampersand-delimited lines supported (e.g., 10x&Forest&The Lord of the Rings). <!-- id:deck.csv_ampersand -->
+- Deck deletion: typed confirmation modal (type DELETE) on /mydecks and deck pages. <!-- id:ui.delete_typed_modal -->
+- Homepage: 5 PNG badges (static imports) replace feature cards; right rail shows Deck Snapshot Horizontal PNG (no panel). <!-- id:ui.home.badges_png -->
+- Spacing: tightened around top badges and right-rail snapshot + creator; added dev-only spacing debug (?dbg=space + DBG toggle). <!-- id:dev.spacing_debug -->
+- Fix Names: batch + individual call internal handlers to avoid TLS; removed stray var; Node runtime set on Node-API routes. <!-- id:fix.fixnames_pipeline_tls -->
+- Profile: Save Profile button publishes immediately; removed legacy DBG button. <!-- id:profile.save_publish -->
+- Pins/Sharing: bad_origin resolved under Render config. <!-- id:profile.pins_share_origin -->
+- Custom Card Wallet: empty state nudge links to homepage. <!-- id:profile.wallet_empty_state -->
+- Pro badge: shows correctly after refresh/sign out/in upon admin toggle. <!-- id:ui.pro_badge_visibility -->

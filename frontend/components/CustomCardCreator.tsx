@@ -20,7 +20,7 @@ const CURATED: { label: string; color: string; names: string[] }[] = [
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 
-export default function CustomCardCreator(){
+export default function CustomCardCreator({ compact = false }: { compact?: boolean }){
   const [pi,setPi] = React.useState(0);
   const [di,setDi] = React.useState(0);
   const [ti,setTi] = React.useState(0);
@@ -283,7 +283,7 @@ export default function CustomCardCreator(){
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3 max-w-[380px] mx-auto">
+    <div className={`${compact? 'bg-transparent border-0 rounded-none p-0 space-y-2' : 'bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3'} max-w-[380px] mx-auto`}>
       <div className="font-semibold text-center">Custom Card Creator</div>
       <div className="text-xs opacity-70 text-center">Assemble a playful profile card. Art via Scryfall (credit shown).</div>
 

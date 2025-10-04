@@ -10,7 +10,7 @@ export default function ImportDeckForMath({
   storageKey,
   label = "Import from My Decks",
 }: {
-  onApply: (vals: { deckId: string; deckSize: number; successCards: number }) => void;
+  onApply: (vals: { deckId: string; deckSize: number; successCards: number; deckCards?: Array<{ name: string; qty: number }> }) => void;
   storageKey: "prob" | "mull";
   label?: string;
 }) {
@@ -92,7 +92,7 @@ export default function ImportDeckForMath({
 
   const apply = () => {
     if (!deckId) return;
-    onApply({ deckId, deckSize, successCards });
+    onApply({ deckId, deckSize, successCards, deckCards: cards });
   };
 
   const useCount = (k: keyof NonNullable<typeof counts>) => {
