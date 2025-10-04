@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const OPENAI_URL = "https://api.openai.com/v1/responses";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export async function GET() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -11,8 +11,8 @@ export async function GET() {
   try {
     const body: any = {
       model,
-      input: [{ role: "user", content: [{ type: "input_text", text: "ping" }]}],
-      max_output_tokens: 32,
+      messages: [{ role: "user", content: "ping" }],
+      max_tokens: 32,
       temperature: 1,
     };
     const res = await fetch(OPENAI_URL, {
