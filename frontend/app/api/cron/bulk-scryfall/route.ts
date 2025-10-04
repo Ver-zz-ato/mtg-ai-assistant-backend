@@ -41,33 +41,78 @@ function isAdmin(user: any): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
+  console.log("🔥 Bulk import endpoint called");
+  
+  try {
+    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
+    const hdr = req.headers.get("x-cron-key") || "";
+    console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
 
-  let useAdmin = false;
-  let actor: string | null = null;
+    let useAdmin = false;
+    let actor: string | null = null;
 
-  if (cronKey && hdr === cronKey) {
-    useAdmin = true;
-    actor = 'cron';
-  } else {
-    try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && isAdmin(user)) {
-        useAdmin = true;
-        actor = user.id as string;
+    if (cronKey && hdr === cronKey) {
+      useAdmin = true;
+      actor = 'cron';
+      console.log("✅ Cron key auth successful");
+    } else {
+      console.log("🔍 Trying user auth...");
+      try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && isAdmin(user)) {
+          useAdmin = true;
+          actor = user.id as string;
+          console.log("✅ Admin user auth successful");
+        }
+      } catch (authError: any) {
+        console.log("❌ User auth failed:", authError.message);
       }
-    } catch {}
-  }
+    }
 
-  if (!useAdmin) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    if (!useAdmin) {
+      console.log("❌ Authorization failed");
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    console.log("🚀 Authorization successful, starting import...");
+  } catch (setupError: any) {
+    console.error("💥 Setup error:", setupError);
+    return NextResponse.json({ 
+      ok: false, 
+      error: "setup_failed",
+      details: setupError.message 
+    }, { status: 500 });
   }
 
   try {
     console.log("🚀 Starting bulk Scryfall import...");
     const startTime = Date.now();
+
+    // Check if this is a test run (quick validation)
+    const testMode = req.headers.get('x-test-mode') === 'true';
+    if (testMode) {
+      console.log("🧪 Test mode - validating connections only");
+      
+      // Test database connection
+      const admin = getAdmin();
+      if (!admin) {
+        throw new Error("Admin client not available");
+      }
+      
+      const { data, error } = await admin.from('scryfall_cache').select('name').limit(1);
+      if (error) {
+        throw new Error(`Database test failed: ${error.message}`);
+      }
+      
+      return NextResponse.json({ 
+        ok: true, 
+        test_mode: true,
+        database_ok: true,
+        sample_cache_entries: data?.length || 0,
+        message: "Test successful - ready for full import"
+      });
+    }
 
     // 1. Download Scryfall bulk data (default cards only)
     console.log("📥 Downloading Scryfall bulk data...");

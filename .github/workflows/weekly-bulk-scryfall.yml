@@ -40,41 +40,56 @@ jobs:
             echo "DEBUG: Trying URL: [$URL]"
             echo "POST $URL"
             
-            # Test the endpoint first with detailed response
-            echo "Testing endpoint with curl..."
-            RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+            # First test the endpoint in test mode (quick validation)
+            echo "Testing endpoint in test mode..."
+            TEST_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
               -X POST \
               -H "x-cron-key: $CRON_KEY" \
+              -H "x-test-mode: true" \
               -H "Content-Type: application/json" \
-              --max-time 10 \
+              --max-time 30 \
               "$URL" 2>&1 || echo "CURL_ERROR")
             
-            HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-            RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_CODE:/d')
+            TEST_HTTP_CODE=$(echo "$TEST_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+            TEST_RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '/HTTP_CODE:/d')
             
-            echo "Response code: $HTTP_CODE"
-            echo "Response body: $RESPONSE_BODY"
+            echo "Test response code: $TEST_HTTP_CODE"
+            echo "Test response body: $TEST_RESPONSE_BODY"
             
-            if [ "$HTTP_CODE" -eq "200" ] || [ "$HTTP_CODE" -eq "201" ]; then
-              echo "✅ Found working endpoint: $URL"
-              echo "Starting bulk import (this may take 5-10 minutes for ~30,000 cards)..."
+            if [ "$TEST_HTTP_CODE" -eq "200" ] || [ "$TEST_HTTP_CODE" -eq "201" ]; then
+              echo "✅ Test successful! Found working endpoint: $URL"
+              echo "Starting full bulk import (this may take 5-10 minutes for ~30,000 cards)..."
               
-              # Use longer timeout for actual import
-              curl -f -sS -X POST \
+              # Use longer timeout for actual import (without test mode)
+              FULL_RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+                -X POST \
                 -H "x-cron-key: $CRON_KEY" \
                 -H "Content-Type: application/json" \
                 --max-time 600 \
-                "$URL"
+                "$URL" 2>&1 || echo "CURL_ERROR")
               
-              SUCCESS=true
-              break
-            elif [ "$HTTP_CODE" -eq "404" ]; then
+              FULL_HTTP_CODE=$(echo "$FULL_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+              FULL_RESPONSE_BODY=$(echo "$FULL_RESPONSE" | sed '/HTTP_CODE:/d')
+              
+              echo "Full import response code: $FULL_HTTP_CODE"
+              echo "Full import response body: $FULL_RESPONSE_BODY"
+              
+              if [ "$FULL_HTTP_CODE" -eq "200" ] || [ "$FULL_HTTP_CODE" -eq "201" ]; then
+                echo "✅ Bulk import completed successfully!"
+                SUCCESS=true
+                break
+              else
+                echo "❌ Full import failed with code: $FULL_HTTP_CODE"
+                echo "Response: $FULL_RESPONSE_BODY"
+              fi
+            elif [ "$TEST_HTTP_CODE" -eq "404" ]; then
               echo "❌ 404 Not Found - trying next endpoint"
-            elif [ "$HTTP_CODE" -eq "401" ]; then
+            elif [ "$TEST_HTTP_CODE" -eq "401" ]; then
               echo "❌ 401 Unauthorized - check CRON_KEY secret"
               exit 1
             else
-              echo "❌ Unexpected response code: $HTTP_CODE"
+              echo "❌ Unexpected test response code: $TEST_HTTP_CODE"
+              echo "Test response body: $TEST_RESPONSE_BODY"
             fi
           done
           
