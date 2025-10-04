@@ -43,13 +43,14 @@ function isAdmin(user: any): boolean {
 export async function POST(req: NextRequest) {
   console.log("🔥 Bulk import endpoint called");
   
+  let actor: string | null = null; // Declare actor at function scope
+  
   try {
     const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
     const hdr = req.headers.get("x-cron-key") || "";
     console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
 
     let useAdmin = false;
-    let actor: string | null = null;
 
     if (cronKey && hdr === cronKey) {
       useAdmin = true;
