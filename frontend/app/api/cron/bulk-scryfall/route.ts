@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes for bulk processing
+export const maxDuration = 600; // 10 minutes for bulk processing (30k cards)
 
 interface ScryfallCard {
   name: string;
@@ -67,10 +67,14 @@ export async function POST(req: NextRequest) {
 
   try {
     console.log("🚀 Starting bulk Scryfall import...");
+    const startTime = Date.now();
 
     // 1. Download Scryfall bulk data (default cards only)
     console.log("📥 Downloading Scryfall bulk data...");
     const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
+    if (!bulkResponse.ok) {
+      throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
+    }
     const bulkData = await bulkResponse.json();
     
     const defaultCardsUrl = bulkData.data.find((item: any) => item.type === "default_cards")?.download_uri;
@@ -78,8 +82,11 @@ export async function POST(req: NextRequest) {
       throw new Error("Could not find default_cards bulk data URL");
     }
 
-    console.log("📦 Fetching card data from:", defaultCardsUrl);
+    console.log("📰 Fetching card data from:", defaultCardsUrl);
     const cardsResponse = await fetch(defaultCardsUrl);
+    if (!cardsResponse.ok) {
+      throw new Error(`Failed to fetch cards: ${cardsResponse.status} ${cardsResponse.statusText}`);
+    }
     const cards: ScryfallCard[] = await cardsResponse.json();
     
     console.log(`📊 Processing ${cards.length} cards...`);
@@ -118,7 +125,7 @@ export async function POST(req: NextRequest) {
       console.warn("⚠️ Schema test failed, proceeding with basic fields:", schemaError.message);
     }
 
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = 500; // Smaller batches to prevent timeouts
     let processed = 0;
     let inserted = 0;
     let errors = 0;
