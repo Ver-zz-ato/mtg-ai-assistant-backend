@@ -367,3 +367,49 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Speech transcripts automatically appear in chat input field, ready for editing or immediate sending.
 - Seamless integration with existing chat UI without disrupting current workflows.
 - Production-ready with clean code (debug logging and test functions removed).
+
+## Week 1 Analytics Enhancement & Legal Pages (2025-10-04/05)
+
+☑ Analytics Event Tracking Implementation <!-- id:analytics.week1_events -->
+- Added authentication event tracking to Header.tsx: login attempts, successes, failures; logout attempts, successes, failures.
+- Added navigation link click tracking on desktop header and mobile menu links.
+- Implemented deck editor engagement depth tracking: deck editor opens, card additions to decks.
+- All events sent to PostHog with proper consent gating, error safety, and environment setup.
+- Confirmed backend PostHog integration working through existing setup.
+
+☑ CORS Backend Configuration <!-- id:backend.cors_config -->
+- Updated Flask backend (app.py) CORS configuration to allow browser requests from https://manatap.ai and https://app.manatap.ai.
+- Added Node.js Express backend (index.js) CORS support with proper origins, methods, credentials, and preflight handling.
+- Configured explicit OPTIONS route handling to ensure preflight requests return 200 status.
+- Methods: GET, POST, PUT, DELETE, OPTIONS with credentials support.
+
+☑ OpenAI API Integration Fixes <!-- id:api.openai_fixes -->
+- Fixed OpenAI API URL in chat route from v1/responses to v1/chat/completions.
+- Updated request format from custom format to standard OpenAI chat completions format.
+- Fixed response parsing to handle OpenAI's standard response structure.
+- Updated debug LLM endpoint with same fixes for consistent API handling.
+- Fixed token usage parsing to match OpenAI's prompt_tokens/completion_tokens format.
+
+☑ Legal Pages & Footer Updates <!-- id:legal.comprehensive_update -->
+- Updated Terms page with UK digital service purchase clause.
+- Added GDPR compliance statement to Privacy page.
+- Created new Refund & Cancellation Policy page (/refund) with:
+  * 14-day refund policy for new Pro subscribers
+  * Stripe payment processor details and billing portal instructions
+  * UK legal jurisdiction and tax information
+  * Stripe support link integration
+- Created comprehensive Support page (/support) with:
+  * About ManaTap.ai section with creator information
+  * Core features list (Cost-to-Finish, Budget Swaps, Probability Helpers, etc.)
+  * Technology stack details (Next.js 15, Supabase, OpenAI GPT-5)
+  * Contact information (davy@manatap.ai)
+- Updated footer navigation:
+  * Changed "About" to "Support" with proper link
+  * Added "Refund Policy" link alongside Terms and Privacy
+
+☑ Build System & Code Quality <!-- id:build.quality_fixes -->
+- Fixed TopToolsStrip.tsx warnings by replacing require() calls with dynamic imports.
+- Eliminated "Module not found" build warnings for optional badge modules.
+- Maintained graceful fallback for missing custom badge components.
+- Verified all new pages build correctly and are included in production bundle.
+- All 150 pages building successfully with proper static/dynamic rendering.
