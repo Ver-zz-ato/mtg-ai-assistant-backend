@@ -43,6 +43,9 @@ export default function PrivacyPage() {
 
       <h2>Cookies</h2>
       <p>Manatap.ai uses cookies for login sessions and analytics. By using the site, you consent to this.</p>
+
+      <h2>Legal Compliance</h2>
+      <p>We comply with UK and EU data protection laws (GDPR).</p>
     </div>
   );
 }

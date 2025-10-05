@@ -23,12 +23,13 @@ export default function FooterLinks() {
 
   return (
     <>
-      <a className="hover:text-gray-200" href="#">About</a>
+      <a className="hover:text-gray-200" href="/support">Support</a>
       {cfg.stripe && (<a className="hover:text-gray-200" href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01" target="_blank" rel="noreferrer">Stripe</a>)}
       {cfg.kofi && (<a className="hover:text-gray-200" href="https://ko-fi.com/davydraws7/tip" target="_blank" rel="noreferrer">Ko‑fi</a>)}
       {cfg.paypal && (<a className="hover:text-gray-200" href="https://paypal.me/DavyDraws7" target="_blank" rel="noreferrer">PayPal</a>)}
       <a className="hover:text-gray-200" href="/terms">Terms</a>
       <a className="hover:text-gray-200" href="/privacy">Privacy</a>
+      <a className="hover:text-gray-200" href="/refund">Refund Policy</a>
 
       <div className="w-full">
         <div className="text-[10px] leading-snug opacity-70 max-w-5xl">
