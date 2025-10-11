@@ -35,7 +35,16 @@ jobs:
       - name: Create logs directory
         run: mkdir -p logs
       
-      - name: Run Backup Monitor
+      - name: Create Manual Database Backup
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "📦 Creating database backup (Supabase free tier)..."
+          node scripts/manual-backup.js
+      
+      - name: Run Health Monitor
         env:
           HEALTH_CHECK_URL: 'https://manatap.ai/api/health'
           BACKUP_CHECK_URL: 'https://manatap.ai/api/admin/backups'
@@ -72,12 +81,14 @@ jobs:
           # Exit with the monitoring script's exit code
           exit $MONITOR_EXIT_CODE
       
-      - name: Upload monitoring logs
+      - name: Upload backup files and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backup-monitor-logs-${{ github.run_number }}
-          path: logs/
+          name: backup-and-logs-${{ github.run_number }}
+          path: |
+            logs/
+            backups/
           retention-days: 30
       
       - name: Report success to GitHub
