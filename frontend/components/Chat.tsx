@@ -4,11 +4,13 @@ import { createPortal } from "react-dom";
 import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
-import { listMessages, postMessage } from "@/lib/threads";
+import { listMessages, postMessage, postMessageStream } from "@/lib/threads";
 import { capture } from "@/lib/ph";
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
+import { toast } from '@/lib/toast-client';
 
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -52,7 +54,7 @@ async function appendAssistant(threadId: string, content: string) {
   return true;
 }
 
-export default function Chat() {
+function Chat() {
   async function createDeckFromIntent(intent:any){
     try{
       const r = await fetch('/api/decks/scaffold', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ intent }) });
@@ -118,6 +120,11 @@ export default function Chat() {
   const [displayName, setDisplayName] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState<string>("");
+  const [streamAbort, setStreamAbort] = useState<AbortController | null>(null);
+  const [fallbackBanner, setFallbackBanner] = useState<string>("");
+  const streamStartTimeRef = useRef<number>(0);
   useEffect(() => { (async () => { try { const sb = createBrowserSupabaseClient(); const { data } = await sb.auth.getUser(); const u:any = data?.user; const md:any = u?.user_metadata || {}; setDisplayName(String(md.username || u?.email || 'you')); } catch {} })(); }, []);
 
   let currentAbort: AbortController | null = null;
@@ -348,6 +355,8 @@ try {
     ]);
 
     // Track chat analytics
+    const streamStartTime = Date.now();
+    streamStartTimeRef.current = streamStartTime;
     capture('chat_sent', { 
       chars: (val?.length ?? 0), 
       thread_id: threadId ?? null,
@@ -356,9 +365,106 @@ try {
       budget: budget,
       teaching_mode: teaching
     });
+    capture('chat_stream_start', {
+      model: 'gpt-4o-mini', // TODO: get from config
+      thread_id: threadId ?? null,
+      deck_id: linkedDeckId || null,
+      started_at: streamStartTime
+    });
     const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching };
     const context: any = { deckId: linkedDeckId || null, budget, colors: prefs.colors, teaching };
-    const res = await postMessage({ text: val, threadId, context }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+    
+    // Try streaming first
+    let streamFailed = false;
+    const abortController = new AbortController();
+    setStreamAbort(abortController);
+    setIsStreaming(true);
+    setStreamingContent("");
+    setFallbackBanner("");
+
+    // Add placeholder streaming message
+    const streamingMsgId = Date.now() + 1;
+    setMessages(m => [
+      ...m,
+      { 
+        id: streamingMsgId, 
+        thread_id: threadId || "", 
+        role: "assistant", 
+        content: "Typing…", 
+        created_at: new Date().toISOString() 
+      } as any,
+    ]);
+
+    try {
+      await postMessageStream(
+        { text: val, threadId, context, prefs },
+        (token: string) => {
+          // Update streaming content
+          setStreamingContent(prev => {
+            const newContent = prev + token;
+            // Update the streaming message in place
+            setMessages(m => 
+              m.map(msg => 
+                msg.id === streamingMsgId 
+                  ? { ...msg, content: newContent || "Typing…" }
+                  : msg
+              )
+            );
+            return newContent;
+          });
+        },
+        () => {
+          // Stream completed
+          setIsStreaming(false);
+          setStreamAbort(null);
+          // The message is already updated with final content
+          capture('chat_stream_stop', {
+            stopped_by: 'complete',
+            duration_ms: Date.now() - streamStartTime,
+            tokens_if_known: Math.ceil(streamingContent.length / 4) // rough estimate
+          });
+        },
+        (error: Error) => {
+          setIsStreaming(false);
+          setStreamAbort(null);
+          if (error.message === "fallback") {
+            streamFailed = true;
+            capture('chat_stream_fallback', { reason: 'fallback_response' });
+          } else {
+            console.error("Stream error:", error);
+            streamFailed = true;
+            capture('chat_stream_error', {
+              reason: error.message || 'unknown',
+              duration_ms: Date.now() - streamStartTime,
+              had_partial: streamingContent.length > 0
+            });
+          }
+        },
+        abortController.signal
+      );
+    } catch (error) {
+      setIsStreaming(false);
+      setStreamAbort(null);
+      streamFailed = true;
+      capture('chat_stream_error', {
+        reason: String(error).substring(0, 100),
+        duration_ms: Date.now() - streamStartTime,
+        had_partial: streamingContent.length > 0
+      });
+    }
+
+    let res: any;
+    if (streamFailed) {
+      // Remove streaming message and show fallback banner
+      setMessages(m => m.filter(msg => msg.id !== streamingMsgId));
+      setFallbackBanner("Live streaming temporarily unavailable.");
+      
+      // Fallback to regular postMessage
+      res = await postMessage({ text: val, threadId, context }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+    } else {
+      // Stream succeeded, simulate successful response
+      res = { ok: true, threadId: threadId }; // We don't get threadId from stream yet
+    }
 
     let tid = threadId as string | null;
     if ((res as any)?.ok) {
@@ -414,10 +520,31 @@ try {
         }
       } catch {}
     } else {
-      try { const tc = await import("@/lib/toast-client"); tc.toastError(res?.error?.message || "Chat failed"); } catch {}
+      // Enhanced error handling with different error types
+      const errorMsg = res?.error?.message || "Chat failed";
+      const isNetworkError = errorMsg.toLowerCase().includes('network') || errorMsg.toLowerCase().includes('timeout');
+      const isServerError = errorMsg.toLowerCase().includes('server') || errorMsg.toLowerCase().includes('503');
+      
+      try { 
+        if (isNetworkError) {
+          toast("Connection problem. Please check your internet and try again.", 'error');
+        } else if (isServerError) {
+          toast("Our servers are temporarily busy. Please try again in a moment.", 'error');
+        } else {
+          toast(errorMsg, 'error');
+        }
+      } catch {}
+      
+      // Provide friendly error message with retry option
+      const friendlyErrorContent = isNetworkError 
+        ? "I'm having trouble connecting right now. Please check your internet connection and try again."
+        : isServerError 
+        ? "I'm temporarily overloaded. Please wait a moment and try again."
+        : `I encountered an error: ${errorMsg}. Please try asking again.`;
+        
       setMessages(m => [
         ...m,
-        { id: Date.now() + 1, thread_id: threadId || "", role: "assistant", content: "Sorry — " + ((res as any)?.error?.message ?? "no reply"), created_at: new Date().toISOString() } as any,
+        { id: Date.now() + 1, thread_id: threadId || "", role: "assistant", content: friendlyErrorContent, created_at: new Date().toISOString() } as any,
       ]);
     }
 
@@ -684,6 +811,12 @@ try {
         <div className="text-sm font-semibold opacity-90">Your deck-building assistant</div>
       </div>
 
+      {fallbackBanner && (
+        <div className="mb-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded text-yellow-200 text-sm">
+          {fallbackBanner}
+        </div>
+      )}
+      
       <div className="min-h-[40vh] space-y-4 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 pb-8 overflow-x-hidden">
         {(!Array.isArray(messages) || messages.length === 0) ? (
           <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
@@ -1146,11 +1279,34 @@ try {
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
             </svg>
           </button>
-          <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit rounded bg-blue-600 text-white disabled:opacity-60" data-testid="chat-send">
-            {busy ? "…" : "Send"}
-          </button>
+          {isStreaming ? (
+            <button 
+              onClick={() => {
+                if (streamAbort) {
+                  streamAbort.abort();
+                  setStreamAbort(null);
+                  setIsStreaming(false);
+                  capture('chat_stream_stop', {
+                    stopped_by: 'user',
+                    duration_ms: Date.now() - streamStartTimeRef.current,
+                    tokens_if_known: Math.ceil(streamingContent.length / 4)
+                  });
+                }
+              }} 
+              className="px-4 py-2 h-fit rounded bg-red-600 text-white hover:bg-red-700"
+            >
+              Stop
+            </button>
+          ) : (
+            <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit rounded bg-blue-600 text-white disabled:opacity-60" data-testid="chat-send">
+              {busy ? "…" : "Send"}
+            </button>
+          )}
         </div>
       </div>
   </div>
   );
 }
+
+// Export Chat component wrapped with error boundary
+export default withErrorFallback(Chat, ChatErrorFallback);
