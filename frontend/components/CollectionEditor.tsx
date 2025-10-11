@@ -904,7 +904,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               showToast('Added to wishlist');
             } catch(e:any){ alert(e?.message||'Failed'); }
           }} className="text-sm px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">Add to wishlist</button>
-          <a href="/profile#wishlist" className="text-sm underline opacity-90 hover:opacity-100">Go to my Wishlist →</a>
+          <a href="/profile?tab=wishlist" className="text-sm underline opacity-90 hover:opacity-100">Go to my Wishlist →</a>
           <button onClick={()=> setSelected(new Set())} className="ml-auto text-sm px-2 py-1.5 rounded border border-neutral-700">Clear</button>
         </div>
       )}

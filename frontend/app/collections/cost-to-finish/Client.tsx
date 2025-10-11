@@ -660,6 +660,11 @@ export default function CostToFinishClient() {
                   className="ml-2 px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">
                   Add missing → Wishlist
                 </button>
+                <a
+                  href="/profile?tab=wishlist"
+                  className="ml-2 px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm underline opacity-90 hover:opacity-100">
+                  View Wishlist →
+                </a>
                 {/* PRO buttons */}
                 <button
                   onClick={async () => {

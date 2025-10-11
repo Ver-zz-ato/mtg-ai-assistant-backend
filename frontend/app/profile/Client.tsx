@@ -401,6 +401,70 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 </div>
               </section>
 
+              {/* Pricing/Upgrade Section - show for non-pro users or as general info */}
+              <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-lg font-semibold flex items-center gap-2">
+                    {pro ? '✨ Pro Member' : '💎 Upgrade to Pro'}
+                  </div>
+                  {pro && (
+                    <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-xs font-medium text-amber-400">
+                      Active
+                    </span>
+                  )}
+                </div>
+                
+                {pro ? (
+                  <div className="space-y-2">
+                    <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Unlimited AI analysis</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Advanced deck statistics</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Price tracking & alerts</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Priority support</div>
+                    </div>
+                    <div className="pt-2 border-t border-neutral-700">
+                      <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features →</a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-sm opacity-80">
+                      Unlock unlimited AI analysis, advanced insights, and premium features with Pro.
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/20 rounded-lg p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mb-3">
+                        <div className="flex items-center gap-2"><span className="text-blue-400">⚡</span> Unlimited AI analysis</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">📊</span> Advanced deck stats</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">📈</span> Price tracking & alerts</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">🎯</span> Personalized recommendations</div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Starting at $9.99/month</div>
+                        <div className="flex gap-2">
+                          <a 
+                            href="/pricing" 
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium text-sm hover:from-blue-700 hover:to-purple-700 transition-colors"
+                            onClick={() => { try { capture('profile_pricing_cta_clicked', { source: 'profile_upgrade_section' }); } catch {} }}
+                          >
+                            View Pricing
+                          </a>
+                          <a 
+                            href="/pricing" 
+                            className="px-4 py-2 border border-blue-500 text-blue-400 rounded-lg font-medium text-sm hover:bg-blue-600/10 transition-colors"
+                            onClick={() => { try { capture('profile_pricing_learn_more_clicked', { source: 'profile_upgrade_section' }); } catch {} }}
+                          >
+                            Learn More
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               {/* Identity + Badges/Activity side-by-side */}
               <div className="grid grid-cols-12 gap-6">
                 <section className="col-span-12 md:col-span-8 rounded-xl border border-neutral-800 p-4 space-y-3">

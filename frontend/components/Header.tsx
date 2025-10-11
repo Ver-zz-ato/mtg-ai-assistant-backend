@@ -79,7 +79,7 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-3">
-          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
+          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()
           <Link 
             href="/my-decks" 
             className="text-sm hover:underline"
@@ -100,6 +100,13 @@ export default function Header() {
             onClick={() => capture('nav_link_clicked', { destination: '/profile?tab=wishlist', source: 'header' })}
           >
             My Wishlist
+          </Link>
+          <Link 
+            href="/pricing" 
+            className="text-sm hover:underline text-blue-600 font-medium"
+            onClick={() => capture('nav_link_clicked', { destination: '/pricing', source: 'header' })}
+          >
+            Pricing
           </Link>
           <Link 
             href="/profile" 
@@ -184,7 +191,7 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="lg:hidden border-t bg-white dark:bg-gray-900">
           <div className="px-4 py-3 space-y-3">
-            {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge />; } catch { return null; } })()}
+            {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()
             
             <Link 
               href="/my-decks" 
@@ -215,6 +222,16 @@ export default function Header() {
               }}
             >
               My Wishlist
+            </Link>
+            <Link 
+              href="/pricing" 
+              className="block py-2 text-sm hover:text-blue-600 text-blue-600 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/pricing', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              💎 Pricing
             </Link>
             <Link 
               href="/profile" 
