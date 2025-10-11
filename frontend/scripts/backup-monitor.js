@@ -19,7 +19,7 @@ const CONFIG = {
   HEALTH_CHECK_URL: process.env.HEALTH_CHECK_URL || 'https://manatap.ai/api/health',
   BACKUP_CHECK_URL: process.env.BACKUP_CHECK_URL || 'https://manatap.ai/api/admin/backups',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'davy@manatap.ai',
-  WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || null, // Optional Slack webhook
+  WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || null, // Slack or Discord webhook
   MAX_BACKUP_AGE_HOURS: 25, // Alert if no backup in 25 hours
   MAX_RESPONSE_TIME_MS: 5000, // Alert if health check > 5 seconds
   LOG_FILE: path.join(__dirname, '../logs/backup-monitor.log'),
@@ -57,7 +57,7 @@ function makeRequest(url, options = {}) {
     const startTime = Date.now();
     
     const req = https.request(url, {
-      method: 'GET',
+      method: options.method || 'GET',
       timeout: 10000,
       ...options.headers && { headers: options.headers }
     }, (res) => {
@@ -104,6 +104,11 @@ function makeRequest(url, options = {}) {
       });
     });
     
+    // Write body if provided
+    if (options.body) {
+      req.write(options.body);
+    }
+    
     req.end();
   });
 }
@@ -120,42 +125,56 @@ async function sendAlert(subject, message, severity = 'warning') {
     service: 'ManaTap.ai Backup Monitor'
   };
   
-  // Send to Slack if webhook configured
+  // Send to Slack or Discord if webhook configured
   if (CONFIG.WEBHOOK_URL) {
     try {
-      const slackMessage = {
-        text: `🚨 ${subject}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*${subject}*\n${message}`
-            }
-          },
-          {
-            type: 'context',
-            elements: [
-              {
+      let webhookPayload;
+      
+      // Detect if it's Discord or Slack webhook
+      const isDiscord = CONFIG.WEBHOOK_URL.includes('discord.com');
+      
+      if (isDiscord) {
+        // Discord webhook format (simple and reliable)
+        const icon = severity === 'critical' ? '🚨' : severity === 'warning' ? '⚠️' : '✅';
+        webhookPayload = {
+          content: `${icon} **${subject}**\n${message}\n\n*ManaTap.ai Monitoring System - ${new Date().toLocaleString()}*`
+        };
+      } else {
+        // Slack webhook format
+        webhookPayload = {
+          text: `🚨 ${subject}`,
+          blocks: [
+            {
+              type: 'section',
+              text: {
                 type: 'mrkdwn',
-                text: `Severity: ${severity} | Time: ${alertData.timestamp}`
+                text: `*${subject}*\n${message}`
               }
-            ]
-          }
-        ]
-      };
+            },
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: `Severity: ${severity} | Time: ${alertData.timestamp}`
+                }
+              ]
+            }
+          ]
+        };
+      }
       
       await makeRequest(CONFIG.WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(slackMessage)
+        body: JSON.stringify(webhookPayload)
       });
       
-      log('info', 'Slack alert sent successfully');
+      log('info', `${isDiscord ? 'Discord' : 'Slack'} alert sent successfully`);
     } catch (err) {
-      log('error', 'Failed to send Slack alert', err);
+      log('error', `Failed to send ${CONFIG.WEBHOOK_URL.includes('discord.com') ? 'Discord' : 'Slack'} alert`, err);
     }
   }
   
