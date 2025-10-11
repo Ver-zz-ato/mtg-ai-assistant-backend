@@ -2,6 +2,15 @@
 import React from "react";
 import { listMessages, postMessage } from "@/lib/threads";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+// Enhanced chat functionality
+import { 
+  analyzeDeckProblems, 
+  generateDeckContext, 
+  generateActionChips, 
+  generateSourceAttribution,
+  type ActionChip,
+  type ChatSource 
+} from "@/lib/chat/enhancements";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };
 
@@ -41,6 +50,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       setFmt(f.includes('commander') ? 'commander' : f);
       setPlan(p);
       const lines = String((data as any)?.deck_text || '').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean).slice(0, 40).join("; ");
+      
       // Fetch commander color identity for filtering suggestions
       try {
         const cmdName = String((data as any)?.commander || '').trim();
@@ -53,7 +63,21 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
           }
         }
       } catch {}
-      return `Deck: ${title}${cmd?` | Commander: ${cmd}`:''} | Cards: ${lines}`;
+      
+      // Enhanced deck context with problem analysis
+      let enhancedContext = `Deck: ${title}${cmd?` | Commander: ${cmd}`:''} | Cards: ${lines}`;
+      
+      try {
+        const deckProblems = await analyzeDeckProblems(deckId);
+        if (deckProblems.length > 0) {
+          const problemContext = generateDeckContext(deckProblems, title);
+          enhancedContext = problemContext + '\n\n' + enhancedContext;
+        }
+      } catch (error) {
+        console.warn('Failed to generate enhanced deck context:', error);
+      }
+      
+      return enhancedContext;
     } catch { return ''; }
   }
 
@@ -232,6 +256,97 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
     finally { setBusy(false); setText(''); }
   }
 
+  // Source attribution component
+  function SourceReceipts({ sources }: { sources: ChatSource[] }) {
+    if (sources.length === 0) return null;
+    
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px] opacity-60">
+        <span>Sources:</span>
+        {sources.map((source, i) => (
+          <span key={i} className="inline-flex items-center gap-1 px-1 py-[1px] rounded border border-neutral-700 bg-neutral-900">
+            <span>{source.icon}</span>
+            {source.url ? (
+              <a href={source.url} target="_blank" rel="noreferrer" className="hover:underline">
+                {source.name}
+              </a>
+            ) : (
+              <span>{source.name}</span>
+            )}
+            {source.date && <span className="opacity-60">({source.date})</span>}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  
+  // Enhanced action chips component
+  function ActionChipsComponent({ chips }: { chips: ActionChip[] }) {
+    if (chips.length === 0) return null;
+    
+    const handleChipClick = async (chip: ActionChip) => {
+      try {
+        switch (chip.action) {
+          case 'add_to_deck':
+            if (chip.data?.cards && deckId) {
+              const card = chip.data.cards[0];
+              await addCard(card, 1);
+            }
+            break;
+          case 'budget_swaps':
+            window.open('/deck/swap-suggestions', '_blank');
+            break;
+          case 'view_scryfall':
+            if (chip.data?.cardName) {
+              const searchQuery = encodeURIComponent(`!"${chip.data.cardName}"`);
+              window.open(`https://scryfall.com/search?q=${searchQuery}`, '_blank');
+            }
+            break;
+          case 'run_probability':
+            window.open('/tools/probability', '_blank');
+            break;
+          case 'open_ctf':
+            window.open('/collections/cost-to-finish', '_blank');
+            break;
+        }
+      } catch (error) {
+        console.error('Action chip error:', error);
+      }
+    };
+    
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+        <span className="opacity-60">Quick:</span>
+        {chips.slice(0, 3).map((chip) => (
+          <button
+            key={chip.id}
+            onClick={() => handleChipClick(chip)}
+            className="inline-flex items-center gap-1 px-1 py-[1px] rounded border border-neutral-700 hover:bg-neutral-800"
+          >
+            {chip.icon && <span>{chip.icon}</span>}
+            <span>{chip.label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+  
+  // Helper function for adding cards
+  async function addCard(name: string, qty: number) {
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, qty })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j?.ok === false) throw new Error(j?.error || 'Add failed');
+      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+    } catch (e: any) {
+      alert(e?.message || 'Add failed');
+    }
+  }
+
   function SuggestionButtons({ rawText }: { rawText: string }){
     const [items, setItems] = React.useState<Array<{ name:string; qty:number }>>([]);
     const [loading, setLoading] = React.useState(false);
@@ -355,7 +470,19 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
             <div key={m.id} className={m.role==='assistant'?"":"opacity-80"}>
               <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">{m.role==='assistant'? 'assistant' : 'you'}</div>
               <div className="whitespace-pre-wrap">{m.content}</div>
-              {m.role==='assistant' && <SuggestionButtons rawText={m.content} />}
+              {m.role==='assistant' && (() => {
+                // Generate enhanced features for assistant responses
+                const sources = generateSourceAttribution(m.content, { deckId });
+                const actionChips = generateActionChips(m.content, deckId, { format: fmt, colors: deckCI || [] });
+                
+                return (
+                  <>
+                    <SourceReceipts sources={sources} />
+                    <ActionChipsComponent chips={actionChips} />
+                    <SuggestionButtons rawText={m.content} />
+                  </>
+                );
+              })()}
             </div>
           );
         })}

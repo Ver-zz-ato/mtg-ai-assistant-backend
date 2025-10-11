@@ -1,0 +1,97 @@
+{
+  "name": "ManaTap AI - MTG Deck Builder & Assistant",
+  "short_name": "ManaTap AI",
+  "description": "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "categories": ["games", "utilities", "productivity"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32", 
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Decks",
+      "short_name": "Decks",
+      "description": "View and manage your decks",
+      "url": "/my-decks",
+      "icons": [{"src": "/favicon-32x32.png", "sizes": "32x32"}]
+    },
+    {
+      "name": "Collections",
+      "short_name": "Collections", 
+      "description": "Manage your card collections",
+      "url": "/collections",
+      "icons": [{"src": "/favicon-32x32.png", "sizes": "32x32"}]
+    },
+    {
+      "name": "Cost to Finish",
+      "short_name": "Cost Analysis",
+      "description": "Calculate deck completion costs",
+      "url": "/collections/cost-to-finish",
+      "icons": [{"src": "/favicon-32x32.png", "sizes": "32x32"}]
+    },
+    {
+      "name": "Budget Swaps",
+      "short_name": "Budget Swaps",
+      "description": "Find budget-friendly card alternatives",
+      "url": "/deck/swap-suggestions", 
+      "icons": [{"src": "/favicon-32x32.png", "sizes": "32x32"}]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/chat-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AI Chat Assistant"
+    },
+    {
+      "src": "/screenshots/decks-mobile.png", 
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "My Decks"
+    }
+  ],
+  "features": [
+    "ai-chat",
+    "deck-building",
+    "price-tracking", 
+    "budget-analysis",
+    "offline-viewing"
+  ],
+  "prefer_related_applications": false,
+  "scope": "/",
+  "id": "manatap-ai-mtg-assistant"
+}

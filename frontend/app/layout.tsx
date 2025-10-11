@@ -10,9 +10,25 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import PromoBar from "@/components/PromoBar";
 import FeedbackFab from "@/components/FeedbackFab";
+import PWAProvider from "@/components/PWAProvider";
 export const metadata: Metadata = {
-  title: "ManaTap AI",
-  description: "Chat-first MTG assistant",
+  title: "ManaTap AI - MTG Deck Builder & Assistant",
+  description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
+  keywords: "MTG, Magic The Gathering, deck builder, AI assistant, card prices, budget analysis",
+  authors: [{ name: "ManaTap AI" }],
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false, // Prevents zoom on input focus
+  },
+  themeColor: '#2563eb',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'ManaTap AI',
+  },
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -40,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ErrorBoundary>
           <CookieBanner />
           <FeedbackFab />
+          <PWAProvider />
           <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
             <div className="max-w-full mx-auto px-4 flex flex-wrap items-center gap-4 justify-between">
 <div>© 2025 ManaTap AI</div>

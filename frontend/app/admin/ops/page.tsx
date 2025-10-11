@@ -13,6 +13,8 @@ export default function OpsPage() {
   const [maint, setMaint] = React.useState<any>({ enabled: false, message: '' });
   const [budget, setBudget] = React.useState<any>({ daily_usd: 0, weekly_usd: 0 });
   const [busy, setBusy] = React.useState(false);
+  const [pinboard, setPinboard] = React.useState<any>(null);
+  const [lastRefresh, setLastRefresh] = React.useState<string>('');
 
   React.useEffect(() => { (async () => {
     try {
@@ -22,16 +24,126 @@ export default function OpsPage() {
       if (j?.config?.maintenance) setMaint(j.config.maintenance);
       if (j?.config?.llm_budget) setBudget(j.config.llm_budget);
     } catch {}
+    refreshPinboard();
   })(); }, []);
+  
+  async function refreshPinboard() {
+    try {
+      const r = await fetch('/api/admin/audit-pinboard', { cache: 'no-store' });
+      const j = await r.json();
+      if (j?.ok && j?.pinboard) {
+        setPinboard(j.pinboard);
+        setLastRefresh(new Date().toLocaleTimeString());
+      }
+    } catch (e) {
+      console.warn('Failed to load audit pinboard:', e);
+    }
+  }
 
   async function saveFlags() { setBusy(true); try { await saveConfig('flags', flags); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
   async function saveMaint() { setBusy(true); try { await saveConfig('maintenance', maint); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
   async function saveBudget() { setBusy(true); try { await saveConfig('llm_budget', { daily_usd: Number(budget.daily_usd)||0, weekly_usd: Number(budget.weekly_usd)||0 }); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
   async function rollback() { setBusy(true); try { const r = await fetch('/api/admin/ops/rollback-snapshot', { method:'POST' }); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'rollback_failed'); alert(`Snapshot set to ${j.snapshotDate}`); } catch(e:any){ alert(e?.message||'failed'); } finally{ setBusy(false);} }
+  
+  async function autoDisableBudget() {
+    if (pinboard?.ai_spending?.over_daily_limit || pinboard?.ai_spending?.over_weekly_limit) {
+      setBusy(true);
+      try {
+        const newFlags = { ...flags, risky_betas: false };
+        await saveConfig('flags', newFlags);
+        setFlags(newFlags);
+        alert('Budget exceeded! Auto-disabled risky betas to control spending.');
+        refreshPinboard();
+      } catch(e:any) {
+        alert(e?.message || 'Auto-disable failed');
+      } finally {
+        setBusy(false);
+      }
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="text-xl font-semibold">Ops & Safety</div>
+      
+      {/* Audit Pinboard */}
+      <section className="rounded border border-neutral-800 p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">System Health Pinboard <HelpTip text="Real-time overview of errors, spending, snapshots, and performance issues." /></div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs opacity-60">Last: {lastRefresh || 'Loading...'}</span>
+            <button onClick={refreshPinboard} disabled={busy} className="px-2 py-1 text-xs rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-60">Refresh</button>
+          </div>
+        </div>
+        {pinboard ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+            {/* Errors */}
+            <div className={`p-2 rounded border ${
+              pinboard.errors.count_24h === 0 ? 'bg-green-900/20 border-green-700' :
+              pinboard.errors.count_24h < 5 ? 'bg-yellow-900/20 border-yellow-700' :
+              'bg-red-900/20 border-red-700'
+            }`}>
+              <div className="font-medium">Errors (24h)</div>
+              <div className="text-lg">{pinboard.errors.count_24h}</div>
+              {pinboard.errors.recent.length > 0 && (
+                <div className="text-xs mt-1 opacity-80">
+                  Latest: {pinboard.errors.recent[0].kind}
+                </div>
+              )}
+            </div>
+            
+            {/* AI Spending */}
+            <div className={`p-2 rounded border ${
+              pinboard.ai_spending.over_daily_limit || pinboard.ai_spending.over_weekly_limit ? 'bg-red-900/20 border-red-700' :
+              pinboard.ai_spending.daily_usage_pct > 80 || pinboard.ai_spending.weekly_usage_pct > 80 ? 'bg-yellow-900/20 border-yellow-700' :
+              'bg-green-900/20 border-green-700'
+            }`}>
+              <div className="font-medium flex items-center justify-between">
+                <span>AI Spend</span>
+                {(pinboard.ai_spending.over_daily_limit || pinboard.ai_spending.over_weekly_limit) && (
+                  <button onClick={autoDisableBudget} disabled={busy} className="text-xs px-2 py-1 bg-red-600 rounded hover:bg-red-500 disabled:opacity-60">
+                    Auto-Disable
+                  </button>
+                )}
+              </div>
+              <div className="text-xs">
+                Today: ${pinboard.ai_spending.today_usd} ({pinboard.ai_spending.daily_usage_pct}%)
+              </div>
+              <div className="text-xs">
+                Week: ${pinboard.ai_spending.week_usd} ({pinboard.ai_spending.weekly_usage_pct}%)
+              </div>
+            </div>
+            
+            {/* Price Snapshots */}
+            <div className={`p-2 rounded border ${
+              pinboard.price_snapshots.health === 'healthy' ? 'bg-green-900/20 border-green-700' :
+              pinboard.price_snapshots.health === 'stale' ? 'bg-yellow-900/20 border-yellow-700' :
+              'bg-red-900/20 border-red-700'
+            }`}>
+              <div className="font-medium">Price Data</div>
+              <div className="text-lg capitalize">{pinboard.price_snapshots.health}</div>
+              <div className="text-xs opacity-80">
+                {pinboard.price_snapshots.latest_date} ({pinboard.price_snapshots.age_hours}h ago)
+              </div>
+            </div>
+            
+            {/* Performance */}
+            <div className={`p-2 rounded border ${
+              pinboard.performance.slow_jobs_24h === 0 ? 'bg-green-900/20 border-green-700' :
+              pinboard.performance.slow_jobs_24h < 3 ? 'bg-yellow-900/20 border-yellow-700' :
+              'bg-red-900/20 border-red-700'
+            }`}>
+              <div className="font-medium">Performance</div>
+              <div className="text-lg">{pinboard.performance.slow_jobs_24h} slow jobs</div>
+              <div className="text-xs opacity-80">
+                Rate limits: {pinboard.rate_limits.violations_24h}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4 opacity-60">Loading health data...</div>
+        )}
+      </section>
       <ELI5 heading="Ops & Safety" items={[
         'Flip features on or off (kill switches) when something misbehaves.',
         'Show a maintenance banner or fully pause the app if needed.',

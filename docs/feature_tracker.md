@@ -432,4 +432,55 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Eliminated "Module not found" build warnings for optional badge modules.
 - Maintained graceful fallback for missing custom badge components.
 - Verified all new pages build correctly and are included in production bundle.
-- All 150 pages building successfully with proper static/dynamic rendering.
+☑ All 150 pages building successfully with proper static/dynamic rendering.
+
+## Admin Safety & Operations Infrastructure (2025-10-11)
+
+☑ Complete Admin Safety Dashboard Implementation <!-- id:admin.safety_complete -->
+- System Health Pinboard: Real-time 4-widget dashboard showing errors (24h), AI spending vs budget, price snapshot health, and performance metrics
+- Color-coded health indicators (green/yellow/red) with automatic refresh and one-click manual refresh
+- Integration with existing /admin/ops page using established UI patterns and components
+
+☑ Budget Auto-Disable & Enforcement System <!-- id:admin.budget_enforcement -->
+- Comprehensive budget enforcement utilities (lib/server/budgetEnforcement.ts) with spending status checking
+- Auto-disable functionality: automatically disables risky_betas flag when daily/weekly budget limits exceeded
+- Manual override: red "Auto-Disable" button appears in pinboard when over budget
+- All budget actions logged to admin_audit table with full payload tracking
+- Fail-safe design: system continues operating even if budget checks fail
+
+☑ Stale Snapshot Alert System <!-- id:admin.snapshot_alerts -->
+- Automated price snapshot age monitoring with 36h/72h thresholds (healthy/stale/critical)
+- Visual health indicators in admin dashboard showing exact age and last snapshot date
+- Integration with existing snapshot rollback functionality
+- Real-time staleness detection (currently detecting 190h old snapshots in production)
+
+☑ Automated System Monitoring API <!-- id:admin.monitoring_api -->
+- POST /api/admin/monitor endpoint for automated health checks and actions
+- Comprehensive monitoring: budget limits, snapshot staleness, error rates (>50/day threshold)
+- Automated alert generation with structured logging to admin_audit table
+- JSON response format suitable for cron jobs, webhooks, and external monitoring integrations
+- Production-ready for automated operations (every 30min recommended)
+
+☑ Enhanced Chat Experience with Deck-Aware Context <!-- id:chat.deck_context_enhancement -->
+- Shared chat enhancements library (lib/chat/enhancements.ts) for all chat instances
+- Deck-aware context injection: analyzes deck problems (size, mana base, removal gaps) and injects into AI system prompt
+- Source attribution system: automatic source badges showing Scryfall, price snapshot dates, Commander Spellbook, and user deck context
+- Enhanced action chips: smart contextual buttons (Add to Deck, Budget Swaps, View on Scryfall, Probability Helper, Cost to Finish)
+- Integrated across main Chat component and DeckAssistant mini-chat with consistent UX
+- Uses existing Scryfall cache infrastructure and respects user preferences (format, colors, budget)
+
+☑ Production Monitoring & Safety Documentation <!-- id:admin.safety_docs -->
+- Comprehensive setup guide (ADMIN_SAFETY_SETUP.md) with feature explanations and usage instructions
+- Detailed testing guide (ADMIN_SAFETY_TESTING.md) with browser console tests and validation steps
+- All features tested and verified working in development environment
+- Integration with existing admin infrastructure without breaking changes
+- Ready for production deployment with operational confidence
+
+## Mobile Experience & Progressive Web App (2025-10-11) - IN PROGRESS
+
+◪ Progressive Web App Implementation <!-- id:mobile.pwa_complete -->
+- PWA manifest for "install app" prompts and native-like experience
+- Mobile-optimized chat interface with touch-friendly interactions
+- Offline capability for deck viewing and basic functionality
+- Push notifications for price alerts and system updates
+- Responsive design improvements across all components
