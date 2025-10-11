@@ -112,16 +112,23 @@ export async function POST(req: NextRequest) {
       { role: "user", content: text }
     ];
     
-    // Both GPT-5 and GPT-4o-mini use Chat Completions API with same parameters
+    // GPT-5 and GPT-4o-mini use different token parameter names
     const tokenLimit = Math.min(MAX_TOKENS_STREAM, 1000);
+    const isGPT5 = MODEL.toLowerCase().includes('gpt-5');
     
-    const openAIBody = {
+    const openAIBody: any = {
       model: MODEL,
       messages,
-      max_tokens: tokenLimit,
       temperature: 1,
       stream: true
     };
+    
+    // Use correct token parameter based on model
+    if (isGPT5) {
+      openAIBody.max_completion_tokens = tokenLimit;
+    } else {
+      openAIBody.max_tokens = tokenLimit;
+    }
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
 
@@ -160,13 +167,13 @@ export async function POST(req: NextRequest) {
             console.log(`[stream] OpenAI API error ${openAIResponse.status}:`, errorText);
             
             // Try fallback model if primary model fails
-            const isGPT5 = MODEL.toLowerCase().includes('gpt-5');
-            if (isGPT5) {
+            const isGPT5Primary = MODEL.toLowerCase().includes('gpt-5');
+            if (isGPT5Primary) {
               console.log(`[stream] GPT-5 failed, trying GPT-4o-mini fallback`);
               const fallbackBody = {
                 model: "gpt-4o-mini",
                 messages,
-                max_tokens: tokenLimit,
+                max_tokens: tokenLimit, // GPT-4o-mini uses max_tokens
                 temperature: 1,
                 stream: true
               };
