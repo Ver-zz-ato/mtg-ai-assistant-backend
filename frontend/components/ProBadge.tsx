@@ -8,16 +8,9 @@ interface ProBadgeProps {
 }
 
 export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) {
-  const { isPro, loading } = usePro();
+  const { isPro } = usePro();
   const [showTooltip, setShowTooltip] = useState(false);
 
-  if (loading) {
-    return (
-      <span className="inline-flex items-center rounded bg-gray-300 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide animate-pulse">
-           
-      </span>
-    );
-  }
 
   // For Pro users, show Pro badge
   if (isPro) {
@@ -55,7 +48,7 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
               • Price tracking & alerts<br/>
               • Priority support
             </div>
-            <div className="text-[11px] text-blue-300 font-semibold">Starting at $9.99/month</div>
+            <div className="text-[11px] text-blue-300 font-semibold">Starting at $1.99/month</div>
             <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
           </div>
         )}

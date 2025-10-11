@@ -390,7 +390,7 @@ export default function HandTestingWidget({
               trackProGateClicked('hand_testing', 'widget_display');
               trackProUpgradeStarted('hand_testing_widget', 'hand_testing');
               // TODO: Navigate to upgrade page
-              window.location.href = '/upgrade';
+              window.location.href = '/pricing';
             }}
             className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-black font-semibold rounded-lg hover:from-amber-500 hover:to-amber-400 transition-all duration-200 transform hover:scale-105"
           >

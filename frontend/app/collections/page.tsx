@@ -189,7 +189,10 @@ function CollectionsPageClientBody() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Collections</h1>
-        <Link href="/collections/cost-to-finish" className="text-sm underline underline-offset-4 hidden sm:block">Open Cost to Finish →</Link>
+        <div className="flex items-center gap-4">
+          <Link href="/wishlist" className="text-sm underline underline-offset-4 text-blue-600">My Wishlist →</Link>
+          <Link href="/collections/cost-to-finish" className="text-sm underline underline-offset-4 hidden sm:block">Cost to Finish →</Link>
+        </div>
       </div>
       {nameError && (<p className="text-xs text-red-500 mt-1">{nameError}</p>)}
 

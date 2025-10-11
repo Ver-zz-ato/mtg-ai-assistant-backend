@@ -125,7 +125,7 @@ export default function BudgetSwapsClient(){
   const forkDeck = async () => {
     if (!isProFinal){ try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); } return; }
     // Backend not implemented; show a graceful message for now
-    alert('Fork with swaps is coming soon.');
+    alert('Fork deck with swaps is coming soon!');
   };
 
   // format currency

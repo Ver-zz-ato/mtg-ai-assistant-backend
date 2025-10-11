@@ -79,7 +79,7 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-3">
-          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()
+          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()}
           <Link 
             href="/my-decks" 
             className="text-sm hover:underline"
@@ -95,9 +95,9 @@ export default function Header() {
             My Collections
           </Link>
           <Link 
-            href="/profile?tab=wishlist" 
+            href="/wishlist" 
             className="text-sm hover:underline"
-            onClick={() => capture('nav_link_clicked', { destination: '/profile?tab=wishlist', source: 'header' })}
+            onClick={() => capture('nav_link_clicked', { destination: '/wishlist', source: 'header' })}
           >
             My Wishlist
           </Link>
@@ -191,7 +191,7 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="lg:hidden border-t bg-white dark:bg-gray-900">
           <div className="px-4 py-3 space-y-3">
-            {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()
+            {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()}
             
             <Link 
               href="/my-decks" 
@@ -214,10 +214,10 @@ export default function Header() {
               My Collections
             </Link>
             <Link 
-              href="/profile?tab=wishlist" 
+              href="/wishlist" 
               className="block py-2 text-sm hover:text-blue-600"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/profile?tab=wishlist', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/wishlist', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >

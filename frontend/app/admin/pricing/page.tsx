@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase-client';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface PricingMetric {
   date: string;
@@ -36,56 +36,25 @@ export default function AdminPricingPage() {
     setError(null);
     
     try {
-      const supabase = createBrowserSupabaseClient();
+      const response = await fetch(`/api/admin/pricing?timeRange=${timeRange}`, { 
+        cache: 'no-store' 
+      });
       
-      // Check admin permissions
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email?.endsWith('@manatap.ai')) {
-        setError('Admin access required');
-        return;
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Admin access required');
+        }
+        throw new Error(`HTTP ${response.status}`);
       }
-
-      // Get pricing page analytics (mock data for now - you'll need to implement actual analytics)
-      const mockMetrics: PricingMetric[] = Array.from({ length: parseInt(timeRange) }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        
-        return {
-          date: date.toISOString().split('T')[0],
-          page_views: Math.floor(Math.random() * 100) + 20,
-          upgrade_clicks: Math.floor(Math.random() * 20) + 5,
-          conversion_rate: Math.random() * 0.15 + 0.02,
-          new_signups: Math.floor(Math.random() * 15) + 2,
-          pro_conversions: Math.floor(Math.random() * 5) + 1,
-        };
-      }).reverse();
-
-      setMetrics(mockMetrics);
-
-      // Get user statistics
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('is_pro, created_at');
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
+      
+      const data = await response.json();
+      
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to load pricing data');
       }
-
-      if (profiles) {
-        const totalUsers = profiles.length;
-        const proUsers = profiles.filter(p => p.is_pro).length;
-        const freeUsers = totalUsers - proUsers;
-        const conversionRate = totalUsers > 0 ? proUsers / totalUsers : 0;
-        const monthlyRevenue = proUsers * 9.99; // Assuming $9.99/month
-
-        setUserStats({
-          total_users: totalUsers,
-          pro_users: proUsers,
-          free_users: freeUsers,
-          conversion_rate: conversionRate,
-          monthly_revenue: monthlyRevenue,
-        });
-      }
+      
+      setMetrics(data.metrics || []);
+      setUserStats(data.userStats || null);
 
     } catch (err: any) {
       setError(err.message || 'Failed to load pricing data');

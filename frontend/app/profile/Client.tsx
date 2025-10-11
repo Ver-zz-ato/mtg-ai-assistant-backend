@@ -442,7 +442,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Starting at $9.99/month</div>
+                        <div className="text-sm font-medium">Starting at $1.99/month</div>
                         <div className="flex gap-2">
                           <a 
                             href="/pricing" 

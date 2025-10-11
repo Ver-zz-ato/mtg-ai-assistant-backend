@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase-client';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { usePro } from '@/components/ProContext';
 import { capture } from '@/lib/ph';
 import Link from 'next/link';
 
 export default function PricingPage() {
-  const { isPro, loading: proLoading } = usePro();
+  const { isPro } = usePro();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,75 +26,152 @@ export default function PricingPage() {
     });
   }, [user, isPro]);
 
-  const handleUpgradeClick = () => {
+  const [upgrading, setUpgrading] = useState(false);
+  const [managingBilling, setManagingBilling] = useState(false);
+
+  const handleUpgradeClick = async (plan: 'monthly' | 'yearly') => {
+    if (!user) {
+      alert('Please sign in first to upgrade.');
+      return;
+    }
+
     capture('pricing_upgrade_clicked', {
       is_authenticated: !!user,
       source: 'pricing_page',
+      plan,
     });
-    // Add your upgrade logic here
-    alert('Upgrade flow coming soon!');
+
+    setUpgrading(true);
+    
+    try {
+      const response = await fetch('/api/billing/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error: any) {
+      console.error('Upgrade failed:', error);
+      alert(error.message || 'Failed to start upgrade process. Please try again.');
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!user) return;
+
+    capture('billing_portal_clicked', {
+      source: 'pricing_page',
+    });
+
+    setManagingBilling(true);
+
+    try {
+      const response = await fetch('/api/billing/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to open billing portal');
+      }
+
+      // Redirect to Stripe Customer Portal
+      window.location.href = data.url;
+    } catch (error: any) {
+      console.error('Billing portal failed:', error);
+      alert(error.message || 'Failed to open billing portal. Please try again.');
+    } finally {
+      setManagingBilling(false);
+    }
   };
 
   const features = [
     {
-      icon: '🚀',
-      title: 'Unlimited AI Analysis',
-      description: 'Get unlimited deck analysis, card suggestions, and strategic insights',
-      free: 'Limited to 5 per day',
-      pro: 'Unlimited'
+      icon: '🎯',
+      title: 'Hand Testing Widget',
+      description: 'Interactive London mulligan simulation with real MTG card artwork',
+      free: false,
+      pro: 'Full simulator'
     },
     {
       icon: '📊',
-      title: 'Advanced Deck Statistics',
-      description: 'Detailed mana curve analysis, win rate predictions, and meta insights',
-      free: 'Basic stats only',
-      pro: 'Full analytics suite'
+      title: 'Deck Probability Analysis',
+      description: 'Advanced probability calculations and statistical insights',
+      free: 'View only',
+      pro: 'Full calculations'
     },
     {
       icon: '💡',
-      title: 'Smart Card Recommendations',
-      description: 'AI-powered suggestions for deck improvements and optimal builds',
-      free: '3 suggestions per deck',
-      pro: 'Unlimited suggestions'
+      title: 'AI Budget Swaps',
+      description: 'Smart card suggestions to optimize your deck within budget',
+      free: 'Basic swaps',
+      pro: 'AI-powered + Export'
     },
     {
-      icon: '🔍',
-      title: 'Collection Insights',
-      description: 'Track collection value, identify missing cards, and optimize trades',
-      free: 'Basic collection tracking',
-      pro: 'Full market insights'
+      icon: '🔧',
+      title: 'Fix Card Names',
+      description: 'Automatically fix and normalize card names in collections and decks',
+      free: false,
+      pro: 'Batch processing'
     },
     {
       icon: '📈',
-      title: 'Price Tracking & Alerts',
-      description: 'Monitor card prices, get alerts on price changes, and optimize purchases',
-      free: 'View current prices',
-      pro: 'Full price history & alerts'
+      title: 'Price Snapshots',
+      description: 'Historical price tracking and trend analysis',
+      free: 'Current prices only',
+      pro: 'Full history + alerts'
     },
     {
-      icon: '🎯',
-      title: 'Personalized Recommendations',
-      description: 'Get deck suggestions tailored to your playstyle and collection',
-      free: 'Generic suggestions',
-      pro: 'Personalized AI recommendations'
+      icon: '📋',
+      title: 'Export to Moxfield/MTGO',
+      description: 'Export your decks and collections to popular platforms',
+      free: false,
+      pro: 'All formats'
     },
     {
-      icon: '⚡',
-      title: 'Priority Support',
-      description: 'Get faster responses and priority access to new features',
-      free: 'Community support',
-      pro: 'Priority email support'
+      icon: '🛠️',
+      title: 'Collection Bulk Operations',
+      description: 'Set to playset, batch fixes, and advanced collection management',
+      free: 'Basic editing',
+      pro: 'Bulk operations'
+    },
+    {
+      icon: '🎲',
+      title: 'AI Deck Assistant',
+      description: 'Advanced AI-powered deck building and optimization suggestions',
+      free: 'Basic suggestions',
+      pro: 'Auto-toggle + Pro features'
+    },
+    {
+      icon: '📊',
+      title: 'Advanced Analytics',
+      description: 'Price trend sparklines, watchlists, and deck value tracking',
+      free: 'Basic stats',
+      pro: 'Full analytics suite'
     },
     {
       icon: '🌟',
-      title: 'Pro Badge & Features',
-      description: 'Show your support with a Pro badge and early access to beta features',
+      title: 'Pro Badge & Priority',
+      description: 'Show your support with a Pro badge and priority feature access',
       free: false,
       pro: 'Exclusive Pro features'
     }
   ];
 
-  if (loading || proLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
@@ -164,8 +241,9 @@ export default function PricingPage() {
             
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold mb-4">Pro</h3>
-              <div className="text-4xl font-bold mb-2">$9.99</div>
-              <div className="text-blue-100">per month</div>
+              <div className="text-4xl font-bold mb-2">£1.99</div>
+              <div className="text-blue-100 mb-2">per month</div>
+              <div className="text-xs text-blue-200 opacity-80">or £14.99/year (save 37%)</div>
             </div>
             
             <div className="space-y-4 mb-8">
@@ -196,16 +274,30 @@ export default function PricingPage() {
             </div>
 
             {isPro ? (
-              <div className="w-full bg-white bg-opacity-20 text-white py-3 px-6 rounded-lg font-medium text-center">
-                ✓ Active Pro Member
-              </div>
-            ) : (
-              <button 
-                onClick={handleUpgradeClick}
-                className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors"
+              <button
+                onClick={handleManageBilling}
+                disabled={managingBilling}
+                className="w-full bg-white bg-opacity-20 text-white py-3 px-6 rounded-lg font-medium hover:bg-opacity-30 transition-colors disabled:opacity-50"
               >
-                Upgrade to Pro
+                {managingBilling ? 'Opening...' : 'Manage Billing'}
               </button>
+            ) : (
+              <div className="space-y-2">
+                <button 
+                  onClick={() => handleUpgradeClick('monthly')}
+                  disabled={upgrading}
+                  className="w-full bg-white text-blue-600 py-2.5 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {upgrading ? 'Loading...' : 'Monthly - £1.99'}
+                </button>
+                <button 
+                  onClick={() => handleUpgradeClick('yearly')}
+                  disabled={upgrading}
+                  className="w-full bg-white bg-opacity-90 text-blue-600 py-2.5 px-6 rounded-lg font-medium hover:bg-opacity-100 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {upgrading ? 'Loading...' : 'Yearly - £14.99 (Save 37%)'}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -273,16 +365,26 @@ export default function PricingPage() {
           
           {!isPro && (
             <button 
-              onClick={handleUpgradeClick}
-              className="bg-white text-blue-600 py-4 px-8 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors"
+              onClick={() => handleUpgradeClick('monthly')}
+              disabled={upgrading}
+              className="bg-white text-blue-600 py-4 px-8 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
-              Start Your Pro Journey
+              {upgrading ? 'Loading...' : 'Start Your Pro Journey'}
             </button>
           )}
 
           {isPro && (
-            <div className="text-xl font-bold">
-              🎉 You're already a Pro member! Thanks for your support!
+            <div className="space-y-4">
+              <div className="text-xl font-bold">
+                🎉 You're already a Pro member! Thanks for your support!
+              </div>
+              <button
+                onClick={handleManageBilling}
+                disabled={managingBilling}
+                className="bg-white bg-opacity-20 text-white py-3 px-6 rounded-lg font-medium hover:bg-opacity-30 transition-colors disabled:opacity-50"
+              >
+                {managingBilling ? 'Opening...' : 'Manage Your Subscription'}
+              </button>
             </div>
           )}
         </div>

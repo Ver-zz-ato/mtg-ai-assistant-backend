@@ -163,8 +163,9 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Collection</h3>
         <div className="flex items-center gap-2">
+          <a href="/wishlist" className="text-xs underline underline-offset-4 text-blue-600">My Wishlist →</a>
           {collectionId ? (
-            <a href={`/collections/cost-to-finish?collectionId=${encodeURIComponent(String(collectionId))}`} className="text-xs underline underline-offset-4">Open Cost to Finish →</a>
+            <a href={`/collections/cost-to-finish?collectionId=${encodeURIComponent(String(collectionId))}`} className="text-xs underline underline-offset-4">Cost to Finish →</a>
           ) : null}
           {collectionId ? <CollectionCsvUpload collectionId={collectionId} onDone={load} /> : null}
           {collectionId ? <ExportCollectionCSV collectionId={collectionId} small /> : null}
