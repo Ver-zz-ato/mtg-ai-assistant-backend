@@ -10,7 +10,7 @@ import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
-import { toast } from '@/lib/toast-client';
+// toast will be imported dynamically
 
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -526,12 +526,13 @@ try {
       const isServerError = errorMsg.toLowerCase().includes('server') || errorMsg.toLowerCase().includes('503');
       
       try { 
+        const tc = await import("@/lib/toast-client");
         if (isNetworkError) {
-          toast("Connection problem. Please check your internet and try again.", 'error');
+          tc.toast("Connection problem. Please check your internet and try again.", 'error');
         } else if (isServerError) {
-          toast("Our servers are temporarily busy. Please try again in a moment.", 'error');
+          tc.toast("Our servers are temporarily busy. Please try again in a moment.", 'error');
         } else {
-          toast(errorMsg, 'error');
+          tc.toastError(errorMsg);
         }
       } catch {}
       

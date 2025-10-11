@@ -132,3 +132,70 @@ export async function postMessage(
     } as RequestInit),
   );
 }
+
+// New streaming function
+export async function postMessageStream(
+  payload: { text: string; threadId?: string | null; context?: any; prefs?: any },
+  onToken: (token: string) => void,
+  onDone: () => void,
+  onError: (error: Error) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    const response = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal
+    });
+
+    if (!response.ok) {
+      // Check if fallback response
+      try {
+        const json = await response.json();
+        if (json.fallback) {
+          throw new Error("fallback");
+        }
+      } catch {
+        // Continue to throw the original error
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error("No response stream");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      
+      // Check for completion signal
+      if (chunk.includes("[DONE]")) {
+        const beforeDone = chunk.split("[DONE]")[0];
+        if (beforeDone) onToken(beforeDone);
+        onDone();
+        return;
+      }
+      
+      // Filter out heartbeat spaces
+      const filtered = chunk.replace(/^\s+$/, "");
+      if (filtered) {
+        onToken(filtered);
+      }
+    }
+
+    onDone();
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      onDone(); // Treat abort as completion
+    } else {
+      onError(error);
+    }
+  }
+}

@@ -26,6 +26,7 @@ export default function AdminHub() {
         <Pill href="/admin/obs">Observability</Pill>
         <Pill href="/admin/monetize">Monetization</Pill>
         <Pill href="/admin/security">Security & Compliance</Pill>
+        <Pill href="/admin/backups">Database Backups</Pill>
         <Pill href="/admin/deploy">Deployment Awareness</Pill>
         <Pill href="/admin/chat-levers">Chat Levers</Pill>
       </nav>
@@ -58,6 +59,10 @@ export default function AdminHub() {
         <Link href="/admin/security" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">Security & Compliance</div>
           <p className="text-sm opacity-80">Admin audit log, CSP tester, key rotation health.</p>
+        </Link>
+        <Link href="/admin/backups" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
+          <div className="font-medium mb-1">Database Backups</div>
+          <p className="text-sm opacity-80">Backup status, manual triggers, restore testing, recovery procedures.</p>
         </Link>
         <Link href="/admin/deploy" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">Deployment Awareness</div>
