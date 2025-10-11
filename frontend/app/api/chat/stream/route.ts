@@ -112,23 +112,16 @@ export async function POST(req: NextRequest) {
       { role: "user", content: text }
     ];
     
-    // GPT-5 and GPT-4o-mini use different token parameter names
+    // Both GPT-5 and GPT-4o-mini use max_tokens when using Chat Completions API
     const tokenLimit = Math.min(MAX_TOKENS_STREAM, 1000);
-    const isGPT5 = MODEL.toLowerCase().includes('gpt-5');
     
-    const openAIBody: any = {
+    const openAIBody = {
       model: MODEL,
       messages,
+      max_tokens: tokenLimit,
       temperature: 1,
       stream: true
     };
-    
-    // Use correct token parameter based on model
-    if (isGPT5) {
-      openAIBody.max_completion_tokens = tokenLimit;
-    } else {
-      openAIBody.max_tokens = tokenLimit;
-    }
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
 
