@@ -38,8 +38,8 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      // Allow Scryfall API calls and Supabase/PostHog
-      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in",
+      // Allow Scryfall API calls and Supabase/PostHog + production domain for testing
+      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in https://app.manatap.ai",
       "frame-src https://js.stripe.com https://ko-fi.com",
     ].join('; ');
     return [
