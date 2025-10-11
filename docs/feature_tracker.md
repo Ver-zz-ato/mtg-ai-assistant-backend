@@ -237,6 +237,7 @@ Legend: ☑ done · ◪ partial · ☐ todo
 ☑ Hand/mulligan simulator (deep-link, presets, local persistence, copy summary) <!-- id:adv.mulligan_sim -->
 ☑ Probability helpers (deep-link, presets, local persistence, copy summary) <!-- id:adv.prob_helpers -->
 ☐ Nightly sync scaling + Pro recompute <!-- id:adv.nightly_scale_pro -->
+☑ Full Stripe subscriptions (monthly £1.99/yearly £14.99) with checkout + webhooks <!-- id:adv.stripe_subscriptions -->
 ◪ Patreon/Ko-fi/Stripe toggles <!-- id:adv.monetize_toggles -->
 ☐ External login linking (Google/Discord) <!-- id:adv.oauth_links -->
 
@@ -309,6 +310,25 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Left rail: Most liked decks styled as mini leaderboard (🥇/🥈/🥉). <!-- id:ui.home.leaderboard -->
 - Center chat: header “Your deck-building assistant” + suggested prompt chips (Build, Swaps, Precon, Snapshot). <!-- id:ui.home.chat_header_chips -->
 - Right rail: Shoutbox with distinct chat-bubble styling (emerald theme). <!-- id:ui.home.shout_bubbles -->
+
+## Stripe Subscription Implementation (2025-10-11)
+
+☑ Complete Stripe Subscription System <!-- id:stripe.complete_system -->
+- Full monthly (£1.99) and yearly (£14.99) subscription implementation with 37% yearly discount
+- Stripe API v2024-06-20 integration with proper error handling and caching
+- Complete webhook system handling checkout completion, subscription updates, and cancellations
+- Customer portal integration for subscription management
+- Database schema with all Stripe fields in profiles table
+- Production-ready API routes with proper authentication and validation
+- Updated pricing page showcasing actual Pro features with beautiful UI
+- Comprehensive production deployment checklist and testing guide
+
+☑ Pro Feature Integration Enhancement <!-- id:stripe.pro_features -->
+- All 20 Pro features properly integrated with Stripe subscription status
+- Real-time Pro status checking via ProContext and database
+- Automatic Pro feature activation/deactivation based on subscription status
+- Pro badges and gate systems throughout entire application
+- Analytics tracking for subscription events and Pro feature usage
 
 ## Recent Fixes & Additions (2025-10-04)
 
