@@ -162,10 +162,29 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
           <div>© {new Date().getFullYear()} ManaTap AI</div>
         </div>
         
-        {/* Centered Footer Navigation with Bigger Font */}
+        {/* Explore ManaTap - Enhanced Internal Navigation */}
+        <div className="mb-6">
+          <div className="text-center mb-3">
+            <h3 className="text-lg font-semibold text-gray-300">Explore ManaTap</h3>
+          </div>
+          <nav className="flex gap-4 items-center flex-wrap justify-center text-sm">
+            <a className="hover:text-gray-200 transition-colors" href="/my-decks">My Decks</a>
+            <a className="hover:text-gray-200 transition-colors" href="/collections">Collections</a>
+            <a className="hover:text-gray-200 transition-colors" href="/wishlist">Wishlist</a>
+            <a className="hover:text-gray-200 transition-colors" href="/budget-swaps">Budget Swaps</a>
+            <a className="hover:text-gray-200 transition-colors" href="/price-tracker">Price Tracker</a>
+            <a className="hover:text-gray-200 transition-colors" href="/tools/probability">Probability</a>
+            <a className="hover:text-gray-200 transition-colors" href="/tools/mulligan">Mulligan</a>
+            <a className="hover:text-gray-200 transition-colors" href="/profile">Profile</a>
+            <a className="hover:text-gray-200 transition-colors" href="/changelog">What's New</a>
+          </nav>
+        </div>
+        
+        {/* Support & Payment Links */}
         <div className="flex justify-center mb-6">
           <nav className="flex gap-6 items-center flex-wrap justify-center text-base">
             <a className="hover:text-gray-200 transition-colors" href="/support">Support</a>
+            <a className="hover:text-gray-200 transition-colors" href="/pricing">Pricing</a>
             {monetizeConfig.stripe && (
               <a className="hover:text-gray-200 transition-colors" href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01" target="_blank" rel="noreferrer">Stripe</a>
             )}

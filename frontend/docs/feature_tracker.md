@@ -392,3 +392,52 @@ Navigation
   - Voice control compatibility
   - High contrast mode support
   - Reduced motion preferences respect
+
+---
+
+## Homepage UI/UX Enhancements (2025-10-12)
+
+☑ Middle chat area expansion and layout optimization <!-- id:homepage.chat_area_expansion -->
+  - Widened middle chat area by approximately 1.5x while preserving left and right panel functionality
+  - Enhanced chat interface usability with improved horizontal space allocation
+  - Maintained responsive design and mobile compatibility
+  - Optimized triple-panel layout proportions for better user experience
+
+☑ Chat branding and visual identity update <!-- id:homepage.chat_branding_update -->
+  - Changed chat title from "MTG Assistant" to "AI Assistant" for broader appeal
+  - Enhanced title typography with larger, more prominent font styling
+  - Applied colorful, centered design treatment for improved visual hierarchy
+  - Aligned branding with modern AI assistant positioning
+
+☑ Top navigation bar optimization <!-- id:homepage.top_nav_optimization -->
+  - Removed upgrade button from top bar since user has pro status and pricing link suffices
+  - Increased ManaTap AI site name/logo size by 3x for enhanced brand prominence
+  - Ensured proper logo scaling and visual balance in header area
+  - Streamlined navigation experience for authenticated pro users
+
+☑ Trust footer and model attribution improvements <!-- id:homepage.trust_footer_enhancements -->
+  - Addressed trust footer loading delay to prevent post-page-load appearance
+  - Updated AI model attribution to display multiple models (GPT-5 and GPT-4o Mini)
+  - Added "Updated Oct 12, 2025" timestamp next to "Card data: Scryfall API" attribution
+  - Center-aligned disclaimer/trust footer text instead of left alignment
+  - Enhanced transparency and user trust through better information display
+
+☑ Custom Card Creator visual improvements <!-- id:homepage.card_creator_visual_enhancements -->
+  - Enhanced main title "Assemble a playful profile card." with larger font size (text-2xl) and cool gradient colors (purple-cyan-emerald)
+  - Maintained original font size for "Art via Scryfall (credit shown)." subtitle for proper hierarchy
+  - Centered the actual MTG card component within its container without affecting functionality
+  - Centered all UI elements including disclaimer text, action buttons, profanity notice, and toast messages
+  - Fixed "Randomize All" button positioning to remain properly centered above the card
+
+☑ Left sidebar header typography upgrade <!-- id:homepage.sidebar_header_typography -->
+  - Updated "Recent Public Decks" header font size from text-sm to text-2xl for visual prominence
+  - Updated "Most liked decks" header font size from text-sm to text-2xl to match card creator styling
+  - Applied consistent large typography across both normal and empty states
+  - Enhanced visual hierarchy and brand consistency across homepage sections
+
+☑ Homepage cleanup and optimization <!-- id:homepage.cleanup_optimization -->
+  - Removed ad placeholder from LeftSidebar component to clean up user interface
+  - Improved overall homepage layout coherence and visual appeal
+  - All changes maintain existing functionality while enhancing user experience
+  - Successful build verification with no breaking changes or critical errors
+  - Comprehensive testing and quality assurance with npm build validation

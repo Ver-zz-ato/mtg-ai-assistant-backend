@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "test:canary": "playwright test tests/smoke.spec.ts",
     "test:unit": "tsx tests/unit/canonicalize.test.ts",
-    "test:assistant": "tsx tests/unit/build_assistant.test.ts"
+    "test:assistant": "tsx tests/unit/build_assistant.test.ts",
+    "seo:check": "node scripts/seo-check.mjs"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",

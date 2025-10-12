@@ -2,6 +2,12 @@
 import { createClient } from "@/lib/supabase/server";
 import NewDeckInline from "@/components/NewDeckInline";
 import MyDecksList from "@/components/MyDecksList";
+import { canonicalMeta } from "@/lib/canonical";
+import type { Metadata } from "next";
+
+export function generateMetadata(): Metadata {
+  return canonicalMeta("/my-decks");
+}
 
 type DeckRow = {
   id: string;

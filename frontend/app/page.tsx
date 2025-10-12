@@ -7,9 +7,44 @@ import FeedbackFab from "../components/FeedbackFab"; // ← add this
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 
+function jsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ManaTap AI",
+    "description": "AI-powered Magic: The Gathering deck building assistant with intelligent chat, cost analysis, and budget optimization tools.",
+    "url": "https://manatap.ai",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Web Browser",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "ManaTap.ai",
+      "url": "https://manatap.ai"
+    },
+    "dateModified": new Date().toISOString(),
+    "featureList": [
+      "AI Chat Assistant",
+      "Deck Builder", 
+      "Price Tracking",
+      "Budget Optimization",
+      "Collection Management",
+      "Mulligan Simulator",
+      "Probability Calculator"
+    ]
+  };
+  return JSON.stringify(data);
+}
+
 export default function Page() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd() }} />
       <ModeOptions />
       <div className="w-full">
         <div className="max-w-[1600px] mx-auto px-4 pt-0">

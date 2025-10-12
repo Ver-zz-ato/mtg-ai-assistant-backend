@@ -14,10 +14,13 @@ import PWAProvider from "@/components/PWAProvider";
 import FirstVisitTracker from "@/components/FirstVisitTracker";
 import TrustFooter from "@/components/TrustFooter";
 export const metadata: Metadata = {
+  metadataBase: new URL("https://manatap.ai"),
   title: "ManaTap AI - MTG Deck Builder & Assistant",
   description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
   keywords: "MTG, Magic The Gathering, deck builder, AI assistant, card prices, budget analysis",
   authors: [{ name: "ManaTap AI" }],
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
   viewport: {
     width: 'device-width',
     initialScale: 1,
