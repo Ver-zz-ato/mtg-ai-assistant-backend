@@ -18,15 +18,15 @@ If you're hosting on Render, they provide native cron job support.
 
 ```yaml
 # Daily Price Update
-name: daily-price-update
-command: curl -X POST -H "x-cron-key: $CRON_KEY" -H "Content-Type: application/json" "$BASE_URL/api/cron/daily-price-update"
+name: mtg-daily-price-update
+command: curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/daily-price-update"
 schedule: "0 3 * * *"
 ```
 
 ```yaml
 # Daily Cache Cleanup  
-name: daily-cache-cleanup
-command: curl -X POST -H "x-cron-key: $CRON_KEY" -H "Content-Type: application/json" "$BASE_URL/api/cron/cleanup-price-cache"
+name: mtg-daily-cache-cleanup
+command: curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/cleanup-price-cache"
 schedule: "0 4 * * *"
 ```
 
@@ -66,10 +66,10 @@ UptimeRobot can be used to ping your endpoints at scheduled intervals.
 
 ### Monitor Configuration:
 ```
-URL: https://your-app.com/api/cron/daily-price-update
+URL: https://www.manatap.ai/api/cron/daily-price-update
 Method: POST
 Custom Headers:
-  x-cron-key: your-cron-key
+  x-cron-key: Boobies
   Content-Type: application/json
 
 Check Interval: Daily at specific time (Pro plan) or every 24 hours (Free)
@@ -85,10 +85,10 @@ Free service that can make HTTP requests on schedule.
 1. Visit https://cron-job.org
 2. Create account and add new cron job
 3. Configure:
-   - URL: `https://your-app.com/api/cron/daily-price-update`
+   - URL: `https://www.manatap.ai/api/cron/daily-price-update`
    - Schedule: `0 3 * * *`
    - HTTP Method: POST
-   - Headers: `x-cron-key: your-key`
+   - Headers: `x-cron-key: Boobies`
 
 Repeat for cleanup endpoint.
 
@@ -102,7 +102,7 @@ For more reliable enterprise solution:
 
 ```javascript
 exports.handler = async (event) => {
-    const response = await fetch('https://your-app.com/api/cron/daily-price-update', {
+    const response = await fetch('https://www.manatap.ai/api/cron/daily-price-update', {
         method: 'POST',
         headers: {
             'x-cron-key': process.env.CRON_KEY,
@@ -126,8 +126,8 @@ If you have any server running 24/7, add to crontab:
 crontab -e
 
 # Add these lines
-0 3 * * * curl -X POST -H "x-cron-key: YOUR_KEY" -H "Content-Type: application/json" "https://your-app.com/api/cron/daily-price-update"
-0 4 * * * curl -X POST -H "x-cron-key: YOUR_KEY" -H "Content-Type: application/json" "https://your-app.com/api/cron/cleanup-price-cache"
+0 3 * * * curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/daily-price-update"
+0 4 * * * curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/cleanup-price-cache"
 ```
 
 ## Testing Your Setup
@@ -137,16 +137,16 @@ Test any endpoint manually:
 ```bash
 # Test price update
 curl -X POST \
-  -H "x-cron-key: YOUR_CRON_KEY" \
+  -H "x-cron-key: Boobies" \
   -H "x-test-mode: true" \
   -H "Content-Type: application/json" \
-  "https://your-app.com/api/cron/daily-price-update"
+  "https://www.manatap.ai/api/cron/daily-price-update"
 
 # Test cleanup
 curl -X POST \
-  -H "x-cron-key: YOUR_CRON_KEY" \
+  -H "x-cron-key: Boobies" \
   -H "Content-Type: application/json" \
-  "https://your-app.com/api/cron/cleanup-price-cache"
+  "https://www.manatap.ai/api/cron/cleanup-price-cache"
 ```
 
 ## Monitoring & Redundancy

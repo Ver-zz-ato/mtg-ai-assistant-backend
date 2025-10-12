@@ -4,8 +4,8 @@
 # Usage: ./test-cron.sh [test|price|cleanup|all]
 
 # Configuration
-BASE_URL="${BASE_URL:-https://your-app.com}"
-CRON_KEY="${CRON_KEY:-your-cron-key-here}"
+BASE_URL="${BASE_URL:-https://www.manatap.ai}"
+CRON_KEY="${CRON_KEY:-Boobies}"
 
 # Colors for output
 RED='\033[0;31m'

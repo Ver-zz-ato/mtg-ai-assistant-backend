@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     // Get batch parameters
     const batchSize = parseInt(req.headers.get('x-batch-size') || '100'); // Small batches for API limits
     const pageNum = parseInt(req.headers.get('x-page') || '1');
-    const maxCards = parseInt(req.headers.get('x-max-cards') || '500'); // Daily limit to avoid hitting API limits
+    const maxCards = parseInt(req.headers.get('x-max-cards') || '1000'); // Daily limit to avoid hitting API limits - increased from 500
     
     console.log(`💰 Processing daily price update: page ${pageNum}, batch size ${batchSize}, max ${maxCards} cards`);
 
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     let updated = 0;
     let processed = 0;
     let apiCalls = 0;
-    const maxApiCalls = 50; // Conservative API limit per run
+    const maxApiCalls = 200; // Moderate API limit per run - increased from 50
 
     for (let i = 0; i < cachedCards.length && apiCalls < maxApiCalls; i += batchSize) {
       const batch = cachedCards.slice(i, i + batchSize);
