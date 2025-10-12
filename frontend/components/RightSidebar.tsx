@@ -163,10 +163,6 @@ export default function RightSidebar() {
         </div>
       )}
 
-      <div className="relative z-0 bg-gray-900 border border-gray-800 rounded-xl p-4 h-48 grid place-content-center text-gray-400">
-        <div className="text-xs uppercase tracking-wide mb-2">Ad Placeholder</div>
-        <div className="text-sm">300 × 250</div>
-      </div>
     </div>
   );
 }

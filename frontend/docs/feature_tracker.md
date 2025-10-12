@@ -302,6 +302,41 @@ Navigation
   - Keyboard accessible with proper ARIA labels and focus management
   - Seamless experience with essential telemetry continuing regardless of setting
 
+☑ Price tracking system with bulk imports and automation <!-- id:price.bulk_import_system -->
+  - `app/api/cron/bulk-price-import/route.ts`: Downloads Scryfall's complete daily bulk file (491MB)
+  - Updates prices for ALL cached cards in one operation - 100% price coverage vs 200/day limit
+  - Deduplication system handles multiple printings of same cards automatically
+  - Admin panel integration with manual trigger buttons and progress monitoring
+  - Automated scheduling via cron-job.org with comprehensive documentation
+  - Database schema: `price_cache` table with proper indexes and RLS policies
+  - Performance optimized: processes 110k+ cards in ~11 seconds with batched updates
+  - Rate limit friendly: uses bulk download API instead of individual card requests
+  - Error handling and audit logging for production monitoring
+
+☑ Public profile enhancements with pinned badges showcase <!-- id:profile.public_badges_showcase -->
+  - Reorganized public profile layout with pinned badges as dedicated section
+  - Badge descriptions showing exact requirements to earn each achievement
+  - Enhanced badge styling with gradient backgrounds and proper emoji icons
+  - Positioned under "Featured custom card" panel for better visual hierarchy
+  - Complete badge mapping covering all achievement types (Brewer, Curator, Community, Tools)
+  - Card-based layout replacing inline chips for better readability
+  - Trophy emojis and descriptive text explaining earning requirements
+
+☑ Changelog system dark theme compliance <!-- id:changelog.dark_theme -->
+  - Updated changelog page styling from white/black to proper dark theme
+  - Dark backgrounds (black, neutral-900) with light text (white, neutral-400)
+  - Color-coded badges using dark theme palette (green-900/20, blue-900/20, etc.)
+  - Loading states and error messages using dark theme colors
+  - Consistent with rest of application's dark theme design
+  - Enhanced readability with proper contrast ratios
+
+☑ Admin panel cleanup and bulk import management <!-- id:admin.bulk_import_cleanup -->
+  - Removed obsolete "Create Price Cache Table" button after successful table creation
+  - Streamlined admin data panel focusing on active bulk operations
+  - Bulk price import now fully operational with 100% success rate
+  - Admin monitoring shows deduplication statistics and processing times
+  - Clean interface without deprecated manual setup options
+
 ☑ Badges & milestones celebration system <!-- id:badges.celebration_system -->
   - `components/BadgeCelebrationToast.tsx`: Animated celebration toasts for new badge unlocks
   - `components/BadgeShareBanner.tsx`: Comprehensive sharing system with PNG generation

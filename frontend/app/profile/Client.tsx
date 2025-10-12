@@ -351,7 +351,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'wishlist'|'security'>('profile');
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Header card with optional signature deck art banner (match public profile) */}
       <div className="rounded-xl border border-neutral-800">
         <div className="relative">

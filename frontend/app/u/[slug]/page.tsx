@@ -433,13 +433,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               <div className="text-xl font-semibold truncate">{prof.display_name || prof.username || 'Mage'}</div>
               <div className="text-xs opacity-80">{(Array.isArray(prof.favorite_formats)? prof.favorite_formats : []).join(', ')}</div>
             </div>
-{Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {prof.pinned_badges.slice(0,3).map((b: string, i: number) => (
-                  <span key={`${b}-${i}`} className="px-2 py-1 rounded bg-neutral-800 text-xs border border-neutral-700">{b}</span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -566,6 +559,45 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               <div className="text-lg font-semibold mb-2">Featured custom card</div>
               <div className="flex justify-center">
 {require('react').createElement(require('@/components/AuthenticMTGCard').default, { mode:'view', value: { nameParts: (String(prof.custom_card.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(prof.custom_card.sub||''), typeLine: '—', pt: { p: 1, t: 1 }, cost: 1, manaCost: ['1'], colorHint: (String(prof.custom_card.color||'U') as any), rarity: 'uncommon', setSymbol: 'CCC', art: { url: String(prof.custom_card.art||''), artist: String(prof.custom_card.artist||''), id: String(prof.custom_card.scryfall||'') } } })}
+              </div>
+            </section>
+          )}
+          
+          {Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
+            <section className="rounded-xl border border-neutral-800 p-3">
+              <div className="text-lg font-semibold mb-2">Pinned badges</div>
+              <div className="space-y-3">
+                {prof.pinned_badges.slice(0,3).map((b: string, i: number) => {
+                  // Badge descriptions mapping
+                  const badgeDescriptions: Record<string, {emoji: string, desc: string}> = {
+                    'First Deck': {emoji: '🏆', desc: 'Created your first deck'},
+                    'Brewer I': {emoji: '⚗️', desc: 'Built 5+ decks'},
+                    'Brewer II': {emoji: '⚗️', desc: 'Built 15+ decks'},
+                    'Brewer III': {emoji: '⚗️', desc: 'Built 30+ decks'},
+                    'Curator I': {emoji: '📚', desc: 'Maintain 3+ collections'},
+                    'Curator II': {emoji: '📚', desc: 'Maintain 10+ collections'},
+                    'Curator III': {emoji: '📚', desc: 'Maintain 25+ collections'},
+                    'Chatterbox': {emoji: '💬', desc: '50+ messages in 30d'},
+                    'Mathlete': {emoji: '∑', desc: 'Run Probability tool 10 times'},
+                    'Scenario Collector': {emoji: '💾', desc: 'Save 5 probability scenarios'},
+                    'Mulligan Master': {emoji: '♻️', desc: 'Run 25k+ mulligan iterations'},
+                    'On-Curve 90': {emoji: '📈', desc: '≥90% to hit land drops T1–T4'},
+                    'Mana Maestro': {emoji: '💧', desc: 'High color odds by T3'},
+                    'Combomancer': {emoji: '✨', desc: 'Includes at least one detected combo'},
+                    'Apprentice Teacher': {emoji: '🥇', desc: '10 likes on a deck'},
+                    'Master Teacher': {emoji: '🎖️', desc: '25 likes on a deck'}
+                  };
+                  const badge = badgeDescriptions[b] || {emoji: '🏆', desc: 'Achievement unlocked'};
+                  return (
+                    <div key={`badge-${b}-${i}`} className="rounded-lg bg-gradient-to-r from-neutral-900 to-neutral-800 border border-neutral-700 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">{badge.emoji}</span>
+                        <span className="font-semibold text-sm">{b}</span>
+                      </div>
+                      <div className="text-xs text-neutral-400 ml-6">{badge.desc}</div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}

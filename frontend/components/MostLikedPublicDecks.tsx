@@ -36,7 +36,7 @@ export default async function MostLikedPublicDecks({ limit = 5 }: { limit?: numb
   if (!top.length) return null;
   return (
     <div className="rounded-xl border border-gray-800 p-4">
-      <div className="text-sm font-semibold mb-2">Most liked decks</div>
+      <div className="text-2xl font-semibold mb-2">Most liked decks</div>
       <ul className="space-y-1 text-sm">
         {top.map((p, i) => {
           const medal = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : '';

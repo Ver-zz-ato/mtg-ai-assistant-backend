@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     console.log(`📊 Downloaded ${allCards.length} total cards from Scryfall`);
 
     // Step 4: Process cards and extract price data for our cached cards
-    const priceUpdates: any[] = [];
+    const priceMap = new Map<string, any>(); // Use Map to deduplicate by card name
     let processed = 0;
     let found = 0;
 
@@ -213,7 +213,9 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString()
         };
 
-        priceUpdates.push(priceData);
+        // Store in Map to automatically deduplicate by card name
+        // Later entries with same name will overwrite earlier ones (getting latest prices)
+        priceMap.set(normalizedName, priceData);
       }
 
       // Log progress every 10,000 cards
@@ -222,7 +224,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`🎯 Found prices for ${found} of ${cachedCards.length} cached cards (${Math.round(found/cachedCards.length*100)}% coverage)`);
+    // Convert Map to array for batch processing
+    const priceUpdates = Array.from(priceMap.values());
+    const uniqueCards = priceUpdates.length;
+
+    console.log(`🎯 Found prices for ${found} price entries, deduplicated to ${uniqueCards} unique cards out of ${cachedCards.length} cached cards (${Math.round(uniqueCards/cachedCards.length*100)}% coverage)`);
+    if (found > uniqueCards) {
+      console.log(`📊 Removed ${found - uniqueCards} duplicate entries during deduplication`);
+    }
 
     // Step 5: Batch update the price cache
     let updated = 0;
@@ -261,7 +270,7 @@ export async function POST(req: NextRequest) {
         actor_id: actor || 'cron', 
         action: 'bulk_price_import', 
         target: updated,
-        details: `${found}_matches_${processed}_processed_${fileSize}MB` 
+        details: `${uniqueCards}_unique_${found}_matches_${processed}_processed_${fileSize}MB` 
       });
       
       // Record last run timestamp for admin panel
@@ -281,8 +290,10 @@ export async function POST(req: NextRequest) {
       updated: updated,
       processed: processed,
       price_matches_found: found,
+      unique_cards_with_prices: uniqueCards,
+      duplicates_removed: found - uniqueCards,
       cached_cards_total: cachedCards.length,
-      coverage_percent: Math.round(found/cachedCards.length*100),
+      coverage_percent: Math.round(uniqueCards/cachedCards.length*100),
       bulk_file_size_mb: fileSize,
       bulk_file_updated: lastUpdated,
       duration_ms: duration,

@@ -44,7 +44,7 @@ export default async function RecentPublicDecks({ limit = 12 }: { limit?: number
   if (!decks.length) {
     return (
       <div className="rounded-xl border border-gray-800 p-4">
-        <div className="text-sm font-semibold mb-2">Recent Public Decks</div>
+        <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
         <div className="text-xs text-muted-foreground">No public decks yet.</div>
       </div>
     );
@@ -103,7 +103,7 @@ export default async function RecentPublicDecks({ limit = 12 }: { limit?: number
 
   return (
     <div className="rounded-xl border border-gray-800 p-4">
-      <div className="text-sm font-semibold mb-2">Recent Public Decks</div>
+      <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
       <ul className="space-y-2">
         {decks.map((d) => {
           const clean = (s: string) => s.replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();

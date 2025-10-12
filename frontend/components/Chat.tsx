@@ -658,9 +658,9 @@ function Chat() {
     <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
       {/* Mobile-optimized Header */}
       <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-semibold">MTG Assistant</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">AI Assistant</h1>
             {!threadId && (
               <span className="text-xs px-2 py-1 bg-neutral-800 rounded-full text-neutral-400">
                 New Chat

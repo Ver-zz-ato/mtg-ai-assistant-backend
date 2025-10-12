@@ -17,18 +17,18 @@ export default function Page() {
         </div>
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
-          <aside className="hidden lg:block lg:col-span-3">
+          <aside className="hidden lg:block lg:col-span-2">
             <LeftSidebar />
           </aside>
           
-          {/* Main chat area */}
-          <section className="col-span-1 lg:col-span-6 xl:col-span-5 flex flex-col gap-3">
+          {/* Main chat area - 1.5x wider */}
+          <section className="col-span-1 lg:col-span-8 xl:col-span-7 flex flex-col gap-3">
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
           
           {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop */}
-          <aside className="col-span-1 lg:col-span-3 xl:col-span-4 order-last lg:order-none">
+          <aside className="col-span-1 lg:col-span-2 xl:col-span-3 order-last lg:order-none">
             <RightSidebar />
           </aside>
         </div>

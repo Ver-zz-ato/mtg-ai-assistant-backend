@@ -83,13 +83,12 @@ export default function Header() {
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-semibold flex items-center gap-2">
-          <Logo size={28} />
-          <span className="hidden sm:block">ManaTap AI</span>
+          <Logo size={42} />
+          <span className="hidden sm:block text-3xl font-bold">ManaTap AI</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-3">
-          {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()}
           <Link 
             href="/my-decks" 
             className="text-sm hover:underline"

@@ -285,34 +285,37 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
   return (
     <div className={`${compact? 'bg-transparent border-0 rounded-none p-0 space-y-2' : 'bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3'} max-w-[380px] mx-auto`}>
       <div className="font-semibold text-center">Custom Card Creator</div>
-      <div className="text-xs opacity-70 text-center">Assemble a playful profile card. Art via Scryfall (credit shown).</div>
+      <div className="text-2xl font-bold text-center bg-gradient-to-r from-purple-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent mb-2">Assemble a playful profile card.</div>
+      <div className="text-xs opacity-70 text-center">Art via Scryfall (credit shown).</div>
 
       <div className="relative">
         {/* Randomize All button - centered above card */}
         <div className="flex justify-center mb-2">
           <button onClick={()=>{ setUserEditedSub(false); randomizeAll(); }} className="px-3 py-1 rounded border border-neutral-700 text-xs bg-gray-800 hover:bg-gray-700" title="Randomize all">🎲 Randomize All</button>
         </div>
-        {require('react').createElement(require('./AuthenticMTGCard').default, {
-          mode: 'edit',
-          value,
-          onChange: (next:any)=> setValue(prev => ({ ...prev, ...next })),
-          artOptions: artOptions,
-          onUserEditSubtext: () => setUserEditedSub(true),
-        })}
+        <div className="flex justify-center">
+          {require('react').createElement(require('./AuthenticMTGCard').default, {
+            mode: 'edit',
+            value,
+            onChange: (next:any)=> setValue(prev => ({ ...prev, ...next })),
+            artOptions: artOptions,
+            onUserEditSubtext: () => setUserEditedSub(true),
+          })}
+        </div>
       </div>
 
       {/* Disclaimer */}
-      <p className="mt-2 text-[10px] leading-tight opacity-70">
+      <p className="mt-2 text-[10px] leading-tight opacity-70 text-center">
         This fan-made card is for personal, non‑commercial use. Artwork is credited to the listed artist and linked via Scryfall; all Magic: The Gathering trademarks and related properties are owned by Wizards of the Coast. No affiliation or endorsement is implied, and images are used under fair‑use/fan‑work principles.
       </p>
 
       {/* Profanity notice */}
       { (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) && (
-        <div className="text-xs text-red-300">Please avoid profanity in name, type line, or text.</div>
+        <div className="text-xs text-red-300 text-center">Please avoid profanity in name, type line, or text.</div>
       )}
 
       {/* Attach + Share CTA */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{ await attach(); try{ fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'card_attach'})}); }catch{} }} className={`px-3 py-1 rounded text-sm ${ (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) ? 'bg-gray-500 text-white opacity-60 cursor-not-allowed' : 'bg-emerald-600 text-white' }`}>Attach to my profile</button>
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{
         try {
@@ -339,7 +342,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         }} className="px-3 py-1 rounded border border-neutral-700 text-sm">Share this creation</button>
       </div>
       {toast && (
-        <div className="text-xs text-amber-300">
+        <div className="text-xs text-amber-300 text-center">
           {toast}
           {' '}
           <a href="/profile" className="underline">View my profile</a>

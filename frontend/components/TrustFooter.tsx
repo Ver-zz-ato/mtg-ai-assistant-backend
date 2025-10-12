@@ -21,7 +21,11 @@ interface TrustFooterProps {
 type MonetizeConfig = { stripe: boolean; kofi: boolean; paypal: boolean };
 
 export default function TrustFooter({ className = '', compact = false }: TrustFooterProps) {
-  const [trustInfo, setTrustInfo] = useState<TrustInfo | null>(null);
+  const [trustInfo, setTrustInfo] = useState<TrustInfo | null>({
+    modelVersion: 'GPT-5 & GPT-4o Mini',
+    dataSource: 'Scryfall API', 
+    lastUpdate: 'Oct 12, 2025'
+  });
   const [isVisible, setIsVisible] = useState(false);
   const [monetizeConfig, setMonetizeConfig] = useState<MonetizeConfig>({ 
     stripe: true, 
@@ -62,7 +66,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         }
         
         setTrustInfo({
-          modelVersion: 'GPT-4o Mini',
+          modelVersion: 'GPT-5 & GPT-4o Mini',
           dataSource: 'Scryfall API',
           lastUpdate
         });
@@ -70,7 +74,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         // Fallback values
         console.warn('Failed to load footer data:', error);
         setTrustInfo({
-          modelVersion: 'GPT-4o Mini',
+          modelVersion: 'GPT-5 & GPT-4o Mini',
           dataSource: 'Scryfall API',
           lastUpdate: 'Recent'
         });
@@ -145,10 +149,10 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
                 >
                   {trustInfo.dataSource}
                 </a>
+                <span className="text-gray-500 text-xs ml-2">
+                  (Updated Oct 12, 2025)
+                </span>
               </div>
-            </div>
-            <div className="text-gray-500 text-xs">
-              Updated {formatDate(trustInfo.lastUpdate)}
             </div>
           </div>
         </div>
@@ -178,7 +182,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         </div>
 
         {/* Legal disclaimer */}
-        <div className="pt-4 border-t border-gray-700 text-xs text-gray-500 leading-relaxed">
+        <div className="pt-4 border-t border-gray-700 text-xs text-gray-500 leading-relaxed text-center">
           <p className="mb-2">
             This assistant uses AI to help with Magic: The Gathering deck building and strategy. 
             Card information is sourced from Scryfall's comprehensive database. 
