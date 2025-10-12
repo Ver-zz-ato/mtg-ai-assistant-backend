@@ -18,6 +18,14 @@ async function fetchBulkCards(): Promise<any[]> {
   return Array.isArray(data) ? data : [];
 }
 
+function isAdmin(user: any): boolean {
+  const ids = String(process.env.ADMIN_USER_IDS || '').split(/[\s,]+/).filter(Boolean);
+  const emails = String(process.env.ADMIN_EMAILS || '').split(/[\s,]+/).filter(Boolean).map(s => s.toLowerCase());
+  const uid = String(user?.id || '');
+  const email = String(user?.email || '').toLowerCase();
+  return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
+}
+
 export async function POST(_req: NextRequest) {
   try {
     let supabase: any = await createClient();
@@ -25,10 +33,14 @@ export async function POST(_req: NextRequest) {
     const hdr = _req.headers.get('x-cron-key') || '';
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user;
+    
+    // Allow cron key OR admin user
     if (!user && cronKey && hdr === cronKey && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       supabase = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     } else if (!user) {
-      return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
+      return NextResponse.json({ ok:false, error:'unauthorized - no user' }, { status:401 });
+    } else if (user && !isAdmin(user)) {
+      return NextResponse.json({ ok:false, error:'forbidden - admin required' }, { status:403 });
     }
 
     const all = await fetchBulkCards();

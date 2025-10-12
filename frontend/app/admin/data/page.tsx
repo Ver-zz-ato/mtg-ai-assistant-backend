@@ -26,7 +26,47 @@ export default function DataPage(){
   async function lookup(){ setBusy(true); try { const r = await fetch(`/api/admin/scryfall-cache?name=${encodeURIComponent(name)}`); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'fetch_failed'); setRow(j.row||null);} catch(e:any){ alert(e?.message||'failed'); setRow(null);} finally{ setBusy(false);} }
   async function refresh(){ setBusy(true); try { const r = await fetch('/api/admin/scryfall-cache', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name })}); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'refresh_failed'); await lookup(); } catch(e:any){ alert(e?.message||'failed'); } finally{ setBusy(false);} }
 
-  async function runCron(path: string){ setBusy(true); try { const r = await fetch(path, { method: 'POST' }); if (!r.ok) throw new Error(`${path} failed ${r.status}`); alert('Triggered'); } catch(e:any){ alert(e?.message||'failed'); } finally { setBusy(false); } }
+  async function runCron(path: string, isHeavy = false){ 
+    setBusy(true); 
+    try { 
+      const timeout = isHeavy ? 300000 : 30000; // 5min for heavy jobs, 30s for light jobs
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      const r = await fetch(path, { 
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }); 
+      
+      clearTimeout(timeoutId);
+      
+      if (!r.ok) {
+        const errorData = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(errorData.error || `${path} failed with status ${r.status}`);
+      }
+      
+      const result = await r.json();
+      const message = isHeavy 
+        ? `✅ ${path.split('/').pop()} completed successfully! ${result.inserted ? `Inserted ${result.inserted} records.` : ''}`
+        : `✅ ${path.split('/').pop()} triggered successfully!`;
+      
+      alert(message);
+      
+      // Reload last-run timestamps after successful operation
+      setTimeout(() => window.location.reload(), 1000);
+    } catch(e:any){ 
+      if (e.name === 'AbortError') {
+        alert(`⏱️ ${path.split('/').pop()} is taking longer than expected. It may still be running in the background.`);
+      } else {
+        alert(`❌ ${path.split('/').pop()} failed: ${e?.message || 'Unknown error'}`);
+      }
+    } finally { 
+      setBusy(false); 
+    } 
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -85,7 +125,7 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Build Snapshot (admin)</div>
-              <button onClick={()=>runCron('/api/admin/price/snapshot/build')} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button onClick={()=>runCron('/api/admin/price/snapshot/build', true)} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Build Snapshot" items={[
@@ -100,7 +140,7 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Weekly FULL (admin)</div>
-              <button onClick={()=>runCron('/api/admin/price/snapshot/bulk')} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button onClick={()=>runCron('/api/admin/price/snapshot/bulk', true)} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Weekly FULL" items={[
