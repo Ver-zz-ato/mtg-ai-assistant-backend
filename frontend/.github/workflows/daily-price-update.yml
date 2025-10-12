@@ -1,4 +1,4 @@
-name: Daily Price Update
+name: Daily Bulk Price Import
 
 on:
   schedule:
@@ -19,7 +19,7 @@ on:
 
 jobs:
   price-update:
-    name: Update Card Prices
+    name: Bulk Import All Card Prices
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Continue even if previous runs failed
@@ -35,7 +35,7 @@ jobs:
             -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
             -H "x-test-mode: true" \
             -H "Content-Type: application/json" \
-            "${{ secrets.BASE_URL }}/api/cron/daily-price-update")
+            "${{ secrets.BASE_URL }}/api/cron/bulk-price-import")
           
           if [ "$response" -eq 200 ]; then
             echo "✅ Endpoint test successful"
@@ -71,7 +71,7 @@ jobs:
             -H "x-max-cards: $MAX_CARDS" \
             $(if [ "$TEST_MODE" = "true" ]; then echo '-H "x-test-mode: true"'; fi) \
             -H "Content-Type: application/json" \
-            "${{ secrets.BASE_URL }}/api/cron/daily-price-update")
+            "${{ secrets.BASE_URL }}/api/cron/bulk-price-import")
           
           # Check if request was successful
           if [ "$response" -eq 200 ]; then

@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-price-update",
+      "path": "/api/cron/bulk-price-import",
       "schedule": "0 3 * * *"
     },
     {
