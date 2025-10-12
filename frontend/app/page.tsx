@@ -5,6 +5,7 @@ import RightSidebar from "../components/RightSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab"; // ← add this
 import TopToolsStrip from "../components/TopToolsStrip";
+import AIMemoryGreeting from "../components/AIMemoryGreeting";
 
 export default function Page() {
   return (
@@ -22,6 +23,7 @@ export default function Page() {
           
           {/* Main chat area */}
           <section className="col-span-1 lg:col-span-6 xl:col-span-5 flex flex-col gap-3">
+            <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
           

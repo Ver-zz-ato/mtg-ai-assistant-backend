@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { capture } from '@/lib/ph';
+import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
 
 export default function Header() {
@@ -54,6 +55,15 @@ export default function Header() {
     }
     
     capture('auth_login_success', { method: 'email_password' });
+    trackSignupCompleted('email'); // This could be login or signup completion
+    
+    // Store signup time for tenure tracking
+    try {
+      if (!localStorage.getItem('user_signup_time')) {
+        localStorage.setItem('user_signup_time', Date.now().toString());
+      }
+    } catch {}
+    
     window.location.reload();
   }
 
@@ -83,14 +93,20 @@ export default function Header() {
           <Link 
             href="/my-decks" 
             className="text-sm hover:underline"
-            onClick={() => capture('nav_link_clicked', { destination: '/my-decks', source: 'header' })}
+            onClick={() => {
+              capture('nav_link_clicked', { destination: '/my-decks', source: 'header' });
+              trackFeatureDiscovered('deck_management', 'navigation');
+            }}
           >
             My Decks
           </Link>
           <Link 
             href="/collections" 
             className="text-sm hover:underline"
-            onClick={() => capture('nav_link_clicked', { destination: '/collections', source: 'header' })}
+            onClick={() => {
+              capture('nav_link_clicked', { destination: '/collections', source: 'header' });
+              trackFeatureDiscovered('collection_management', 'navigation');
+            }}
           >
             My Collections
           </Link>
@@ -114,6 +130,14 @@ export default function Header() {
             onClick={() => capture('nav_link_clicked', { destination: '/profile', source: 'header' })}
           >
             Profile
+          </Link>
+          <Link 
+            href="/changelog" 
+            className="text-sm hover:underline text-green-600 font-medium flex items-center gap-1"
+            onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
+          >
+            <span className="text-xs">✨</span>
+            What's New
           </Link>
 
           {sessionUser ? (
@@ -157,7 +181,10 @@ export default function Header() {
               </form>
               <button
                 type="button"
-                onClick={() => setShowSignUp(true)}
+                onClick={() => {
+                  trackSignupStarted('email', 'header_button');
+                  setShowSignUp(true);
+                }}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
               >
                 Sign up

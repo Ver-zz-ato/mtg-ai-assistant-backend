@@ -1,6 +1,8 @@
 // components/CardAutocomplete.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { trackCardSearch, trackCardSelected } from '@/lib/analytics-enhanced';
+import { aiMemory } from '@/lib/ai-memory';
 
 type Item = { name: string } | string;
 
@@ -54,6 +56,10 @@ export default function CardAutocomplete({
         const json = await res.json().catch(() => ({}));
         if (latestQ.current !== q) return;
         const list = norm(json);
+        
+        // Track search analytics
+        trackCardSearch(q, list.length, 'autocomplete');
+        
         setItems(list.slice(0, 20));
         setOpen(list.length > 0);
         setHi(0);
@@ -90,6 +96,15 @@ export default function CardAutocomplete({
       e.preventDefault();
       const pick = items[hi];
       if (pick) {
+        trackCardSelected(pick, q, hi);
+        
+        // Track card in AI memory
+        try {
+          if (localStorage.getItem('ai_memory_consent') === 'true') {
+            aiMemory.addRecentCard(pick);
+          }
+        } catch {}
+        
         onPick(pick);
         setOpen(false);
       }
@@ -120,6 +135,15 @@ export default function CardAutocomplete({
                 // Use mousedown so blur on input doesn't swallow the click.
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  trackCardSelected(name, q, i);
+                  
+                  // Track card in AI memory
+                  try {
+                    if (localStorage.getItem('ai_memory_consent') === 'true') {
+                      aiMemory.addRecentCard(name);
+                    }
+                  } catch {}
+                  
                   onChange(name);
                   onPick(name);
                   setOpen(false);

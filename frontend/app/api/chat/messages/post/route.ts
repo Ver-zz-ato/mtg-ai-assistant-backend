@@ -11,7 +11,7 @@ function codeAndHint(status: number) {
   return { code: "ERROR", hint: "Request failed." };
 }
 
-function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean; prefs?: any, context?: any } {
+function parseTolerantBody(raw: string, contentType: string | null): { text: string; threadId?: string | null; stream?: boolean; prefs?: any, context?: any; guestMessageCount?: number } {
   const ct = (contentType || "").toLowerCase();
   const out: any = {};
 
@@ -28,7 +28,8 @@ function parseTolerantBody(raw: string, contentType: string | null): { text: str
         const stream = j.stream ?? false;
         const prefs = j.prefs;
         const context = j.context;
-        return { text, threadId, stream, prefs };
+        const guestMessageCount = typeof j.guestMessageCount === 'number' ? j.guestMessageCount : undefined;
+        return { text, threadId, stream, prefs, context, guestMessageCount };
       }
     } catch {}
   }
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     stream: parsed.stream ?? false,
     ...(parsed.prefs ? { prefs: parsed.prefs } : {}),
     ...(parsed.context ? { context: parsed.context } : {}),
+    ...(typeof parsed.guestMessageCount === 'number' ? { guestMessageCount: parsed.guestMessageCount } : {}),
   };
 
   // Avoid network fetch to self to prevent TLS/proxy issues on some hosts: call the handler directly

@@ -11,6 +11,8 @@ import MaintenanceBanner from "@/components/MaintenanceBanner";
 import PromoBar from "@/components/PromoBar";
 import FeedbackFab from "@/components/FeedbackFab";
 import PWAProvider from "@/components/PWAProvider";
+import FirstVisitTracker from "@/components/FirstVisitTracker";
+import TrustFooter from "@/components/TrustFooter";
 export const metadata: Metadata = {
   title: "ManaTap AI - MTG Deck Builder & Assistant",
   description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
@@ -47,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <Providers>
+          <FirstVisitTracker />
           <AnalyticsProvider />
           <PromoBar />
           <MaintenanceBanner />
@@ -57,14 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CookieBanner />
           <FeedbackFab />
           <PWAProvider />
-          <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
-            <div className="max-w-full mx-auto px-4 flex flex-wrap items-center gap-4 justify-between">
-<div>© 2025 ManaTap AI</div>
-              <nav className="flex gap-4 items-center flex-wrap">
-                {(() => { const FooterLinks = require('@/components/FooterLinks').default; return <FooterLinks />; })()}
-              </nav>
-            </div>
-          </footer>
+          <TrustFooter />
           <SupportWidgets />
         </Providers>
       </body>

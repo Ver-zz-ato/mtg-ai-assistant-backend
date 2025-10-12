@@ -10,6 +10,8 @@ import { useHoverPreview } from "@/components/shared/HoverPreview";
 import ExportWishlistCSV from "@/components/ExportWishlistCSV";
 import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import { getImagesForNames } from "@/lib/scryfall";
+import PrivacyDataToggle from "@/components/PrivacyDataToggle";
+import BadgeShareBanner from "@/components/BadgeShareBanner";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -570,7 +572,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                     <div className="text-lg font-semibold">Badges & Progress</div>
                     {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
-                    <PinnedBadgesSelector badges={[...badges, ...extraBadges]} />
+                    <PinnedBadgesSelector badges={[...badges, ...extraBadges]} username={username} />
                     <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedDeckIds.length} signatureSet={!!signatureDeckId} likesMap={likes} />
                   </section>
                 </aside>
@@ -670,8 +672,19 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             </section>
           )}
           {tab==='security' && (
-            <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-              <div className="text-lg font-semibold">Security / Account</div>
+            <div className="space-y-6">
+              {/* Privacy Section */}
+              <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+                <div className="text-lg font-semibold">Privacy</div>
+                <div className="text-sm text-gray-400 mb-4">
+                  Control how your data is used to improve ManaTap AI.
+                </div>
+                <PrivacyDataToggle />
+              </section>
+
+              {/* Security Section */}
+              <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+                <div className="text-lg font-semibold">Security / Account</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="text-sm">
                   <div className="opacity-70 mb-1">Current password</div>
@@ -685,16 +698,17 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <div className="text-right">
                 <button onClick={changePassword} className="px-3 py-2 rounded bg-white text-black text-sm">Change password</button>
               </div>
-              <section className="rounded-xl border border-neutral-800 p-4 space-y-2 mt-4">
-                <div className="text-lg font-semibold">Pro subscription</div>
-                <div className="text-xs opacity-80">Manage your Pro plan (placeholder)</div>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Manage subscription</button>
-                  <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Update payment method</button>
-                  <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Cancel subscription</button>
-                </div>
+                <section className="rounded-xl border border-neutral-800 p-4 space-y-2 mt-4">
+                  <div className="text-lg font-semibold">Pro subscription</div>
+                  <div className="text-xs opacity-80">Manage your Pro plan (placeholder)</div>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Manage subscription</button>
+                    <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Update payment method</button>
+                    <button disabled className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 opacity-60 cursor-not-allowed">Cancel subscription</button>
+                  </div>
+                </section>
               </section>
-            </section>
+            </div>
           )}
         </section>
       </div>
@@ -868,9 +882,10 @@ function PinnedBadgesChips(){
   );
 }
 
-function PinnedBadgesSelector({ badges }: { badges: Array<{ key:string; label:string; emoji:string; desc:string }> }){
+function PinnedBadgesSelector({ badges, username }: { badges: Array<{ key:string; label:string; emoji:string; desc:string }>; username: string }){
   const [pins, setPins] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const [showShareBanner, setShowShareBanner] = React.useState<any>(null);
   React.useEffect(()=>{ (async()=>{ try{ const r = await fetch('/api/profile/badges', { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPins(Array.isArray(j.pinned_badges)? j.pinned_badges : []); } catch{} })(); }, []);
   const pinnedSet = new Set(pins);
   function togglePin(k:string){ setPins(prev=>{ const has = prev.includes(k); if (has) return prev.filter(x=>x!==k); if (prev.length>=3) return prev; return [...prev, k]; }); }
@@ -881,21 +896,48 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
       <ul className="space-y-2">
         {badges.map(b => (
           <li key={b.key} className="rounded-lg overflow-hidden border border-neutral-700 bg-gradient-to-r from-neutral-900 to-neutral-800">
-            <div className="p-3 flex items-center gap-3 justify-between">
+            <div className="p-3 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="text-xl">{b.emoji}</div>
-                <div>
+                <div className="flex-1">
                   <div className="font-semibold text-sm">{b.label}</div>
                   <div className="text-xs opacity-80">{b.desc}</div>
                 </div>
               </div>
-              <button onClick={()=>togglePin(b.label)} className={`px-2 py-1 rounded text-xs border ${pinnedSet.has(b.label)?'border-emerald-500 bg-emerald-600/10':'border-neutral-700 hover:bg-neutral-800'}`}>{pinnedSet.has(b.label)?'Pinned':'Pin'}</button>
+              <div className="flex items-center gap-2 justify-end">
+                <button 
+                  onClick={()=>setShowShareBanner(b)} 
+                  className="px-2 py-1 rounded text-xs border border-blue-600 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 transition-colors"
+                  title="Share this badge"
+                >
+                  📤 Share
+                </button>
+                <button 
+                  onClick={()=>togglePin(b.label)} 
+                  className={`px-2 py-1 rounded text-xs border transition-colors ${
+                    pinnedSet.has(b.label)
+                      ? 'border-emerald-500 bg-emerald-600/10 text-emerald-400'
+                      : 'border-neutral-700 hover:bg-neutral-800 text-neutral-300'
+                  }`}
+                >
+                  {pinnedSet.has(b.label) ? '📌 Pinned' : 'Pin'}
+                </button>
+              </div>
             </div>
           </li>
         ))}
       </ul>
       <div className="text-right text-xs opacity-80">Pinned: {pins.length}/3</div>
       <div className="text-right"><button onClick={save} disabled={saving} className={`px-3 py-1.5 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving?'Saving…':'Save pinned badges'}</button></div>
+      
+      {/* Share Banner Modal */}
+      {showShareBanner && (
+        <BadgeShareBanner
+          badge={showShareBanner}
+          username={username}
+          onClose={() => setShowShareBanner(null)}
+        />
+      )}
     </div>
   );
 }

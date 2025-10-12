@@ -29,6 +29,7 @@ export default function AdminHub() {
         <Pill href="/admin/backups">Database Backups</Pill>
         <Pill href="/admin/deploy">Deployment Awareness</Pill>
         <Pill href="/admin/chat-levers">Chat Levers</Pill>
+        <Pill href="/admin/changelog">Changelog</Pill>
       </nav>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -79,6 +80,10 @@ export default function AdminHub() {
         <Link href="/admin/events" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">Events Debug</div>
           <p className="text-sm opacity-80">Tool usage counters summary (Probability runs, Mulligan iterations).</p>
+        </Link>
+        <Link href="/admin/changelog" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
+          <div className="font-medium mb-1">Changelog Manager</div>
+          <p className="text-sm opacity-80">Manage what's new entries, version releases, and public changelog content.</p>
         </Link>
       </section>
     </div>

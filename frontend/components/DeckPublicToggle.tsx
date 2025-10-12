@@ -1,6 +1,7 @@
 // components/DeckPublicToggle.tsx
 "use client";
 import { useState } from "react";
+import { trackDeckShared } from '@/lib/analytics-enhanced';
 
 type Props = {
   deckId: string;
@@ -27,6 +28,12 @@ export default function DeckPublicToggle({ deckId, initialIsPublic, compact }: P
         throw new Error(json?.error || "Request failed");
       }
       setIsPublic(nextVal);
+      
+      // Track deck sharing when made public
+      if (nextVal && !initialIsPublic) {
+        trackDeckShared(deckId, 'link', 'public');
+      }
+      
       try { window.dispatchEvent(new CustomEvent('deck:visibility', { detail: { isPublic: nextVal } })); } catch {}
     } catch (e: any) {
       setError(e?.message || "Something went wrong");

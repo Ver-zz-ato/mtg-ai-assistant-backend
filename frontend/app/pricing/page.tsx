@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { usePro } from '@/components/ProContext';
 import { capture } from '@/lib/ph';
+import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
 import Link from 'next/link';
+import ProValueTooltip from '@/components/ProValueTooltip';
 
 export default function PricingPage() {
   const { isPro } = usePro();
@@ -19,10 +21,18 @@ export default function PricingPage() {
       setLoading(false);
     });
 
-    // Track page view
+    // Enhanced pricing page tracking
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    const source = referrer.includes('/chat') ? 'chat_limit' :
+                  referrer.includes('/my-decks') ? 'deck_feature' :
+                  referrer.includes('google') ? 'google_search' : 'direct';
+    
+    trackPricingPageViewed(source);
     capture('pricing_page_viewed', {
       is_authenticated: !!user,
       is_pro: isPro,
+      source,
+      referrer: referrer.slice(0, 100) // Truncate for privacy
     });
   }, [user, isPro]);
 
@@ -60,6 +70,7 @@ export default function PricingPage() {
       window.location.href = data.url;
     } catch (error: any) {
       console.error('Upgrade failed:', error);
+      trackUpgradeAbandoned('payment', error.message || 'payment_error');
       alert(error.message || 'Failed to start upgrade process. Please try again.');
     } finally {
       setUpgrading(false);
@@ -253,15 +264,51 @@ export default function PricingPage() {
               </div>
               <div className="flex items-center">
                 <span className="text-green-400 mr-3">✓</span>
-                <span className="text-sm">Unlimited AI analysis</span>
+                <ProValueTooltip
+                  trigger={
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Unlimited AI analysis</span>
+                  }
+                  featureName="Unlimited AI Analysis"
+                  benefits={[
+                    'No daily limits on deck analysis',
+                    'Advanced AI-powered suggestions',
+                    'Real-time optimization recommendations',
+                    'Access to latest AI models and improvements'
+                  ]}
+                  placement="right"
+                />
               </div>
               <div className="flex items-center">
                 <span className="text-green-400 mr-3">✓</span>
-                <span className="text-sm">Advanced deck statistics</span>
+                <ProValueTooltip
+                  trigger={
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Advanced deck statistics</span>
+                  }
+                  featureName="Advanced Deck Statistics"
+                  benefits={[
+                    'Detailed probability calculations',
+                    'Mana curve optimization analysis',
+                    'Win condition tracking',
+                    'Performance metrics and trends'
+                  ]}
+                  placement="right"
+                />
               </div>
               <div className="flex items-center">
                 <span className="text-green-400 mr-3">✓</span>
-                <span className="text-sm">Price tracking & alerts</span>
+                <ProValueTooltip
+                  trigger={
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Price tracking & alerts</span>
+                  }
+                  featureName="Price Tracking & Alerts"
+                  benefits={[
+                    'Historical price data for all cards',
+                    'Custom price alert thresholds',
+                    'Market trend analysis and predictions',
+                    'Portfolio value tracking over time'
+                  ]}
+                  placement="right"
+                />
               </div>
               <div className="flex items-center">
                 <span className="text-green-400 mr-3">✓</span>
@@ -343,9 +390,21 @@ export default function PricingPage() {
                       )}
                     </td>
                     <td className="py-6 text-center">
-                      <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        {feature.pro}
-                      </span>
+                      <ProValueTooltip
+                        trigger={
+                          <span className="text-sm text-blue-600 dark:text-blue-400 font-medium cursor-help border-b border-dotted border-blue-400">
+                            {feature.pro}
+                          </span>
+                        }
+                        featureName={feature.title}
+                        benefits={[
+                          feature.description,
+                          feature.title.includes('AI') ? 'Powered by advanced machine learning' : 'Professional-grade tools',
+                          feature.title.includes('Export') ? 'Multiple format support' : 'Unlimited usage',
+                          'Priority customer support'
+                        ]}
+                        placement="top"
+                      />
                     </td>
                   </tr>
                 ))}

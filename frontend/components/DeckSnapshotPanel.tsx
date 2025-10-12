@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
+import PublicTrustFooter from "@/components/PublicTrustFooter";
 import { capture } from "@/lib/analytics"
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import { trackApiCall, trackError } from '@/lib/analytics-performance';
@@ -174,6 +175,11 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
           )}
         </>
       )}
+      
+      {/* Trust footer */}
+      <div className="pt-2">
+        <PublicTrustFooter compact={true} className="justify-center" />
+      </div>
     </div>
   );
 }

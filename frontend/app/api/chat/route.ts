@@ -120,27 +120,50 @@ async function callOpenAI(userText: string, sys?: string) {
   return { fallback: false, text: String(out || "").trim(), usage } as any;
 }
 
+// Guest mode constants
+const GUEST_MESSAGE_LIMIT = 20;
+
+// Check if guest user has exceeded message limit
+async function checkGuestMessageLimit(guestMessageCount: number): Promise<{ allowed: boolean; count: number }> {
+  const allowed = guestMessageCount < GUEST_MESSAGE_LIMIT;
+  return { allowed, count: guestMessageCount };
+}
+
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
   let status = 200;
   let userId: string | null = null;
+  let isGuest = false;
+  
   try {
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      status = 401;
-      return err("unauthorized", "unauthorized", 401);
-    }
-    userId = user.id;
-
-    const rl = await checkRateLimit(supabase as any, user.id);
-    if (!rl.ok) {
-      status = 429;
-      return err(rl.error || "rate limited", "rate_limited", status);
-    }
-
+    
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
+    
+    if (!user) {
+      // Allow guest users with message limits
+      const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
+      const guestCheck = await checkGuestMessageLimit(guestMessageCount);
+      if (!guestCheck.allowed) {
+        status = 401;
+        return err(`Please sign in to continue chatting. You've reached the 20 message limit for guest users.`, "guest_limit_reached", 401);
+      }
+      isGuest = true;
+      userId = null;
+    } else {
+      userId = user.id;
+    }
+
+    // Only check rate limits for authenticated users
+    if (!isGuest && userId) {
+      const rl = await checkRateLimit(supabase as any, userId);
+      if (!rl.ok) {
+        status = 429;
+        return err(rl.error || "rate limited", "rate_limited", status);
+      }
+    }
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
     const normalized = { text: inputText, threadId: raw?.threadId };
     const parse = ChatPostSchema.safeParse(normalized);
@@ -153,19 +176,24 @@ export async function POST(req: NextRequest) {
 
     let tid = threadId ?? null;
     let created = false;
-    if (!tid) {
+    
+    if (isGuest) {
+      // Guests don't get persistent threads - we'll just process their message
+      tid = null;
+      created = false;
+    } else if (!tid) {
       const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
       // Enforce max 30 threads per user
       const { count, error: cErr } = await supabase
         .from("chat_threads")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
+        .eq("user_id", userId!);
       if (cErr) { status = 500; return err(cErr.message, "db_error", 500); }
       if ((count ?? 0) >= 30) { status = 400; return err("Thread limit reached (30). Please delete a thread before creating a new one.", "thread_limit", status); }
 
       const { data, error } = await supabase
         .from("chat_threads")
-        .insert({ user_id: user.id, title })
+        .insert({ user_id: userId!, title })
         .select("id")
         .single();
       if (error) { status = 500; return err(error.message, "db_error", 500); }
@@ -176,14 +204,14 @@ export async function POST(req: NextRequest) {
         .from("chat_threads")
         .select("id")
         .eq("id", tid)
-        .eq("user_id", user.id)
+        .eq("user_id", userId!)
         .single();
       if (error || !data) { status = 404; return err("thread not found", "not_found", 404); }
     }
 
-    if (!raw?.noUserInsert) {
+    if (!raw?.noUserInsert && !isGuest && tid) {
       await supabase.from("chat_messages")
-        .insert({ thread_id: tid!, role: "user", content: text });
+        .insert({ thread_id: tid, role: "user", content: text });
     }
 
     // If this thread is linked to a deck, include a compact summary as context
@@ -245,8 +273,8 @@ export async function POST(req: NextRequest) {
       const outText = ackFromPrefs();
       await supabase.from("chat_messages").insert({ thread_id: tid!, role: "assistant", content: outText });
       try { const { captureServer } = await import("@/lib/server/analytics");
-        if (created) await captureServer("thread_created", { thread_id: tid, user_id: user.id });
-        await captureServer("chat_sent", { provider: "ack", ms: Date.now() - t0, thread_id: tid, user_id: user.id, persona_id });
+        if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
+        await captureServer("chat_sent", { provider: "ack", ms: Date.now() - t0, thread_id: tid, user_id: userId, persona_id });
       } catch {}
       return ok({ text: outText, threadId: tid, provider: "ack" });
     }
@@ -357,17 +385,17 @@ export async function POST(req: NextRequest) {
       const { costUSD } = await import("@/lib/ai/pricing");
       const cost = costUSD(MODEL, it, ot);
       try {
-        await supabase.from("ai_usage").insert({ user_id: user.id, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost, persona_id, teaching: teachingFlag });
+        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost, persona_id, teaching: teachingFlag });
       } catch {
-        await supabase.from("ai_usage").insert({ user_id: user.id, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost });
+        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost });
       }
     } catch {}
 
     // Server analytics (no-op if key missing)
     try {
       const { captureServer } = await import("@/lib/server/analytics");
-      if (created) await captureServer("thread_created", { thread_id: tid, user_id: user.id });
-      await captureServer("chat_sent", { provider, ms: Date.now() - t0, thread_id: tid, user_id: user.id, persona_id });
+      if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
+      await captureServer("chat_sent", { provider, ms: Date.now() - t0, thread_id: tid, user_id: userId, persona_id });
     } catch {}
 
     return ok({ text: outText, threadId: tid, provider });

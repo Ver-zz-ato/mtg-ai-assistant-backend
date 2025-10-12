@@ -3,6 +3,7 @@
 import React from 'react';
 import DeckArtLoader from './DeckArtLoader';
 import LikeButton from './likes/LikeButton';
+import { aiMemory } from '@/lib/ai-memory';
 
 interface DeckRow {
   id: string;
@@ -46,7 +47,23 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                 <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
                 
                 <div className="relative flex items-center justify-between">
-                  <a href={`/my-decks?deckId=${encodeURIComponent(r.id)}`} className="flex-1 min-w-0 p-0 block" title="Quick view">
+                  <a 
+                    href={`/my-decks?deckId=${encodeURIComponent(r.id)}`} 
+                    className="flex-1 min-w-0 p-0 block" 
+                    title="Quick view"
+                    onClick={() => {
+                      // Update AI memory context when user accesses a deck
+                      try {
+                        const colors: string[] = []; // TODO: extract colors from deck if available
+                        aiMemory.updateDeckContext({
+                          id: r.id,
+                          name: title,
+                          commander: r.commander || undefined,
+                          colors
+                        });
+                      } catch {}
+                    }}
+                  >
                     <div className="flex items-center gap-3 p-3">
                       <div className="min-w-0">
                         <div className="font-medium truncate flex items-center gap-2">
@@ -74,7 +91,24 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                         return null;
                       }
                     })()}
-                    <a href={`/my-decks/${encodeURIComponent(r.id)}`} className="text-xs px-2 py-1 rounded border border-neutral-700">Edit</a>
+                    <a 
+                      href={`/my-decks/${encodeURIComponent(r.id)}`} 
+                      className="text-xs px-2 py-1 rounded border border-neutral-700"
+                      onClick={() => {
+                        // Update AI memory context when user starts editing a deck
+                        try {
+                          const colors: string[] = []; // TODO: extract colors from deck if available
+                          aiMemory.updateDeckContext({
+                            id: r.id,
+                            name: title,
+                            commander: r.commander || undefined,
+                            colors
+                          });
+                        } catch {}
+                      }}
+                    >
+                      Edit
+                    </a>
                     {(()=>{ 
                       try {
                         const Menu = require('@/components/DeckCardMenu').default; 

@@ -1,0 +1,137 @@
+name: Daily Price Update
+
+on:
+  schedule:
+    # Every day at 3:00 AM UTC (after bulk import completes)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual triggers
+    inputs:
+      test_mode:
+        description: 'Run in test mode (validation only)'
+        required: false
+        default: 'false'
+        type: boolean
+      max_cards:
+        description: 'Maximum cards to process (default: 500)'
+        required: false
+        default: '500'
+        type: string
+
+jobs:
+  price-update:
+    name: Update Card Prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Continue even if previous runs failed
+    continue-on-error: true
+
+    steps:
+      - name: Test Connection First
+        run: |
+          echo "🧪 Testing endpoint connectivity..."
+          
+          # Test the endpoint first
+          response=$(curl -w "%{http_code}" -s -o test_response.json -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "x-test-mode: true" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BASE_URL }}/api/cron/daily-price-update")
+          
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Endpoint test successful"
+            cat test_response.json
+          else
+            echo "❌ Endpoint test failed with HTTP $response"
+            cat test_response.json || echo "No response body"
+            
+            # Don't fail the whole job on test failure - endpoint might still work
+            echo "⚠️ Test failed but continuing with actual update..."
+          fi
+
+      - name: Update Card Prices
+        run: |
+          echo "💰 Starting daily price update..."
+          
+          # Determine if this is test mode
+          TEST_MODE="${{ github.event.inputs.test_mode || 'false' }}"
+          MAX_CARDS="${{ github.event.inputs.max_cards || '500' }}"
+          
+          # Build headers
+          HEADERS=""
+          if [ "$TEST_MODE" = "true" ]; then
+            HEADERS="$HEADERS -H \"x-test-mode: true\""
+            echo "🧪 Running in test mode"
+          fi
+          
+          HEADERS="$HEADERS -H \"x-max-cards: $MAX_CARDS\""
+          
+          # Call the price update API endpoint
+          response=$(curl -w "%{http_code}" -s -o response.json -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "x-max-cards: $MAX_CARDS" \
+            $(if [ "$TEST_MODE" = "true" ]; then echo '-H "x-test-mode: true"'; fi) \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BASE_URL }}/api/cron/daily-price-update")
+          
+          # Check if request was successful
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Price update completed successfully"
+            
+            # Show results
+            updated=$(cat response.json | jq -r '.updated // "unknown"')
+            processed=$(cat response.json | jq -r '.processed // "unknown"')
+            api_calls=$(cat response.json | jq -r '.api_calls_made // "unknown"')
+            duration=$(cat response.json | jq -r '.duration_ms // "unknown"')
+            
+            echo "💰 Results:"
+            echo "  • Prices updated: $updated"
+            echo "  • Cards processed: $processed"
+            echo "  • API calls made: $api_calls"
+            echo "  • Duration: ${duration}ms"
+            
+            # Set GitHub environment variables for summary
+            echo "UPDATE_SUCCESS=true" >> $GITHUB_ENV
+            echo "PRICES_UPDATED=$updated" >> $GITHUB_ENV
+            echo "CARDS_PROCESSED=$processed" >> $GITHUB_ENV
+            echo "API_CALLS_MADE=$api_calls" >> $GITHUB_ENV
+            echo "TEST_MODE=$TEST_MODE" >> $GITHUB_ENV
+          else
+            echo "❌ Price update failed with HTTP $response"
+            cat response.json || echo "No response body"
+            echo "UPDATE_SUCCESS=false" >> $GITHUB_ENV
+            echo "TEST_MODE=$TEST_MODE" >> $GITHUB_ENV
+            
+            # Don't exit 1 here - we want to try alternative scheduling
+            echo "⚠️ GitHub Actions failed, but alternative schedulers may still work"
+          fi
+
+      - name: Create Job Summary
+        if: always()
+        run: |
+          if [ "$UPDATE_SUCCESS" = "true" ]; then
+            if [ "$TEST_MODE" = "true" ]; then
+              echo "## 🧪 Daily Price Update Test Completed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "## 💰 Daily Price Update Completed" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Prices Updated:** $PRICES_UPDATED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cards Processed:** $CARDS_PROCESSED" >> $GITHUB_STEP_SUMMARY
+            echo "- **API Calls Made:** $API_CALLS_MADE" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Success" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The MTG AI Assistant price cache has been updated with fresh pricing data." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Daily Price Update Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "GitHub Actions scheduling failed. Alternative schedulers (Render Cron, Vercel, UptimeRobot) may still be running." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "::warning::Daily price update failed. Check alternative schedulers (Render, Vercel, UptimeRobot) for backup execution."

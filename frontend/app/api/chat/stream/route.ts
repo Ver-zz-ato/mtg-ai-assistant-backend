@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   const t0 = Date.now();
   let status = 200;
   let userId: string | null = null;
+  let isGuest = false;
   
   console.log("[stream] POST request received at", new Date().toISOString());
   
@@ -36,19 +37,12 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      status = 401;
-      console.log("[stream] No user found, returning fallback");
-      return new Response(JSON.stringify({ 
-        fallback: true, 
-        reason: "authentication_required",
-        message: "User authentication required for streaming" 
-      }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
+      console.log("[stream] No user found, allowing guest access");
+      isGuest = true;
+    } else {
+      userId = user.id;
+      console.log("[stream] Authenticated user:", userId);
     }
-    userId = user.id;
-    console.log("[stream] Authenticated user:", userId);
     
     console.log("[stream] Parsing request body...");
 
@@ -94,13 +88,36 @@ export async function POST(req: NextRequest) {
     }
     console.log("[stream] OpenAI API key found");
 
-    // Rate limiting (reuse existing logic from /api/chat)
-    const rl = await checkRateLimit(supabase as any, user.id);
-    if (!rl.ok) {
-      return new Response(JSON.stringify({ fallback: true }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" }
-      });
+    // Guest user limit checking
+    if (isGuest) {
+      const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
+      const GUEST_MESSAGE_LIMIT = 20;
+      
+      console.log("[stream] Guest user, message count:", guestMessageCount);
+      
+      if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
+        console.log("[stream] Guest user exceeded message limit");
+        return new Response(JSON.stringify({
+          fallback: true,
+          reason: "guest_limit_exceeded",
+          message: "Please sign in to continue chatting. You've reached the 20 message limit for guest users.",
+          guestLimitReached: true
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // Rate limiting (skip for guest users)
+    if (!isGuest) {
+      const rl = await checkRateLimit(supabase as any, userId!);
+      if (!rl.ok) {
+        return new Response(JSON.stringify({ fallback: true }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
     }
 
     // Build system prompt (simplified from main chat route)
@@ -298,7 +315,13 @@ export async function POST(req: NextRequest) {
     });
   } finally {
     const ms = Date.now() - t0;
-    console.log(JSON.stringify({ method: "POST", path: "/api/chat/stream", status, ms, userId }));
+    console.log(JSON.stringify({ 
+      method: "POST", 
+      path: "/api/chat/stream", 
+      status, 
+      ms, 
+      userId: isGuest ? "guest" : userId 
+    }));
   }
 }
 

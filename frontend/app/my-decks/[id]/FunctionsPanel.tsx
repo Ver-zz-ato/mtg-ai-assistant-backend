@@ -6,6 +6,7 @@ import ExportDeckCSV from "@/components/ExportDeckCSV";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
 import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
+import ShareButton from "@/components/ShareButton";
 
 export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: string; isPublic: boolean; isPro: boolean }) {
   const [pub, setPub] = React.useState<boolean>(isPublic);
@@ -16,15 +17,10 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
     window.addEventListener('deck:visibility', h);
     return () => window.removeEventListener('deck:visibility', h);
   }, []);
-  const share = async () => {
-    try {
-      if (!pub) { alert('This deck is private. Make it Public first to get a shareable link.'); return; }
-      const baseUrl = window.location.hostname === 'localhost' ? 'https://manatap.ai' : window.location.origin;
-      const url = `${baseUrl}/decks/${deckId}`;
-      if ((navigator as any).share) { try { await (navigator as any).share({ title: 'Share deck', url }); return; } catch {} }
-      await navigator.clipboard?.writeText?.(url);
-      try { const { toast } = await import('@/lib/toast-client'); toast('Share link copied', 'success'); } catch { /* fallback */ }
-    } catch { try { const { toastError } = await import('@/lib/toast-client'); toastError('Could not copy link'); } catch { alert('Could not copy link'); } }
+  const handleMakePublic = async () => {
+    // This would trigger the deck visibility change
+    // The actual implementation depends on your deck visibility toggle logic
+    window.dispatchEvent(new CustomEvent('deck:visibility', { detail: { isPublic: true } }));
   };
 
   return (
@@ -37,7 +33,19 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
         <DeckCsvUpload deckId={deckId} />
         <RecomputeButton />
         {pub && (<a href={`/decks/${deckId}`} className="text-xs border rounded px-2 py-1" title="View public page" target="_blank" rel="noreferrer">Public preview</a>)}
-        <button onClick={share} className="text-xs border rounded px-2 py-1">Share deck</button>
+        <ShareButton
+          url={(() => {
+            const baseUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'https://manatap.ai' : (typeof window !== 'undefined' ? window.location.origin : 'https://manatap.ai');
+            return `${baseUrl}/decks/${deckId}`;
+          })()} 
+          type="deck"
+          title="Check out this MTG deck!"
+          description="Built with ManaTap AI - MTG Deck Builder"
+          isPublic={pub}
+          onMakePublic={handleMakePublic}
+          compact
+          className="text-xs border rounded px-2 py-1"
+        />
         <button onClick={async()=>{ if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { /* fallback */ alert('This is a Pro feature. Upgrade to unlock.'); } return; } setFixOpen(true); }} className="text-xs border rounded px-2 py-1">Fix card names</button>
         {!isPro && (<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>)}
       </div>

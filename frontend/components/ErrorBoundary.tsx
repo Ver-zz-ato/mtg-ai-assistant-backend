@@ -3,6 +3,7 @@ import React from 'react';
 import posthog from 'posthog-js';
 import { toast } from '@/lib/toast-client';
 import { trackError } from '@/lib/analytics-performance';
+import { trackErrorBoundary } from '@/lib/analytics-enhanced';
 
 type ErrorBoundaryState = { 
   hasError: boolean; 
@@ -26,12 +27,21 @@ export default class ErrorBoundary extends React.Component<{
 
   componentDidCatch(error: any, info: any) {
     const errorId = this.state.errorId;
+    const componentName = this.extractComponentName(info?.componentStack);
     
     // Enhanced error tracking with our new system
+    trackErrorBoundary(
+      componentName,
+      String(error?.message || error),
+      String(error?.stack || ''),
+      this.getLastUserAction()
+    );
+    
+    // Legacy performance tracking (keep for compatibility)
     trackError('error.client_error', {
       error_type: 'react_error_boundary',
       error_message: String(error?.message || error),
-      component: this.extractComponentName(info?.componentStack),
+      component: componentName,
       user_action: 'component_render',
     });
     
@@ -70,6 +80,25 @@ export default class ErrorBoundary extends React.Component<{
     if (!componentStack) return 'unknown_component';
     const match = componentStack.match(/\s+at\s+(\w+)/);
     return match?.[1] || 'unknown_component';
+  }
+  
+  private getLastUserAction(): string {
+    // Try to get last user action from sessionStorage or detect from URL
+    try {
+      const lastAction = sessionStorage.getItem('last_user_action');
+      if (lastAction) return lastAction;
+    } catch {}
+    
+    // Fallback: infer from current URL
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.includes('/chat')) return 'chat_interaction';
+      if (path.includes('/my-decks')) return 'deck_management';
+      if (path.includes('/collections')) return 'collection_management';
+      if (path.includes('/profile')) return 'profile_editing';
+    }
+    
+    return 'unknown_action';
   }
   
   private handleRetry = () => {

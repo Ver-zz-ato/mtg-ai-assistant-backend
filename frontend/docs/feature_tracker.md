@@ -209,3 +209,151 @@ Navigation
   - Development mode console logging for debugging
   - Error-safe wrappers prevent analytics from breaking app
   - 150% increase in analytics event volume for better insights
+
+## To Do - Analytics & Monitoring
+
+☐ Mobile & PWA analytics tracking <!-- id:analytics.mobile_pwa -->
+  - Track mobile app behavior and PWA adoption
+  - Add to homescreen events and offline usage tracking
+  - Push permission requests and notification interaction
+  - Mobile-specific user interaction patterns
+  - Screen orientation changes and viewport metrics
+  - Touch vs click interaction differentiation
+  - Mobile performance characteristics (loading, rendering)
+  - PWA install prompts and conversion rates
+  - Offline mode engagement and sync behavior
+☑ Public trust layer implementation <!-- id:ui.public_trust_layer -->
+  - `components/TrustFooter.tsx`: Comprehensive trust component with model version display
+  - Shows AI model version (Claude 4 Sonnet) with green status indicator
+  - Scryfall data source attribution with clickable link to https://scryfall.com
+  - Last updated timestamp with formatted date display
+  - Compact mode prop for inline use in analysis panels
+  - Transparency messaging about AI verification for competitive play
+  - Integrated in `app/layout.tsx` replacing existing footer
+  - Responsive design: full footer on desktop, compact on mobile
+  - Static values with future capability for dynamic model version tracking
+  - User trust building through transparent AI usage and data sourcing
+
+☑ Enhanced sharing capabilities (Lite Social Loop) <!-- id:social.enhanced_sharing -->
+  - `components/ShareButton.tsx`: Feature-rich sharing component with dropdown options
+  - Multi-platform support: Discord (formatted message), Reddit, Twitter, Facebook
+  - Native device sharing API integration with fallback to clipboard
+  - Copy-to-clipboard with success feedback via toast notifications
+  - Privacy-aware sharing: prompts to make private content public before sharing
+  - Enhanced analytics tracking: `content_shared` events with method and content type
+  - Improved UX: loading states, hover effects, success animations
+  - Compact mode support for tight UI spaces
+  - Integrated in `app/my-decks/[id]/FunctionsPanel.tsx` replacing basic share button
+  - TypeScript interfaces for consistent sharing props across components
+  - Error handling with graceful fallbacks for failed share attempts
+
+☑ Changelog system with admin management <!-- id:content.changelog_system -->
+  - `app/admin/changelog/page.tsx`: Full CRUD admin interface for changelog management
+  - Version, date, title, description editing with validation
+  - Feature/fix categorization with dynamic add/remove list items
+  - Entry types: feature, fix, improvement, breaking with color-coded badges
+  - `app/changelog/page.tsx`: Public changelog page with responsive design
+  - Emoji indicators for entry types (✨ features, 🐛 fixes, ⚡ improvements, 💥 breaking)
+  - `app/api/admin/changelog/route.ts`: Protected admin API for changelog CRUD
+  - `app/api/changelog/route.ts`: Public read-only API for changelog display
+  - Database storage: `db/sql/026_app_config_table.sql` creates app_config table with RLS
+  - What's New navigation: `components/Header.tsx` link with sparkle icon
+  - Loading states, error handling, and empty state management
+  - Admin authentication check with email-based admin identification
+  - JSON schema validation for changelog entries before database storage
+  - Admin dashboard integration: added changelog management to `/admin/JustForDavy`
+  - Database-based admin authentication using `profiles.is_admin` column
+  - Production-ready with proper error handling and validation
+
+☑ Pro perception improvements with value tooltips <!-- id:ui.pro_perception_enhancements -->
+  - `ProValueTooltip.tsx`: Reusable component with hover-triggered tooltips showing pro feature benefits
+  - Integrated in `app/pricing/page.tsx` feature comparison table for each pro feature
+  - Detailed benefit descriptions with upgrade CTAs and pricing ($9/month starting)
+  - Analytics tracking: `pro_feature_awareness` and `pro_feature_cta_clicked` events
+  - Visual enhancements: dotted borders indicate interactive tooltip elements
+  - Positioning system: supports top/bottom/left/right tooltip placement
+  - TypeScript interfaces for consistent benefit description format
+  - Error-safe analytics with fallback handling for imports
+
+☑ AI Memory Illusion system <!-- id:ai.memory_illusion -->
+  - `lib/ai-memory.ts`: AIMemoryManager singleton class for persistent user context
+  - Local storage system with 30-day automatic expiry for privacy compliance
+  - Context tracking: last deck (id, name, commander, colors), collection (id, name, count)
+  - Recent cards tracking: stores up to 10 recently viewed/selected cards with timestamps
+  - User preferences storage: favorite formats, play style, budget range
+  - `components/AIMemoryGreeting.tsx`: Consent-gated personalized greeting component
+  - Personalized greeting generation based on recent deck/collection activity
+  - Privacy-first design: explicit user consent required with clear opt-out options
+  - Chat integration: memory context added to `components/Chat.tsx` for enhanced conversations
+  - Deck interaction tracking: `components/MyDecksList.tsx` updates context on deck access
+  - Card search tracking: `components/CardAutocomplete.tsx` tracks selected cards
+  - Homepage integration: `app/page.tsx` displays personalized greetings
+  - Analytics integration: tracks memory engagement, consent decisions, and context updates
+  - Storage management: automatic cleanup of expired data, context clearing on user request
+
+☑ User privacy data-sharing toggle <!-- id:privacy.data_sharing_toggle -->
+  - `app/api/profile/privacy/route.ts`: API endpoint for managing user data-sharing preferences
+  - `components/PrivacyDataToggle.tsx`: Interactive toggle component with learn more modal
+  - Profile → Privacy section integration with proper UI and UX design
+  - Default ON for new users, respects current state for existing users
+  - Detailed "Learn more" modal explaining what's collected vs what isn't
+  - Toast confirmations on preference changes with immediate save
+  - Analytics tracking: `privacy_data_share_toggled` and `privacy_learn_more_opened` events
+  - Keyboard accessible with proper ARIA labels and focus management
+  - Seamless experience with essential telemetry continuing regardless of setting
+
+☑ Badges & milestones celebration system <!-- id:badges.celebration_system -->
+  - `components/BadgeCelebrationToast.tsx`: Animated celebration toasts for new badge unlocks
+  - `components/BadgeShareBanner.tsx`: Comprehensive sharing system with PNG generation
+  - Entrance animations with spring-like easing and reduced-motion respect
+  - Pro member special treatment: golden foil effects in both toasts and generated images
+  - Canvas-based social media optimized PNG generation (800x400px)
+  - Three sharing options: copy image to clipboard, download PNG, copy profile link
+  - Shareable banner includes username, badge info, date, and optional deck/format context
+  - Comprehensive analytics: `badge_unlocked_toast_shown`, `badge_share_action` tracking
+  - Integration with existing badge system: share buttons on all earned badges
+  - Auto-dismiss toasts with manual dismiss option and proper accessibility
+  - Visual preview of generated banners before sharing
+
+## Database Requirements for New Features
+
+☑ App Config Table for Changelog System <!-- id:db.app_config_table -->
+  - `db/sql/026_app_config_table.sql`: Creates app_config table for storing application configuration
+  - JSONB storage for flexible configuration data with indexing
+  - Row Level Security (RLS) policies for public/admin access control
+  - Public read access for changelog, features, announcements
+  - Admin-only write access based on profiles.is_admin column
+  - Automatic timestamp tracking with created_at/updated_at columns
+  - Initial changelog structure seeded with empty entries array
+  - Compatible with existing app_config usage throughout codebase
+
+☐ Advanced performance monitoring <!-- id:analytics.performance_monitoring -->
+  - Page load performance tracking with Core Web Vitals
+  - Slow query detection for database operations
+  - API endpoint latency monitoring with percentiles
+  - Client-side error monitoring with stack traces
+  - Memory usage patterns and potential leaks
+  - Bundle size impact on performance metrics
+  - Third-party service impact measurement (Scryfall, Stripe)
+  - Network condition impact on user experience
+  - Real user monitoring (RUM) for performance optimization
+
+☐ Stability guardrails and testing <!-- id:stability.guardrails -->
+  - Smoke tests for deck/collection load without auth
+  - Rate-limit edge case testing (especially SSE chat)
+  - Analytics consent toggling and GDPR prompt sequence
+  - Guest user flow comprehensive testing
+  - Error boundary behavior validation
+  - API timeout and retry logic testing
+  - Database connection failure handling
+  - Third-party service outage scenarios
+
+☐ Accessibility and mobile polish <!-- id:accessibility.wcag_compliance -->
+  - WCAG AA color contrast audit and fixes
+  - Keyboard-only navigation testing and improvements
+  - Focus state management for complex UI components
+  - Screen reader compatibility testing
+  - Mobile touch target size validation
+  - Voice control compatibility
+  - High contrast mode support
+  - Reduced motion preferences respect

@@ -118,7 +118,7 @@ export async function listMessages(threadId: string, signal?: AbortSignal): Prom
 
 // Backward-compatible: accept either (payload) or (text, threadId)
 export async function postMessage(
-  payloadOrText: { text: string; threadId?: string | null; stream?: boolean; context?: any; prefs?: any } | string,
+  payloadOrText: { text: string; threadId?: string | null; stream?: boolean; context?: any; prefs?: any; guestMessageCount?: number } | string,
   maybeThreadId?: string | null,
 ): Promise<Envelope<{ id?: string }>> {
   const payload = typeof payloadOrText === "string"
@@ -135,7 +135,7 @@ export async function postMessage(
 
 // New streaming function
 export async function postMessageStream(
-  payload: { text: string; threadId?: string | null; context?: any; prefs?: any },
+  payload: { text: string; threadId?: string | null; context?: any; prefs?: any; guestMessageCount?: number },
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (error: Error) => void,
@@ -149,16 +149,32 @@ export async function postMessageStream(
       signal
     });
 
-    if (!response.ok) {
-      // Check if fallback response
+    // Check if it's a JSON response (fallback or error)
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
       try {
         const json = await response.json();
+        if (json.guestLimitReached) {
+          throw new Error('guest_limit_exceeded');
+        }
         if (json.fallback) {
           throw new Error("fallback");
         }
-      } catch {
-        // Continue to throw the original error
+        // Other error case
+        throw new Error(json.message || `HTTP ${response.status}`);
+      } catch (e) {
+        if (e instanceof Error && e.message === 'guest_limit_exceeded') {
+          throw e;
+        }
+        if (e instanceof Error && e.message === 'fallback') {
+          throw e;
+        }
+        // JSON parsing failed or other issues
+        throw new Error(`HTTP ${response.status}`);
       }
+    }
+    
+    if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 

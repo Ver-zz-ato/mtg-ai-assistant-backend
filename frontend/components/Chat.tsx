@@ -4,9 +4,19 @@ import { createPortal } from "react-dom";
 import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
-import { listMessages, postMessage, postMessageStream } from "@/lib/threads";
 import { capture } from "@/lib/ph";
+import { postMessage, postMessageStream, listMessages } from "@/lib/threads";
+import { 
+  trackFirstAction, 
+  trackChatSessionLength, 
+  trackFeatureLimitHit,
+  trackValueMomentReached,
+  startSession,
+  endSession
+} from "@/lib/analytics-enhanced";
+import { detectErrorRepeat } from "@/lib/frustration-detector";
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
+import { aiMemory } from '@/lib/ai-memory';
 import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
@@ -82,10 +92,14 @@ function Chat() {
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [streamAbort, setStreamAbort] = useState<AbortController | null>(null);
   const [fallbackBanner, setFallbackBanner] = useState<string>("");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   
   const recognitionRef = useRef<any>(null);
   const streamStartTimeRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatSessionStartRef = useRef<number>(0);
+  const messageCountRef = useRef<number>(0);
   
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
@@ -117,6 +131,26 @@ function Chat() {
         const u:any = data?.user; 
         const md:any = u?.user_metadata || {}; 
         setDisplayName(String(md.username || u?.email || 'you')); 
+        setIsLoggedIn(!!u);
+        
+        // Load guest message count from localStorage if not logged in
+        if (!u) {
+          try {
+            const stored = localStorage.getItem('guest_message_count');
+            setGuestMessageCount(stored ? parseInt(stored, 10) : 0);
+          } catch {}
+        }
+        
+        // Initialize chat session tracking
+        if (chatSessionStartRef.current === 0) {
+          chatSessionStartRef.current = Date.now();
+          startSession('chat');
+          
+          // Track first action if this is their first chat
+          if (!localStorage.getItem('analytics_first_action_taken')) {
+            trackFirstAction('chat', { is_guest: !u });
+          }
+        }
       } catch {} 
     })(); 
   }, []);
@@ -127,13 +161,20 @@ function Chat() {
   let currentAbort: AbortController | null = null;
 
   async function refreshMessages(tid: string | null) {
-    if (!tid) { setMessages([]); return; }
+    if (!tid) { 
+      // Don't clear messages if we already have messages (e.g., from streaming)
+      // Only clear if we're explicitly starting fresh
+      return; 
+    }
     
     try {
       if (currentAbort) { try { currentAbort.abort(); } catch {} }
       currentAbort = new AbortController();
       const { messages } = await listMessages(tid);
-      setMessages(Array.isArray(messages) ? messages : []);
+      const uniqueMessages = Array.isArray(messages) ? messages.filter((msg, index, arr) => 
+        arr.findIndex(m => String(m.id) === String(msg.id)) === index
+      ) : [];
+      setMessages(uniqueMessages);
     } catch (e: any) {
       if (String(e?.message || "").toLowerCase().includes("thread not found")) {
         try { if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); } catch {}
@@ -162,6 +203,20 @@ function Chat() {
       refreshMessages(threadId);
     } catch {}
   }, [threadId]);
+  
+  // Track chat session length on unmount
+  useEffect(() => {
+    return () => {
+      if (chatSessionStartRef.current > 0 && messageCountRef.current > 0) {
+        const durationMinutes = Math.round((Date.now() - chatSessionStartRef.current) / (1000 * 60));
+        trackChatSessionLength(messageCountRef.current, durationMinutes, []);
+        endSession('chat', { 
+          messages_sent: messageCountRef.current,
+          is_guest: !isLoggedIn
+        });
+      }
+    };
+  }, [isLoggedIn]);
 
   // Deck linking
   useEffect(() => {
@@ -270,6 +325,18 @@ function Chat() {
   async function send() {
     if (!text.trim() || busy) return;
     
+    // Check guest message limits
+    if (!isLoggedIn && guestMessageCount >= 20) {
+      trackFeatureLimitHit('guest_chat', guestMessageCount, 20);
+      alert('You\'ve reached the guest message limit of 20 messages. Please sign in to continue chatting!');
+      return;
+    }
+    
+    // Track user action for error boundary context
+    try {
+      sessionStorage.setItem('last_user_action', 'sending_chat_message');
+    } catch {}
+    
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
@@ -281,9 +348,10 @@ function Chat() {
 
     setText("");
     setBusy(true);
+    const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setMessages(m => [
       ...m,
-      { id: Date.now(), thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
+      { id: userMsgId, thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
     ]);
 
     // Track analytics
@@ -313,23 +381,33 @@ function Chat() {
       }
     }
     
+    // Get AI memory context
+    let memoryContext = '';
+    try {
+      if (localStorage.getItem('ai_memory_consent') === 'true') {
+        memoryContext = aiMemory.getChatContext();
+      }
+    } catch {}
+    
     const context: any = { 
       deckId: linkedDeckId || null, 
       budget, 
       colors: prefs.colors, 
       teaching,
-      deckContext: deckContext
+      deckContext: deckContext,
+      memoryContext: memoryContext
     };
     
     // Try streaming
     let streamFailed = false;
+    let guestLimitExceeded = false;
     const abortController = new AbortController();
     setStreamAbort(abortController);
     setIsStreaming(true);
     setStreamingContent("");
     setFallbackBanner("");
 
-    const streamingMsgId = Date.now() + 1;
+    const streamingMsgId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setMessages(m => [
       ...m,
       { 
@@ -343,7 +421,7 @@ function Chat() {
 
     try {
       await postMessageStream(
-        { text: val, threadId, context, prefs },
+        { text: val, threadId, context, prefs, guestMessageCount: !isLoggedIn ? guestMessageCount : undefined },
         (token: string) => {
           setStreamingContent(prev => {
             const newContent = prev + token;
@@ -358,8 +436,16 @@ function Chat() {
           });
         },
         () => {
+          console.log('Streaming completed, content length:', streamingContent.length);
           setIsStreaming(false);
           setStreamAbort(null);
+          messageCountRef.current += 1;
+          
+          // Track value moment for first successful chat response
+          if (messageCountRef.current === 1 && streamingContent.length > 50) {
+            trackValueMomentReached('first_good_chat_response');
+          }
+          
           capture('chat_stream_stop', {
             stopped_by: 'complete',
             duration_ms: Date.now() - streamStartTime,
@@ -372,9 +458,30 @@ function Chat() {
           if (error.message === "fallback") {
             streamFailed = true;
             capture('chat_stream_fallback', { reason: 'fallback_response' });
+          } else if (error.message === "guest_limit_exceeded") {
+            // Handle guest limit exceeded specifically
+            streamFailed = true;
+            guestLimitExceeded = true;
+            setMessages(m => m.filter(msg => msg.id !== streamingMsgId)); // Remove streaming message
+            const errorMsgId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            setMessages(m => [
+              ...m,
+              { 
+                id: errorMsgId, 
+                thread_id: threadId || "", 
+                role: "assistant", 
+                content: "You've reached the guest message limit of 20 messages. Please sign in to continue chatting!", 
+                created_at: new Date().toISOString() 
+              } as any,
+            ]);
+            capture('chat_guest_limit', { message_count: guestMessageCount });
           } else {
             console.error("Stream error:", error);
             streamFailed = true;
+            
+            // Track repeated errors for frustration detection
+            detectErrorRepeat('chat_stream_error', error.message);
+            
             capture('chat_stream_error', {
               reason: error.message || 'unknown',
               duration_ms: Date.now() - streamStartTime,
@@ -395,13 +502,49 @@ function Chat() {
       });
     }
 
+    // Update guest message count for non-logged in users (only if not limit exceeded)
+    if (!isLoggedIn && !guestLimitExceeded) {
+      const newCount = guestMessageCount + 1;
+      setGuestMessageCount(newCount);
+      try {
+        localStorage.setItem('guest_message_count', String(newCount));
+      } catch {}
+    }
+    
     let res: any;
     if (streamFailed) {
+      // Remove the streaming placeholder message since streaming failed
       setMessages(m => m.filter(msg => msg.id !== streamingMsgId));
-      setFallbackBanner("Live streaming temporarily unavailable.");
-      res = await postMessage({ text: val, threadId, context }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+      
+      if (guestLimitExceeded) {
+        // Don't try fallback if guest limit was exceeded
+        res = { ok: true }; // Treat as success to avoid error message
+      } else {
+        // Fall back to regular post message (no streaming)
+        res = await postMessage({ 
+          text: val, 
+          threadId, 
+          context,
+          guestMessageCount: !isLoggedIn ? guestMessageCount : undefined 
+        }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+      }
     } else {
-      res = { ok: true, threadId: threadId };
+      // Streaming succeeded, but we still need to create/update the thread
+      // This ensures the conversation is saved to the database
+      console.log('Streaming succeeded, creating thread for persistence...');
+      try {
+        res = await postMessage({ 
+          text: val, 
+          threadId, 
+          context,
+          guestMessageCount: !isLoggedIn ? guestMessageCount : undefined 
+        }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+        console.log('Thread creation result:', res);
+      } catch (e: any) {
+        // If post fails, at least mark as successful so we don't show errors
+        console.warn('Thread creation failed after streaming:', e);
+        res = { ok: true, threadId: threadId };
+      }
     }
 
     let tid = threadId as string | null;
@@ -409,7 +552,12 @@ function Chat() {
       tid = (res as any).threadId as string;
       if (tid !== threadId) setThreadId(tid);
       setHistKey(k => k + 1);
-      await refreshMessages(tid);
+      
+      // Always refresh messages to ensure thread persistence
+      // This will either create a new thread or update existing one
+      if (tid || !streamFailed) {
+        await refreshMessages(tid);
+      }
     } else {
       const errorMsg = res?.error?.message || "Chat failed";
       try { 
@@ -417,9 +565,10 @@ function Chat() {
         tc.toastError(errorMsg);
       } catch {}
       
+      const errorMsgId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setMessages(m => [
         ...m,
-        { id: Date.now() + 1, thread_id: threadId || "", role: "assistant", content: `I encountered an error: ${errorMsg}. Please try asking again.`, created_at: new Date().toISOString() } as any,
+        { id: errorMsgId, thread_id: threadId || "", role: "assistant", content: `I encountered an error: ${errorMsg}. Please try asking again.`, created_at: new Date().toISOString() } as any,
       ]);
     }
 
@@ -469,11 +618,11 @@ function Chat() {
   }
 
   function ManaIcon({ c, active }: { c: 'W'|'U'|'B'|'R'|'G'; active: boolean }){
-    const srcCdn = c==='W' ? 'https://svgs.scryfall.io/card-symbols/w.svg'
-      : c==='U' ? 'https://svgs.scryfall.io/card-symbols/u.svg'
-      : c==='B' ? 'https://svgs.scryfall.io/card-symbols/b.svg'
-      : c==='R' ? 'https://svgs.scryfall.io/card-symbols/r.svg'
-      : 'https://svgs.scryfall.io/card-symbols/g.svg';
+    const srcCdn = c==='W' ? 'https://svgs.scryfall.io/card-symbols/W.svg'
+      : c==='U' ? 'https://svgs.scryfall.io/card-symbols/U.svg'
+      : c==='B' ? 'https://svgs.scryfall.io/card-symbols/B.svg'
+      : c==='R' ? 'https://svgs.scryfall.io/card-symbols/R.svg'
+      : 'https://svgs.scryfall.io/card-symbols/G.svg';
     
     return (
       <img
@@ -481,13 +630,32 @@ function Chat() {
         alt={`${COLOR_LABEL[c]} mana`}
         width={16}
         height={16}
-        style={{ filter: 'none', opacity: 1 }}
+        className="block"
+        style={{ 
+          filter: active ? 'saturate(1.3) brightness(1.1) contrast(1.1)' : 'grayscale(100%) brightness(60%)',
+          opacity: active ? 1 : 0.6
+        }}
+        onError={(e) => {
+          // Fallback to colored circle if image fails with more vibrant colors
+          const target = e.currentTarget;
+          const color = c==='W'?'#FFF8DC':c==='U'?'#1E90FF':c==='B'?'#2F2F2F':c==='R'?'#FF4500':'#228B22';
+          target.style.display = 'none';
+          const fallback = document.createElement('div');
+          fallback.style.cssText = `width:16px;height:16px;border-radius:50%;background-color:${color};display:inline-block;border:1px solid rgba(255,255,255,0.2);`;
+          fallback.textContent = c;
+          fallback.style.color = c === 'W' ? '#000' : '#FFF';
+          fallback.style.fontSize = '10px';
+          fallback.style.textAlign = 'center';
+          fallback.style.lineHeight = '14px';
+          fallback.style.fontWeight = 'bold';
+          target.parentNode?.replaceChild(fallback, target);
+        }}
       />
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-black text-white">
+    <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
       {/* Mobile-optimized Header */}
       <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -498,24 +666,11 @@ function Chat() {
                 New Chat
               </span>
             )}
-          </div>
-          <div className="flex gap-2">
-            {process.env.NODE_ENV === "development" && (
-              <button
-                onClick={clearThread}
-                className="px-2 py-1 sm:px-3 text-xs bg-red-600 text-white rounded hover:bg-red-700 touch-manipulation"
-                data-testid="clear-thread"
-              >
-                Clear
-              </button>
+            {!isLoggedIn && (
+              <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
+                Guest Mode ({guestMessageCount}/20)
+              </span>
             )}
-            <button
-              onClick={newChat}
-              className="px-2 py-1 sm:px-3 text-xs bg-neutral-700 text-white rounded hover:bg-neutral-600 touch-manipulation"
-              data-testid="new-chat"
-            >
-              New Chat
-            </button>
           </div>
         </div>
       </div>
@@ -608,7 +763,7 @@ function Chat() {
           </div>
         )}
         
-        <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 overflow-y-auto overscroll-behavior-y-contain">
+        <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 overflow-y-auto overscroll-behavior-y-contain min-h-0 max-h-full">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
