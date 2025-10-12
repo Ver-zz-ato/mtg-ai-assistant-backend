@@ -263,6 +263,12 @@ export async function POST(req: NextRequest) {
         target: updated,
         details: `${found}_matches_${processed}_processed_${fileSize}MB` 
       });
+      
+      // Record last run timestamp for admin panel
+      await admin.from('app_config').upsert(
+        { key: 'job:last:bulk_price_import', value: new Date().toISOString() }, 
+        { onConflict: 'key' }
+      );
     } catch (auditError) {
       console.warn("⚠️ Audit logging failed:", auditError);
     }

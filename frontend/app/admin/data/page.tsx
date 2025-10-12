@@ -14,7 +14,7 @@ export default function DataPage(){
     // Fetch last-run timestamps from app_config keys
     async function load() {
       try {
-        const q = ['/api/admin/config?key=job:last:prewarm_scryfall','key=job:last:price_snapshot_build','key=job:last:price_snapshot_bulk','key=job:last:cron_price_snapshot'].join('&');
+        const q = ['/api/admin/config?key=job:last:prewarm_scryfall','key=job:last:price_snapshot_build','key=job:last:price_snapshot_bulk','key=job:last:cron_price_snapshot','key=job:last:bulk_price_import'].join('&');
         const r = await fetch(`/api/admin/config?${q}`, { cache: 'no-store' });
         const j = await r.json();
         if (j?.ok !== false) setLastRun(j?.config || {});
@@ -216,6 +216,29 @@ export default function DataPage(){
                 'Heavier job; produces a comprehensive snapshot across all cards.',
                 'Run weekly (off-peak), e.g., Sunday early morning.',
                 `Last run: ${fmt(lastRun['job:last:price_snapshot_bulk'])}`,
+              ]} />
+            </div>
+          </div>
+
+          <div className="rounded border border-green-800 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium">🚀 Bulk Price Import (NEW)</div>
+              <button 
+                onClick={()=>runCron('/api/cron/bulk-price-import', true)} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-green-700 bg-green-900/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-800/50"
+              >
+                {busy && currentOperation === 'bulk-price-import' ? '🔄 Running...' : 'Import ALL Prices'}
+              </button>
+            </div>
+            <div className="mt-2">
+              <ELI5 heading="Bulk Price Import" items={[
+                '🔥 Downloads Scryfall\'s complete 491MB daily bulk file with ALL card pricing.',
+                'Updates prices for ALL cached cards (~27k+) in one go - 100% coverage!',
+                'Takes 3-5 minutes but covers every single card vs 200/day from regular updates.',
+                'Uses bulk download (no API rate limits) - Scryfall\'s preferred method.',
+                'Perfect for weekly manual runs to ensure all prices are fresh.',
+                `Last run: ${fmt(lastRun['job:last:bulk_price_import'])}`,
               ]} />
             </div>
           </div>

@@ -5,7 +5,7 @@ Since GitHub Actions can be unreliable, here are multiple backup scheduling opti
 ## Overview
 
 Your daily automation needs:
-- **Daily Price Updates**: `/api/cron/daily-price-update` (3:00 AM UTC)
+- **Daily Bulk Price Import**: `/api/cron/bulk-price-import` (3:00 AM UTC) - ALL cards!
 - **Daily Cache Cleanup**: `/api/cron/cleanup-price-cache` (4:00 AM UTC)
 
 ## Option 1: Render Cron Jobs (Recommended)
@@ -19,7 +19,7 @@ If you're hosting on Render, they provide native cron job support.
 ```yaml
 # Daily Price Update
 name: mtg-daily-price-update
-command: curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/daily-price-update"
+command: curl -X POST -H "x-cron-key: Boobies" -H "Content-Type: application/json" "https://www.manatap.ai/api/cron/bulk-price-import"
 schedule: "0 3 * * *"
 ```
 
