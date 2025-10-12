@@ -6,6 +6,8 @@ export default function DataPage(){
   const [name, setName] = React.useState('');
   const [row, setRow] = React.useState<any>(null);
   const [busy, setBusy] = React.useState(false);
+  const [currentOperation, setCurrentOperation] = React.useState<string>('');
+  const [progress, setProgress] = React.useState(0);
   const [lastRun, setLastRun] = React.useState<Record<string, string|undefined>>({});
 
   React.useEffect(() => {
@@ -27,11 +29,23 @@ export default function DataPage(){
   async function refresh(){ setBusy(true); try { const r = await fetch('/api/admin/scryfall-cache', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name })}); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'refresh_failed'); await lookup(); } catch(e:any){ alert(e?.message||'failed'); } finally{ setBusy(false);} }
 
   async function runCron(path: string, isHeavy = false){ 
-    setBusy(true); 
+    setBusy(true);
+    setProgress(0);
+    const operationName = path.split('/').pop() || 'operation';
+    setCurrentOperation(operationName);
+    
     try { 
       const timeout = isHeavy ? 300000 : 30000; // 5min for heavy jobs, 30s for light jobs
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      // Simulate progress for user feedback
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) return prev; // Don't complete until we get response
+          return prev + (isHeavy ? 2 : 10); // Slower progress for heavy operations
+        });
+      }, isHeavy ? 2000 : 500);
       
       const r = await fetch(path, { 
         method: 'POST',
@@ -42,6 +56,8 @@ export default function DataPage(){
       }); 
       
       clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      setProgress(100);
       
       if (!r.ok) {
         const errorData = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
@@ -50,8 +66,8 @@ export default function DataPage(){
       
       const result = await r.json();
       const message = isHeavy 
-        ? `✅ ${path.split('/').pop()} completed successfully! ${result.inserted ? `Inserted ${result.inserted} records.` : ''}`
-        : `✅ ${path.split('/').pop()} triggered successfully!`;
+        ? `✅ ${operationName} completed successfully! ${result.inserted ? `Inserted ${result.inserted} records.` : ''}`
+        : `✅ ${operationName} triggered successfully!`;
       
       alert(message);
       
@@ -59,12 +75,14 @@ export default function DataPage(){
       setTimeout(() => window.location.reload(), 1000);
     } catch(e:any){ 
       if (e.name === 'AbortError') {
-        alert(`⏱️ ${path.split('/').pop()} is taking longer than expected. It may still be running in the background.`);
+        alert(`⏱️ ${operationName} is taking longer than expected. It may still be running in the background.`);
       } else {
-        alert(`❌ ${path.split('/').pop()} failed: ${e?.message || 'Unknown error'}`);
+        alert(`❌ ${operationName} failed: ${e?.message || 'Unknown error'}`);
       }
     } finally { 
-      setBusy(false); 
+      setBusy(false);
+      setProgress(0);
+      setCurrentOperation(''); 
     } 
   }
 
@@ -82,11 +100,37 @@ export default function DataPage(){
         <div className="font-medium">Scryfall Cache Inspector <HelpTip text="Read the cached API response for one card. Use Refresh to re-fetch from Scryfall and store it." /></div>
         <div className="flex gap-2">
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Card name" className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
-          <button onClick={lookup} disabled={busy} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">Lookup</button>
-          <button onClick={refresh} disabled={busy||!name} className="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-sm">Refresh</button>
+          <button onClick={lookup} disabled={busy} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">
+            {busy ? 'Working...' : 'Lookup'}
+          </button>
+          <button onClick={refresh} disabled={busy||!name} className="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-sm">
+            {busy ? 'Working...' : 'Refresh'}
+          </button>
         </div>
         {row && (<pre className="text-xs bg-black/40 border border-neutral-800 rounded p-2 overflow-auto max-h-64">{JSON.stringify(row, null, 2)}</pre>)}
       </section>
+
+      {/* Progress Bar */}
+      {busy && (
+        <section className="rounded border border-blue-600 bg-blue-50 dark:bg-blue-950 p-4 space-y-3">
+          <div className="font-medium text-blue-800 dark:text-blue-200">
+            🔄 Running: {currentOperation}
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+            <div 
+              className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
+              style={{ width: `${progress}%` }}
+            >
+              {progress > 20 && (
+                <span className="text-white text-xs font-medium">{Math.round(progress)}%</span>
+              )}
+            </div>
+          </div>
+          <div className="text-sm text-blue-700 dark:text-blue-300">
+            {progress < 90 ? 'Processing...' : progress === 100 ? 'Completing...' : 'In progress...'}
+          </div>
+        </section>
+      )}
 
       {/* Bulk jobs monitor (trigger buttons + ELI5) */}
       <section className="rounded border border-neutral-800 p-3 space-y-3">
@@ -95,7 +139,13 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Prewarm Scryfall</div>
-              <button onClick={()=>runCron('/api/cron/prewarm-scryfall')} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button 
+                onClick={()=>runCron('/api/cron/prewarm-scryfall')} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
+              >
+                {busy && currentOperation === 'prewarm-scryfall' ? '🔄 Running...' : 'Run'}
+              </button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Prewarm Scryfall" items={[
@@ -110,7 +160,13 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Daily Snapshot</div>
-              <button onClick={()=>runCron('/api/price/snapshot')} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button 
+                onClick={()=>runCron('/api/price/snapshot')} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
+              >
+                {busy && currentOperation === 'snapshot' ? '🔄 Running...' : 'Run'}
+              </button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Daily Snapshot" items={[
@@ -125,7 +181,13 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Build Snapshot (admin)</div>
-              <button onClick={()=>runCron('/api/admin/price/snapshot/build', true)} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button 
+                onClick={()=>runCron('/api/admin/price/snapshot/build', true)} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
+              >
+                {busy && currentOperation === 'build' ? '🔄 Running...' : 'Run'}
+              </button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Build Snapshot" items={[
@@ -140,7 +202,13 @@ export default function DataPage(){
           <div className="rounded border border-neutral-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">Weekly FULL (admin)</div>
-              <button onClick={()=>runCron('/api/admin/price/snapshot/bulk', true)} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Run</button>
+              <button 
+                onClick={()=>runCron('/api/admin/price/snapshot/bulk', true)} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
+              >
+                {busy && currentOperation === 'bulk' ? '🔄 Running...' : 'Run'}
+              </button>
             </div>
             <div className="mt-2">
               <ELI5 heading="Weekly FULL" items={[
