@@ -31,10 +31,11 @@ jobs:
       - name: Install dependencies
         run: |
           # Only install what's needed for the monitoring script
+          cd frontend
           npm install --production --silent
       
       - name: Create logs directory
-        run: mkdir -p logs
+        run: mkdir -p frontend/logs
       
       - name: Create Manual Database Backup
         env:
@@ -43,6 +44,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           echo "📦 Creating database backup (Supabase free tier)..."
+          cd frontend
           node scripts/manual-backup.js
       
       - name: Run Health Monitor
@@ -65,6 +67,7 @@ jobs:
           fi
           
           # Run the monitoring script
+          cd frontend
           node scripts/backup-monitor.js
           
           # Capture exit code
@@ -88,8 +91,8 @@ jobs:
         with:
           name: backup-and-logs-${{ github.run_number }}
           path: |
-            logs/
-            backups/
+            frontend/logs/
+            frontend/backups/
           retention-days: 30
       
       - name: Report success to GitHub
