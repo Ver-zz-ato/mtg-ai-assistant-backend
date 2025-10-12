@@ -220,6 +220,27 @@ export default function DataPage(){
             </div>
           </div>
 
+          <div className="rounded border border-yellow-800 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium">🛠️ Create Price Cache Table</div>
+              <button 
+                onClick={()=>runCron('/api/admin/create-price-cache')} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-yellow-700 bg-yellow-900/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-800/50"
+              >
+                {busy && currentOperation === 'create-price-cache' ? '🔄 Creating...' : 'Create Table'}
+              </button>
+            </div>
+            <div className="mt-2">
+              <ELI5 heading="Create Price Cache Table" items={[
+                '🛠️ Creates the price_cache table needed for bulk price imports.',
+                'Only needs to be run once - sets up the database schema.',
+                'Required before using the Bulk Price Import feature.',
+                'Run this first if you see "table not found" errors.',
+              ]} />
+            </div>
+          </div>
+
           <div className="rounded border border-green-800 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">🚀 Bulk Price Import (NEW)</div>
