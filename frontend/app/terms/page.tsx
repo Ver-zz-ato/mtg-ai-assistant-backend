@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 function formatToday(): string {
   try {
@@ -11,20 +12,150 @@ function formatToday(): string {
 
 export default function TermsPage() {
   const today = formatToday();
+  
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 prose prose-invert">
-      <h1>Terms of Service (Manatap.ai)</h1>
-      <p><strong>Effective date:</strong> {today}</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+            Terms of Service
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Effective date: {today}
+          </p>
+        </div>
 
-      <p><strong>By using Manatap.ai, you agree to the following:</strong></p>
-      <ul>
-        <li><strong>Free project</strong> — Manatap.ai is offered “as is” without guarantees. It may change or stop at any time.</li>
-        <li><strong>No liability</strong> — We’re not responsible for losses, damages, or mistakes that come from using the site.</li>
-        <li><strong>Fair use</strong> — Don’t abuse the site (e.g. spamming, exploiting the system, or attempting to break security).</li>
-        <li><strong>Support/donations</strong> — Any payments through Ko-fi, PayPal, or Stripe are voluntary tips, not purchases. They are non-refundable and don't entitle you to goods, services, or special treatment.</li>
-        <li><strong>Digital services</strong> — If you make a paid subscription, this constitutes a digital service purchase under UK law.</li>
-        <li><strong>Content</strong> — Manatap.ai is not affiliated with or endorsed by Wizards of the Coast. Magic: The Gathering and all related marks are their trademarks.</li>
-      </ul>
+        {/* Main Content */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
+          <p className="text-base text-gray-700 dark:text-gray-300 mb-6">
+            <strong>By using Manatap.ai, you agree to the following:</strong>
+          </p>
+
+          <div className="space-y-4">
+            {/* Free Project */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border-l-4 border-blue-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🆓</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    Free Project
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Manatap.ai is offered "as is" without guarantees. It may change or stop at any time.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* No Liability */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border-l-4 border-amber-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">⚠️</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    No Liability
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    We're not responsible for losses, damages, or mistakes that come from using the site.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fair Use */}
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border-l-4 border-green-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">✅</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    Fair Use
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Don't abuse the site (e.g. spamming, exploiting the system, or attempting to break security).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Support/Donations */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border-l-4 border-purple-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">💝</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    Support/Donations
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Any payments through Ko-fi, PayPal, or Stripe are voluntary tips, not purchases. They are non-refundable and don't entitle you to goods, services, or special treatment.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Digital Services */}
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border-l-4 border-indigo-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🛒</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    Digital Services
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    If you make a paid subscription, this constitutes a digital service purchase under UK law.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="bg-gray-50 dark:bg-gray-700/20 rounded-xl p-4 border-l-4 border-gray-600">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🎮</div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    Content
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Manatap.ai is not affiliated with or endorsed by Wizards of the Coast. Magic: The Gathering and all related marks are their trademarks.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Important Notice */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-6 mb-6 text-center">
+          <h2 className="text-xl font-bold mb-3">
+            Questions About These Terms?
+          </h2>
+          <p className="text-blue-100 mb-4 text-sm">
+            If you have any questions or concerns about our terms of service, please get in touch.
+          </p>
+          <a
+            href="mailto:davy@manatap.ai"
+            className="inline-flex items-center gap-2 bg-white text-blue-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-sm"
+          >
+            📧 Contact Us
+          </a>
+        </div>
+
+        {/* Footer Links */}
+        <div className="text-center">
+          <div className="inline-flex gap-6 text-sm">
+            <Link href="/support" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+              Support
+            </Link>
+            <Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+              Privacy Policy
+            </Link>
+            <Link href="/refund" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+              Refund Policy
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

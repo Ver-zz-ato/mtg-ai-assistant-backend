@@ -88,24 +88,58 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     }
   }
 
-  async function remove(id: string, name: string) {
+  async function remove(id: string, name: string, qty: number) {
     if (!deckId) return;
-    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-    setBusyId(id);
-    try {
-      const res = await fetch(`/api/decks/cards?id=${encodeURIComponent(id)}&deckid=${encodeURIComponent(deckId)}`, {
-        method: "DELETE",
-      });
-      const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
-      if (!json.ok) throw new Error(json.error || "Delete failed");
-      window.dispatchEvent(new CustomEvent("toast", { detail: `Deleted ${name}` }));
-      await load();
-      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
-    } catch (e: any) {
-      alert(e?.message || "Error");
-    } finally {
-      setBusyId(null);
-    }
+    
+    // Use undo toast instead of confirm dialog
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `remove-card-${id}`,
+      message: `Removing ${qty}x ${name} from deck`,
+      duration: 7000,
+      onUndo: async () => {
+        // Re-add the card
+        try {
+          await fetch(`/api/decks/cards`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ deckId, name, qty }),
+          });
+          window.dispatchEvent(new CustomEvent("toast", { detail: `Restored ${qty}x ${name}` }));
+          await load();
+          try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+        } catch (e) {
+          console.error('Failed to undo remove:', e);
+          alert('Failed to undo removal');
+        }
+      },
+      onExecute: async () => {
+        // Actually remove the card
+        setBusyId(id);
+        try {
+          const res = await fetch(`/api/decks/cards?id=${encodeURIComponent(id)}&deckid=${encodeURIComponent(deckId)}`, {
+            method: "DELETE",
+          });
+          const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+          if (!json.ok) throw new Error(json.error || "Delete failed");
+          
+          // Track card removal
+          capture('deck_card_removed', {
+            deck_id: deckId,
+            card_name: name,
+            quantity: qty,
+          });
+          
+          await load();
+          try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+        } catch (e: any) {
+          alert(e?.message || "Error");
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
   }
 
   // render each actual row (not grouped), sorted by name for a stable view
@@ -216,7 +250,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
             onKeyDown={(e)=>{
               if ((e.target as HTMLElement)?.tagName?.toLowerCase() === 'input') return;
               if (/^[1-9]$/.test(e.key)) { const to = parseInt(e.key,10); if (Number.isFinite(to)) { const diff = to - c.qty; if (diff !== 0) delta(c.id, diff); e.preventDefault(); } }
-              if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(c.id, c.name); }
+              if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(c.id, c.name, c.qty); }
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 const parent = listRef.current; if (!parent) return;
@@ -289,7 +323,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
               })()}
               <button
                 className="ml-3 px-2 py-0.5 text-red-300 border border-red-400 rounded hover:bg-red-950/40 disabled:opacity-50"
-                onClick={() => remove(c.id, c.name)}
+                onClick={() => remove(c.id, c.name, c.qty)}
                 disabled={busyId === c.id}
               >
                 delete

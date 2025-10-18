@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { capture } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
@@ -23,6 +23,8 @@ export default function Header() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const helpMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -43,6 +45,20 @@ export default function Header() {
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close help menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (helpMenuRef.current && !helpMenuRef.current.contains(event.target as Node)) {
+        setShowHelpMenu(false);
+      }
+    };
+    
+    if (showHelpMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showHelpMenu]);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -130,6 +146,7 @@ export default function Header() {
             href="/profile" 
             className="text-sm hover:underline"
             onClick={() => capture('nav_link_clicked', { destination: '/profile', source: 'header' })}
+            data-tour="profile"
           >
             Profile
           </Link>
@@ -141,10 +158,78 @@ export default function Header() {
             <span className="text-xs">✨</span>
             What's New
           </Link>
+          <Link 
+            href="/blog" 
+            className="text-sm hover:underline"
+            onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
+          >
+            Blog
+          </Link>
+          
+          {/* Help Menu */}
+          <div className="relative" ref={helpMenuRef}>
+            <button
+              onClick={() => setShowHelpMenu(!showHelpMenu)}
+              className="text-sm hover:underline flex items-center gap-1"
+            >
+              Help
+              <span className="text-xs">▾</span>
+            </button>
+            
+            {showHelpMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                <Link
+                  href="/support"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'what_is_manatap' });
+                  }}
+                >
+                  <div className="font-medium">What is ManaTap?</div>
+                  <div className="text-xs opacity-70">Learn about the app</div>
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'pricing' });
+                  }}
+                >
+                  <div className="font-medium">How pricing works</div>
+                  <div className="text-xs opacity-70">Free & Pro features</div>
+                </Link>
+                <Link
+                  href="/support"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'legality' });
+                  }}
+                >
+                  <div className="font-medium">Rules & Legality</div>
+                  <div className="text-xs opacity-70">Disclaimers & terms</div>
+                </Link>
+                <hr className="my-2 border-gray-200 dark:border-gray-700" />
+                <Link
+                  href="/support"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'contact' });
+                  }}
+                >
+                  <div className="font-medium">📧 Contact Support</div>
+                  <div className="text-xs opacity-70">Get help from the team</div>
+                </Link>
+              </div>
+            )}
+          </div>
 
           {sessionUser ? (
             <>
-              <span className="flex items-center gap-2 text-xs opacity-90">
+              <span className="flex items-center gap-2 text-xs opacity-90" data-tour="profile-user">
                 {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : null}
                 <span className="hidden md:block">{displayName || sessionUser}</span>
               </span>
@@ -272,6 +357,16 @@ export default function Header() {
             >
               Profile
             </Link>
+            <Link 
+              href="/blog" 
+              className="block py-2 text-sm hover:text-blue-600"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Blog
+            </Link>
 
             {sessionUser ? (
               <>
@@ -332,9 +427,23 @@ export default function Header() {
       {/* Sign up modal */}
       {showSignUp && (
         <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6">
+          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6 relative">
             {!signupSuccess ? (
               <>
+                <button
+                  onClick={() => {
+                    setShowSignUp(false);
+                    setSignupEmail('');
+                    setSignupPassword('');
+                    setSignupEmailError('');
+                    setSignupPasswordError('');
+                    setSignupSuccess(false);
+                  }}
+                  className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl leading-none"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
                 <div className="text-xl font-semibold mb-2">Create account</div>
                 <div className="text-sm text-neutral-400 mb-4">
                   Save decks, like builds, and unlock Pro features.

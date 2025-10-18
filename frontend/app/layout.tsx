@@ -13,6 +13,8 @@ import FeedbackFab from "@/components/FeedbackFab";
 import PWAProvider from "@/components/PWAProvider";
 import FirstVisitTracker from "@/components/FirstVisitTracker";
 import TrustFooter from "@/components/TrustFooter";
+import UndoToast from "@/components/UndoToast";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://manatap.ai"),
   title: "ManaTap AI - MTG Deck Builder & Assistant",
@@ -65,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PWAProvider />
           <TrustFooter />
           <SupportWidgets />
+          <UndoToast />
         </Providers>
       </body>
     </html>

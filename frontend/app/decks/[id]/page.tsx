@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import LikeButton from "@/components/likes/LikeButton";
+import DeckComments from "@/components/DeckComments";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
@@ -344,6 +345,15 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </ul>
             )}
           </section>
+          
+          {/* Comments Section */}
+          <div className="mt-8">
+            <DeckComments 
+              deckId={id} 
+              isPublic={deckRow?.is_public === true} 
+              deckOwnerId={deckRow?.user_id as string}
+            />
+          </div>
         </section>
       </div>
     </main>

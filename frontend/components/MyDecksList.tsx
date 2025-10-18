@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import DeckArtLoader from './DeckArtLoader';
 import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
+import { capture } from '@/lib/ph';
 
 interface DeckRow {
   id: string;
@@ -20,15 +22,73 @@ interface MyDecksListProps {
   pinnedIds: string[];
 }
 
+interface DeckStats {
+  cardCount: number;
+  estimatedValue?: number;
+}
+
 export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
+  const [deckStats, setDeckStats] = useState<Map<string, DeckStats>>(new Map());
+
+  useEffect(() => {
+    // Fetch stats for each deck
+    rows.forEach(async (deck) => {
+      try {
+        const res = await fetch(`/api/decks/cards?deckId=${deck.id}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (json?.ok && json?.cards) {
+          const cardCount = json.cards.reduce((sum: number, c: any) => sum + (c.qty || 0), 0);
+          setDeckStats(prev => new Map(prev).set(deck.id, { cardCount }));
+        }
+      } catch {}
+    });
+  }, [rows]);
+
   if (rows.length === 0) {
     return <div className="text-gray-400">No decks saved yet.</div>;
   }
 
+  async function deleteDeck(deckId: string, deckName: string) {
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `delete-deck-${deckId}`,
+      message: `Deleting "${deckName}"...`,
+      duration: 5000,
+      onUndo: () => {
+        console.log('Deck deletion cancelled');
+      },
+      onExecute: async () => {
+        try {
+          const res = await fetch(`/api/decks/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deckId }),
+          });
+
+          const data = await res.json();
+
+          if (data.ok) {
+            capture('deck_deleted', { deck_id: deckId });
+            window.location.reload();
+          } else {
+            const { toast } = await import('@/lib/toast-client');
+            toast(data.error || 'Failed to delete deck', 'error');
+          }
+        } catch (e: any) {
+          const { toast } = await import('@/lib/toast-client');
+          toast(e.message || 'Failed to delete deck', 'error');
+        }
+      },
+    });
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {rows.map((r) => {
         const title = r.title ?? "Untitled Deck";
+        const stats = deckStats.get(r.id);
+        const isPinned = pinnedIds.includes(r.id);
         
         return (
           <DeckArtLoader 
@@ -39,76 +99,83 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
             deckText={r.deck_text || undefined}
           >
             {(art, loading) => (
-              <div className="relative border rounded overflow-hidden group bg-neutral-950 min-h-[96px]">
-                {/* Banner background */}
-                {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
-                {!art && !loading && (<div className="absolute inset-0 bg-neutral-900" />)}
-                {loading && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-                
-                <div className="relative flex items-center justify-between">
-                  <a 
-                    href={`/my-decks?deckId=${encodeURIComponent(r.id)}`} 
-                    className="flex-1 min-w-0 p-0 block" 
-                    title="Quick view"
-                    onClick={() => {
-                      // Update AI memory context when user accesses a deck
-                      try {
-                        const colors: string[] = []; // TODO: extract colors from deck if available
-                        aiMemory.updateDeckContext({
-                          id: r.id,
-                          name: title,
-                          commander: r.commander || undefined,
-                          colors
-                        });
-                      } catch {}
-                    }}
-                  >
-                    <div className="flex items-center gap-3 p-3">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate flex items-center gap-2">
-                          {title}
-                          {loading && (
-                            <div className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />
-                          )}
-                        </div>
-                        {/* timeline tiny at bottom */}
-                        <div className="text-[10px] opacity-70 mt-1">
-                          {r.updated_at ? `Updated ${new Date(r.updated_at).toLocaleDateString()}` : ''}
-                          {r.created_at ? ` • Created ${new Date(r.created_at).toLocaleDateString()}` : ''}
-                        </div>
-                      </div>
+              <div className="group rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 flex flex-col hover:border-neutral-600 transition-colors">
+                {/* Cover - Clickable */}
+                <Link 
+                  href={`/my-decks/${r.id}`}
+                  className="relative h-48 w-full overflow-hidden block"
+                  onClick={() => {
+                    try {
+                      capture('deck_card_click', { id: r.id });
+                      const colors: string[] = [];
+                      aiMemory.updateDeckContext({
+                        id: r.id,
+                        name: title,
+                        commander: r.commander || undefined,
+                        colors
+                      });
+                    } catch {}
+                  }}
+                >
+                  {art && !loading ? (
+                    <img src={art} alt="cover" className="w-full h-full object-cover" />
+                  ) : loading ? (
+                    <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-neutral-900 to-black" />
+                  )}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                  
+                  {/* Pinned badge */}
+                  {isPinned && (
+                    <div className="absolute top-2 right-2 px-2 py-1 rounded bg-amber-600 text-white text-xs font-bold">
+                      📌 PINNED
                     </div>
-                  </a>
-                  <div className="px-3 py-2 flex items-center gap-2">
+                  )}
+                </Link>
+                
+                {/* Body with expanded stats */}
+                <div className="p-4 flex-1 flex flex-col gap-3">
+                  {/* Title and Delete */}
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`/my-decks/${r.id}`} className="font-semibold text-base truncate hover:underline flex-1" title={title}>{title}</Link>
+                    <button 
+                      onClick={(e) => { e.preventDefault(); deleteDeck(r.id, title); }} 
+                      className="text-xs text-red-400 hover:text-red-300 underline opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  
+                  {/* Commander */}
+                  {r.commander && (
+                    <div className="text-xs text-gray-400 truncate" title={r.commander}>
+                      Commander: {r.commander}
+                    </div>
+                  )}
+                  
+                  {/* Main stats - bigger pills */}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 border border-blue-600/30 text-blue-300">
+                      <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
+                    </span>
+                    <span className={`px-2.5 py-1.5 rounded-lg ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
+                      {r.is_public ? '🌐 Public' : '🔒 Private'}
+                    </span>
+                  </div>
+                  
+                  {/* Actions row */}
+                  <div className="flex items-center gap-2 mt-auto pt-2 border-t border-neutral-800">
                     <LikeButton deckId={r.id} />
-                    {/* Pin button */}
                     {(()=>{ 
                       try {
                         const Pin = require('@/components/PinDeckButton').default; 
-                        return (<Pin deckId={r.id} pinned={pinnedIds.includes(r.id)} currentPinned={pinnedIds} />); 
+                        return (<Pin deckId={r.id} pinned={isPinned} currentPinned={pinnedIds} />); 
                       } catch {
                         return null;
                       }
                     })()}
-                    <a 
-                      href={`/my-decks/${encodeURIComponent(r.id)}`} 
-                      className="text-xs px-2 py-1 rounded border border-neutral-700"
-                      onClick={() => {
-                        // Update AI memory context when user starts editing a deck
-                        try {
-                          const colors: string[] = []; // TODO: extract colors from deck if available
-                          aiMemory.updateDeckContext({
-                            id: r.id,
-                            name: title,
-                            commander: r.commander || undefined,
-                            colors
-                          });
-                        } catch {}
-                      }}
-                    >
-                      Edit
-                    </a>
                     {(()=>{ 
                       try {
                         const Menu = require('@/components/DeckCardMenu').default; 
@@ -117,6 +184,11 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                         return null;
                       }
                     })()}
+                  </div>
+                  
+                  {/* Updated timestamp */}
+                  <div className="text-[10px] opacity-50">
+                    Updated: {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                   </div>
                 </div>
               </div>

@@ -22,8 +22,10 @@ export default function ProValueTooltip({
 }: ProValueTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -35,6 +37,56 @@ export default function ProValueTooltip({
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
+      // Calculate position
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const tooltipWidth = 320; // w-80 = 20rem = 320px
+        const tooltipHeight = 300; // approximate height
+        const spacing = 8;
+        
+        let top = rect.top;
+        let left = rect.left;
+        
+        // Calculate position based on placement preference
+        switch (placement) {
+          case 'top':
+            top = rect.top - tooltipHeight - spacing;
+            left = rect.left + rect.width / 2 - tooltipWidth / 2;
+            break;
+          case 'bottom':
+            top = rect.bottom + spacing;
+            left = rect.left + rect.width / 2 - tooltipWidth / 2;
+            break;
+          case 'left':
+            top = rect.top + rect.height / 2 - tooltipHeight / 2;
+            left = rect.left - tooltipWidth - spacing;
+            break;
+          case 'right':
+            top = rect.top + rect.height / 2 - tooltipHeight / 2;
+            left = rect.right + spacing;
+            break;
+        }
+        
+        // Ensure tooltip stays within viewport
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        if (left + tooltipWidth > viewportWidth - 16) {
+          left = viewportWidth - tooltipWidth - 16;
+        }
+        if (left < 16) {
+          left = 16;
+        }
+        if (top + tooltipHeight > viewportHeight - 16) {
+          top = viewportHeight - tooltipHeight - 16;
+        }
+        if (top < 16) {
+          top = 16;
+        }
+        
+        setPosition({ top, left });
+      }
+      
       setShouldShow(true);
       setIsVisible(true);
       
@@ -68,20 +120,6 @@ export default function ProValueTooltip({
     window.location.href = '/pricing';
   };
 
-  const positionClasses = {
-    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-    left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-    right: 'left-full top-1/2 -translate-y-1/2 ml-2'
-  };
-
-  const arrowClasses = {
-    top: 'top-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-gray-900 border-b-0',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-b-gray-900 border-t-0',
-    left: 'left-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-gray-900 border-r-0',
-    right: 'right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-r-gray-900 border-l-0'
-  };
-
   return (
     <div 
       ref={containerRef}
@@ -93,17 +131,17 @@ export default function ProValueTooltip({
       
       {shouldShow && (
         <div 
+          ref={tooltipRef}
           className={`
-            absolute z-50 w-80 p-4 bg-gray-900 text-white rounded-lg shadow-lg
+            fixed z-[9999] w-80 p-4 bg-gray-900 text-white rounded-lg shadow-2xl
             transition-all duration-150 ease-out
-            ${positionClasses[placement]}
             ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
           `}
+          style={{
+            top: `${position.top}px`,
+            left: `${position.left}px`,
+          }}
         >
-          {/* Arrow */}
-          <div 
-            className={`absolute w-0 h-0 border-4 ${arrowClasses[placement]}`}
-          />
           
           <div className="space-y-3">
             <div className="flex items-center gap-2">

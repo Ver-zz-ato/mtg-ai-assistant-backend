@@ -329,7 +329,31 @@ export default function BudgetSwapsClient(){
                   <thead className="sticky top-0 z-[1] bg-neutral-950/90 backdrop-blur">
                     <tr className="text-left text-xs">
                       <th className="px-3 py-2 whitespace-normal break-words align-middle">Original</th>
-                      <th className="px-3 py-2 whitespace-normal break-words align-middle text-center">Why</th>
+                      <th className="px-3 py-2 whitespace-normal break-words align-middle text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Why
+                          {(() => {
+                            const ContextualTip = require('@/components/ContextualTip').default;
+                            return (
+                              <ContextualTip
+                                id="budget-swaps-why-button"
+                                placement="bottom"
+                                maxShowCount={2}
+                                trigger={
+                                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600/20 text-blue-400 text-[10px] cursor-help">?</span>
+                                }
+                                content={
+                                  <div className="space-y-2">
+                                    <p className="font-semibold">AI-Powered Swap Analysis</p>
+                                    <p className="text-xs opacity-90">Click "Why?" to get AI analysis explaining why each swap makes sense for your deck's strategy and power level.</p>
+                                    <p className="text-xs opacity-75 italic">Pro feature - unlock detailed insights!</p>
+                                  </div>
+                                }
+                              />
+                            );
+                          })()}
+                        </div>
+                      </th>
                       <th className="px-3 py-2 whitespace-normal break-words align-middle">Suggested swap</th>
                       <th className="px-3 py-2 whitespace-normal break-words align-middle text-right">Diff</th>
                     </tr>

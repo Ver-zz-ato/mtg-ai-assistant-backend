@@ -190,3 +190,4 @@ COMMENT ON FUNCTION public.touch_profiles_public()
 -- No behavioral changes - functions work exactly the same, just more securely.
 
 
+

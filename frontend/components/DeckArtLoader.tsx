@@ -69,23 +69,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           extractNamesFromText(deckText).forEach(n => candidates.push(n));
         }
 
-        // Also try to get top cards from deck
-        try {
-          const deckCardsResponse = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, {
-            cache: 'no-store'
-          });
-          if (deckCardsResponse.ok) {
-            const data = await deckCardsResponse.json();
-            const cards = Array.isArray(data?.cards) ? data.cards : [];
-            // Add top 3 cards by quantity
-            cards
-              .sort((a: any, b: any) => (b.qty || 0) - (a.qty || 0))
-              .slice(0, 3)
-              .forEach((card: any) => candidates.push(cleanName(card.name)));
-          }
-        } catch {
-          // Ignore deck cards if API fails
-        }
+        // Skip deck cards API call for better performance - we already have candidates from commander/title/deckText
 
         if (cancelled) return;
 
@@ -134,12 +118,11 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
       }
     }
 
-    // Debounce the load to avoid too many simultaneous requests
-    const timeout = setTimeout(loadArt, Math.random() * 1000 + 500); // 500-1500ms delay
+    // Start loading immediately - cache handles rate limiting
+    loadArt();
 
     return () => {
       cancelled = true;
-      clearTimeout(timeout);
     };
   }, [deckId, commander, title, deckText]);
 

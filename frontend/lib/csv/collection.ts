@@ -4,6 +4,7 @@ export type ParseReport = {
   parsed: number;
   duplicatesCollapsed: number;
   errors: string[];
+  detectedFormat?: string; // Format auto-detection result
 };
 
 const BOM = /^\ufeff/;
@@ -18,6 +19,40 @@ function normName(s: string): string {
   return nfkc.replace(/^\"|\"$/g, "").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Detect CSV format based on header structure
+ */
+function detectFormat(header: string): string {
+  const lower = header.toLowerCase();
+  
+  // TCGPlayer format: "Quantity","Product Name","Set Name","Card Number","Condition","TCGplayer Id","Purchase Price"
+  if (lower.includes('tcgplayer id') || (lower.includes('product name') && lower.includes('set name'))) {
+    return 'tcgplayer';
+  }
+  
+  // CardKingdom format: "Qty","Name","Edition","Condition","Foil"
+  if ((lower.includes('edition') && lower.includes('qty')) || lower.includes('card kingdom')) {
+    return 'cardkingdom';
+  }
+  
+  // Moxfield format: "Count","Tradelist Count","Name","Edition","Condition","Language","Foil","Tags","Last Modified","Collector Number","Alter","Proxy","Purchase Price"
+  if (lower.includes('tradelist count') || (lower.includes('collector number') && lower.includes('edition') && lower.includes('tags'))) {
+    return 'moxfield';
+  }
+  
+  // Archidekt format: "Quantity","Card","Edition","Condition","Language","Foil","Alter","Signed"
+  if (lower.includes('alter') && lower.includes('signed') && lower.includes('card')) {
+    return 'archidekt';
+  }
+  
+  // Generic with header
+  if (/name/.test(lower) && /qty|count|quantity/.test(lower)) {
+    return 'generic-header';
+  }
+  
+  return 'loose-format';
+}
+
 export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; report: ParseReport } {
   const errors: string[] = [];
   const counts: Record<string, ParsedRow> = {};
@@ -26,7 +61,8 @@ export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; repor
 
   const lines = text.split(/\r?\n/);
   const header = lines[0]?.toLowerCase();
-  const hasHeader = /name/.test(header) && /qty|count/.test(header);
+  const hasHeader = /name/.test(header) && /qty|count|quantity|product/.test(header);
+  const detectedFormat = detectFormat(header);
 
   const startIdx = hasHeader ? 1 : 0;
 
@@ -51,8 +87,24 @@ export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; repor
       }
       // map keys to lower for easier access
       const lower: any = {}; Object.keys(map).forEach(k => lower[k.toLowerCase()] = map[k]);
-      name = normName(lower["name"] || lower["card"] || lower["card_name"] || "");
-      qty = Number(lower["qty"] || lower["quantity"] || lower["count"] || 1);
+      
+      // Support various platform-specific column names
+      name = normName(
+        lower["name"] || 
+        lower["card"] || 
+        lower["card_name"] || 
+        lower["card name"] ||
+        lower["product name"] ||
+        lower["cardname"] ||
+        ""
+      );
+      qty = Number(
+        lower["qty"] || 
+        lower["quantity"] || 
+        lower["count"] ||
+        lower["tradelist count"] ||
+        1
+      );
       rest = {
         set: lower["set"] || lower["set_code"] || undefined,
         collector: lower["collector"] || lower["collector_number"] || undefined,
@@ -95,6 +147,6 @@ export function parseCollectionCsvText(text: string): { rows: ParsedRow[]; repor
 
   return {
     rows,
-    report: { totalLines: total, parsed, duplicatesCollapsed, errors }
+    report: { totalLines: total, parsed, duplicatesCollapsed, errors, detectedFormat }
   };
 }

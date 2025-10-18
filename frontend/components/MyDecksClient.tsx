@@ -58,6 +58,7 @@ export default function MyDecksClient({ decks }: { decks: Array<{ id:string; tit
           <div className="flex gap-2">
             <a href={`/my-decks/${encodeURIComponent(deck.id)}`} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-sm text-white">Open editor</a>
             <a href={`/decks/${encodeURIComponent(deck.id)}`} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">View deck</a>
+            {(()=>{ try { const DeckDeleteButton = require('./DeckDeleteButton').default; return <DeckDeleteButton deckId={deck.id} deckName={deck.title} small redirectTo="/my-decks" />; } catch { return null; } })()}
           </div>
           <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="flex items-center gap-2"><span className="opacity-70">Visibility:</span><span className="font-mono">{vis? 'Public':'Private'}</span></div>

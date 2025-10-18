@@ -1,6 +1,7 @@
 // app/profile/page.tsx
 import FeedbackFab from "@/components/FeedbackFab";
 import ProfileClient from "./Client";
+import GuestLandingPage from "@/components/GuestLandingPage";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,52 @@ export default async function Page() {
   const sb = await createClient();
   const { data: ures } = await sb.auth.getUser();
   const u = ures?.user;
+  
+  // If not logged in, show guest landing page
+  if (!u) {
+    const features = [
+      {
+        icon: '🎨',
+        title: 'Showcase Your Collection',
+        description: 'Display your MTG collection with style. Set featured decks, favorite commanders, and custom banners.',
+      },
+      {
+        icon: '🏆',
+        title: 'Show Off Custom Cards',
+        description: 'Create and display your own custom MTG cards. Share your creativity with the community.',
+      },
+      {
+        icon: '📊',
+        title: 'Track Your Journey',
+        description: 'Keep track of all your decks, collections, and wishlists in one central profile.',
+      },
+      {
+        icon: '🔗',
+        title: 'Shareable Profile',
+        description: 'Get a unique profile URL to share with friends and showcase your MTG achievements.',
+      },
+      {
+        icon: '⚙️',
+        title: 'Customize Everything',
+        description: 'Set your signature deck, favorite commander, and personalize your profile settings.',
+      },
+      {
+        icon: '🎯',
+        title: 'Badge Collection',
+        description: 'Earn badges and achievements as you use ManaTap AI features.',
+        highlight: true,
+      },
+    ];
+
+    return (
+      <GuestLandingPage
+        title="Your MTG Profile"
+        subtitle="Create your personalized Magic: The Gathering profile and showcase your decks, collections, and achievements"
+        features={features}
+      />
+    );
+  }
+  
   let bannerArt: string | undefined;
   let bannerDebug: { source: string; method: 'collection'|'fuzzy'|null; candidates: string[]; art: string|null } = { source: 'none', method: null, candidates: [], art: null };
   if (u?.id) {

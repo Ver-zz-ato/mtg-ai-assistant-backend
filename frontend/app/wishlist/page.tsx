@@ -8,6 +8,7 @@ import CardAutocomplete from "@/components/CardAutocomplete";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import ExportWishlistCSV from "@/components/ExportWishlistCSV";
 import WishlistCsvUpload from "@/components/WishlistCsvUpload";
+import GuestLandingPage from "@/components/GuestLandingPage";
 import { getImagesForNames } from "@/lib/scryfall";
 
 export default function WishlistPage() {
@@ -31,13 +32,94 @@ export default function WishlistPage() {
   }, [sb]);
 
   if (!user) {
-    return (
-      <main className="mx-auto max-w-5xl p-6">
-        <div className="text-center py-8">
-          <h1 className="text-2xl font-semibold mb-4">My Wishlist</h1>
-          <p className="text-sm opacity-70">Please sign in to access your wishlist.</p>
+    const features = [
+      {
+        icon: '⭐',
+        title: 'Track Desired Cards',
+        description: 'Keep a organized list of Magic cards you want to acquire for your decks and collection.',
+      },
+      {
+        icon: '💰',
+        title: 'Price Monitoring',
+        description: 'Track prices in multiple currencies and get notified when cards drop to your target price.',
+        highlight: true,
+      },
+      {
+        icon: '🔄',
+        title: 'Compare vs Collection',
+        description: 'See which wishlist cards you already own and what gaps remain to fill.',
+      },
+      {
+        icon: '📊',
+        title: 'Budget Planning',
+        description: 'Calculate total costs and plan your purchases within budget constraints.',
+      },
+      {
+        icon: '📋',
+        title: 'Multiple Wishlists',
+        description: 'Organize different wishlists for various decks, formats, or purchase priorities.',
+      },
+      {
+        icon: '📤',
+        title: 'CSV Import/Export',
+        description: 'Import existing wishlists or export for shopping at your favorite card store.',
+      },
+    ];
+
+    const demoSection = (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+          Smart Wishlist Features
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left p-3 text-gray-600 dark:text-gray-400">Card</th>
+                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Price</th>
+                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Qty</th>
+                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Total</th>
+              </tr>
+            </thead>
+            <tbody className="text-gray-900 dark:text-white">
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="p-3">Rhystic Study</td>
+                <td className="text-right p-3 font-mono">$42.50</td>
+                <td className="text-right p-3">1</td>
+                <td className="text-right p-3 font-mono">$42.50</td>
+              </tr>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="p-3">Cyclonic Rift</td>
+                <td className="text-right p-3 font-mono">$28.75</td>
+                <td className="text-right p-3">1</td>
+                <td className="text-right p-3 font-mono">$28.75</td>
+              </tr>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="p-3">Sol Ring</td>
+                <td className="text-right p-3 font-mono">$1.20</td>
+                <td className="text-right p-3">3</td>
+                <td className="text-right p-3 font-mono">$3.60</td>
+              </tr>
+              <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-bold">
+                <td colSpan={3} className="p-3 text-right">Total</td>
+                <td className="text-right p-3 font-mono text-blue-600 dark:text-blue-400">$74.85</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </main>
+        <div className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+          Track prices across USD, EUR, and GBP
+        </div>
+      </div>
+    );
+
+    return (
+      <GuestLandingPage
+        title="Build Your Wishlist"
+        subtitle="Track and organize Magic cards you want with smart price monitoring and budget tools"
+        features={features}
+        demoSection={demoSection}
+      />
     );
   }
 
@@ -121,19 +203,76 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   function toggleAll(){ const all = allSelectedOnPage(); setSelSet(all? new Set() : new Set(items.map(it=>it.name))); }
   async function removeSelected(){
     if (selSet.size===0) return;
-    if(!confirm(`Remove ${selSet.size} selected item(s)?`)) return;
-    try{
-      const names = Array.from(selSet);
-      const r = await fetch('/api/wishlists/remove-batch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, names }) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Batch remove failed');
-      // reload
-      const qs = new URLSearchParams({ wishlistId, currency });
-      const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-      const jj = await rr.json().catch(()=>({}));
-      if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-      setSelSet(new Set());
-    } catch(e:any){ alert(e?.message||'Batch remove failed'); }
+    
+    // Store items to remove for undo
+    const names = Array.from(selSet);
+    const itemsToRemove = items.filter(it => selSet.has(it.name));
+    
+    // Use undo toast instead of confirm
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `remove-wishlist-${Date.now()}`,
+      message: `Removing ${selSet.size} item${selSet.size > 1 ? 's' : ''} from wishlist`,
+      duration: 7000,
+      onUndo: async () => {
+        // Re-add the removed items
+        try {
+          for (const item of itemsToRemove) {
+            await fetch('/api/wishlists/add', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                wishlist_id: wishlistId,
+                name: item.name,
+                qty: item.qty,
+              }),
+            });
+          }
+          
+          // Reload wishlist
+          const qs = new URLSearchParams({ wishlistId, currency });
+          const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
+          const jj = await rr.json().catch(()=>({}));
+          if (rr.ok && jj?.ok){ 
+            setItems(Array.isArray(jj.items)?jj.items:[]); 
+            setTotal(Number(jj.total||0)); 
+          }
+        } catch (e) {
+          console.error('Failed to undo wishlist removal:', e);
+          alert('Failed to restore wishlist items');
+        }
+      },
+      onExecute: async () => {
+        // Actually remove the items
+        try{
+          const r = await fetch('/api/wishlists/remove-batch', { 
+            method:'POST', 
+            headers:{'content-type':'application/json'}, 
+            body: JSON.stringify({ wishlist_id: wishlistId, names }) 
+          });
+          const j = await r.json().catch(()=>({}));
+          if (!r.ok || j?.ok===false) throw new Error(j?.error||'Batch remove failed');
+          
+          // Track removal
+          try {
+            capture('wishlist_items_removed', {
+              wishlist_id: wishlistId,
+              count: names.length,
+            });
+          } catch {}
+          
+          // reload
+          const qs = new URLSearchParams({ wishlistId, currency });
+          const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
+          const jj = await rr.json().catch(()=>({}));
+          if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
+          setSelSet(new Set());
+        } catch(e:any){ 
+          alert(e?.message||'Batch remove failed'); 
+        }
+      },
+    });
   }
 
   function fmt(n:number){ try{ return new Intl.NumberFormat(undefined, { style:'currency', currency }).format(n||0); } catch { return `$${(n||0).toFixed(2)}`; } }

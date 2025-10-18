@@ -1,5 +1,59 @@
 # Feature tracker
 
+## Playtest Fix Checklist — Oct 18, 2025
+
+Homepage / Global
+- [ ] Remove “Install ManaTap AI” popup (disable PWA prompt)
+- [x] Move Stripe/Ko‑fi support widgets to bottom-left corner, below feedback button
+- [x] Update cookie details on Privacy page (accurate vendor + purpose list)
+- [ ] Polish account creation flow (better copy, validation, confirmation)
+
+Chat & Threads
+- [ ] Fix “Like this deck” heart hover (top-layer z-index)
+- [ ] Add polite toast for liking when not logged in → “Sign in to like decks.”
+- [x] Fix “New Thread” dropdown jiggle when scrolling
+- [ ] Add one-liner reminder in chat (e.g., “Format: Commander • Budget: £50 • GBP • GW”)
+- [ ] Standardize login-required toasts across all features → “Please sign in to use this feature.”
+
+Price Tracker
+- [x] Add clear ELI5 explanation for “Top Movers” (tooltip)
+- [x] Verify timeframe label visible (e.g., 24h/7d)
+
+Mulligan Simulator
+- [ ] Add paste-a-deck input box + “Run” button (reuse Cost‑to‑Finish component)
+- [x] Rewrite explanation in plain language (London mulligan keep-rate summary)
+
+Probability Helper
+- [x] Add plain-language helper text (“Chance of having at least k desired cards by turn T…”) 
+
+Profile / Account Page
+- [x] Shorten Identity panel to fit content
+- [x] Merge “Pinned Decks” panel into Identity (Save pins inside Identity)
+- [x] Pro Subscription: mini pricing for Free; portal + benefits for Pro
+- [ ] Security: expand with 2FA placeholder, session list (“Log out others”), account deletion
+- [ ] Extras: Connected accounts, Data export, Notification preferences; (Privacy toggle exists)
+
+Copy & Consistency
+- [ ] Standardize toast + auth messages site‑wide
+- [ ] Echo active filters (Format/Budget/Currency/Colors) in relevant chat actions
+- [ ] Ensure guest examples load only in guest mode (hide for logged‑in)
+
+Other
+- [ ] Recent public decks: cap to 10 lines and auto-extend panel height
+
+Tier 4: Content & Advanced Features
+- [x] 22. Update privacy page cookie details
+- [ ] 23. Buff out account creation flow
+- [x] 24. Top movers tooltip implementation
+- [x] 25. Simplify Mulligan keep rates text
+- [x] 26. Simplify Probability Helper description
+- [x] 27. Compress identity panel and merge pinned decks
+- [x] 28. Create mini pricing page in profile
+- [ ] 29. Enhance security section (2FA, sessions, deletion)
+- [x] 30. Functional Stripe subscription management (billing portal)
+
+---
+
 ## Completion summary (Sep 29, 2025)
 
 - ☑ 10) Combo Finder (present + one piece missing)

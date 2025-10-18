@@ -7,6 +7,7 @@ import DeckCsvUpload from "@/components/DeckCsvUpload";
 import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
 import ShareButton from "@/components/ShareButton";
+import DeckVersionHistory from "@/components/DeckVersionHistory";
 
 export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: string; isPublic: boolean; isPro: boolean }) {
   const [pub, setPub] = React.useState<boolean>(isPublic);
@@ -50,6 +51,11 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
         {!isPro && (<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>)}
       </div>
       {fixOpen && <FixNamesModal deckId={deckId} open={fixOpen} onClose={()=>setFixOpen(false)} />}
+      
+      {/* Deck Versioning (Pro feature) */}
+      <div className="mt-4">
+        <DeckVersionHistory deckId={deckId} isPro={isPro} />
+      </div>
     </section>
   );
 }

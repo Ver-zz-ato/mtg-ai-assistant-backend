@@ -388,7 +388,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     })();
   }, [recentDecks.map(d=>d.id).join(',')]);
 
-  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'wishlist'|'security'|'billing'>('profile');
+  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'security'|'billing'>('profile');
   return (
     <div className="space-y-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Header card with optional signature deck art banner (match public profile) */}
@@ -423,7 +423,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         {/* Left menu */}
         <aside className="col-span-12 md:col-span-3">
           <nav className="rounded-xl border border-neutral-800 p-3 space-y-2 sticky top-4">
-            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['wishlist','Wishlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
+            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['wishlist','Wishlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
               <button key={k} onClick={()=>setTab(k as any)} className={`w-full text-left px-3 py-2 rounded border ${tab===k?'border-emerald-500 bg-emerald-600/10':'border-neutral-800 hover:bg-neutral-900'}`}>{label}</button>
             ))}
           </nav>
@@ -745,7 +745,24 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               </div>
             </div>
           )}
-{tab==='wishlist' && (
+          {tab==='savings' && (
+            <>
+              {(() => {
+                try {
+                  const SavingsAnalytics = require('@/components/SavingsAnalytics').default;
+                  return <SavingsAnalytics />;
+                } catch {
+                  return (
+                    <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+                      <div className="text-lg font-semibold">Budget Savings</div>
+                      <div className="text-sm opacity-80">Track how much you've saved using budget swaps. This feature is coming soon!</div>
+                    </section>
+                  );
+                }
+              })()}
+            </>
+          )}
+          {tab==='wishlist' && (
             <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>

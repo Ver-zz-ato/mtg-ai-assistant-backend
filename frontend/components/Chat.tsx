@@ -1040,7 +1040,21 @@ function Chat() {
         <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 overflow-y-auto overscroll-behavior-y-contain min-h-0 max-h-full">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
-            <div className="text-neutral-400">Start a new chat or pick a thread above.</div>
+            <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
+              <div className="text-6xl mb-6">💬</div>
+              <h3 className="text-xl font-bold text-neutral-200 mb-3">
+                Welcome to ManaTap AI!
+              </h3>
+              <p className="text-neutral-400 mb-8 max-w-md">
+                Start building your perfect deck. Ask me anything about Magic: The Gathering, or get started with a sample Commander deck.
+              </p>
+              <div className="flex gap-4 flex-wrap justify-center">
+                {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
+                <div className="text-xs text-neutral-500 w-full mt-4">
+                  💡 Try: "Build me a Gruul aggro deck" or "Find budget alternatives for Sol Ring"
+                </div>
+              </div>
+            </div>
           ) : messages.map((m) => {
             const isAssistant = m.role === "assistant";
             return (

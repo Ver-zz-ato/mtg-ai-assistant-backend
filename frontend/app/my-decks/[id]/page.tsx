@@ -351,7 +351,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
             <div className="flex items-center gap-2">
               <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
-              {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} small redirectTo="/my-decks" />; })()}
+              {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>
           </header>
           {/* Build Assistant (sticky) */}
