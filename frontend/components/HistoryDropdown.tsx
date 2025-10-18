@@ -1,7 +1,6 @@
 
 'use client';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import TopLayer from './TopLayer';
+import React, { useEffect, useState } from 'react';
 import { listThreads } from '@/lib/threads';
 import type { ThreadSummary as ThreadMeta } from '@/types/chat';
 
@@ -19,32 +18,6 @@ export default function HistoryDropdown(props: Props) {
   const [threads, setThreads] = useState<ThreadMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Positioning for TopLayer
-  const anchorRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
-  const [ready, setReady] = useState(false);
-
-  // measure position
-  useLayoutEffect(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setPos({ left: Math.round(r.left), top: Math.round(r.top) });
-      setReady(true);
-    };
-    update();
-    const ro = new ResizeObserver(() => update());
-    ro.observe(el);
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      try { ro.disconnect(); } catch {}
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, []);
 
   // fetch threads on mount and whenever parent forces a re-key (Chat passes key={histKey})
   useEffect(() => {
@@ -70,23 +43,18 @@ export default function HistoryDropdown(props: Props) {
   const selectValue = value ?? '';
 
   return (
-    <div ref={anchorRef} className="relative history-click-fix-wrapper" style={{ pointerEvents: 'none' }} data-testid={props['data-testid']}>
-      {ready && (
-        <TopLayer left={pos.left} top={pos.top}>
-          <select
-            className="history-click-fix w-[12rem] rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
-            value={selectValue}
-            onChange={(e) => onChange(e.target.value || null)}
-          >
-            <option value="">{loading ? 'Loading…' : 'New thread'}</option>
-            {threads?.map((t) => (
-              <option key={t.id} value={t.id}>{t.title ?? t.id}</option>
-            ))}
-          </select>
-        </TopLayer>
-      )}
-      {/* ghost placeholder keeps layout stable */}
-      <div className="w-[12rem] h-[32px]" />
+    <div className="relative" data-testid={props['data-testid']}>
+      <select
+        className="w-[12rem] rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+        value={selectValue}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={{ position: 'relative', zIndex: 1000 }}
+      >
+        <option value="">{loading ? 'Loading…' : 'New thread'}</option>
+        {threads?.map((t) => (
+          <option key={t.id} value={t.id}>{t.title ?? t.id}</option>
+        ))}
+      </select>
     </div>
   );
 }

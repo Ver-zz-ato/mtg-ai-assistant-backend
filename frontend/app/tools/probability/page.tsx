@@ -149,13 +149,16 @@ export default function ProbabilityHelpersPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Probability Helpers</h1>
-          <p className="text-sm opacity-80">Odds of drawing at least k desired cards by a given turn (hypergeometric).</p>
-        </div>
-        <button onClick={()=>setAdvanced(a=>!a)} className="text-xs border rounded px-2 py-1">{advanced? 'Hide advanced' : 'Advanced'}</button>
+      <div>
+        <h1 className="text-xl font-semibold">Probability Helpers</h1>
+        <p className="text-sm opacity-80">Plain-English odds: “What’s the chance I see at least k of my chosen cards by turn T?” We model draws without replacement (like real shuffling) and compute the chance based on your deck size and counts.</p>
       </div>
+      {advanced && (
+        <div className="sticky top-2 z-20 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded px-3 py-2 flex items-center justify-between">
+          <div className="text-xs opacity-80">Advanced options open</div>
+          <button onClick={()=>setAdvanced(false)} className="text-xs border rounded px-2 py-1">Hide advanced</button>
+        </div>
+      )}
 
       {/* Import from My Decks */}
       <ImportDeckForMath
@@ -193,11 +196,14 @@ export default function ProbabilityHelpersPage() {
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={turns} onChange={e=>setTurns(parseInt(e.target.value||"0",10))} />
         </label>
-        <label className="text-sm">
-          <div className="opacity-70 mb-1">At least (k)</div>
+        <div className="text-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="opacity-70">At least (k)</div>
+            <button onClick={()=>setAdvanced(a=>!a)} className="text-xs border rounded px-2 py-1">{advanced? 'Hide advanced' : 'Advanced'}</button>
+          </div>
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={atLeast} onChange={e=>setAtLeast(parseInt(e.target.value||"0",10))} />
-        </label>
+        </div>
         {advanced && (
           <>
             <div className="sm:col-span-2 flex flex-wrap items-end gap-2">

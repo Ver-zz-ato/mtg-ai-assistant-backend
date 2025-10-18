@@ -5,7 +5,8 @@ import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/li
 
 export const runtime = "nodejs";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// Force streaming to use gpt-4o-mini to avoid org verification issues
+const MODEL = "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -129,23 +130,16 @@ export async function POST(req: NextRequest) {
       { role: "user", content: text }
     ];
     
-    // GPT-5 uses max_completion_tokens, GPT-4o-mini uses max_tokens
+    // Use gpt-4o-mini for streaming (no verification required)
     const tokenLimit = Math.min(MAX_TOKENS_STREAM, 1000);
-    const isGPT5 = MODEL.toLowerCase().includes('gpt-5');
     
-    const openAIBody: any = {
+    const openAIBody = {
       model: MODEL,
       messages,
       temperature: 1,
-      stream: true
+      stream: true,
+      max_tokens: tokenLimit // gpt-4o-mini uses max_tokens
     };
-    
-    // Use correct token parameter based on model
-    if (isGPT5) {
-      openAIBody.max_completion_tokens = tokenLimit;
-    } else {
-      openAIBody.max_tokens = tokenLimit;
-    }
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
 
@@ -262,9 +256,15 @@ export async function POST(req: NextRequest) {
                   const data = JSON.parse(jsonStr);
                   const delta = data.choices?.[0]?.delta?.content;
                   if (delta) {
-                    controller.enqueue(encoder.encode(delta));
-                    // Rough token estimation (4 chars ≈ 1 token)
-                    estimatedTokens += Math.ceil(delta.length / 4);
+                    try {
+                      controller.enqueue(encoder.encode(delta));
+                      // Rough token estimation (4 chars ≈ 1 token)
+                      estimatedTokens += Math.ceil(delta.length / 4);
+                    } catch (controllerError) {
+                      // Controller already closed, stop processing
+                      if (DEV) console.log('[stream] Controller closed, stopping');
+                      return;
+                    }
                   }
                 } catch (e) {
                   if (DEV) console.warn("[stream] parse error:", e, trimmed);

@@ -56,9 +56,10 @@ export default function PWAProvider() {
       const dismissedTime = dismissed ? parseInt(dismissed) : 0;
       const daysSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
       
-      if (!isStandalone && daysSinceDismissed > 7) {
-        setShowInstallBanner(true);
-      }
+      // PWA install popup disabled per user request
+      // if (!isStandalone && daysSinceDismissed > 7) {
+      //   setShowInstallBanner(true);
+      // }
     };
 
     // Initialize

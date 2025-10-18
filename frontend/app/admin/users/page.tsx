@@ -4,7 +4,7 @@ import { ELI5, HelpTip } from "@/components/AdminHelp";
 
 function norm(s:string){return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 
-type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean };
+type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean; billing_active?: boolean };
 
 export default function AdminUsersPage(){
   const [q, setQ] = React.useState("");
@@ -39,6 +39,19 @@ export default function AdminUsersPage(){
     }
   }
 
+  async function setBilling(userId: string, active: boolean){
+    const prev = rows.slice();
+    setRows(rows => rows.map(r => r.id===userId? { ...r, billing_active: active }: r));
+    try{
+      const r = await fetch('/api/admin/users/billing', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, active }) });
+      const j = await r.json();
+      if (!r.ok || j?.ok===false) throw new Error(j?.error || 'update_failed');
+    } catch(e:any){
+      alert(e?.message || 'update failed');
+      setRows(prev);
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
       <h1 className="text-xl font-semibold">Admin • Users</h1>
@@ -61,6 +74,7 @@ export default function AdminUsersPage(){
               <th className="text-left py-2 px-3">Email</th>
               <th className="text-left py-2 px-3">ID</th>
               <th className="text-center py-2 px-3">Pro</th>
+              <th className="text-center py-2 px-3">Billing</th>
             </tr>
           </thead>
           <tbody>
@@ -80,6 +94,12 @@ export default function AdminUsersPage(){
                   <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" checked={!!u.pro} onChange={e=>setPro(u.id, e.target.checked)} />
                     <span className="text-xs opacity-80">{u.pro ? 'Enabled' : 'Disabled'}</span>
+                  </label>
+                </td>
+                <td className="py-2 px-3 text-center">
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={!!u.billing_active} onChange={e=>setBilling(u.id, e.target.checked)} />
+                    <span className="text-xs opacity-80">{u.billing_active ? 'Active' : 'Off'}</span>
                   </label>
                 </td>
               </tr>

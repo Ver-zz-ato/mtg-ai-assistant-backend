@@ -220,7 +220,10 @@ export default function PriceTrackerPage(){
       </section>
 
           <section className="rounded border border-neutral-800 p-3">
-            <div className="font-medium mb-2">Top movers (7 days)</div>
+            <div className="font-medium mb-2 flex items-center gap-2">Top movers (7 days)
+              <span className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700 cursor-default" title="Cards with the biggest changes over the chosen window. Δ is absolute price change; Δ% is percentage change. Use filters to require a minimum price or limit to your watchlist.">?
+              </span>
+            </div>
             <TopMovers currency={currency} />
           </section>
         </section>

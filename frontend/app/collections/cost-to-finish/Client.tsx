@@ -206,7 +206,7 @@ export default function CostToFinishClient() {
     })();
   }, [isPro, deckId, currency]);
 
-  // If deep-linked with ?collectionId=, preselect and enable owned subtraction
+  // If collectionId parameter provided, preselect and enable owned subtraction
   React.useEffect(() => {
     if (initialCollectionId) {
       setCollectionId(initialCollectionId);
@@ -411,11 +411,11 @@ export default function CostToFinishClient() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6 space-y-4">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-[5] bg-neutral-950/85 backdrop-blur border-b border-neutral-800 -mx-4 px-4 py-3">
+      {/* Info header - no longer sticky */}
+      <div className="bg-neutral-950/85 border-b border-neutral-800 -mx-4 px-4 py-3 mb-4">
         <div className="w-full">
           <div className="text-lg font-semibold">Cost to Finish</div>
-          <div className="text-[12px] opacity-80">Find out exactly what it’ll cost to finish your deck — using your collection and live card prices.</div>
+          <div className="text-[12px] opacity-80">Find out exactly what it'll cost to finish your deck — using your collection and live card prices.</div>
           {!isPro && (
             <div className="mt-2 text-[11px]"><span className="inline-flex items-center gap-2 px-2 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span> Trend sparkline, Budget swaps, and Moxfield/MTGO exports are Pro features.</div>
           )}
@@ -444,6 +444,11 @@ export default function CostToFinishClient() {
             </div>
           )}
           <label className="block text-sm opacity-80">Choose one of your decks</label>
+          {decks.length === 0 && (
+            <div className="text-xs text-yellow-400 mb-2 italic">
+              Please sign in to select from your saved decks, or paste a decklist below.
+            </div>
+          )}
           <select
             className="w-full rounded-md border bg-black/20 px-3 py-2"
             value={deckId}
@@ -462,9 +467,6 @@ export default function CostToFinishClient() {
             onChange={(e) => setDeckText(e.target.value)}
             placeholder="Paste a deck list here..."
           />
-          <p className="text-xs opacity-70">
-            Or deep-link a public deck with <code>?deck=&lt;id&gt;</code> in the URL.
-          </p>
 
           {/* Collection & pricing selectors */}
           <div>
@@ -852,6 +854,70 @@ export default function CostToFinishClient() {
           </div>
         )}
         </div>
+        
+        {/* Guest Example - only show when no results */}
+        {rowsToShow.length === 0 && !busy && (
+          <div className="mt-6 w-full min-w-0 rounded-xl border border-blue-500/40 bg-blue-950/20 p-4">
+            <div className="text-sm font-semibold mb-3 text-blue-300">👁️ Example Result Preview</div>
+            <div className="text-xs text-neutral-300 mb-3">Here's what a Cost to Finish analysis looks like for a sample Atraxa deck:</div>
+            
+            {/* Mock summary */}
+            <div
+              className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 mb-3 animate-pulse cursor-pointer"
+              onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to see real results','info'); } catch { alert('Paste your deck to see real results'); } }}
+            >
+              <div className="text-xs font-medium mb-2 opacity-80">Summary</div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded border border-neutral-800 p-2">
+                  <div className="opacity-70 text-[10px]">Missing</div>
+                  <div className="font-bold">23</div>
+                </div>
+                <div className="rounded border border-neutral-800 p-2">
+                  <div className="opacity-70 text-[10px]">Total cost</div>
+                  <div className="font-bold">$127.45</div>
+                </div>
+                <div className="rounded border border-neutral-800 p-2">
+                  <div className="opacity-70 text-[10px]">Biggest card</div>
+                  <div className="font-bold truncate">Mana Crypt <span className="opacity-80">$45.00</span></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mock table preview */}
+            <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+              <div className="text-xs font-medium mb-2 opacity-80">Top Missing Cards</div>
+              <div className="space-y-1 text-xs">
+                <div
+                  className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
+                  onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to see real results','info'); } catch { alert('Paste your deck to see real results'); } }}
+                >
+                  <span>Mana Crypt</span>
+                  <span className="font-mono">$45.00 × 1</span>
+                </div>
+                <div
+                  className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
+                  onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to see real results','info'); } catch { alert('Paste your deck to see real results'); } }}
+                >
+                  <span>Cyclonic Rift</span>
+                  <span className="font-mono">$18.50 × 1</span>
+                </div>
+                <div
+                  className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
+                  onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to see real results','info'); } catch { alert('Paste your deck to see real results'); } }}
+                >
+                  <span>Rhystic Study</span>
+                  <span className="font-mono">$15.25 × 1</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="opacity-70">+ 20 more cards...</span>
+                  <span className="font-mono opacity-70">$48.70</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-3 text-xs opacity-70">💡 Paste your own deck above to see real results with live pricing!</div>
+          </div>
+        )}
         </div>
       </div>
 

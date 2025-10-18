@@ -17,6 +17,9 @@ export default function Header() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupEmailError, setSignupEmailError] = useState("");
+  const [signupPasswordError, setSignupPasswordError] = useState("");
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -328,17 +331,154 @@ export default function Header() {
 
       {/* Sign up modal */}
       {showSignUp && (
-        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center">
-          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-sm p-4">
-            <div className="font-semibold mb-2">Create account</div>
-            <form onSubmit={async (e) => { e.preventDefault(); try { const { error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); if (error) return alert(error.message); alert('Check your email to confirm.'); setShowSignUp(false); } catch (e:any) { alert(e?.message || 'Sign up failed'); } }}>
-              <input value={signupEmail} onChange={(e)=>setSignupEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-neutral-950 text-white border border-neutral-700 rounded px-2 py-1 mb-2" required />
-              <input value={signupPassword} onChange={(e)=>setSignupPassword(e.target.value)} type="password" placeholder="Password" className="w-full bg-neutral-950 text-white border border-neutral-700 rounded px-2 py-1 mb-3" required />
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={()=>setShowSignUp(false)} className="px-3 py-1.5 rounded border border-neutral-700">Cancel</button>
-                <button type="submit" className="px-3 py-1.5 rounded bg-white text-black">Create</button>
+        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6">
+            {!signupSuccess ? (
+              <>
+                <div className="text-xl font-semibold mb-2">Create account</div>
+                <div className="text-sm text-neutral-400 mb-4">
+                  Save decks, like builds, and unlock Pro features.
+                </div>
+                <form onSubmit={async (e) => { 
+                  e.preventDefault(); 
+                  
+                  // Validate email
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                  if (!emailRegex.test(signupEmail)) {
+                    setSignupEmailError('Please enter a valid email address');
+                    return;
+                  }
+                  setSignupEmailError('');
+                  
+                  // Validate password
+                  if (signupPassword.length < 8) {
+                    setSignupPasswordError('Password must be at least 8 characters');
+                    return;
+                  }
+                  setSignupPasswordError('');
+                  
+                  try { 
+                    trackSignupStarted('email');
+                    const { error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); 
+                    if (error) {
+                      setSignupPasswordError(error.message);
+                      return;
+                    }
+                    
+                    trackSignupCompleted('email');
+                    setSignupSuccess(true);
+                  } catch (e:any) { 
+                    setSignupPasswordError(e?.message || 'Sign up failed');
+                  } 
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Email</label>
+                      <input 
+                        value={signupEmail} 
+                        onChange={(e)=>{
+                          setSignupEmail(e.target.value);
+                          setSignupEmailError('');
+                        }} 
+                        type="email" 
+                        placeholder="your@email.com" 
+                        className={`w-full bg-neutral-950 text-white border rounded px-3 py-2 ${signupEmailError ? 'border-red-500' : 'border-neutral-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        required 
+                      />
+                      {signupEmailError && (
+                        <div className="text-xs text-red-400 mt-1">{signupEmailError}</div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Password</label>
+                      <input 
+                        value={signupPassword} 
+                        onChange={(e)=>{
+                          setSignupPassword(e.target.value);
+                          setSignupPasswordError('');
+                        }} 
+                        type="password" 
+                        placeholder="Min 8 characters" 
+                        className={`w-full bg-neutral-950 text-white border rounded px-3 py-2 ${signupPasswordError ? 'border-red-500' : 'border-neutral-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        minLength={8}
+                        required 
+                      />
+                      {signupPasswordError && (
+                        <div className="text-xs text-red-400 mt-1">{signupPasswordError}</div>
+                      )}
+                      
+                      {/* Password Requirements Checklist */}
+                      {signupPassword.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <div className="text-xs font-medium text-neutral-400 mb-1">Password requirements:</div>
+                          <div className={`text-xs flex items-center gap-1.5 ${signupPassword.length >= 8 ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            <span>{signupPassword.length >= 8 ? '✓' : '○'}</span>
+                            <span>At least 8 characters</span>
+                          </div>
+                          <div className={`text-xs flex items-center gap-1.5 ${/[A-Z]/.test(signupPassword) ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            <span>{/[A-Z]/.test(signupPassword) ? '✓' : '○'}</span>
+                            <span>One uppercase letter (recommended)</span>
+                          </div>
+                          <div className={`text-xs flex items-center gap-1.5 ${/[0-9]/.test(signupPassword) ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            <span>{/[0-9]/.test(signupPassword) ? '✓' : '○'}</span>
+                            <span>One number (recommended)</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 mt-6">
+                    <button 
+                      type="button" 
+                      onClick={()=>{
+                        setShowSignUp(false);
+                        setSignupEmail('');
+                        setSignupPassword('');
+                        setSignupEmailError('');
+                        setSignupPasswordError('');
+                        setSignupSuccess(false);
+                      }} 
+                      className="px-4 py-2 rounded border border-neutral-700 hover:bg-neutral-800"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-4 py-2 rounded bg-white text-black hover:bg-gray-200 font-medium"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              // Success State
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">🎉</div>
+                <div className="text-2xl font-bold mb-3 bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+                  Account Created!
+                </div>
+                <div className="text-lg mb-2">Welcome to ManaTap AI!</div>
+                <div className="text-sm text-neutral-400 mb-6">
+                  Check your email to confirm your account and start building amazing decks.
+                </div>
+                <button 
+                  onClick={()=>{
+                    setShowSignUp(false);
+                    setSignupEmail('');
+                    setSignupPassword('');
+                    setSignupEmailError('');
+                    setSignupPasswordError('');
+                    setSignupSuccess(false);
+                  }} 
+                  className="px-6 py-3 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                >
+                  Get Started
+                </button>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

@@ -6,6 +6,11 @@ import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
 
+// Track processed event IDs to ensure idempotency (in-memory for now)
+// In production, consider using Redis or database for distributed systems
+const processedEvents = new Set<string>();
+const MAX_CACHE_SIZE = 1000;
+
 // This is critical for webhook signature verification - we need the raw body
 export async function POST(req: NextRequest) {
   const body = await req.text(); // Get raw body as string
@@ -44,6 +49,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Idempotency check - prevent duplicate processing
+  if (processedEvents.has(event.id)) {
+    console.info('Duplicate event ignored', { eventId: event.id, type: event.type });
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   // Log all events for debugging
   console.info('Stripe webhook event received', {
     type: event.type,
@@ -56,6 +67,14 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event);
+        break;
+      
+      case 'payment_intent.succeeded':
+        await handlePaymentIntentSucceeded(event);
+        break;
+      
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaymentSucceeded(event);
         break;
       
       case 'customer.subscription.updated':
@@ -72,14 +91,23 @@ export async function POST(req: NextRequest) {
         break;
       
       case 'invoice.payment_failed':
-        console.info('Invoice payment failed', { invoiceId: event.data.object.id });
-        // Could send notification to user
+        await handleInvoicePaymentFailed(event);
         break;
       
       default:
         console.info('Unhandled webhook event type:', event.type);
         break;
     }
+
+    // Mark event as processed (with size limit to prevent memory leak)
+    if (processedEvents.size >= MAX_CACHE_SIZE) {
+      // Clear old events when cache is full
+      const firstEvent = processedEvents.values().next().value;
+      if (firstEvent) {
+        processedEvents.delete(firstEvent);
+      }
+    }
+    processedEvents.add(event.id);
 
     return NextResponse.json({ received: true });
 
@@ -269,4 +297,125 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   }
 
   console.info('Subscription deleted, user downgraded', { userId: profile.id });
+}
+
+async function handlePaymentIntentSucceeded(event: Stripe.Event) {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  
+  console.info('Processing payment intent succeeded', {
+    paymentIntentId: paymentIntent.id,
+    amount: paymentIntent.amount,
+    currency: paymentIntent.currency,
+    customerId: paymentIntent.customer,
+  });
+
+  // Payment intent succeeded - could be used for one-time payments
+  // For subscriptions, we rely on checkout.session.completed and invoice events
+  // This is mainly for logging and analytics
+}
+
+async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice;
+  
+  // Access subscription through the invoice object (using any to work around type issues)
+  const invoiceData = invoice as any;
+  const subscriptionId = typeof invoiceData.subscription === 'string' 
+    ? invoiceData.subscription 
+    : invoiceData.subscription?.id;
+  
+  console.info('Processing invoice payment succeeded', {
+    invoiceId: invoice.id,
+    subscriptionId,
+    customerId: invoice.customer,
+    amountPaid: invoice.amount_paid,
+    currency: invoice.currency,
+  });
+
+  // Invoice paid successfully - subscription is active
+  // For recurring subscriptions, this fires after the initial checkout
+  if (!subscriptionId || !invoice.customer) {
+    console.info('Invoice not associated with subscription, skipping');
+    return;
+  }
+
+  // Find user by customer ID
+  const supabase = await getServerSupabase();
+  
+  const { data: profile, error: findError } = await supabase
+    .from('profiles')
+    .select('id, is_pro')
+    .eq('stripe_customer_id', invoice.customer)
+    .single();
+
+  if (findError || !profile) {
+    console.error('Failed to find user profile for customer:', invoice.customer, findError);
+    return;
+  }
+
+  // Ensure user is marked as Pro (in case webhook ordering issues)
+  if (!profile.is_pro) {
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        is_pro: true,
+        pro_until: null, // Clear any end date
+      })
+      .eq('id', profile.id);
+
+    if (updateError) {
+      console.error('Failed to update user profile on invoice payment:', updateError);
+      throw updateError;
+    }
+
+    console.info('User Pro status confirmed via invoice payment', { userId: profile.id });
+  } else {
+    console.info('User already Pro, invoice payment logged', { userId: profile.id });
+  }
+}
+
+async function handleInvoicePaymentFailed(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice;
+  
+  // Access subscription through the invoice object (using any to work around type issues)
+  const invoiceData = invoice as any;
+  const subscriptionId = typeof invoiceData.subscription === 'string' 
+    ? invoiceData.subscription 
+    : invoiceData.subscription?.id;
+  
+  console.error('Invoice payment failed', {
+    invoiceId: invoice.id,
+    subscriptionId,
+    customerId: invoice.customer,
+    attemptCount: invoice.attempt_count,
+    nextPaymentAttempt: invoice.next_payment_attempt,
+  });
+
+  // Payment failed - could notify user or take action after too many attempts
+  // Stripe automatically handles retry logic, so we mainly log this
+  
+  if (!invoice.customer) {
+    return;
+  }
+
+  // Find user to potentially send notification
+  const supabase = await getServerSupabase();
+  
+  const { data: profile, error: findError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', invoice.customer)
+    .single();
+
+  if (findError || !profile) {
+    console.error('Failed to find user profile for failed payment:', invoice.customer, findError);
+    return;
+  }
+
+  // TODO: Send email notification to user about failed payment
+  // TODO: If attempt_count >= 3, consider additional actions
+  
+  console.info('Payment failure logged for user', {
+    userId: profile.id,
+    attemptCount: invoice.attempt_count,
+  });
 }

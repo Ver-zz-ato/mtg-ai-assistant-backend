@@ -23,7 +23,7 @@ const getRecent = unstable_cache(
       .select("id, title, updated_at, deck_text, commander")
       .eq("is_public", true)
       .order("updated_at", { ascending: false })
-      .limit(Math.min(Math.max(limit || 12, 1), 24));
+      .limit(Math.min(Math.max(limit || 10, 1), 24));
     if (error) throw new Error(error.message);
     return (data ?? []) as Row[];
   },
@@ -33,7 +33,7 @@ const getRecent = unstable_cache(
 
 import LikeButton from "./likes/LikeButton";
 
-export default async function RecentPublicDecks({ limit = 12 }: { limit?: number }) {
+export default async function RecentPublicDecks({ limit = 10 }: { limit?: number }) {
   let decks: Row[] = [];
   try {
     decks = await getRecent(limit);
@@ -127,7 +127,7 @@ export default async function RecentPublicDecks({ limit = 12 }: { limit?: number
             if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; }
           }
           return (
-            <li key={d.id} className="relative overflow-hidden border rounded-md hover:border-gray-600">
+            <li key={d.id} className="relative border rounded-md hover:border-gray-600">
               {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
               {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />

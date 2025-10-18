@@ -269,6 +269,10 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
       // 1) Attach to profile (auth metadata + public snapshot)
       const r = await fetch('/api/profile/custom-card', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
+      if (r.status === 401 || j?.error === 'unauthenticated') {
+        setToast('Please sign in to attach cards to your profile');
+        return;
+      }
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Attach failed');
       // 2) Save to wallet (non-public) so it shows in Custom Card Wallet
       try {

@@ -76,7 +76,7 @@ export default async function Page() {
   }
   return (
     <main className="max-w-none mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">My Profile</h1>
+      <h1 className="text-2xl font-semibold text-center">My Profile</h1>
       <ProfileClient initialBannerArt={bannerArt||null} initialBannerDebug={bannerDebug} />
       <FeedbackFab />
     </main>

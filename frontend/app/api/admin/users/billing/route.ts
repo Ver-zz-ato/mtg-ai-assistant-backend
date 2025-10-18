@@ -11,9 +11,8 @@ function isAdmin(user: any): boolean {
   const email = String(user?.email || "").toLowerCase();
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
-function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 
-export async function GET(req: NextRequest){
+export async function POST(req: NextRequest){
   try{
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,25 +21,20 @@ export async function GET(req: NextRequest){
     const admin = getAdmin();
     if (!admin) return NextResponse.json({ ok:false, error:"missing_service_role_key" }, { status:500 });
 
-    const q = String(req.nextUrl.searchParams.get("q") || "");
-    const page = 1, perPage = 1000;
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-    if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+    const j = await req.json().catch(()=>({}));
+    const userId = String(j?.userId || "");
+    const active = !!j?.active;
+    if (!userId) return NextResponse.json({ ok:false, error:"missing_userId" }, { status:400 });
 
-    const needle = norm(q);
-    const users = (data?.users || []).map((u:any) => {
-      const um = (u?.user_metadata || {}) as any;
-      const avatar = um.avatar || um.avatar_url || null;
-      const username = um.username || um.display_name || null;
-      const pro = !!um.pro;
-      const billing_active = !!um.billing_active;
-      return { id: u.id, email: u.email, username, avatar, pro, billing_active } as any;
-    }).filter((u:any) => {
-      if (!needle) return true;
-      return [u.id, u.email, u.username].some(v => norm(v||"").includes(needle));
-    }).slice(0, 100);
+    const { data: got, error: ge } = await admin.auth.admin.getUserById(userId);
+    if (ge) return NextResponse.json({ ok:false, error: ge.message }, { status:500 });
+    const um = (got?.user?.user_metadata || {}) as any;
+    const next = { ...um, billing_active: active };
 
-    return NextResponse.json({ ok:true, users });
+    const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: next });
+    if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 });
+
+    return NextResponse.json({ ok:true, userId, billing_active: active });
   }catch(e:any){
     return NextResponse.json({ ok:false, error:e?.message||"server_error" }, { status:500 });
   }

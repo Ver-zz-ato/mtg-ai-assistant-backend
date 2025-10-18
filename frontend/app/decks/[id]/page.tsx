@@ -10,6 +10,9 @@ export const revalidate = 120; // short ISR window for public decks
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const supabase = await createClient();
+  
+  // Check if user is authenticated (for showing deck ID)
+  const { data: { user } } = await supabase.auth.getUser();
 
   function norm(name: string): string {
     return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -45,9 +48,10 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
 
   // Fetch deck meta (public visibility enforced by RLS)
-  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, title").eq("id", id).maybeSingle();
+  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, title, user_id").eq("id", id).maybeSingle();
   const title = deckRow?.title ?? "Deck";
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
+  const isOwner = user?.id && (deckRow as any)?.user_id === user.id;
 
   // Fetch cards
     const { data: cards } = await supabase
@@ -310,7 +314,10 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                   </span>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
+              {/* Only show Deck ID for deck owner */}
+              {isOwner && (
+                <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <LikeButton deckId={id} />

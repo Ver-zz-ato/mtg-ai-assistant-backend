@@ -92,10 +92,6 @@ export default function RightSidebar() {
 
   return (
     <div className={`flex flex-col w-full relative z-0 text-[0px] leading-none [&>*]:m-0 [&>*]:p-0 [&_img]:block [&_img]:align-top [&_img]:m-0 [&_img]:p-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`} style={{ gap: 0, margin: 0, padding: 0 }}>
-      {/* Debug toggle */}
-      <button onClick={()=>setDebugSpace(x=>!x)} className="absolute top-1 right-1 z-30 text-[10px] px-2 py-0.5 rounded bg-fuchsia-700/80 hover:bg-fuchsia-600 text-white">
-        {debugSpace ? 'DBG:ON' : 'DBG'}
-      </button>
 
 
       {/* Deck Snapshot: clickable link to /my-decks - full width like shoutbox */}

@@ -126,7 +126,7 @@ export default function ImportDeckForMath({
           value={deckId}
           onChange={(e) => setDeckId(e.target.value)}
         >
-          <option value="">Select a deck…</option>
+          <option value="">{decks.length === 0 ? "Please create an account to import your decks" : "Select a deck…"}</option>
           {decks.map((d) => (
             <option key={d.id} value={d.id}>{(d.title || "Untitled deck")}</option>
           ))}
@@ -186,7 +186,15 @@ export default function ImportDeckForMath({
         </div>
       )}
 
-      {err && <div className="text-xs text-red-400">{err}</div>}
+      {err ? (() => {
+        const msg = err.toLowerCase();
+        const isAuth = msg.includes('401') || msg.includes('unauthor') || msg.includes('not authenticated');
+        return isAuth ? (
+          <div className="text-xs text-amber-400">Sign in to import from your decks. You can still paste a list manually.</div>
+        ) : (
+          <div className="text-xs text-red-400">{err}</div>
+        );
+      })() : null}
     </div>
   );
 }

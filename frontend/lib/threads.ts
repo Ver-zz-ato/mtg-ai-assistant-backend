@@ -15,9 +15,12 @@ async function j(res: Response): Promise<Envelope> {
       const hint = j?.error?.hint || j?.hint;
       if (msg) friendly = hint ? `${msg} (${hint})` : msg;
     } catch {}
-    // Try to show a toast if we're in the browser
+    // Try to show a toast if we're in the browser (skip for auth errors)
     try {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && 
+          !friendly.toLowerCase().includes('auth session missing') && 
+          !friendly.toLowerCase().includes('invalid refresh token') &&
+          !friendly.toLowerCase().includes('http 401')) {
         const mod = await import("@/lib/toast-client");
         mod.toastError?.(friendly);
       }
@@ -28,8 +31,14 @@ async function j(res: Response): Promise<Envelope> {
   if ((json as any)?.ok === false) {
     try {
       if (typeof window !== 'undefined') {
-        const mod = await import("@/lib/toast-client");
-        mod.toastError?.((json as any)?.error?.message || "Request failed");
+        const errorMsg = (json as any)?.error?.message || "Request failed";
+        // Skip auth error toasts for guests
+        if (!errorMsg.toLowerCase().includes('auth session missing') && 
+            !errorMsg.toLowerCase().includes('invalid refresh token') &&
+            !errorMsg.toLowerCase().includes('http 401')) {
+          const mod = await import("@/lib/toast-client");
+          mod.toastError?.(errorMsg);
+        }
       }
     } catch {}
   }
@@ -111,7 +120,12 @@ export async function importThread(payload: {
 
 export async function listMessages(threadId: string, signal?: AbortSignal): Promise<{ messages: any[] }> {
   const qs = new URLSearchParams({ threadId });
-  const r = await j(await fetch(`/api/chat/messages/list?${qs.toString()}`, { cache: "no-store", signal } as RequestInit));
+  const res = await fetch(`/api/chat/messages/list?${qs.toString()}`, { cache: "no-store", signal } as RequestInit);
+  if (res.status === 401) {
+    // Not signed in — return empty silently to avoid noisy errors for guests
+    return { messages: [] };
+  }
+  const r = await j(res);
   const messages = (r as any)?.messages ?? (r as any)?.data ?? [];
   return { messages };
 }
@@ -133,7 +147,7 @@ export async function postMessage(
   );
 }
 
-// New streaming function
+// New streaming function with ChatGPT-like speed using client-side pacer
 export async function postMessageStream(
   payload: { text: string; threadId?: string | null; context?: any; prefs?: any; guestMessageCount?: number },
   onToken: (token: string) => void,
@@ -141,6 +155,24 @@ export async function postMessageStream(
   onError: (error: Error) => void,
   signal?: AbortSignal
 ): Promise<void> {
+  // Import the StreamingPacer dynamically to avoid server-side issues
+  const { StreamingPacer } = await import('./streaming-pacer');
+  
+  const pacer = new StreamingPacer({
+    tokensPerSecond: 25, // ChatGPT-like speed
+    onUpdate: (incrementalText: string, isComplete: boolean) => {
+      if (incrementalText) {
+        onToken(incrementalText);
+      }
+      if (isComplete) {
+        onDone();
+      }
+    },
+    onError: (error: Error) => {
+      onError(error);
+    }
+  });
+  
   try {
     const response = await fetch("/api/chat/stream", {
       method: "POST",
@@ -184,6 +216,7 @@ export async function postMessageStream(
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let fullResponse = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -194,20 +227,27 @@ export async function postMessageStream(
       // Check for completion signal
       if (chunk.includes("[DONE]")) {
         const beforeDone = chunk.split("[DONE]")[0];
-        if (beforeDone) onToken(beforeDone);
-        onDone();
+        if (beforeDone) {
+          fullResponse += beforeDone;
+          pacer.addChunk(beforeDone);
+        }
+        // Signal completion to pacer
+        pacer.complete();
         return;
       }
       
-      // Filter out heartbeat spaces
+      // Filter out heartbeat spaces and add to pacer
       const filtered = chunk.replace(/^\s+$/, "");
       if (filtered) {
-        onToken(filtered);
+        fullResponse += filtered;
+        pacer.addChunk(filtered);
       }
     }
 
-    onDone();
+    // If we reach here without [DONE], complete anyway
+    pacer.complete();
   } catch (error: any) {
+    pacer.stop();
     if (error.name === 'AbortError') {
       onDone(); // Treat abort as completion
     } else {

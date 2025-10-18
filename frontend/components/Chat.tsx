@@ -33,6 +33,11 @@ import {
 
 const DEV = process.env.NODE_ENV !== "production";
 
+// Module-level tracking to prevent React Strict Mode duplicates
+let currentlyAddingTypingMessage = false;
+// Prevent React Strict Mode duplicate streaming registrations
+let activeStreamingRef: { current: string | null } = { current: null };
+
 function isDecklist(text: string): boolean {
   if (!text) return false;
   const lines = text.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
@@ -43,7 +48,6 @@ function isDecklist(text: string): boolean {
   for (const l of lines) {
     if (rxQty.test(l) || rxDash.test(l)) hits++;
   }
-  if (DEV) console.log("[detect] lines", lines.length, "hits", hits);
   return hits >= Math.max(6, Math.floor(lines.length * 0.5));
 }
 
@@ -76,7 +80,12 @@ function Chat() {
   // State management
   const [flags, setFlags] = useState<any>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessagesOriginal] = useState<ChatMessage[]>([]);
+  
+  // Simple setMessages wrapper - reduced logging
+  const setMessages = (updater: any) => {
+    setMessagesOriginal(updater);
+  };
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [histKey, setHistKey] = useState(0);
@@ -100,16 +109,29 @@ function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatSessionStartRef = useRef<number>(0);
   const messageCountRef = useRef<number>(0);
+  const isExecutingRef = useRef<boolean>(false); // Guard against React Strict Mode double execution
+  const streamingMessageIdRef = useRef<string | null>(null);
+  const addingTypingMessageRef = useRef<boolean>(false);
+  const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
   
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
   // Auto-scroll to bottom when new messages arrive or when streaming
+  // Only scroll the messages container, not the entire page
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (messagesEndRef.current) {
+      const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto');
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
   };
   
   useEffect(() => {
-    scrollToBottom();
+    // Use requestAnimationFrame to ensure smooth scrolling without page jumps
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
   }, [messages, streamingContent]);
 
   // Initialize flags and user info
@@ -174,14 +196,29 @@ function Chat() {
       const uniqueMessages = Array.isArray(messages) ? messages.filter((msg, index, arr) => 
         arr.findIndex(m => String(m.id) === String(msg.id)) === index
       ) : [];
-      setMessages(uniqueMessages);
+      
+      // Prevent clearing messages during active streaming to avoid UI glitches
+      if (!isStreaming) {
+        setMessages(uniqueMessages);
+      }
     } catch (e: any) {
+      // Handle auth errors gracefully for guests
+      if (String(e?.message || "").toLowerCase().includes("auth session missing") || 
+          String(e?.message || "").toLowerCase().includes("invalid refresh token") ||
+          String(e?.message || "").toLowerCase().includes("http 401")) {
+        // Guest user trying to access auth-required thread - clear and continue as guest
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); } catch {}
+        setThreadId(null);
+        if (!isStreaming) setMessages([]); // Only clear if not streaming
+        return;
+      }
       if (String(e?.message || "").toLowerCase().includes("thread not found")) {
         try { if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); } catch {}
         setThreadId(null);
         return;
       }
-      throw e;
+      // Only throw for unexpected errors - suppress auth errors for guests
+      console.warn('Non-critical chat error:', e?.message);
     }
   }
 
@@ -200,6 +237,13 @@ function Chat() {
       if (threadId) {
         if (typeof window !== 'undefined') window.localStorage.setItem('chat:last_thread', String(threadId));
       }
+      
+      // Skip refresh if we just created a new thread (messages are already in UI)
+      if (skipNextRefreshRef.current) {
+        skipNextRefreshRef.current = false;
+        return;
+      }
+      
       refreshMessages(threadId);
     } catch {}
   }, [threadId]);
@@ -240,6 +284,12 @@ function Chat() {
     setThreadId(null);
     setMessages([]);
     setText("");
+    setStreamingContent("");
+    setIsStreaming(false);
+    if (streamAbort) {
+      streamAbort.abort();
+      setStreamAbort(null);
+    }
     try { 
       if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); 
     } catch {}
@@ -325,6 +375,25 @@ function Chat() {
   async function send() {
     if (!text.trim() || busy) return;
     
+    // Prevent double execution in React Strict Mode (immediate effect)
+    if (isExecutingRef.current) {
+      return;
+    }
+    
+    // Check if streaming is already active to prevent React Strict Mode duplicates
+    if (activeStreamingRef.current) {
+      return;
+    }
+    
+    // Mark as executing immediately
+    isExecutingRef.current = true;
+    
+    // Declare streamingMsgId at function scope for cleanup access
+    let streamingMsgId: string = '';
+    
+    // Reset the flag when done (in finally block)
+    try {
+    
     // Check guest message limits
     if (!isLoggedIn && guestMessageCount >= 20) {
       trackFeatureLimitHit('guest_chat', guestMessageCount, 20);
@@ -349,7 +418,7 @@ function Chat() {
     setText("");
     setBusy(true);
     const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setMessages(m => [
+    setMessages((m: any) => [
       ...m,
       { id: userMsgId, thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
     ]);
@@ -398,6 +467,80 @@ function Chat() {
       memoryContext: memoryContext
     };
     
+    // For logged-in users: Create thread before streaming if one doesn't exist
+    let currentThreadId = threadId;
+    if (isLoggedIn && !currentThreadId) {
+      try {
+        const title = val.slice(0, 60).replace(/\s+/g, " ").trim();
+        const createRes = await fetch('/api/chat/threads/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, deckId: linkedDeckId || null })
+        });
+        const createJson = await createRes.json();
+        if (createJson.ok && createJson.id) {
+          currentThreadId = createJson.id;
+          skipNextRefreshRef.current = true; // Skip the refresh triggered by setThreadId
+          setThreadId(currentThreadId);
+          setHistKey(k => k + 1);
+        }
+      } catch (e) {
+        // Thread creation failed, continue with guest mode
+      }
+    }
+    
+    // Save user message to the thread (for logged-in users)
+    if (isLoggedIn && currentThreadId) {
+      // Add user message to UI immediately with deduplication
+      const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      let userMessageAdded = false; // Closure variable to prevent React Strict Mode duplicates
+      
+      setMessages((prev: any) => {
+        // Check closure variable to prevent React Strict Mode double-execution
+        if (userMessageAdded) {
+          return prev;
+        }
+        
+        // Check if this exact message content already exists (safety check)
+        const hasUserMessage = prev.some((msg: any) => 
+          msg.role === 'user' && 
+          msg.content === val && 
+          msg.thread_id === currentThreadId
+        );
+        if (hasUserMessage) {
+          return prev;
+        }
+        
+        // Mark as added in closure
+        userMessageAdded = true;
+        
+        return [
+          ...prev,
+          {
+            id: userMsgId,
+            thread_id: currentThreadId,
+            role: "user",
+            content: val,
+            created_at: new Date().toISOString()
+          } as any
+        ];
+      });
+      
+      // Save to database (fire and forget)
+      try {
+        await fetch('/api/chat/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            threadId: currentThreadId, 
+            message: { role: 'user', content: val }
+          })
+        });
+      } catch (e) {
+        // Silently fail - message is already in UI
+      }
+    }
+    
     // Try streaming
     let streamFailed = false;
     let guestLimitExceeded = false;
@@ -407,54 +550,136 @@ function Chat() {
     setStreamingContent("");
     setFallbackBanner("");
 
-    const streamingMsgId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setMessages(m => [
-      ...m,
-      { 
-        id: streamingMsgId, 
-        thread_id: threadId || "", 
-        role: "assistant", 
-        content: "Typing…", 
-        created_at: new Date().toISOString() 
-      } as any,
-    ]);
+    // Generate unique streaming message ID for each execution (prevent React Strict Mode duplicates)
+    streamingMsgId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    streamingMessageIdRef.current = streamingMsgId;
+    
+    // Use closure variable to track if we've already added typing message in this execution
+    let typingMessageAdded = false;
+    
+    setMessages((prev: any) => {
+      // Check closure variable first - this should work across React Strict Mode calls
+      if (typingMessageAdded) {
+        return prev;
+      }
+      
+      // Check if typing message already exists in state
+      const hasTyping = prev.some((msg: any) => msg.role === 'assistant' && msg.content === 'Typing…');
+      if (hasTyping) {
+        return prev;
+      }
+      
+      // Mark as added in closure
+      typingMessageAdded = true;
+      
+      return [
+        ...prev,
+        {
+          id: streamingMsgId,
+          thread_id: currentThreadId || "",
+          role: "assistant",
+          content: "Typing…",
+          created_at: new Date().toISOString()
+        } as any,
+      ];
+    });
+
+    // Set active streaming reference BEFORE starting stream to prevent race conditions
+    activeStreamingRef.current = streamingMsgId;
+
+    // Use a closure variable to accumulate streaming content and avoid React Strict Mode double-execution issues
+    let accumulatedContent = '';
 
     try {
       await postMessageStream(
-        { text: val, threadId, context, prefs, guestMessageCount: !isLoggedIn ? guestMessageCount : undefined },
+        { text: val, threadId: currentThreadId, context, prefs, guestMessageCount: !isLoggedIn ? guestMessageCount : undefined },
         (token: string) => {
-          setStreamingContent(prev => {
-            const newContent = prev + token;
-            setMessages(m => 
-              m.map(msg => 
-                msg.id === streamingMsgId 
-                  ? { ...msg, content: newContent || "Typing…" }
-                  : msg
-              )
-            );
-            return newContent;
-          });
+          // Validate that this is still the active streaming session
+          if (activeStreamingRef.current !== streamingMsgId) {
+            return;
+          }
+          
+          // Accumulate content in closure variable (not affected by React Strict Mode)
+          accumulatedContent += token;
+          
+          // Update streaming content display ONLY - don't touch messages array during streaming
+          // The messages array will be updated once at the end in onDone callback
+          setStreamingContent(accumulatedContent);
         },
         () => {
-          console.log('Streaming completed, content length:', streamingContent.length);
+          // Now that streaming is complete, update the messages array with the final content
+          setMessages((m: any) => {
+            const existingIndex = m.findIndex((msg: any) => msg.id === streamingMsgId);
+            
+            if (existingIndex !== -1) {
+              // Update the existing "Typing..." placeholder with final content
+              const newMessages = [...m];
+              newMessages[existingIndex] = {
+                ...newMessages[existingIndex],
+                content: accumulatedContent
+              };
+              return newMessages;
+            } else {
+              // Placeholder was removed somehow, add the message back
+              return [
+                ...m,
+                {
+                  id: streamingMsgId,
+                  thread_id: currentThreadId || "",
+                  role: "assistant",
+                  content: accumulatedContent,
+                  created_at: new Date().toISOString()
+                } as any
+              ];
+            }
+          });
+          
           setIsStreaming(false);
           setStreamAbort(null);
+          setStreamingContent(''); // Clear streaming content display
+          streamingMessageIdRef.current = null; // Clear the streaming message ID
+          
+          // Clear active streaming reference when StreamingPacer finishes
+          if (activeStreamingRef.current === streamingMsgId) {
+            activeStreamingRef.current = null;
+          }
+          
+          // Save assistant's response to the thread (for logged-in users)
+          if (isLoggedIn && currentThreadId && accumulatedContent) {
+            fetch('/api/chat/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                threadId: currentThreadId, 
+                message: { role: 'assistant', content: accumulatedContent }
+              })
+            }).catch(() => {
+              // Silently fail - message is already in UI
+            });
+          }
+          
           messageCountRef.current += 1;
           
           // Track value moment for first successful chat response
-          if (messageCountRef.current === 1 && streamingContent.length > 50) {
+          if (messageCountRef.current === 1 && accumulatedContent.length > 50) {
             trackValueMomentReached('first_good_chat_response');
           }
           
           capture('chat_stream_stop', {
             stopped_by: 'complete',
             duration_ms: Date.now() - streamStartTime,
-            tokens_if_known: Math.ceil(streamingContent.length / 4)
+            tokens_if_known: Math.ceil(accumulatedContent.length / 4)
           });
         },
         (error: Error) => {
           setIsStreaming(false);
           setStreamAbort(null);
+          
+          // Clear active streaming reference on error
+          if (activeStreamingRef.current === streamingMsgId) {
+            activeStreamingRef.current = null;
+          }
+          
           if (error.message === "fallback") {
             streamFailed = true;
             capture('chat_stream_fallback', { reason: 'fallback_response' });
@@ -462,9 +687,9 @@ function Chat() {
             // Handle guest limit exceeded specifically
             streamFailed = true;
             guestLimitExceeded = true;
-            setMessages(m => m.filter(msg => msg.id !== streamingMsgId)); // Remove streaming message
+            setMessages((m: any) => m.filter((msg: any) => msg.id !== streamingMsgId)); // Remove streaming message
             const errorMsgId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            setMessages(m => [
+            setMessages((m: any) => [
               ...m,
               { 
                 id: errorMsgId, 
@@ -495,12 +720,16 @@ function Chat() {
       setIsStreaming(false);
       setStreamAbort(null);
       streamFailed = true;
+      
       capture('chat_stream_error', {
         reason: String(error).substring(0, 100),
         duration_ms: Date.now() - streamStartTime,
         had_partial: streamingContent.length > 0
       });
-    }
+        } finally {
+          // Don't clear activeStreamingRef here - let onDone callback handle it
+          // The StreamingPacer may still be emitting tokens after postMessageStream resolves
+        }
 
     // Update guest message count for non-logged in users (only if not limit exceeded)
     if (!isLoggedIn && !guestLimitExceeded) {
@@ -514,7 +743,7 @@ function Chat() {
     let res: any;
     if (streamFailed) {
       // Remove the streaming placeholder message since streaming failed
-      setMessages(m => m.filter(msg => msg.id !== streamingMsgId));
+      setMessages((m: any) => m.filter((msg: any) => msg.id !== streamingMsgId));
       
       if (guestLimitExceeded) {
         // Don't try fallback if guest limit was exceeded
@@ -529,35 +758,19 @@ function Chat() {
         }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
       }
     } else {
-      // Streaming succeeded, but we still need to create/update the thread
-      // This ensures the conversation is saved to the database
-      console.log('Streaming succeeded, creating thread for persistence...');
-      try {
-        res = await postMessage({ 
-          text: val, 
-          threadId, 
-          context,
-          guestMessageCount: !isLoggedIn ? guestMessageCount : undefined 
-        }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
-        console.log('Thread creation result:', res);
-      } catch (e: any) {
-        // If post fails, at least mark as successful so we don't show errors
-        console.warn('Thread creation failed after streaming:', e);
-        res = { ok: true, threadId: threadId };
-      }
+      // Streaming succeeded - don't call postMessage again to avoid duplicates
+      // The streamed message is already complete in the UI
+      res = { ok: true, threadId: currentThreadId };
     }
 
-    let tid = threadId as string | null;
+    let tid = currentThreadId as string | null;
     if ((res as any)?.ok) {
       tid = (res as any).threadId as string;
       if (tid !== threadId) setThreadId(tid);
       setHistKey(k => k + 1);
       
-      // Always refresh messages to ensure thread persistence
-      // This will either create a new thread or update existing one
-      if (tid || !streamFailed) {
-        await refreshMessages(tid);
-      }
+      // Don't refresh messages after streaming to avoid duplicates
+      // The streamed message is already in the UI
     } else {
       const errorMsg = res?.error?.message || "Chat failed";
       try { 
@@ -566,13 +779,20 @@ function Chat() {
       } catch {}
       
       const errorMsgId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      setMessages(m => [
+      setMessages((m: any) => [
         ...m,
         { id: errorMsgId, thread_id: threadId || "", role: "assistant", content: `I encountered an error: ${errorMsg}. Please try asking again.`, created_at: new Date().toISOString() } as any,
       ]);
     }
 
     setBusy(false);
+    } finally {
+      // Always reset the execution flags when function completes
+      isExecutingRef.current = false;
+      streamingMessageIdRef.current = null;
+      addingTypingMessageRef.current = false;
+      currentlyAddingTypingMessage = false; // Reset module-level flag
+    }
   }
 
   // Render helper components
@@ -580,17 +800,36 @@ function Chat() {
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [text, setText] = useState("");
+    const [len, setLen] = useState(0);
+    const maxLen = 500;
+    const taRef = useRef<HTMLTextAreaElement | null>(null);
     
+    function onChangeText(v: string) {
+      setText(v.slice(0, maxLen));
+      setLen(Math.min(v.length, maxLen));
+      // Auto-grow textarea height
+      try {
+        const el = taRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(200, el.scrollHeight)}px`;
+      } catch {}
+    }
+
     async function send(rating: number) {
       setBusy(true);
       try {
         await fetch('/api/feedback', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ rating, text }) });
         try { const { capture } = await import("@/lib/ph"); capture('chat_feedback', { rating, thread_id: threadId ?? null, msg_id: msgId }); } catch {}
         try { const tc = await import("@/lib/toast-client"); tc.toast('Thanks for the feedback!', 'success'); } catch {}
-        setOpen(false); setText("");
+        setOpen(false); setText(""); setLen(0);
       } catch(e:any) {
         try { const tc = await import("@/lib/toast-client"); tc.toastError(e?.message || 'Failed to send'); } catch {}
       } finally { setBusy(false); }
+    }
+
+    async function quickReact(emoji: '😍'|'😐'|'😞') {
+      // Map to rating: love=1, neutral=0, dislike=-1
+      const score = emoji==='😍' ? 1 : emoji==='😐' ? 0 : -1;
+      setText(emoji);
+      await send(score);
     }
     
     return (
@@ -604,12 +843,23 @@ function Chat() {
         )}
         {open && (
           <div className="mt-2 w-full">
-            <textarea value={text} onChange={(e)=>setText(e.target.value)} rows={3} placeholder="Optional comment"
-              className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1" />
-            <div className="mt-1 flex gap-2">
-              <button onClick={()=>send(1)} disabled={busy} className="px-2 py-[2px] rounded bg-emerald-600 text-white">Send 👍</button>
-              <button onClick={()=>send(-1)} disabled={busy} className="px-2 py-[2px] rounded bg-red-700 text-white">Send 👎</button>
-              <button onClick={()=>setOpen(false)} disabled={busy} className="px-2 py-[2px] rounded border border-neutral-600">Cancel</button>
+            <textarea
+              ref={taRef}
+              value={text}
+              onChange={(e)=>onChangeText(e.target.value)}
+              rows={3}
+              placeholder="Optional feedback on this message"
+              className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 resize-none overflow-hidden"
+              maxLength={maxLen}
+              onFocus={()=>{ try{ const el=taRef.current; if(el){ el.style.height='auto'; el.style.height=`${Math.min(200, el.scrollHeight)}px`; } } catch{} }}
+            />
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <div className="text-[10px] opacity-70">{len}/{maxLen} characters</div>
+              <div className="flex gap-2">
+                <button onClick={()=>send(1)} disabled={busy} className="px-2 py-[2px] rounded bg-emerald-600 text-white">Send 👍</button>
+                <button onClick={()=>send(-1)} disabled={busy} className="px-2 py-[2px] rounded bg-red-700 text-white">Send 👎</button>
+                <button onClick={()=>setOpen(false)} disabled={busy} className="px-2 py-[2px] rounded border border-neutral-600">Cancel</button>
+              </div>
             </div>
           </div>
         )}
@@ -744,8 +994,9 @@ function Chat() {
         <div className="w-full">
           <ThreadMenu
             threadId={threadId}
-            onChanged={() => setHistKey(k => k + 1)}
-            onDeleted={() => { setThreadId(null); setMessages([]); setHistKey(k => k + 1); }}
+            onChanged={() => setHistKey((k: any) => k + 1)}
+            onDeleted={() => { setThreadId(null); setMessages([]); setHistKey((k: any) => k + 1); }}
+            onNewChat={newChat}
           />
         </div>
 
@@ -762,6 +1013,29 @@ function Chat() {
             {fallbackBanner}
           </div>
         )}
+        
+        {/* Context reminder bar */}
+        {(() => {
+          const activeFilters: string[] = [];
+          if (fmt && fmt !== 'commander') activeFilters.push(fmt.charAt(0).toUpperCase() + fmt.slice(1));
+          else if (fmt === 'commander') activeFilters.push('Commander');
+          
+          const activeColors = Object.entries(colors).filter(([_, v]) => v).map(([k]) => COLOR_LABEL[k as keyof typeof COLOR_LABEL]);
+          if (activeColors.length > 0) activeFilters.push(activeColors.join('-'));
+          
+          // Show budget if it's set (including 'optimized')
+          if (budget) activeFilters.push(budget.charAt(0).toUpperCase() + budget.slice(1));
+          
+          if (activeFilters.length > 0) {
+            return (
+              <div className="mb-2 px-3 py-1.5 bg-neutral-900/60 border border-neutral-700 rounded text-neutral-300 text-xs flex-shrink-0 flex items-center gap-1.5">
+                <span className="opacity-70">Using:</span>
+                <span className="font-medium">{activeFilters.join(' • ')}</span>
+              </div>
+            );
+          }
+          return null;
+        })()}
         
         <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded p-3 overflow-y-auto overscroll-behavior-y-contain min-h-0 max-h-full">
           {/* Messages with streaming content */}

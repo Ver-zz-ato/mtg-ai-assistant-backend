@@ -169,15 +169,88 @@ export default function MulliganSimulatorPage() {
   // Suggested k values for quick clicks
   const kChips = [1, 2, 3];
 
+  const [deckText, setDeckText] = React.useState("");
+  const [parseError, setParseError] = React.useState("");
+  
+  const parseDecklistAndRun = () => {
+    const text = deckText.trim();
+    if (!text) {
+      setParseError("Please paste a decklist");
+      return;
+    }
+    
+    setParseError("");
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    let totalCards = 0;
+    let landCount = 0;
+    
+    // Common land types and basic lands
+    const landKeywords = /\bland\b|island|mountain|forest|plains|swamp|dual land|fetch|shock|triome|pathway/i;
+    const basicLands = /^(island|mountain|forest|plains|swamp)$/i;
+    
+    for (const line of lines) {
+      // Match patterns like "1x Card Name" or "3 Sol Ring" or just "Sol Ring"
+      const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      const qty = match ? parseInt(match[1], 10) : 1;
+      const cardName = match ? match[2] : line;
+      
+      // Skip comment lines
+      if (cardName.startsWith('//') || cardName.startsWith('#')) continue;
+      
+      totalCards += qty;
+      
+      // Detect lands
+      if (landKeywords.test(cardName) || basicLands.test(cardName)) {
+        landCount += qty;
+      }
+    }
+    
+    if (totalCards === 0) {
+      setParseError("No cards detected in decklist");
+      return;
+    }
+    
+    // Auto-populate form
+    setDeckSize(totalCards);
+    setLandsInDeck(landCount);
+    
+    // Run simulation immediately
+    setTimeout(() => run(), 100);
+  };
+
   return (
     <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
       <div className="max-w-[1400px] mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-      <h1 className="text-xl font-semibold">Hand / Mulligan Simulator</h1>
-          <p className="text-sm opacity-80">Approximate keep rates with simple <span title="London mulligan: draw 7 each time, bottom cards equal to mulligans">London mulligan</span> logic (keep if hand has at least k desired cards).</p>
+      <div>
+        <h1 className="text-xl font-semibold">Hand / Mulligan Simulator</h1>
+        <p className="text-sm opacity-80">We simulate many opening hands and apply simple "keep" rules (like having enough lands or key cards). This estimates how often you'd keep on 7/6/5 using the <span title="London mulligan: draw 7 each time, put cards on the bottom equal to mulligans">London mulligan</span>.</p>
+      </div>
+      {advanced && (
+        <div className="sticky top-2 z-20 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded px-3 py-2 flex items-center justify-between">
+          <div className="text-xs opacity-80">Advanced options open</div>
+          <button onClick={()=>setAdvanced(false)} className="text-xs border rounded px-2 py-1">Hide advanced</button>
         </div>
-        <button onClick={()=>setAdvanced(a=>!a)} className="text-xs border rounded px-2 py-1">{advanced? 'Hide advanced' : 'Advanced'}</button>
+      )}
+
+      {/* Paste Decklist Input */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded p-4 space-y-3">
+        <div className="text-sm font-semibold">Paste Your Decklist</div>
+        <textarea
+          value={deckText}
+          onChange={(e) => setDeckText(e.target.value)}
+          placeholder="Paste your decklist here (e.g., '1 Sol Ring', '36 Forest', etc.)"
+          className="w-full h-32 bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-sm font-mono resize-none"
+        />
+        {parseError && (
+          <div className="text-xs text-red-400">{parseError}</div>
+        )}
+        <button
+          onClick={parseDecklistAndRun}
+          disabled={busy || !deckText.trim()}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {busy ? 'Analyzing...' : 'Analyze Decklist'}
+        </button>
       </div>
 
       {/* Import from My Decks */}
@@ -236,11 +309,14 @@ export default function MulliganSimulatorPage() {
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={minKeep} onChange={e=>setMinKeep(parseInt(e.target.value||"0",10))} />
         </label>
-        <label className="text-sm">
-          <div className="opacity-70 mb-1">Iterations</div>
+        <div className="text-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="opacity-70">Iterations</div>
+            <button onClick={()=>setAdvanced(a=>!a)} className="text-xs border rounded px-2 py-1">{advanced? 'Hide advanced' : 'Advanced'}</button>
+          </div>
           <input type="number" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
             value={iterations} onChange={e=>setIterations(parseInt(e.target.value||"0",10))} />
-        </label>
+        </div>
         <div className="sm:col-span-2 flex flex-wrap items-center gap-3 text-sm">
           <label className="inline-flex items-center gap-2">Min lands <input type="number" className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={minLands} onChange={e=>setMinLands(parseInt(e.target.value||'0',10))}/></label>
           <label className="inline-flex items-center gap-2">Max lands <input type="number" className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" value={maxLands} onChange={e=>setMaxLands(parseInt(e.target.value||'0',10))}/></label>

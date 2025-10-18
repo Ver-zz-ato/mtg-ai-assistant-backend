@@ -237,6 +237,9 @@ export async function POST(req: NextRequest) {
       const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
       const colors = cols && cols.length ? cols.join(',') : 'any';
       sys += `\n\nUser preferences: Format=${fmt || 'unspecified'}, Value=${plan || 'optimized'}, Colors=${colors}. If relevant, assume these without asking.`;
+      
+      // Add specific guidance for snapshot requests
+      sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
     }
     try {
       const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid!).maybeSingle();
@@ -261,6 +264,7 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     // If prefs exist, short-circuit with an acknowledgement to avoid any fallback question flicker
+    // BUT skip this if streaming is being used (to prevent duplicate messages)
     const ackFromPrefs = () => {
       const fmt = typeof prefs?.format === 'string' ? prefs.format : undefined;
       const plan = typeof prefs?.budget === 'string' ? prefs.budget : (typeof prefs?.plan === 'string' ? prefs.plan : undefined);
@@ -269,7 +273,12 @@ export async function POST(req: NextRequest) {
       return `Okay — using your preferences (Format: ${fmt || 'unspecified'}, Value: ${plan || 'optimized'}, Colors: ${colors}).`;
     };
 
-    if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
+    // Skip preference acknowledgement if this is a streaming request (identified by complex queries)
+    // This prevents duplicate messages when both streaming and fallback API create responses
+    const isComplexQuery = /\b(build|create|find|suggest|swap|deck|commander|budget|help.*with)\b/i.test(String(text || ''));
+    const shouldUseStreaming = isComplexQuery || (text && text.length > 50);
+    
+    if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length)) && !shouldUseStreaming) {
       const outText = ackFromPrefs();
       await supabase.from("chat_messages").insert({ thread_id: tid!, role: "assistant", content: outText });
       try { const { captureServer } = await import("@/lib/server/analytics");

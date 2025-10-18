@@ -9,6 +9,7 @@ export default function SupportPage(){
 
   async function search(){ setBusy(true); try { const r = await fetch(`/api/admin/users/search?q=${encodeURIComponent(q)}`); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'search_failed'); setRows(j.users||[]);} catch(e:any){ alert(e?.message||'failed'); setRows([]);} finally{ setBusy(false);} }
   async function setPro(userId: string, pro: boolean){ try { const r = await fetch('/api/admin/users/pro', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, pro }) }); const j = await r.json(); if(!r.ok||j?.ok===false) throw new Error(j?.error||'update_failed'); alert('Updated'); } catch(e:any){ alert(e?.message||'failed'); } }
+  async function setBilling(userId: string, active: boolean){ try { const r = await fetch('/api/admin/users/billing', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, active }) }); const j = await r.json(); if(!r.ok||j?.ok===false) throw new Error(j?.error||'update_failed'); alert('Updated'); } catch(e:any){ alert(e?.message||'failed'); } }
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
@@ -27,9 +28,9 @@ export default function SupportPage(){
           <button onClick={search} disabled={busy} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">Search</button>
         </div>
         <div className="overflow-auto max-h-80">
-          <table className="min-w-full text-sm"><thead><tr><th className="text-left py-1 px-2">User</th><th className="text-left py-1 px-2">Email</th><th className="text-left py-1 px-2">ID</th><th className="text-left py-1 px-2">Pro</th></tr></thead><tbody>
+          <table className="min-w-full text-sm"><thead><tr><th className="text-left py-1 px-2">User</th><th className="text-left py-1 px-2">Email</th><th className="text-left py-1 px-2">ID</th><th className="text-left py-1 px-2">Pro</th><th className="text-left py-1 px-2">Billing</th></tr></thead><tbody>
             {rows.map(u=> (
-              <tr key={u.id} className="border-t border-neutral-900"><td className="py-1 px-2">{u.username||'—'}</td><td className="py-1 px-2">{u.email||'—'}</td><td className="py-1 px-2 font-mono text-xs">{u.id}</td><td className="py-1 px-2"><label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!u.pro} onChange={e=>setPro(u.id, e.target.checked)}/> <span className="text-xs opacity-80">{u.pro?'Enabled':'Disabled'}</span></label></td></tr>
+              <tr key={u.id} className="border-t border-neutral-900"><td className="py-1 px-2">{u.username||'—'}</td><td className="py-1 px-2">{u.email||'—'}</td><td className="py-1 px-2 font-mono text-xs">{u.id}</td><td className="py-1 px-2"><label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!u.pro} onChange={e=>setPro(u.id, e.target.checked)}/> <span className="text-xs opacity-80">{u.pro?'Enabled':'Disabled'}</span></label></td><td className="py-1 px-2"><label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!u.billing_active} onChange={e=>setBilling(u.id, e.target.checked)}/> <span className="text-xs opacity-80">{u.billing_active?'Active':'Off'}</span></label></td></tr>
             ))}
             {rows.length===0 && <tr><td colSpan={4} className="py-3 text-center opacity-70">No results</td></tr>}
           </tbody></table>

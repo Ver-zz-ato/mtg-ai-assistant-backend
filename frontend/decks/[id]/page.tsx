@@ -16,7 +16,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       <header className="mb-4 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">Deck</h1>
-          <p className="text-xs text-muted-foreground">Deck ID: {id}</p>
         </div>
         <div className="flex items-center gap-2">
           <CopyDecklistButton deckId={id} small />

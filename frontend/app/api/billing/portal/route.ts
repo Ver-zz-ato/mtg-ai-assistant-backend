@@ -37,6 +37,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (!profile.stripe_customer_id) {
+      // If admin toggled billing_active on this user, create a Stripe customer so we can open portal for testing
+      try {
+        const { data: ures } = await supabase.auth.getUser();
+        const meta: any = ures?.user?.user_metadata || {};
+        if (meta.billing_active === true) {
+          const customer = await stripe.customers.create({ email: ures?.user?.email || undefined, metadata: { app_user_id: ures?.user?.id || '' } });
+          const { error: upd } = await supabase.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', ures?.user?.id || '');
+          if (!upd) {
+            profile.stripe_customer_id = customer.id as any;
+          }
+        }
+      } catch {}
+    }
+    if (!profile.stripe_customer_id) {
       return NextResponse.json(
         { ok: false, error: 'No billing account found. Please upgrade first.' },
         { status: 400 }

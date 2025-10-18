@@ -152,6 +152,11 @@ export default function BudgetSwapsClient(){
             <div className="text-sm font-semibold">Input</div>
             <label className="text-xs block">
               <div className="opacity-70 mb-1">Select a Deck</div>
+              {decks.length === 0 && (
+                <div className="text-xs text-yellow-400 mb-2 italic">
+                  Please sign in to select from your saved decks, or paste a decklist below.
+                </div>
+              )}
               <select value={deckId} onChange={async (e)=>{
                 const id = e.target.value; setDeckId(id);
                 if (!id) return;
@@ -205,7 +210,80 @@ export default function BudgetSwapsClient(){
         {/* Right: results */}
         <section className="col-span-12 md:col-span-8">
           {!hasResults ? (
-            <div className="text-sm opacity-70">Paste a deck and click Compute to see budget swap suggestions.</div>
+            <div className="space-y-4">
+              <div className="text-sm opacity-70">Paste a deck and click Compute to see budget swap suggestions.</div>
+              
+              {/* Guest Example - only show when no results and not busy */}
+              {!busy && (
+                <div className="rounded-xl border border-blue-500/40 bg-blue-950/20 p-4">
+                  <div className="text-sm font-semibold mb-3 text-blue-300">👁️ Example Result Preview</div>
+                  <div className="text-xs text-neutral-300 mb-3">Here's what Budget Swaps looks like for a sample competitive deck:</div>
+                  
+                  {/* Mock summary */}
+                  <div
+                    className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 mb-3 animate-pulse cursor-pointer"
+                    onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
+                  >
+                    <div className="text-xs font-medium mb-2 opacity-80">Summary</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      <div className="rounded border border-neutral-800 p-2">
+                        <div className="opacity-70 text-[10px]">Cards over threshold</div>
+                        <div className="font-bold">6</div>
+                      </div>
+                      <div className="rounded border border-neutral-800 p-2">
+                        <div className="opacity-70 text-[10px]">Estimated savings</div>
+                        <div className="font-bold text-emerald-400">$89.75</div>
+                      </div>
+                      <div className="rounded border border-neutral-800 p-2">
+                        <div className="opacity-70 text-[10px]">Budget check</div>
+                        <div className="font-bold text-emerald-400">✅ Within your $5.00 budget!</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Mock swap table */}
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+                    <div className="text-xs font-medium mb-2 opacity-80">Top Swaps</div>
+                    <div className="space-y-2 text-xs">
+                      <div
+                        className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
+                        onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="px-1 py-0.5 bg-red-900/30 rounded text-[10px]">From:</span>
+                          <span>Mana Crypt ($45.00)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-1 py-0.5 bg-emerald-900/30 rounded text-[10px]">To:</span>
+                          <span>Sol Ring ($2.50)</span>
+                          <span className="text-emerald-400">-$42.50</span>
+                        </div>
+                      </div>
+                      <div
+                        className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
+                        onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="px-1 py-0.5 bg-red-900/30 rounded text-[10px]">From:</span>
+                          <span>Force of Will ($35.00)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-1 py-0.5 bg-emerald-900/30 rounded text-[10px]">To:</span>
+                          <span>Counterspell ($1.25)</span>
+                          <span className="text-emerald-400">-$33.75</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center py-1">
+                        <span className="opacity-70">+ 4 more swaps...</span>
+                        <span className="text-emerald-400 opacity-70">-$13.50</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 text-xs opacity-70">💡 Paste your own deck above to find real budget alternatives!</div>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               {/* Summary card */}

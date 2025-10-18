@@ -84,9 +84,9 @@ export default function SupportWidgets() {
 
   return (
     <>
-      {/* Bottom-right dock with Stripe and Ko‑fi link */}
-      <div className="fixed bottom-4 right-4 z-[40] flex flex-col items-end gap-2 pointer-events-none">
-        <div className="rounded border border-neutral-800 bg-black/70 backdrop-blur p-2 pointer-events-auto flex flex-col gap-2">
+      {/* Bottom-left dock with Stripe and Ko‑fi link, positioned above feedback button */}
+      <div className="fixed bottom-24 left-4 z-[60] flex flex-col items-start gap-2 pointer-events-none">
+        <div className="rounded border border-neutral-800 bg-black/70 backdrop-blur p-2 pointer-events-auto flex flex-col gap-2 shadow-lg">
           {/* Stripe support link */}
           <a
             href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01"

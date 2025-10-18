@@ -73,7 +73,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
     lastRef.current = { msg: message, at: now };
 
     const id = newId();
-    const toast: Toast = { id, message, type, autoCloseMs: 5000 };
+    const toast: Toast = { id, message, type, autoCloseMs: 15000 }; // Changed from 5000 to 15000 (15 seconds)
 
     setToasts(prev => [...prev, toast]);
     if (toast.autoCloseMs && toast.autoCloseMs > 0) {
@@ -137,11 +137,11 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
       <RegisterToastApi showToast={showToast} showError={showError} showPanel={showPanel} removeToast={removeToast} />
 
       {/* Standard toasts (top-right) */}
-      <div className="fixed top-4 right-4 z-[1000] space-y-2 max-w-sm">
+      <div className="fixed top-4 right-4 z-[1000] space-y-2 max-w-md">
         {toasts.filter(t=>!t.large && !t.anchor).map(toast => (
           <div
             key={toast.id}
-            className={`px-4 py-3 rounded-lg shadow-lg border cursor-pointer transition-all duration-300 ${
+            className={`px-5 py-4 rounded-lg shadow-2xl border-2 cursor-pointer transition-all duration-300 ${
               toast.type === "error" 
                 ? "bg-red-900 border-red-700 text-red-100"
                 : toast.type === "success"
@@ -152,11 +152,11 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
             }`}
             onClick={() => removeToast(toast.id)}
           >
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm">{toast.message}</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-base font-medium leading-relaxed">{toast.message}</p>
               <button
                 onClick={(e) => { e.stopPropagation(); removeToast(toast.id); }}
-                className="text-xs opacity-70 hover:opacity-100"
+                className="text-sm opacity-70 hover:opacity-100 flex-shrink-0"
                 title="Dismiss"
               >✕</button>
             </div>
