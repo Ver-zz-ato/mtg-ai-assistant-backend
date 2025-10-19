@@ -83,6 +83,9 @@ export async function POST(req: NextRequest) {
 
     // Parse deck list and insert individual cards into deck_cards table
     try {
+      console.log('[Sample Deck] Starting card parsing for deck:', newDeck.id);
+      console.log('[Sample Deck] Deck list preview:', sampleDeck.deckList.substring(0, 200));
+      
       const lines = sampleDeck.deckList.split('\n').filter(l => l.trim());
       const cardRows: Array<{ deck_id: string; card_name: string; quantity: number; category?: string }> = [];
       
@@ -119,21 +122,27 @@ export async function POST(req: NextRequest) {
         }
       }
       
+      console.log(`[Sample Deck] Parsed ${cardRows.length} cards from deck list`);
+      
       // Insert all cards in one batch
       if (cardRows.length > 0) {
+        console.log('[Sample Deck] Attempting to insert cards...');
         const { error: cardsError } = await supabase
           .from('deck_cards')
           .insert(cardRows);
         
         if (cardsError) {
-          console.error('Error inserting deck cards:', cardsError);
+          console.error('[Sample Deck] ERROR inserting deck cards:', cardsError);
+          console.error('[Sample Deck] Error details:', JSON.stringify(cardsError, null, 2));
           // Don't fail the whole import, just log it
         } else {
-          console.log(`Inserted ${cardRows.length} cards for deck ${newDeck.id}`);
+          console.log(`[Sample Deck] ✓ Successfully inserted ${cardRows.length} cards for deck ${newDeck.id}`);
         }
+      } else {
+        console.warn('[Sample Deck] WARNING: No cards were parsed from the deck list!');
       }
     } catch (parseError) {
-      console.error('Error parsing deck list:', parseError);
+      console.error('[Sample Deck] Exception during card parsing:', parseError);
       // Don't fail the import, just log it
     }
 

@@ -76,34 +76,48 @@ export default function OnboardingTour({
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [hasCompleted, setHasCompleted] = useState(false);
 
-  // Check if tour has been completed
+  // Check if tour has been completed (run only once on mount)
   useEffect(() => {
+    let mounted = true;
+    
     try {
       const key = `tour-${tourId}`;
       const stored = localStorage.getItem(key);
+      
       if (stored) {
         const data = JSON.parse(stored);
         if (data.completed) {
-          setHasCompleted(true);
+          console.log(`[Tour] Tour ${tourId} already completed, skipping`);
+          if (mounted) setHasCompleted(true);
           return;
         }
       }
 
       // Auto-start if enabled and not completed
-      if (autoStart && !hasCompleted) {
+      if (autoStart) {
         // Small delay to ensure DOM is ready
-        setTimeout(() => {
-          setIsActive(true);
-          trackStep(0, 'started');
-          
-          // Track onboarding started with new analytics
-          trackOnboardingStarted({ tour_id: tourId });
+        const timer = setTimeout(() => {
+          if (mounted) {
+            console.log(`[Tour] Starting tour ${tourId}`);
+            setIsActive(true);
+            trackStep(0, 'started');
+            
+            // Track onboarding started with new analytics
+            trackOnboardingStarted({ tour_id: tourId });
+          }
         }, 500);
+        
+        return () => {
+          mounted = false;
+          clearTimeout(timer);
+        };
       }
     } catch (e) {
       console.error('Failed to check tour completion:', e);
     }
-  }, [tourId, autoStart, hasCompleted]);
+    
+    return () => { mounted = false; };
+  }, [tourId, autoStart]); // Removed hasCompleted from deps to prevent re-runs
 
   // Update target element position when step changes
   useEffect(() => {
