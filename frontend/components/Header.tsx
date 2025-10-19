@@ -321,6 +321,7 @@ export default function Header() {
             <div className="flex items-center gap-2 ml-3">
               <Link
                 href="/profile"
+                prefetch={false}
                 className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       console.log('[Sample Deck] Deck list preview:', sampleDeck.deckList.substring(0, 200));
       
       const lines = sampleDeck.deckList.split('\n').filter(l => l.trim());
-      const cardRows: Array<{ deck_id: string; card_name: string; quantity: number; category?: string }> = [];
+      const cardRows: Array<{ deck_id: string; name: string; qty: number; category?: string }> = [];
       
       let currentCategory = 'mainboard';
       for (const line of lines) {
@@ -114,8 +114,8 @@ export async function POST(req: NextRequest) {
           if (cardName && quantity > 0) {
             cardRows.push({
               deck_id: newDeck.id,
-              card_name: cardName,
-              quantity: quantity,
+              name: cardName,
+              qty: quantity,
               category: currentCategory,
             });
           }

@@ -755,10 +755,19 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         <div className="relative">
                           {img && (<div className="h-24 bg-center bg-cover" style={{ backgroundImage: `url(${img})` }} />)}
                           {!img && (
-                            <div className="h-24 bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
-                              <svg className="w-12 h-12 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                              </svg>
+                            <div className="h-24 bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden">
+                              {/* Subtle pattern */}
+                              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                              
+                              {/* Mana symbol icon */}
+                              <div className="z-10">
+                                <div className="w-12 h-12 mx-auto rounded-full bg-blue-600/20 border-2 border-blue-600/40 flex items-center justify-center">
+                                  <svg className="w-7 h-7 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="12" r="10" opacity="0.3" />
+                                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                                  </svg>
+                                </div>
+                              </div>
                             </div>
                           )}
                           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center justify-between">
