@@ -37,15 +37,6 @@ export default function ProProvider({ children }: { children: React.ReactNode })
         
         // Use TRUE from either source (profile OR metadata)
         const finalProStatus = profileIsPro || metadataIsPro;
-        
-        console.log('🔍 Pro detection:', { 
-          userId: user.id, 
-          profileIsPro,
-          metadataIsPro,
-          finalProStatus
-        });
-        
-        console.log('✅ Setting Pro status:', finalProStatus);
         setIsPro(finalProStatus);
       } catch {
         setIsPro(false);
