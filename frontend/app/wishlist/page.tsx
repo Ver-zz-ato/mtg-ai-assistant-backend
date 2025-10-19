@@ -31,15 +31,41 @@ export default function WishlistPage() {
       try {
         console.log('[Wishlist] Getting session...');
         const startTime = Date.now();
-        // Use getSession instead of getUser - it's instant and reads from localStorage
-        const { data: { session }, error } = await sb.auth.getSession();
+        
+        // Add real timeout with Promise.race
+        const sessionPromise = sb.auth.getSession();
+        const timeoutPromise = new Promise<any>((resolve) => {
+          setTimeout(() => {
+            console.error('[Wishlist] getSession() TIMEOUT after 3s - forcing null session');
+            resolve({ data: { session: null }, error: null });
+          }, 3000);
+        });
+        
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
         const elapsed = Date.now() - startTime;
         
-        console.log(`[Wishlist] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error });
+        console.log(`[Wishlist] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error, timedOut: elapsed >= 3000 });
         
         if (!mounted) {
           console.log('[Wishlist] Component unmounted, skipping');
           return;
+        }
+        
+        // If timed out and no session, try localStorage fallback
+        if (!session && elapsed >= 3000) {
+          console.warn('[Wishlist] getSession() timed out, trying localStorage fallback...');
+          try {
+            const keys = Object.keys(localStorage);
+            const authKey = keys.find(k => k.includes('auth-token'));
+            if (authKey) {
+              const authData = localStorage.getItem(authKey);
+              console.log('[Wishlist] Found auth data in localStorage:', { key: authKey, hasData: !!authData });
+            } else {
+              console.warn('[Wishlist] No auth data in localStorage');
+            }
+          } catch (e) {
+            console.error('[Wishlist] localStorage access failed:', e);
+          }
         }
         
         if (error) {

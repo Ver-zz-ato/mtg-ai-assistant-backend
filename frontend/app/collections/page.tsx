@@ -147,14 +147,41 @@ function CollectionsPageClientBody() {
         
         // Use getSession instead of getUser - it's instant and reads from localStorage
         const startTime = Date.now();
-        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Add real timeout with Promise.race
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<any>((resolve) => {
+          setTimeout(() => {
+            console.error('[Collections] getSession() TIMEOUT after 3s - forcing null session');
+            resolve({ data: { session: null }, error: null });
+          }, 3000);
+        });
+        
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
         const elapsed = Date.now() - startTime;
         
-        console.log(`[Collections] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error });
+        console.log(`[Collections] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error, timedOut: elapsed >= 3000 });
         
         if (!mounted) {
           console.log('[Collections] Component unmounted, skipping state update');
           return;
+        }
+        
+        // If timed out and no session, try localStorage fallback
+        if (!session && elapsed >= 3000) {
+          console.warn('[Collections] getSession() timed out, trying localStorage fallback...');
+          try {
+            const keys = Object.keys(localStorage);
+            const authKey = keys.find(k => k.includes('auth-token'));
+            if (authKey) {
+              const authData = localStorage.getItem(authKey);
+              console.log('[Collections] Found auth data in localStorage:', { key: authKey, hasData: !!authData });
+            } else {
+              console.warn('[Collections] No auth data in localStorage');
+            }
+          } catch (e) {
+            console.error('[Collections] localStorage access failed:', e);
+          }
         }
         
         if (error) {
