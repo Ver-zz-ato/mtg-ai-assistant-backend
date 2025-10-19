@@ -6,6 +6,7 @@ import GuestLandingPage from "@/components/GuestLandingPage";
 import { NoDecksEmptyState } from "@/components/EmptyState";
 import { canonicalMeta } from "@/lib/canonical";
 import DeckPageCoachBubbles from "./ClientWithCoach";
+import CompareDecksWidget from "@/components/CompareDecksWidget";
 import type { Metadata } from "next";
 
 export function generateMetadata(): Metadata {
@@ -146,6 +147,13 @@ export default async function Page() {
           {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
         </div>
       </div>
+
+      {/* Compare Decks Widget */}
+      {rows.length >= 2 && (
+        <div className="mb-6">
+          <CompareDecksWidget />
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <NoDecksEmptyState />

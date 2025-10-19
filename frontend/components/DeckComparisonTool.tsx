@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { usePro } from '@/components/ProContext';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface Deck {
   id: string;
@@ -27,11 +30,20 @@ interface ComparisonStats {
 }
 
 export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
+  const searchParams = useSearchParams();
   const { isPro } = usePro();
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
   const [deckData, setDeckData] = useState<Map<string, DeckData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [comparison, setComparison] = useState<ComparisonStats | null>(null);
+
+  // Auto-select deck from URL parameter
+  useEffect(() => {
+    const deck1Param = searchParams.get('deck1');
+    if (deck1Param && decks.some(d => d.id === deck1Param)) {
+      setSelectedDeckIds([deck1Param]);
+    }
+  }, [searchParams, decks]);
 
   // Fetch deck data when selections change
   useEffect(() => {
@@ -146,22 +158,45 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
     });
   };
 
-  const handleDeckSelect = (deckId: string) => {
+  const handleDeckSelect = async (deckId: string) => {
     setSelectedDeckIds(prev => {
       // If already selected, remove it
       if (prev.includes(deckId)) {
         return prev.filter(id => id !== deckId);
       }
 
-      // If trying to add 3rd deck without Pro, show alert
-      if (prev.length >= 2 && !isPro) {
-        alert('Comparing 3 decks requires a Pro subscription. Upgrade to unlock this feature!');
+      // Add deck (max 3, but need to check Pro for 3rd)
+      if (prev.length >= 3) {
         return prev;
       }
 
-      // Add deck (max 3)
-      if (prev.length >= 3) {
-        return prev;
+      // If trying to add 3rd deck, verify Pro status directly
+      if (prev.length === 2) {
+        // Check Pro status asynchronously
+        (async () => {
+          const supabase = createBrowserSupabaseClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (!user) {
+            alert('⭐ Comparing 3 decks requires a Pro subscription. Upgrade to unlock this feature!');
+            return;
+          }
+          
+          // Check profile table for authoritative Pro status
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_pro')
+            .eq('id', user.id)
+            .single();
+          
+          const isActuallyPro = profile?.is_pro || user?.user_metadata?.is_pro || user?.user_metadata?.pro;
+          
+          if (!isActuallyPro) {
+            alert('⭐ Comparing 3 decks requires a Pro subscription. Upgrade to unlock this feature!');
+            // Remove the deck we just added
+            setSelectedDeckIds(curr => curr.filter(id => id !== deckId));
+          }
+        })();
       }
 
       return [...prev, deckId];
@@ -324,76 +359,179 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
       {/* Comparison Results */}
       {!loading && selectedDeckIds.length >= 2 && comparison && (
         <div className="space-y-6">
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from(deckData.values()).map((deck, i) => (
-              <div key={deck.id} className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold">
-                    {i + 1}
-                  </div>
-                  <h3 className="font-semibold truncate">{deck.title}</h3>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Cards:</span>
-                    <span className="font-medium">{deck.totalCards}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Unique Cards:</span>
-                    <span className="font-medium">{deck.uniqueCards}</span>
-                  </div>
-                  {deck.commander && (
-                    <div className="text-xs text-gray-500 mt-2 truncate">
-                      Commander: {deck.commander}
+          {/* NEW LAYOUT: Side-by-side decks with comparison in middle */}
+          {selectedDeckIds.length === 2 ? (
+            // 2 DECKS: Deck 1 | Comparison | Deck 2
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
+              {/* Deck 1 */}
+              {(() => {
+                const deck = Array.from(deckData.values())[0];
+                if (!deck) return null;
+                return (
+                  <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-sm">1</div>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/my-decks/${deck.id}`} className="font-semibold truncate hover:text-blue-400 transition-colors block">
+                          {deck.title}
+                        </Link>
+                        {deck.commander && <div className="text-xs text-gray-500 truncate">{deck.commander}</div>}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="flex gap-4 text-xs">
+                      <div><span className="text-gray-400">Total:</span> <span className="font-medium">{deck.totalCards}</span></div>
+                      <div><span className="text-gray-400">Unique:</span> <span className="font-medium">{deck.uniqueCards}</span></div>
+                    </div>
+                    <div className="space-y-1 max-h-[600px] overflow-y-auto">
+                      <div className="text-xs font-semibold text-gray-400 mb-2">Cards ({deck.cards.length})</div>
+                      {deck.cards.map((card, j) => (
+                        <div key={j} className="text-sm py-1 px-2 bg-neutral-800/50 rounded flex gap-2">
+                          <span className="text-gray-500 text-xs w-6">{card.qty}x</span>
+                          <span className="flex-1 truncate">{card.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
-          {/* Shared Cards */}
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-green-400">✓</span> Shared Cards ({comparison.sharedCards.length})
-            </h3>
-            {comparison.sharedCards.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                {comparison.sharedCards.map((card, i) => (
-                  <div key={i} className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <div className="font-medium text-sm">{card.name}</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {card.quantities.map((q, deckIndex) => `Deck ${deckIndex + 1}: ${q}x`).join(', ')}
+              {/* Comparison in Middle */}
+              <div className="w-80 space-y-4">
+                {/* Shared Cards */}
+                <div className="bg-green-500/10 rounded-xl border border-green-500/30 p-4">
+                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-green-400">
+                    <span>✓</span> Shared ({comparison.sharedCards.length})
+                  </h4>
+                  <div className="space-y-1 max-h-72 overflow-y-auto">
+                    {comparison.sharedCards.slice(0, 50).map((card, i) => (
+                      <div key={i} className="text-xs py-1 px-2 bg-green-500/10 rounded">
+                        {card.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Unique to Each */}
+                {comparison.uniqueToDecks.map((deckUnique, i) => {
+                  const deck = Array.from(deckData.values())[i];
+                  if (!deck || deckUnique.cards.length === 0) return null;
+                  return (
+                    <div key={i} className="bg-blue-500/10 rounded-xl border border-blue-500/30 p-4">
+                      <h4 className="font-semibold text-sm mb-2 text-blue-400">
+                        Only in Deck {i + 1} ({deckUnique.cards.length})
+                      </h4>
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {deckUnique.cards.slice(0, 30).map((card, j) => (
+                          <div key={j} className="text-xs py-1 px-2 bg-blue-500/10 rounded">
+                            {card.qty}x {card.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Deck 2 */}
+              {(() => {
+                const deck = Array.from(deckData.values())[1];
+                if (!deck) return null;
+                return (
+                  <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center font-bold text-sm">2</div>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/my-decks/${deck.id}`} className="font-semibold truncate hover:text-purple-400 transition-colors block">
+                          {deck.title}
+                        </Link>
+                        {deck.commander && <div className="text-xs text-gray-500 truncate">{deck.commander}</div>}
+                      </div>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <div><span className="text-gray-400">Total:</span> <span className="font-medium">{deck.totalCards}</span></div>
+                      <div><span className="text-gray-400">Unique:</span> <span className="font-medium">{deck.uniqueCards}</span></div>
+                    </div>
+                    <div className="space-y-1 max-h-[600px] overflow-y-auto">
+                      <div className="text-xs font-semibold text-gray-400 mb-2">Cards ({deck.cards.length})</div>
+                      {deck.cards.map((card, j) => (
+                        <div key={j} className="text-sm py-1 px-2 bg-neutral-800/50 rounded flex gap-2">
+                          <span className="text-gray-500 text-xs w-6">{card.qty}x</span>
+                          <span className="flex-1 truncate">{card.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            // 3 DECKS: Show all 3 across, then comparison below
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                {Array.from(deckData.values()).map((deck, i) => (
+                  <div key={deck.id} className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center font-bold text-sm">{i + 1}</div>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/my-decks/${deck.id}`} className="font-semibold truncate hover:text-blue-400 transition-colors block">
+                          {deck.title}
+                        </Link>
+                        {deck.commander && <div className="text-xs text-gray-500 truncate">{deck.commander}</div>}
+                      </div>
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <div><span className="text-gray-400">Total:</span> <span className="font-medium">{deck.totalCards}</span></div>
+                      <div><span className="text-gray-400">Unique:</span> <span className="font-medium">{deck.uniqueCards}</span></div>
+                    </div>
+                    <div className="space-y-1 max-h-96 overflow-y-auto">
+                      <div className="text-xs font-semibold text-gray-400 mb-2">Cards ({deck.cards.length})</div>
+                      {deck.cards.map((card, j) => (
+                        <div key={j} className="text-sm py-1 px-2 bg-neutral-800/50 rounded flex gap-2">
+                          <span className="text-gray-500 text-xs w-6">{card.qty}x</span>
+                          <span className="flex-1 truncate">{card.name}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-gray-400 text-sm">No cards are shared across all selected decks</p>
-            )}
-          </div>
-
-          {/* Unique Cards per Deck */}
-          {comparison.uniqueToDecks.map((deckUnique, i) => {
-            const deck = Array.from(deckData.values())[i];
-            if (!deck || deckUnique.cards.length === 0) return null;
-
-            return (
-              <div key={i} className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-blue-400">●</span> Unique to {deck.title} ({deckUnique.cards.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                  {deckUnique.cards.map((card, j) => (
-                    <div key={j} className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                      <div className="font-medium text-sm">{card.qty}x {card.name}</div>
+              
+              {/* Comparison below for 3 decks */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-green-500/10 rounded-xl border border-green-500/30 p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-400">
+                    <span>✓</span> Shared Cards ({comparison.sharedCards.length})
+                  </h3>
+                  {comparison.sharedCards.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+                      {comparison.sharedCards.map((card, i) => (
+                        <div key={i} className="p-2 bg-green-500/10 rounded text-sm">{card.name}</div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <p className="text-gray-400 text-sm">No cards shared across all 3 decks</p>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  {comparison.uniqueToDecks.map((deckUnique, i) => {
+                    const deck = Array.from(deckData.values())[i];
+                    if (!deck || deckUnique.cards.length === 0) return null;
+                    return (
+                      <div key={i} className="bg-blue-500/10 rounded-xl border border-blue-500/30 p-4">
+                        <h4 className="font-semibold text-sm mb-2 text-blue-400">Only in {deck.title} ({deckUnique.cards.length})</h4>
+                        <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
+                          {deckUnique.cards.slice(0, 20).map((card, j) => (
+                            <div key={j} className="text-xs py-1 px-2 bg-blue-500/10 rounded">{card.qty}x {card.name}</div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
+            </>
+          )}
 
           {/* Export Button */}
           <div className="flex justify-center">

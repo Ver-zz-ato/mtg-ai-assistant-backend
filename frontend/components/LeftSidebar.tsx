@@ -5,7 +5,6 @@ import RecentPublicDecksSkeleton from "./RecentPublicDecksSkeleton";
 import FeedbackFab from "./FeedbackFab";
 import MostLikedPublicDecks from "./MostLikedPublicDecks";
 import BadgeProgressWidget from "./BadgeProgressWidget";
-import CompareDecksWidget from "./CompareDecksWidget";
 
 export default function LeftSidebar() {
   return (
@@ -21,9 +20,6 @@ export default function LeftSidebar() {
 
       {/* Achievement Progress Widget - shows for logged in users */}
       <BadgeProgressWidget />
-
-      {/* Deck Comparison Widget */}
-      <CompareDecksWidget />
 
       {/* FAB is fixed-position; rendering here mounts it globally */}
       <FeedbackFab />

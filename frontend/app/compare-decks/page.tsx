@@ -1,3 +1,4 @@
+import React from "react";
 import { createClient } from "@/lib/supabase/server";
 import DeckComparisonTool from "@/components/DeckComparisonTool";
 import GuestLandingPage from "@/components/GuestLandingPage";
@@ -101,7 +102,9 @@ export default async function ComparePage() {
         </p>
       </div>
 
-      <DeckComparisonTool decks={decks || []} />
+      <React.Suspense fallback={<div className="text-center py-12 text-gray-400">Loading...</div>}>
+        <DeckComparisonTool decks={decks || []} />
+      </React.Suspense>
     </div>
   );
 }

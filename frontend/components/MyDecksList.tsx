@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSwipeable } from 'react-swipeable';
 import DeckArtLoader from './DeckArtLoader';
 import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
@@ -36,6 +37,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
   const [deckTags, setDeckTags] = useState<Map<string, string[]>>(new Map());
   const [tagModalOpen, setTagModalOpen] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [swipedDeckId, setSwipedDeckId] = useState<string | null>(null);
 
   useEffect(() => {
     // PERFORMANCE FIX: Delay data fetching to make page interactive first
@@ -122,30 +124,39 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
   }, [rows]);
 
   const handleTagsUpdate = async (deckId: string, newTags: string[]) => {
+    // Capture current tags BEFORE optimistic update
+    const currentTags = deckTags.get(deckId) || [];
+    
     // Optimistic update
     setDeckTags(prev => new Map(prev).set(deckId, newTags));
     
     // Save tags to backend
     try {
-      const currentTags = deckTags.get(deckId) || [];
-      
       // Remove old tags
       for (const tag of currentTags) {
         if (!newTags.includes(tag)) {
-          await fetch(`/api/decks/${deckId}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' });
+          const res = await fetch(`/api/decks/${deckId}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' });
+          if (!res.ok) {
+            console.error(`Failed to delete tag "${tag}":`, await res.text());
+          }
         }
       }
       
       // Add new tags
       for (const tag of newTags) {
         if (!currentTags.includes(tag)) {
-          await fetch(`/api/decks/${deckId}/tags`, {
+          const res = await fetch(`/api/decks/${deckId}/tags`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tagLabel: tag }),
           });
+          if (!res.ok) {
+            console.error(`Failed to add tag "${tag}":`, await res.text());
+          }
         }
       }
+      
+      console.log(`✅ Tags updated for deck ${deckId}:`, newTags);
     } catch (err) {
       console.error('Failed to update tags:', err);
       // Revert on error
@@ -196,6 +207,59 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
     });
   }
 
+  async function duplicateDeck(deckId: string, deckName: string) {
+    const { toast } = await import('@/lib/toast-client');
+    
+    try {
+      toast('Duplicating deck...', 'info');
+      
+      // Fetch the original deck's cards
+      const cardsRes = await fetch(`/api/decks/cards?deckId=${deckId}`);
+      const cardsJson = await cardsRes.json();
+      
+      if (!cardsJson.ok || !cardsJson.cards) {
+        toast('Failed to fetch deck cards', 'error');
+        return;
+      }
+      
+      // Create new deck
+      const createRes = await fetch('/api/decks/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: `${deckName} (Copy)` }),
+      });
+      
+      const createJson = await createRes.json();
+      
+      if (!createJson.ok || !createJson.deckId) {
+        toast('Failed to create duplicate deck', 'error');
+        return;
+      }
+      
+      // Add cards to new deck
+      const newDeckId = createJson.deckId;
+      const deckText = cardsJson.cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
+      
+      const saveRes = await fetch('/api/decks/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckId: newDeckId, deckText }),
+      });
+      
+      const saveJson = await saveRes.json();
+      
+      if (saveJson.ok) {
+        toast('✅ Deck duplicated successfully!', 'success');
+        capture('deck_duplicated', { original_id: deckId, new_id: newDeckId });
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast('Failed to save cards to duplicate deck', 'error');
+      }
+    } catch (e: any) {
+      toast(e.message || 'Failed to duplicate deck', 'error');
+    }
+  }
+
   return (
     <div className="space-y-4">
       {isLoadingData && (
@@ -213,23 +277,29 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           const title = r.title ?? "Untitled Deck";
           const stats = deckStats.get(r.id);
           const isPinned = pinnedIds.includes(r.id);
+          const isThisSwiped = swipedDeckId === r.id;
+          
+          const swipeHandlers = useSwipeable({
+            onSwipedLeft: () => setSwipedDeckId(r.id),
+            onSwipedRight: () => setSwipedDeckId(null),
+            trackMouse: false, // Only track touch, not mouse
+            preventScrollOnSwipe: true,
+          });
         
         return (
+          <div key={r.id} {...swipeHandlers} className="relative">
             <DeckArtLoader 
-            key={r.id} 
             deckId={r.id} 
             commander={r.commander || undefined} 
             title={r.title || undefined}
           >
             {(art, loading) => (
-              <div className="group rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 flex flex-col hover:border-neutral-600 transition-colors">
+              <div className="group rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 flex flex-col hover:border-neutral-600 transition-all" style={{ transform: isThisSwiped ? 'translateX(-120px)' : 'translateX(0)' }}>
                 {/* Cover - Clickable */}
-                <div 
+                <Link 
+                  href={`/my-decks/${r.id}`}
                   className="relative h-48 w-full overflow-hidden block cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // Navigate immediately - don't wait for anything
-                    router.push(`/my-decks/${r.id}`);
+                  onClick={() => {
                     // Fire analytics in background (non-blocking)
                     setTimeout(() => {
                       try {
@@ -290,7 +360,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                       📌 PINNED
                     </div>
                   )}
-                </div>
+                </Link>
                 
                 {/* Body with expanded stats */}
                 <div className="p-4 flex-1 flex flex-col gap-3">
@@ -366,6 +436,52 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
               </div>
             )}
           </DeckArtLoader>
+          
+          {/* Swipe Action Buttons */}
+          {isThisSwiped && (
+            <div className="absolute right-0 top-0 h-full flex items-center gap-2 pr-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSwipedDeckId(null);
+                  router.push(`/compare-decks?deck1=${r.id}`);
+                }}
+                className="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors"
+                title="Compare"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSwipedDeckId(null);
+                  duplicateDeck(r.id, title);
+                }}
+                className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition-colors"
+                title="Duplicate"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSwipedDeckId(null);
+                  deleteDeck(r.id, title);
+                }}
+                className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+                title="Delete"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
         );
       })}
       </div>

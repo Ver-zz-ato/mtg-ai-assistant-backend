@@ -1,8 +1,24 @@
 import React from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 // Cache for 1 hour (static support content)
 export const revalidate = 3600;
+
+// Dynamic import for client component
+const SupportFormClient = dynamic(() => import('@/components/SupportForm'), {
+  loading: () => (
+    <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      </div>
+    </div>
+  )
+});
 
 export default function SupportPage() {
   return (
@@ -130,26 +146,8 @@ export default function SupportPage() {
           </div>
         </div>
 
-        {/* Support Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 text-center">
-            Get Help
-          </h2>
-          <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Questions, bug reports, or ideas?
-            </p>
-            <a
-              href="mailto:davy@manatap.ai"
-              className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-base font-medium"
-            >
-              📧 davy@manatap.ai
-            </a>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-              We usually reply within two business days
-            </p>
-          </div>
-        </div>
+        {/* Support Form */}
+        <SupportFormClient />
 
         {/* Links */}
         <div className="mt-8 text-center">

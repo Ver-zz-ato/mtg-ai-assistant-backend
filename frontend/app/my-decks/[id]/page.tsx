@@ -12,6 +12,7 @@ import FunctionsPanel from "./FunctionsPanel";
 import NextDynamic from "next/dynamic";
 import DeckProbabilityPanel from "./DeckProbabilityPanel";
 import HandTestingWidget from "@/components/HandTestingWidget";
+import Link from "next/link";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -350,6 +351,16 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               {/* Deck ID removed per request */}
             </div>
             <div className="flex items-center gap-2">
+              <Link 
+                href={`/compare-decks?deck1=${id}`}
+                className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                title="Compare this deck to another"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span>Compare</span>
+              </Link>
               <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
               {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>

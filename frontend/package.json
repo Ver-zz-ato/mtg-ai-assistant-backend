@@ -25,6 +25,7 @@
     "posthog-node": "^5.8.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-swipeable": "^7.0.2",
     "recharts": "^2.15.4",
     "stripe": "^19.1.0",
     "zod": "^3.23.8"
