@@ -5,6 +5,7 @@ import posthog from 'posthog-js';
 import { PrefsProvider } from '@/components/PrefsContext';
 import ToastProvider from '@/components/ToastProvider';
 import ProProvider from '@/components/ProContext';
+import { ThemeProvider } from '@/lib/theme-context';
 
 function hasConsent(): boolean {
   try { return typeof window !== 'undefined' && window.localStorage.getItem('analytics:consent') === 'granted'; } catch { return false; }
@@ -66,12 +67,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <PrefsProvider>
-      <ToastProvider>
-        <ProProvider>
-          {children}
-        </ProProvider>
-      </ToastProvider>
-    </PrefsProvider>
+    <ThemeProvider>
+      <PrefsProvider>
+        <ToastProvider>
+          <ProProvider>
+            {children}
+          </ProProvider>
+        </ToastProvider>
+      </PrefsProvider>
+    </ThemeProvider>
   );
 }

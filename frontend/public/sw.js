@@ -1,272 +1,109 @@
-// ManaTap AI - Service Worker for PWA functionality
-// Provides offline support, caching, and background sync
+const CACHE_NAME = 'manatap-v1';
+const RUNTIME_CACHE = 'manatap-runtime-v1';
 
-const CACHE_NAME = 'manatap-ai-v1.0.0';
-const STATIC_CACHE_NAME = 'manatap-static-v1.0.0';
-const API_CACHE_NAME = 'manatap-api-v1.0.0';
-
-// Static assets to always cache
+// Static assets to cache on install
 const STATIC_ASSETS = [
   '/',
   '/my-decks',
   '/collections',
-  '/manifest.json',
-  '/favicon.ico',
-  '/android-chrome-192x192.png',
-  '/android-chrome-512x512.png',
-  '/apple-touch-icon.png',
-  // Add critical CSS and JS files (Next.js will inject these)
-];
-
-// API endpoints to cache for offline access
-const CACHEABLE_APIS = [
-  '/api/decks/my',
-  '/api/collections/list',
-  '/api/cards/batch-images',
-  '/api/price/snapshot',
+  '/wishlist',
+  '/pricing',
+  '/manifest.json'
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker...');
-  
   event.waitUntil(
-    Promise.all([
-      // Cache static assets
-      caches.open(STATIC_CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME)
+      .then((cache) => {
         console.log('[SW] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
-      }),
-      // Skip waiting to activate immediately
-      self.skipWaiting()
-    ])
+      })
+      .catch((error) => {
+        console.error('[SW] Failed to cache static assets:', error);
+      })
   );
+  self.skipWaiting(); // Activate immediately
 });
 
-// Activate event - cleanup old caches
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
-  
   event.waitUntil(
-    Promise.all([
-      // Clean up old caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((cacheName) => 
-              cacheName !== CACHE_NAME && 
-              cacheName !== STATIC_CACHE_NAME && 
-              cacheName !== API_CACHE_NAME
-            )
-            .map((cacheName) => {
-              console.log('[SW] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            })
-        );
-      }),
-      // Take control of all pages
-      self.clients.claim()
-    ])
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE) {
+            console.log('[SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
+  self.clients.claim(); // Take control immediately
 });
 
-// Fetch event - serve from cache with network fallback
+// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
+  if (request.method !== 'GET') return;
 
-  // Handle different types of requests
-  if (url.pathname.startsWith('/api/')) {
-    // API requests - network first, cache fallback for specific endpoints
-    event.respondWith(handleApiRequest(request));
-  } else if (url.pathname.startsWith('/_next/') || url.pathname.includes('.')) {
-    // Static assets - cache first
-    event.respondWith(handleStaticRequest(request));
-  } else {
-    // HTML pages - network first with cache fallback
-    event.respondWith(handlePageRequest(request));
-  }
-});
+  // Skip API calls (let them go to network)
+  if (url.pathname.startsWith('/api/')) return;
 
-// Handle API requests with selective caching
-async function handleApiRequest(request) {
-  const url = new URL(request.url);
-  const shouldCache = CACHEABLE_APIs.some(api => url.pathname.startsWith(api));
-  
-  if (!shouldCache) {
-    // Don't cache sensitive API calls, just try network
-    try {
-      return await fetch(request);
-    } catch (error) {
-      console.log('[SW] API request failed:', url.pathname);
-      return new Response(
-        JSON.stringify({ 
-          ok: false, 
-          error: 'Network unavailable - please check your connection',
-          offline: true 
-        }),
-        { 
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-  }
+  // Skip external requests
+  if (url.origin !== self.location.origin) return;
 
-  // For cacheable APIs - network first, cache fallback
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(API_CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    console.log('[SW] Network failed, trying cache for:', url.pathname);
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // Return offline-friendly response
-    return new Response(
-      JSON.stringify({ 
-        ok: false, 
-        error: 'Offline - data not available',
-        offline: true 
-      }),
-      { 
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        console.log('[SW] Serving from cache:', url.pathname);
+        return cachedResponse;
       }
-    );
-  }
-}
 
-// Handle static asset requests
-async function handleStaticRequest(request) {
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
+      // Not in cache, fetch from network
+      return fetch(request)
+        .then((response) => {
+          // Don't cache error responses
+          if (!response || response.status !== 200 || response.type === 'error') {
+            return response;
+          }
 
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(STATIC_CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    console.log('[SW] Static asset fetch failed:', request.url);
-    return new Response('Asset not available offline', { status: 503 });
-  }
-}
+          // Clone the response before caching
+          const responseToCache = response.clone();
 
-// Handle page requests
-async function handlePageRequest(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    console.log('[SW] Page fetch failed, trying cache:', request.url);
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
+          caches.open(RUNTIME_CACHE)
+            .then((cache) => {
+              console.log('[SW] Caching new resource:', url.pathname);
+              cache.put(request, responseToCache);
+            });
 
-    // Return offline page for navigation requests
-    if (request.mode === 'navigate') {
-      const offlinePage = await caches.match('/') || 
-        await caches.match('/offline.html');
-      return offlinePage || new Response(
-        `<!DOCTYPE html>
-        <html>
-          <head>
-            <title>ManaTap AI - Offline</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>
-              body { font-family: -apple-system, sans-serif; text-align: center; padding: 2rem; background: #0a0a0a; color: #fff; }
-              .container { max-width: 500px; margin: 0 auto; }
-              .icon { font-size: 4rem; margin-bottom: 1rem; }
-              h1 { color: #2563eb; margin-bottom: 0.5rem; }
-              p { opacity: 0.8; margin-bottom: 2rem; }
-              button { background: #2563eb; color: white; border: none; padding: 1rem 2rem; border-radius: 0.5rem; font-size: 1rem; cursor: pointer; }
-              button:hover { background: #1d4ed8; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="icon">⚡</div>
-              <h1>ManaTap AI</h1>
-              <p>You're offline, but some features are still available!</p>
-              <button onclick="window.location.reload()">Try Again</button>
-            </div>
-          </body>
-        </html>`,
-        { 
-          status: 200, 
-          headers: { 'Content-Type': 'text/html' } 
-        }
-      );
-    }
-
-    return new Response('Page not available offline', { status: 503 });
-  }
-}
-
-// Background sync for failed requests (future enhancement)
-self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync:', event.tag);
-  
-  if (event.tag === 'deck-updates') {
-    event.waitUntil(syncDeckUpdates());
-  }
-});
-
-async function syncDeckUpdates() {
-  // Placeholder for syncing deck changes when back online
-  console.log('[SW] Syncing deck updates...');
-}
-
-// Push notifications (future enhancement)
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push notification received:', event);
-  
-  const options = {
-    body: 'Price alert or system update',
-    icon: '/android-chrome-192x192.png',
-    badge: '/android-chrome-192x192.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    }
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('ManaTap AI', options)
+          return response;
+        })
+        .catch((error) => {
+          console.error('[SW] Fetch failed:', error);
+          // Return offline page if available
+          return caches.match('/offline.html').then((offlineResponse) => {
+            return offlineResponse || new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable'
+            });
+          });
+        });
+    })
   );
 });
 
-// Notification click handling
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event);
-  event.notification.close();
-
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+// Message event - for cache updates
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
-console.log('[SW] Service worker loaded successfully');
+console.log('[SW] Service worker script loaded');

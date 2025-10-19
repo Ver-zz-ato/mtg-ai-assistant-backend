@@ -3,17 +3,22 @@
 ## Playtest Fix Checklist — Oct 18, 2025
 
 Homepage / Global
-- [ ] Remove “Install ManaTap AI” popup (disable PWA prompt)
+- [x] PWA Install Prompt — Smart visit tracking (shows after 2-3 visits, 30-day dismissal) <!-- id:pwa.smart_prompt -->
+- [x] iOS Install Prompt — Custom Safari instructions with step-by-step guide <!-- id:pwa.ios_prompt -->
+- [x] App Shortcuts — Quick actions in manifest (New Deck, My Decks, Price Tracker, Collections) <!-- id:pwa.shortcuts -->
 - [x] Move Stripe/Ko‑fi support widgets to bottom-left corner, below feedback button
 - [x] Update cookie details on Privacy page (accurate vendor + purpose list)
-- [ ] Polish account creation flow (better copy, validation, confirmation)
+- [x] Polish account creation flow — Social proof in signup modal (user count + activity) <!-- id:auth.social_proof -->
 
 Chat & Threads
-- [ ] Fix “Like this deck” heart hover (top-layer z-index)
-- [ ] Add polite toast for liking when not logged in → “Sign in to like decks.”
-- [x] Fix “New Thread” dropdown jiggle when scrolling
-- [ ] Add one-liner reminder in chat (e.g., “Format: Commander • Budget: £50 • GBP • GW”)
-- [ ] Standardize login-required toasts across all features → “Please sign in to use this feature.”
+- [x] Guest Message Limits — Warnings at 15/20, 18/20, modal at 20/20 with benefits <!-- id:chat.guest_limits -->
+- [x] Guest Chat Persistence — Auto-save to localStorage, restore on reload <!-- id:chat.guest_persistence -->
+- [x] Guest Exit Warning — Modal when navigating away with active chat <!-- id:chat.guest_exit_warning -->
+- [ ] Fix "Like this deck" heart hover (top-layer z-index)
+- [ ] Add polite toast for liking when not logged in → "Sign in to like decks."
+- [x] Fix "New Thread" dropdown jiggle when scrolling
+- [ ] Add one-liner reminder in chat (e.g., "Format: Commander • Budget: £50 • GBP • GW")
+- [ ] Standardize login-required toasts across all features → "Please sign in to use this feature."
 
 Price Tracker
 - [x] Add clear ELI5 explanation for “Top Movers” (tooltip)
@@ -28,10 +33,32 @@ Probability Helper
 
 Profile / Account Page
 - [x] Shorten Identity panel to fit content
-- [x] Merge “Pinned Decks” panel into Identity (Save pins inside Identity)
+- [x] Merge "Pinned Decks" panel into Identity (Save pins inside Identity)
 - [x] Pro Subscription: mini pricing for Free; portal + benefits for Pro
-- [ ] Security: expand with 2FA placeholder, session list (“Log out others”), account deletion
+- [x] Rate Limit Indicator — Shows Pro users their API usage (lightning bolt badge in header) <!-- id:rate_limit.indicator -->
+- [ ] Security: expand with 2FA placeholder, session list ("Log out others"), account deletion
 - [ ] Extras: Connected accounts, Data export, Notification preferences; (Privacy toggle exists)
+
+Performance & Infrastructure
+- [x] Query Performance Logging — Logs slow queries (>100ms) to admin_audit table <!-- id:perf.query_logging -->
+- [x] API Rate Limiting — Tiered limits (Free: 100/hr, Pro: 1000/hr) with standard headers <!-- id:rate_limit.tiers -->
+- [x] Rate Limit Headers — X-RateLimit-Limit, Remaining, Reset, Retry-After <!-- id:rate_limit.headers -->
+- [x] Rate Limit Status API — GET /api/rate-limit/status endpoint for Pro users <!-- id:rate_limit.status_api -->
+- [x] Rate Limit UI Warnings — Toast at 90% usage, color-coded indicator <!-- id:rate_limit.warnings -->
+
+User Experience
+- [x] Email Verification Reminder — 24hr reminder toast with resend button <!-- id:auth.email_verification -->
+- [x] Email Verification Rewards — "Early Adopter" badge incentive <!-- id:auth.verification_rewards -->
+- [x] Empty States — Beautiful placeholders for My Decks, Collections, Wishlist <!-- id:ux.empty_states -->
+- [x] Empty State Suggestions — Contextual tips and quick actions <!-- id:ux.empty_state_tips -->
+
+Public Deck Library & SEO
+- [x] Browse Decks Page — /decks/browse with search and filters <!-- id:decks.browse_page -->
+- [x] Deck Filtering — Format, colors, sort options (recent/popular/budget) <!-- id:decks.filters -->
+- [x] Deck Search — Full-text search across title, commander, cards <!-- id:decks.search -->
+- [x] SEO Optimization — Metadata, OpenGraph, Twitter cards for deck library <!-- id:seo.deck_library -->
+- [x] Pagination — 24 decks per page with Previous/Next navigation <!-- id:decks.pagination -->
+- [x] Deck Cards — Beautiful deck previews with art, stats, owner info <!-- id:decks.cards -->
 
 Copy & Consistency
 - [ ] Standardize toast + auth messages site‑wide

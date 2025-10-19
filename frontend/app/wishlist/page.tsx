@@ -10,6 +10,7 @@ import ExportWishlistCSV from "@/components/ExportWishlistCSV";
 import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { getImagesForNames } from "@/lib/scryfall";
+import { EmptyWishlistState } from "@/components/EmptyStates";
 
 export default function WishlistPage() {
   const sb = useMemo(() => createBrowserSupabaseClient(), []);
@@ -211,12 +212,53 @@ function WishlistEditor({ pro }: { pro: boolean }) {
     // Use undo toast instead of confirm
     const { undoToastManager } = await import('@/lib/undo-toast');
     
+    // OPTIMISTIC UI: Remove from UI immediately
+    setItems(prev => prev.filter(it => !selSet.has(it.name)));
+    const removedTotal = itemsToRemove.reduce((sum, it) => sum + ((it.unit || 0) * (it.qty || 0)), 0);
+    setTotal(prev => prev - removedTotal);
+    setSelSet(new Set());
+    setSel(-1);
+    
+    // Track bulk delete
+    try {
+      capture('bulk_delete_wishlist_items', {
+        wishlist_id: wishlistId,
+        count: names.length,
+        item_names: names.join(', ')
+      });
+    } catch {}
+    
+    // Delete from database immediately (in background)
+    fetch('/api/wishlists/remove-batch', { 
+      method:'POST', 
+      headers:{'content-type':'application/json'}, 
+      body: JSON.stringify({ wishlist_id: wishlistId, names }) 
+    })
+    .then(r => r.json())
+    .then(j => {
+      if (!j?.ok) throw new Error(j?.error || 'Batch remove failed');
+    })
+    .catch((e) => {
+      console.error('Failed to bulk delete:', e);
+      // Reload to show actual state if deletion failed
+      const qs = new URLSearchParams({ wishlistId, currency });
+      fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' })
+        .then(r => r.json())
+        .then(jj => {
+          if (jj?.ok) {
+            setItems(Array.isArray(jj.items) ? jj.items : []);
+            setTotal(Number(jj.total || 0));
+          }
+        });
+    });
+    
+    // Show undo toast
     undoToastManager.showUndo({
       id: `remove-wishlist-${Date.now()}`,
-      message: `Removing ${selSet.size} item${selSet.size > 1 ? 's' : ''} from wishlist`,
+      message: `${selSet.size} item${selSet.size > 1 ? 's' : ''} removed from wishlist`,
       duration: 7000,
       onUndo: async () => {
-        // Re-add the removed items
+        // Restore the removed items
         try {
           for (const item of itemsToRemove) {
             await fetch('/api/wishlists/add', {
@@ -243,34 +285,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
           alert('Failed to restore wishlist items');
         }
       },
-      onExecute: async () => {
-        // Actually remove the items
-        try{
-          const r = await fetch('/api/wishlists/remove-batch', { 
-            method:'POST', 
-            headers:{'content-type':'application/json'}, 
-            body: JSON.stringify({ wishlist_id: wishlistId, names }) 
-          });
-          const j = await r.json().catch(()=>({}));
-          if (!r.ok || j?.ok===false) throw new Error(j?.error||'Batch remove failed');
-          
-          // Track removal
-          try {
-            capture('wishlist_items_removed', {
-              wishlist_id: wishlistId,
-              count: names.length,
-            });
-          } catch {}
-          
-          // reload
-          const qs = new URLSearchParams({ wishlistId, currency });
-          const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-          const jj = await rr.json().catch(()=>({}));
-          if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-          setSelSet(new Set());
-        } catch(e:any){ 
-          alert(e?.message||'Batch remove failed'); 
-        }
+      onExecute: () => {
+        // Already executed above, this is just for the toast interface
       },
     });
   }
@@ -445,66 +461,67 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         </div>
       )}
 
-      <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-        {/* Action bar */}
-        <div className="sticky top-0 z-20 bg-neutral-950/90 backdrop-blur border-b border-neutral-800 px-2 py-1 flex items-center gap-2 text-xs">
-          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={allSelectedOnPage()} onChange={toggleAll} /> Select all</label>
-          {selSet.size>0 && (
-            <>
-              <span className="opacity-80">{selSet.size} selected</span>
-              <button className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setSelSet(new Set())}>Clear</button>
-              <button className="px-2 py-0.5 rounded border border-red-500 text-red-300 hover:bg-red-900/20" onClick={removeSelected}>Remove selected</button>
-            </>
-          )}
-        </div>
-        <table className="w-full text-sm select-none">
-          <thead>
-            <tr className="text-xs opacity-70 border-b border-neutral-800">
-              <th className="p-2 sticky top-6 bg-neutral-950 z-10">{/* selection */}</th>
-              <th className="text-left p-2 sticky top-6 bg-neutral-950 z-10">Card</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Price</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Qty</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Subtotal</th>
-              <th className="p-2 sticky top-6 bg-neutral-950 z-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it, i) => (
-              <tr key={it.name} className={`border-b border-neutral-900 ${sel===i? 'bg-neutral-900/60' : ''}`} onClick={()=>setSel(i)}>
-                <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
-                <td className="p-2">
-                  <div className="flex items-center gap-3">
-                    {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-10 h-14 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-10 h-14 rounded bg-neutral-900 border border-neutral-800" />); })()}
-                    <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
-                  </div>
-                </td>
-                <td className="p-2 text-right tabular-nums">{(it.unit||0)>0 ? fmt(it.unit||0) : (<span className="opacity-60">— <button className="underline" onClick={()=>inlineFix(it.name)}>fix?</button></span>)}</td>
-                <td className="p-2 text-right">
-                  <div className="inline-flex items-center gap-2">
-                    <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) - 1))}>-</button>
-                    <span className="min-w-[2ch] inline-block text-center tabular-nums">{it.qty||0}</span>
-                    <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) + 1))}>+</button>
-                  </div>
-                </td>
-                <td className="p-2 text-right tabular-nums">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
-                <td className="p-2 text-right">
-                  <button className="text-xs text-red-300 underline" onClick={()=>remove(it.name)}>Remove</button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr><td colSpan={6} className="p-8 text-sm opacity-70 text-center">No items yet. Use the form above to add cards to your wishlist.</td></tr>
+      {items.length === 0 ? (
+        <EmptyWishlistState />
+      ) : (
+        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+          {/* Action bar */}
+          <div className="sticky top-0 z-20 bg-neutral-950/90 backdrop-blur border-b border-neutral-800 px-2 py-1 flex items-center gap-2 text-xs">
+            <label className="inline-flex items-center gap-2"><input type="checkbox" checked={allSelectedOnPage()} onChange={toggleAll} /> Select all</label>
+            {selSet.size>0 && (
+              <>
+                <span className="opacity-80">{selSet.size} selected</span>
+                <button className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setSelSet(new Set())}>Clear</button>
+                <button className="px-2 py-0.5 rounded border border-red-500 text-red-300 hover:bg-red-900/20" onClick={removeSelected}>Remove selected</button>
+              </>
             )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="p-2 text-right font-medium" colSpan={4}>Total</td>
-              <td className="p-2 text-right font-semibold tabular-nums">{fmt(total||0)}</td>
-              <td className="p-2"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+          </div>
+          <table className="w-full text-sm select-none">
+            <thead>
+              <tr className="text-xs opacity-70 border-b border-neutral-800">
+                <th className="p-2 sticky top-6 bg-neutral-950 z-10">{/* selection */}</th>
+                <th className="text-left p-2 sticky top-6 bg-neutral-950 z-10">Card</th>
+                <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Price</th>
+                <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Qty</th>
+                <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Subtotal</th>
+                <th className="p-2 sticky top-6 bg-neutral-950 z-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={it.name} className={`border-b border-neutral-900 ${sel===i? 'bg-neutral-900/60' : ''}`} onClick={()=>setSel(i)}>
+                  <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-3">
+                      {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-10 h-14 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-10 h-14 rounded bg-neutral-900 border border-neutral-800" />); })()}
+                      <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
+                    </div>
+                  </td>
+                  <td className="p-2 text-right tabular-nums">{(it.unit||0)>0 ? fmt(it.unit||0) : (<span className="opacity-60">— <button className="underline" onClick={()=>inlineFix(it.name)}>fix?</button></span>)}</td>
+                  <td className="p-2 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) - 1))}>-</button>
+                      <span className="min-w-[2ch] inline-block text-center tabular-nums">{it.qty||0}</span>
+                      <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) + 1))}>+</button>
+                    </div>
+                  </td>
+                  <td className="p-2 text-right tabular-nums">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
+                  <td className="p-2 text-right">
+                    <button className="text-xs text-red-300 underline" onClick={()=>remove(it.name)}>Remove</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="p-2 text-right font-medium" colSpan={4}>Total</td>
+                <td className="p-2 text-right font-semibold tabular-nums">{fmt(total||0)}</td>
+                <td className="p-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
       {preview}
       
       {/* Bulk add modal */}

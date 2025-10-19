@@ -38,6 +38,7 @@ export default function PricingPage() {
 
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
   const handleUpgradeClick = async (plan: 'monthly' | 'yearly') => {
     if (!user) {
@@ -198,10 +199,52 @@ export default function PricingPage() {
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
             Unlock Your MTG Potential
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
             Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. 
             Get unlimited AI analysis, advanced insights, and premium features.
           </p>
+
+          {/* Billing Interval Toggle */}
+          <div className="inline-flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl p-2 shadow-lg border border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                setBillingInterval('monthly');
+                capture('pricing_interval_changed', { interval: 'monthly' });
+              }}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                billingInterval === 'monthly'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => {
+                setBillingInterval('annual');
+                capture('pricing_interval_changed', { interval: 'annual' });
+              }}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all relative ${
+                billingInterval === 'annual'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Annual
+              <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                Save 20%
+              </span>
+            </button>
+          </div>
+          
+          {billingInterval === 'annual' && (
+            <div className="mt-4 text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Save £8.89/year with annual billing (37% off)
+            </div>
+          )}
         </div>
 
         {/* Pricing Cards */}
@@ -252,9 +295,23 @@ export default function PricingPage() {
             
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold mb-4">Pro</h3>
-              <div className="text-4xl font-bold mb-2">£1.99</div>
-              <div className="text-blue-100 mb-2">per month</div>
-              <div className="text-xs text-blue-200 opacity-80">or £14.99/year (save 37%)</div>
+              {billingInterval === 'monthly' ? (
+                <>
+                  <div className="text-5xl font-bold mb-2">£1.99</div>
+                  <div className="text-blue-100">per month</div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="text-3xl font-bold line-through opacity-60">£23.88</div>
+                    <div className="text-5xl font-bold">£14.99</div>
+                  </div>
+                  <div className="text-blue-100 mb-1">per year</div>
+                  <div className="text-sm text-emerald-300 font-semibold">
+                    💰 Just £1.25/month - Save £8.89/year (37%)
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="space-y-4 mb-8">
@@ -329,22 +386,16 @@ export default function PricingPage() {
                 {managingBilling ? 'Opening...' : 'Manage Billing'}
               </button>
             ) : (
-              <div className="space-y-2">
-                <button 
-                  onClick={() => handleUpgradeClick('monthly')}
-                  disabled={upgrading}
-                  className="w-full bg-white text-blue-600 py-2.5 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 text-sm"
-                >
-                  {upgrading ? 'Loading...' : 'Monthly - £1.99'}
-                </button>
-                <button 
-                  onClick={() => handleUpgradeClick('yearly')}
-                  disabled={upgrading}
-                  className="w-full bg-white bg-opacity-90 text-blue-600 py-2.5 px-6 rounded-lg font-medium hover:bg-opacity-100 transition-colors disabled:opacity-50 text-sm"
-                >
-                  {upgrading ? 'Loading...' : 'Yearly - £14.99 (Save 37%)'}
-                </button>
-              </div>
+              <button 
+                onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
+                disabled={upgrading}
+                className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                {upgrading ? 'Processing...' : 
+                  billingInterval === 'monthly' 
+                    ? 'Upgrade to Pro - £1.99/mo' 
+                    : 'Upgrade to Pro - £14.99/yr'}
+              </button>
             )}
           </div>
         </div>
@@ -424,11 +475,14 @@ export default function PricingPage() {
           
           {!isPro && (
             <button 
-              onClick={() => handleUpgradeClick('monthly')}
+              onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
               disabled={upgrading}
               className="bg-white text-blue-600 py-4 px-8 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
-              {upgrading ? 'Loading...' : 'Start Your Pro Journey'}
+              {upgrading ? 'Processing...' : 
+                billingInterval === 'monthly' 
+                  ? 'Start Your Pro Journey - £1.99/mo' 
+                  : 'Start Your Pro Journey - £14.99/yr (Save 37%)'}
             </button>
           )}
 

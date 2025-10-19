@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import CollectionEditor from "@/components/CollectionEditor";
 import CollectionSnapshotDrawer from "@/components/CollectionSnapshotDrawer";
 import GuestLandingPage from "@/components/GuestLandingPage";
-import { NoCollectionsEmptyState } from "@/components/EmptyState";
+import { EmptyCollectionsState } from "@/components/EmptyStates";
 import { capture } from "@/lib/ph";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import CollectionPageCoachBubbles from "./ClientWithCoach";
@@ -370,7 +370,35 @@ function CollectionsPageClientBody() {
                   {s?.cover?.art || s?.cover?.small ? (
                     <img src={s?.cover?.art || s?.cover?.small} alt="cover" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-neutral-900 to-black" />
+                    // Empty state placeholder with gradient and icon
+                    <div className="w-full h-full bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-orange-900/20 flex items-center justify-center relative overflow-hidden">
+                      {/* Subtle pattern */}
+                      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                      
+                      {!s || s.totalCards === 0 ? (
+                        // No cards: Show "Add cards" CTA
+                        <div className="text-center z-10">
+                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-purple-600/20 border-2 border-dashed border-purple-600/40 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </div>
+                          <div className="text-sm text-purple-300 font-medium">Add cards to see art</div>
+                          <div className="text-xs text-neutral-400 mt-1">Click to start building</div>
+                        </div>
+                      ) : (
+                        // Has cards but no art: Show collection icon
+                        <div className="text-center z-10">
+                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-pink-600/20 border-2 border-pink-600/40 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                          </div>
+                          <div className="text-sm text-pink-300 font-medium">{s.totalCards} cards</div>
+                          <div className="text-xs text-neutral-400 mt-1">{s.unique} unique</div>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -414,7 +442,7 @@ function CollectionsPageClientBody() {
       )}
 
       {!loading && collections.length === 0 && (
-        <NoCollectionsEmptyState />
+        <EmptyCollectionsState />
       )}
 
       {toast && (

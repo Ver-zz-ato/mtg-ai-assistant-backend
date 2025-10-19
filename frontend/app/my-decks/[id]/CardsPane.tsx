@@ -11,6 +11,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   const [cards, setCards] = useState<CardRow[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const addBarRef = React.useRef<HTMLDivElement|null>(null);
   const listRef = React.useRef<HTMLDivElement|null>(null);
 
@@ -86,6 +87,92 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === cards.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(cards.map(c => c.id)));
+    }
+  }
+
+  async function bulkDelete() {
+    if (!deckId || selected.size === 0) return;
+    
+    const cardsToDelete = cards.filter(c => selected.has(c.id));
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    // OPTIMISTIC UI: Remove from UI immediately
+    setCards(prev => prev.filter(c => !selected.has(c.id)));
+    setSelected(new Set());
+    
+    // Track bulk delete
+    try {
+      capture('bulk_delete_cards', {
+        deck_id: deckId,
+        count: cardsToDelete.length,
+        card_names: cardsToDelete.map(c => c.name).join(', ')
+      });
+    } catch {}
+    
+    // Delete from database immediately (in background)
+    const deletePromises = cardsToDelete.map(card =>
+      fetch(`/api/decks/cards?id=${encodeURIComponent(card.id)}&deckid=${encodeURIComponent(deckId)}`, {
+        method: "DELETE"
+      })
+    );
+    
+    // Execute all deletions
+    Promise.all(deletePromises)
+      .then(() => {
+        try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+      })
+      .catch((e) => {
+        console.error('Failed to bulk delete:', e);
+        // Reload to show actual state if deletion failed
+        load();
+      });
+    
+    // Show undo toast
+    undoToastManager.showUndo({
+      id: 'bulk-delete-cards',
+      message: `${cardsToDelete.length} card${cardsToDelete.length > 1 ? 's' : ''} deleted`,
+      duration: 8000,
+      onUndo: async () => {
+        // Restore all deleted cards
+        try {
+          for (const card of cardsToDelete) {
+            await fetch(`/api/decks/cards`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ deckId, name: card.name, qty: card.qty }),
+            });
+          }
+          window.dispatchEvent(new CustomEvent("toast", { detail: `Restored ${cardsToDelete.length} cards` }));
+          await load();
+          try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+        } catch (e) {
+          console.error('Failed to undo bulk delete:', e);
+          alert('Failed to undo deletion');
+        }
+      },
+      onExecute: () => {
+        // Already executed above, this is just for the toast interface
+      },
+    });
   }
 
   async function remove(id: string, name: string, qty: number) {
@@ -230,14 +317,36 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
 
       {status && <p className="text-red-400 text-sm mt-2">{status}</p>}
 
-      {/* Currency toggle */}
-      <div className="mt-3 flex items-center justify-end gap-2 text-xs">
-        <label className="opacity-70">Currency</label>
-        <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-          <option value="GBP">GBP</option>
-        </select>
+      {/* Currency toggle and bulk actions */}
+      <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <>
+              <button
+                onClick={toggleSelectAll}
+                className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 transition-colors"
+              >
+                {selected.size === cards.length && cards.length > 0 ? 'Deselect All' : 'Select All'}
+              </button>
+              {selected.size > 0 && (
+                <button
+                  onClick={bulkDelete}
+                  className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+                >
+                  Delete {selected.size} card{selected.size > 1 ? 's' : ''}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="opacity-70">Currency</label>
+          <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-col gap-2" ref={listRef}>
@@ -263,6 +372,13 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
             }}
           >
             <div className="flex items-center gap-2 min-w-0">
+              <input
+                type="checkbox"
+                checked={selected.has(c.id)}
+                onChange={() => toggleSelect(c.id)}
+                className="w-4 h-4 rounded border-neutral-700 bg-neutral-950 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0"
+                onClick={(e) => e.stopPropagation()}
+              />
               <input
                 type="number"
                 className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"

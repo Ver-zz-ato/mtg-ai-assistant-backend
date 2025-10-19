@@ -21,6 +21,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   const [name, setName] = useState("");
   const [qty, setQty] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   function showToast(msg: string) {
     setToast(msg);
@@ -88,6 +89,91 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
     await load();
     if (delta > 0) showToast(`Added x${delta} ${item.name}`);
     else if (delta < 0) showToast(`Removed x${Math.abs(delta)} ${item.name}`);
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === items.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(items.map(i => i.id)));
+    }
+  }
+
+  async function bulkDelete() {
+    if (!collectionId || selected.size === 0) return;
+    
+    const itemsToDelete = items.filter(i => selected.has(i.id));
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    const { capture } = await import('@/lib/ph');
+    
+    // OPTIMISTIC UI: Remove from UI immediately
+    setItems(prev => prev.filter(i => !selected.has(i.id)));
+    setSelected(new Set());
+    
+    // Track bulk delete
+    try {
+      capture('bulk_delete_collection_items', {
+        collection_id: collectionId,
+        count: itemsToDelete.length,
+        item_names: itemsToDelete.map(i => i.name).join(', ')
+      });
+    } catch {}
+    
+    // Delete from database immediately (in background)
+    const deletePromises = itemsToDelete.map(item =>
+      fetch(`/api/collections/cards`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id }),
+      })
+    );
+    
+    // Execute all deletions
+    Promise.all(deletePromises)
+      .catch((e) => {
+        console.error('Failed to bulk delete:', e);
+        // Reload to show actual state if deletion failed
+        load();
+      });
+    
+    // Show undo toast
+    undoToastManager.showUndo({
+      id: 'bulk-delete-collection-items',
+      message: `${itemsToDelete.length} item${itemsToDelete.length > 1 ? 's' : ''} deleted`,
+      duration: 8000,
+      onUndo: async () => {
+        // Restore all deleted items
+        try {
+          for (const item of itemsToDelete) {
+            await fetch(`/api/collections/cards`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ collectionId, name: item.name, qty: item.qty }),
+            });
+          }
+          showToast(`Restored ${itemsToDelete.length} items`);
+          await load();
+        } catch (e) {
+          console.error('Failed to undo bulk delete:', e);
+          alert('Failed to undo deletion');
+        }
+      },
+      onExecute: () => {
+        // Already executed above, this is just for the toast interface
+      },
+    });
   }
 
   async function remove(item: Item) {
@@ -197,14 +283,36 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       {loading && <div className="text-xs opacity-70">Loading…</div>}
       {error && <div className="text-xs text-red-500">Error: {error}</div>}
 
-      {/* Currency toggle */}
-      <div className="mt-2 flex items-center justify-end gap-2 text-xs">
-        <label className="opacity-70">Currency</label>
-        <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-          <option value="GBP">GBP</option>
-        </select>
+      {/* Bulk actions and Currency toggle */}
+      <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2">
+          {items.length > 0 && (
+            <>
+              <button
+                onClick={toggleSelectAll}
+                className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 transition-colors"
+              >
+                {selected.size === items.length && items.length > 0 ? 'Deselect All' : 'Select All'}
+              </button>
+              {selected.size > 0 && (
+                <button
+                  onClick={bulkDelete}
+                  className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+                >
+                  Delete {selected.size} item{selected.size > 1 ? 's' : ''}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="opacity-70">Currency</label>
+          <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
       </div>
 
       {!loading && !error && (
@@ -214,6 +322,12 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
             {items.map((it) => (
               <li key={it.id} className="flex items-center justify-between rounded border px-3 py-2">
                 <span className="text-sm inline-flex items-center gap-2 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(it.id)}
+                    onChange={() => toggleSelect(it.id)}
+                    className="w-4 h-4 rounded border-neutral-700 bg-neutral-950 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0"
+                  />
                   <input type="number" min={0} step={1} value={it.qty}
                     className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"
                     onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - it.qty; if (d!==0) bump(it, d); }} />

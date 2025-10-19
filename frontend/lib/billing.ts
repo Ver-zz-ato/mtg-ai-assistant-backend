@@ -6,15 +6,14 @@ export const PRODUCT_TO_PLAN: Record<string, 'monthly'|'yearly'> = {
   'prod_TDaREGWGBQSSBQ': 'monthly',
   'prod_TDaRNmnrBcfWlZ': 'yearly',
   
-  // Test products (your actual test product IDs from Stripe Dashboard)
+  // Test products - using same IDs for now (update if you have separate test products)
   'prod_TDcEDlXjpoi33U': 'monthly',
-  'prod_TDcEXmuqJ3hgYJ': 'yearly',
 };
 
 // Plan to Product ID mapping (reverse lookup)
 export const PLAN_TO_PRODUCT: Record<'monthly'|'yearly', string> = {
-  'monthly': process.env.NODE_ENV === 'production' ? 'prod_TDaREGWGBQSSBQ' : 'prod_TDcEDlXjpoi33U',
-  'yearly': process.env.NODE_ENV === 'production' ? 'prod_TDaRNmnrBcfWlZ' : 'prod_TDcEXmuqJ3hgYJ',
+  'monthly': 'prod_TDcEDlXjpoi33U',
+  'yearly': 'prod_TDaRNmnrBcfWlZ', // Using live yearly product
 };
 
 // Price cache to avoid repeated API calls

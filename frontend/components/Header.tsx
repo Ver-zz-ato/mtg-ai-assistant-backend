@@ -6,6 +6,8 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { capture } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
+import RateLimitIndicator from './RateLimitIndicator';
 
 export default function Header() {
   const supabase = createBrowserSupabaseClient();
@@ -14,6 +16,7 @@ export default function Header() {
   const [sessionUser, setSessionUser] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [avatar, setAvatar] = useState<string>("");
+  const [isPro, setIsPro] = useState<boolean>(false);
   const [showSignUp, setShowSignUp] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -25,22 +28,45 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement>(null);
+  const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const u = data.user;
       setSessionUser(u?.email ?? null);
       const md: any = u?.user_metadata || {};
       setDisplayName((md.username || u?.email || "").toString());
       setAvatar((md.avatar || "").toString());
+      
+      // Fetch Pro status
+      if (u) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', u.id)
+          .single();
+        setIsPro(profile?.is_pro || false);
+      }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
       const u = session?.user as any;
       setSessionUser(u?.email ?? null);
       const md = (u?.user_metadata || {}) as any;
       setDisplayName((md.username || u?.email || "").toString());
       setAvatar((md.avatar || "").toString());
+      
+      // Fetch Pro status
+      if (u) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', u.id)
+          .single();
+        setIsPro(profile?.is_pro || false);
+      } else {
+        setIsPro(false);
+      }
     });
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,6 +124,35 @@ export default function Header() {
     }
   }
 
+  // Fetch user stats when signup modal opens
+  useEffect(() => {
+    if (showSignUp && !userStats) {
+      fetch('/api/stats/users')
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            setUserStats({ totalUsers: data.totalUsers, recentDecks: data.recentDecks });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [showSignUp, userStats]);
+
+  // Listen for auth modal open events from guest components
+  useEffect(() => {
+    const handleOpenAuth = (e: any) => {
+      const mode = e.detail?.mode;
+      if (mode === 'signup') {
+        setShowSignUp(true);
+      } else if (mode === 'signin') {
+        // Could add sign in modal here if needed
+      }
+    };
+
+    window.addEventListener('open-auth-modal', handleOpenAuth);
+    return () => window.removeEventListener('open-auth-modal', handleOpenAuth);
+  }, []);
+
   return (
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
@@ -117,6 +172,13 @@ export default function Header() {
             }}
           >
             My Decks
+          </Link>
+          <Link 
+            href="/decks/browse" 
+            className="text-sm hover:underline text-purple-400 font-medium"
+            onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
+          >
+            Browse Decks
           </Link>
           <Link 
             href="/collections" 
@@ -226,6 +288,12 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* Rate Limit Indicator (Pro only) */}
+          {sessionUser && <RateLimitIndicator isPro={isPro} />}
 
           {sessionUser ? (
             <>
@@ -445,9 +513,28 @@ export default function Header() {
                   ×
                 </button>
                 <div className="text-xl font-semibold mb-2">Create account</div>
-                <div className="text-sm text-neutral-400 mb-4">
+                <div className="text-sm text-neutral-400 mb-2">
                   Save decks, like builds, and unlock Pro features.
                 </div>
+                
+                {/* Social proof */}
+                {userStats && (
+                  <div className="mb-4 p-3 bg-emerald-600/10 border border-emerald-600/30 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-emerald-400 font-semibold">
+                          Join {userStats.totalUsers.toLocaleString()}+ deck builders
+                        </span>
+                      </div>
+                    </div>
+                    {userStats.recentDecks > 0 && (
+                      <div className="text-xs text-emerald-300/70 mt-1">
+                        {userStats.recentDecks} deck{userStats.recentDecks !== 1 ? 's' : ''} built in the last hour
+                      </div>
+                    )}
+                  </div>
+                )}
                 <form onSubmit={async (e) => { 
                   e.preventDefault(); 
                   

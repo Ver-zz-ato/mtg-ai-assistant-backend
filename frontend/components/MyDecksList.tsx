@@ -6,6 +6,7 @@ import DeckArtLoader from './DeckArtLoader';
 import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
 import { capture } from '@/lib/ph';
+import { EmptyDecksState } from './EmptyStates';
 
 interface DeckRow {
   id: string;
@@ -45,7 +46,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
   }, [rows]);
 
   if (rows.length === 0) {
-    return <div className="text-gray-400">No decks saved yet.</div>;
+    return <EmptyDecksState />;
   }
 
   async function deleteDeck(deckId: string, deckName: string) {
@@ -122,7 +123,36 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                   ) : loading ? (
                     <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-neutral-900 to-black" />
+                    // Empty state placeholder with gradient and icon
+                    <div className="w-full h-full bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden">
+                      {/* Subtle pattern */}
+                      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                      
+                      {stats?.cardCount === 0 || stats?.cardCount === undefined ? (
+                        // No cards: Show "Add cards" CTA
+                        <div className="text-center z-10">
+                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-600/20 border-2 border-dashed border-emerald-600/40 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </div>
+                          <div className="text-sm text-emerald-300 font-medium">Add cards to see art</div>
+                          <div className="text-xs text-neutral-400 mt-1">Click to start building</div>
+                        </div>
+                      ) : (
+                        // Has cards but no art: Show mana symbol
+                        <div className="text-center z-10">
+                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-600/20 border-2 border-blue-600/40 flex items-center justify-center">
+                            <svg className="w-10 h-10 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="12" cy="12" r="10" opacity="0.3" />
+                              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                            </svg>
+                          </div>
+                          <div className="text-sm text-blue-300 font-medium">Loading art...</div>
+                          <div className="text-xs text-neutral-400 mt-1">{stats.cardCount} cards</div>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />

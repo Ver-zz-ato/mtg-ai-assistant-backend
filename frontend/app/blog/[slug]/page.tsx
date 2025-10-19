@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+// Cache for 24 hours (blog content changes infrequently)
+export const revalidate = 86400;
+
 // This will be replaced with actual MDX content later
 const blogContent: Record<string, {
   title: string;

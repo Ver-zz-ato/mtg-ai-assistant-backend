@@ -1,6 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 
+// Cache for 1 hour (static legal content)
+export const revalidate = 3600;
+
 function formatToday(): string {
   try {
     const d = new Date();

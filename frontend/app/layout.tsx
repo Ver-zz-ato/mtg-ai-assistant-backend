@@ -14,6 +14,11 @@ import PWAProvider from "@/components/PWAProvider";
 import FirstVisitTracker from "@/components/FirstVisitTracker";
 import TrustFooter from "@/components/TrustFooter";
 import UndoToast from "@/components/UndoToast";
+import KeyboardShortcutsProvider from "@/components/KeyboardShortcutsProvider";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import GuestExitWarning from "@/components/GuestExitWarning";
+import IOSInstallPrompt from "@/components/iOSInstallPrompt";
+import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://manatap.ai"),
@@ -54,20 +59,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <Providers>
-          <FirstVisitTracker />
-          <AnalyticsProvider />
-          <PromoBar />
-          <MaintenanceBanner />
-          <ErrorBoundary>
-            <Header />
-            <main className="flex-1">{children}</main>
-          </ErrorBoundary>
-          <CookieBanner />
-          <FeedbackFab />
-          <PWAProvider />
-          <TrustFooter />
-          <SupportWidgets />
-          <UndoToast />
+          <KeyboardShortcutsProvider>
+            <FirstVisitTracker />
+            <AnalyticsProvider />
+            <PromoBar />
+            <MaintenanceBanner />
+            <ErrorBoundary>
+              <Header />
+              <main className="flex-1">{children}</main>
+            </ErrorBoundary>
+            <CookieBanner />
+            <FeedbackFab />
+            <PWAProvider />
+            <TrustFooter />
+            <SupportWidgets />
+            <UndoToast />
+            <ServiceWorkerRegistration />
+            <GuestExitWarning />
+            <IOSInstallPrompt />
+            <EmailVerificationReminder />
+          </KeyboardShortcutsProvider>
         </Providers>
       </body>
     </html>

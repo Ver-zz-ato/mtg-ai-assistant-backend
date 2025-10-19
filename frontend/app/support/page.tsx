@@ -1,6 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 
+// Cache for 1 hour (static support content)
+export const revalidate = 3600;
+
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">

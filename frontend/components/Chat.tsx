@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
+import GuestLimitModal from "@/components/GuestLimitModal";
 import { capture } from "@/lib/ph";
 import { postMessage, postMessageStream, listMessages } from "@/lib/threads";
 import { 
@@ -103,6 +104,7 @@ function Chat() {
   const [fallbackBanner, setFallbackBanner] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   
   const recognitionRef = useRef<any>(null);
   const streamStartTimeRef = useRef<number>(0);
@@ -178,6 +180,38 @@ function Chat() {
   }, []);
 
   const extrasOn = flags ? (flags.chat_extras !== false) : true;
+
+  // Guest chat persistence - save messages to localStorage
+  useEffect(() => {
+    if (!isLoggedIn && messages.length > 0) {
+      try {
+        localStorage.setItem('guest_chat_messages', JSON.stringify(messages));
+        localStorage.setItem('guest_chat_thread_id', threadId || '');
+        // Dispatch event for exit warning component
+        window.dispatchEvent(new Event('guest-message-sent'));
+      } catch {}
+    }
+  }, [isLoggedIn, messages, threadId]);
+
+  // Restore guest messages on mount
+  useEffect(() => {
+    if (!isLoggedIn) {
+      try {
+        const storedMessages = localStorage.getItem('guest_chat_messages');
+        const storedThreadId = localStorage.getItem('guest_chat_thread_id');
+        if (storedMessages) {
+          const parsed = JSON.parse(storedMessages);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+            if (storedThreadId) {
+              setThreadId(storedThreadId);
+            }
+            capture('guest_chat_restored', { message_count: parsed.length });
+          }
+        }
+      } catch {}
+    }
+  }, []); // Only run on mount
 
   // Message management functions
   let currentAbort: AbortController | null = null;
@@ -397,8 +431,23 @@ function Chat() {
     // Check guest message limits
     if (!isLoggedIn && guestMessageCount >= 20) {
       trackFeatureLimitHit('guest_chat', guestMessageCount, 20);
-      alert('You\'ve reached the guest message limit of 20 messages. Please sign in to continue chatting!');
+      setShowGuestLimitModal(true);
       return;
+    }
+    
+    // Show warnings at 15 and 18 messages
+    if (!isLoggedIn) {
+      if (guestMessageCount === 14) {
+        // 15th message - first warning
+        const { toast } = await import('@/lib/toast-client');
+        toast('⚠️ 5 messages left - Sign up to continue chatting!', 'warning');
+        capture('guest_limit_warning_15');
+      } else if (guestMessageCount === 17) {
+        // 18th message - urgent warning
+        const { toast } = await import('@/lib/toast-client');
+        toast('🚨 Only 2 messages left! Create a free account to keep chatting.', 'warning');
+        capture('guest_limit_warning_18');
+      }
     }
     
     // Track user action for error boundary context
@@ -1228,6 +1277,13 @@ function Chat() {
           </div>
         </div>
       </div>
+      
+      {/* Guest limit modal */}
+      <GuestLimitModal 
+        isOpen={showGuestLimitModal} 
+        onClose={() => setShowGuestLimitModal(false)}
+        messageCount={guestMessageCount}
+      />
     </div>
   );
 }
