@@ -236,13 +236,13 @@ export default function Header() {
             Pricing
           </Link>
           
-          {/* Support & Terms Menu */}
+          {/* Help Menu */}
           <div className="relative" ref={helpMenuRef}>
             <button
               onClick={() => setShowHelpMenu(!showHelpMenu)}
               className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
             >
-              Support & Terms
+              Help
               <span className="text-xs">▾</span>
             </button>
             
@@ -323,15 +323,19 @@ export default function Header() {
                 {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
                 <span className="hidden md:block truncate">{displayName || sessionUser}</span>
               </span>
-              <Link
+              <a
                 href="/profile"
-                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1"
+                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1 cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = '/profile';
+                }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Profile
-              </Link>
+              </a>
               <button
                 onClick={signOut}
                 className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0"

@@ -102,7 +102,7 @@ function Chat() {
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [streamAbort, setStreamAbort] = useState<AbortController | null>(null);
   const [fallbackBanner, setFallbackBanner] = useState<string>("");
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking, false = guest, true = logged in
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   
@@ -961,12 +961,7 @@ function Chat() {
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">AI Assistant</h1>
-            {!threadId && (
-              <span className="text-xs px-2 py-1 bg-neutral-800 rounded-full text-neutral-400">
-                New Chat
-              </span>
-            )}
-            {!isLoggedIn && (
+            {isLoggedIn === false && (
               <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
                 Guest Mode ({guestMessageCount}/20)
               </span>

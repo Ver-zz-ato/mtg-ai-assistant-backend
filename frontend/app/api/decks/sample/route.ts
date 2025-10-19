@@ -81,9 +81,64 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Parse deck list and insert individual cards into deck_cards table
+    try {
+      const lines = sampleDeck.deckList.split('\n').filter(l => l.trim());
+      const cardRows: Array<{ deck_id: string; card_name: string; quantity: number; category?: string }> = [];
+      
+      let currentCategory = 'mainboard';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        
+        // Check for category markers
+        if (trimmed.toLowerCase().startsWith('commander') || trimmed.toLowerCase().includes('commander:')) {
+          currentCategory = 'commander';
+          continue;
+        } else if (trimmed.toLowerCase().startsWith('sideboard')) {
+          currentCategory = 'sideboard';
+          continue;
+        } else if (trimmed.toLowerCase().startsWith('mainboard') || trimmed.toLowerCase().startsWith('deck')) {
+          currentCategory = 'mainboard';
+          continue;
+        }
+        
+        // Parse card line (format: "1x Card Name" or "1 Card Name")
+        const match = trimmed.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+        if (match) {
+          const quantity = parseInt(match[1], 10);
+          const cardName = match[2].trim();
+          
+          if (cardName && quantity > 0) {
+            cardRows.push({
+              deck_id: newDeck.id,
+              card_name: cardName,
+              quantity: quantity,
+              category: currentCategory,
+            });
+          }
+        }
+      }
+      
+      // Insert all cards in one batch
+      if (cardRows.length > 0) {
+        const { error: cardsError } = await supabase
+          .from('deck_cards')
+          .insert(cardRows);
+        
+        if (cardsError) {
+          console.error('Error inserting deck cards:', cardsError);
+          // Don't fail the whole import, just log it
+        } else {
+          console.log(`Inserted ${cardRows.length} cards for deck ${newDeck.id}`);
+        }
+      }
+    } catch (parseError) {
+      console.error('Error parsing deck list:', parseError);
+      // Don't fail the import, just log it
+    }
+
     // Track the event
     try {
-      // You can add analytics tracking here if needed
       console.log(`Sample deck imported: ${sampleDeck.name} for user ${user.id}`);
     } catch (e) {
       // Non-critical, ignore analytics errors
