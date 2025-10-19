@@ -340,12 +340,20 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
           </p>
         )}
         
-        {selectedDeckIds.length === 2 && !isPro && (
-          <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <p className="text-sm text-amber-300">
-              💎 <strong>Pro Feature:</strong> Compare up to 3 decks! <a href="/pricing" className="underline">Upgrade now</a>
-            </p>
-          </div>
+        {selectedDeckIds.length === 2 && (
+          isPro ? (
+            <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+              <p className="text-sm text-purple-300">
+                ⭐ <strong>Pro Member:</strong> You can select a 3rd deck to compare!
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-sm text-amber-300">
+                💎 <strong>Pro Feature:</strong> Compare up to 3 decks! <a href="/pricing" className="underline">Upgrade now</a>
+              </p>
+            </div>
+          )
         )}
       </div>
 

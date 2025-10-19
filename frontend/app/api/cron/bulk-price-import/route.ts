@@ -27,6 +27,19 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Bulk Price Import API - Use POST method to run the import",
+    info: {
+      method: "POST",
+      auth: "Requires admin authentication or cron key header (x-cron-key)",
+      duration: "~3-5 minutes",
+      coverage: "Updates prices for all cached cards from Scryfall bulk data"
+    }
+  });
+}
+
 export async function POST(req: NextRequest) {
   console.log("💰 Bulk price import endpoint called");
   

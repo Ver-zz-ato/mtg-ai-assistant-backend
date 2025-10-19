@@ -134,6 +134,7 @@ function CollectionsPageClientBody() {
     const timeout = setTimeout(() => {
       console.error('[Collections] Auth check timeout - forcing completion');
       setAuthLoading(false);
+      setLoading(false); // Also stop main loading if auth times out
     }, 5000);
     
     supabase.auth.getUser()
@@ -144,17 +145,27 @@ function CollectionsPageClientBody() {
         }
         setUser(data.user);
         setAuthLoading(false);
+        
+        // If no user, stop loading immediately
+        if (!data.user) {
+          setLoading(false);
+        }
       })
       .catch((err) => {
         clearTimeout(timeout);
         console.error('[Collections] Auth exception:', err);
         setAuthLoading(false);
+        setLoading(false); // Stop loading on auth failure
       });
   }, []);
   
   // Load collections only if logged in
   useEffect(() => { 
-    if (user && !authLoading) {
+    if (!authLoading && !user) {
+      // Not logged in - stop loading
+      setLoading(false);
+    } else if (user && !authLoading) {
+      // Logged in - load collections
       loadCollections(); 
     }
   }, [user, authLoading]);

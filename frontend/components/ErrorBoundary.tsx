@@ -1,156 +1,65 @@
 'use client';
-import React from 'react';
-import posthog from 'posthog-js';
-import { toast } from '@/lib/toast-client';
-import { trackError } from '@/lib/analytics-performance';
-import { trackErrorBoundary } from '@/lib/analytics-enhanced';
 
-type ErrorBoundaryState = { 
-  hasError: boolean; 
-  errorId?: string;
-  error?: Error;
-};
+import React, { Component, ReactNode } from 'react';
 
-export default class ErrorBoundary extends React.Component<{ 
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}, ErrorBoundaryState> {
-  constructor(props: any) {
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export default class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    return { hasError: true, errorId, error };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: any, info: any) {
-    const errorId = this.state.errorId;
-    const componentName = this.extractComponentName(info?.componentStack);
-    
-    // Enhanced error tracking with our new system
-    trackErrorBoundary(
-      componentName,
-      String(error?.message || error),
-      String(error?.stack || ''),
-      this.getLastUserAction()
-    );
-    
-    // Legacy performance tracking (keep for compatibility)
-    trackError('error.client_error', {
-      error_type: 'react_error_boundary',
-      error_message: String(error?.message || error),
-      component: componentName,
-      user_action: 'component_render',
-    });
-    
-    // Legacy PostHog tracking (keep for compatibility)
-    try {
-      posthog.capture('ui_error', {
-        message: String(error?.message || error),
-        stack: String(error?.stack || ''),
-        componentStack: String(info?.componentStack || ''),
-        path: typeof window !== 'undefined' ? window.location.pathname : '',
-        error_id: errorId,
-        timestamp: new Date().toISOString()
-      });
-    } catch {}
-    
-    // Server-side error logging
-    try { 
-      fetch('/api/admin/errors', { 
-        method:'POST', 
-        headers:{'content-type':'application/json'}, 
-        body: JSON.stringify({ 
-          kind:'ui', 
-          message: String(error?.message||''), 
-          stack: String(info?.componentStack||''), 
-          path: typeof window !== 'undefined' ? window.location.pathname : '',
-          error_id: errorId,
-          timestamp: new Date().toISOString()
-        }) 
-      }); 
-    } catch {}
-    
-    try { toast('Something went wrong. Please try again.', 'error'); } catch {}
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
-  
-  private extractComponentName(componentStack?: string): string {
-    if (!componentStack) return 'unknown_component';
-    const match = componentStack.match(/\s+at\s+(\w+)/);
-    return match?.[1] || 'unknown_component';
-  }
-  
-  private getLastUserAction(): string {
-    // Try to get last user action from sessionStorage or detect from URL
-    try {
-      const lastAction = sessionStorage.getItem('last_user_action');
-      if (lastAction) return lastAction;
-    } catch {}
-    
-    // Fallback: infer from current URL
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.includes('/chat')) return 'chat_interaction';
-      if (path.includes('/my-decks')) return 'deck_management';
-      if (path.includes('/collections')) return 'collection_management';
-      if (path.includes('/profile')) return 'profile_editing';
-    }
-    
-    return 'unknown_action';
-  }
-  
-  private handleRetry = () => {
-    this.setState({ hasError: false, errorId: undefined, error: undefined });
-    try {
-      posthog.capture('error_boundary_retry', {
-        error_id: this.state.errorId,
-        timestamp: new Date().toISOString()
-      });
-    } catch {}
-  };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
-      
-      // Default error UI with retry option
+
       return (
-        <div className="flex items-center justify-center min-h-[200px] p-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md w-full">
-            <div className="flex items-center mb-2">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        <div className="min-h-[400px] flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-red-500/10 border border-red-500/30 rounded-xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  Something went wrong
-                </h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-400 mb-2">Something went wrong</h3>
+                <p className="text-sm text-red-300/80 mb-4">
+                  {this.state.error?.message || 'An unexpected error occurred'}
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-sm font-medium transition-colors text-red-300"
+                >
+                  Reload Page
+                </button>
               </div>
-            </div>
-            <div className="mt-2 text-sm text-red-700">
-              <p>We encountered an unexpected error. Please try again.</p>
-              {this.state.errorId && (
-                <p className="mt-1 text-xs opacity-60">Error ID: {this.state.errorId}</p>
-              )}
-            </div>
-            <div className="mt-4">
-              <button
-                onClick={this.handleRetry}
-                className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 transition-colors"
-              >
-                Try Again
-              </button>
             </div>
           </div>
         </div>
       );
     }
-    return this.props.children as any;
+
+    return this.props.children;
   }
 }
+
