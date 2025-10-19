@@ -38,10 +38,15 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    // PERFORMANCE OPTIMIZATION: Fetch stats and tags in parallel batches
-    // NON-BLOCKING: Uses AbortController so navigation isn't blocked
+    // PERFORMANCE FIX: Delay data fetching to make page interactive first
+    // This prevents blocking navigation when clicking decks immediately after page load
     const abortController = new AbortController();
     let mounted = true;
+
+    // Wait 100ms before starting fetches to allow page to become interactive
+    const delayTimer = setTimeout(() => {
+      fetchDeckData();
+    }, 100);
 
     const fetchDeckData = async () => {
       if (mounted) setIsLoadingData(true);
@@ -104,15 +109,14 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
       }
     };
 
-    if (rows.length > 0) {
-      fetchDeckData();
-    } else {
+    if (rows.length === 0) {
       setIsLoadingData(false);
     }
 
-    // Cleanup: Cancel all pending requests when component unmounts or navigating away
+    // Cleanup: Cancel timer and all pending requests when component unmounts or navigating away
     return () => {
       mounted = false;
+      clearTimeout(delayTimer);
       abortController.abort();
     };
   }, [rows]);
