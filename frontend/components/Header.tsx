@@ -198,14 +198,14 @@ export default function Header() {
 
   return (
     <header className="w-full border-b">
-      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-semibold flex items-center gap-2">
+      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between gap-4">
+        <Link href="/" className="font-semibold flex items-center gap-2 flex-shrink-0">
           <Logo size={63} />
-          <span className="hidden sm:block text-3xl font-bold">ManaTap AI</span>
+          <span className="hidden sm:block text-3xl font-bold whitespace-nowrap">ManaTap AI</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-3">
+        <nav className="hidden lg:flex items-center gap-3 flex-shrink-0">
           <Link 
             href="/changelog" 
             className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1"
@@ -319,10 +319,6 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {sessionUser ? (
             <div className="flex items-center gap-2 ml-3">
-              <span className="flex items-center gap-2 text-xs opacity-90 max-w-[120px] truncate" data-tour="profile-user">
-                {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
-                <span className="hidden md:block truncate">{displayName || sessionUser}</span>
-              </span>
               <a
                 href="/profile"
                 className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1 cursor-pointer"
@@ -336,6 +332,10 @@ export default function Header() {
                 </svg>
                 Profile
               </a>
+              <span className="flex items-center gap-2 text-xs opacity-90 max-w-[120px] truncate" data-tour="profile-user">
+                {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
+                <span className="hidden md:block truncate">{displayName || sessionUser}</span>
+              </span>
               <button
                 onClick={signOut}
                 className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0"

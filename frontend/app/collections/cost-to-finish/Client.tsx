@@ -296,6 +296,15 @@ export default function CostToFinishClient() {
       setShopItems([]);
       setRiskMap({});
 
+      // Show "taking longer than expected" toast after 8 seconds
+      const slowToastTimer = setTimeout(() => {
+        try {
+          import('@/lib/toast-client').then(({ toast }) => {
+            toast('💭 Crunching numbers... Large decks can take up to 30 seconds.', 'info');
+          });
+        } catch {}
+      }, 8000);
+
       const payload: any = {
         deckId: deckId || undefined,
         deckText: deckText || undefined,
@@ -312,7 +321,10 @@ export default function CostToFinishClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(90000), // 90 second timeout
       });
+      
+      clearTimeout(slowToastTimer);
 
       const j = await res.json();
       if (!res.ok || !j?.ok) {

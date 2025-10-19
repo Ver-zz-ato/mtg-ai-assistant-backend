@@ -13,10 +13,19 @@ const getMostLiked = unstable_cache(
       .from('decks')
       .select('id, title')
       .eq('is_public', true)
-      .limit(50);
+      .limit(100); // Get more to filter
     const rows = Array.isArray(decks) ? decks as any[] : [];
     const pairs: { id: string; title: string; count: number }[] = [];
     for (const d of rows) {
+      // Check if deck has at least 10 cards
+      const { count: cardCount } = await supabase
+        .from('deck_cards')
+        .select('id', { count: 'exact', head: true })
+        .eq('deck_id', d.id);
+      
+      // Skip decks with fewer than 10 cards
+      if ((cardCount || 0) < 10) continue;
+      
       const { count } = await supabase
         .from('deck_likes')
         .select('deck_id', { count: 'exact', head: true })
