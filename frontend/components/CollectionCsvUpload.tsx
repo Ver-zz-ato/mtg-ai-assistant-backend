@@ -5,7 +5,17 @@ import { capture } from "@/lib/ph";
 import { trackCollectionImportWorkflow } from '@/lib/analytics-workflow';
 import CollectionImportPreview, { PreviewCard } from './CollectionImportPreview';
 
-export default function CollectionCsvUpload({ collectionId, onDone }: { collectionId: string; onDone?: () => void }) {
+type ImportMode = 'new' | 'existing';
+
+export default function CollectionCsvUpload({ 
+  collectionId, 
+  onDone, 
+  mode = 'existing' 
+}: { 
+  collectionId: string; 
+  onDone?: () => void; 
+  mode?: ImportMode;
+}) {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<{added:number;updated:number;skipped:string[];total:number;parser?:any} | null>(null);
   const [progress, setProgress] = useState(0);
@@ -37,11 +47,11 @@ export default function CollectionCsvUpload({ collectionId, onDone }: { collecti
     setStatusText('Parsing CSV...');
     
     try {
-      // If collectionId is 'prompt', create a new collection from filename
       let actualCollectionId = collectionId;
       let actualCollectionName = '';
       
-      if (collectionId === 'prompt') {
+      // For 'new' mode, always create a new collection from filename
+      if (mode === 'new' || collectionId === 'prompt') {
         setProgress(10);
         setStatusText('Creating new collection...');
         
@@ -123,10 +133,19 @@ export default function CollectionCsvUpload({ collectionId, onDone }: { collecti
       });
       
       setPreviewCards(preview);
-      setProgress(100);
-      setStatusText('');
-      setBusy(false);
-      setShowPreview(true);
+      
+      // If mode is 'new', skip preview and import directly
+      if (mode === 'new') {
+        // Auto-import all found cards (skip notfound ones)
+        const foundCards = preview.filter(c => c.matchStatus !== 'notfound');
+        await directImport(foundCards, actualCollectionId, actualCollectionName);
+      } else {
+        // Show preview modal for existing collection
+        setProgress(100);
+        setStatusText('');
+        setBusy(false);
+        setShowPreview(true);
+      }
       
     } catch (e: any) {
       trackCollectionImportWorkflow('abandoned', { current_step: 3, abandon_reason: 'parse_failed' });
@@ -139,7 +158,80 @@ export default function CollectionCsvUpload({ collectionId, onDone }: { collecti
     }
   }
 
-  async function handleConfirmImport(selectedCards: PreviewCard[], mode: 'merge' | 'overwrite') {
+  // Direct import function (for 'new' mode)
+  async function directImport(cards: PreviewCard[], collectionId: string, collectionName: string) {
+    const { toast } = await import('@/lib/toast-client');
+    
+    setProgress(60);
+    setStatusText(`Importing ${cards.length} cards...`);
+    
+    try {
+      let added = 0;
+      let failed = 0;
+      const batchSize = 10;
+      
+      for (let i = 0; i < cards.length; i += batchSize) {
+        const batch = cards.slice(i, i + batchSize);
+        const batchProgress = 60 + ((i / cards.length) * 30);
+        setProgress(batchProgress);
+        setStatusText(`Importing cards ${i + 1}-${Math.min(i + batchSize, cards.length)} of ${cards.length}...`);
+        
+        const batchResults = await Promise.all(
+          batch.map(async (card) => {
+            try {
+              const res = await fetch(`/api/collections/cards`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  collectionId,
+                  name: card.originalName,
+                  qty: card.quantity,
+                }),
+              });
+              
+              return res.ok ? 'added' : 'failed';
+            } catch {
+              return 'failed';
+            }
+          })
+        );
+        
+        added += batchResults.filter(r => r === 'added').length;
+        failed += batchResults.filter(r => r === 'failed').length;
+      }
+      
+      setProgress(100);
+      setStatusText('Complete!');
+      setReport({ added, updated: 0, skipped: [], total: cards.length });
+      
+      trackCollectionImportWorkflow('completed', { 
+        cards_added: added,
+        cards_failed: failed,
+        total_processed: cards.length,
+        mode: 'direct'
+      });
+      
+      toast(`✅ Collection created! ${added} cards imported${failed > 0 ? `, ${failed} failed` : ''}.`, 'success');
+      
+      setTimeout(() => {
+        window.location.href = `/collections/${collectionId}`;
+      }, 1500);
+      
+      onDone?.();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("collection:csv-imported", { detail: { collectionId } }));
+        try { capture("collection_imported"); } catch {}
+      }
+      
+    } catch (e: any) {
+      toast(e?.message || "Import failed", 'error');
+      setBusy(false);
+      setStatusText('');
+      setProgress(0);
+    }
+  }
+
+  async function handleConfirmImport(selectedCards: PreviewCard[], importMode: 'merge' | 'overwrite') {
     const { toast } = await import('@/lib/toast-client');
     
     setBusy(true);
@@ -149,7 +241,7 @@ export default function CollectionCsvUpload({ collectionId, onDone }: { collecti
     
     try {
       // If overwrite mode, delete all existing cards first
-      if (mode === 'overwrite') {
+      if (importMode === 'overwrite') {
         setProgress(10);
         setStatusText('Clearing collection...');
         const deleteRes = await fetch(`/api/collections/cards`, {
@@ -261,7 +353,7 @@ export default function CollectionCsvUpload({ collectionId, onDone }: { collecti
                 {Math.round(progress)}%
               </span>
             ) : (
-              "Import CSV"
+              mode === 'new' ? "Import a New Collection" : "Import CSV"
             )}
           </button>
           {report && !busy && (

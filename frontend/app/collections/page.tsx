@@ -369,8 +369,8 @@ function CollectionsPageClientBody() {
           {(()=>{ 
             try {
               const CollectionCsvUpload = require('@/components/CollectionCsvUpload').default;
-              // If no collection selected, show button that prompts to select one first
-              return <CollectionCsvUpload collectionId={qId || 'prompt'} onDone={loadCollections} />;
+              // Always uses 'new' mode to create a new collection from CSV
+              return <CollectionCsvUpload collectionId="prompt" mode="new" onDone={loadCollections} />;
             } catch {
               return null;
             }

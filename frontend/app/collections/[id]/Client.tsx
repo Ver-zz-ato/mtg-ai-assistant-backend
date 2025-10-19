@@ -253,7 +253,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
           {collectionId ? (
             <a href={`/collections/cost-to-finish?collectionId=${encodeURIComponent(String(collectionId))}`} className="text-xs underline underline-offset-4">Cost to Finish →</a>
           ) : null}
-          {collectionId ? <CollectionCsvUpload collectionId={collectionId} onDone={load} /> : null}
+          {collectionId ? <CollectionCsvUpload collectionId={collectionId} mode="existing" onDone={load} /> : null}
           {collectionId ? <ExportCollectionCSV collectionId={collectionId} small /> : null}
         </div>
       </div>
