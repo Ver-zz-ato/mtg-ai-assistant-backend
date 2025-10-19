@@ -87,21 +87,17 @@ export async function POST(req: NextRequest) {
       console.log('[Sample Deck] Deck list preview:', sampleDeck.deckList.substring(0, 200));
       
       const lines = sampleDeck.deckList.split('\n').filter(l => l.trim());
-      const cardRows: Array<{ deck_id: string; name: string; qty: number; category?: string }> = [];
+      const cardRows: Array<{ deck_id: string; name: string; qty: number }> = [];
       
-      let currentCategory = 'mainboard';
       for (const line of lines) {
         const trimmed = line.trim();
         
-        // Check for category markers
-        if (trimmed.toLowerCase().startsWith('commander') || trimmed.toLowerCase().includes('commander:')) {
-          currentCategory = 'commander';
-          continue;
-        } else if (trimmed.toLowerCase().startsWith('sideboard')) {
-          currentCategory = 'sideboard';
-          continue;
-        } else if (trimmed.toLowerCase().startsWith('mainboard') || trimmed.toLowerCase().startsWith('deck')) {
-          currentCategory = 'mainboard';
+        // Skip category markers (Commander, Sideboard, etc.)
+        if (trimmed.toLowerCase().startsWith('commander') || 
+            trimmed.toLowerCase().includes('commander:') ||
+            trimmed.toLowerCase().startsWith('sideboard') ||
+            trimmed.toLowerCase().startsWith('mainboard') ||
+            trimmed.toLowerCase().startsWith('deck')) {
           continue;
         }
         
@@ -116,7 +112,6 @@ export async function POST(req: NextRequest) {
               deck_id: newDeck.id,
               name: cardName,
               qty: quantity,
-              category: currentCategory,
             });
           }
         }
