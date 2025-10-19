@@ -24,31 +24,29 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           return;
         }
         
-        // First check database for authoritative Pro status
+        // Check BOTH profile table and user metadata
         const { data: profile } = await sb
           .from('profiles')
           .select('is_pro')
           .eq('id', user.id)
           .single();
         
+        const profileIsPro = Boolean(profile?.is_pro);
+        const md: any = user?.user_metadata || {};
+        const metadataIsPro = Boolean(md?.is_pro || md?.pro);
+        
+        // Use TRUE from either source (profile OR metadata)
+        const finalProStatus = profileIsPro || metadataIsPro;
+        
         console.log('🔍 Pro detection:', { 
           userId: user.id, 
-          profileIsPro: profile?.is_pro,
-          metadataIsPro: user?.user_metadata?.is_pro,
-          metadataPro: user?.user_metadata?.pro
+          profileIsPro,
+          metadataIsPro,
+          finalProStatus
         });
-          
-        if (profile) {
-          const proStatus = Boolean(profile.is_pro);
-          console.log('✅ Setting Pro from profile:', proStatus);
-          setIsPro(proStatus);
-        } else {
-          // Fallback to user metadata if profile not found
-          const md: any = user?.user_metadata || {};
-          const proStatus = Boolean(md?.is_pro || md?.pro);
-          console.log('✅ Setting Pro from metadata:', proStatus);
-          setIsPro(proStatus);
-        }
+        
+        console.log('✅ Setting Pro status:', finalProStatus);
+        setIsPro(finalProStatus);
       } catch {
         setIsPro(false);
       }
