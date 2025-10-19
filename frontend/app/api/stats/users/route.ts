@@ -5,6 +5,9 @@ import { memoGet, memoSet } from "@/lib/utils/memoCache";
 
 const HOUR = 60 * 60 * 1000;
 
+// Force dynamic rendering (uses cookies via Supabase client)
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // Check cache first

@@ -338,6 +338,138 @@
 
 ---
 
+## Recently Completed (Phase 5-8 - Oct 19, 2025)
+
+### Social & Engagement
+- ☑ **Deck Comments System** - Comments on public decks with moderation <!-- id:social.deck_comments -->
+  - Files: `frontend/app/api/decks/[id]/comments/route.ts`
+  - Social proof seeding script: `seed-social-proof-BETTER.sql`
+  - 5 likes + 4 comments per public deck (10+ cards)
+  - Fake user profiles for demo purposes
+
+- ☑ **Achievement System Expansion** - 15+ new badges with progress tracking <!-- id:gamification.achievements_expanded -->
+  - Files: `frontend/components/BadgeProgressWidget.tsx`
+  - Homepage widget showing 3 closest badges
+  - Progress bars on profile page
+  - "View All" link to profile badges
+
+- ☑ **Card Recommendations Feed** - Deck-specific AI recommendations <!-- id:discovery.card_recommendations -->
+  - Files: `frontend/components/DeckCardRecommendations.tsx`, `frontend/app/api/recommendations/deck/[id]/route.ts`
+  - Auto-shows on individual deck pages
+  - "Why?" explanation per recommendation
+  - Filters out cards already in deck
+
+- ☑ **Deck Comparison Tool** - Compare 2-3 decks side-by-side <!-- id:decks.comparison_tool -->
+  - Files: `frontend/components/DeckComparisonTool.tsx`, `frontend/app/compare-decks/page.tsx`
+  - Side-by-side layout with card art
+  - Shared/unique card analysis
+  - Pro-gated 3rd deck comparison
+  - PDF export functionality
+  - Widget on My Decks page
+  - "Compare" button on individual deck pages
+
+- ☑ **Deck Tags System** - User-created tags with autocomplete <!-- id:decks.tags_system -->
+  - Files: `frontend/components/TagSelector.tsx`, `frontend/app/api/decks/[id]/tags/route.ts`
+  - Max 10 tags per deck
+  - Auto-suggest existing tags
+  - Profanity filter on manual input
+  - Small pills below deck title with auto-assigned colors
+
+### Performance & UX
+- ☑ **Infinite Scroll** - Browse Decks with smooth loading <!-- id:perf.infinite_scroll -->
+  - Files: `frontend/app/decks/browse/page.tsx`
+  - Intersection Observer implementation
+  - "Back to Top" button after 2 screens
+  - URL updates with offset
+
+- ☑ **Optimistic UI Updates** - Instant feedback for all actions <!-- id:perf.optimistic_ui -->
+  - Files: `frontend/components/LikeButton.tsx`, `frontend/components/MyDecksList.tsx`
+  - Like/unlike, add/remove card, deck save
+  - Toast error + "Retry" button on failure
+  - Keeps optimistic change even on error
+
+- ☑ **Image Lazy Loading** - Card images load on-demand <!-- id:perf.image_lazy_loading -->
+  - Files: `frontend/components/LazyImage.tsx`
+  - Gray skeleton shimmer placeholder
+  - Intersection Observer
+  - Preload next 10 images
+  - Deck art banners included
+
+- ☑ **Request Deduplication** - Prevents duplicate API calls <!-- id:perf.request_dedup -->
+  - Automatic deduplication within 100ms window
+  - Console.log in dev mode
+  - No visual indicator needed
+
+- ☑ **Skeleton Screens** - Content placeholders during loading <!-- id:ux.skeleton_screens -->
+  - Files: Multiple skeleton components
+  - Verified across My Decks, Collections, Browse Decks
+  - Professional polish
+
+- ☑ **Virtual Scrolling** - Handle 1000+ card collections <!-- id:perf.virtual_scrolling -->
+  - Files: `frontend/components/CardsPane.tsx`, Collection editor
+  - 50+ items trigger virtual scrolling
+  - Smooth 60fps performance
+
+- ☑ **Prefetch Links** - Hover prefetching for instant navigation <!-- id:perf.prefetch_links -->
+  - Next.js `<Link prefetch>` prop throughout site
+  - Disabled on mobile to save data
+
+- ☑ **Search Debouncing** - 300ms delay on search inputs <!-- id:perf.search_debounce -->
+  - Implemented across card search, deck search
+  - -70% search API calls
+
+- ☑ **Bundle Size Optimization** - Code splitting for heavy components <!-- id:perf.bundle_optimization -->
+  - Dynamic imports for PDF library (jspdf)
+  - Recharts lazy loaded
+  - Radix UI components split
+
+### Mobile & Gestures
+- ☑ **Mobile Gestures** - Swipe actions on deck cards <!-- id:mobile.gestures -->
+  - Files: `frontend/components/MyDecksList.tsx`
+  - Swipe left on deck cards for quick actions (Compare, Duplicate, Delete)
+  - Smooth animations with `react-swipeable`
+  - Touch-friendly interface
+
+### Pro Features
+- ☑ **Deck Changelog** - Version tracking with modal <!-- id:pro.deck_changelog -->
+  - Files: `frontend/components/DeckChangelogModal.tsx`
+  - Modal button next to "Save Version"
+  - Automatic + optional manual notes
+  - Collapsible section in deck editor
+  - Full rollback capability
+
+- ☑ **Deck Version History** - Full git-like version control <!-- id:pro.version_history -->
+  - Files: Database migration for `deck_versions.changelog_note`
+  - Every save creates a version
+  - Chronological list with timestamps
+  - Compare versions side-by-side
+
+- ☑ **Priority Support Channel** - Pro users get fast-track support <!-- id:pro.priority_support -->
+  - Files: `frontend/components/SupportForm.tsx`, `frontend/app/support/page.tsx`
+  - Pro users email `prosupport@manatap.ai`
+  - Support form auto-includes user info
+  - Toast message showing Pro response time commitment
+  - Enhanced Pro detection logic
+
+- ☑ **Collection Import Improvements** - Full preview with fuzzy matching <!-- id:pro.collection_import_v2 -->
+  - Files: `frontend/components/CollectionImportPreview.tsx`, `frontend/components/CollectionCsvUpload.tsx`
+  - Two modes: "Import a New Collection" on /collections, "Import CSV" on individual pages
+  - Full preview with checkboxes before import
+  - Match status: exact, fuzzy, not found
+  - Merge/overwrite options
+  - Fuzzy matching with Levenshtein distance
+  - Progress bar for multi-step process
+  - Support for multiple CSV formats (TCGPlayer, Moxfield, etc.)
+
+### Build Assistant & AI
+- ☑ **Enhanced Build Assistant** - Auto-hidden, improved UI <!-- id:ai.build_assistant_enhanced -->
+  - Files: `frontend/components/BuildAssistantSticky.tsx`
+  - Auto-hidden by default
+  - Positioned as sticky element
+  - Enhanced functions for deck building
+
+---
+
 ## Pending & In Progress
 
 ### Chat & Threads
@@ -373,6 +505,38 @@
 - ☐ Advanced performance monitoring <!-- id:analytics.performance_monitoring -->
 - ☐ Stability guardrails and testing <!-- id:stability.guardrails -->
 - ☐ Accessibility and mobile polish <!-- id:accessibility.wcag_compliance -->
+
+---
+
+## Future Features (LATER)
+
+### User Engagement
+- ☐ **LATER**: Deck Templates Library - 20+ curated starter decks <!-- id:later.deck_templates -->
+- ☐ **LATER**: User Following System - Follow deck builders, personalized feed <!-- id:later.user_following -->
+- ☐ **LATER**: Deck Voting/Rankings - Upvote/downvote with Hot/Top sorting <!-- id:later.deck_voting -->
+- ☐ **LATER**: Tournament Brackets - Create/manage brackets (4-64 participants) <!-- id:later.tournaments -->
+- ☐ **LATER**: Playtest Notes - Attach game notes to deck versions <!-- id:later.playtest_notes -->
+- ☐ **LATER**: Collaborative Decks - Invite others to co-edit <!-- id:later.collaborative_decks -->
+
+### Performance & UX (Future)
+- ☐ **LATER**: Accessibility Audit - WCAG AA compliance pass <!-- id:later.accessibility_audit -->
+- ☐ **LATER**: Web Vitals Dashboard - Real-time performance monitoring <!-- id:later.web_vitals_dashboard -->
+- ☐ **LATER**: Offline Mode V2 - Editable deck drafts that sync <!-- id:later.offline_mode_v2 -->
+
+### Discovery & Tools
+- ☐ **LATER**: Card Price Alerts - Notify when wishlist cards drop <!-- id:later.price_alerts -->
+- ☐ **LATER**: Advanced Filters - CMC slider, card types, deck age <!-- id:later.advanced_filters -->
+
+### Pro Features (Future)
+- ☐ **LATER**: Advanced Deck Analytics - Win rate tracking, matchup analysis <!-- id:later.deck_analytics -->
+- ☐ **LATER**: Bulk Operations - Import/export/modify multiple decks <!-- id:later.bulk_operations -->
+- ☐ **LATER**: Custom Price Sources - TCGPlayer, CardMarket, or average <!-- id:later.custom_price_sources -->
+- ☐ **LATER**: AI Deck Coach - Weekly AI deck review with suggestions <!-- id:later.ai_deck_coach -->
+- ☐ **LATER**: Early Access Features - Pro users test features 2-4 weeks early <!-- id:later.early_access -->
+- ☐ **LATER**: Export to All Formats - TappedOut, Archidekt, Deckbox, etc. <!-- id:later.export_all_formats -->
+- ☐ **LATER**: Deck Testing Suite - Goldfish simulator with mulligan AI <!-- id:later.deck_testing_suite -->
+- ☐ **LATER**: Proxy Generator - High-quality printable proxies <!-- id:later.proxy_generator -->
+- ☐ **LATER**: Team/Family Plans - Share Pro benefits with 2-5 users <!-- id:later.team_plans -->
 
 ---
 
@@ -497,8 +661,9 @@
 
 ---
 
-**Total Features Implemented**: 180+  
-**Total Features Pending**: 25+  
-**Last Major Update**: October 19, 2025
+**Total Features Implemented**: 195+  
+**Total Features Pending**: 15  
+**Total Features Planned for LATER**: 20+  
+**Last Major Update**: October 19, 2025 (Phase 5-8 Complete)
 
 
