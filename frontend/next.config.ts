@@ -45,11 +45,12 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       // Images from Scryfall (cards + SVG mana symbols) and data URIs
       "img-src 'self' data: https://cards.scryfall.io https://svgs.scryfall.io",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com",
+      // Allow scripts from self, Stripe, Ko-fi, and PostHog (for surveys/extensions)
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com https://eu-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
       // Allow Scryfall API calls and Supabase/PostHog + production domain for testing
-      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://*.supabase.co https://*.supabase.in https://app.manatap.ai",
+      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in https://app.manatap.ai",
       "frame-src https://js.stripe.com https://ko-fi.com",
     ].join('; ');
     return [

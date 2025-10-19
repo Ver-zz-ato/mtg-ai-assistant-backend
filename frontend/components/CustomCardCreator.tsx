@@ -222,7 +222,8 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
       try {
         const names: string[] = CURATED.flatMap(g => g.names);
         const identifiers = Array.from(new Set(names)).map(n => ({ name: n }));
-        const r = await fetch('https://api.scryfall.com/cards/collection', { 
+        // Use our backend proxy to avoid CORS issues
+        const r = await fetch('/api/cards/collection', { 
           method: 'POST', 
           headers: { 'content-type': 'application/json' }, 
           body: JSON.stringify({ identifiers }) 

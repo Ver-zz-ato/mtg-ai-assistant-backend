@@ -78,11 +78,24 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           window.location.href = '/';
           return;
         }
+        
+        console.log('[Profile] User authenticated:', u.email);
         setUserEmail(u?.email || "");
+        
+        // Query profiles table for accurate pro status and data
+        const { data: profileData } = await sb
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', u.id)
+          .single();
+        
+        const isProUser = profileData?.is_pro || false;
+        console.log('[Profile] Pro status from database:', isProUser);
+        setPro(isProUser);
+        
         const md: any = u?.user_metadata || {};
         setUsername((md.username ?? "").toString());
         setAvatar((md.avatar ?? AVATAR_FILES[0]).toString());
-        setPro(Boolean(md.pro));
         setColors(Array.isArray(md.profile_colors) ? md.profile_colors : []);
         setFormats(Array.isArray(md.favorite_formats) ? md.favorite_formats : []);
         setFavCommander((md.favorite_commander ?? "").toString());
@@ -100,9 +113,15 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
         // Counts
         if (u?.id) {
-          const { count: dcount } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
+          console.log('[Profile] Fetching deck and collection counts for user:', u.id);
+          const { count: dcount, error: deckError } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
+          if (deckError) console.error('[Profile] Error fetching deck count:', deckError);
+          console.log('[Profile] Deck count:', dcount);
           setDeckCount(dcount ?? 0);
-          const { count: ccount } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
+          
+          const { count: ccount, error: collError } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
+          if (collError) console.error('[Profile] Error fetching collection count:', collError);
+          console.log('[Profile] Collection count:', ccount);
           setCollectionCount(ccount ?? 0);
           const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
           const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null })) || [];
