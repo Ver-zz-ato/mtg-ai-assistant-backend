@@ -92,9 +92,6 @@ export default function ThreadMenu({
 
   return (
     <div className="flex flex-wrap gap-2 text-sm">
-      <button className="px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white" onClick={onNewChat} data-testid="new-chat-button">
-        New Chat
-      </button>
       <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled} data-testid="thread-action">
         Rename
       </button>

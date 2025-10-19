@@ -20,6 +20,29 @@ export interface MainFeaturesTourProps {
  * 7. AI Chat Assistant (Final)
  */
 export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourProps) {
+  const [shouldStart, setShouldStart] = React.useState(false);
+  
+  // Delay tour start by 30 seconds to let user explore first
+  // But NEVER show on mobile phones
+  React.useEffect(() => {
+    if (!autoStart) return;
+    
+    // Check if mobile phone (not tablet)
+    const isMobilePhone = /iPhone|Android|webOS|BlackBerry|Windows Phone/i.test(navigator.userAgent) 
+      && window.innerWidth < 768;
+    
+    if (isMobilePhone) {
+      console.log('Tour disabled on mobile phone');
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setShouldStart(true);
+    }, 30000); // 30 seconds
+    
+    return () => clearTimeout(timer);
+  }, [autoStart]);
+  
   const steps: TourStep[] = [
     {
       id: 'cost-to-finish',
@@ -76,7 +99,7 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
     <OnboardingTour
       tourId="main-features-v2"
       steps={steps}
-      autoStart={autoStart}
+      autoStart={shouldStart}
       onComplete={() => {
         console.log('✅ Main features tour completed!');
       }}

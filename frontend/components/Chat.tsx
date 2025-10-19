@@ -151,8 +151,9 @@ function Chat() {
     (async () => { 
       try { 
         const sb = createBrowserSupabaseClient(); 
-        const { data } = await sb.auth.getUser(); 
-        const u:any = data?.user; 
+        // Use getSession() instead of getUser() - instant, no network hang
+        const { data: { session } } = await sb.auth.getSession(); 
+        const u:any = session?.user; 
         const md:any = u?.user_metadata || {}; 
         setDisplayName(String(md.username || u?.email || 'you')); 
         setIsLoggedIn(!!u);
@@ -1107,11 +1108,11 @@ function Chat() {
           ) : messages.map((m) => {
             const isAssistant = m.role === "assistant";
             return (
-              <div key={m.id} className={isAssistant ? "text-right" : "text-left"}>
+              <div key={m.id} className={isAssistant ? "text-left" : "text-right"}>
                 <div
                   className={
                     "group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
-                    (isAssistant ? "bg-blue-900/40" : "bg-neutral-800")
+                    (isAssistant ? "bg-neutral-800" : "bg-blue-900/40")
                   }
                 >
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
@@ -1130,8 +1131,8 @@ function Chat() {
           
           {/* Show streaming content */}
           {isStreaming && streamingContent && (
-            <div className="text-right">
-              <div className="inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-blue-900/40 whitespace-pre-wrap">
+            <div className="text-left">
+              <div className="inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap">
                 <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
                   <span>assistant</span>
                   <span className="ml-2 animate-pulse">•••</span>

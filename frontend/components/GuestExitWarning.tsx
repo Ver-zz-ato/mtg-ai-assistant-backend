@@ -12,10 +12,16 @@ export default function GuestExitWarning() {
 
   // Check if guest has active chat on mount and when localStorage changes
   useEffect(() => {
-    const checkGuestChat = () => {
+    const checkGuestChat = async () => {
       try {
         const guestMessages = localStorage.getItem('guest_chat_messages');
-        const isGuest = !document.cookie.includes('supabase-auth-token'); // Simple guest check
+        
+        // Properly check if user is logged in using Supabase
+        const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const isGuest = !session?.user;
+        
         setHasGuestChat(isGuest && !!guestMessages && JSON.parse(guestMessages).length > 0);
       } catch {
         setHasGuestChat(false);

@@ -17,7 +17,9 @@ export default function SupportForm() {
   useEffect(() => {
     async function loadUserInfo() {
       const supabase = createBrowserSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use getSession() instead of getUser() - instant, no network hang
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       
       if (user) {
         console.log('🔍 Support Form - Checking Pro status for user:', user.id);

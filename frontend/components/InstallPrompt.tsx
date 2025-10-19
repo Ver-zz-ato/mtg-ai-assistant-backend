@@ -20,7 +20,7 @@ export default function InstallPrompt() {
       return;
     }
 
-    // Check if user has dismissed recently (30 days)
+    // Check if user has dismissed recently (2 weeks)
     const dismissedUntil = localStorage.getItem('pwa_install_dismissed_until');
     if (dismissedUntil) {
       const dismissedDate = new Date(dismissedUntil);
@@ -87,9 +87,9 @@ export default function InstallPrompt() {
     setIsVisible(false);
     setIsDismissed(true);
     
-    // Set dismissal to expire in 30 days
+    // Set dismissal to expire in 2 weeks (14 days)
     const dismissUntil = new Date();
-    dismissUntil.setDate(dismissUntil.getDate() + 30);
+    dismissUntil.setDate(dismissUntil.getDate() + 14);
     localStorage.setItem('pwa_install_dismissed_until', dismissUntil.toISOString());
     
     // Remove old dismissal key if it exists

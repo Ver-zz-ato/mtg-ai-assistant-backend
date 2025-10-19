@@ -18,7 +18,10 @@ export default function ProProvider({ children }: { children: React.ReactNode })
     
     async function checkProStatus() {
       try {
-        const { data: { user } } = await sb.auth.getUser();
+        // Use getSession() instead of getUser() - instant, no network hang
+        const { data: { session } } = await sb.auth.getSession();
+        const user = session?.user;
+        
         if (!user) {
           setIsPro(false);
           return;

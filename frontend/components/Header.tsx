@@ -29,8 +29,17 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      const u = data.user;
+    console.log('[Header] Initial auth check starting...');
+    
+    // Use getSession instead of getUser (instant, local)
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      const u = session?.user;
+      console.log('[Header] getSession() completed', { hasUser: !!u, email: u?.email });
+      
+      if (error) {
+        console.error('[Header] Session error:', error);
+      }
+      
       setSessionUser(u?.email ?? null);
       const md: any = u?.user_metadata || {};
       setDisplayName((md.username || u?.email || "").toString());
@@ -111,14 +120,50 @@ export default function Header() {
   }
 
   async function signOut() {
+    console.log('[Header] signOut() called');
     capture('auth_logout_attempt');
     try {
-      await supabase.auth.signOut();
+      // Add timeout to prevent hanging
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Sign out timeout')), 3000);
+      });
+      
+      await Promise.race([signOutPromise, timeoutPromise]);
+      console.log('[Header] signOut() completed successfully');
       capture('auth_logout_success');
+      
+      // Clear localStorage manually as fallback
+      try {
+        const keys = Object.keys(localStorage);
+        const authKeys = keys.filter(k => k.includes('auth-token') || k.includes('supabase'));
+        authKeys.forEach(k => {
+          console.log('[Header] Clearing localStorage key:', k);
+          localStorage.removeItem(k);
+        });
+      } catch (e) {
+        console.error('[Header] Failed to clear localStorage:', e);
+      }
+      
       window.location.reload();
     } catch (error: any) {
+      console.error('[Header] signOut() failed:', error);
+      
+      // Even if signOut fails, try to clear localStorage and reload
+      if (error.message === 'Sign out timeout') {
+        console.warn('[Header] Sign out timed out, clearing localStorage manually');
+        try {
+          const keys = Object.keys(localStorage);
+          const authKeys = keys.filter(k => k.includes('auth-token') || k.includes('supabase'));
+          authKeys.forEach(k => localStorage.removeItem(k));
+          capture('auth_logout_timeout_fallback');
+          window.location.reload();
+          return;
+        } catch {}
+      }
+      
       capture('auth_logout_failed', { error: error?.message });
-      throw error;
+      alert('Failed to sign out: ' + error.message);
     }
   }
 
@@ -191,13 +236,13 @@ export default function Header() {
             Pricing
           </Link>
           
-          {/* Help Menu */}
+          {/* Support & Terms Menu */}
           <div className="relative" ref={helpMenuRef}>
             <button
               onClick={() => setShowHelpMenu(!showHelpMenu)}
               className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
             >
-              Help
+              Support & Terms
               <span className="text-xs">▾</span>
             </button>
             
@@ -208,12 +253,24 @@ export default function Header() {
                   className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => {
                     setShowHelpMenu(false);
-                    capture('help_menu_clicked', { link: 'what_is_manatap' });
+                    capture('help_menu_clicked', { link: 'get_help' });
                   }}
                 >
-                  <div className="font-medium">What is ManaTap?</div>
-                  <div className="text-xs opacity-70">Learn about the app</div>
+                  <div className="font-medium">📧 Get Help</div>
+                  <div className="text-xs opacity-70">Contact support</div>
                 </Link>
+                <Link
+                  href="/terms"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'terms' });
+                  }}
+                >
+                  <div className="font-medium">Terms & Privacy</div>
+                  <div className="text-xs opacity-70">Legal & disclaimers</div>
+                </Link>
+                <hr className="my-2 border-gray-200 dark:border-gray-700" />
                 <Link
                   href="/pricing"
                   className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -222,31 +279,8 @@ export default function Header() {
                     capture('help_menu_clicked', { link: 'pricing' });
                   }}
                 >
-                  <div className="font-medium">How pricing works</div>
+                  <div className="font-medium">Pricing</div>
                   <div className="text-xs opacity-70">Free & Pro features</div>
-                </Link>
-                <Link
-                  href="/support"
-                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    setShowHelpMenu(false);
-                    capture('help_menu_clicked', { link: 'legality' });
-                  }}
-                >
-                  <div className="font-medium">Rules & Legality</div>
-                  <div className="text-xs opacity-70">Disclaimers & terms</div>
-                </Link>
-                <hr className="my-2 border-gray-200 dark:border-gray-700" />
-                <Link
-                  href="/support"
-                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    setShowHelpMenu(false);
-                    capture('help_menu_clicked', { link: 'contact' });
-                  }}
-                >
-                  <div className="font-medium">📧 Contact Support</div>
-                  <div className="text-xs opacity-70">Get help from the team</div>
                 </Link>
               </div>
             )}
@@ -289,6 +323,15 @@ export default function Header() {
                 {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
                 <span className="hidden md:block truncate">{displayName || sessionUser}</span>
               </span>
+              <Link
+                href="/profile"
+                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Profile
+              </Link>
               <button
                 onClick={signOut}
                 className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0"

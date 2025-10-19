@@ -348,7 +348,7 @@ export default function OnboardingTour({
       {/* Tour card */}
       <div
         style={getTooltipPosition()}
-        className="bg-gradient-to-br from-blue-950 via-purple-950 to-blue-950 text-white rounded-2xl shadow-2xl border-2 border-blue-500/30 max-w-md w-full mx-4"
+        className="bg-gradient-to-br from-blue-950 via-purple-950 to-blue-950 text-white rounded-2xl shadow-2xl border-2 border-blue-500/30 max-w-[90vw] sm:max-w-md w-full mx-4"
       >
         {/* Progress bar */}
         <div className="h-1 bg-blue-900/30 rounded-t-2xl overflow-hidden">
@@ -358,9 +358,9 @@ export default function OnboardingTour({
           />
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
           {/* Step counter */}
-          <div className="flex items-center justify-between text-sm opacity-80">
+          <div className="flex items-center justify-between text-xs sm:text-sm opacity-80">
             <span>Step {currentStep + 1} of {steps.length}</span>
             <button
               onClick={handleSkip}
@@ -371,9 +371,9 @@ export default function OnboardingTour({
           </div>
 
           {/* Content */}
-          <div className="space-y-3">
-            <h3 className="text-2xl font-bold text-white">{step.title}</h3>
-            <p className="text-base text-white/90 leading-relaxed">{step.description}</p>
+          <div className="space-y-2 sm:space-y-3">
+            <h3 className="text-lg sm:text-2xl font-bold text-white">{step.title}</h3>
+            <p className="text-sm sm:text-base text-white/90 leading-relaxed">{step.description}</p>
           </div>
 
           {/* Action button if provided */}

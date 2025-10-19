@@ -67,8 +67,17 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       try {
         setLoading(true);
         try { capture('profile_view'); } catch {}
-        const { data: ures } = await sb.auth.getUser();
-        const u = ures?.user;
+        
+        // Use getSession() instead of getUser() - instant, no network hang
+        const { data: { session } } = await sb.auth.getSession();
+        const u = session?.user;
+        
+        // Auth guard - redirect if not logged in
+        if (!u) {
+          console.log('[Profile] No user session, redirecting to homepage');
+          window.location.href = '/';
+          return;
+        }
         setUserEmail(u?.email || "");
         const md: any = u?.user_metadata || {};
         setUsername((md.username ?? "").toString());
@@ -726,7 +735,13 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       <li key={d.id} className="relative z-0 rounded overflow-hidden border border-neutral-800">
                         <div className="relative">
                           {img && (<div className="h-24 bg-center bg-cover" style={{ backgroundImage: `url(${img})` }} />)}
-                          {!img && (<div className="h-24 bg-black" />)}
+                          {!img && (
+                            <div className="h-24 bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
+                              <svg className="w-12 h-12 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                              </svg>
+                            </div>
+                          )}
                           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center justify-between">
                             <a href={`/my-decks/${d.id}`} className="truncate hover:underline">{d.title}</a>
                             <div className="flex items-center gap-2">
@@ -1525,8 +1540,6 @@ function StatsCharts(props: StatsChartsProps) {
           <div className="mb-2">📊 No deck trends data available</div>
           <div className="text-xs">
             Create some decks and add cards to see your deck trends here.
-            <br />
-            <a href="/debug/profile-data" className="underline hover:text-blue-400">Debug profile data</a>
           </div>
         </div>
       )}
