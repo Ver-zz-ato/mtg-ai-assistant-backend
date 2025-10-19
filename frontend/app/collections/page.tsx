@@ -47,12 +47,21 @@ function CollectionsPageClientBody() {
   
   // All async functions defined here (before hooks that use them)
   const loadCollections = async () => {
+    console.log('[Collections] loadCollections() called');
     setLoading(true);
     try {
+      console.log('[Collections] Fetching /api/collections/list...');
+      const fetchStart = Date.now();
       const res = await fetch("/api/collections/list", { cache: "no-store" });
+      const fetchTime = Date.now() - fetchStart;
+      console.log(`[Collections] Fetch completed in ${fetchTime}ms, status: ${res.status}`);
+      
       const json = await res.json().catch(() => ({}));
+      console.log('[Collections] Response parsed:', { ok: json?.ok, count: json?.collections?.length });
+      
       if (!res.ok || json?.ok === false) throw new Error(json?.error || "Failed to load");
       const list: Collection[] = json.collections || [];
+      console.log(`[Collections] Setting ${list.length} collections`);
       setCollections(list);
 
       // Kick off stats fetch in the background per collection
@@ -129,25 +138,39 @@ function CollectionsPageClientBody() {
   // Check auth status - use getSession (fast, local) instead of getUser (slow, network)
   useEffect(() => {
     let mounted = true;
+    console.log('[Collections] Starting auth check...');
     
     const checkAuth = async () => {
       try {
         const supabase = createBrowserSupabaseClient();
+        console.log('[Collections] Supabase client created');
         
         // Use getSession instead of getUser - it's instant and reads from localStorage
+        const startTime = Date.now();
         const { data: { session }, error } = await supabase.auth.getSession();
+        const elapsed = Date.now() - startTime;
         
-        if (!mounted) return;
+        console.log(`[Collections] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error });
+        
+        if (!mounted) {
+          console.log('[Collections] Component unmounted, skipping state update');
+          return;
+        }
         
         if (error) {
           console.error('[Collections] Session error:', error);
         }
         
-        setUser(session?.user || null);
+        const user = session?.user || null;
+        console.log('[Collections] Setting user:', { userId: user?.id, email: user?.email });
+        setUser(user);
         setAuthLoading(false);
         
-        if (!session?.user) {
+        if (!user) {
+          console.log('[Collections] No user found, stopping loading');
           setLoading(false);
+        } else {
+          console.log('[Collections] User found, will load collections');
         }
       } catch (err: any) {
         console.error('[Collections] Auth exception:', err);
@@ -161,17 +184,26 @@ function CollectionsPageClientBody() {
     
     checkAuth();
     
-    return () => { mounted = false; };
+    return () => { 
+      console.log('[Collections] Cleanup - unmounting');
+      mounted = false; 
+    };
   }, []);
   
   // Load collections only if logged in
-  useEffect(() => { 
+  useEffect(() => {
+    console.log('[Collections] Load effect triggered', { authLoading, hasUser: !!user });
+    
     if (!authLoading && !user) {
       // Not logged in - stop loading
+      console.log('[Collections] Not logged in, showing guest page');
       setLoading(false);
     } else if (user && !authLoading) {
       // Logged in - load collections
+      console.log('[Collections] User logged in, loading collections...');
       loadCollections(); 
+    } else {
+      console.log('[Collections] Waiting for auth...', { authLoading, hasUser: !!user });
     }
   }, [user, authLoading]);
   

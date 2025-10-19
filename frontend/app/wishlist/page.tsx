@@ -21,6 +21,7 @@ export default function WishlistPage() {
   // Load user data - use getSession (instant) instead of getUser (slow network call)
   useEffect(() => {
     let mounted = true;
+    console.log('[Wishlist] Starting auth check...');
     
     const loadUser = async () => {
       try {
@@ -28,28 +29,45 @@ export default function WishlistPage() {
       } catch {}
       
       try {
+        console.log('[Wishlist] Getting session...');
+        const startTime = Date.now();
         // Use getSession instead of getUser - it's instant and reads from localStorage
         const { data: { session }, error } = await sb.auth.getSession();
+        const elapsed = Date.now() - startTime;
         
-        if (!mounted) return;
+        console.log(`[Wishlist] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error });
+        
+        if (!mounted) {
+          console.log('[Wishlist] Component unmounted, skipping');
+          return;
+        }
         
         if (error) {
           console.error('[Wishlist] Session error:', error);
         }
         
         const u = session?.user;
+        console.log('[Wishlist] Setting user:', { userId: u?.id, email: u?.email, hasPro: !!u });
         setUser(u || null);
         const md: any = u?.user_metadata || {};
-        setPro(Boolean(md.pro || md.is_pro));
+        const proStatus = Boolean(md.pro || md.is_pro);
+        console.log('[Wishlist] Pro status:', proStatus, 'from metadata:', md);
+        setPro(proStatus);
       } catch (err: any) {
         console.error('[Wishlist] Auth exception:', err);
-        if (mounted) setUser(null);
+        if (mounted) {
+          console.log('[Wishlist] Setting user to null after exception');
+          setUser(null);
+        }
       }
     };
     
     loadUser();
     
-    return () => { mounted = false; };
+    return () => { 
+      console.log('[Wishlist] Cleanup - unmounting');
+      mounted = false; 
+    };
   }, [sb]);
 
   if (!user) {
