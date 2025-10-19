@@ -51,16 +51,22 @@ export default function NewDeckInline() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="New deck name"
-        className="rounded border border-neutral-700 bg-black/40 px-3 py-1 outline-none text-sm"
+        onKeyDown={(e) => e.key === 'Enter' && !busy && title.trim() && create()}
+        placeholder="Enter deck name..."
+        className="rounded-lg border-2 border-neutral-700 focus:border-blue-500 bg-black/40 px-4 py-2 outline-none text-sm transition-colors"
         aria-label="New deck name"
+        autoFocus
       />
-      <button onClick={create} disabled={busy} className="text-sm underline underline-offset-4">
-        {busy ? "Creating…" : "Create new deck"}
+      <button 
+        onClick={create} 
+        disabled={busy || !title.trim()} 
+        className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold shadow-lg transition-all text-sm"
+      >
+        {busy ? "Creating…" : "✨ Create Deck"}
       </button>
     </div>
   );

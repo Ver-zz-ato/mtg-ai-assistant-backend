@@ -34,30 +34,80 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     if (!n) return;
     try { const { containsProfanity } = await import("@/lib/profanity"); if (containsProfanity(n)) { alert('Please choose a different name.'); return; } } catch {}
 
-    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n, qty: q }),
-    });
-    const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
-    if (!json.ok) { alert(json.error || "Failed to add"); return; }
-
-    // Track successful card addition
-    capture('deck_card_added', {
+    // Optimistic update - add card immediately to UI
+    const tempId = `temp-${Date.now()}`;
+    const optimisticCard: CardRow = {
+      id: tempId,
       deck_id: deckId,
-      card_name: n,
-      quantity: q,
-      method: 'search'
-    });
-
+      name: n,
+      qty: q,
+      created_at: new Date().toISOString(),
+    };
+    
+    setCards(prev => [...prev, optimisticCard]);
     window.dispatchEvent(new CustomEvent("toast", { detail: `Added x${q} ${n}` }));
-    await load();
-    try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: n, qty: q }),
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+      
+      if (!json.ok) {
+        // Revert optimistic update
+        setCards(prev => prev.filter(c => c.id !== tempId));
+        
+        const retry = confirm(`Failed to add ${n}. Retry?`);
+        if (retry) {
+          add(name, qty);
+        }
+        return;
+      }
+
+      // Track successful card addition
+      capture('deck_card_added', {
+        deck_id: deckId,
+        card_name: n,
+        quantity: q,
+        method: 'search'
+      });
+
+      // Replace temp card with real card from server
+      await load();
+      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+    } catch (err) {
+      // Revert on network error
+      setCards(prev => prev.filter(c => c.id !== tempId));
+      
+      const retry = confirm(`Network error adding ${n}. Retry?`);
+      if (retry) {
+        add(name, qty);
+      }
+    }
   }
 
   async function delta(id: string, d: number) {
     if (!deckId) return;
+    
+    // Optimistic update - immediately change quantity in UI
+    const card = cards.find(c => c.id === id);
+    if (!card) return;
+    
+    const previousQty = card.qty;
+    const newQty = previousQty + d;
+    
+    // If quantity would go to 0 or below, remove the card
+    if (newQty <= 0) {
+      setCards(prev => prev.filter(c => c.id !== id));
+    } else {
+      setCards(prev => prev.map(c => c.id === id ? { ...c, qty: newQty } : c));
+    }
+    
+    window.dispatchEvent(new CustomEvent("toast", { detail: d > 0 ? "Added +1" : "Removed -1" }));
     setBusyId(id);
+    
     try {
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
         method: "PATCH",
@@ -65,25 +115,46 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
         body: JSON.stringify({ id, delta: d }),
       });
       const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
-      if (!json.ok) throw new Error(json.error || "Update failed");
       
-      // Track card quantity changes
-      const card = cards.find(c => c.id === id);
-      if (card) {
-        capture('deck_card_quantity_changed', {
-          deck_id: deckId,
-          card_name: card.name,
-          old_quantity: card.qty,
-          new_quantity: card.qty + d,
-          method: 'button_click'
-        });
+      if (!json.ok) {
+        // Revert optimistic update
+        if (newQty <= 0) {
+          setCards(prev => [...prev, { ...card, qty: previousQty }]);
+        } else {
+          setCards(prev => prev.map(c => c.id === id ? { ...c, qty: previousQty } : c));
+        }
+        
+        const retry = confirm(`Failed to update ${card.name}. Retry?`);
+        if (retry) {
+          delta(id, d);
+        }
+        return;
       }
       
-      window.dispatchEvent(new CustomEvent("toast", { detail: d > 0 ? "Added +1" : "Removed -1" }));
+      // Track card quantity changes
+      capture('deck_card_quantity_changed', {
+        deck_id: deckId,
+        card_name: card.name,
+        old_quantity: previousQty,
+        new_quantity: newQty,
+        method: 'button_click'
+      });
+      
+      // Reload to ensure sync with server
       await load();
       try { window.dispatchEvent(new Event('deck:changed')); } catch {}
     } catch (e: any) {
-      alert(e?.message || "Error");
+      // Revert on network error
+      if (newQty <= 0) {
+        setCards(prev => [...prev, { ...card, qty: previousQty }]);
+      } else {
+        setCards(prev => prev.map(c => c.id === id ? { ...c, qty: previousQty } : c));
+      }
+      
+      const retry = confirm(`Network error. Retry?`);
+      if (retry) {
+        delta(id, d);
+      }
     } finally {
       setBusyId(null);
     }

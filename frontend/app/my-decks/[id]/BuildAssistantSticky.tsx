@@ -29,7 +29,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   const sp = useSearchParams();
   const initial = React.useMemo(()=> decodeIntentParam(encodedIntent), [encodedIntent]);
   const [intent, setIntent] = React.useState<any>(initial || {});
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const { showPanel, removeToast } = useToast();
@@ -265,12 +265,18 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   }
 
   return (
-    <section className="sticky top-4 z-10 rounded-xl border border-neutral-800 p-3 bg-neutral-950/80 backdrop-blur">
+    <section className="sticky top-4 z-10 rounded-xl border border-neutral-800 p-3 bg-neutral-950/95 backdrop-blur shadow-lg">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">Build Assistant</div>
         <div className="flex items-center gap-2">
-          <button onClick={()=>setEditing(v=>!v)} className="text-xs border border-neutral-700 rounded px-2 py-0.5">{editing? 'Done':'Edit'}</button>
-          <button onClick={()=>setExpanded(v=>!v)} className="text-xs border border-neutral-700 rounded px-2 py-0.5">{expanded? 'Hide':'Show'}</button>
+          <span className="text-lg">🎯</span>
+          <div>
+            <div className="text-sm font-semibold">Build Assistant</div>
+            <div className="text-xs text-gray-400">Smart suggestions for your deck</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {expanded && <button onClick={()=>setEditing(v=>!v)} className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors">{editing? '✓ Done':'⚙️ Edit'}</button>}
+          <button onClick={()=>setExpanded(v=>!v)} className="text-xs bg-blue-600 hover:bg-blue-500 border border-blue-500 rounded px-3 py-1.5 font-semibold transition-colors">{expanded? '▼ Hide':'▶ Show'}</button>
         </div>
       </div>
       {expanded && (
@@ -339,14 +345,50 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
             )}
           </div>
 
-          {/* Next best actions */}
+          {/* Quick Actions */}
           <div className="text-[11px]">
-            <div className="opacity-80 mb-1">Next best actions</div>
-            <div className="flex flex-wrap gap-2">
-              <button disabled={busy==='check'} className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60" onClick={(e)=>checkLegalityAndTokens(e)}>{busy==='check' ? 'Checking…' : 'Check legality & tokens'}</button>
-              <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={(e)=>{ if (!proGuard()) return; runBalanceCurve(e); }}>Balance curve (Pro)</button>
-              <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={(e)=>{ if (!proGuard()) return; runBudgetSwaps(e); }}>Budget swaps (Pro)</button>
-              <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>{ if (!proGuard()) return; try { window.dispatchEvent(new Event('analyzer:run')); } catch {} }}>Re-analyze with current list (Pro)</button>
+            <div className="opacity-90 mb-2 font-semibold flex items-center gap-1">
+              <span>⚡</span> Quick Actions
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                disabled={busy==='check'} 
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
+                onClick={(e)=>checkLegalityAndTokens(e)}
+              >
+                <div className="font-semibold text-xs">✓ Check Legality</div>
+                <div className="text-xs opacity-70">Verify format & colors</div>
+              </button>
+              <button 
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
+                onClick={(e)=>{ if (!proGuard()) return; runBalanceCurve(e); }}
+              >
+                <div className="font-semibold text-xs flex items-center gap-1">
+                  📊 Balance Curve
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
+                </div>
+                <div className="text-xs opacity-70">Optimize mana curve</div>
+              </button>
+              <button 
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
+                onClick={(e)=>{ if (!proGuard()) return; runBudgetSwaps(e); }}
+              >
+                <div className="font-semibold text-xs flex items-center gap-1">
+                  💰 Budget Swaps
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
+                </div>
+                <div className="text-xs opacity-70">Find cheaper alternatives</div>
+              </button>
+              <button 
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
+                onClick={()=>{ if (!proGuard()) return; try { window.dispatchEvent(new Event('analyzer:run')); } catch {} }}
+              >
+                <div className="font-semibold text-xs flex items-center gap-1">
+                  🔄 Re-analyze
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
+                </div>
+                <div className="text-xs opacity-70">Update deck stats</div>
+              </button>
             </div>
           </div>
 

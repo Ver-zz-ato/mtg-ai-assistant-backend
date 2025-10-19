@@ -37,7 +37,13 @@ function CollectionsPageClientBody() {
   
   const router = useRouter();
   const sp = useSearchParams();
-  const qId = typeof sp?.get === 'function' ? sp.get('collectionId') : null;
+  // Safely get collectionId from query params
+  let qId: string | null = null;
+  try {
+    qId = sp?.get('collectionId') || null;
+  } catch (e) {
+    console.error('[Collections] Error reading search params:', e);
+  }
   
   // All async functions defined here (before hooks that use them)
   const loadCollections = async () => {
@@ -120,13 +126,30 @@ function CollectionsPageClientBody() {
     setTimeout(() => setToast(null), 1500);
   };
   
-  // Check auth status
+  // Check auth status with timeout
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.error('[Collections] Auth check timeout - forcing completion');
       setAuthLoading(false);
-    });
+    }, 5000);
+    
+    supabase.auth.getUser()
+      .then(({ data, error }) => {
+        clearTimeout(timeout);
+        if (error) {
+          console.error('[Collections] Auth error:', error);
+        }
+        setUser(data.user);
+        setAuthLoading(false);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        console.error('[Collections] Auth exception:', err);
+        setAuthLoading(false);
+      });
   }, []);
   
   // Load collections only if logged in
@@ -459,7 +482,11 @@ function CollectionsPageClientBody() {
 
 export default function CollectionsPageClient(){
   return (
-    <Suspense fallback={<div className="p-6 text-sm opacity-70">Loading…</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-white">Loading collections...</div>
+      </div>
+    }>
       <CollectionsPageClientBody />
     </Suspense>
   );

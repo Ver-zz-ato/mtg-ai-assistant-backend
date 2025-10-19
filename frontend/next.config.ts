@@ -7,13 +7,23 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "cards.scryfall.io" },
     ],
+    minimumCacheTTL: 2592000, // 30 days for better caching
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  // Fixes the “workspace root” warnings on Render
+  // Fixes the "workspace root" warnings on Render
   outputFileTracingRoot: path.join(__dirname, ".."),
   // Prevent style-only lint errors from blocking builds
   eslint: { ignoreDuringBuilds: true },
   // Still fail on real TS errors
   typescript: { ignoreBuildErrors: false },
+  
+  // Performance optimizations
+  experimental: {
+    // Removed @supabase/supabase-js due to vendor-chunks build error
+    optimizePackageImports: ['recharts', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+  },
+  staticPageGenerationTimeout: 180,
 
   // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,

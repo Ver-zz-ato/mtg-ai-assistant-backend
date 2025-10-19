@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 3600; // Cache for 1 hour
+export const runtime = 'edge';
+export const revalidate = 300; // 5 minutes
 
 /**
  * GET /api/meta/trending
@@ -80,6 +80,10 @@ export async function GET() {
       formatDistribution: formatCounts,
       totalDecks: decks.length,
       lastUpdated: new Date().toISOString(),
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+      }
     });
   } catch (error: any) {
     console.error("Error in meta trending:", error);

@@ -37,19 +37,53 @@ export default function LikeButton({ deckId }: { deckId: string }) {
       return;
     }
     
+    // Optimistic update - instant UI feedback
+    const previousLiked = liked;
+    const previousCount = count;
+    const newLiked = !liked;
+    const newCount = newLiked ? count + 1 : count - 1;
+    
+    setLiked(newLiked);
+    setCount(newCount);
     setBusy(true);
+    
     try {
       const r = await fetch(`/api/decks/${deckId}/likes`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'toggle' }) });
       const j = await r.json().catch(()=>({}));
+      
       if (r.status === 401) {
+        // Revert on auth failure
+        setLiked(previousLiked);
+        setCount(previousCount);
         await showAuthToast(AUTH_MESSAGES.LIKE_DECKS);
         setIsAuthenticated(false);
-      } else if (r.ok && j?.ok) { 
-        setCount(j.count||0); 
-        setLiked(!!j.liked); 
+      } else if (!r.ok || !j?.ok) {
+        // Revert on error and keep optimistic state with retry option
+        setLiked(previousLiked);
+        setCount(previousCount);
+        
+        // Show toast with retry (using simple alert for now, can be enhanced)
+        const retry = confirm(`Failed to ${newLiked ? 'like' : 'unlike'} deck. Retry?`);
+        if (retry) {
+          toggle(e); // Retry the action
+        }
+      } else {
+        // Success - update with server values to ensure consistency
+        setCount(j.count || 0);
+        setLiked(!!j.liked);
       }
-    } catch {}
-    setBusy(false);
+    } catch (err) {
+      // Revert on network error
+      setLiked(previousLiked);
+      setCount(previousCount);
+      
+      const retry = confirm(`Network error. Retry?`);
+      if (retry) {
+        toggle(e);
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

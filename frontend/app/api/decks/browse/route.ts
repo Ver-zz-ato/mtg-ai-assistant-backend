@@ -115,6 +115,10 @@ export async function GET(req: Request) {
       page,
       limit,
       hasMore: filteredDecks.length > offset + limit,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
+      }
     });
   } catch (error: any) {
     console.error('[Browse Decks] Exception:', error);

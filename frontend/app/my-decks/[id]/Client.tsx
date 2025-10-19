@@ -72,6 +72,16 @@ export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boo
           </div>)}
         </section>
         
+        {/* Card Recommendations */}
+        {(() => { 
+          try {
+            const DeckCardRecs = require('@/components/DeckCardRecommendations').default;
+            return <DeckCardRecs deckId={String(deckId)} />;
+          } catch {
+            return null;
+          }
+        })()}
+        
         {/* Hand Testing Widget */}
         <section className="rounded-xl border border-neutral-800 min-w-0">
           <HandTestingWidget 

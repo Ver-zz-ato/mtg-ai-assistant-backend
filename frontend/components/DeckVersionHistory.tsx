@@ -25,6 +25,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
   const [restoring, setRestoring] = useState(false);
   const [open, setOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   useEffect(() => {
     if (open && isPro) {
@@ -142,7 +143,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setOpen(!open)}
           className="flex items-center gap-2 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-sm font-semibold transition-colors"
@@ -160,7 +161,24 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         >
           {saving ? 'Saving...' : 'Save Version'}
         </button>
+        
+        <button
+          onClick={() => setChangelogOpen(true)}
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-sm font-semibold transition-colors"
+        >
+          📝 View Changelog
+        </button>
       </div>
+      
+      {/* Changelog Modal */}
+      {changelogOpen && (() => {
+        try {
+          const DeckChangelogModal = require('./DeckChangelogModal').default;
+          return <DeckChangelogModal deckId={deckId} isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />;
+        } catch {
+          return null;
+        }
+      })()}
 
       {open && (
         <div className="bg-neutral-900/50 rounded-lg border border-neutral-800 p-4 space-y-4">

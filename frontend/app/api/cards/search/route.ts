@@ -4,6 +4,9 @@ import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
 import { SearchQuery } from "@/lib/validation";
 
+export const runtime = 'edge';
+export const revalidate = 3600; // 1 hour
+
 const DAY = 24 * 60 * 60 * 1000;
 
 export const GET = withLogging(async (req: NextRequest) => {

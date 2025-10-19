@@ -13,7 +13,11 @@ export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     // data is an array with one row: { type_hist, rarity_hist, sets_top }
     const row = Array.isArray(data) ? data[0] : data;
-    return NextResponse.json({ ok: true, ...row });
+    return NextResponse.json({ ok: true, ...row }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+      }
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }

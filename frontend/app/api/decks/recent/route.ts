@@ -2,12 +2,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = 'edge';
+export const revalidate = 60; // 1 minute
+
 // Cookie-free client so this route can be cached safely
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(url, anon, { auth: { persistSession: false } });
-
-export const revalidate = 30; // ISR for this route
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,5 +22,9 @@ export async function GET(request: Request) {
     .limit(limit);
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, decks: data ?? [] });
+  return NextResponse.json({ ok: true, decks: data ?? [] }, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+    }
+  });
 }

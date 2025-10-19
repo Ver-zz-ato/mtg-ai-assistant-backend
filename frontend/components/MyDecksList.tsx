@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import DeckArtLoader from './DeckArtLoader';
 import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
 import { capture } from '@/lib/ph';
 import { EmptyDecksState } from './EmptyStates';
+import { TagPills, TagSelector } from './DeckTags';
 
 interface DeckRow {
   id: string;
@@ -29,21 +31,127 @@ interface DeckStats {
 }
 
 export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
+  const router = useRouter();
   const [deckStats, setDeckStats] = useState<Map<string, DeckStats>>(new Map());
+  const [deckTags, setDeckTags] = useState<Map<string, string[]>>(new Map());
+  const [tagModalOpen, setTagModalOpen] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    // Fetch stats for each deck
-    rows.forEach(async (deck) => {
-      try {
-        const res = await fetch(`/api/decks/cards?deckId=${deck.id}`, { cache: 'no-store' });
-        const json = await res.json();
-        if (json?.ok && json?.cards) {
-          const cardCount = json.cards.reduce((sum: number, c: any) => sum + (c.qty || 0), 0);
-          setDeckStats(prev => new Map(prev).set(deck.id, { cardCount }));
+    // PERFORMANCE OPTIMIZATION: Fetch stats and tags in parallel batches
+    // NON-BLOCKING: Uses AbortController so navigation isn't blocked
+    const abortController = new AbortController();
+    let mounted = true;
+
+    const fetchDeckData = async () => {
+      if (mounted) setIsLoadingData(true);
+      
+      // Fetch all deck stats and tags in parallel
+      const promises = rows.map(async (deck) => {
+        try {
+          // Check if aborted before fetching
+          if (abortController.signal.aborted) return { deckId: deck.id, cardCount: 0, tags: [] };
+
+          // Fetch cards and tags in parallel for this deck
+          const [cardsRes, tagsRes] = await Promise.all([
+            fetch(`/api/decks/cards?deckId=${deck.id}`, { 
+              cache: 'no-store',
+              signal: abortController.signal 
+            }),
+            fetch(`/api/decks/${deck.id}/tags`, { 
+              cache: 'no-store',
+              signal: abortController.signal 
+            })
+          ]);
+
+          const [cardsJson, tagsJson] = await Promise.all([
+            cardsRes.json().catch(() => ({ ok: false })),
+            tagsRes.json().catch(() => ({ ok: false }))
+          ]);
+
+          return {
+            deckId: deck.id,
+            cardCount: cardsJson?.ok && cardsJson?.cards 
+              ? cardsJson.cards.reduce((sum: number, c: any) => sum + (c.qty || 0), 0)
+              : 0,
+            tags: tagsJson?.ok && tagsJson?.tags ? tagsJson.tags : []
+          };
+        } catch (err: any) {
+          // Ignore abort errors - they're expected when navigating away
+          if (err.name === 'AbortError') {
+            return { deckId: deck.id, cardCount: 0, tags: [] };
+          }
+          return { deckId: deck.id, cardCount: 0, tags: [] };
         }
-      } catch {}
-    });
+      });
+
+      // Wait for all fetches to complete, then update state once
+      const results = await Promise.all(promises);
+      
+      // Only update state if component is still mounted and not aborted
+      if (mounted && !abortController.signal.aborted) {
+        const newStats = new Map<string, DeckStats>();
+        const newTags = new Map<string, string[]>();
+        
+        results.forEach(result => {
+          newStats.set(result.deckId, { cardCount: result.cardCount });
+          newTags.set(result.deckId, result.tags);
+        });
+        
+        setDeckStats(newStats);
+        setDeckTags(newTags);
+        setIsLoadingData(false);
+      }
+    };
+
+    if (rows.length > 0) {
+      fetchDeckData();
+    } else {
+      setIsLoadingData(false);
+    }
+
+    // Cleanup: Cancel all pending requests when component unmounts or navigating away
+    return () => {
+      mounted = false;
+      abortController.abort();
+    };
   }, [rows]);
+
+  const handleTagsUpdate = async (deckId: string, newTags: string[]) => {
+    // Optimistic update
+    setDeckTags(prev => new Map(prev).set(deckId, newTags));
+    
+    // Save tags to backend
+    try {
+      const currentTags = deckTags.get(deckId) || [];
+      
+      // Remove old tags
+      for (const tag of currentTags) {
+        if (!newTags.includes(tag)) {
+          await fetch(`/api/decks/${deckId}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' });
+        }
+      }
+      
+      // Add new tags
+      for (const tag of newTags) {
+        if (!currentTags.includes(tag)) {
+          await fetch(`/api/decks/${deckId}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tagLabel: tag }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update tags:', err);
+      // Revert on error
+      const res = await fetch(`/api/decks/${deckId}/tags`);
+      const json = await res.json();
+      if (json?.ok) {
+        setDeckTags(prev => new Map(prev).set(deckId, json.tags));
+      }
+    }
+  };
 
   if (rows.length === 0) {
     return <EmptyDecksState />;
@@ -85,37 +193,52 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {rows.map((r) => {
-        const title = r.title ?? "Untitled Deck";
-        const stats = deckStats.get(r.id);
-        const isPinned = pinnedIds.includes(r.id);
+    <div className="space-y-4">
+      {isLoadingData && (
+        <div className="flex items-center gap-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
+          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Loading deck details...</span>
+        </div>
+      )}
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {rows.map((r) => {
+          const title = r.title ?? "Untitled Deck";
+          const stats = deckStats.get(r.id);
+          const isPinned = pinnedIds.includes(r.id);
         
         return (
-          <DeckArtLoader 
+            <DeckArtLoader 
             key={r.id} 
             deckId={r.id} 
             commander={r.commander || undefined} 
             title={r.title || undefined}
-            deckText={r.deck_text || undefined}
           >
             {(art, loading) => (
               <div className="group rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 flex flex-col hover:border-neutral-600 transition-colors">
                 {/* Cover - Clickable */}
-                <Link 
-                  href={`/my-decks/${r.id}`}
-                  className="relative h-48 w-full overflow-hidden block"
-                  onClick={() => {
-                    try {
-                      capture('deck_card_click', { id: r.id });
-                      const colors: string[] = [];
-                      aiMemory.updateDeckContext({
-                        id: r.id,
-                        name: title,
-                        commander: r.commander || undefined,
-                        colors
-                      });
-                    } catch {}
+                <div 
+                  className="relative h-48 w-full overflow-hidden block cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Navigate immediately - don't wait for anything
+                    router.push(`/my-decks/${r.id}`);
+                    // Fire analytics in background (non-blocking)
+                    setTimeout(() => {
+                      try {
+                        capture('deck_card_click', { id: r.id });
+                        const colors: string[] = [];
+                        aiMemory.updateDeckContext({
+                          id: r.id,
+                          name: title,
+                          commander: r.commander || undefined,
+                          colors
+                        });
+                      } catch {}
+                    }, 0);
                   }}
                 >
                   {art && !loading ? (
@@ -124,7 +247,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                     <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
                   ) : (
                     // Empty state placeholder with gradient and icon
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden">
+                    <div className="w-full h-full bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       {/* Subtle pattern */}
                       <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
                       
@@ -163,7 +286,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                       📌 PINNED
                     </div>
                   )}
-                </Link>
+                </div>
                 
                 {/* Body with expanded stats */}
                 <div className="p-4 flex-1 flex flex-col gap-3">
@@ -184,6 +307,21 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                       Commander: {r.commander}
                     </div>
                   )}
+                  
+                  {/* Tags */}
+                  <div className="flex items-center gap-2">
+                    <TagPills tags={deckTags.get(r.id) || []} maxDisplay={3} />
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setTagModalOpen(r.id);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      aria-label="Edit tags"
+                    >
+                      {deckTags.get(r.id)?.length ? '✏️' : '+ Tags'}
+                    </button>
+                  </div>
                   
                   {/* Main stats - bigger pills */}
                   <div className="flex flex-wrap gap-2 text-xs">
@@ -226,6 +364,20 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           </DeckArtLoader>
         );
       })}
+      </div>
+
+      {/* Tag Selector Modal */}
+      {tagModalOpen && (
+        <TagSelector
+          isOpen={true}
+          onClose={() => setTagModalOpen(null)}
+          currentTags={deckTags.get(tagModalOpen) || []}
+          onSave={(newTags) => {
+            handleTagsUpdate(tagModalOpen, newTags);
+            setTagModalOpen(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { getImagesForNames } from "@/lib/scryfall";
 import { EmptyWishlistState } from "@/components/EmptyStates";
+import WishlistSkeleton from "@/components/WishlistSkeleton";
 
 export default function WishlistPage() {
   const sb = useMemo(() => createBrowserSupabaseClient(), []);
@@ -311,21 +312,57 @@ function WishlistEditor({ pro }: { pro: boolean }) {
 
   async function add(){
     const name = addName.trim(); const q = Math.max(1, Number(addQty||1)); if (!name) return;
-    try{ setAdding(true);
+    
+    // Optimistic update - add immediately to UI
+    const tempItem = {
+      name,
+      qty: q,
+      unit: 0, // Price will be fetched
+      created_at: new Date().toISOString(),
+    };
+    setItems(prev => [...prev, tempItem]);
+    setAddName('');
+    setAddQty(1);
+    
+    try{
+      setAdding(true);
       const body: any = { names:[name], qty: q };
       if (wishlistId) body.wishlist_id = wishlistId;
       const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Add failed');
+      
+      if (!r.ok || j?.ok===false) {
+        // Revert optimistic update
+        setItems(prev => prev.filter(it => it !== tempItem));
+        setAddName(name);
+        setAddQty(q);
+        
+        const retry = confirm(`Failed to add ${name}. Retry?`);
+        if (retry) {
+          add();
+        }
+        return;
+      }
+      
       const wid = String(j?.wishlist_id||wishlistId||'');
       if (wid && wid !== wishlistId) setWishlistId(wid);
-      setAddName(''); setAddQty(1);
-      // reload
+      
+      // Reload to get accurate prices and sync with server
       const qs = new URLSearchParams({ wishlistId: wid||wishlistId, currency });
       const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
       const jj = await rr.json().catch(()=>({}));
       if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-    } catch(e:any){ alert(e?.message||'Add failed'); } finally { setAdding(false); }
+    } catch(e:any){ 
+      // Revert on network error
+      setItems(prev => prev.filter(it => it !== tempItem));
+      setAddName(name);
+      setAddQty(q);
+      
+      const retry = confirm(`Network error adding ${name}. Retry?`);
+      if (retry) {
+        add();
+      }
+    } finally { setAdding(false); }
   }
 
   async function setQty(name:string, next:number){
@@ -356,13 +393,41 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   }
 
   async function remove(name:string){
+    // Optimistic update - remove immediately from UI
+    const itemToRemove = items.find(it => it.name === name);
+    if (!itemToRemove) return;
+    
+    const previousItems = items;
+    const previousTotal = total;
+    
+    setItems(prev => prev.filter(it => it.name !== name));
+    const removedValue = (itemToRemove.unit || 0) * Math.max(0, itemToRemove.qty || 0);
+    setTotal(prev => prev - removedValue);
+    
     try{
       const r = await fetch('/api/wishlists/remove', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name }) });
       const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Remove failed');
-      setItems(prev => prev.filter(it => it.name !== name));
-      setTotal(prev => items.filter(it=>it.name!==name).reduce((s,it)=> s + (it.unit||0)*Math.max(0,it.qty||0), 0));
-    } catch(e:any){ alert(e?.message||'Remove failed'); }
+      
+      if (!r.ok || j?.ok===false) {
+        // Revert optimistic update
+        setItems(previousItems);
+        setTotal(previousTotal);
+        
+        const retry = confirm(`Failed to remove ${name}. Retry?`);
+        if (retry) {
+          remove(name);
+        }
+      }
+    } catch(e:any){
+      // Revert on network error
+      setItems(previousItems);
+      setTotal(previousTotal);
+      
+      const retry = confirm(`Network error removing ${name}. Retry?`);
+      if (retry) {
+        remove(name);
+      }
+    }
   }
 
   async function inlineFix(name:string){
@@ -383,7 +448,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
     } catch(e:any){ alert(e?.message||'Rename failed'); }
   }
 
-  if (loading && !items.length && !wishlists.length) return <div className="text-xs opacity-70">Loading…</div>;
+  if (loading && !items.length && !wishlists.length) return <WishlistSkeleton />;
 
   return (
     <div ref={containerRef} onKeyDown={handleKeyDown} tabIndex={0} className="space-y-4 outline-none">

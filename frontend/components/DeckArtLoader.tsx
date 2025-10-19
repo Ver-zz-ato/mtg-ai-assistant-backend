@@ -68,15 +68,17 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
 
   useEffect(() => {
     let cancelled = false;
+    const abortController = new AbortController();
 
     async function tryGetImage(names: string[]): Promise<string | null> {
-      if (names.length === 0) return null;
+      if (names.length === 0 || cancelled) return null;
       
       try {
         const response = await fetch('/api/cards/batch-images', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ names })
+          body: JSON.stringify({ names }),
+          signal: abortController.signal
         });
 
         if (!response.ok) return null;
@@ -98,13 +100,14 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
 
     async function tryFuzzyMatch(names: string[]): Promise<Map<string, string>> {
       const map = new Map<string, string>();
-      if (names.length === 0) return map;
+      if (names.length === 0 || cancelled) return map;
       
       try {
         const response = await fetch('/api/cards/fuzzy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ names: names.slice(0, 20) })
+          body: JSON.stringify({ names: names.slice(0, 20) }),
+          signal: abortController.signal
         });
 
         if (response.ok) {
@@ -157,9 +160,11 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         }
 
         // STEP 2: Try deck_cards table as fallback
-        if (candidates.length < 5 && deckId) {
+        if (candidates.length < 5 && deckId && !cancelled) {
           try {
-            const deckCardsResponse = await fetch(`/api/decks/cards?deckId=${deckId}`);
+            const deckCardsResponse = await fetch(`/api/decks/cards?deckId=${deckId}`, {
+              signal: abortController.signal
+            });
             if (deckCardsResponse.ok) {
               const deckCardsData = await deckCardsResponse.json();
               if (Array.isArray(deckCardsData?.cards) && deckCardsData.cards.length > 0) {
@@ -254,6 +259,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [deckId, commander, title, deckText]);
 
