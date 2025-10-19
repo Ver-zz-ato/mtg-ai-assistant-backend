@@ -18,11 +18,9 @@ export default function WishlistPage() {
   const [user, setUser] = useState<any>(null);
   const [pro, setPro] = useState<boolean>(false);
 
-  // Load user data with timeout and retry
+  // Load user data - use getSession (instant) instead of getUser (slow network call)
   useEffect(() => {
     let mounted = true;
-    let retries = 0;
-    const maxRetries = 2;
     
     const loadUser = async () => {
       try {
@@ -30,31 +28,22 @@ export default function WishlistPage() {
       } catch {}
       
       try {
-        // Race between auth check and timeout
-        const authPromise = sb.auth.getUser();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth timeout')), 10000)
-        );
-        
-        const { data: ures } = await Promise.race([authPromise, timeoutPromise]) as any;
+        // Use getSession instead of getUser - it's instant and reads from localStorage
+        const { data: { session }, error } = await sb.auth.getSession();
         
         if (!mounted) return;
         
-        const u = ures?.user;
-        setUser(u);
+        if (error) {
+          console.error('[Wishlist] Session error:', error);
+        }
+        
+        const u = session?.user;
+        setUser(u || null);
         const md: any = u?.user_metadata || {};
         setPro(Boolean(md.pro || md.is_pro));
       } catch (err: any) {
-        console.error('[Wishlist] Auth check failed:', err);
-        
-        if (retries < maxRetries && mounted) {
-          retries++;
-          console.log(`[Wishlist] Retrying auth check (${retries}/${maxRetries})...`);
-          setTimeout(loadUser, 1000);
-        } else {
-          // After retries, assume not logged in
-          if (mounted) setUser(null);
-        }
+        console.error('[Wishlist] Auth exception:', err);
+        if (mounted) setUser(null);
       }
     };
     

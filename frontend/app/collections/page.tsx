@@ -126,49 +126,35 @@ function CollectionsPageClientBody() {
     setTimeout(() => setToast(null), 1500);
   };
   
-  // Check auth status with longer timeout and retry
+  // Check auth status - use getSession (fast, local) instead of getUser (slow, network)
   useEffect(() => {
     let mounted = true;
-    let retries = 0;
-    const maxRetries = 2;
     
     const checkAuth = async () => {
       try {
         const supabase = createBrowserSupabaseClient();
         
-        // Race between auth check and timeout
-        const authPromise = supabase.auth.getUser();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth timeout')), 10000)
-        );
-        
-        const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any;
+        // Use getSession instead of getUser - it's instant and reads from localStorage
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
         if (error) {
-          console.error('[Collections] Auth error:', error);
-          throw error;
+          console.error('[Collections] Session error:', error);
         }
         
-        setUser(data.user);
+        setUser(session?.user || null);
         setAuthLoading(false);
         
-        if (!data.user) {
+        if (!session?.user) {
           setLoading(false);
         }
       } catch (err: any) {
-        console.error('[Collections] Auth check failed:', err);
-        
-        if (retries < maxRetries && mounted) {
-          retries++;
-          console.log(`[Collections] Retrying auth check (${retries}/${maxRetries})...`);
-          setTimeout(checkAuth, 1000);
-        } else {
-          if (mounted) {
-            setAuthLoading(false);
-            setLoading(false);
-          }
+        console.error('[Collections] Auth exception:', err);
+        if (mounted) {
+          setUser(null);
+          setAuthLoading(false);
+          setLoading(false);
         }
       }
     };
