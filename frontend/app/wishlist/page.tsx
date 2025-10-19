@@ -18,19 +18,49 @@ export default function WishlistPage() {
   const [user, setUser] = useState<any>(null);
   const [pro, setPro] = useState<boolean>(false);
 
-  // Load user data
+  // Load user data with timeout and retry
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+    let retries = 0;
+    const maxRetries = 2;
+    
+    const loadUser = async () => {
       try {
         capture('wishlist_page_view');
       } catch {}
       
-      const { data: ures } = await sb.auth.getUser();
-      const u = ures?.user;
-      setUser(u);
-      const md: any = u?.user_metadata || {};
-      setPro(Boolean(md.pro || md.is_pro));
-    })();
+      try {
+        // Race between auth check and timeout
+        const authPromise = sb.auth.getUser();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 10000)
+        );
+        
+        const { data: ures } = await Promise.race([authPromise, timeoutPromise]) as any;
+        
+        if (!mounted) return;
+        
+        const u = ures?.user;
+        setUser(u);
+        const md: any = u?.user_metadata || {};
+        setPro(Boolean(md.pro || md.is_pro));
+      } catch (err: any) {
+        console.error('[Wishlist] Auth check failed:', err);
+        
+        if (retries < maxRetries && mounted) {
+          retries++;
+          console.log(`[Wishlist] Retrying auth check (${retries}/${maxRetries})...`);
+          setTimeout(loadUser, 1000);
+        } else {
+          // After retries, assume not logged in
+          if (mounted) setUser(null);
+        }
+      }
+    };
+    
+    loadUser();
+    
+    return () => { mounted = false; };
   }, [sb]);
 
   if (!user) {

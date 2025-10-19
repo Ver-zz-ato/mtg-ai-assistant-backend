@@ -126,37 +126,56 @@ function CollectionsPageClientBody() {
     setTimeout(() => setToast(null), 1500);
   };
   
-  // Check auth status with timeout
+  // Check auth status with longer timeout and retry
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
+    let mounted = true;
+    let retries = 0;
+    const maxRetries = 2;
     
-    // Set a timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      console.error('[Collections] Auth check timeout - forcing completion');
-      setAuthLoading(false);
-      setLoading(false); // Also stop main loading if auth times out
-    }, 5000);
-    
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        clearTimeout(timeout);
+    const checkAuth = async () => {
+      try {
+        const supabase = createBrowserSupabaseClient();
+        
+        // Race between auth check and timeout
+        const authPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 10000)
+        );
+        
+        const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any;
+        
+        if (!mounted) return;
+        
         if (error) {
           console.error('[Collections] Auth error:', error);
+          throw error;
         }
+        
         setUser(data.user);
         setAuthLoading(false);
         
-        // If no user, stop loading immediately
         if (!data.user) {
           setLoading(false);
         }
-      })
-      .catch((err) => {
-        clearTimeout(timeout);
-        console.error('[Collections] Auth exception:', err);
-        setAuthLoading(false);
-        setLoading(false); // Stop loading on auth failure
-      });
+      } catch (err: any) {
+        console.error('[Collections] Auth check failed:', err);
+        
+        if (retries < maxRetries && mounted) {
+          retries++;
+          console.log(`[Collections] Retrying auth check (${retries}/${maxRetries})...`);
+          setTimeout(checkAuth, 1000);
+        } else {
+          if (mounted) {
+            setAuthLoading(false);
+            setLoading(false);
+          }
+        }
+      }
+    };
+    
+    checkAuth();
+    
+    return () => { mounted = false; };
   }, []);
   
   // Load collections only if logged in
