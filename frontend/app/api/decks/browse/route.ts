@@ -1,7 +1,29 @@
-import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
+// Use cookie-free client for public data (same as homepage)
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(url, anon, { auth: { persistSession: false } });
+
+export const revalidate = 60; // Cache for 1 minute
 export const dynamic = "force-dynamic";
+
+// Helper to count cards in deck_text
+function countCards(deckText: string | null | undefined): number {
+  if (!deckText) return 0;
+  const lines = String(deckText).split(/\r?\n/).filter(l => l.trim());
+  let total = 0;
+  for (const line of lines) {
+    const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+    if (m) {
+      total += parseInt(m[1], 10) || 1;
+    } else if (line.trim() && !line.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
+      total += 1;
+    }
+  }
+  return total;
+}
 
 export async function GET(req: Request) {
   try {
@@ -15,13 +37,11 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 100);
     const offset = (page - 1) * limit;
-
-    const supabase = await createClient();
     
-    // Build query
+    // Build query - use cookie-free client for public data
     let query = supabase
       .from('decks')
-      .select('id, title, commander, format, colors, created_at, updated_at, owner_id, deck_text', { count: 'exact' })
+      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text', { count: 'exact' })
       .eq('is_public', true);
 
     // Apply filters
@@ -69,8 +89,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
+    // Filter decks with at least 10 cards
+    const filteredDecks = (data || []).filter(d => countCards(d.deck_text) >= 10);
+
     // Get owner usernames
-    const ownerIds = [...new Set(data?.map(d => d.owner_id).filter(Boolean))];
+    const ownerIds = [...new Set(filteredDecks.map(d => d.user_id).filter(Boolean))];
     const { data: users } = await supabase
       .from('profiles')
       .select('id, username')
@@ -79,25 +102,26 @@ export async function GET(req: Request) {
     const userMap = new Map(users?.map(u => [u.id, u.username]) || []);
 
     // Enrich deck data
-    const decks = data?.map(deck => ({
+    const decks = filteredDecks.map(deck => ({
       ...deck,
-      owner_username: userMap.get(deck.owner_id) || 'Anonymous',
-      card_count: deck.deck_text ? deck.deck_text.split('\n').filter((l: string) => l.trim()).length : 0,
-    })) || [];
+      owner_username: userMap.get(deck.user_id) || 'Anonymous',
+      card_count: countCards(deck.deck_text),
+    }));
 
     return NextResponse.json({
       ok: true,
       decks,
-      total: count || 0,
+      total: filteredDecks.length,
       page,
       limit,
-      hasMore: (count || 0) > offset + limit,
+      hasMore: filteredDecks.length > offset + limit,
     });
   } catch (error: any) {
     console.error('[Browse Decks] Exception:', error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
+
 
 
 

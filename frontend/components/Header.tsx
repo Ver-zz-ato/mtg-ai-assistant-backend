@@ -6,8 +6,6 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { capture } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
-import ThemeToggle from './ThemeToggle';
-import RateLimitIndicator from './RateLimitIndicator';
 
 export default function Header() {
   const supabase = createBrowserSupabaseClient();
@@ -157,21 +155,19 @@ export default function Header() {
     <header className="w-full border-b">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-semibold flex items-center gap-2">
-          <Logo size={42} />
+          <Logo size={63} />
           <span className="hidden sm:block text-3xl font-bold">ManaTap AI</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-3">
           <Link 
-            href="/my-decks" 
-            className="text-sm hover:underline"
-            onClick={() => {
-              capture('nav_link_clicked', { destination: '/my-decks', source: 'header' });
-              trackFeatureDiscovered('deck_management', 'navigation');
-            }}
+            href="/changelog" 
+            className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1"
+            onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
           >
-            My Decks
+            <span className="text-xs">✨</span>
+            What's New
           </Link>
           <Link 
             href="/decks/browse" 
@@ -181,58 +177,25 @@ export default function Header() {
             Browse Decks
           </Link>
           <Link 
-            href="/collections" 
-            className="text-sm hover:underline"
-            onClick={() => {
-              capture('nav_link_clicked', { destination: '/collections', source: 'header' });
-              trackFeatureDiscovered('collection_management', 'navigation');
-            }}
-          >
-            My Collections
-          </Link>
-          <Link 
-            href="/wishlist" 
-            className="text-sm hover:underline"
-            onClick={() => capture('nav_link_clicked', { destination: '/wishlist', source: 'header' })}
-          >
-            My Wishlist
-          </Link>
-          <Link 
-            href="/pricing" 
-            className="text-sm hover:underline text-blue-600 font-medium"
-            onClick={() => capture('nav_link_clicked', { destination: '/pricing', source: 'header' })}
-          >
-            Pricing
-          </Link>
-          <Link 
-            href="/profile" 
-            className="text-sm hover:underline"
-            onClick={() => capture('nav_link_clicked', { destination: '/profile', source: 'header' })}
-            data-tour="profile"
-          >
-            Profile
-          </Link>
-          <Link 
-            href="/changelog" 
-            className="text-sm hover:underline text-green-600 font-medium flex items-center gap-1"
-            onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
-          >
-            <span className="text-xs">✨</span>
-            What's New
-          </Link>
-          <Link 
             href="/blog" 
-            className="text-sm hover:underline"
+            className="text-sm hover:underline text-blue-400 font-medium"
             onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
           >
             Blog
+          </Link>
+          <Link 
+            href="/pricing" 
+            className="text-sm hover:underline text-yellow-400 font-medium"
+            onClick={() => capture('nav_link_clicked', { destination: '/pricing', source: 'header' })}
+          >
+            Pricing
           </Link>
           
           {/* Help Menu */}
           <div className="relative" ref={helpMenuRef}>
             <button
               onClick={() => setShowHelpMenu(!showHelpMenu)}
-              className="text-sm hover:underline flex items-center gap-1"
+              className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
             >
               Help
               <span className="text-xs">▾</span>
@@ -289,25 +252,50 @@ export default function Header() {
             )}
           </div>
 
-          {/* Theme Toggle */}
-          <ThemeToggle />
+          <Link 
+            href="/my-decks" 
+            className="text-sm hover:underline text-pink-400 font-medium"
+            onClick={() => {
+              capture('nav_link_clicked', { destination: '/my-decks', source: 'header' });
+              trackFeatureDiscovered('deck_management', 'navigation');
+            }}
+          >
+            My Decks
+          </Link>
+          <Link 
+            href="/collections" 
+            className="text-sm hover:underline text-cyan-400 font-medium"
+            onClick={() => {
+              capture('nav_link_clicked', { destination: '/collections', source: 'header' });
+              trackFeatureDiscovered('collection_management', 'navigation');
+            }}
+          >
+            My Collections
+          </Link>
+          <Link 
+            href="/wishlist" 
+            className="text-sm hover:underline text-rose-400 font-medium"
+            onClick={() => capture('nav_link_clicked', { destination: '/wishlist', source: 'header' })}
+          >
+            My Wishlist
+          </Link>
+        </nav>
 
-          {/* Rate Limit Indicator (Pro only) */}
-          {sessionUser && <RateLimitIndicator isPro={isPro} />}
-
+        {/* Right side: Auth */}
+        <div className="flex items-center gap-3">
           {sessionUser ? (
-            <>
-              <span className="flex items-center gap-2 text-xs opacity-90" data-tour="profile-user">
-                {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : null}
-                <span className="hidden md:block">{displayName || sessionUser}</span>
+            <div className="flex items-center gap-2 ml-3">
+              <span className="flex items-center gap-2 text-xs opacity-90 max-w-[120px] truncate" data-tour="profile-user">
+                {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
+                <span className="hidden md:block truncate">{displayName || sessionUser}</span>
               </span>
               <button
                 onClick={signOut}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Sign out
               </button>
-            </>
+            </div>
           ) : (
             <>
               <form onSubmit={signIn} className="flex items-center gap-2">
@@ -346,7 +334,7 @@ export default function Header() {
               </button>
             </>
           )}
-        </nav>
+        </div>
 
         {/* Mobile Navigation */}
         <div className="lg:hidden flex items-center gap-2">
@@ -376,8 +364,50 @@ export default function Header() {
             {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()}
             
             <Link 
+              href="/changelog" 
+              className="block py-2 text-sm text-green-500 font-medium flex items-center gap-1"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/changelog', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              <span className="text-xs">✨</span>
+              What's New
+            </Link>
+            <Link 
+              href="/decks/browse" 
+              className="block py-2 text-sm text-purple-400 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/decks/browse', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Browse Decks
+            </Link>
+            <Link 
+              href="/blog" 
+              className="block py-2 text-sm text-blue-400 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Blog
+            </Link>
+            <Link 
+              href="/pricing" 
+              className="block py-2 text-sm text-yellow-400 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/pricing', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Pricing
+            </Link>
+            <div className="block py-2 text-sm text-orange-400 font-medium">Help</div>
+            <Link 
               href="/my-decks" 
-              className="block py-2 text-sm hover:text-blue-600"
+              className="block py-2 text-sm text-pink-400 font-medium"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/my-decks', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -387,7 +417,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/collections" 
-              className="block py-2 text-sm hover:text-blue-600"
+              className="block py-2 text-sm text-cyan-400 font-medium"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/collections', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -397,43 +427,13 @@ export default function Header() {
             </Link>
             <Link 
               href="/wishlist" 
-              className="block py-2 text-sm hover:text-blue-600"
+              className="block py-2 text-sm text-rose-400 font-medium"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/wishlist', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >
               My Wishlist
-            </Link>
-            <Link 
-              href="/pricing" 
-              className="block py-2 text-sm hover:text-blue-600 text-blue-600 font-medium"
-              onClick={() => {
-                capture('nav_link_clicked', { destination: '/pricing', source: 'mobile_menu' });
-                setMobileMenuOpen(false);
-              }}
-            >
-              💎 Pricing
-            </Link>
-            <Link 
-              href="/profile" 
-              className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => {
-                capture('nav_link_clicked', { destination: '/profile', source: 'mobile_menu' });
-                setMobileMenuOpen(false);
-              }}
-            >
-              Profile
-            </Link>
-            <Link 
-              href="/blog" 
-              className="block py-2 text-sm hover:text-blue-600"
-              onClick={() => {
-                capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
-                setMobileMenuOpen(false);
-              }}
-            >
-              Blog
             </Link>
 
             {sessionUser ? (

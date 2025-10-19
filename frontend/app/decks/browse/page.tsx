@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { capture } from '@/lib/ph';
 import DeckArtLoader from '@/components/DeckArtLoader';
+import DeckArtPlaceholder from '@/components/DeckArtPlaceholder';
 import { EmptySearchState } from '@/components/EmptyStates';
 
 interface Deck {
@@ -251,11 +252,7 @@ export default function BrowseDecksPage() {
                           <div className="text-gray-500">Loading...</div>
                         </div>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 to-neutral-950">
-                          <svg className="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
-                        </div>
+                        <DeckArtPlaceholder />
                       )
                     )}
                   </DeckArtLoader>

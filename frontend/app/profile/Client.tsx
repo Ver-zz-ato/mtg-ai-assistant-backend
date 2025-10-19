@@ -12,6 +12,7 @@ import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import { getImagesForNames } from "@/lib/scryfall";
 import PrivacyDataToggle from "@/components/PrivacyDataToggle";
 import BadgeShareBanner from "@/components/BadgeShareBanner";
+import RateLimitIndicator from "@/components/RateLimitIndicator";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -934,6 +935,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         <span>Pro badge and priority support</span>
                       </li>
                     </ul>
+                  </div>
+
+                  {/* Rate Limit Indicator */}
+                  <div className="border-t border-neutral-800 pt-4">
+                    <div className="text-sm font-semibold mb-3">API Usage</div>
+                    <RateLimitIndicator isPro={true} />
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">

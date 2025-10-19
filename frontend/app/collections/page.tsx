@@ -341,8 +341,6 @@ function CollectionsPageClientBody() {
               return null;
             }
           })()}
-          <Link href="/wishlist" className="text-sm underline underline-offset-4 text-blue-600 hidden sm:inline-block">My Wishlist →</Link>
-          <Link href="/collections/cost-to-finish" className="text-sm underline underline-offset-4 hidden sm:inline-block">Cost to Finish →</Link>
         </div>
       </div>
       {nameError && (<p className="text-xs text-red-500 mt-1">{nameError}</p>)}

@@ -27,7 +27,7 @@ function extractNamesFromText(deckText: string): string[] {
   const rxCsv = /^(.+?),(?:\s*)"?\d+"?\s*$/;              // "Sol Ring,\"18\"" or "Sol Ring,18"
   const rxDash = /^[-•]\s*(.+)$/;                            // "- Sol Ring"
   
-  for (const l of lines.slice(0, 10)) { // Limit to first 10 lines for performance
+  for (const l of lines.slice(0, 20)) { // Increased from 10 to 20
     let name = '';
     let m = l.match(rxQtyPrefix);
     if (m) name = m[2]; else {
@@ -39,11 +39,26 @@ function extractNamesFromText(deckText: string): string[] {
     }
     if (!name) {
       if (/,/.test(l)) name = l.split(',')[0];
+      else if (l && !/^\d+$/.test(l)) name = l; // Try the line as-is if not just a number
     }
-    if (name) out.push(cleanName(name));
-    if (out.length >= 5) break; // Cap to avoid over-fetch
+    if (name) {
+      const cleaned = cleanName(name);
+      // Skip basic land names and common non-card patterns
+      if (cleaned && cleaned.length > 1 && !['Commander', 'Sideboard', 'Deck', 'Maybeboard'].includes(cleaned)) {
+        out.push(cleaned);
+      }
+    }
+    if (out.length >= 15) break; // Increased cap
   }
   return out.filter(Boolean);
+}
+
+// Prioritize non-basic lands for better art
+function prioritizeCards(names: string[]): string[] {
+  const basicLands = new Set(['forest', 'island', 'plains', 'swamp', 'mountain']);
+  const nonBasic = names.filter(n => !basicLands.has(n.toLowerCase()));
+  const basic = names.filter(n => basicLands.has(n.toLowerCase()));
+  return [...nonBasic, ...basic]; // Non-basics first
 }
 
 export default function DeckArtLoader({ deckId, commander, title, deckText, children }: DeckArtLoaderProps) {
@@ -54,56 +69,173 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
   useEffect(() => {
     let cancelled = false;
 
+    async function tryGetImage(names: string[]): Promise<string | null> {
+      if (names.length === 0) return null;
+      
+      try {
+        const response = await fetch('/api/cards/batch-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names })
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        if (Array.isArray(data?.data) && data.data.length > 0) {
+          // Find first card with any image
+          for (const card of data.data) {
+            const images = card.image_uris || card.card_faces?.[0]?.image_uris || {};
+            const img = images.art_crop || images.normal || images.small;
+            if (img) return img;
+          }
+        }
+      } catch (err) {
+        console.warn('[DeckArtLoader] batch-images failed:', err);
+      }
+      return null;
+    }
+
+    async function tryFuzzyMatch(names: string[]): Promise<Map<string, string>> {
+      const map = new Map<string, string>();
+      if (names.length === 0) return map;
+      
+      try {
+        const response = await fetch('/api/cards/fuzzy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: names.slice(0, 20) })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.ok && data.results) {
+            Object.entries(data.results).forEach(([original, result]: [string, any]) => {
+              if (result?.suggestion) {
+                map.set(original, result.suggestion);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[DeckArtLoader] fuzzy match failed:', err);
+      }
+      return map;
+    }
+
     async function loadArt() {
       try {
         setLoading(true);
         setError(false);
+        console.log('[DeckArtLoader] Starting for deck:', deckId);
 
-        // Build candidate list
+        // STEP 1: Build candidate list from all sources
         const candidates: string[] = [];
-        if (commander) candidates.push(cleanName(commander));
-        if (title) candidates.push(cleanName(title));
         
-        // Get some cards from deck text
+        // Add commander (highest priority)
+        if (commander) {
+          const cleaned = cleanName(commander);
+          if (cleaned) candidates.push(cleaned);
+          console.log('[DeckArtLoader] Commander:', cleaned);
+        }
+        
+        // Try parsing title for card name
+        if (title) {
+          const cleaned = cleanName(title);
+          // Only add if it looks like a card name (not just "MODERN Green/Black")
+          if (cleaned && !cleaned.match(/^(MODERN|COMMANDER|LEGACY|VINTAGE|STANDARD|PIONEER)/i)) {
+            candidates.push(cleaned);
+            console.log('[DeckArtLoader] Title:', cleaned);
+          }
+        }
+        
+        // Extract from deck text
         if (deckText) {
-          extractNamesFromText(deckText).forEach(n => candidates.push(n));
+          const extracted = extractNamesFromText(deckText);
+          extracted.forEach(n => candidates.push(n));
+          console.log('[DeckArtLoader] Extracted from text:', extracted.length);
         }
 
-        // Skip deck cards API call for better performance - we already have candidates from commander/title/deckText
+        // STEP 2: Try deck_cards table as fallback
+        if (candidates.length < 5 && deckId) {
+          try {
+            const deckCardsResponse = await fetch(`/api/decks/cards?deckId=${deckId}`);
+            if (deckCardsResponse.ok) {
+              const deckCardsData = await deckCardsResponse.json();
+              if (Array.isArray(deckCardsData?.cards) && deckCardsData.cards.length > 0) {
+                // Get all non-basic land cards first, sorted by quantity
+                const nonBasicLands = new Set(['forest', 'island', 'plains', 'swamp', 'mountain']);
+                const sorted = deckCardsData.cards
+                  .filter((c: any) => c.name && !nonBasicLands.has(c.name.toLowerCase()))
+                  .sort((a: any, b: any) => (b.qty || 0) - (a.qty || 0))
+                  .slice(0, 20);
+                
+                sorted.forEach((c: any) => {
+                  if (c.name) candidates.push(cleanName(c.name));
+                });
+                console.log('[DeckArtLoader] From deck_cards:', sorted.length);
+              }
+            }
+          } catch (err) {
+            console.warn('[DeckArtLoader] deck_cards fetch failed:', err);
+          }
+        }
 
         if (cancelled) return;
 
-        // Remove duplicates and limit
-        const uniqueCandidates = Array.from(new Set(candidates)).slice(0, 8);
+        // STEP 3: Prioritize and deduplicate
+        const uniqueCandidates = Array.from(new Set(candidates));
+        const prioritized = prioritizeCards(uniqueCandidates).slice(0, 25);
         
-        if (uniqueCandidates.length === 0) {
+        console.log('[DeckArtLoader] Total candidates:', prioritized.length, prioritized.slice(0, 5));
+
+        if (prioritized.length === 0) {
+          console.log('[DeckArtLoader] No candidates found');
           setLoading(false);
           return;
         }
 
-        // Try to get images for candidates
-        const imageResponse = await fetch('/api/cards/batch-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ names: uniqueCandidates })
-        });
+        // STEP 4: Try batch-images with original names
+        console.log('[DeckArtLoader] Trying batch-images...');
+        let img = await tryGetImage(prioritized);
+        
+        if (img && !cancelled) {
+          console.log('[DeckArtLoader] ✓ Found image from batch-images');
+          setArt(img);
+          setLoading(false);
+          return;
+        }
 
         if (cancelled) return;
 
-        if (imageResponse.ok) {
-          const imageData = await imageResponse.json();
-          if (Array.isArray(imageData?.data)) {
-            // Find first card with art
-            for (const card of imageData.data) {
-              const images = card.image_uris || card.card_faces?.[0]?.image_uris || {};
-              if (images.art_crop || images.normal || images.small) {
-                if (!cancelled) {
-                  setArt(images.art_crop || images.normal || images.small);
-                }
-                break;
-              }
-            }
+        // STEP 5: Try fuzzy matching for misspelled cards
+        console.log('[DeckArtLoader] Trying fuzzy match...');
+        const fuzzyMap = await tryFuzzyMatch(prioritized);
+        const correctedNames = prioritized.map(name => fuzzyMap.get(name) || name);
+        
+        if (correctedNames.length > 0) {
+          img = await tryGetImage(correctedNames);
+          
+          if (img && !cancelled) {
+            console.log('[DeckArtLoader] ✓ Found image from fuzzy match');
+            setArt(img);
+            setLoading(false);
+            return;
           }
+        }
+
+        if (cancelled) return;
+
+        // STEP 6: Ultimate fallback - try basic lands
+        console.log('[DeckArtLoader] Trying basic lands fallback...');
+        const basicLands = ['Forest', 'Island', 'Plains', 'Swamp', 'Mountain'];
+        img = await tryGetImage(basicLands);
+        
+        if (img && !cancelled) {
+          console.log('[DeckArtLoader] ✓ Using basic land fallback');
+          setArt(img);
+        } else {
+          console.log('[DeckArtLoader] ✗ All fallbacks exhausted');
         }
 
         if (!cancelled) {
@@ -111,14 +243,13 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         }
       } catch (err) {
         if (!cancelled) {
-          console.warn('Failed to load deck art:', err);
+          console.error('[DeckArtLoader] Fatal error:', err);
           setError(true);
           setLoading(false);
         }
       }
     }
 
-    // Start loading immediately - cache handles rate limiting
     loadArt();
 
     return () => {

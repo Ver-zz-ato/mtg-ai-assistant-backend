@@ -41,6 +41,25 @@ export default async function RecentPublicDecks({ limit = 10 }: { limit?: number
     return <div className="text-sm text-red-500">Failed to load recent decks.</div>;
   }
 
+  // Helper function to count cards in deck_text
+  const countCards = (deckText: string | null | undefined): number => {
+    if (!deckText) return 0;
+    const lines = String(deckText).split(/\r?\n/).filter(l => l.trim());
+    let total = 0;
+    for (const line of lines) {
+      const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      if (m) {
+        total += parseInt(m[1], 10) || 1;
+      } else if (line.trim() && !line.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
+        total += 1;
+      }
+    }
+    return total;
+  };
+
+  // Filter decks with at least 10 cards
+  decks = decks.filter(d => countCards(d.deck_text) >= 10);
+
   if (!decks.length) {
     return (
       <div className="rounded-xl border border-gray-800 p-4">
