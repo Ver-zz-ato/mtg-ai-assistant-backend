@@ -30,13 +30,24 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           .select('is_pro')
           .eq('id', user.id)
           .single();
+        
+        console.log('🔍 Pro detection:', { 
+          userId: user.id, 
+          profileIsPro: profile?.is_pro,
+          metadataIsPro: user?.user_metadata?.is_pro,
+          metadataPro: user?.user_metadata?.pro
+        });
           
         if (profile) {
-          setIsPro(Boolean(profile.is_pro));
+          const proStatus = Boolean(profile.is_pro);
+          console.log('✅ Setting Pro from profile:', proStatus);
+          setIsPro(proStatus);
         } else {
           // Fallback to user metadata if profile not found
           const md: any = user?.user_metadata || {};
-          setIsPro(Boolean(md?.is_pro || md?.pro));
+          const proStatus = Boolean(md?.is_pro || md?.pro);
+          console.log('✅ Setting Pro from metadata:', proStatus);
+          setIsPro(proStatus);
         }
       } catch {
         setIsPro(false);
