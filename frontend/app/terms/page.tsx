@@ -17,34 +17,34 @@ export default function TermsPage() {
   const today = formatToday();
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
       <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+          <h1 className="text-4xl font-bold text-white mb-3">
             Terms of Service
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-400">
             Effective date: {today}
           </p>
         </div>
 
         {/* Main Content */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
-          <p className="text-base text-gray-700 dark:text-gray-300 mb-6">
+        <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 mb-6">
+          <p className="text-base text-gray-300 mb-6">
             <strong>By using Manatap.ai, you agree to the following:</strong>
           </p>
 
           <div className="space-y-4">
             {/* Free Project */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border-l-4 border-blue-600">
+            <div className="bg-blue-900/20 rounded-xl p-4 border-l-4 border-blue-600">
               <div className="flex items-start gap-3">
                 <div className="text-2xl">🆓</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     Free Project
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     Manatap.ai is offered "as is" without guarantees. It may change or stop at any time.
                   </p>
                 </div>
@@ -56,10 +56,10 @@ export default function TermsPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">⚠️</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     No Liability
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     We're not responsible for losses, damages, or mistakes that come from using the site.
                   </p>
                 </div>
@@ -71,10 +71,10 @@ export default function TermsPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">✅</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     Fair Use
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     Don't abuse the site (e.g. spamming, exploiting the system, or attempting to break security).
                   </p>
                 </div>
@@ -82,14 +82,14 @@ export default function TermsPage() {
             </div>
 
             {/* Support/Donations */}
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border-l-4 border-purple-600">
+            <div className="bg-purple-900/20 rounded-xl p-4 border-l-4 border-purple-600">
               <div className="flex items-start gap-3">
                 <div className="text-2xl">💝</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     Support/Donations
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     Any payments through Ko-fi, PayPal, or Stripe are voluntary tips, not purchases. They are non-refundable and don't entitle you to goods, services, or special treatment.
                   </p>
                 </div>
@@ -101,10 +101,10 @@ export default function TermsPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">🛒</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     Digital Services
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     If you make a paid subscription, this constitutes a digital service purchase under UK law.
                   </p>
                 </div>
@@ -116,10 +116,10 @@ export default function TermsPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">🎮</div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  <h3 className="text-lg font-bold text-white mb-1">
                     Content
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
+                  <p className="text-gray-300">
                     Manatap.ai is not affiliated with or endorsed by Wizards of the Coast. Magic: The Gathering and all related marks are their trademarks.
                   </p>
                 </div>
@@ -147,13 +147,13 @@ export default function TermsPage() {
         {/* Footer Links */}
         <div className="text-center">
           <div className="inline-flex gap-6 text-sm">
-            <Link href="/support" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/support" className="text-gray-400 hover:text-blue-400">
               Support
             </Link>
-            <Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/privacy" className="text-gray-400 hover:text-blue-400">
               Privacy Policy
             </Link>
-            <Link href="/refund" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/refund" className="text-gray-400 hover:text-blue-400">
               Refund Policy
             </Link>
           </div>

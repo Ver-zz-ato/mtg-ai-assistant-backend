@@ -30,21 +30,21 @@ export default function RefundPage() {
           <div className="flex items-start gap-3 mb-4">
             <div className="text-3xl">🔄</div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-2xl font-bold text-white mb-3">
                 Subscriptions
               </h2>
             </div>
           </div>
           
-          <p className="text-gray-700 dark:text-gray-300 mb-3 text-sm">
+          <p className="text-gray-300 mb-3 text-sm">
             Pro subscriptions are billed either <strong>monthly</strong> or <strong>yearly</strong>.
           </p>
           
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border-l-4 border-blue-600">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1.5 text-base">
+          <div className="bg-blue-900/20 rounded-lg p-4 border-l-4 border-blue-600">
+            <h3 className="font-bold text-white mb-1.5 text-base">
               Easy Cancellation
             </h3>
-            <p className="text-gray-700 dark:text-gray-300 text-sm">
+            <p className="text-gray-300 text-sm">
               You can cancel at any time from your Stripe billing portal — a link is provided in your confirmation email and within your account settings. When you cancel, access continues until the end of your current billing period.
             </p>
           </div>
@@ -55,42 +55,42 @@ export default function RefundPage() {
           <div className="flex items-start gap-3 mb-4">
             <div className="text-3xl">💰</div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-2xl font-bold text-white mb-3">
                 Refunds
               </h2>
             </div>
           </div>
           
-          <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm">
+          <p className="text-gray-300 mb-4 text-sm">
             We want you to be happy with the service.
           </p>
 
           {/* 14-Day Window */}
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border-l-4 border-emerald-600 mb-3">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1.5 text-base">
+          <div className="bg-emerald-900/20 rounded-lg p-4 border-l-4 border-emerald-600 mb-3">
+            <h3 className="font-bold text-white mb-1.5 text-base">
               ✅ 14-Day Money-Back Guarantee
             </h3>
-            <p className="text-gray-700 dark:text-gray-300 text-sm">
+            <p className="text-gray-300 text-sm">
               If you are a new Pro subscriber, you may request a refund within <strong>14 days</strong> of your first payment, provided the service has not been substantially used.
             </p>
           </div>
 
           <div className="space-y-3">
-            <p className="text-gray-700 dark:text-gray-300 text-sm">
+            <p className="text-gray-300 text-sm">
               Refunds are issued to the original payment method.
             </p>
             
-            <div className="bg-gray-50 dark:bg-gray-700/20 rounded-lg p-3">
-              <p className="text-gray-700 dark:text-gray-300 text-sm">
+            <div className="bg-gray-700/20 rounded-lg p-3">
+              <p className="text-gray-300 text-sm">
                 <strong>To request a refund:</strong> Contact{' '}
-                <a href="mailto:support@manatap.ai" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <a href="mailto:support@manatap.ai" className="text-blue-400 hover:underline">
                   support@manatap.ai
                 </a>{' '}
                 with your Stripe receipt or account email.
               </p>
             </div>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+            <p className="text-sm text-gray-400 italic">
               Note: Donations or voluntary tips (through Ko-fi or PayPal) are non-refundable.
             </p>
           </div>
@@ -101,24 +101,24 @@ export default function RefundPage() {
           <div className="flex items-start gap-3 mb-4">
             <div className="text-3xl">⚠️</div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-2xl font-bold text-white mb-3">
                 Failed or Disputed Payments
               </h2>
             </div>
           </div>
           
-          <p className="text-gray-700 dark:text-gray-300 mb-3 text-sm">
+          <p className="text-gray-300 mb-3 text-sm">
             If a payment fails or is disputed, we may temporarily suspend Pro access until the issue is resolved.
           </p>
           
-          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border-l-4 border-purple-600">
+          <div className="bg-purple-900/20 rounded-lg p-4 border-l-4 border-purple-600">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-lg">🔒</span>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
+              <h3 className="font-bold text-white text-base">
                 Secure Payments
               </h3>
             </div>
-            <p className="text-gray-700 dark:text-gray-300 text-sm">
+            <p className="text-gray-300 text-sm">
               Stripe handles all card data securely; ManaTap never stores payment information.
             </p>
           </div>
@@ -129,30 +129,30 @@ export default function RefundPage() {
           <div className="flex items-start gap-3 mb-4">
             <div className="text-3xl">⚖️</div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-2xl font-bold text-white mb-3">
                 Legal
               </h2>
             </div>
           </div>
           
-          <ul className="space-y-2 text-gray-700 dark:text-gray-300 text-sm">
+          <ul className="space-y-2 text-gray-300 text-sm">
             <li className="flex items-start gap-3">
-              <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+              <span className="text-blue-400 mt-1">•</span>
               <span>All prices include any applicable UK taxes.</span>
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+              <span className="text-blue-400 mt-1">•</span>
               <span>This policy is governed by the laws of England and Wales.</span>
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+              <span className="text-blue-400 mt-1">•</span>
               <span>
                 For more information about Stripe's refund process, visit:{' '}
                 <a 
                   href="https://support.stripe.com/topics/refunds?locale=en-GB" 
                   target="_blank" 
                   rel="noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                  className="text-blue-400 hover:underline break-all"
                 >
                   stripe.com/refunds
                 </a>
@@ -180,13 +180,13 @@ export default function RefundPage() {
         {/* Footer Links */}
         <div className="text-center">
           <div className="inline-flex gap-6 text-sm">
-            <Link href="/support" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/support" className="text-gray-400 hover:text-blue-400">
               Support
             </Link>
-            <Link href="/terms" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/terms" className="text-gray-400 hover:text-blue-400">
               Terms of Service
             </Link>
-            <Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+            <Link href="/privacy" className="text-gray-400 hover:text-blue-400">
               Privacy Policy
             </Link>
           </div>
