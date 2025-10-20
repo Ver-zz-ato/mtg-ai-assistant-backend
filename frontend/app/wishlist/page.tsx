@@ -36,7 +36,7 @@ export default function WishlistPage() {
         const sessionPromise = sb.auth.getSession();
         const timeoutPromise = new Promise<any>((resolve) => {
           setTimeout(() => {
-            console.error('[Wishlist] getSession() TIMEOUT after 3s - forcing null session');
+            console.warn('[Wishlist] getSession() TIMEOUT after 3s - forcing null session');
             resolve({ data: { session: null }, error: null });
           }, 3000);
         });

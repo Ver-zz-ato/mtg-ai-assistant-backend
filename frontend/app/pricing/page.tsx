@@ -15,26 +15,46 @@ export default function PricingPage() {
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
+    console.log('[Pricing] Starting auth check...');
     
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
+    // Use getSession() with timeout (same fix as Collections/Wishlist)
+    (async () => {
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<any>((resolve) => {
+          setTimeout(() => {
+            console.warn('[Pricing] getSession() TIMEOUT after 3s - forcing null session');
+            resolve({ data: { session: null }, error: null });
+          }, 3000);
+        });
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+        const currentUser = session?.user || null;
+        
+        console.log('[Pricing] Auth check complete', { hasUser: !!currentUser, email: currentUser?.email });
+        setUser(currentUser);
+        setLoading(false);
 
-    // Enhanced pricing page tracking
-    const referrer = typeof document !== 'undefined' ? document.referrer : '';
-    const source = referrer.includes('/chat') ? 'chat_limit' :
-                  referrer.includes('/my-decks') ? 'deck_feature' :
-                  referrer.includes('google') ? 'google_search' : 'direct';
-    
-    trackPricingPageViewed(source);
-    capture('pricing_page_viewed', {
-      is_authenticated: !!user,
-      is_pro: isPro,
-      source,
-      referrer: referrer.slice(0, 100) // Truncate for privacy
-    });
-  }, [user, isPro]);
+        // Enhanced pricing page tracking
+        const referrer = typeof document !== 'undefined' ? document.referrer : '';
+        const source = referrer.includes('/chat') ? 'chat_limit' :
+                      referrer.includes('/my-decks') ? 'deck_feature' :
+                      referrer.includes('google') ? 'google_search' : 'direct';
+        
+        trackPricingPageViewed(source);
+        capture('pricing_page_viewed', {
+          is_authenticated: !!currentUser,
+          is_pro: isPro,
+          source,
+          referrer: referrer.slice(0, 100) // Truncate for privacy
+        });
+      } catch (err) {
+        console.error('[Pricing] Auth error:', err);
+        setUser(null);
+        setLoading(false);
+      }
+    })();
+  }, [isPro]);
 
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);

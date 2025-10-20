@@ -152,7 +152,7 @@ function CollectionsPageClientBody() {
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<any>((resolve) => {
           setTimeout(() => {
-            console.error('[Collections] getSession() TIMEOUT after 3s - forcing null session');
+            console.warn('[Collections] getSession() TIMEOUT after 3s - forcing null session');
             resolve({ data: { session: null }, error: null });
           }, 3000);
         });

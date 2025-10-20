@@ -139,6 +139,7 @@ export default function SupportForm() {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
               className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white"
               placeholder="your@email.com"

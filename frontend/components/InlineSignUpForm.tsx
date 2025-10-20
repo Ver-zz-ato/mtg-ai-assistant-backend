@@ -98,6 +98,7 @@ export default function InlineSignUpForm() {
             className={`w-full bg-white/10 backdrop-blur text-white border ${
               emailError ? 'border-red-400' : 'border-white/30'
             } rounded-lg px-4 py-3 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50`}
+            autoComplete="email"
             required
           />
           {emailError && (
@@ -120,6 +121,7 @@ export default function InlineSignUpForm() {
             className={`w-full bg-white/10 backdrop-blur text-white border ${
               passwordError ? 'border-red-400' : 'border-white/30'
             } rounded-lg px-4 py-3 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50`}
+            autoComplete="new-password"
             minLength={8}
             required
           />

@@ -848,11 +848,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="text-sm">
                       <div className="opacity-70 mb-1">Current password</div>
-                      <input type="password" value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Current password" />
+                      <input type="password" value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Current password" autoComplete="current-password" />
                     </label>
                     <label className="text-sm">
                       <div className="opacity-70 mb-1">New password</div>
-                      <input type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="New password (min 8 chars)" />
+                      <input type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="New password (min 8 chars)" autoComplete="new-password" />
                     </label>
                   </div>
                   <div className="text-right">
