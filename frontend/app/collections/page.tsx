@@ -26,6 +26,7 @@ type Stats = {
 
 function CollectionsPageClientBody() {
   // ============ ALL HOOKS AT THE TOP ============
+  const supabase = createBrowserSupabaseClient(); // Create at component level like Header
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -145,87 +146,53 @@ function CollectionsPageClientBody() {
     setTimeout(() => setToast(null), 1500);
   };
   
-  // Check auth status - use getSession (fast, local) instead of getUser (slow, network)
+  // Check auth status - simplified to match Header pattern
   useEffect(() => {
     let mounted = true;
-    console.log('[Collections] Starting auth check...');
+    console.log('[Collections] ========== AUTH CHECK START ==========');
     
-    const checkAuth = async () => {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        console.log('[Collections] Supabase client created');
-        
-        // Use getSession instead of getUser - it's instant and reads from localStorage
-        const startTime = Date.now();
-        
-        // Add real timeout with Promise.race
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<any>((resolve) => {
-          setTimeout(() => {
-            console.warn('[Collections] getSession() TIMEOUT after 3s - forcing null session');
-            resolve({ data: { session: null }, error: null });
-          }, 3000);
-        });
-        
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
-        const elapsed = Date.now() - startTime;
-        
-        console.log(`[Collections] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error, timedOut: elapsed >= 3000 });
-        
-        if (!mounted) {
-          console.log('[Collections] Component unmounted, skipping state update');
-          return;
-        }
-        
-        // If timed out and no session, try localStorage fallback
-        if (!session && elapsed >= 3000) {
-          console.warn('[Collections] getSession() timed out, trying localStorage fallback...');
-          try {
-            const keys = Object.keys(localStorage);
-            const authKey = keys.find(k => k.includes('auth-token'));
-            if (authKey) {
-              const authData = localStorage.getItem(authKey);
-              console.log('[Collections] Found auth data in localStorage:', { key: authKey, hasData: !!authData });
-            } else {
-              console.warn('[Collections] No auth data in localStorage');
-            }
-          } catch (e) {
-            console.error('[Collections] localStorage access failed:', e);
-          }
-        }
-        
-        if (error) {
-          console.error('[Collections] Session error:', error);
-        }
-        
-        const user = session?.user || null;
-        console.log('[Collections] Setting user:', { userId: user?.id, email: user?.email });
-        setUser(user);
-        setAuthLoading(false);
-        
-        if (!user) {
-          console.log('[Collections] No user found, stopping loading');
-          setLoading(false);
-        } else {
-          console.log('[Collections] User found, will load collections');
-        }
-      } catch (err: any) {
-        console.error('[Collections] Auth exception:', err);
-        if (mounted) {
-          setUser(null);
-          setAuthLoading(false);
-          setLoading(false);
-        }
+    // Use getSession() directly like Header does - no timeout needed
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) {
+        console.log('[Collections] Component unmounted during auth');
+        return;
       }
-    };
-    
-    checkAuth();
+      
+      const user = session?.user || null;
+      console.log('[Collections] ✓ Auth complete:', { 
+        hasUser: !!user, 
+        userId: user?.id, 
+        email: user?.email,
+        error: error?.message 
+      });
+      
+      if (error) {
+        console.error('[Collections] Session error:', error);
+      }
+      
+      setUser(user);
+      setAuthLoading(false);
+      
+      if (!user) {
+        console.log('[Collections] → No user, will show guest page');
+        setLoading(false);
+      } else {
+        console.log('[Collections] → User found, will load collections');
+      }
+    }).catch((err) => {
+      console.error('[Collections] ✗ Auth failed:', err);
+      if (mounted) {
+        setUser(null);
+        setAuthLoading(false);
+        setLoading(false);
+      }
+    });
     
     return () => { 
-      console.log('[Collections] Cleanup - unmounting');
+      console.log('[Collections] Cleanup');
       mounted = false; 
     };
-  }, []);
+  }, [supabase]);
   
   // Load collections only if logged in
   useEffect(() => {
