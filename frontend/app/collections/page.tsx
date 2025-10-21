@@ -26,6 +26,7 @@ type Stats = {
 
 function CollectionsPageClientBody() {
   // ============ ALL HOOKS AT THE TOP ============
+  const supabase = createBrowserSupabaseClient(); // MATCH HEADER PATTERN
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -49,7 +50,6 @@ function CollectionsPageClientBody() {
   const loadCollections = async () => {
     console.log('[Collections] ========== loadCollections() START ==========');
     setLoading(true);
-    const supabase = createBrowserSupabaseClient(); // Create fresh client for this function
     try {
       console.log('[Collections] Fetching /api/collections/list...');
       const fetchStart = Date.now();
@@ -146,41 +146,25 @@ function CollectionsPageClientBody() {
     setTimeout(() => setToast(null), 1500);
   };
   
-  // Check auth status - using old working pattern (supabase created inside useEffect)
+  // Check auth status - MATCH HEADER PATTERN EXACTLY
   useEffect(() => {
-    let mounted = true;
-    const supabase = createBrowserSupabaseClient(); // Create inside useEffect to avoid race conditions
-    
     console.log('[Collections] Auth check starting...');
     
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('[Collections] Session error:', error);
-        }
-        
-        const user = session?.user || null;
-        setUser(user);
-        setAuthLoading(false);
-        
-        if (!user) {
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error('[Collections] Auth exception:', err);
-        if (mounted) {
-          setUser(null);
-          setAuthLoading(false);
-          setLoading(false);
-        }
-      });
-    
-    return () => { 
-      mounted = false; 
-    };
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      const user = session?.user || null;
+      console.log('[Collections] Auth complete:', { hasUser: !!user, email: user?.email });
+      
+      if (error) {
+        console.error('[Collections] Session error:', error);
+      }
+      
+      setUser(user);
+      setAuthLoading(false);
+      
+      if (!user) {
+        setLoading(false);
+      }
+    });
   }, []); // Empty deps - runs once
   
   // Load collections only if logged in

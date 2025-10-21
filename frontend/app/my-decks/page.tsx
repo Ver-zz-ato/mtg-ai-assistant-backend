@@ -1,17 +1,12 @@
-// app/my-decks/page.tsx
-import { createClient } from "@/lib/supabase/server";
-import NewDeckInline from "@/components/NewDeckInline";
+'use client';
+
+import { useEffect, useState } from "react";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import MyDecksList from "@/components/MyDecksList";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { NoDecksEmptyState } from "@/components/EmptyState";
-import { canonicalMeta } from "@/lib/canonical";
 import DeckPageCoachBubbles from "./ClientWithCoach";
 import CompareDecksWidget from "@/components/CompareDecksWidget";
-import type { Metadata } from "next";
-
-export function generateMetadata(): Metadata {
-  return canonicalMeta("/my-decks");
-}
 
 type DeckRow = {
   id: string;
@@ -22,10 +17,90 @@ type DeckRow = {
   is_public: boolean;
 };
 
-export default async function Page() {
-  const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  if (!u?.user) {
+export default function MyDecksPage() {
+  const supabase = createBrowserSupabaseClient(); // MATCH HEADER PATTERN
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [decks, setDecks] = useState<DeckRow[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Check auth - MATCH HEADER PATTERN EXACTLY
+  useEffect(() => {
+    console.log('[My Decks] Auth check starting...');
+    
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      const user = session?.user || null;
+      console.log('[My Decks] Auth complete:', { hasUser: !!user, email: user?.email });
+      
+      if (error) {
+        console.error('[My Decks] Session error:', error);
+      }
+      
+      setUser(user);
+      setAuthLoading(false);
+      
+      if (!user) {
+        setLoading(false);
+      }
+    });
+  }, []); // Empty deps - runs once
+
+  // Load decks
+  useEffect(() => {
+    if (!user || authLoading) return;
+    
+    console.log('[My Decks] Loading decks...');
+    setLoading(true);
+    
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("decks")
+          .select("id, title, commander, created_at, updated_at, is_public")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const { data: pp } = await supabase
+          .from('profiles_public')
+          .select('pinned_deck_ids')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const pinned = Array.isArray(pp?.pinned_deck_ids) ? pp.pinned_deck_ids : [];
+        
+        const sorted = (data || []).map((d: any) => ({
+          ...d,
+          is_public: d.is_public ?? false
+        })).sort((a: any, b: any) => {
+          const ap = pinned.includes(a.id) ? 0 : 1;
+          const bp = pinned.includes(b.id) ? 0 : 1;
+          if (ap !== bp) return ap - bp;
+          return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+        });
+
+        setDecks(sorted);
+        setPinnedIds(pinned);
+        console.log('[My Decks] Load complete:', { count: sorted.length });
+      } catch (err: any) {
+        console.error('[My Decks] Load failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user, authLoading, supabase]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
     const features = [
       {
         icon: '📚',
@@ -107,43 +182,6 @@ export default async function Page() {
     );
   }
 
-  // PERFORMANCE OPTIMIZATION: Only fetch metadata, not full deck_text
-  // This reduces initial load time by ~80% for users with many decks
-  const { data, error } = await supabase
-    .from("decks")
-    .select("id, title, commander, created_at, updated_at, is_public")
-    .eq("user_id", u.user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return (
-      <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-xl font-semibold mb-4">My Decks</h1>
-        <p className="text-red-500">{error.message}</p>
-      </div>
-    );
-  }
-
-  const rows: DeckRow[] = (data || []).map((d: any) => ({
-    ...d,
-    is_public: d.is_public ?? false
-  }));
-
-  // Load pinned decks
-  let pinnedIds: string[] = [];
-  try {
-    const { data: pp } = await supabase.from('profiles_public').select('pinned_deck_ids').eq('id', u.user.id).maybeSingle();
-    pinnedIds = Array.isArray((pp as any)?.pinned_deck_ids) ? (pp as any).pinned_deck_ids as string[] : [];
-  } catch {}
-
-  // Sort: pinned first, then by creation date
-  rows.sort((a:any,b:any)=>{
-    const ap = pinnedIds.includes(a.id) ? 0 : 1;
-    const bp = pinnedIds.includes(b.id) ? 0 : 1;
-    if (ap!==bp) return ap-bp; 
-    return String(b.created_at||'').localeCompare(String(a.created_at||''));
-  });
-
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
@@ -153,16 +191,16 @@ export default async function Page() {
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8">Loading your decks...</div>
+      ) : decks.length === 0 ? (
         <NoDecksEmptyState />
       ) : (
         <>
-          <MyDecksList rows={rows} pinnedIds={pinnedIds} />
+          <MyDecksList rows={decks} pinnedIds={pinnedIds} />
           
-          {/* Deck comparison widget - added in later version */}
           <CompareDecksWidget />
           
-          {/* Sample deck button for existing users */}
           <div className="mt-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
             <div className="flex items-center justify-between">
               <div>
@@ -182,7 +220,6 @@ export default async function Page() {
         </>
       )}
 
-      {/* Floating action button for deck creation */}
       {(()=>{ 
         try {
           const CreateFAB = require('@/components/CreateDeckFAB').default; 
@@ -193,8 +230,7 @@ export default async function Page() {
         }
       })()}
       
-      {/* Coach bubbles */}
-      <DeckPageCoachBubbles deckCount={rows.length} />
+      <DeckPageCoachBubbles deckCount={decks.length} />
     </div>
   );
 }

@@ -18,9 +18,8 @@ export default function WishlistPage() {
   const [user, setUser] = useState<any>(null);
   const [pro, setPro] = useState<boolean>(false);
 
-  // Load user data - use getSession (instant) instead of getUser (slow network call)
+  // Load user data - MATCH HEADER PATTERN EXACTLY
   useEffect(() => {
-    let mounted = true;
     console.log('[Wishlist] Starting auth check...');
     
     const loadUser = async () => {
@@ -29,44 +28,8 @@ export default function WishlistPage() {
       } catch {}
       
       try {
-        console.log('[Wishlist] Getting session...');
-        const startTime = Date.now();
-        
-        // Add real timeout with Promise.race
-        const sessionPromise = sb.auth.getSession();
-        const timeoutPromise = new Promise<any>((resolve) => {
-          setTimeout(() => {
-            console.warn('[Wishlist] getSession() TIMEOUT after 3s - forcing null session');
-            resolve({ data: { session: null }, error: null });
-          }, 3000);
-        });
-        
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
-        const elapsed = Date.now() - startTime;
-        
-        console.log(`[Wishlist] getSession() took ${elapsed}ms`, { hasSession: !!session, hasUser: !!session?.user, error, timedOut: elapsed >= 3000 });
-        
-        if (!mounted) {
-          console.log('[Wishlist] Component unmounted, skipping');
-          return;
-        }
-        
-        // If timed out and no session, try localStorage fallback
-        if (!session && elapsed >= 3000) {
-          console.warn('[Wishlist] getSession() timed out, trying localStorage fallback...');
-          try {
-            const keys = Object.keys(localStorage);
-            const authKey = keys.find(k => k.includes('auth-token'));
-            if (authKey) {
-              const authData = localStorage.getItem(authKey);
-              console.log('[Wishlist] Found auth data in localStorage:', { key: authKey, hasData: !!authData });
-            } else {
-              console.warn('[Wishlist] No auth data in localStorage');
-            }
-          } catch (e) {
-            console.error('[Wishlist] localStorage access failed:', e);
-          }
-        }
+        const { data: { session }, error } = await sb.auth.getSession();
+        console.log('[Wishlist] Auth complete:', { hasSession: !!session, hasUser: !!session?.user });
         
         if (error) {
           console.error('[Wishlist] Session error:', error);
@@ -81,20 +44,12 @@ export default function WishlistPage() {
         setPro(proStatus);
       } catch (err: any) {
         console.error('[Wishlist] Auth exception:', err);
-        if (mounted) {
-          console.log('[Wishlist] Setting user to null after exception');
-          setUser(null);
-        }
+        setUser(null);
       }
     };
     
     loadUser();
-    
-    return () => { 
-      console.log('[Wishlist] Cleanup - unmounting');
-      mounted = false; 
-    };
-  }, [sb]);
+  }, []); // Empty deps - runs once
 
   if (!user) {
     const features = [
