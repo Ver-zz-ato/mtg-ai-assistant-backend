@@ -10,7 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import PromoBar from "@/components/PromoBar";
 import FeedbackFab from "@/components/FeedbackFab";
-import PWAProvider from "@/components/PWAProvider";
+// import PWAProvider from "@/components/PWAProvider"; // DISABLED: PWA not needed yet
 import FirstVisitTracker from "@/components/FirstVisitTracker";
 import TrustFooter from "@/components/TrustFooter";
 import UndoToast from "@/components/UndoToast";
@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ErrorBoundary>
             <CookieBanner />
             <FeedbackFab />
-            <PWAProvider />
+            {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
             <TrustFooter />
             <SupportWidgets />
             <UndoToast />
