@@ -12,6 +12,11 @@ export default function Header() {
   
   const [isHydrated, setIsHydrated] = useState(false);
   const [supabase] = useState(() => {
+    // CRITICAL: Only create client on browser, NOT during SSR
+    if (typeof window === 'undefined') {
+      console.log('⚠️ [Header] SSR detected - deferring Supabase client');
+      return null as any; // Return null during SSR, will be created on client
+    }
     console.log('🟢 [Header] Creating Supabase client (lazy init)');
     return createBrowserSupabaseClient();
   });
@@ -39,6 +44,13 @@ export default function Header() {
   useEffect(() => {
     console.log('🟡 [Header] useEffect STARTED - Initial auth check');
     
+    // CRITICAL: Skip if supabase client isn't ready (SSR protection)
+    if (!supabase) {
+      console.log('⚠️ [Header] Supabase client not ready, skipping auth');
+      setIsHydrated(true);
+      return;
+    }
+    
     // Mark as hydrated on client
     console.log('🟡 [Header] Setting isHydrated = true');
     setIsHydrated(true);
@@ -57,7 +69,7 @@ export default function Header() {
     
     // Use getSession instead of getUser (instant, local)
     supabase.auth.getSession()
-      .then(async ({ data: { session }, error }) => {
+      .then(async ({ data: { session }, error }: { data: { session: any }, error: any }) => {
         const elapsed = Date.now() - startTime;
         console.log(`🟢 [Header] ✓ getSession() resolved in ${elapsed}ms`);
         clearTimeout(timeout);
@@ -88,17 +100,28 @@ export default function Header() {
         setDisplayName(name);
         setAvatar(avatarUrl);
         
-        // Fetch Pro status
+        // Fetch Pro status with timeout protection
         if (u) {
           console.log('🟢 [Header] Fetching Pro status for user:', u.id);
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('is_pro')
-            .eq('id', u.id)
-            .single();
-          
-          console.log('🟢 [Header] Pro status result:', { isPro: profile?.is_pro, error: profileError });
-          setIsPro(profile?.is_pro || false);
+          try {
+            const proTimeout = setTimeout(() => {
+              console.error('🔴 [Header] Pro status fetch timeout!');
+              setIsPro(false);
+            }, 3000);
+            
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('is_pro')
+              .eq('id', u.id)
+              .single();
+            
+            clearTimeout(proTimeout);
+            console.log('🟢 [Header] Pro status result:', { isPro: profile?.is_pro, error: profileError });
+            setIsPro(profile?.is_pro || false);
+          } catch (proErr) {
+            console.error('🔴 [Header] Pro status fetch error:', proErr);
+            setIsPro(false);
+          }
         } else {
           console.log('🟢 [Header] No user, setting isPro = false');
           setIsPro(false);
@@ -106,7 +129,7 @@ export default function Header() {
         
         console.log('🟢 [Header] ✅ Auth initialization COMPLETE');
       })
-      .catch((err) => {
+      .catch((err: any) => {
         const elapsed = Date.now() - startTime;
         console.error(`🔴 [Header] ✗ getSession() FAILED after ${elapsed}ms:`, err);
         clearTimeout(timeout);
@@ -116,7 +139,7 @@ export default function Header() {
       });
 
     console.log('🟡 [Header] Setting up onAuthStateChange listener...');
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (evt: any, session: any) => {
       console.log('🟣 [Header] 🔔 Auth state changed:', evt);
       const u = session?.user as any;
       console.log('🟣 [Header] New session state:', { hasUser: !!u, email: u?.email, event: evt });
@@ -126,16 +149,28 @@ export default function Header() {
       setDisplayName((md.username || u?.email || "").toString());
       setAvatar((md.avatar || "").toString());
       
-      // Fetch Pro status
+      // Fetch Pro status with timeout protection
       if (u) {
         console.log('🟣 [Header] Fetching Pro status after auth change');
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_pro')
-          .eq('id', u.id)
-          .single();
-        setIsPro(profile?.is_pro || false);
-        console.log('🟣 [Header] Pro status updated:', profile?.is_pro);
+        try {
+          const proTimeout = setTimeout(() => {
+            console.error('🔴 [Header] Pro status fetch timeout (auth change)!');
+            setIsPro(false);
+          }, 3000);
+          
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_pro')
+            .eq('id', u.id)
+            .single();
+          
+          clearTimeout(proTimeout);
+          setIsPro(profile?.is_pro || false);
+          console.log('🟣 [Header] Pro status updated:', profile?.is_pro);
+        } catch (proErr) {
+          console.error('🔴 [Header] Pro status fetch error (auth change):', proErr);
+          setIsPro(false);
+        }
       } else {
         console.log('🟣 [Header] No user, setting isPro = false');
         setIsPro(false);
@@ -168,6 +203,12 @@ export default function Header() {
     e.preventDefault();
     console.log('🔵 [Header] 🔐 Sign in attempt:', { email });
     capture('auth_login_attempt', { method: 'email_password' });
+    
+    if (!supabase) {
+      console.error('🔴 [Header] Supabase client not ready!');
+      alert('Authentication not ready. Please refresh the page.');
+      return;
+    }
     
     try {
       console.log('🔵 [Header] Calling signInWithPassword...');
@@ -213,6 +254,12 @@ export default function Header() {
   async function signOut() {
     console.log('🔵 [Header] 🚪 Sign out called');
     capture('auth_logout_attempt');
+    
+    if (!supabase) {
+      console.error('🔴 [Header] Supabase client not ready!');
+      return;
+    }
+    
     try {
       console.log('🔵 [Header] Calling supabase.auth.signOut()...');
       const startTime = Date.now();
