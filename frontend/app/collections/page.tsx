@@ -47,21 +47,27 @@ function CollectionsPageClientBody() {
   
   // All async functions defined here (before hooks that use them)
   const loadCollections = async () => {
-    console.log('[Collections] loadCollections() called');
+    console.log('[Collections] ========== loadCollections() START ==========');
     setLoading(true);
     try {
       console.log('[Collections] Fetching /api/collections/list...');
       const fetchStart = Date.now();
       const res = await fetch("/api/collections/list", { cache: "no-store" });
       const fetchTime = Date.now() - fetchStart;
-      console.log(`[Collections] Fetch completed in ${fetchTime}ms, status: ${res.status}`);
+      console.log(`[Collections] ✓ Fetch completed in ${fetchTime}ms, status: ${res.status}`);
       
-      const json = await res.json().catch(() => ({}));
-      console.log('[Collections] Response parsed:', { ok: json?.ok, count: json?.collections?.length });
+      const json = await res.json().catch((e) => {
+        console.error('[Collections] JSON parse failed:', e);
+        return {};
+      });
+      console.log('[Collections] ✓ Response parsed:', { ok: json?.ok, count: json?.collections?.length });
       
-      if (!res.ok || json?.ok === false) throw new Error(json?.error || "Failed to load");
+      if (!res.ok || json?.ok === false) {
+        console.error('[Collections] ✗ API returned error:', json?.error);
+        throw new Error(json?.error || "Failed to load");
+      }
       const list: Collection[] = json.collections || [];
-      console.log(`[Collections] Setting ${list.length} collections`);
+      console.log(`[Collections] ✓ Setting ${list.length} collections in state`);
       setCollections(list);
 
       // Kick off stats fetch in the background per collection
@@ -123,10 +129,14 @@ function CollectionsPageClientBody() {
           setStats((prev) => ({ ...prev, [c.id]: null }));
         }
       });
+      
+      console.log('[Collections] ========== loadCollections() COMPLETE ==========');
     } catch (e: any) {
+      console.error('[Collections] ✗ loadCollections() FAILED:', e?.message || e);
       showToast(e?.message || "Load failed");
     } finally {
       setLoading(false);
+      console.log('[Collections] Loading state set to false');
     }
   };
   

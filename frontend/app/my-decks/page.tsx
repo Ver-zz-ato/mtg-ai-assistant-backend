@@ -21,9 +21,41 @@ type DeckRow = {
 };
 
 export default async function Page() {
+  console.log('[My Decks] Page render starting...');
+  const startTime = Date.now();
+  
   const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  if (!u?.user) {
+  console.log(`[My Decks] Supabase client created in ${Date.now() - startTime}ms`);
+  
+  // Try getUser() with timeout fallback
+  let u: any = null;
+  try {
+    const authStart = Date.now();
+    const userPromise = supabase.auth.getUser();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getUser timeout')), 5000)
+    );
+    
+    u = await Promise.race([userPromise, timeoutPromise]).catch(async (err) => {
+      console.warn(`[My Decks] getUser() failed/timeout after ${Date.now() - authStart}ms:`, err.message);
+      console.log('[My Decks] Falling back to getSession()...');
+      const { data: { session } } = await supabase.auth.getSession();
+      return { data: { user: session?.user || null }, error: null };
+    });
+    
+    console.log(`[My Decks] Auth check completed in ${Date.now() - authStart}ms`, {
+      hasUser: !!u?.data?.user,
+      userId: u?.data?.user?.id,
+      email: u?.data?.user?.email
+    });
+  } catch (err: any) {
+    console.error('[My Decks] Auth exception:', err);
+    u = { data: { user: null }, error: err };
+  }
+  
+  if (!u?.data?.user) {
+    console.log('[My Decks] No user found, showing guest landing page');
+
     const features = [
       {
         icon: '📚',
@@ -107,13 +139,23 @@ export default async function Page() {
 
   // PERFORMANCE OPTIMIZATION: Only fetch metadata, not full deck_text
   // This reduces initial load time by ~80% for users with many decks
+  console.log('[My Decks] Fetching decks from database...');
+  const decksFetchStart = Date.now();
+  
   const { data, error } = await supabase
     .from("decks")
     .select("id, title, commander, created_at, updated_at, is_public")
-    .eq("user_id", u.user.id)
+    .eq("user_id", u.data.user.id)
     .order("created_at", { ascending: false });
 
+  console.log(`[My Decks] Decks fetch completed in ${Date.now() - decksFetchStart}ms`, {
+    success: !error,
+    deckCount: data?.length || 0,
+    error: error?.message
+  });
+
   if (error) {
+    console.error('[My Decks] Database error:', error);
     return (
       <div className="max-w-3xl mx-auto p-6">
         <h1 className="text-xl font-semibold mb-4">My Decks</h1>
@@ -123,13 +165,18 @@ export default async function Page() {
   }
 
   const rows: any[] = (data || []) as any;
+  console.log(`[My Decks] Processing ${rows.length} decks...`);
 
   // Load pinned decks
   let pinnedIds: string[] = [];
   try {
-    const { data: pp } = await supabase.from('profiles_public').select('pinned_deck_ids').eq('id', u.user.id).maybeSingle();
+    console.log('[My Decks] Fetching pinned deck IDs...');
+    const { data: pp } = await supabase.from('profiles_public').select('pinned_deck_ids').eq('id', u.data.user.id).maybeSingle();
     pinnedIds = Array.isArray((pp as any)?.pinned_deck_ids) ? (pp as any).pinned_deck_ids as string[] : [];
-  } catch {}
+    console.log('[My Decks] Pinned deck IDs loaded:', pinnedIds);
+  } catch (e: any) {
+    console.warn('[My Decks] Failed to load pinned IDs:', e.message);
+  }
 
   // Sort: pinned first, then by creation date
   rows.sort((a:any,b:any)=>{
@@ -138,6 +185,8 @@ export default async function Page() {
     if (ap!==bp) return ap-bp; 
     return String(b.created_at||'').localeCompare(String(a.created_at||''));
   });
+
+  console.log(`[My Decks] Page render complete in ${Date.now() - startTime}ms - rendering ${rows.length} decks`);
 
   return (
     <div className="max-w-5xl mx-auto p-6">
