@@ -31,9 +31,18 @@ export default function Header() {
   useEffect(() => {
     console.log('[Header] Initial auth check starting...');
     
+    // Timeout wrapper to prevent infinite hangs
+    const timeout = setTimeout(() => {
+      console.error('[Header] ✗ TIMEOUT: getSession() took more than 5s!');
+      setSessionUser(null);
+      setDisplayName('');
+      setAvatar('');
+    }, 5000);
+    
     // Use getSession instead of getUser (instant, local)
     supabase.auth.getSession()
       .then(async ({ data: { session }, error }) => {
+        clearTimeout(timeout);
         console.log('[Header] ✓ getSession() promise resolved');
         const u = session?.user;
         console.log('[Header] getSession() completed', { hasUser: !!u, email: u?.email });
@@ -59,6 +68,7 @@ export default function Header() {
         console.log('[Header] ✓✓ Auth setup complete');
       })
       .catch((err) => {
+        clearTimeout(timeout);
         console.error('[Header] ✗ FATAL: getSession() failed:', err);
         setSessionUser(null);
         setDisplayName('');
@@ -104,28 +114,38 @@ export default function Header() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    console.log('[Header] signIn() starting...', { email });
     capture('auth_login_attempt', { method: 'email_password' });
     
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
-                       error.message.toLowerCase().includes('network') ? 'network' : 'other';
-      capture('auth_login_failed', { method: 'email_password', error_type: errorType });
-      alert(error.message);
-      return;
-    }
-    
-    capture('auth_login_success', { method: 'email_password' });
-    trackSignupCompleted('email'); // This could be login or signup completion
-    
-    // Store signup time for tenure tracking
     try {
-      if (!localStorage.getItem('user_signup_time')) {
-        localStorage.setItem('user_signup_time', Date.now().toString());
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      console.log('[Header] signInWithPassword() completed', { hasData: !!data, hasSession: !!data?.session, error: error?.message });
+      
+      if (error) {
+        console.error('[Header] ✗ Sign in failed:', error);
+        const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
+                         error.message.toLowerCase().includes('network') ? 'network' : 'other';
+        capture('auth_login_failed', { method: 'email_password', error_type: errorType });
+        alert(error.message);
+        return;
       }
-    } catch {}
-    
-    window.location.reload();
+      
+      console.log('[Header] ✓ Sign in successful, reloading page...');
+      capture('auth_login_success', { method: 'email_password' });
+      trackSignupCompleted('email'); // This could be login or signup completion
+      
+      // Store signup time for tenure tracking
+      try {
+        if (!localStorage.getItem('user_signup_time')) {
+          localStorage.setItem('user_signup_time', Date.now().toString());
+        }
+      } catch {}
+      
+      window.location.reload();
+    } catch (err) {
+      console.error('[Header] ✗ FATAL: signIn() exception:', err);
+      alert('Login failed. Please try again.');
+    }
   }
 
   async function signOut() {
