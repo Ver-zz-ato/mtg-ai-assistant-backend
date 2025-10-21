@@ -14,7 +14,7 @@ type DeckRow = {
   commander: string | null;
   created_at: string | null;
   updated_at: string | null;
-  is_public: boolean | null;
+  is_public: boolean;
 };
 
 export default function MyDecksClientPage() {
@@ -99,7 +99,10 @@ export default function MyDecksClientPage() {
         console.log('[My Decks] ✓ Pinned IDs:', pinned);
         
         // Sort: pinned first
-        const sorted = (data || []).sort((a: any, b: any) => {
+        const sorted = (data || []).map((d: any) => ({
+          ...d,
+          is_public: d.is_public ?? false // Ensure boolean, default to false
+        })).sort((a: any, b: any) => {
           const ap = pinned.includes(a.id) ? 0 : 1;
           const bp = pinned.includes(b.id) ? 0 : 1;
           if (ap !== bp) return ap - bp;
