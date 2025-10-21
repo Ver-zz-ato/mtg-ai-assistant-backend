@@ -29,21 +29,30 @@ export default function MyDecksPage() {
   useEffect(() => {
     console.log('[My Decks] Auth check starting...');
     
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      const user = session?.user || null;
-      console.log('[My Decks] Auth complete:', { hasUser: !!user, email: user?.email });
-      
-      if (error) {
-        console.error('[My Decks] Session error:', error);
-      }
-      
-      setUser(user);
-      setAuthLoading(false);
-      
-      if (!user) {
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        console.log('[My Decks] ✓ getSession() promise resolved');
+        const user = session?.user || null;
+        console.log('[My Decks] Auth complete:', { hasUser: !!user, email: user?.email });
+        
+        if (error) {
+          console.error('[My Decks] Session error:', error);
+        }
+        
+        setUser(user);
+        setAuthLoading(false);
+        
+        if (!user) {
+          setLoading(false);
+        }
+        console.log('[My Decks] ✓✓ Auth setup complete');
+      })
+      .catch((err) => {
+        console.error('[My Decks] ✗ FATAL: getSession() failed:', err);
+        setUser(null);
+        setAuthLoading(false);
         setLoading(false);
-      }
-    });
+      });
   }, []); // Empty deps - runs once
 
   // Load decks

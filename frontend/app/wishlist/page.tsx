@@ -28,7 +28,9 @@ export default function WishlistPage() {
       } catch {}
       
       try {
+        console.log('[Wishlist] Calling getSession()...');
         const { data: { session }, error } = await sb.auth.getSession();
+        console.log('[Wishlist] ✓ getSession() promise resolved');
         console.log('[Wishlist] Auth complete:', { hasSession: !!session, hasUser: !!session?.user });
         
         if (error) {
@@ -42,9 +44,11 @@ export default function WishlistPage() {
         const proStatus = Boolean(md.pro || md.is_pro);
         console.log('[Wishlist] Pro status:', proStatus, 'from metadata:', md);
         setPro(proStatus);
+        console.log('[Wishlist] ✓✓ Auth setup complete');
       } catch (err: any) {
-        console.error('[Wishlist] Auth exception:', err);
+        console.error('[Wishlist] ✗ FATAL: getSession() failed:', err);
         setUser(null);
+        setPro(false);
       }
     };
     

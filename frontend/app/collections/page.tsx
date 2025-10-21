@@ -150,21 +150,30 @@ function CollectionsPageClientBody() {
   useEffect(() => {
     console.log('[Collections] Auth check starting...');
     
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      const user = session?.user || null;
-      console.log('[Collections] Auth complete:', { hasUser: !!user, email: user?.email });
-      
-      if (error) {
-        console.error('[Collections] Session error:', error);
-      }
-      
-      setUser(user);
-      setAuthLoading(false);
-      
-      if (!user) {
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        console.log('[Collections] ✓ getSession() promise resolved');
+        const user = session?.user || null;
+        console.log('[Collections] Auth complete:', { hasUser: !!user, email: user?.email });
+        
+        if (error) {
+          console.error('[Collections] Session error:', error);
+        }
+        
+        setUser(user);
+        setAuthLoading(false);
+        
+        if (!user) {
+          setLoading(false);
+        }
+        console.log('[Collections] ✓✓ Auth setup complete');
+      })
+      .catch((err) => {
+        console.error('[Collections] ✗ FATAL: getSession() failed:', err);
+        setUser(null);
+        setAuthLoading(false);
         setLoading(false);
-      }
-    });
+      });
   }, []); // Empty deps - runs once
   
   // Load collections only if logged in

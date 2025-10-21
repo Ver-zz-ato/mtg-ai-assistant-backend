@@ -32,29 +32,38 @@ export default function Header() {
     console.log('[Header] Initial auth check starting...');
     
     // Use getSession instead of getUser (instant, local)
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      const u = session?.user;
-      console.log('[Header] getSession() completed', { hasUser: !!u, email: u?.email });
-      
-      if (error) {
-        console.error('[Header] Session error:', error);
-      }
-      
-      setSessionUser(u?.email ?? null);
-      const md: any = u?.user_metadata || {};
-      setDisplayName((md.username || u?.email || "").toString());
-      setAvatar((md.avatar || "").toString());
-      
-      // Fetch Pro status
-      if (u) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_pro')
-          .eq('id', u.id)
-          .single();
-        setIsPro(profile?.is_pro || false);
-      }
-    });
+    supabase.auth.getSession()
+      .then(async ({ data: { session }, error }) => {
+        console.log('[Header] ✓ getSession() promise resolved');
+        const u = session?.user;
+        console.log('[Header] getSession() completed', { hasUser: !!u, email: u?.email });
+        
+        if (error) {
+          console.error('[Header] Session error:', error);
+        }
+        
+        setSessionUser(u?.email ?? null);
+        const md: any = u?.user_metadata || {};
+        setDisplayName((md.username || u?.email || "").toString());
+        setAvatar((md.avatar || "").toString());
+        
+        // Fetch Pro status
+        if (u) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_pro')
+            .eq('id', u.id)
+            .single();
+          setIsPro(profile?.is_pro || false);
+        }
+        console.log('[Header] ✓✓ Auth setup complete');
+      })
+      .catch((err) => {
+        console.error('[Header] ✗ FATAL: getSession() failed:', err);
+        setSessionUser(null);
+        setDisplayName('');
+        setAvatar('');
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
       const u = session?.user as any;
