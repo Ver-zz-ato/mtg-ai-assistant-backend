@@ -15,7 +15,8 @@ import FirstVisitTracker from "@/components/FirstVisitTracker";
 import TrustFooter from "@/components/TrustFooter";
 import UndoToast from "@/components/UndoToast";
 import KeyboardShortcutsProvider from "@/components/KeyboardShortcutsProvider";
-import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+// import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration"; // DISABLED: PWA not needed yet
+import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup"; // Temporary: cleans up old SW
 import GuestExitWarning from "@/components/GuestExitWarning";
 import IOSInstallPrompt from "@/components/iOSInstallPrompt";
 import EmailVerificationReminder from "@/components/EmailVerificationReminder";
@@ -77,7 +78,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <TrustFooter />
             <SupportWidgets />
             <UndoToast />
-            <ServiceWorkerRegistration />
+            {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
+            <ServiceWorkerCleanup /> {/* Temporary: removes old SW from users' browsers */}
             <GuestExitWarning />
             <IOSInstallPrompt />
             <EmailVerificationReminder />

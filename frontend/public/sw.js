@@ -1,5 +1,5 @@
-const CACHE_NAME = 'manatap-v1';
-const RUNTIME_CACHE = 'manatap-runtime-v1';
+const CACHE_NAME = 'manatap-v2';
+const RUNTIME_CACHE = 'manatap-runtime-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim(); // Take control immediately
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - intelligent caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -53,12 +53,35 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip API calls (let them go to network)
+  // Skip API calls (always go to network)
   if (url.pathname.startsWith('/api/')) return;
 
   // Skip external requests
   if (url.origin !== self.location.origin) return;
 
+  // NETWORK-FIRST for JavaScript bundles (critical for updates!)
+  if (url.pathname.includes('/_next/') || url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache the fresh JS for offline use
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cached version only if network fails
+          return caches.match(request);
+        })
+    );
+    return;
+  }
+
+  // CACHE-FIRST for static assets (images, fonts, manifest)
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
