@@ -55,6 +55,12 @@ export default function Header() {
     console.log('🟡 [Header] Setting isHydrated = true');
     setIsHydrated(true);
     
+    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
+    // This prevents getSession() from being abandoned if hydration crashes
+    console.log('🟡 [Header] Delaying auth check for 100ms to allow hydration...');
+    const hydrationDelay = setTimeout(() => {
+      console.log('🟡 [Header] Hydration delay complete, starting auth check');
+    
     // Timeout wrapper to prevent infinite hangs
     console.log('🟡 [Header] Setting 5s timeout for auth check');
     const timeout = setTimeout(() => {
@@ -177,10 +183,14 @@ export default function Header() {
       }
     });
     console.log('🟡 [Header] onAuthStateChange listener registered');
+    }, 100); // End of hydrationDelay setTimeout
     
     return () => {
-      console.log('🟡 [Header] Cleanup: Unsubscribing from auth changes');
-      sub.subscription.unsubscribe();
+      console.log('🟡 [Header] Cleanup: clearing hydration delay and unsubscribing');
+      clearTimeout(hydrationDelay);
+      if (supabase) {
+        supabase.auth.onAuthStateChange(() => {})?.data?.subscription?.unsubscribe();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
