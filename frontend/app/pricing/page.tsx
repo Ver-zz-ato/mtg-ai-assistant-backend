@@ -17,20 +17,14 @@ export default function PricingPage() {
     const supabase = createBrowserSupabaseClient();
     console.log('[Pricing] Starting auth check...');
     
-    // Use getSession() with timeout (same fix as Collections/Wishlist)
-    (async () => {
-      try {
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<any>((resolve) => {
-          setTimeout(() => {
-            console.warn('[Pricing] getSession() TIMEOUT after 3s - forcing null session');
-            resolve({ data: { session: null }, error: null });
-          }, 3000);
-        });
+    // No timeout needed - fixed root cause of race conditions
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('[Pricing] Session error:', error);
+        }
         
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
         const currentUser = session?.user || null;
-        
         console.log('[Pricing] Auth check complete', { hasUser: !!currentUser, email: currentUser?.email });
         setUser(currentUser);
         setLoading(false);
@@ -48,13 +42,13 @@ export default function PricingPage() {
           source,
           referrer: referrer.slice(0, 100) // Truncate for privacy
         });
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error('[Pricing] Auth error:', err);
         setUser(null);
         setLoading(false);
-      }
-    })();
-  }, [isPro]);
+      });
+  }, []); // Empty deps - auth check runs once at mount
 
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);
