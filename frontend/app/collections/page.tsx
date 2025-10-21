@@ -48,27 +48,15 @@ function CollectionsPageClientBody() {
   
   // All async functions defined here (before hooks that use them)
   const loadCollections = async () => {
-    console.log('[Collections] ========== loadCollections() START ==========');
     setLoading(true);
     try {
-      console.log('[Collections] Fetching /api/collections/list...');
-      const fetchStart = Date.now();
       const res = await fetch("/api/collections/list", { cache: "no-store" });
-      const fetchTime = Date.now() - fetchStart;
-      console.log(`[Collections] ✓ Fetch completed in ${fetchTime}ms, status: ${res.status}`);
-      
-      const json = await res.json().catch((e) => {
-        console.error('[Collections] JSON parse failed:', e);
-        return {};
-      });
-      console.log('[Collections] ✓ Response parsed:', { ok: json?.ok, count: json?.collections?.length });
+      const json = await res.json().catch(() => ({}));
       
       if (!res.ok || json?.ok === false) {
-        console.error('[Collections] ✗ API returned error:', json?.error);
         throw new Error(json?.error || "Failed to load");
       }
       const list: Collection[] = json.collections || [];
-      console.log(`[Collections] ✓ Setting ${list.length} collections in state`);
       setCollections(list);
 
       // Kick off stats fetch in the background per collection
@@ -130,14 +118,11 @@ function CollectionsPageClientBody() {
           setStats((prev) => ({ ...prev, [c.id]: null }));
         }
       });
-      
-      console.log('[Collections] ========== loadCollections() COMPLETE ==========');
     } catch (e: any) {
-      console.error('[Collections] ✗ loadCollections() FAILED:', e?.message || e);
+      console.error('[Collections] Load error:', e?.message || e);
       showToast(e?.message || "Load failed");
     } finally {
       setLoading(false);
-      console.log('[Collections] Loading state set to false');
     }
   };
   
@@ -148,13 +133,9 @@ function CollectionsPageClientBody() {
   
   // Check auth status - MATCH HEADER PATTERN EXACTLY
   useEffect(() => {
-    console.log('[Collections] Auth check starting...');
-    
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
-        console.log('[Collections] ✓ getSession() promise resolved');
         const user = session?.user || null;
-        console.log('[Collections] Auth complete:', { hasUser: !!user, email: user?.email });
         
         if (error) {
           console.error('[Collections] Session error:', error);
@@ -166,10 +147,9 @@ function CollectionsPageClientBody() {
         if (!user) {
           setLoading(false);
         }
-        console.log('[Collections] ✓✓ Auth setup complete');
       })
       .catch((err) => {
-        console.error('[Collections] ✗ FATAL: getSession() failed:', err);
+        console.error('[Collections] Auth error:', err);
         setUser(null);
         setAuthLoading(false);
         setLoading(false);
@@ -178,18 +158,10 @@ function CollectionsPageClientBody() {
   
   // Load collections only if logged in
   useEffect(() => {
-    console.log('[Collections] Load effect triggered', { authLoading, hasUser: !!user });
-    
     if (!authLoading && !user) {
-      // Not logged in - stop loading
-      console.log('[Collections] Not logged in, showing guest page');
       setLoading(false);
     } else if (user && !authLoading) {
-      // Logged in - load collections
-      console.log('[Collections] User logged in, loading collections...');
       loadCollections(); 
-    } else {
-      console.log('[Collections] Waiting for auth...', { authLoading, hasUser: !!user });
     }
   }, [user, authLoading]);
   

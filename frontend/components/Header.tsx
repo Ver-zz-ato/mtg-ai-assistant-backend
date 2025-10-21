@@ -29,11 +29,8 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
-    console.log('[Header] Initial auth check starting...');
-    
     // Timeout wrapper to prevent infinite hangs
     const timeout = setTimeout(() => {
-      console.error('[Header] ✗ TIMEOUT: getSession() took more than 5s!');
       setSessionUser(null);
       setDisplayName('');
       setAvatar('');
@@ -43,9 +40,7 @@ export default function Header() {
     supabase.auth.getSession()
       .then(async ({ data: { session }, error }) => {
         clearTimeout(timeout);
-        console.log('[Header] ✓ getSession() promise resolved');
         const u = session?.user;
-        console.log('[Header] getSession() completed', { hasUser: !!u, email: u?.email });
         
         if (error) {
           console.error('[Header] Session error:', error);
@@ -65,11 +60,10 @@ export default function Header() {
             .single();
           setIsPro(profile?.is_pro || false);
         }
-        console.log('[Header] ✓✓ Auth setup complete');
       })
       .catch((err) => {
         clearTimeout(timeout);
-        console.error('[Header] ✗ FATAL: getSession() failed:', err);
+        console.error('[Header] Auth error:', err);
         setSessionUser(null);
         setDisplayName('');
         setAvatar('');
@@ -114,15 +108,12 @@ export default function Header() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
-    console.log('[Header] signIn() starting...', { email });
     capture('auth_login_attempt', { method: 'email_password' });
     
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      console.log('[Header] signInWithPassword() completed', { hasData: !!data, hasSession: !!data?.session, error: error?.message });
       
       if (error) {
-        console.error('[Header] ✗ Sign in failed:', error);
         const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
                          error.message.toLowerCase().includes('network') ? 'network' : 'other';
         capture('auth_login_failed', { method: 'email_password', error_type: errorType });
@@ -130,7 +121,6 @@ export default function Header() {
         return;
       }
       
-      console.log('[Header] ✓ Sign in successful, reloading page...');
       capture('auth_login_success', { method: 'email_password' });
       trackSignupCompleted('email'); // This could be login or signup completion
       
@@ -143,7 +133,7 @@ export default function Header() {
       
       window.location.reload();
     } catch (err) {
-      console.error('[Header] ✗ FATAL: signIn() exception:', err);
+      console.error('[Header] Sign in error:', err);
       alert('Login failed. Please try again.');
     }
   }

@@ -9,11 +9,9 @@ let client: SupabaseClient | null = null;
 /** Canonical export - returns singleton instance */
 export function createBrowserSupabaseClient() {
   if (client) {
-    console.log('[Supabase] Reusing existing client instance');
     return client;
   }
   
-  console.log('[Supabase] Creating NEW client instance');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   client = createBrowserClient(url, anon);

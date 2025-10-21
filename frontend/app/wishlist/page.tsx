@@ -20,33 +20,25 @@ export default function WishlistPage() {
 
   // Load user data - MATCH HEADER PATTERN EXACTLY
   useEffect(() => {
-    console.log('[Wishlist] Starting auth check...');
-    
     const loadUser = async () => {
       try {
         capture('wishlist_page_view');
       } catch {}
       
       try {
-        console.log('[Wishlist] Calling getSession()...');
         const { data: { session }, error } = await sb.auth.getSession();
-        console.log('[Wishlist] ✓ getSession() promise resolved');
-        console.log('[Wishlist] Auth complete:', { hasSession: !!session, hasUser: !!session?.user });
         
         if (error) {
           console.error('[Wishlist] Session error:', error);
         }
         
         const u = session?.user;
-        console.log('[Wishlist] Setting user:', { userId: u?.id, email: u?.email, hasPro: !!u });
         setUser(u || null);
         const md: any = u?.user_metadata || {};
         const proStatus = Boolean(md.pro || md.is_pro);
-        console.log('[Wishlist] Pro status:', proStatus, 'from metadata:', md);
         setPro(proStatus);
-        console.log('[Wishlist] ✓✓ Auth setup complete');
       } catch (err: any) {
-        console.error('[Wishlist] ✗ FATAL: getSession() failed:', err);
+        console.error('[Wishlist] Auth error:', err);
         setUser(null);
         setPro(false);
       }

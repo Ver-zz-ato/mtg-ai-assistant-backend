@@ -27,13 +27,9 @@ export default function MyDecksPage() {
 
   // Check auth - MATCH HEADER PATTERN EXACTLY
   useEffect(() => {
-    console.log('[My Decks] Auth check starting...');
-    
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
-        console.log('[My Decks] ✓ getSession() promise resolved');
         const user = session?.user || null;
-        console.log('[My Decks] Auth complete:', { hasUser: !!user, email: user?.email });
         
         if (error) {
           console.error('[My Decks] Session error:', error);
@@ -45,10 +41,9 @@ export default function MyDecksPage() {
         if (!user) {
           setLoading(false);
         }
-        console.log('[My Decks] ✓✓ Auth setup complete');
       })
       .catch((err) => {
-        console.error('[My Decks] ✗ FATAL: getSession() failed:', err);
+        console.error('[My Decks] Auth error:', err);
         setUser(null);
         setAuthLoading(false);
         setLoading(false);
@@ -59,7 +54,6 @@ export default function MyDecksPage() {
   useEffect(() => {
     if (!user || authLoading) return;
     
-    console.log('[My Decks] Loading decks...');
     setLoading(true);
     
     (async () => {
@@ -92,9 +86,8 @@ export default function MyDecksPage() {
 
         setDecks(sorted);
         setPinnedIds(pinned);
-        console.log('[My Decks] Load complete:', { count: sorted.length });
       } catch (err: any) {
-        console.error('[My Decks] Load failed:', err);
+        console.error('[My Decks] Load error:', err);
       } finally {
         setLoading(false);
       }
