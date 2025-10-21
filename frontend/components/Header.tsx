@@ -8,14 +8,21 @@ import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from
 import Logo from './Logo';
 
 export default function Header() {
+  console.log('🔵 [Header] Component render start');
+  
   const [isHydrated, setIsHydrated] = useState(false);
-  const [supabase] = useState(() => createBrowserSupabaseClient()); // Lazy init
+  const [supabase] = useState(() => {
+    console.log('🟢 [Header] Creating Supabase client (lazy init)');
+    return createBrowserSupabaseClient();
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sessionUser, setSessionUser] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [avatar, setAvatar] = useState<string>("");
   const [isPro, setIsPro] = useState<boolean>(false);
+  
+  console.log('🔵 [Header] Current state:', { isHydrated, sessionUser, displayName, isPro });
   const [showSignUp, setShowSignUp] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -30,51 +37,90 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
+    console.log('🟡 [Header] useEffect STARTED - Initial auth check');
+    
     // Mark as hydrated on client
+    console.log('🟡 [Header] Setting isHydrated = true');
     setIsHydrated(true);
     
     // Timeout wrapper to prevent infinite hangs
+    console.log('🟡 [Header] Setting 5s timeout for auth check');
     const timeout = setTimeout(() => {
+      console.error('🔴 [Header] ⏰ TIMEOUT: Auth check exceeded 5s!');
       setSessionUser(null);
       setDisplayName('');
       setAvatar('');
     }, 5000);
     
+    console.log('🟡 [Header] Calling supabase.auth.getSession()...');
+    const startTime = Date.now();
+    
     // Use getSession instead of getUser (instant, local)
     supabase.auth.getSession()
       .then(async ({ data: { session }, error }) => {
+        const elapsed = Date.now() - startTime;
+        console.log(`🟢 [Header] ✓ getSession() resolved in ${elapsed}ms`);
         clearTimeout(timeout);
+        
         const u = session?.user;
+        console.log('🟢 [Header] Session data:', {
+          hasSession: !!session,
+          hasUser: !!u,
+          userId: u?.id,
+          email: u?.email,
+          hasError: !!error
+        });
         
         if (error) {
-          console.error('[Header] Session error:', error);
+          console.error('🔴 [Header] Session error:', error);
         }
         
+        console.log('🟢 [Header] Setting sessionUser state:', u?.email ?? null);
         setSessionUser(u?.email ?? null);
+        
         const md: any = u?.user_metadata || {};
-        setDisplayName((md.username || u?.email || "").toString());
-        setAvatar((md.avatar || "").toString());
+        const name = (md.username || u?.email || "").toString();
+        const avatarUrl = (md.avatar || "").toString();
+        
+        console.log('🟢 [Header] Setting display name:', name);
+        console.log('🟢 [Header] Setting avatar:', avatarUrl);
+        
+        setDisplayName(name);
+        setAvatar(avatarUrl);
         
         // Fetch Pro status
         if (u) {
-          const { data: profile } = await supabase
+          console.log('🟢 [Header] Fetching Pro status for user:', u.id);
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('is_pro')
             .eq('id', u.id)
             .single();
+          
+          console.log('🟢 [Header] Pro status result:', { isPro: profile?.is_pro, error: profileError });
           setIsPro(profile?.is_pro || false);
+        } else {
+          console.log('🟢 [Header] No user, setting isPro = false');
+          setIsPro(false);
         }
+        
+        console.log('🟢 [Header] ✅ Auth initialization COMPLETE');
       })
       .catch((err) => {
+        const elapsed = Date.now() - startTime;
+        console.error(`🔴 [Header] ✗ getSession() FAILED after ${elapsed}ms:`, err);
         clearTimeout(timeout);
-        console.error('[Header] Auth error:', err);
         setSessionUser(null);
         setDisplayName('');
         setAvatar('');
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
+    console.log('🟡 [Header] Setting up onAuthStateChange listener...');
+    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, session) => {
+      console.log('🟣 [Header] 🔔 Auth state changed:', evt);
       const u = session?.user as any;
+      console.log('🟣 [Header] New session state:', { hasUser: !!u, email: u?.email, event: evt });
+      
       setSessionUser(u?.email ?? null);
       const md = (u?.user_metadata || {}) as any;
       setDisplayName((md.username || u?.email || "").toString());
@@ -82,17 +128,25 @@ export default function Header() {
       
       // Fetch Pro status
       if (u) {
+        console.log('🟣 [Header] Fetching Pro status after auth change');
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_pro')
           .eq('id', u.id)
           .single();
         setIsPro(profile?.is_pro || false);
+        console.log('🟣 [Header] Pro status updated:', profile?.is_pro);
       } else {
+        console.log('🟣 [Header] No user, setting isPro = false');
         setIsPro(false);
       }
     });
-    return () => sub.subscription.unsubscribe();
+    console.log('🟡 [Header] onAuthStateChange listener registered');
+    
+    return () => {
+      console.log('🟡 [Header] Cleanup: Unsubscribing from auth changes');
+      sub.subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -112,12 +166,25 @@ export default function Header() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    console.log('🔵 [Header] 🔐 Sign in attempt:', { email });
     capture('auth_login_attempt', { method: 'email_password' });
     
     try {
+      console.log('🔵 [Header] Calling signInWithPassword...');
+      const startTime = Date.now();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const elapsed = Date.now() - startTime;
+      
+      console.log(`🔵 [Header] signInWithPassword completed in ${elapsed}ms`, {
+        hasData: !!data,
+        hasSession: !!data?.session,
+        hasUser: !!data?.user,
+        hasError: !!error,
+        errorMessage: error?.message
+      });
       
       if (error) {
+        console.error('🔴 [Header] Sign in FAILED:', error);
         const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
                          error.message.toLowerCase().includes('network') ? 'network' : 'other';
         capture('auth_login_failed', { method: 'email_password', error_type: errorType });
@@ -125,6 +192,7 @@ export default function Header() {
         return;
       }
       
+      console.log('🟢 [Header] ✅ Sign in SUCCESS! Reloading page...');
       capture('auth_login_success', { method: 'email_password' });
       trackSignupCompleted('email'); // This could be login or signup completion
       
@@ -137,15 +205,18 @@ export default function Header() {
       
       window.location.reload();
     } catch (err) {
-      console.error('[Header] Sign in error:', err);
+      console.error('🔴 [Header] Sign in EXCEPTION:', err);
       alert('Login failed. Please try again.');
     }
   }
 
   async function signOut() {
-    console.log('[Header] signOut() called');
+    console.log('🔵 [Header] 🚪 Sign out called');
     capture('auth_logout_attempt');
     try {
+      console.log('🔵 [Header] Calling supabase.auth.signOut()...');
+      const startTime = Date.now();
+      
       // Add timeout to prevent hanging
       const signOutPromise = supabase.auth.signOut();
       const timeoutPromise = new Promise((_, reject) => {
@@ -153,7 +224,9 @@ export default function Header() {
       });
       
       await Promise.race([signOutPromise, timeoutPromise]);
-      console.log('[Header] signOut() completed successfully');
+      const elapsed = Date.now() - startTime;
+      
+      console.log(`🟢 [Header] ✅ signOut() completed in ${elapsed}ms`);
       capture('auth_logout_success');
       
       // Clear localStorage manually as fallback
