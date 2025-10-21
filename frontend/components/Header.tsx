@@ -8,7 +8,8 @@ import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from
 import Logo from './Logo';
 
 export default function Header() {
-  const supabase = createBrowserSupabaseClient();
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [supabase] = useState(() => createBrowserSupabaseClient()); // Lazy init
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sessionUser, setSessionUser] = useState<string | null>(null);
@@ -29,6 +30,9 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
+    // Mark as hydrated on client
+    setIsHydrated(true);
+    
     // Timeout wrapper to prevent infinite hangs
     const timeout = setTimeout(() => {
       setSessionUser(null);
@@ -335,8 +339,10 @@ export default function Header() {
         </nav>
 
         {/* Right side: Auth */}
-        <div className="flex items-center gap-3">
-          {sessionUser ? (
+        <div className="flex items-center gap-3" suppressHydrationWarning>
+          {!isHydrated ? (
+            <div className="h-[38px]" /> 
+          ) : sessionUser ? (
             <div className="flex items-center gap-2 ml-3">
               <Link
                 href="/profile"
@@ -402,8 +408,8 @@ export default function Header() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="lg:hidden flex items-center gap-2">
-          {sessionUser && avatar && (
+        <div className="lg:hidden flex items-center gap-2" suppressHydrationWarning>
+          {isHydrated && sessionUser && avatar && (
             <img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
           )}
           <button
@@ -501,7 +507,9 @@ export default function Header() {
               My Wishlist
             </Link>
 
-            {sessionUser ? (
+            {!isHydrated ? (
+              <div className="h-[100px]" />
+            ) : sessionUser ? (
               <>
                 <div className="py-2 text-xs text-gray-600 border-t">
                   {displayName || sessionUser}
