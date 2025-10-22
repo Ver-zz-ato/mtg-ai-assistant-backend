@@ -55,7 +55,18 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
           const jobRes = await fetch('/api/admin/config?key=job:last:bulk_price_import', { cache: 'no-store' });
           const jobData = await jobRes.json().catch(() => ({}));
           if (jobData?.config?.['job:last:bulk_price_import']) {
-            lastUpdate = jobData.config['job:last:bulk_price_import'];
+            const timestamp = jobData.config['job:last:bulk_price_import'];
+            // Format timestamp to "Oct 19, 2025"
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+              lastUpdate = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+              });
+            } else {
+              lastUpdate = timestamp; // Fallback: use raw value if parsing fails
+            }
           }
         } catch (e) {
           console.warn('Failed to load bulk import timestamp:', e);

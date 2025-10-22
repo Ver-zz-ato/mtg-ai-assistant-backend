@@ -28,53 +28,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let unsub = () => {};
     let mounted = true;
 
-    console.log('🚀 [AuthProvider] Initializing auth state management');
-
-    // 1) Initial read (don't block UI if it stalls)
     (async () => {
       try {
-        console.log('🔐 [AuthProvider] Fetching initial session...');
         const { data } = await supabase.auth.getSession();
-        if (!mounted) {
-          console.log('⚠️ [AuthProvider] Component unmounted before session returned');
-          return;
-        }
-        console.log('✅ [AuthProvider] Initial session fetched', {
-          hasSession: !!data.session,
-          userId: data.session?.user?.id?.slice(0, 8),
-          email: data.session?.user?.email
-        });
+        if (!mounted) return;
         setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
-      } catch (err) {
-        // In case getSession is locked on first mount, fail open and let the subscription correct it
-        console.warn('⚠️ [AuthProvider] Initial getSession failed, relying on subscription', err);
+      } catch {
         if (!mounted) return;
         setState((s) => ({ ...s, loading: false }));
       }
     })();
 
-    // 2) Live updates (source of truth)
-    console.log('📡 [AuthProvider] Subscribing to auth state changes');
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔔 [AuthProvider] Auth state changed:', event, {
-        hasSession: !!session,
-        userId: session?.user?.id?.slice(0, 8),
-        email: session?.user?.email,
-        timestamp: new Date().toISOString()
-      });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setState({ user: session?.user ?? null, session: session ?? null, loading: false });
     });
-    unsub = () => {
-      console.log('🧹 [AuthProvider] Unsubscribing from auth state changes');
-      data.subscription.unsubscribe();
-    };
+    unsub = () => data.subscription.unsubscribe();
 
-    // 3) Be explicit about auto-refresh lifecycle (avoid double handlers)
     supabase.auth.startAutoRefresh();
-    console.log('🔄 [AuthProvider] Auto-refresh started');
 
     return () => {
-      console.log('🛑 [AuthProvider] Cleanup: stopping auto-refresh and unsubscribing');
       mounted = false;
       unsub();
       supabase.auth.stopAutoRefresh();

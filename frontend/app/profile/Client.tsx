@@ -146,29 +146,19 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
-    console.log('[Profile] useEffect fired', { authLoading, hasUser: !!authUser, userId: authUser?.id?.slice(0, 8) });
+    if (authLoading) return;
     
-    if (authLoading) {
-      console.log('[Profile] Still loading auth, waiting...');
-      return; // Wait for auth to be ready
-    }
-    
-    // Auth guard - redirect if not logged in
     if (!authUser) {
-      console.warn('⚠️ [Profile] No user session, redirecting to homepage');
       window.location.href = '/';
       return;
     }
-    
-    console.log('[Profile] Starting profile data load for user:', authUser.email);
     
     (async () => {
       try {
         setLoading(true);
         try { capture('profile_view'); } catch {}
         
-        const u = authUser; // Use user from context
-        console.log('✅ [Profile] User authenticated:', u.email);
+        const u = authUser;
         setUserEmail(u?.email || "");
         
         // Query profiles table for accurate pro status and data
@@ -179,7 +169,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           .single();
         
         const isProUser = profileData?.is_pro || false;
-        console.log('[Profile] Pro status from database:', isProUser);
         setPro(isProUser);
         
         const md: any = u?.user_metadata || {};
@@ -202,15 +191,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
         // Counts
         if (u?.id) {
-          console.log('[Profile] Fetching deck and collection counts for user:', u.id);
           const { count: dcount, error: deckError } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           if (deckError) console.error('[Profile] Error fetching deck count:', deckError);
-          console.log('[Profile] Deck count:', dcount);
           setDeckCount(dcount ?? 0);
           
           const { count: ccount, error: collError } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           if (collError) console.error('[Profile] Error fetching collection count:', collError);
-          console.log('[Profile] Collection count:', ccount);
           setCollectionCount(ccount ?? 0);
           const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
           const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null })) || [];
@@ -270,11 +256,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       } catch (err: any) {
         console.error('[Profile] Error loading profile data:', err);
       } finally {
-        console.log('[Profile] Profile data load complete, setting loading=false');
         setLoading(false);
       }
     })();
-  }, [authUser, authLoading]); // sb is a memoized singleton, no need to include it
+  }, [authUser, authLoading]);
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
 

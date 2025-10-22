@@ -6,6 +6,35 @@ import { withLogging } from "@/lib/api/withLogging";
 
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 
+/**
+ * Check if a card can be a commander by querying Scryfall
+ */
+async function checkIfCommander(cardName: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`,
+      { next: { revalidate: 86400 } } // Cache for 24 hours
+    );
+    
+    if (!response.ok) return false;
+    
+    const card = await response.json();
+    const typeLine = (card.type_line || '').toLowerCase();
+    const oracleText = (card.oracle_text || '').toLowerCase();
+    
+    // Check if it's a legendary creature or planeswalker
+    if (typeLine.includes('legendary creature')) return true;
+    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return true;
+    
+    // Check for special commander abilities (Partner, etc.)
+    if (oracleText.includes('can be your commander')) return true;
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const Req = z.object({
   title: z.string().min(1).max(120),
   format: z.string().default("Commander"),
@@ -62,13 +91,22 @@ async function _POST(req: NextRequest) {
     const cleanTitle = sanitizeName(payload.title, 120);
     if (containsProfanity(cleanTitle)) return err("Please choose a different deck name.", "bad_request", 400);
 
-    // Extract commander from deck_text (first legendary for Commander format)
+    // Extract commander from deck_text (first valid commander for Commander format)
     let commander: string | null = null;
     if (payload.format === "Commander" && payload.deck_text) {
       const allCards = parseDeckText(payload.deck_text);
-      // For now, use first card as commander (we'll improve this with Scryfall check later)
-      // TODO: Check Scryfall for legendary creatures
-      if (allCards.length > 0) commander = allCards[0].name;
+      // Check each card until we find a valid commander
+      for (const card of allCards.slice(0, 10)) { // Check first 10 cards
+        const isCommander = await checkIfCommander(card.name);
+        if (isCommander) {
+          commander = card.name;
+          break;
+        }
+      }
+      // Fallback: if no valid commander found, use first card anyway
+      if (!commander && allCards.length > 0) {
+        commander = allCards[0].name;
+      }
     }
 
     const t0 = Date.now();

@@ -37,17 +37,7 @@ export default function Header() {
   
   // Sync auth state from AuthProvider (single source of truth)
   useEffect(() => {
-    if (authLoading) {
-      console.log('🔐 [Header] Auth still loading...');
-      return;
-    }
-    
-    console.log('🔐 [Header] Auth state from AuthProvider:', {
-      hasUser: !!authUser,
-      userId: authUser?.id?.slice(0, 8),
-      email: authUser?.email,
-      timestamp: new Date().toISOString()
-    });
+    if (authLoading) return;
     
     const u = authUser;
     setSessionUser(u?.email ?? null);
@@ -70,14 +60,11 @@ export default function Header() {
             .single();
           
           setIsPro(profile?.is_pro || false);
-          console.log('🔐 [Header] Pro status loaded:', profile?.is_pro || false);
-        } catch (proErr) {
-          console.error('[Header] Pro status fetch error:', proErr);
+        } catch {
           setIsPro(false);
         }
       })();
     } else {
-      console.log('🔐 [Header] No user, clearing state');
       setDisplayName('');
       setAvatar('');
       setIsPro(false);

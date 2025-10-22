@@ -10,6 +10,51 @@ type Body = {
   is_public?: boolean | null;
 };
 
+/**
+ * Check if a card can be a commander by querying Scryfall
+ */
+async function checkIfCommander(cardName: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`,
+      { next: { revalidate: 86400 } } // Cache for 24 hours
+    );
+    
+    if (!response.ok) return false;
+    
+    const card = await response.json();
+    const typeLine = (card.type_line || '').toLowerCase();
+    const oracleText = (card.oracle_text || '').toLowerCase();
+    
+    // Check if it's a legendary creature or planeswalker
+    if (typeLine.includes('legendary creature')) return true;
+    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return true;
+    
+    // Check for special commander abilities (Partner, etc.)
+    if (oracleText.includes('can be your commander')) return true;
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function parseDeckText(text: string): Array<{ name: string; qty: number }> {
+  const out: Array<{ name: string; qty: number }> = [];
+  if (!text) return out;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
+    if (!m) continue;
+    const qty = Math.max(0, parseInt(m[1], 10) || 0);
+    const name = m[2].trim();
+    if (!qty || !name) continue;
+    out.push({ name, qty });
+  }
+  return out;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -39,7 +84,7 @@ export async function POST(req: Request) {
     if (typeof b.deck_text === "string") {
       update.deck_text = b.deck_text;
       
-      // Extract commander from deck_text (first card for Commander format)
+      // Extract commander from deck_text (first valid commander for Commander format)
       // Get deck format first
       const { data: deckData } = await supabase
         .from("decks")
@@ -48,10 +93,25 @@ export async function POST(req: Request) {
         .single();
       
       if (deckData?.format === "Commander" && b.deck_text) {
-        const firstLine = b.deck_text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0];
-        if (firstLine) {
-          const m = firstLine.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-          if (m) update.commander = m[2].trim();
+        const allCards = parseDeckText(b.deck_text);
+        let commander: string | null = null;
+        
+        // Check each card until we find a valid commander
+        for (const card of allCards.slice(0, 10)) { // Check first 10 cards
+          const isCommander = await checkIfCommander(card.name);
+          if (isCommander) {
+            commander = card.name;
+            break;
+          }
+        }
+        
+        // Fallback: if no valid commander found, use first card anyway
+        if (!commander && allCards.length > 0) {
+          commander = allCards[0].name;
+        }
+        
+        if (commander) {
+          update.commander = commander;
         }
       }
     }

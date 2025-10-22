@@ -27,22 +27,13 @@ export default function MyDecksPage() {
 
   // Load decks
   useEffect(() => {
-    console.log('[My-Decks] useEffect triggered', { authLoading, hasUser: !!user, userId: user?.id?.slice(0, 8) });
+    if (authLoading) return;
     
-    // Wait for auth to finish loading
-    if (authLoading) {
-      console.log('[My-Decks] Auth still loading, waiting...');
-      return;
-    }
-    
-    // If no user after auth loads, stop loading
     if (!user) {
-      console.log('[My-Decks] No user, showing guest state');
       setLoading(false);
       return;
     }
     
-    console.log('[My-Decks] Loading decks for user:', user.email);
     setLoading(true);
     
     (async () => {
@@ -75,14 +66,13 @@ export default function MyDecksPage() {
 
         setDecks(sorted);
         setPinnedIds(pinned);
-        console.log('[My-Decks] Decks loaded successfully:', sorted.length);
       } catch (err: any) {
         console.error('[My Decks] Load error:', err);
       } finally {
         setLoading(false);
       }
     })();
-  }, [user, authLoading]); // supabase is a singleton, no need to include it
+  }, [user, authLoading]);
 
   if (authLoading) {
     return (
