@@ -37,10 +37,6 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
     // Load changelog data and monetization config
     const loadData = async () => {
       try {
-        // Fetch actual changelog data
-        const changelogRes = await fetch('/api/changelog');
-        const changelogData = await changelogRes.json();
-        
         // Fetch monetization config
         const configRes = await fetch('/api/config', { cache: 'no-store' });
         const configData = await configRes.json().catch(() => ({}));
@@ -53,16 +49,16 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
           });
         }
         
-        // Determine the last updated date
+        // Fetch the actual bulk price import job timestamp (this is the real card data update time)
         let lastUpdate = 'Recent';
-        if (changelogData?.ok && changelogData?.changelog?.last_updated) {
-          lastUpdate = changelogData.changelog.last_updated;
-        } else if (changelogData?.ok && changelogData?.changelog?.entries?.length > 0) {
-          // Use the date of the most recent changelog entry
-          const sortedEntries = changelogData.changelog.entries.sort((a: any, b: any) => 
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          lastUpdate = sortedEntries[0].date;
+        try {
+          const jobRes = await fetch('/api/admin/config?key=job:last:bulk_price_import', { cache: 'no-store' });
+          const jobData = await jobRes.json().catch(() => ({}));
+          if (jobData?.config?.['job:last:bulk_price_import']) {
+            lastUpdate = jobData.config['job:last:bulk_price_import'];
+          }
+        } catch (e) {
+          console.warn('Failed to load bulk import timestamp:', e);
         }
         
         setTrustInfo({

@@ -34,8 +34,31 @@ export default function MyDecksPage() {
     const hydrationDelay = setTimeout(() => {
       console.log('🔐 [My Decks] Hydration delay complete, calling getSession()');
       
-      supabase.auth.getSession()
-        .then(({ data: { session }, error }) => {
+      // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
+      // When window regains focus, Supabase auto-refreshes session, causing getSession() to hang
+      // Solution: Retry with backoff if it hangs (gives Supabase time to complete refresh)
+      let attempt = 0;
+      const maxAttempts = 3;
+      
+      const tryGetSession = () => {
+        attempt++;
+        console.log(`🔄 [My Decks] getSession() attempt ${attempt}/${maxAttempts}`);
+        
+        const timeout = setTimeout(() => {
+          if (attempt < maxAttempts) {
+            console.warn(`⏰ [My Decks] Attempt ${attempt} timed out, retrying in 1s...`);
+            setTimeout(tryGetSession, 1000); // Retry after 1 second
+          } else {
+            console.error('❌ [My Decks] All attempts failed - showing guest page');
+            setUser(null);
+            setAuthLoading(false);
+            setLoading(false);
+          }
+        }, 3000); // 3 seconds per attempt
+        
+        supabase.auth.getSession()
+          .then(({ data: { session }, error }) => {
+            clearTimeout(timeout); // Cancel timeout on success
           const user = session?.user || null;
           
           console.log('✅ [My Decks] getSession() returned', {
@@ -60,12 +83,16 @@ export default function MyDecksPage() {
             console.log('✅ [My Decks] User authenticated, will load decks');
           }
         })
-        .catch((err) => {
-          console.error('❌ [My Decks] Auth error:', err);
-          setUser(null);
-          setAuthLoading(false);
-          setLoading(false);
-        });
+          .catch((err) => {
+            clearTimeout(timeout); // Cancel timeout on error
+            console.error('❌ [My Decks] Auth error:', err);
+            setUser(null);
+            setAuthLoading(false);
+            setLoading(false);
+          });
+      };
+      
+      tryGetSession(); // Start first attempt
     }, 100); // End hydration delay
     
     return () => {

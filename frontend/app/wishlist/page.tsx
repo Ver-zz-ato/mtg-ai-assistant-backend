@@ -32,8 +32,41 @@ export default function WishlistPage() {
           capture('wishlist_page_view');
         } catch {}
         
+        // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
+        let attempt = 0;
+        const maxAttempts = 3;
+        let session: any = null;
+        let error: any = null;
+        
+        while (attempt < maxAttempts) {
+          attempt++;
+          console.log(`🔄 [Wishlist] getSession() attempt ${attempt}/${maxAttempts}`);
+          
+          try {
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('timeout')), 3000);
+            });
+            
+            const result = await Promise.race([
+              sb.auth.getSession(),
+              timeoutPromise
+            ]) as any;
+            
+            session = result.data?.session;
+            error = result.error;
+            break; // Success - exit retry loop
+          } catch (err: any) {
+            if (attempt < maxAttempts) {
+              console.warn(`⏰ [Wishlist] Attempt ${attempt} timed out, retrying in 1s...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              console.error('❌ [Wishlist] All attempts failed');
+              error = err;
+            }
+          }
+        }
+        
         try {
-          const { data: { session }, error } = await sb.auth.getSession();
           
           console.log('✅ [Wishlist] getSession() returned', {
             hasSession: !!session,
@@ -59,7 +92,7 @@ export default function WishlistPage() {
             console.log('✅ [Wishlist] User authenticated');
           }
         } catch (err: any) {
-          console.error('❌ [Wishlist] Auth error:', err);
+          console.error('❌ [Wishlist] Auth error or timeout:', err);
           setUser(null);
           setPro(false);
         }

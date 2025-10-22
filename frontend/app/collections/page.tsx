@@ -140,8 +140,29 @@ function CollectionsPageClientBody() {
     const hydrationDelay = setTimeout(() => {
       console.log('🔐 [Collections] Hydration delay complete, calling getSession()');
       
-      supabase.auth.getSession()
-        .then(({ data: { session }, error }) => {
+      // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
+      let attempt = 0;
+      const maxAttempts = 3;
+      
+      const tryGetSession = () => {
+        attempt++;
+        console.log(`🔄 [Collections] getSession() attempt ${attempt}/${maxAttempts}`);
+        
+        const timeout = setTimeout(() => {
+          if (attempt < maxAttempts) {
+            console.warn(`⏰ [Collections] Attempt ${attempt} timed out, retrying in 1s...`);
+            setTimeout(tryGetSession, 1000);
+          } else {
+            console.error('❌ [Collections] All attempts failed - showing guest page');
+            setUser(null);
+            setAuthLoading(false);
+            setLoading(false);
+          }
+        }, 3000);
+        
+        supabase.auth.getSession()
+          .then(({ data: { session }, error }) => {
+            clearTimeout(timeout);
           const user = session?.user || null;
           
           console.log('✅ [Collections] getSession() returned', {
@@ -166,12 +187,16 @@ function CollectionsPageClientBody() {
             console.log('✅ [Collections] User authenticated, will load collections');
           }
         })
-        .catch((err) => {
-          console.error('❌ [Collections] Auth error:', err);
-          setUser(null);
-          setAuthLoading(false);
-          setLoading(false);
-        });
+          .catch((err) => {
+            clearTimeout(timeout);
+            console.error('❌ [Collections] Auth error:', err);
+            setUser(null);
+            setAuthLoading(false);
+            setLoading(false);
+          });
+      };
+      
+      tryGetSession();
     }, 100); // End hydration delay
     
     return () => {
