@@ -20,9 +20,10 @@ export interface MainFeaturesTourProps {
  * 7. AI Chat Assistant (Final)
  */
 export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourProps) {
+  const [showWelcome, setShowWelcome] = React.useState(false);
   const [shouldStart, setShouldStart] = React.useState(false);
   
-  // Delay tour start by 30 seconds to let user explore first
+  // Show welcome modal after 30 seconds to let user explore first
   // But NEVER show on mobile phones
   React.useEffect(() => {
     if (!autoStart) return;
@@ -37,11 +38,24 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
     }
     
     const timer = setTimeout(() => {
-      setShouldStart(true);
+      setShowWelcome(true);
     }, 30000); // 30 seconds
     
     return () => clearTimeout(timer);
   }, [autoStart]);
+
+  const handleStartTour = () => {
+    setShowWelcome(false);
+    setShouldStart(true);
+  };
+
+  const handleSkipTour = () => {
+    setShowWelcome(false);
+    // Mark as seen so it doesn't show again
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tour-main-features-v2-skipped', 'true');
+    }
+  };
   
   const steps: TourStep[] = [
     {
@@ -96,17 +110,86 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
   ];
 
   return (
-    <OnboardingTour
-      tourId="main-features-v2"
-      steps={steps}
-      autoStart={shouldStart}
-      onComplete={() => {
-        console.log('✅ Main features tour completed!');
-      }}
-      onSkip={() => {
-        console.log('⏭️ Tour skipped');
-      }}
-    />
+    <>
+      {/* Welcome Modal */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-purple-500/30 rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 animate-in fade-in zoom-in duration-300">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-4">👋</div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent mb-2">
+                Welcome to ManaTap AI!
+              </h2>
+              <p className="text-gray-300 text-lg">
+                Your intelligent Magic: The Gathering deck building assistant
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4 mb-8 text-gray-300">
+              <p>
+                We've built powerful tools to help you build better decks, save money, and make smarter decisions:
+              </p>
+              <ul className="space-y-2 ml-4">
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-400 mt-1">💰</span>
+                  <span><strong>Cost-to-Finish</strong> - See what you need and how much it costs</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-400 mt-1">💸</span>
+                  <span><strong>Budget Swaps</strong> - Get AI-powered cheaper alternatives</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-400 mt-1">📈</span>
+                  <span><strong>Price Tracker</strong> - Monitor card prices over time</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-400 mt-1">🎲</span>
+                  <span><strong>Probability Tools</strong> - Calculate your odds and test mulligans</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-pink-400 mt-1">💬</span>
+                  <span><strong>AI Chat Assistant</strong> - Your 24/7 deck-building expert</span>
+                </li>
+              </ul>
+              <p className="text-sm text-gray-400 italic mt-4">
+                Want a quick tour to see where everything is?
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleSkipTour}
+                className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Skip Tour
+              </button>
+              <button
+                onClick={handleStartTour}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-purple-500/50"
+              >
+                Start Tour 🚀
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Actual Tour */}
+      <OnboardingTour
+        tourId="main-features-v2"
+        steps={steps}
+        autoStart={shouldStart}
+        onComplete={() => {
+          console.log('✅ Main features tour completed!');
+        }}
+        onSkip={() => {
+          console.log('⏭️ Tour skipped');
+        }}
+      />
+    </>
   );
 }
 

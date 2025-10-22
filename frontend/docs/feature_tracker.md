@@ -550,3 +550,13 @@ Navigation
   - Configured UptimeRobot for production uptime monitoring
   - Monitors https://www.manatap.ai/ availability and response times
   - Alerts configured for downtime detection
+
+☑ Tour welcome screen with opt-in flow <!-- id:onboarding.tour_welcome -->
+  - Added welcome modal before tour starts with feature overview
+  - "Start Tour" button to begin guided walkthrough
+  - "Skip Tour" button to dismiss and not show again
+  - Beautiful gradient design with emoji icons for each feature
+  - Lists all 5 key features: Cost-to-Finish, Budget Swaps, Price Tracker, Probability Tools, AI Assistant
+  - Appears 30 seconds after page load (non-intrusive timing)
+  - Automatically disabled on mobile phones
+  - localStorage persistence to respect skip preference
