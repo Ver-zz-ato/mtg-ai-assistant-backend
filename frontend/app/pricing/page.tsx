@@ -7,6 +7,7 @@ import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
 import Link from 'next/link';
 import ProValueTooltip from '@/components/ProValueTooltip';
+import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
 
 export default function PricingPage() {
   const { isPro } = usePro();
@@ -56,7 +57,7 @@ export default function PricingPage() {
 
   const handleUpgradeClick = async (plan: 'monthly' | 'yearly') => {
     if (!user) {
-      alert('Please sign in first to upgrade.');
+      showAuthToast(AUTH_MESSAGES.SIGN_IN_REQUIRED);
       return;
     }
 

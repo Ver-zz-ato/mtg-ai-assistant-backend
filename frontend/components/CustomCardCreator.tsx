@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { containsProfanity } from "@/lib/profanity";
+import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 
 // Preset name blocks
 const PREFIX = ["Dr.","Lord","Lady","Captain","Sir","Arch-","Grand","Shadow","Iron","Flame","Night","Star","Void","Storm","Bone","Blood","Rune","Sky","Stone","Wild"];
@@ -271,7 +272,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
       const r = await fetch('/api/profile/custom-card', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
       if (r.status === 401 || j?.error === 'unauthenticated') {
-        setToast('Please sign in to attach cards to your profile');
+        setToast(AUTH_MESSAGES.ATTACH_CARD);
         return;
       }
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Attach failed');
@@ -328,7 +329,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             const j = await res.json().catch(()=>({}));
             if (!res.ok || j?.ok===false) {
               if (j?.error==='quota_exceeded') { alert(`You\'ve reached your limit (${j.max}). Visit your profile to delete one, or upgrade to Pro.`); }
-              else if (j?.error==='auth_required') { alert('Please sign in to share a custom card.'); }
+              else if (j?.error==='auth_required') { showAuthToast(AUTH_MESSAGES.SHARE_CARD); }
               else { alert(j?.error||'Share failed'); }
               return;
             }

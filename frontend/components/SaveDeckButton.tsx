@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AUTH_MESSAGES } from "@/lib/auth-messages";
 
 export default function SaveDeckButton({ getDeckText }: { getDeckText: () => string }) {
   const [open, setOpen] = React.useState(false);
@@ -29,7 +30,7 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
       }
 
       if (r.status === 401) {
-        setErrorMsg("Please sign in to save decks.");
+        setErrorMsg(AUTH_MESSAGES.SAVE_DECKS);
         setSaving(false);
         return;
       }
