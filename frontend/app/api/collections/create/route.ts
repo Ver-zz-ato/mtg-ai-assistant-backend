@@ -35,6 +35,9 @@ export async function POST(req: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+    // ANALYTICS: Track collection creation
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("collection_created", { collection_id: data.id, user_id: user.id, name: clean }); } catch {}
+
     return NextResponse.json({ ok: true, id: data.id }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";

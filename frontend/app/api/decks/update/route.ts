@@ -113,6 +113,9 @@ export async function POST(req: Request) {
       }
     } catch {}
 
+    // ANALYTICS: Track deck updates
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_updated", { deck_id: data.id, user_id: user.id, fields: Object.keys(update) }); } catch {}
+
     return NextResponse.json({ id: data.id }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";

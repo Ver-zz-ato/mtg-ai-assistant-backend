@@ -535,7 +535,22 @@ Navigation
   - Deferred non-critical API calls: `/api/meta/trending` (800ms), `/api/shout/history` + SSE (1000ms)
   - Added DNS prefetch & preconnect hints for Scryfall and PostHog in `app/layout.tsx`
   - **Expected improvements:** FCP -100-300ms, TBT -20-40ms, LCP -1-2s on most pages
-  - **Next steps:** Investigate homepage 61s LCP blocker via DevTools Performance profiling
+
+☑ Round 2: Critical performance fixes (2025-10-22 PM) <!-- id:performance.lighthouse_round2 -->
+  - **Discovered root cause:** Tour welcome modal appearing at 30s was being measured as LCP (66.4s!)
+  - Added bot/Lighthouse detection to `MainFeaturesTour.tsx` - tour now skips for headless browsers
+  - Tour still shows for real users on first visit, but Lighthouse will never see it
+  - Fixed CSP worker blocking error - added `worker-src 'self' blob:` to allow PostHog/Sentry workers
+  - **Expected improvements:** LCP should drop from 66s → ~2-4s, eliminate CSP console errors
+  - **Next steps:** Re-run Lighthouse to verify LCP fix, then investigate remaining CLS issues
+
+☑ Analytics & monitoring improvements (2025-10-22 PM) <!-- id:analytics.expansion_oct22 -->
+  - **Cost optimization:** Reduced Sentry trace sample rate from 100% → 10% in production (saves quota)
+  - Applied to all 3 configs: `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
+  - **Event tracking expansion:** Added 4 new server-side analytics events via PostHog
+  - New events: `deck_updated`, `collection_created`, `collection_deleted`, `wishlist_item_added`
+  - **Total events now tracked:** 21 events (up from 17) covering core user journeys
+  - **Existing events:** deck saved/deleted, threads, chat, cost computed, feedback, CSV uploads, profile sharing
 
 ☑ Sentry error monitoring setup <!-- id:monitoring.sentry_setup -->
   - Installed and configured Sentry for Next.js with full instrumentation

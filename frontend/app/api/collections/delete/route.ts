@@ -26,6 +26,9 @@ export async function POST(req: Request) {
     const { error: delColErr } = await supabase.from("collections").delete().eq("id", id);
     if (delColErr) return NextResponse.json({ ok: false, error: delColErr.message }, { status: 500 });
 
+    // ANALYTICS: Track collection deletion
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("collection_deleted", { collection_id: id, user_id: user.id }); } catch {}
+
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unexpected error" }, { status: 500 });

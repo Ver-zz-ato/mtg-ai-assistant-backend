@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
       try { await (supabase as any).auth.updateUser({ data: { wishlist: merged, wishlist_canonical: mergedCanonical } }); } catch {}
     } catch {}
 
+    // ANALYTICS: Track wishlist item addition
+    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("wishlist_item_added", { wishlist_id, user_id: user.id, count: names.length }); } catch {}
+
     return NextResponse.json({ ok:true, wishlist_id });
   } catch (e:any) {
     return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 });
