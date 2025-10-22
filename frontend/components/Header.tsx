@@ -9,13 +9,9 @@ import Logo from './Logo';
 
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
-  const [supabase] = useState(() => {
-    // CRITICAL: Only create client on browser, NOT during SSR
-    if (typeof window === 'undefined') {
-      return null as any; // Return null during SSR, will be created on client
-    }
-    return createBrowserSupabaseClient();
-  });
+  // HYDRATION FIX: Always initialize to null to match SSR and client initial state
+  // Client is created in useEffect to prevent hydration mismatch
+  const [supabase, setSupabase] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sessionUser, setSessionUser] = useState<string | null>(null);
@@ -36,13 +32,20 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
-    // CRITICAL: Skip if supabase client isn't ready (SSR protection)
+    // HYDRATION FIX: Create Supabase client on mount (client-side only)
     if (!supabase) {
-      setIsHydrated(true);
-      return;
+      const client = createBrowserSupabaseClient();
+      setSupabase(client);
     }
     
     setIsHydrated(true);
+  }, []); // Run once on mount
+  
+  useEffect(() => {
+    // CRITICAL: Skip if supabase client isn't ready
+    if (!supabase) {
+      return;
+    }
     
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
@@ -145,8 +148,7 @@ export default function Header() {
         supabase.auth.onAuthStateChange(() => {})?.data?.subscription?.unsubscribe();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]); // Re-run when supabase client is created
 
   // Close help menu when clicking outside
   useEffect(() => {

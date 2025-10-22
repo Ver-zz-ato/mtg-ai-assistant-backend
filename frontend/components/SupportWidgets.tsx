@@ -37,10 +37,15 @@ export default function SupportWidgets() {
     return true;
   }
 
-  const [showWidgets, setShowWidgets] = React.useState<boolean>(() => computeShow());
+  // HYDRATION FIX: Initialize to false on server, compute on client in useEffect
+  // This prevents SSR/client mismatch since computeShow() accesses window/localStorage
+  const [showWidgets, setShowWidgets] = React.useState<boolean>(false);
   const [remoteAllow, setRemoteAllow] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
+    // Compute actual value on client after hydration
+    setShowWidgets(computeShow());
+    
     // fetch flags to respect global widgets kill switch
     (async () => {
       try { const r = await fetch('/api/config?key=flags', { cache: 'no-store' }); const j = await r.json(); const fl = j?.config?.flags; if (fl && typeof fl.widgets === 'boolean') setRemoteAllow(!!fl.widgets); else setRemoteAllow(true); } catch { setRemoteAllow(true); }

@@ -620,3 +620,54 @@ useEffect(() => {
 
 **If This Happens Again:**
 Look for `useEffect` blocks that immediately call Supabase auth methods. Add the 100ms hydration delay wrapper.
+
+---
+
+### React Hydration Bug Root Cause Fix (2025-10-22)
+
+**Context:** The 100ms delay (above) was a workaround for React hydration errors. This section documents the **root cause fixes** that eliminate the hydration errors themselves.
+
+**What is React Error #418?**
+Occurs when server-rendered HTML doesn't match client-side rehydration. React abandons the hydration process, which can invalidate Supabase sessions if `getSession()` is called during this crash.
+
+**Three Critical Hydration Mismatches Fixed:**
+
+1. **SupportWidgets Component** (`frontend/components/SupportWidgets.tsx`)
+   - **Issue:** `useState(() => computeShow())` computed different values on server vs client
+   - `computeShow()` accessed `window.location`, `sessionStorage`, `localStorage` during initial render
+   - Server: Returns `false` immediately (window is undefined)
+   - Client: Computes actual value based on browser state
+   - **Fix:** Initialize to `false`, update in `useEffect` after hydration
+   - **Impact:** HIGH - Component is in root layout, affects every page
+
+2. **Header Component** (`frontend/components/Header.tsx`)
+   - **Issue:** `useState(() => createBrowserSupabaseClient())` created different initial state
+   - Server: Returns `null`
+   - Client: Returns actual Supabase client object
+   - **Fix:** Always initialize to `null`, create client in `useEffect`
+   - **Impact:** CRITICAL - Affects auth stability on every page
+
+3. **Homepage JSON-LD Schema** (`frontend/app/page.tsx`)
+   - **Issue:** `"dateModified": new Date().toISOString()` generated different timestamps
+   - Server: Generates timestamp at SSR time
+   - Client: Regenerates different timestamp during hydration
+   - **Fix:** Use static date `"2025-10-22T00:00:00Z"`
+   - **Impact:** LOW - Only homepage, cosmetic issue
+
+**Why the 100ms Delay Still Exists:**
+- Kept temporarily as defense-in-depth
+- Monitor Sentry for hydration errors over 1-2 weeks
+- If no errors appear, can safely remove the delays
+- If errors persist, investigate with React DevTools Profiler
+
+**Testing Checklist:**
+- [ ] Open DevTools Console → No "Hydration failed" warnings
+- [ ] Check React DevTools for red highlights on hydrated components
+- [ ] Navigate between pages → Session remains stable
+- [ ] Test on production build
+- [ ] Verify no LCP/FCP regressions in Lighthouse
+
+**Files Modified:**
+- `frontend/components/SupportWidgets.tsx` (Initialize state to `false`)
+- `frontend/components/Header.tsx` (Initialize Supabase to `null`, create in useEffect)
+- `frontend/app/page.tsx` (Static date in JSON-LD schema)

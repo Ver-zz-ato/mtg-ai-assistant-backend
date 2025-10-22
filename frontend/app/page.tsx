@@ -38,7 +38,7 @@ function jsonLd() {
       "name": "ManaTap.ai",
       "url": "https://manatap.ai"
     },
-    "dateModified": new Date().toISOString(),
+    "dateModified": "2025-10-22T00:00:00Z",
     "featureList": [
       "AI Chat Assistant",
       "Deck Builder", 
