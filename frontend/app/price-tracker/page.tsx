@@ -107,9 +107,32 @@ export default function PriceTrackerPage(){
 
   return (
     <main className="max-w-7xl mx-auto p-4 space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold">Price Tracker</h1>
-        <p className="text-sm opacity-80">Daily price snapshots with interactive charts. Watch cards, compare trends, export data.</p>
+      <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-emerald-900/20 via-blue-900/10 to-purple-900/20 p-6">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-4xl">💹</span>
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-400">
+              Price Tracker
+            </h1>
+          </div>
+          <p className="text-base text-neutral-300 max-w-3xl leading-relaxed">
+            Track real-time card prices with historical charts. Watch your favorite cards, compare trends across formats, and export data for analysis. Updated daily with Scryfall pricing.
+          </p>
+          <div className="flex items-center gap-4 mt-3 text-sm">
+            <div className="flex items-center gap-1.5 text-emerald-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              <span>Historical Data</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-blue-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              <span>Multi-Currency</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-purple-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              <span>Export CSV</span>
+            </div>
+          </div>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">

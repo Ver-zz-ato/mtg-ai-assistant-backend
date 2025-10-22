@@ -13,14 +13,24 @@ export async function GET() {
   try {
     const supabase = await createClient();
     
-    // Get top commanders from public decks (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Get top commanders from public decks (last 90 days for better data)
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     
-    const { data: decks, error: decksError } = await supabase
+    let { data: decks, error: decksError } = await supabase
       .from("decks")
       .select("commander, format, created_at")
       .eq("is_public", true)
-      .gte("created_at", thirtyDaysAgo);
+      .gte("created_at", ninetyDaysAgo);
+    
+    // Fallback: If no public decks, get any recent decks (for initial data)
+    if (!decksError && (!decks || decks.length === 0)) {
+      const { data: fallbackDecks } = await supabase
+        .from("decks")
+        .select("commander, format, created_at")
+        .gte("created_at", ninetyDaysAgo)
+        .limit(500); // Get sample of all decks
+      decks = fallbackDecks;
+    }
 
     if (decksError) {
       console.error("Error fetching decks:", decksError);
@@ -36,7 +46,9 @@ export async function GET() {
     const commanderCounts: Record<string, number> = {};
     const formatCounts: Record<string, number> = {};
     
-    (decks || []).forEach((deck) => {
+    if (!decks) decks = []; // Null check for TypeScript
+    
+    decks.forEach((deck) => {
       const commander = deck.commander?.trim();
       if (commander) {
         commanderCounts[commander] = (commanderCounts[commander] || 0) + 1;

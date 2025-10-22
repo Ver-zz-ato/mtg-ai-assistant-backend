@@ -149,10 +149,33 @@ export default function ProbabilityHelpersPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Probability Helpers</h1>
-        <p className="text-sm opacity-80">Plain-English odds: “What’s the chance I see at least k of my chosen cards by turn T?” We model draws without replacement (like real shuffling) and compute the chance based on your deck size and counts.</p>
-      </div>
+      <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-blue-900/20 via-purple-900/10 to-pink-900/20 p-6">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-4xl">🎲</span>
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+              Probability Calculator
+            </h1>
+          </div>
+          <p className="text-base text-neutral-300 max-w-3xl leading-relaxed">
+            Calculate real draw probabilities using hypergeometric distribution. Answer questions like "What's the chance I draw at least 2 ramp spells by turn 4?" Includes color requirements, mulligans, and custom draw rules.
+          </p>
+          <div className="flex items-center gap-4 mt-3 text-sm">
+            <div className="flex items-center gap-1.5 text-blue-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              <span>Hypergeometric Math</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-purple-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+              <span>Import from Decks</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-pink-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span>Per-Turn Analysis</span>
+            </div>
+          </div>
+        </div>
+      </header>
       {advanced && (
         <div className="sticky top-2 z-20 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded px-3 py-2 flex items-center justify-between">
           <div className="text-xs opacity-80">Advanced options open</div>

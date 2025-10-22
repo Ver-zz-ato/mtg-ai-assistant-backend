@@ -420,27 +420,89 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
   return (
 <main className="max-w-5xl mx-auto p-6">
-      <div className="rounded-xl border border-neutral-800">
-        <div className="relative">
+      {/* Enhanced profile header with dramatic banner */}
+      <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/30 shadow-2xl mb-6">
+        {/* Banner background with gradient overlay */}
+        <div className="relative h-48 sm:h-56">
           {bannerArt ? (
-            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+            <>
               <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerArt})` }} />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-900/30 via-transparent to-blue-900/30" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-blue-900/30 to-pink-900/40" />
+          )}
+          
+          {/* Animated gradient border effect */}
+          <div className="absolute inset-0 rounded-2xl" style={{
+            background: gradient,
+            opacity: 0.1,
+            filter: 'blur(40px)'
+          }} />
+        </div>
+
+        {/* Profile info overlay */}
+        <div className="relative z-10 -mt-20 px-6 pb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
+            {/* Avatar with glow effect */}
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 blur-lg opacity-60" />
+              <img 
+                src={prof.avatar || '/next.svg'} 
+                alt="avatar" 
+                className="relative w-32 h-32 rounded-full object-cover border-4 border-neutral-900 shadow-2xl ring-2 ring-purple-500/50" 
+              />
+              {prof.is_pro && (
+                <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center border-4 border-neutral-900 shadow-lg">
+                  <span className="text-lg">⭐</span>
+                </div>
+              )}
             </div>
-          ) : null}
-          <div className="relative z-10 rounded-xl p-4 flex items-center gap-4">
-            <img src={prof.avatar || '/next.svg'} alt="avatar" className="w-16 h-16 rounded-full object-cover bg-neutral-800" />
-            <div className="flex-1 min-w-0">
-              <div className="text-xl font-semibold truncate">{prof.display_name || prof.username || 'Mage'}</div>
-              <div className="text-xs opacity-80">{(Array.isArray(prof.favorite_formats)? prof.favorite_formats : []).join(', ')}</div>
+
+            {/* User info */}
+            <div className="flex-1 text-center sm:text-left min-w-0">
+              <h1 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 mb-2">
+                {prof.display_name || prof.username || 'Mage'}
+              </h1>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm text-neutral-300 mb-2">
+                {Array.isArray(prof.favorite_formats) && prof.favorite_formats.length > 0 && (
+                  <>
+                    {prof.favorite_formats.map((format: string) => (
+                      <span key={format} className="px-3 py-1 rounded-full bg-purple-900/40 border border-purple-500/30 text-purple-300 font-medium">
+                        {format}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-neutral-400">
+                {prof.deck_count > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    <span className="font-semibold text-neutral-200">{prof.deck_count}</span> Decks
+                  </div>
+                )}
+                {prof.collection_count > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <span className="font-semibold text-neutral-200">{prof.collection_count}</span> Collections
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 mt-4">
+      <div className="grid grid-cols-12 gap-6">
         <section className="col-span-12 md:col-span-8 space-y-4">
-          <section className="rounded-xl border border-neutral-800 p-4">
-            <div className="text-lg font-semibold mb-2">Deck trends</div>
+          {/* Deck trends section with enhanced styling */}
+          <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-6 hover:border-blue-500/30 transition-colors shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Deck Trends</div>
+            </div>
             {(() => {
               const hasColorData = Object.values(pieCounts).some(v => v > 0);
               const hasRadarData = Object.values(radarAgg).some(v => v > 0);
@@ -513,9 +575,12 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           )}
 
           {decks.length > 0 && (
-            <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
-              <div className="text-lg font-semibold">Recent decks</div>
-              <ul className="space-y-2">
+            <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-6 hover:border-purple-500/30 transition-colors shadow-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Recent Decks</div>
+              </div>
+              <ul className="space-y-3">
                 {decks.map((d) => {
                   const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
                   const candidates: string[] = [];
@@ -531,12 +596,18 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                     if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; }
                   }
                   return (
-                    <li key={d.id} className="relative overflow-hidden border rounded-md hover:border-gray-600">
-                      {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
-                      {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
-                      <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-                      <div className="relative p-3 flex items-center justify-between gap-3">
-                        <div className="text-base font-semibold line-clamp-1">{d.title || 'Untitled'}</div>
+                    <li key={d.id} className="group relative overflow-hidden border-2 border-neutral-800 rounded-xl hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.02]">
+                      {art && (<div className="absolute inset-0 bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-300" style={{ backgroundImage: `url(${art})` }} />)}
+                      {!art && (<div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900" />)}
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="relative p-4 flex items-center justify-between gap-3">
+                        <a href={`/decks/${d.id}`} className="flex-1 min-w-0">
+                          <div className="text-lg font-bold line-clamp-1 group-hover:text-purple-300 transition-colors">{d.title || 'Untitled'}</div>
+                          {d.commander && (
+                            <div className="text-xs text-neutral-400 mt-1 line-clamp-1">Commander: {d.commander}</div>
+                          )}
+                        </a>
                         <LikeButton deckId={d.id} />
                       </div>
                     </li>
@@ -564,37 +635,43 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           )}
           
           {Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
-            <section className="rounded-xl border border-neutral-800 p-3">
-              <div className="text-lg font-semibold mb-2">Pinned badges</div>
+            <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-4 hover:border-amber-500/30 transition-colors shadow-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                <div className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">Achievements</div>
+              </div>
               <div className="space-y-3">
                 {prof.pinned_badges.slice(0,3).map((b: string, i: number) => {
                   // Badge descriptions mapping
-                  const badgeDescriptions: Record<string, {emoji: string, desc: string}> = {
-                    'First Deck': {emoji: '🏆', desc: 'Created your first deck'},
-                    'Brewer I': {emoji: '⚗️', desc: 'Built 5+ decks'},
-                    'Brewer II': {emoji: '⚗️', desc: 'Built 15+ decks'},
-                    'Brewer III': {emoji: '⚗️', desc: 'Built 30+ decks'},
-                    'Curator I': {emoji: '📚', desc: 'Maintain 3+ collections'},
-                    'Curator II': {emoji: '📚', desc: 'Maintain 10+ collections'},
-                    'Curator III': {emoji: '📚', desc: 'Maintain 25+ collections'},
-                    'Chatterbox': {emoji: '💬', desc: '50+ messages in 30d'},
-                    'Mathlete': {emoji: '∑', desc: 'Run Probability tool 10 times'},
-                    'Scenario Collector': {emoji: '💾', desc: 'Save 5 probability scenarios'},
-                    'Mulligan Master': {emoji: '♻️', desc: 'Run 25k+ mulligan iterations'},
-                    'On-Curve 90': {emoji: '📈', desc: '≥90% to hit land drops T1–T4'},
-                    'Mana Maestro': {emoji: '💧', desc: 'High color odds by T3'},
-                    'Combomancer': {emoji: '✨', desc: 'Includes at least one detected combo'},
-                    'Apprentice Teacher': {emoji: '🥇', desc: '10 likes on a deck'},
-                    'Master Teacher': {emoji: '🎖️', desc: '25 likes on a deck'}
+                  const badgeDescriptions: Record<string, {emoji: string, desc: string, color: string}> = {
+                    'First Deck': {emoji: '🏆', desc: 'Created your first deck', color: 'from-blue-500/20 to-blue-600/10'},
+                    'Brewer I': {emoji: '⚗️', desc: 'Built 5+ decks', color: 'from-purple-500/20 to-purple-600/10'},
+                    'Brewer II': {emoji: '⚗️', desc: 'Built 15+ decks', color: 'from-purple-500/20 to-purple-600/10'},
+                    'Brewer III': {emoji: '⚗️', desc: 'Built 30+ decks', color: 'from-purple-500/20 to-purple-600/10'},
+                    'Curator I': {emoji: '📚', desc: 'Maintain 3+ collections', color: 'from-emerald-500/20 to-emerald-600/10'},
+                    'Curator II': {emoji: '📚', desc: 'Maintain 10+ collections', color: 'from-emerald-500/20 to-emerald-600/10'},
+                    'Curator III': {emoji: '📚', desc: 'Maintain 25+ collections', color: 'from-emerald-500/20 to-emerald-600/10'},
+                    'Chatterbox': {emoji: '💬', desc: '50+ messages in 30d', color: 'from-pink-500/20 to-pink-600/10'},
+                    'Mathlete': {emoji: '∑', desc: 'Run Probability tool 10 times', color: 'from-cyan-500/20 to-cyan-600/10'},
+                    'Scenario Collector': {emoji: '💾', desc: 'Save 5 probability scenarios', color: 'from-indigo-500/20 to-indigo-600/10'},
+                    'Mulligan Master': {emoji: '♻️', desc: 'Run 25k+ mulligan iterations', color: 'from-green-500/20 to-green-600/10'},
+                    'On-Curve 90': {emoji: '📈', desc: '≥90% to hit land drops T1–T4', color: 'from-amber-500/20 to-amber-600/10'},
+                    'Mana Maestro': {emoji: '💧', desc: 'High color odds by T3', color: 'from-sky-500/20 to-sky-600/10'},
+                    'Combomancer': {emoji: '✨', desc: 'Includes at least one detected combo', color: 'from-violet-500/20 to-violet-600/10'},
+                    'Apprentice Teacher': {emoji: '🥇', desc: '10 likes on a deck', color: 'from-yellow-500/20 to-yellow-600/10'},
+                    'Master Teacher': {emoji: '🎖️', desc: '25 likes on a deck', color: 'from-orange-500/20 to-orange-600/10'}
                   };
-                  const badge = badgeDescriptions[b] || {emoji: '🏆', desc: 'Achievement unlocked'};
+                  const badge = badgeDescriptions[b] || {emoji: '🏆', desc: 'Achievement unlocked', color: 'from-neutral-700/20 to-neutral-800/10'};
                   return (
-                    <div key={`badge-${b}-${i}`} className="rounded-lg bg-gradient-to-r from-neutral-900 to-neutral-800 border border-neutral-700 p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-base">{badge.emoji}</span>
-                        <span className="font-semibold text-sm">{b}</span>
+                    <div key={`badge-${b}-${i}`} className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${badge.color} border-2 border-neutral-700 p-4 hover:border-amber-400/50 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-amber-500/20`}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative flex items-start gap-3">
+                        <span className="text-2xl">{badge.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-neutral-100 mb-0.5">{b}</div>
+                          <div className="text-xs text-neutral-400">{badge.desc}</div>
+                        </div>
                       </div>
-                      <div className="text-xs text-neutral-400 ml-6">{badge.desc}</div>
                     </div>
                   );
                 })}

@@ -61,12 +61,19 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     try { await captureServer('profile_share', { user_id: user.id, is_public }); } catch {}
 
-    const envBase = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || '';
-    // Prefer explicit env base, else fall back to request origin to ensure absolute URL in dev and prod
-    const reqOrigin = req.nextUrl?.origin || req.headers.get('origin') || '';
-    const base = envBase || reqOrigin;
+    // Use production domain or explicit base URL (never use preview URLs for sharing)
     const slug = row.username || user.id;
-    const url = base ? `${base}/u/${encodeURIComponent(slug)}` : `/u/${encodeURIComponent(slug)}`;
+    let base: string;
+    
+    if (process.env.NODE_ENV === 'production') {
+      // Always use production domain in production (not preview URLs)
+      base = process.env.NEXT_PUBLIC_BASE_URL || 'https://app.manatap.ai';
+    } else {
+      // In development, use localhost or explicit base
+      base = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl?.origin || 'http://localhost:3000';
+    }
+    
+    const url = `${base}/u/${encodeURIComponent(slug)}`;
     return NextResponse.json({ ok: true, url, is_public });
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });

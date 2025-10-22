@@ -575,3 +575,48 @@ Navigation
   - Appears 30 seconds after page load (non-intrusive timing)
   - Automatically disabled on mobile phones
   - localStorage persistence to respect skip preference
+
+---
+
+## 🔧 Critical Technical Notes (For AI/Debugging)
+
+### Auth Session Invalidation Bug (Fixed 2025-10-22)
+
+**Symptom:** Users visiting `/profile` page would get mysteriously logged out. They'd appear logged in at the top (Header still shows session) but when clicking other pages or refreshing, they'd suddenly be logged out.
+
+**Root Cause:** React hydration race condition
+- Profile page's `useEffect` was calling `sb.auth.getSession()` **immediately** on mount
+- This ran BEFORE React finished hydrating the component (SSR → Client transition)
+- When React's hydration encountered errors (like the minified React error #418 we have), it would crash mid-hydration
+- Supabase interpreted this as a session error and **invalidated the session**
+- Result: User is silently logged out
+
+**The Fix:**
+Added 100ms hydration delay to `app/profile/Client.tsx`:
+
+```typescript
+useEffect(() => {
+  // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
+  // This prevents getSession() from being abandoned if hydration crashes
+  const hydrationDelay = setTimeout(() => {
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      // ... rest of auth logic
+    })();
+  }, 100); // ← 100ms gives React time to finish hydrating
+  
+  return () => clearTimeout(hydrationDelay);
+}, [sb]);
+```
+
+**Why This Works:**
+- The 100ms delay ensures React completes hydration before we touch auth
+- Same fix was previously applied to `Header.tsx` for the same reason
+- This pattern should be used **anywhere** we call `getSession()` or `getUser()` in client components
+
+**Files Fixed:**
+- `frontend/app/profile/Client.tsx` (Oct 22, 2025)
+- `frontend/components/Header.tsx` (Previously fixed)
+
+**If This Happens Again:**
+Look for `useEffect` blocks that immediately call Supabase auth methods. Add the 100ms hydration delay wrapper.

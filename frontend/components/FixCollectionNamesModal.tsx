@@ -26,11 +26,15 @@ export default function FixCollectionNamesModal({ collectionId, open, onClose }:
         const r2 = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names }) });
         const j2 = await r2.json().catch(()=>({}));
         if(!r2.ok || j2?.ok===false) throw new Error(j2?.error||'fuzzy failed');
+        // Normalize function for case-insensitive comparison
+        const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+        
         const sugg: Record<string,{ suggestion?:string; all?:string[] }> = j2.results||{};
         const out: Array<{ id:string; name:string; suggestions:string[]; choice?:string }> = [];
         for(const it of items){
           const s = sugg[it.name]?.all || [];
-          if(s.length && s[0]!==it.name){ out.push({ id: it.id, name: it.name, suggestions: s, choice: s[0] }); }
+          // Only suggest if normalized name differs (case-insensitive comparison)
+          if(s.length && norm(s[0]) !== norm(it.name)){ out.push({ id: it.id, name: it.name, suggestions: s, choice: s[0] }); }
         }
         setRows(out);
       }catch(e:any){ alert(e?.message||'failed'); onClose(); }

@@ -34,7 +34,13 @@ export async function GET(req: NextRequest){
       const fuzzyRes = await fuzzy(fuzzyReq);
       const jf:any = await fuzzyRes.json().catch(()=>({}));
       const map = jf?.results || {};
-      const out = unknown.map(n => ({ name: n, suggestions: (map[n]?.all||[]).filter(Boolean) }));
+      // Filter out suggestions where normalized name matches (case-insensitive)
+      const out = unknown.map(n => {
+        const all = (map[n]?.all||[]).filter(Boolean);
+        // Skip if best suggestion equals original name (case-insensitive)
+        if (all.length && norm(all[0]) === norm(n)) return null;
+        return { name: n, suggestions: all };
+      }).filter(Boolean);
       return NextResponse.json({ ok:true, items: out });
     } catch (e:any) {
       return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });

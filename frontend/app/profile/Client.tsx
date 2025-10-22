@@ -375,9 +375,19 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     try{
       const r = await fetch('/api/billing/create-checkout-session', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ plan }) });
       const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Checkout failed');
+      if (!r.ok || j?.ok===false) {
+        // Suppress technical Stripe errors and show user-friendly message
+        const errorMsg = j?.error || '';
+        const userMsg = errorMsg.includes('api key') || errorMsg.includes('configuration') || errorMsg.includes('test mode')
+          ? 'Payment system is being configured. Please try the /pricing page or contact support@manatap.ai for help.'
+          : errorMsg || 'Checkout failed. Please try again.';
+        throw new Error(userMsg);
+      }
       window.location.href = j.url;
-    } catch(e:any){ try{ const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Checkout failed'); } catch{ alert(e?.message||'Checkout failed'); } }
+    } catch(e:any){ 
+      try{ const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Checkout failed'); } 
+      catch{ alert(e?.message||'Checkout failed'); } 
+    }
   }
 
   const gradient = useMemo(() => {
@@ -951,15 +961,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   </div>
                 </div>
 
-                {/* Two-Factor Authentication */}
-                <div className="space-y-2 border-t border-neutral-700 pt-4">
-                  <div className="text-sm font-semibold text-neutral-300">Two-Factor Authentication (Coming Soon)</div>
-                  <div className="text-xs text-neutral-400">Add an extra layer of security to your account with 2FA.</div>
-                  <button disabled className="px-3 py-2 rounded bg-neutral-800 text-neutral-500 text-sm cursor-not-allowed opacity-60">
-                    Enable 2FA (Coming Soon)
-                  </button>
-                </div>
-
                 {/* Active Sessions */}
                 <div className="space-y-2 border-t border-neutral-700 pt-4">
                   <div className="text-sm font-semibold text-neutral-300">Active Sessions</div>
@@ -1031,44 +1032,71 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               {pro ? (
                 // Pro User View
                 <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-emerald-900/20 to-emerald-800/10 border border-emerald-700/40 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🎉</span>
-                      <div className="text-lg font-semibold text-emerald-200">You're a Pro member!</div>
-                    </div>
-                    <div className="text-sm text-neutral-300">
-                      Thank you for supporting ManaTap AI. You have access to all premium features.
+                  <div className="bg-gradient-to-br from-purple-900/30 via-blue-900/20 to-emerald-900/20 border-2 border-emerald-500/50 rounded-xl p-6 shadow-xl">
+                    <div className="flex items-start gap-3 mb-3">
+                      <span className="text-5xl">✨</span>
+                      <div className="flex-1">
+                        <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-blue-300 mb-2">
+                          Thank You for Being Pro!
+                        </div>
+                        <div className="text-sm text-neutral-300 leading-relaxed">
+                          Your support helps us build the best MTG tools. Here's everything you've unlocked:
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold">What you have access to:</div>
-                    <ul className="text-sm text-neutral-300 space-y-1.5 ml-4">
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Unlimited AI deck analysis and chat</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Advanced probability calculations</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Price tracking and historical data</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Export to Moxfield/MTGO formats</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Hand testing widget with real card art</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-0.5">✓</span>
-                        <span>Pro badge and priority support</span>
-                      </li>
-                    </ul>
+                  <div className="space-y-3">
+                    <div className="text-base font-bold text-neutral-200 flex items-center gap-2">
+                      <span className="text-emerald-400">✅</span> Your Pro Features
+                    </div>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-blue-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="text-blue-400 text-2xl flex-shrink-0">🤖</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-neutral-100">Unlimited AI Analysis</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">No daily limits on deck analysis & AI chat</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-emerald-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="text-emerald-400 text-2xl flex-shrink-0">📊</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-neutral-100">Advanced Probability Tools</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">Hand testing, mulligan simulator, probability calculator</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-amber-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="text-amber-400 text-2xl flex-shrink-0">💰</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-neutral-100">Price Tracking & History</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">Real-time prices, historical charts, budget optimization</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-purple-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="text-purple-400 text-2xl flex-shrink-0">📤</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-neutral-100">Export to Moxfield & MTGO</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">One-click export in multiple formats</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-pink-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="text-pink-400 text-2xl flex-shrink-0">⚡</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-neutral-100">Priority Support & Badge</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">Faster help, exclusive badge, early access to features</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Rate Limit Indicator */}

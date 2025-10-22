@@ -81,17 +81,21 @@ export default function MetaDeckPanel() {
           {/* Top Commanders */}
           <div className="mb-4">
             <h4 className="text-sm font-semibold text-gray-300 mb-2">🏆 Top Commanders</h4>
-            <div className="space-y-1">
-              {meta.topCommanders.slice(0, 5).map((cmd, i) => (
-                <div key={cmd.name} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300 truncate flex-1">
-                    <span className="text-purple-400 font-semibold mr-2">{i + 1}.</span>
-                    {cmd.name}
-                  </span>
-                  <span className="text-gray-500 text-xs ml-2">{cmd.count}</span>
-                </div>
-              ))}
-            </div>
+            {meta.topCommanders && meta.topCommanders.length > 0 ? (
+              <div className="space-y-1">
+                {meta.topCommanders.slice(0, 5).map((cmd, i) => (
+                  <div key={cmd.name} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-300 truncate flex-1">
+                      <span className="text-purple-400 font-semibold mr-2">{i + 1}.</span>
+                      {cmd.name}
+                    </span>
+                    <span className="text-gray-500 text-xs ml-2">{cmd.count} decks</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 italic">No commanders yet. Create public decks to see trends!</div>
+            )}
           </div>
 
           {/* Popular Cards */}

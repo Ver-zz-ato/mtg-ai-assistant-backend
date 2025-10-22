@@ -423,16 +423,43 @@ export default function CostToFinishClient() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6 space-y-4">
-      {/* Info header - no longer sticky */}
-      <div className="bg-neutral-950/85 border-b border-neutral-800 -mx-4 px-4 py-3 mb-4">
-        <div className="w-full">
-          <div className="text-lg font-semibold">Cost to Finish</div>
-          <div className="text-[12px] opacity-80">Find out exactly what it'll cost to finish your deck — using your collection and live card prices.</div>
+      {/* Enhanced header */}
+      <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-green-900/20 via-teal-900/10 to-cyan-900/20 p-6 -mx-4 sm:mx-0">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-4xl">💸</span>
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">
+              Cost to Finish
+            </h1>
+          </div>
+          <p className="text-base text-neutral-300 max-w-4xl leading-relaxed">
+            Calculate the exact cost to complete your deck using live prices from Scryfall. Subtract cards you already own from your collection, track price trends, and discover budget-friendly alternatives.
+          </p>
+          <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+            <div className="flex items-center gap-1.5 text-green-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>Live Pricing</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-teal-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <span>Collection Tracking</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-cyan-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+              <span>Budget Swaps</span>
+            </div>
+          </div>
           {!isPro && (
-            <div className="mt-2 text-[11px]"><span className="inline-flex items-center gap-2 px-2 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span> Trend sparkline, Budget swaps, and Moxfield/MTGO exports are Pro features.</div>
+            <div className="mt-3 text-xs bg-amber-900/20 border border-amber-600/30 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="text-amber-400 text-lg">⭐</span>
+              <div>
+                <span className="font-semibold text-amber-300">Pro Features:</span>
+                <span className="text-neutral-300 ml-1">Budget swap suggestions, Moxfield/MTGO exports, price trend sparklines, and historical snapshots.</span>
+              </div>
+            </div>
           )}
         </div>
-      </div>
+      </header>
 
       <div className="w-full space-y-6 xl:space-y-0 xl:flex xl:gap-6 2xl:gap-8 items-start">
         {/* Left: form inputs */}
