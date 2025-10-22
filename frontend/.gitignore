@@ -46,3 +46,5 @@ legacy_*_backup/
 **/*.zip
 
 .env.local
+# Sentry Config File
+.env.sentry-build-plugin

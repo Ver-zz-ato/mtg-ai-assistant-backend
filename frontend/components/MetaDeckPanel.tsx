@@ -16,7 +16,9 @@ export default function MetaDeckPanel() {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    fetchMeta();
+    // PERFORMANCE: Defer non-critical meta data fetch to avoid blocking initial paint
+    const timeoutId = setTimeout(fetchMeta, 800);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   async function fetchMeta() {

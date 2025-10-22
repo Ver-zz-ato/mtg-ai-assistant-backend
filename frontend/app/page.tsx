@@ -1,13 +1,22 @@
 // app/page.tsx
+import dynamic from "next/dynamic";
 import ModeOptions from "../components/ModeOptions";
 import LeftSidebar from "../components/LeftSidebar";
-import RightSidebar from "../components/RightSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab"; // ← add this
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import HomepageTourWrapper from "../components/HomepageTourWrapper";
-import MetaDeckPanel from "../components/MetaDeckPanel";
+
+// PERFORMANCE: Lazy load heavy sidebar components to improve initial load
+// Note: These are client components, so they won't SSR anyway when lazy loaded
+const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
+  loading: () => <div className="animate-pulse bg-gray-800 rounded-2xl h-48" />
+});
+
+const MetaDeckPanel = dynamic(() => import("../components/MetaDeckPanel"), {
+  loading: () => <div className="animate-pulse bg-purple-900/20 rounded-2xl h-32 border border-purple-800/30" />
+});
 
 function jsonLd() {
   const data = {

@@ -59,10 +59,19 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       } catch {}
     };
 
-    maybeInit();
-    const onGranted = () => { maybeInit(); };
+    // PERFORMANCE: Defer PostHog initialization to after page is interactive
+    // This prevents blocking initial page load
+    const timeoutId = setTimeout(maybeInit, 1500);
+    
+    const onGranted = () => { 
+      clearTimeout(timeoutId);
+      maybeInit(); 
+    };
     window.addEventListener('analytics:consent-granted', onGranted);
-    return () => window.removeEventListener('analytics:consent-granted', onGranted);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('analytics:consent-granted', onGranted);
+    };
   }, []);
 
   return (

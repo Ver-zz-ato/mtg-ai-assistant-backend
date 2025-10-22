@@ -60,6 +60,15 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* PERFORMANCE: DNS prefetch & preconnect for third-party services */}
+        <link rel="preconnect" href="https://cards.scryfall.io" />
+        <link rel="dns-prefetch" href="https://cards.scryfall.io" />
+        <link rel="preconnect" href="https://api.scryfall.com" />
+        <link rel="dns-prefetch" href="https://api.scryfall.com" />
+        <link rel="preconnect" href="https://eu.i.posthog.com" />
+        <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
+      </head>
       <body className="min-h-screen flex flex-col">
         <Providers>
           <KeyboardShortcutsProvider>
@@ -79,7 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SupportWidgets />
             <UndoToast />
             {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
-            <ServiceWorkerCleanup /> {/* Temporary: removes old SW from users' browsers */}
+            {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
             <GuestExitWarning />
             <IOSInstallPrompt />
             <EmailVerificationReminder />

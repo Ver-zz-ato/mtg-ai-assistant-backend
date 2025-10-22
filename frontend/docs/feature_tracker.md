@@ -522,3 +522,31 @@ Navigation
   - All changes maintain existing functionality while enhancing user experience
   - Successful build verification with no breaking changes or critical errors
   - Comprehensive testing and quality assurance with npm build validation
+
+---
+
+## Performance Optimizations (2025-10-22)
+
+☑ Lighthouse performance audit and quick wins implementation <!-- id:performance.lighthouse_quickwins -->
+  - Audited 6 key pages: Homepage (42/100), My Decks (74/100), Browse (73/100), Pricing (72/100), Collections (74/100), Deck Detail (74/100)
+  - **Critical issues identified:** Homepage LCP 61s (!), CLS 0.868; all pages have 6-11s LCP (target: <2.5s)
+  - Deferred PostHog initialization by 1.5s in `components/Providers.tsx` to prevent blocking initial render
+  - Lazy loaded heavy sidebar components (`RightSidebar`, `MetaDeckPanel`) with loading placeholders in `app/page.tsx`
+  - Deferred non-critical API calls: `/api/meta/trending` (800ms), `/api/shout/history` + SSE (1000ms)
+  - Added DNS prefetch & preconnect hints for Scryfall and PostHog in `app/layout.tsx`
+  - **Expected improvements:** FCP -100-300ms, TBT -20-40ms, LCP -1-2s on most pages
+  - **Next steps:** Investigate homepage 61s LCP blocker via DevTools Performance profiling
+
+☑ Sentry error monitoring setup <!-- id:monitoring.sentry_setup -->
+  - Installed and configured Sentry for Next.js with full instrumentation
+  - Enabled performance tracing (100% sample rate in dev), session replay (10% sessions, 100% errors)
+  - Configured Vercel integration for automatic source map uploads on deployment
+  - Tunneling through Next.js server (`/monitoring`) to bypass ad blockers
+  - Updated CSP to allow Sentry connections to `*.ingest.de.sentry.io`
+  - Created MCP integration for AI-assisted debugging with Sentry data
+  - **First bug caught:** ServiceWorkerCleanup component conflicting with Sentry instrumentation (fixed)
+
+☑ Uptime monitoring with UptimeRobot <!-- id:monitoring.uptimerobot -->
+  - Configured UptimeRobot for production uptime monitoring
+  - Monitors https://www.manatap.ai/ availability and response times
+  - Alerts configured for downtime detection

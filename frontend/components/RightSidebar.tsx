@@ -32,27 +32,31 @@ export default function RightSidebar() {
   useEffect(() => {
     let closed = false;
 
-    (async () => {
-      try {
-        const r = await fetch("/api/shout/history", { cache: "no-store" });
-        const j = await r.json().catch(() => ({ items: [] }));
-        if (!closed) setItems((j.items as Shout[]) || []);
-      } catch {}
-
-      const ev = new EventSource("/api/shout/stream");
-      evRef.current = ev;
-
-      ev.onmessage = (e) => {
+    // PERFORMANCE: Defer shoutbox connection to avoid blocking initial render
+    const timeoutId = setTimeout(() => {
+      (async () => {
         try {
-          const msg = JSON.parse((e as MessageEvent).data) as Shout;
-          setItems((prev) => [...prev, msg].slice(-100));
+          const r = await fetch("/api/shout/history", { cache: "no-store" });
+          const j = await r.json().catch(() => ({ items: [] }));
+          if (!closed) setItems((j.items as Shout[]) || []);
         } catch {}
-      };
 
-      ev.onerror = () => { /* browser auto-reconnects */ };
-    })();
+        const ev = new EventSource("/api/shout/stream");
+        evRef.current = ev;
+
+        ev.onmessage = (e) => {
+          try {
+            const msg = JSON.parse((e as MessageEvent).data) as Shout;
+            setItems((prev) => [...prev, msg].slice(-100));
+          } catch {}
+        };
+
+        ev.onerror = () => { /* browser auto-reconnects */ };
+      })();
+    }, 1000);
 
     return () => {
+      clearTimeout(timeoutId);
       closed = true;
       evRef.current?.close();
       evRef.current = null;
