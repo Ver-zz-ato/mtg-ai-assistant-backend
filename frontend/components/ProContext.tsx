@@ -24,23 +24,35 @@ export default function ProProvider({ children }: { children: React.ReactNode })
     
     const sb = createBrowserSupabaseClient();
     
-    // Check Pro status from database
+    // Check Pro status - DATABASE IS SOURCE OF TRUTH
     (async () => {
       try {
-        const { data: profile } = await sb
+        const { data: profile, error } = await sb
           .from('profiles')
           .select('is_pro')
           .eq('id', user.id)
           .single();
         
+        if (error) {
+          console.error('[ProContext] Failed to fetch Pro status from database:', error);
+          // Fallback to metadata if database query fails
+          const md: any = user.user_metadata || {};
+          setIsPro(Boolean(md?.is_pro || md?.pro));
+          return;
+        }
+        
+        // Database is the single source of truth
         const profileIsPro = Boolean(profile?.is_pro);
+        setIsPro(profileIsPro);
+        
+        // Log mismatch for debugging (can remove later)
         const md: any = user.user_metadata || {};
         const metadataIsPro = Boolean(md?.is_pro || md?.pro);
-        
-        // Use TRUE from either source (profile OR metadata)
-        const finalProStatus = profileIsPro || metadataIsPro;
-        setIsPro(finalProStatus);
-      } catch {
+        if (profileIsPro !== metadataIsPro) {
+          console.warn('[ProContext] Pro status mismatch! Database:', profileIsPro, 'Metadata:', metadataIsPro);
+        }
+      } catch (err) {
+        console.error('[ProContext] Unexpected error:', err);
         setIsPro(false);
       }
     })();

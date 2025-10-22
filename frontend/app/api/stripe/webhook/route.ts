@@ -184,6 +184,29 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     throw updateError;
   }
 
+  // CRITICAL: Also update user_metadata for consistency
+  const { getAdmin } = await import('@/app/api/_lib/supa');
+  const admin = getAdmin();
+  if (admin) {
+    try {
+      const { data: userData } = await admin.auth.admin.getUserById(profile.id);
+      if (userData?.user) {
+        const currentMetadata = userData.user.user_metadata || {};
+        await admin.auth.admin.updateUserById(profile.id, {
+          user_metadata: {
+            ...currentMetadata,
+            pro: true,
+            is_pro: true,
+          }
+        });
+        console.info('Updated user_metadata for Pro user');
+      }
+    } catch (metaError) {
+      console.error('Failed to update user_metadata (non-fatal):', metaError);
+      // Don't throw - profile update succeeded, metadata is just for caching
+    }
+  }
+
   console.info('User upgraded to Pro', {
     userId: profile.id,
     plan,
@@ -235,6 +258,22 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       throw updateError;
     }
 
+    // Update user_metadata
+    const { getAdmin } = await import('@/app/api/_lib/supa');
+    const admin = getAdmin();
+    if (admin) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(profile.id);
+        if (userData?.user) {
+          await admin.auth.admin.updateUserById(profile.id, {
+            user_metadata: { ...userData.user.user_metadata, pro: true, is_pro: true }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update user_metadata (non-fatal):', e);
+      }
+    }
+
     console.info('Subscription activated', { userId: profile.id, plan });
 
   } else if (subscription.status === 'canceled') {
@@ -254,6 +293,22 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     if (updateError) {
       console.error('Failed to update user profile to canceled:', updateError);
       throw updateError;
+    }
+
+    // Update user_metadata
+    const { getAdmin } = await import('@/app/api/_lib/supa');
+    const admin = getAdmin();
+    if (admin) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(profile.id);
+        if (userData?.user) {
+          await admin.auth.admin.updateUserById(profile.id, {
+            user_metadata: { ...userData.user.user_metadata, pro: false, is_pro: false }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update user_metadata (non-fatal):', e);
+      }
     }
 
     console.info('Subscription canceled', { userId: profile.id, cancelAt });
@@ -294,6 +349,22 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   if (updateError) {
     console.error('Failed to update user profile for deleted subscription:', updateError);
     throw updateError;
+  }
+
+  // Update user_metadata
+  const { getAdmin } = await import('@/app/api/_lib/supa');
+  const admin = getAdmin();
+  if (admin) {
+    try {
+      const { data: userData } = await admin.auth.admin.getUserById(profile.id);
+      if (userData?.user) {
+        await admin.auth.admin.updateUserById(profile.id, {
+          user_metadata: { ...userData.user.user_metadata, pro: false, is_pro: false }
+        });
+      }
+    } catch (e) {
+      console.error('Failed to update user_metadata (non-fatal):', e);
+    }
   }
 
   console.info('Subscription deleted, user downgraded', { userId: profile.id });
