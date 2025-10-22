@@ -18,33 +18,39 @@ export default function WishlistPage() {
   const [user, setUser] = useState<any>(null);
   const [pro, setPro] = useState<boolean>(false);
 
-  // Load user data - MATCH HEADER PATTERN EXACTLY
+  // Load user data - MATCH HEADER PATTERN EXACTLY with hydration delay
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        capture('wishlist_page_view');
-      } catch {}
-      
-      try {
-        const { data: { session }, error } = await sb.auth.getSession();
+    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
+    // This prevents getSession() from being abandoned if hydration crashes
+    const hydrationDelay = setTimeout(() => {
+      const loadUser = async () => {
+        try {
+          capture('wishlist_page_view');
+        } catch {}
         
-        if (error) {
-          console.error('[Wishlist] Session error:', error);
+        try {
+          const { data: { session }, error } = await sb.auth.getSession();
+          
+          if (error) {
+            console.error('[Wishlist] Session error:', error);
+          }
+          
+          const u = session?.user;
+          setUser(u || null);
+          const md: any = u?.user_metadata || {};
+          const proStatus = Boolean(md.pro || md.is_pro);
+          setPro(proStatus);
+        } catch (err: any) {
+          console.error('[Wishlist] Auth error:', err);
+          setUser(null);
+          setPro(false);
         }
-        
-        const u = session?.user;
-        setUser(u || null);
-        const md: any = u?.user_metadata || {};
-        const proStatus = Boolean(md.pro || md.is_pro);
-        setPro(proStatus);
-      } catch (err: any) {
-        console.error('[Wishlist] Auth error:', err);
-        setUser(null);
-        setPro(false);
-      }
-    };
+      };
+      
+      loadUser();
+    }, 100); // End hydration delay
     
-    loadUser();
+    return () => clearTimeout(hydrationDelay);
   }, []); // Empty deps - runs once
 
   if (!user) {

@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
     let base: string;
     
     if (process.env.NODE_ENV === 'production') {
-      // Always use production domain in production (not preview URLs)
-      base = process.env.NEXT_PUBLIC_BASE_URL || 'https://app.manatap.ai';
+      // Always use production domain in production (NOT app.manatap.ai, just manatap.ai)
+      base = process.env.NEXT_PUBLIC_BASE_URL || 'https://manatap.ai';
     } else {
       // In development, use localhost or explicit base
       base = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl?.origin || 'http://localhost:3000';

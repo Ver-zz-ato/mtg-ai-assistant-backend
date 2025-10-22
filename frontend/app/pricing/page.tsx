@@ -18,37 +18,42 @@ export default function PricingPage() {
     const supabase = createBrowserSupabaseClient();
     console.log('[Pricing] Starting auth check...');
     
-    // No timeout needed - fixed root cause of race conditions
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (error) {
-          console.error('[Pricing] Session error:', error);
-        }
-        
-        const currentUser = session?.user || null;
-        console.log('[Pricing] Auth check complete', { hasUser: !!currentUser, email: currentUser?.email });
-        setUser(currentUser);
-        setLoading(false);
+    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
+    // This prevents getSession() from being abandoned if hydration crashes
+    const hydrationDelay = setTimeout(() => {
+      supabase.auth.getSession()
+        .then(({ data: { session }, error }) => {
+          if (error) {
+            console.error('[Pricing] Session error:', error);
+          }
+          
+          const currentUser = session?.user || null;
+          console.log('[Pricing] Auth check complete', { hasUser: !!currentUser, email: currentUser?.email });
+          setUser(currentUser);
+          setLoading(false);
 
-        // Enhanced pricing page tracking
-        const referrer = typeof document !== 'undefined' ? document.referrer : '';
-        const source = referrer.includes('/chat') ? 'chat_limit' :
-                      referrer.includes('/my-decks') ? 'deck_feature' :
-                      referrer.includes('google') ? 'google_search' : 'direct';
-        
-        trackPricingPageViewed(source);
-        capture('pricing_page_viewed', {
-          is_authenticated: !!currentUser,
-          is_pro: isPro,
-          source,
-          referrer: referrer.slice(0, 100) // Truncate for privacy
+          // Enhanced pricing page tracking
+          const referrer = typeof document !== 'undefined' ? document.referrer : '';
+          const source = referrer.includes('/chat') ? 'chat_limit' :
+                        referrer.includes('/my-decks') ? 'deck_feature' :
+                        referrer.includes('google') ? 'google_search' : 'direct';
+          
+          trackPricingPageViewed(source);
+          capture('pricing_page_viewed', {
+            is_authenticated: !!currentUser,
+            is_pro: isPro,
+            source,
+            referrer: referrer.slice(0, 100) // Truncate for privacy
+          });
+        })
+        .catch((err) => {
+          console.error('[Pricing] Auth error:', err);
+          setUser(null);
+          setLoading(false);
         });
-      })
-      .catch((err) => {
-        console.error('[Pricing] Auth error:', err);
-        setUser(null);
-        setLoading(false);
-      });
+    }, 100); // End hydration delay
+    
+    return () => clearTimeout(hydrationDelay);
   }, []); // Empty deps - auth check runs once at mount
 
   const [upgrading, setUpgrading] = useState(false);

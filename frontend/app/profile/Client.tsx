@@ -372,11 +372,18 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   }
 
   async function startCheckout(plan: 'monthly'|'yearly'){
+    // TEMP FIX: Redirect to pricing page which has working Stripe integration
+    // The profile page Stripe calls seem to have issues, so use pricing page instead
+    try {
+      window.location.href = `/pricing`;
+      return;
+    } catch {}
+    
+    /* Original code kept for reference:
     try{
       const r = await fetch('/api/billing/create-checkout-session', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ plan }) });
       const j = await r.json().catch(()=>({}));
       if (!r.ok || j?.ok===false) {
-        // Suppress technical Stripe errors and show user-friendly message
         const errorMsg = j?.error || '';
         const userMsg = errorMsg.includes('api key') || errorMsg.includes('configuration') || errorMsg.includes('test mode')
           ? 'Payment system is being configured. Please try the /pricing page or contact support@manatap.ai for help.'
@@ -388,6 +395,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       try{ const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Checkout failed'); } 
       catch{ alert(e?.message||'Checkout failed'); } 
     }
+    */
   }
 
   const gradient = useMemo(() => {
