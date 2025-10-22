@@ -22,7 +22,10 @@ export default function CookieBanner() {
   function accept() {
     try {
       window.localStorage.setItem('analytics:consent', 'granted');
-    } catch {}
+      console.log('✅ Cookie consent saved to localStorage');
+    } catch (e) {
+      console.error('Failed to save cookie consent:', e);
+    }
     try {
       window.dispatchEvent(new Event('analytics:consent-granted'));
     } catch {}

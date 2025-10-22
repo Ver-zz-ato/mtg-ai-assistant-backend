@@ -48,11 +48,24 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
       return;
     }
 
-    // Check if already seen/skipped
+    // Check if already seen/skipped (check both formats for compatibility)
+    try {
+      // Check new format (JSON)
+      const tourData = localStorage.getItem('tour-main-features-v2');
+      if (tourData) {
+        const parsed = JSON.parse(tourData);
+        if (parsed.completed) {
+          console.log('✓ Tour already completed/skipped (new format)');
+          return;
+        }
+      }
+    } catch {}
+    
+    // Check old format (string flags)
     const tourSkipped = localStorage.getItem('tour-main-features-v2-skipped');
     const tourCompleted = localStorage.getItem('tour-main-features-v2-completed');
     if (tourSkipped || tourCompleted) {
-      console.log('✓ Tour already seen/skipped');
+      console.log('✓ Tour already seen/skipped (old format)');
       return;
     }
     
@@ -70,9 +83,20 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
 
   const handleSkipTour = () => {
     setShowWelcome(false);
-    // Mark as seen so it doesn't show again
+    // Mark as seen so it doesn't show again (use same format as OnboardingTour)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('tour-main-features-v2-skipped', 'true');
+      try {
+        localStorage.setItem('tour-main-features-v2', JSON.stringify({
+          completed: true,
+          fullyCompleted: false,
+          skippedAt: Date.now()
+        }));
+        // Also set old format for compatibility
+        localStorage.setItem('tour-main-features-v2-skipped', 'true');
+        console.log('✅ Tour skip saved to localStorage');
+      } catch (e) {
+        console.error('Failed to save tour skip:', e);
+      }
     }
   };
   

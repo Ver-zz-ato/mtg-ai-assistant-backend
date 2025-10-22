@@ -14,6 +14,7 @@ export default function PrivacyPage() {
   const today = formatToday();
   const [analyticsConsent, setAnalyticsConsent] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+  const [expandedPanels, setExpandedPanels] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -36,6 +37,13 @@ export default function PrivacyPage() {
     } catch (e) {
       console.error('Failed to update analytics consent:', e);
     }
+  };
+
+  const togglePanel = (panelId: string) => {
+    setExpandedPanels(prev => ({
+      ...prev,
+      [panelId]: !prev[panelId]
+    }));
   };
 
   return (
@@ -141,109 +149,160 @@ export default function PrivacyPage() {
       {/* Vendor Details */}
       <div className="not-prose space-y-4 my-6">
         {/* Supabase */}
-        <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-950">
-          <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('supabase')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
             <span className="text-2xl">🔐</span>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline decoration-dotted">
-                  Supabase (Authentication)
-                </a>
+              <h3 className="text-sm font-semibold text-white">
+                Supabase (Authentication)
               </h3>
-              <div className="text-xs text-neutral-400 space-y-1">
-                <div><strong className="text-neutral-300">Purpose:</strong> Session management and user authentication</div>
-                <div><strong className="text-neutral-300">Cookies:</strong> <code className="text-neutral-300 bg-neutral-800 px-1 rounded">sb-*-auth-token</code></div>
-                <div><strong className="text-neutral-300">Duration:</strong> Session (expires on logout)</div>
-                <div><strong className="text-neutral-300">Type:</strong> Strictly necessary</div>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['supabase'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['supabase'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Session management and user authentication</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> <code className="text-neutral-300 bg-neutral-800 px-1 rounded">sb-*-auth-token</code></div>
+              <div><strong className="text-neutral-300">Duration:</strong> Session (expires on logout)</div>
+              <div><strong className="text-neutral-300">Type:</strong> Strictly necessary</div>
+              <div>
+                <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  Privacy Policy →
+                </a>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* PostHog */}
-        <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-950">
-          <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('posthog')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
             <span className="text-2xl">📊</span>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline decoration-dotted">
-                  PostHog (Analytics)
-                </a>
+              <h3 className="text-sm font-semibold text-white">
+                PostHog (Analytics)
               </h3>
-              <div className="text-xs text-neutral-400 space-y-1">
-                <div><strong className="text-neutral-300">Purpose:</strong> Anonymized usage analytics and feature improvement</div>
-                <div><strong className="text-neutral-300">Cookies:</strong> <code className="text-neutral-300 bg-neutral-800 px-1 rounded">ph_*</code></div>
-                <div><strong className="text-neutral-300">Duration:</strong> 1 year</div>
-                <div><strong className="text-neutral-300">Type:</strong> Optional (requires consent)</div>
-                <div><strong className="text-neutral-300">Endpoints:</strong> eu.i.posthog.com, eu-assets.i.posthog.com</div>
-                <div>
-                  <a href="https://posthog.com/docs/privacy/controls" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline text-xs">
-                    Opt-out options →
-                  </a>
-                </div>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['posthog'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['posthog'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Anonymized usage analytics and feature improvement</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> <code className="text-neutral-300 bg-neutral-800 px-1 rounded">ph_*</code></div>
+              <div><strong className="text-neutral-300">Duration:</strong> 1 year</div>
+              <div><strong className="text-neutral-300">Type:</strong> Optional (requires consent)</div>
+              <div><strong className="text-neutral-300">Endpoints:</strong> eu.i.posthog.com, eu-assets.i.posthog.com</div>
+              <div>
+                <button 
+                  onClick={() => {
+                    toggleAnalytics(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="text-blue-400 hover:text-blue-300 underline text-xs"
+                >
+                  Opt-out (disable analytics) →
+                </button>
+              </div>
+              <div>
+                <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  Privacy Policy →
+                </a>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Stripe */}
-        <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-950">
-          <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('stripe')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
             <span className="text-2xl">💳</span>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline decoration-dotted">
-                  Stripe (Payments)
-                </a>
+              <h3 className="text-sm font-semibold text-white">
+                Stripe (Payments)
               </h3>
-              <div className="text-xs text-neutral-400 space-y-1">
-                <div><strong className="text-neutral-300">Purpose:</strong> Secure payment processing and subscription management</div>
-                <div><strong className="text-neutral-300">Cookies:</strong> Set during checkout and customer portal sessions</div>
-                <div><strong className="text-neutral-300">Duration:</strong> Session-based</div>
-                <div><strong className="text-neutral-300">Type:</strong> Strictly necessary (for payments only)</div>
-                <div><strong className="text-neutral-300">Note:</strong> We do not store payment card details</div>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['stripe'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['stripe'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Secure payment processing and subscription management</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> Set during checkout and customer portal sessions</div>
+              <div><strong className="text-neutral-300">Duration:</strong> Session-based</div>
+              <div><strong className="text-neutral-300">Type:</strong> Strictly necessary (for payments only)</div>
+              <div><strong className="text-neutral-300">Note:</strong> We do not store payment card details</div>
+              <div>
+                <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  Privacy Policy →
+                </a>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Scryfall */}
-        <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-950">
-          <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('scryfall')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
             <span className="text-2xl">🃏</span>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                <a href="https://scryfall.com/docs/api" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline decoration-dotted">
-                  Scryfall (Card Data & Images)
-                </a>
+              <h3 className="text-sm font-semibold text-white">
+                Scryfall (Card Data & Images)
               </h3>
-              <div className="text-xs text-neutral-400 space-y-1">
-                <div><strong className="text-neutral-300">Purpose:</strong> Card images, prices, and metadata</div>
-                <div><strong className="text-neutral-300">Cookies:</strong> None set by ManaTap</div>
-                <div><strong className="text-neutral-300">Type:</strong> External API requests</div>
-                <div><strong className="text-neutral-300">Endpoints:</strong> api.scryfall.com, cards.scryfall.io</div>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['scryfall'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['scryfall'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Card images, prices, and metadata</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> None set by ManaTap</div>
+              <div><strong className="text-neutral-300">Type:</strong> External API requests</div>
+              <div><strong className="text-neutral-300">Endpoints:</strong> api.scryfall.com, cards.scryfall.io</div>
+              <div>
+                <a href="https://scryfall.com/docs/api" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  API Documentation →
+                </a>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Ko-fi */}
-        <div className="p-4 rounded-lg border border-neutral-800 bg-neutral-950">
-          <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('kofi')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
             <span className="text-2xl">☕</span>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                <a href="https://ko-fi.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline decoration-dotted">
-                  Ko-fi (Donations)
-                </a>
+              <h3 className="text-sm font-semibold text-white">
+                Ko-fi (Donations)
               </h3>
-              <div className="text-xs text-neutral-400 space-y-1">
-                <div><strong className="text-neutral-300">Purpose:</strong> Optional donation link</div>
-                <div><strong className="text-neutral-300">Cookies:</strong> None (link only, no widget)</div>
-                <div><strong className="text-neutral-300">Type:</strong> External link</div>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['kofi'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['kofi'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Optional donation link</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> None (link only, no widget)</div>
+              <div><strong className="text-neutral-300">Type:</strong> External link</div>
+              <div>
+                <a href="https://ko-fi.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  Visit Ko-fi →
+                </a>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -252,7 +311,7 @@ export default function PrivacyPage() {
         <a href="/profile" className="text-blue-400 hover:text-blue-300 underline">
           Profile → Security/Privacy
         </a>{' '}
-        panel. Server API: /api/profile/privacy.
+        panel.
       </p>
 
       <h2>Legal Compliance</h2>

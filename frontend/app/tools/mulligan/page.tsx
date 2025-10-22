@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
+import HandTestingWidget from "@/components/HandTestingWidget";
 
 // small hypergeometric helpers for heuristics
 function comb(n: number, k: number): number { if (k<0||k>n) return 0; if (k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
@@ -25,6 +26,7 @@ export default function MulliganSimulatorPage() {
   const [deckSize, setDeckSize] = React.useState(99);
   const [successCards, setSuccessCards] = React.useState(10);
   const [landsInDeck, setLandsInDeck] = React.useState(36);
+  const [deckCards, setDeckCards] = React.useState<Array<{ name: string; qty: number }>>([]);
   
   const [minKeep, setMinKeep] = React.useState(1); // keep if >= this many successes
   const [minLands, setMinLands] = React.useState(2);
@@ -279,9 +281,10 @@ export default function MulliganSimulatorPage() {
       {/* Import from My Decks */}
       <ImportDeckForMath
         storageKey="mull"
-        onApply={({ deckId, deckSize: N, successCards: K }: any) => {
+        onApply={({ deckId, deckSize: N, successCards: K, deckCards: cards }: any) => {
           setDeckSize(N || deckSize);
           if (K && Number.isFinite(K)) setSuccessCards(K);
+          if (cards && Array.isArray(cards)) setDeckCards(cards);
           try {
             const url = new URL(window.location.href);
             url.searchParams.set("deckId", deckId);
@@ -290,23 +293,24 @@ export default function MulliganSimulatorPage() {
         }}
       />
       
-      {/* Interactive Hand Testing Info */}
+      {/* Interactive Hand Testing Widget */}
+      <HandTestingWidget 
+        deckCards={deckCards}
+        compact={false}
+        className="mb-4"
+      />
+      
+      {/* Note about per-deck availability */}
       <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center text-black">
             🃏
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-amber-200 text-sm">Want Interactive Hand Testing?</h3>
+            <h3 className="font-semibold text-amber-200 text-sm">Also Available Per Deck!</h3>
             <p className="text-xs opacity-80 mt-1">
-              Visit your <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> for PRO hand testing with real card images, 
-              London mulligan simulation, and shareable results!
+              This hand testing widget is also available on <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> with your specific deck's cards for more focused testing!
             </p>
-          </div>
-          <div className="">
-            <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide">
-              PRO
-            </span>
           </div>
         </div>
       </div>
