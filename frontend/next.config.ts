@@ -53,6 +53,8 @@ const nextConfig: NextConfig = {
       // Allow Scryfall API calls and Supabase/PostHog/Sentry + production domain for testing
       "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
       "frame-src https://js.stripe.com https://ko-fi.com",
+      // PERFORMANCE FIX: Allow PostHog/Sentry to create web workers from blob URLs
+      "worker-src 'self' blob:",
     ].join('; ');
     return [
       {

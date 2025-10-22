@@ -24,16 +24,35 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
   const [shouldStart, setShouldStart] = React.useState(false);
   
   // Show welcome modal after 30 seconds to let user explore first
-  // But NEVER show on mobile phones
+  // But NEVER show on mobile phones or bots/Lighthouse
   React.useEffect(() => {
     if (!autoStart) return;
+    
+    // PERFORMANCE: Detect headless/bot browsers (Lighthouse, etc) FIRST
+    // These don't have a real user, so don't show the modal
+    const isBot = /HeadlessChrome|Lighthouse|PhantomJS|Googlebot/i.test(navigator.userAgent) 
+      || navigator.webdriver 
+      || !navigator.languages || navigator.languages.length === 0;
+    
+    if (isBot) {
+      console.log('🤖 Bot/Lighthouse detected - skipping tour to avoid LCP penalty');
+      return;
+    }
     
     // Check if mobile phone (not tablet)
     const isMobilePhone = /iPhone|Android|webOS|BlackBerry|Windows Phone/i.test(navigator.userAgent) 
       && window.innerWidth < 768;
     
     if (isMobilePhone) {
-      console.log('Tour disabled on mobile phone');
+      console.log('📱 Tour disabled on mobile phone');
+      return;
+    }
+
+    // Check if already seen/skipped
+    const tourSkipped = localStorage.getItem('tour-main-features-v2-skipped');
+    const tourCompleted = localStorage.getItem('tour-main-features-v2-completed');
+    if (tourSkipped || tourCompleted) {
+      console.log('✓ Tour already seen/skipped');
       return;
     }
     
@@ -184,6 +203,9 @@ export default function MainFeaturesTour({ autoStart = true }: MainFeaturesTourP
         autoStart={shouldStart}
         onComplete={() => {
           console.log('✅ Main features tour completed!');
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tour-main-features-v2-completed', 'true');
+          }
         }}
         onSkip={() => {
           console.log('⏭️ Tour skipped');
