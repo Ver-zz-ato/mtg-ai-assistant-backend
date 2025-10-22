@@ -146,7 +146,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
-    if (authLoading) return; // Wait for auth to be ready
+    console.log('[Profile] useEffect fired', { authLoading, hasUser: !!authUser, userId: authUser?.id?.slice(0, 8) });
+    
+    if (authLoading) {
+      console.log('[Profile] Still loading auth, waiting...');
+      return; // Wait for auth to be ready
+    }
     
     // Auth guard - redirect if not logged in
     if (!authUser) {
@@ -154,6 +159,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       window.location.href = '/';
       return;
     }
+    
+    console.log('[Profile] Starting profile data load for user:', authUser.email);
     
     (async () => {
       try {
@@ -260,11 +267,14 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             }
           } catch {}
         }
+      } catch (err: any) {
+        console.error('[Profile] Error loading profile data:', err);
       } finally {
+        console.log('[Profile] Profile data load complete, setting loading=false');
         setLoading(false);
       }
     })();
-  }, [authUser, authLoading, sb]);
+  }, [authUser, authLoading]); // sb is a memoized singleton, no need to include it
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
 

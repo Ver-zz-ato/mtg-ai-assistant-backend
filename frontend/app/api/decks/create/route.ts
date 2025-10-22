@@ -62,6 +62,15 @@ async function _POST(req: NextRequest) {
     const cleanTitle = sanitizeName(payload.title, 120);
     if (containsProfanity(cleanTitle)) return err("Please choose a different deck name.", "bad_request", 400);
 
+    // Extract commander from deck_text (first legendary for Commander format)
+    let commander: string | null = null;
+    if (payload.format === "Commander" && payload.deck_text) {
+      const allCards = parseDeckText(payload.deck_text);
+      // For now, use first card as commander (we'll improve this with Scryfall check later)
+      // TODO: Check Scryfall for legendary creatures
+      if (allCards.length > 0) commander = allCards[0].name;
+    }
+
     const t0 = Date.now();
     const { data, error } = await supabase
       .from("decks")
@@ -73,6 +82,7 @@ async function _POST(req: NextRequest) {
         colors: payload.colors,
         currency: payload.currency,
         deck_text: payload.deck_text,
+        commander: commander, // NEW: Set commander field
         data: payload.data ?? null,
         is_public: false,
       })

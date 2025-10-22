@@ -35,14 +35,18 @@ export default function Header() {
     setIsHydrated(true);
   }, []); // Run once on mount
   
-  // NEW: Sync initial state from AuthContext
+  // Sync auth state from AuthProvider (single source of truth)
   useEffect(() => {
-    if (authLoading) return; // Wait for auth to be ready
+    if (authLoading) {
+      console.log('🔐 [Header] Auth still loading...');
+      return;
+    }
     
-    console.log('🔐 [Header] Syncing from AuthContext', {
+    console.log('🔐 [Header] Auth state from AuthProvider:', {
       hasUser: !!authUser,
       userId: authUser?.id?.slice(0, 8),
-      email: authUser?.email
+      email: authUser?.email,
+      timestamp: new Date().toISOString()
     });
     
     const u = authUser;
@@ -66,63 +70,19 @@ export default function Header() {
             .single();
           
           setIsPro(profile?.is_pro || false);
+          console.log('🔐 [Header] Pro status loaded:', profile?.is_pro || false);
         } catch (proErr) {
           console.error('[Header] Pro status fetch error:', proErr);
           setIsPro(false);
         }
       })();
     } else {
+      console.log('🔐 [Header] No user, clearing state');
       setDisplayName('');
       setAvatar('');
       setIsPro(false);
     }
   }, [authUser, authLoading, supabase]);
-  
-  // Keep onAuthStateChange for real-time updates (logout, email verification, etc.)
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evt: any, session: any) => {
-      console.log('🔔 [Header] Auth state change event:', evt, {
-        hasSession: !!session,
-        userId: session?.user?.id?.slice(0, 8),
-        email: session?.user?.email,
-        timestamp: new Date().toISOString()
-      });
-      
-      const u = session?.user as any;
-      
-      setSessionUser(u?.email ?? null);
-      const md = (u?.user_metadata || {}) as any;
-      setDisplayName((md.username || u?.email || "").toString());
-      setAvatar((md.avatar || "").toString());
-      
-      // Fetch Pro status with timeout protection
-      if (u) {
-        try {
-          const proTimeout = setTimeout(() => {
-            setIsPro(false);
-          }, 3000);
-          
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_pro')
-            .eq('id', u.id)
-            .single();
-          
-          clearTimeout(proTimeout);
-          setIsPro(profile?.is_pro || false);
-        } catch (proErr) {
-          console.error('[Header] Pro status fetch error:', proErr);
-          setIsPro(false);
-        }
-      } else {
-        setIsPro(false);
-      }
-    });
-    
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, [supabase]); // Re-run when supabase client is created
 
   // Close help menu when clicking outside
   useEffect(() => {

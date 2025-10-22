@@ -36,7 +36,25 @@ export async function POST(req: Request) {
       }
       update.title = next || "Untitled Deck";
     }
-    if (typeof b.deck_text === "string") update.deck_text = b.deck_text;
+    if (typeof b.deck_text === "string") {
+      update.deck_text = b.deck_text;
+      
+      // Extract commander from deck_text (first card for Commander format)
+      // Get deck format first
+      const { data: deckData } = await supabase
+        .from("decks")
+        .select("format")
+        .eq("id", b.id)
+        .single();
+      
+      if (deckData?.format === "Commander" && b.deck_text) {
+        const firstLine = b.deck_text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0];
+        if (firstLine) {
+          const m = firstLine.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
+          if (m) update.commander = m[2].trim();
+        }
+      }
+    }
     if (typeof b.is_public === "boolean") update.is_public = b.is_public;
 
     if (Object.keys(update).length === 0) {
