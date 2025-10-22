@@ -20,16 +20,28 @@ export default function WishlistPage() {
 
   // Load user data - MATCH HEADER PATTERN EXACTLY with hydration delay
   useEffect(() => {
+    console.log('🚀 [Wishlist] Component mounted, starting auth check');
+    
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
     const hydrationDelay = setTimeout(() => {
       const loadUser = async () => {
+        console.log('🔐 [Wishlist] Hydration delay complete, calling getSession()');
+        
         try {
           capture('wishlist_page_view');
         } catch {}
         
         try {
           const { data: { session }, error } = await sb.auth.getSession();
+          
+          console.log('✅ [Wishlist] getSession() returned', {
+            hasSession: !!session,
+            userId: session?.user?.id?.slice(0, 8),
+            email: session?.user?.email,
+            error: error?.message,
+            timestamp: new Date().toISOString()
+          });
           
           if (error) {
             console.error('[Wishlist] Session error:', error);
@@ -40,8 +52,14 @@ export default function WishlistPage() {
           const md: any = u?.user_metadata || {};
           const proStatus = Boolean(md.pro || md.is_pro);
           setPro(proStatus);
+          
+          if (!u) {
+            console.warn('⚠️ [Wishlist] No user session found - showing guest page');
+          } else {
+            console.log('✅ [Wishlist] User authenticated');
+          }
         } catch (err: any) {
-          console.error('[Wishlist] Auth error:', err);
+          console.error('❌ [Wishlist] Auth error:', err);
           setUser(null);
           setPro(false);
         }
@@ -50,7 +68,10 @@ export default function WishlistPage() {
       loadUser();
     }, 100); // End hydration delay
     
-    return () => clearTimeout(hydrationDelay);
+    return () => {
+      console.log('🧹 [Wishlist] Component unmounting, cleaning up');
+      clearTimeout(hydrationDelay);
+    };
   }, []); // Empty deps - runs once
 
   if (!user) {

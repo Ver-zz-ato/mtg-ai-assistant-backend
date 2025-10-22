@@ -144,12 +144,15 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
+    console.log('🚀 [Profile] Component mounted, starting auth check');
+    
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
     // (Same fix as Header.tsx - prevents session invalidation during hydration)
     const hydrationDelay = setTimeout(() => {
     (async () => {
       try {
+        console.log('🔐 [Profile] Hydration delay complete, calling getSession()');
         setLoading(true);
         try { capture('profile_view'); } catch {}
         
@@ -157,14 +160,21 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         const { data: { session } } = await sb.auth.getSession();
         const u = session?.user;
         
+        console.log('✅ [Profile] getSession() returned', {
+          hasSession: !!session,
+          userId: u?.id?.slice(0, 8),
+          email: u?.email,
+          timestamp: new Date().toISOString()
+        });
+        
         // Auth guard - redirect if not logged in
         if (!u) {
-          console.log('[Profile] No user session, redirecting to homepage');
+          console.warn('⚠️ [Profile] No user session, redirecting to homepage');
           window.location.href = '/';
           return;
         }
         
-        console.log('[Profile] User authenticated:', u.email);
+        console.log('✅ [Profile] User authenticated:', u.email);
         setUserEmail(u?.email || "");
         
         // Query profiles table for accurate pro status and data
@@ -269,7 +279,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     })();
     }, 100); // End hydrationDelay
     
-    return () => clearTimeout(hydrationDelay);
+    return () => {
+      console.log('🧹 [Profile] Component unmounting, cleaning up');
+      clearTimeout(hydrationDelay);
+    };
   }, [sb]);
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }

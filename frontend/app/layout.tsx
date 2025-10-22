@@ -21,6 +21,7 @@ import GuestExitWarning from "@/components/GuestExitWarning";
 import IOSInstallPrompt from "@/components/iOSInstallPrompt";
 import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
+import DebugNavigationTracker from "@/components/DebugNavigationTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://manatap.ai"),
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col">
         <Providers>
           <KeyboardShortcutsProvider>
+            <DebugNavigationTracker />
             <TopLoadingBar />
             <FirstVisitTracker />
             <AnalyticsProvider />

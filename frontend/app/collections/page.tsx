@@ -133,12 +133,24 @@ function CollectionsPageClientBody() {
   
   // Check auth status - MATCH HEADER PATTERN EXACTLY with hydration delay
   useEffect(() => {
+    console.log('🚀 [Collections] Component mounted, starting auth check');
+    
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
     const hydrationDelay = setTimeout(() => {
+      console.log('🔐 [Collections] Hydration delay complete, calling getSession()');
+      
       supabase.auth.getSession()
         .then(({ data: { session }, error }) => {
           const user = session?.user || null;
+          
+          console.log('✅ [Collections] getSession() returned', {
+            hasSession: !!session,
+            userId: user?.id?.slice(0, 8),
+            email: user?.email,
+            error: error?.message,
+            timestamp: new Date().toISOString()
+          });
           
           if (error) {
             console.error('[Collections] Session error:', error);
@@ -148,18 +160,24 @@ function CollectionsPageClientBody() {
           setAuthLoading(false);
           
           if (!user) {
+            console.warn('⚠️ [Collections] No user session found - showing guest page');
             setLoading(false);
+          } else {
+            console.log('✅ [Collections] User authenticated, will load collections');
           }
         })
         .catch((err) => {
-          console.error('[Collections] Auth error:', err);
+          console.error('❌ [Collections] Auth error:', err);
           setUser(null);
           setAuthLoading(false);
           setLoading(false);
         });
     }, 100); // End hydration delay
     
-    return () => clearTimeout(hydrationDelay);
+    return () => {
+      console.log('🧹 [Collections] Component unmounting, cleaning up');
+      clearTimeout(hydrationDelay);
+    };
   }, []); // Empty deps - runs once
   
   // Load collections only if logged in

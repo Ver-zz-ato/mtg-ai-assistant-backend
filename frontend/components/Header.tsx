@@ -36,6 +36,7 @@ export default function Header() {
     if (!supabase) {
       const client = createBrowserSupabaseClient();
       setSupabase(client);
+      console.log('🔧 [Header] Supabase client created');
     }
     
     setIsHydrated(true);
@@ -44,15 +45,21 @@ export default function Header() {
   useEffect(() => {
     // CRITICAL: Skip if supabase client isn't ready
     if (!supabase) {
+      console.log('⏳ [Header] Waiting for Supabase client...');
       return;
     }
+    
+    console.log('🔐 [Header] Starting auth check...');
     
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
     const hydrationDelay = setTimeout(() => {
     
+    console.log('🔐 [Header] Hydration delay complete, calling getSession()...');
+    
     // Timeout wrapper to prevent infinite hangs
     const timeout = setTimeout(() => {
+      console.warn('⚠️ [Header] Auth timeout (5s) - clearing session');
       setSessionUser(null);
       setDisplayName('');
       setAvatar('');
@@ -62,6 +69,13 @@ export default function Header() {
     supabase.auth.getSession()
       .then(async ({ data: { session }, error }: { data: { session: any }, error: any }) => {
         clearTimeout(timeout);
+        
+        console.log('✅ [Header] getSession() returned', { 
+          hasSession: !!session, 
+          userId: session?.user?.id?.slice(0, 8), 
+          email: session?.user?.email,
+          error: error?.message 
+        });
         
         const u = session?.user;
         
@@ -110,6 +124,13 @@ export default function Header() {
       });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (evt: any, session: any) => {
+      console.log('🔔 [Header] Auth state change event:', evt, {
+        hasSession: !!session,
+        userId: session?.user?.id?.slice(0, 8),
+        email: session?.user?.email,
+        timestamp: new Date().toISOString()
+      });
+      
       const u = session?.user as any;
       
       setSessionUser(u?.email ?? null);

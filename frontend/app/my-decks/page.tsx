@@ -27,12 +27,24 @@ export default function MyDecksPage() {
 
   // Check auth - MATCH HEADER PATTERN EXACTLY with hydration delay
   useEffect(() => {
+    console.log('🚀 [My Decks] Component mounted, starting auth check');
+    
     // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
     // This prevents getSession() from being abandoned if hydration crashes
     const hydrationDelay = setTimeout(() => {
+      console.log('🔐 [My Decks] Hydration delay complete, calling getSession()');
+      
       supabase.auth.getSession()
         .then(({ data: { session }, error }) => {
           const user = session?.user || null;
+          
+          console.log('✅ [My Decks] getSession() returned', {
+            hasSession: !!session,
+            userId: user?.id?.slice(0, 8),
+            email: user?.email,
+            error: error?.message,
+            timestamp: new Date().toISOString()
+          });
           
           if (error) {
             console.error('[My Decks] Session error:', error);
@@ -42,18 +54,24 @@ export default function MyDecksPage() {
           setAuthLoading(false);
           
           if (!user) {
+            console.warn('⚠️ [My Decks] No user session found - showing guest page');
             setLoading(false);
+          } else {
+            console.log('✅ [My Decks] User authenticated, will load decks');
           }
         })
         .catch((err) => {
-          console.error('[My Decks] Auth error:', err);
+          console.error('❌ [My Decks] Auth error:', err);
           setUser(null);
           setAuthLoading(false);
           setLoading(false);
         });
     }, 100); // End hydration delay
     
-    return () => clearTimeout(hydrationDelay);
+    return () => {
+      console.log('🧹 [My Decks] Component unmounting, cleaning up');
+      clearTimeout(hydrationDelay);
+    };
   }, []); // Empty deps - runs once
 
   // Load decks
