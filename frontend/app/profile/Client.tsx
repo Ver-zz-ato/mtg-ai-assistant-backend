@@ -30,6 +30,87 @@ function cleanName(s: string): string {
     .trim();
 }
 
+// Email Verification Section Component
+function EmailVerificationSection({ sb }: { sb: any }) {
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) {
+          setUserEmail(user.email || '');
+          setEmailVerified(!!user.email_confirmed_at);
+        }
+      } catch {}
+    })();
+  }, [sb]);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const { error } = await sb.auth.resend({
+        type: 'signup',
+        email: userEmail,
+      });
+
+      if (error) throw error;
+
+      const { toast } = await import('@/lib/toast-client');
+      toast('✅ Verification email sent! Check your inbox.', 'success');
+      capture('email_verification_resent_from_profile', { email: userEmail });
+    } catch (error: any) {
+      const { toast } = await import('@/lib/toast-client');
+      toast(`❌ ${error.message}`, 'error');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (emailVerified === null) return null; // Loading
+
+  return (
+    <div className="space-y-2 border-b border-neutral-700 pb-4">
+      <div className="text-sm font-semibold text-neutral-300">Email Verification</div>
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-neutral-400">
+          {emailVerified ? (
+            <span className="flex items-center gap-2 text-emerald-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Email verified
+            </span>
+          ) : (
+            <span className="flex items-center gap-2 text-amber-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Email not verified
+            </span>
+          )}
+        </div>
+        {!emailVerified && (
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm disabled:opacity-50"
+          >
+            {resending ? 'Sending...' : 'Resend Verification Email'}
+          </button>
+        )}
+      </div>
+      {!emailVerified && (
+        <div className="text-xs text-neutral-500 mt-2">
+          Check your inbox at <span className="text-neutral-300">{userEmail}</span>. Don't forget to check your spam folder!
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfileClient({ initialBannerArt, initialBannerDebug }: { initialBannerArt?: string | null; initialBannerDebug?: { source: string; method: 'collection'|'fuzzy'|null; candidates: string[]; art: string|null } }) {
   // component body continues
   const sb = useMemo(() => createBrowserSupabaseClient(), []);
@@ -63,6 +144,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
+    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
+    // This prevents getSession() from being abandoned if hydration crashes
+    // (Same fix as Header.tsx - prevents session invalidation during hydration)
+    const hydrationDelay = setTimeout(() => {
     (async () => {
       try {
         setLoading(true);
@@ -182,6 +267,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         setLoading(false);
       }
     })();
+    }, 100); // End hydrationDelay
+    
+    return () => clearTimeout(hydrationDelay);
   }, [sb]);
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
@@ -842,6 +930,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <section className="rounded-xl border border-neutral-800 p-4 space-y-6">
                 <div className="text-lg font-semibold">Security / Account</div>
                 
+                {/* Email Verification */}
+                <EmailVerificationSection sb={sb} />
+
                 {/* Change Password */}
                 <div className="space-y-3">
                   <div className="text-sm font-semibold text-neutral-300">Change Password</div>

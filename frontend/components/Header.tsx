@@ -192,6 +192,30 @@ export default function Header() {
         }
       } catch {}
       
+      // Check if email is verified
+      const user = data?.user;
+      if (user && !user.email_confirmed_at) {
+        // Email not verified - show resend option
+        const resend = confirm(
+          `⚠️ Email Not Verified\n\n` +
+          `Your email (${user.email}) hasn't been verified yet.\n\n` +
+          `Would you like us to resend the verification email?`
+        );
+        
+        if (resend) {
+          try {
+            await supabase.auth.resend({
+              type: 'signup',
+              email: user.email!,
+            });
+            alert('✅ Verification email sent! Please check your inbox and spam folder.');
+            capture('email_verification_resent_on_login', { email: user.email });
+          } catch (resendErr: any) {
+            alert(`❌ Failed to resend: ${resendErr.message}`);
+          }
+        }
+      }
+      
       window.location.reload();
     } catch (err) {
       console.error('[Header] Sign in exception:', err);
@@ -791,9 +815,43 @@ export default function Header() {
                   Account Created!
                 </div>
                 <div className="text-lg mb-2">Welcome to ManaTap AI!</div>
-                <div className="text-sm text-neutral-400 mb-6">
+                <div className="text-sm text-neutral-400 mb-4">
                   Check your email to confirm your account and start building amazing decks.
                 </div>
+                
+                {/* Verification email info */}
+                <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 mb-6 text-left">
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">✉️</div>
+                    <div className="flex-1 text-sm">
+                      <div className="font-semibold text-amber-400 mb-1">Verification Email Sent</div>
+                      <div className="text-neutral-300">
+                        We sent a verification email to <span className="font-mono text-amber-200">{signupEmail}</span>
+                      </div>
+                      <div className="text-neutral-400 text-xs mt-2">
+                        Don't see it? Check your spam folder or click below to resend.
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await supabase.auth.resend({
+                              type: 'signup',
+                              email: signupEmail,
+                            });
+                            alert('✅ Verification email resent! Check your inbox.');
+                            capture('email_verification_resent_on_signup', { email: signupEmail });
+                          } catch (err: any) {
+                            alert(`❌ Failed to resend: ${err.message}`);
+                          }
+                        }}
+                        className="mt-3 text-xs text-amber-300 hover:text-amber-200 underline"
+                      >
+                        Resend verification email
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <button 
                   onClick={()=>{
                     setShowSignUp(false);
