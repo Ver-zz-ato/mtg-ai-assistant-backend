@@ -11,6 +11,7 @@ import GuestLandingPage from "@/components/GuestLandingPage";
 import { EmptyCollectionsState } from "@/components/EmptyStates";
 import { capture } from "@/lib/ph";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import CollectionPageCoachBubbles from "./ClientWithCoach";
 
 // Basic shapes
@@ -26,9 +27,8 @@ type Stats = {
 
 function CollectionsPageClientBody() {
   // ============ ALL HOOKS AT THE TOP ============
-  const supabase = createBrowserSupabaseClient(); // MATCH HEADER PATTERN
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const supabase = createBrowserSupabaseClient();
+  const { user, loading: authLoading } = useAuth(); // NEW: Get auth state from context
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -130,80 +130,6 @@ function CollectionsPageClientBody() {
     setToast(msg);
     setTimeout(() => setToast(null), 1500);
   };
-  
-  // Check auth status - MATCH HEADER PATTERN EXACTLY with hydration delay
-  useEffect(() => {
-    console.log('🚀 [Collections] Component mounted, starting auth check');
-    
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    const hydrationDelay = setTimeout(() => {
-      console.log('🔐 [Collections] Hydration delay complete, calling getSession()');
-      
-      // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
-      let attempt = 0;
-      const maxAttempts = 3;
-      
-      const tryGetSession = () => {
-        attempt++;
-        console.log(`🔄 [Collections] getSession() attempt ${attempt}/${maxAttempts}`);
-        
-        const timeout = setTimeout(() => {
-          if (attempt < maxAttempts) {
-            console.warn(`⏰ [Collections] Attempt ${attempt} timed out, retrying in 1s...`);
-            setTimeout(tryGetSession, 1000);
-          } else {
-            console.error('❌ [Collections] All attempts failed - showing guest page');
-            setUser(null);
-            setAuthLoading(false);
-            setLoading(false);
-          }
-        }, 3000);
-        
-        supabase.auth.getSession()
-          .then(({ data: { session }, error }) => {
-            clearTimeout(timeout);
-          const user = session?.user || null;
-          
-          console.log('✅ [Collections] getSession() returned', {
-            hasSession: !!session,
-            userId: user?.id?.slice(0, 8),
-            email: user?.email,
-            error: error?.message,
-            timestamp: new Date().toISOString()
-          });
-          
-          if (error) {
-            console.error('[Collections] Session error:', error);
-          }
-          
-          setUser(user);
-          setAuthLoading(false);
-          
-          if (!user) {
-            console.warn('⚠️ [Collections] No user session found - showing guest page');
-            setLoading(false);
-          } else {
-            console.log('✅ [Collections] User authenticated, will load collections');
-          }
-        })
-          .catch((err) => {
-            clearTimeout(timeout);
-            console.error('❌ [Collections] Auth error:', err);
-            setUser(null);
-            setAuthLoading(false);
-            setLoading(false);
-          });
-      };
-      
-      tryGetSession();
-    }, 100); // End hydration delay
-    
-    return () => {
-      console.log('🧹 [Collections] Component unmounting, cleaning up');
-      clearTimeout(hydrationDelay);
-    };
-  }, []); // Empty deps - runs once
   
   // Load collections only if logged in
   useEffect(() => {

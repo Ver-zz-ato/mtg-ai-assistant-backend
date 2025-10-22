@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 
 export type ProContextValue = { isPro: boolean };
 const ProContext = React.createContext<ProContextValue>({ isPro: false });
@@ -11,23 +12,21 @@ export function usePro(): ProContextValue {
 
 export default function ProProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = React.useState(false);
+  const { user, loading } = useAuth(); // NEW: Get auth state from context
 
   React.useEffect(() => {
-    const sb = createBrowserSupabaseClient();
-    let unsub: any;
+    if (loading) return; // Wait for auth to be ready
     
-    async function checkProStatus() {
+    if (!user) {
+      setIsPro(false);
+      return;
+    }
+    
+    const sb = createBrowserSupabaseClient();
+    
+    // Check Pro status from database
+    (async () => {
       try {
-        // Use getSession() instead of getUser() - instant, no network hang
-        const { data: { session } } = await sb.auth.getSession();
-        const user = session?.user;
-        
-        if (!user) {
-          setIsPro(false);
-          return;
-        }
-        
-        // Check BOTH profile table and user metadata
         const { data: profile } = await sb
           .from('profiles')
           .select('is_pro')
@@ -35,7 +34,7 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           .single();
         
         const profileIsPro = Boolean(profile?.is_pro);
-        const md: any = user?.user_metadata || {};
+        const md: any = user.user_metadata || {};
         const metadataIsPro = Boolean(md?.is_pro || md?.pro);
         
         // Use TRUE from either source (profile OR metadata)
@@ -44,25 +43,8 @@ export default function ProProvider({ children }: { children: React.ReactNode })
       } catch {
         setIsPro(false);
       }
-    }
-    
-    // Check initially
-    checkProStatus();
-    
-    // Listen for auth changes
-    try {
-      const { data: sub } = sb.auth.onAuthStateChange((_evt, session) => {
-        if (session?.user) {
-          checkProStatus();
-        } else {
-          setIsPro(false);
-        }
-      });
-      unsub = sub.subscription;
-    } catch {}
-    
-    return () => { try { unsub?.unsubscribe?.(); } catch {} };
-  }, []);
+    })();
+  }, [user, loading]);
 
   return (
     <ProContext.Provider value={{ isPro }}>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import { capture } from "@/lib/ph";
 import { usePrefs } from "@/components/PrefsContext";
 import CardAutocomplete from "@/components/CardAutocomplete";
@@ -15,97 +16,23 @@ import WishlistSkeleton from "@/components/WishlistSkeleton";
 
 export default function WishlistPage() {
   const sb = useMemo(() => createBrowserSupabaseClient(), []);
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth(); // NEW: Get auth state from context
   const [pro, setPro] = useState<boolean>(false);
 
-  // Load user data - MATCH HEADER PATTERN EXACTLY with hydration delay
+  // Load pro status when user changes
   useEffect(() => {
-    console.log('🚀 [Wishlist] Component mounted, starting auth check');
-    
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    const hydrationDelay = setTimeout(() => {
-      const loadUser = async () => {
-        console.log('🔐 [Wishlist] Hydration delay complete, calling getSession()');
-        
-        try {
-          capture('wishlist_page_view');
-        } catch {}
-        
-        // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
-        let attempt = 0;
-        const maxAttempts = 3;
-        let session: any = null;
-        let error: any = null;
-        
-        while (attempt < maxAttempts) {
-          attempt++;
-          console.log(`🔄 [Wishlist] getSession() attempt ${attempt}/${maxAttempts}`);
-          
-          try {
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('timeout')), 3000);
-            });
-            
-            const result = await Promise.race([
-              sb.auth.getSession(),
-              timeoutPromise
-            ]) as any;
-            
-            session = result.data?.session;
-            error = result.error;
-            break; // Success - exit retry loop
-          } catch (err: any) {
-            if (attempt < maxAttempts) {
-              console.warn(`⏰ [Wishlist] Attempt ${attempt} timed out, retrying in 1s...`);
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              console.error('❌ [Wishlist] All attempts failed');
-              error = err;
-            }
-          }
-        }
-        
-        try {
-          
-          console.log('✅ [Wishlist] getSession() returned', {
-            hasSession: !!session,
-            userId: session?.user?.id?.slice(0, 8),
-            email: session?.user?.email,
-            error: error?.message,
-            timestamp: new Date().toISOString()
-          });
-          
-          if (error) {
-            console.error('[Wishlist] Session error:', error);
-          }
-          
-          const u = session?.user;
-          setUser(u || null);
-          const md: any = u?.user_metadata || {};
-          const proStatus = Boolean(md.pro || md.is_pro);
-          setPro(proStatus);
-          
-          if (!u) {
-            console.warn('⚠️ [Wishlist] No user session found - showing guest page');
-          } else {
-            console.log('✅ [Wishlist] User authenticated');
-          }
-        } catch (err: any) {
-          console.error('❌ [Wishlist] Auth error or timeout:', err);
-          setUser(null);
-          setPro(false);
-        }
-      };
+    if (user) {
+      try {
+        capture('wishlist_page_view');
+      } catch {}
       
-      loadUser();
-    }, 100); // End hydration delay
-    
-    return () => {
-      console.log('🧹 [Wishlist] Component unmounting, cleaning up');
-      clearTimeout(hydrationDelay);
-    };
-  }, []); // Empty deps - runs once
+      const md: any = user.user_metadata || {};
+      const proStatus = Boolean(md.pro || md.is_pro);
+      setPro(proStatus);
+    } else {
+      setPro(false);
+    }
+  }, [user])
 
   if (!user) {
     const features = [

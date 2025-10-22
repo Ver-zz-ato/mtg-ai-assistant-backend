@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import '@/styles/ph-toolbar-fix.css';
 import Providers from "@/components/Providers";
+import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 import SupportWidgets from "@/components/SupportWidgets";
 import CookieBanner from "@/components/CookieBanner";
@@ -72,29 +73,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col">
         <Providers>
-          <KeyboardShortcutsProvider>
-            <DebugNavigationTracker />
-            <TopLoadingBar />
-            <FirstVisitTracker />
-            <AnalyticsProvider />
-            <PromoBar />
-            <MaintenanceBanner />
-            <ErrorBoundary>
-              <Header />
-              <main className="flex-1">{children}</main>
-            </ErrorBoundary>
-            <CookieBanner />
-            <FeedbackFab />
-            {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
-            <TrustFooter />
-            <SupportWidgets />
-            <UndoToast />
-            {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
-            {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
-            <GuestExitWarning />
-            <IOSInstallPrompt />
-            <EmailVerificationReminder />
-          </KeyboardShortcutsProvider>
+          <AuthProvider>
+            <KeyboardShortcutsProvider>
+              <DebugNavigationTracker />
+              <TopLoadingBar />
+              <FirstVisitTracker />
+              <AnalyticsProvider />
+              <PromoBar />
+              <MaintenanceBanner />
+              <ErrorBoundary>
+                <Header />
+                <main className="flex-1">{children}</main>
+              </ErrorBoundary>
+              <CookieBanner />
+              <FeedbackFab />
+              {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
+              <TrustFooter />
+              <SupportWidgets />
+              <UndoToast />
+              {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
+              {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
+              <GuestExitWarning />
+              <IOSInstallPrompt />
+              <EmailVerificationReminder />
+            </KeyboardShortcutsProvider>
+          </AuthProvider>
         </Providers>
       </body>
     </html>

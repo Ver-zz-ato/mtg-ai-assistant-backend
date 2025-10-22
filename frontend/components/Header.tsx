@@ -1,17 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 import { capture } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
 
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
-  // HYDRATION FIX: Always initialize to null to match SSR and client initial state
-  // Client is created in useEffect to prevent hydration mismatch
-  const [supabase, setSupabase] = useState<any>(null);
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []); // Use singleton
+  const { user: authUser, loading: authLoading } = useAuth(); // NEW: Get auth state from context
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sessionUser, setSessionUser] = useState<string | null>(null);
@@ -32,97 +32,54 @@ export default function Header() {
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
 
   useEffect(() => {
-    // HYDRATION FIX: Create Supabase client on mount (client-side only)
-    if (!supabase) {
-      const client = createBrowserSupabaseClient();
-      setSupabase(client);
-      console.log('🔧 [Header] Supabase client created');
-    }
-    
     setIsHydrated(true);
   }, []); // Run once on mount
   
+  // NEW: Sync initial state from AuthContext
   useEffect(() => {
-    // CRITICAL: Skip if supabase client isn't ready
-    if (!supabase) {
-      console.log('⏳ [Header] Waiting for Supabase client...');
-      return;
-    }
+    if (authLoading) return; // Wait for auth to be ready
     
-    console.log('🔐 [Header] Starting auth check...');
+    console.log('🔐 [Header] Syncing from AuthContext', {
+      hasUser: !!authUser,
+      userId: authUser?.id?.slice(0, 8),
+      email: authUser?.email
+    });
     
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    const hydrationDelay = setTimeout(() => {
+    const u = authUser;
+    setSessionUser(u?.email ?? null);
     
-    console.log('🔐 [Header] Hydration delay complete, calling getSession()...');
-    
-    // Timeout wrapper to prevent infinite hangs
-    const timeout = setTimeout(() => {
-      console.warn('⚠️ [Header] Auth timeout (5s) - clearing session');
-      setSessionUser(null);
-      setDisplayName('');
-      setAvatar('');
-    }, 5000);
-    
-    // Use getSession instead of getUser (instant, local)
-    supabase.auth.getSession()
-      .then(async ({ data: { session }, error }: { data: { session: any }, error: any }) => {
-        clearTimeout(timeout);
-        
-        console.log('✅ [Header] getSession() returned', { 
-          hasSession: !!session, 
-          userId: session?.user?.id?.slice(0, 8), 
-          email: session?.user?.email,
-          error: error?.message 
-        });
-        
-        const u = session?.user;
-        
-        if (error) {
-          console.error('[Header] Session error:', error);
-        }
-        
-        setSessionUser(u?.email ?? null);
-        
-        const md: any = u?.user_metadata || {};
-        const name = (md.username || u?.email || "").toString();
-        const avatarUrl = (md.avatar || "").toString();
-        
-        setDisplayName(name);
-        setAvatar(avatarUrl);
-        
-        // Fetch Pro status with timeout protection
-        if (u) {
-          try {
-            const proTimeout = setTimeout(() => {
-              setIsPro(false);
-            }, 3000);
-            
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('is_pro')
-              .eq('id', u.id)
-              .single();
-            
-            clearTimeout(proTimeout);
-            setIsPro(profile?.is_pro || false);
-          } catch (proErr) {
-            console.error('[Header] Pro status fetch error:', proErr);
-            setIsPro(false);
-          }
-        } else {
+    if (u) {
+      const md: any = u.user_metadata || {};
+      const name = (md.username || u.email || "").toString();
+      const avatarUrl = (md.avatar || "").toString();
+      
+      setDisplayName(name);
+      setAvatar(avatarUrl);
+      
+      // Fetch Pro status
+      (async () => {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_pro')
+            .eq('id', u.id)
+            .single();
+          
+          setIsPro(profile?.is_pro || false);
+        } catch (proErr) {
+          console.error('[Header] Pro status fetch error:', proErr);
           setIsPro(false);
         }
-      })
-      .catch((err: any) => {
-        console.error('[Header] getSession() failed:', err);
-        clearTimeout(timeout);
-        setSessionUser(null);
-        setDisplayName('');
-        setAvatar('');
-      });
-
+      })();
+    } else {
+      setDisplayName('');
+      setAvatar('');
+      setIsPro(false);
+    }
+  }, [authUser, authLoading, supabase]);
+  
+  // Keep onAuthStateChange for real-time updates (logout, email verification, etc.)
+  useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange(async (evt: any, session: any) => {
       console.log('🔔 [Header] Auth state change event:', evt, {
         hasSession: !!session,
@@ -161,13 +118,9 @@ export default function Header() {
         setIsPro(false);
       }
     });
-    }, 100); // End of hydrationDelay setTimeout
     
     return () => {
-      clearTimeout(hydrationDelay);
-      if (supabase) {
-        supabase.auth.onAuthStateChange(() => {})?.data?.subscription?.unsubscribe();
-      }
+      sub.subscription.unsubscribe();
     };
   }, [supabase]); // Re-run when supabase client is created
 

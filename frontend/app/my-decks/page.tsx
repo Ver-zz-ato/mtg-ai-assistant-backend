@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import MyDecksList from "@/components/MyDecksList";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { NoDecksEmptyState } from "@/components/EmptyState";
@@ -18,92 +19,18 @@ type DeckRow = {
 };
 
 export default function MyDecksPage() {
-  const supabase = createBrowserSupabaseClient(); // MATCH HEADER PATTERN
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const supabase = createBrowserSupabaseClient();
+  const { user, loading: authLoading } = useAuth(); // NEW: Get auth state from context
   const [decks, setDecks] = useState<DeckRow[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Check auth - MATCH HEADER PATTERN EXACTLY with hydration delay
-  useEffect(() => {
-    console.log('🚀 [My Decks] Component mounted, starting auth check');
-    
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    const hydrationDelay = setTimeout(() => {
-      console.log('🔐 [My Decks] Hydration delay complete, calling getSession()');
-      
-      // CRITICAL: Retry logic for getSession() - handles Supabase refresh race condition
-      // When window regains focus, Supabase auto-refreshes session, causing getSession() to hang
-      // Solution: Retry with backoff if it hangs (gives Supabase time to complete refresh)
-      let attempt = 0;
-      const maxAttempts = 3;
-      
-      const tryGetSession = () => {
-        attempt++;
-        console.log(`🔄 [My Decks] getSession() attempt ${attempt}/${maxAttempts}`);
-        
-        const timeout = setTimeout(() => {
-          if (attempt < maxAttempts) {
-            console.warn(`⏰ [My Decks] Attempt ${attempt} timed out, retrying in 1s...`);
-            setTimeout(tryGetSession, 1000); // Retry after 1 second
-          } else {
-            console.error('❌ [My Decks] All attempts failed - showing guest page');
-            setUser(null);
-            setAuthLoading(false);
-            setLoading(false);
-          }
-        }, 3000); // 3 seconds per attempt
-        
-        supabase.auth.getSession()
-          .then(({ data: { session }, error }) => {
-            clearTimeout(timeout); // Cancel timeout on success
-          const user = session?.user || null;
-          
-          console.log('✅ [My Decks] getSession() returned', {
-            hasSession: !!session,
-            userId: user?.id?.slice(0, 8),
-            email: user?.email,
-            error: error?.message,
-            timestamp: new Date().toISOString()
-          });
-          
-          if (error) {
-            console.error('[My Decks] Session error:', error);
-          }
-          
-          setUser(user);
-          setAuthLoading(false);
-          
-          if (!user) {
-            console.warn('⚠️ [My Decks] No user session found - showing guest page');
-            setLoading(false);
-          } else {
-            console.log('✅ [My Decks] User authenticated, will load decks');
-          }
-        })
-          .catch((err) => {
-            clearTimeout(timeout); // Cancel timeout on error
-            console.error('❌ [My Decks] Auth error:', err);
-            setUser(null);
-            setAuthLoading(false);
-            setLoading(false);
-          });
-      };
-      
-      tryGetSession(); // Start first attempt
-    }, 100); // End hydration delay
-    
-    return () => {
-      console.log('🧹 [My Decks] Component unmounting, cleaning up');
-      clearTimeout(hydrationDelay);
-    };
-  }, []); // Empty deps - runs once
-
   // Load decks
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (!user || authLoading) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     

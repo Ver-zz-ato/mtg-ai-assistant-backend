@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import { capture } from "@/lib/ph";
 import { canonicalize } from "@/lib/cards/canonicalizeClient";
 import { containsProfanity } from "@/lib/profanity";
@@ -114,6 +115,7 @@ function EmailVerificationSection({ sb }: { sb: any }) {
 export default function ProfileClient({ initialBannerArt, initialBannerDebug }: { initialBannerArt?: string | null; initialBannerDebug?: { source: string; method: 'collection'|'fuzzy'|null; candidates: string[]; art: string|null } }) {
   // component body continues
   const sb = useMemo(() => createBrowserSupabaseClient(), []);
+  const { user: authUser, loading: authLoading } = useAuth(); // NEW: Get auth state from context
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -144,36 +146,21 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
-    console.log('🚀 [Profile] Component mounted, starting auth check');
+    if (authLoading) return; // Wait for auth to be ready
     
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    // (Same fix as Header.tsx - prevents session invalidation during hydration)
-    const hydrationDelay = setTimeout(() => {
+    // Auth guard - redirect if not logged in
+    if (!authUser) {
+      console.warn('⚠️ [Profile] No user session, redirecting to homepage');
+      window.location.href = '/';
+      return;
+    }
+    
     (async () => {
       try {
-        console.log('🔐 [Profile] Hydration delay complete, calling getSession()');
         setLoading(true);
         try { capture('profile_view'); } catch {}
         
-        // Use getSession() instead of getUser() - instant, no network hang
-        const { data: { session } } = await sb.auth.getSession();
-        const u = session?.user;
-        
-        console.log('✅ [Profile] getSession() returned', {
-          hasSession: !!session,
-          userId: u?.id?.slice(0, 8),
-          email: u?.email,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Auth guard - redirect if not logged in
-        if (!u) {
-          console.warn('⚠️ [Profile] No user session, redirecting to homepage');
-          window.location.href = '/';
-          return;
-        }
-        
+        const u = authUser; // Use user from context
         console.log('✅ [Profile] User authenticated:', u.email);
         setUserEmail(u?.email || "");
         
@@ -277,13 +264,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         setLoading(false);
       }
     })();
-    }, 100); // End hydrationDelay
-    
-    return () => {
-      console.log('🧹 [Profile] Component unmounting, cleaning up');
-      clearTimeout(hydrationDelay);
-    };
-  }, [sb]);
+  }, [authUser, authLoading, sb]);
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 import { usePro } from '@/components/ProContext';
 import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
@@ -11,50 +11,25 @@ import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
 
 export default function PricingPage() {
   const { isPro } = usePro();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth(); // NEW: Get auth state from context
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    console.log('[Pricing] Starting auth check...');
+    if (loading) return; // Wait for auth to be ready
     
-    // CRITICAL: Delay auth check by 100ms to allow React hydration to complete
-    // This prevents getSession() from being abandoned if hydration crashes
-    const hydrationDelay = setTimeout(() => {
-      supabase.auth.getSession()
-        .then(({ data: { session }, error }) => {
-          if (error) {
-            console.error('[Pricing] Session error:', error);
-          }
-          
-          const currentUser = session?.user || null;
-          console.log('[Pricing] Auth check complete', { hasUser: !!currentUser, email: currentUser?.email });
-          setUser(currentUser);
-          setLoading(false);
-
-          // Enhanced pricing page tracking
-          const referrer = typeof document !== 'undefined' ? document.referrer : '';
-          const source = referrer.includes('/chat') ? 'chat_limit' :
-                        referrer.includes('/my-decks') ? 'deck_feature' :
-                        referrer.includes('google') ? 'google_search' : 'direct';
-          
-          trackPricingPageViewed(source);
-          capture('pricing_page_viewed', {
-            is_authenticated: !!currentUser,
-            is_pro: isPro,
-            source,
-            referrer: referrer.slice(0, 100) // Truncate for privacy
-          });
-        })
-        .catch((err) => {
-          console.error('[Pricing] Auth error:', err);
-          setUser(null);
-          setLoading(false);
-        });
-    }, 100); // End hydration delay
+    // Enhanced pricing page tracking
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    const source = referrer.includes('/chat') ? 'chat_limit' :
+                  referrer.includes('/my-decks') ? 'deck_feature' :
+                  referrer.includes('google') ? 'google_search' : 'direct';
     
-    return () => clearTimeout(hydrationDelay);
-  }, []); // Empty deps - auth check runs once at mount
+    trackPricingPageViewed(source);
+    capture('pricing_page_viewed', {
+      is_authenticated: !!user,
+      is_pro: isPro,
+      source,
+      referrer: referrer.slice(0, 100) // Truncate for privacy
+    });
+  }, [user, loading, isPro]); // Track when user/loading changes
 
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);
