@@ -31,37 +31,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       console.log('[AuthProvider] Calling getSession...');
+      let timedOut = false;
+      
       try {
         // Add 3-second timeout to prevent hanging forever
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => {
           console.warn('[AuthProvider] getSession timeout after 3s, relying on onAuthStateChange');
+          timedOut = true;
+          if (mounted) {
+            setState((s) => ({ ...s, loading: false }));
+          }
           resolve(null);
         }, 3000));
         
         const sessionPromise = supabase.auth.getSession().then(result => result.data);
         const data = await Promise.race([sessionPromise, timeoutPromise]);
         
-        if (data) {
-          console.log('[AuthProvider] getSession returned:', { hasSession: !!data.session, userId: data.session?.user?.id });
-        }
-        
-        if (!mounted) return;
-        
-        // If timeout occurred (data is null), onAuthStateChange will handle it
-        if (data) {
-          setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
-        } else {
-          // Timeout - set loading false and let onAuthStateChange populate the session
-          setState((s) => ({ ...s, loading: false }));
+        // Only use getSession result if we didn't timeout
+        if (data && !timedOut) {
+          console.log('[AuthProvider] getSession returned in time:', { hasSession: !!data.session, userId: data.session?.user?.id });
+          if (mounted) {
+            setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
+          }
+        } else if (data && timedOut) {
+          console.log('[AuthProvider] getSession returned but already timed out, ignoring (onAuthStateChange will handle it)');
         }
       } catch (err) {
         console.error('[AuthProvider] getSession error:', err);
-        if (!mounted) return;
-        setState((s) => ({ ...s, loading: false }));
+        if (mounted && !timedOut) {
+          setState((s) => ({ ...s, loading: false }));
+        }
       }
     })();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthProvider] onAuthStateChange fired:', { event, hasSession: !!session, userId: session?.user?.id });
       setState({ user: session?.user ?? null, session: session ?? null, loading: false });
     });
     unsub = () => data.subscription.unsubscribe();
