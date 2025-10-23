@@ -284,9 +284,15 @@ export default function PricingPage() {
 
           {/* Pro Tier */}
           <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-8 text-white relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded-full">
-              POPULAR
-            </div>
+            {isPro ? (
+              <div className="absolute top-4 right-4 bg-emerald-400 text-black text-xs font-bold px-3 py-1 rounded-full">
+                ✓ ACTIVE
+              </div>
+            ) : (
+              <div className="absolute top-4 right-4 bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded-full">
+                POPULAR
+              </div>
+            )}
             
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold mb-4">Pro</h3>
@@ -373,13 +379,19 @@ export default function PricingPage() {
             </div>
 
             {isPro ? (
-              <button
-                onClick={handleManageBilling}
-                disabled={managingBilling}
-                className="w-full bg-white bg-opacity-20 text-white py-3 px-6 rounded-lg font-medium hover:bg-opacity-30 transition-colors disabled:opacity-50"
-              >
-                {managingBilling ? 'Opening...' : 'Manage Billing'}
-              </button>
+              <div className="space-y-3">
+                <div className="text-center p-4 bg-white bg-opacity-10 rounded-lg border-2 border-emerald-400">
+                  <div className="text-emerald-300 font-bold mb-1">🎉 Thank you for being Pro!</div>
+                  <div className="text-sm text-blue-100">You have access to all premium features</div>
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  disabled={managingBilling}
+                  className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  {managingBilling ? 'Opening...' : 'Manage Subscription'}
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}

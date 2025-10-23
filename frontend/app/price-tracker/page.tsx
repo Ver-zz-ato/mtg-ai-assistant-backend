@@ -12,6 +12,7 @@ const COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22
 const Y_AXIS_WIDTH = 48;
 
 export default function PriceTrackerPage(){
+  const { isPro } = useProStatus();
   const [names, setNames] = React.useState<string>("");
   const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
   const [range, setRange] = React.useState<"30"|"90"|"365"|"all">("90");
@@ -171,7 +172,35 @@ export default function PriceTrackerPage(){
         <div className="mt-2 flex flex-wrap gap-2 items-center">
           <button onClick={load} disabled={loading} className="text-xs border rounded px-2 py-1">{loading? 'Loading…' : 'Refresh'}</button>
           <button onClick={exportCsv} disabled={series.length===0} className="text-xs border rounded px-2 py-1">Export CSV</button>
-          <button onClick={async()=>{ try{ const { createBrowserSupabaseClient } = await import("@/lib/supabase/client"); const sb = createBrowserSupabaseClient(); const { data: u } = await sb.auth.getUser(); const user = u?.user; if (!user) { showAuthToast(AUTH_MESSAGES.SIGN_IN_REQUIRED); return; } const arr = names ? [names] : []; await sb.auth.updateUser({ data: { watchlist_cards: arr } }); alert('Saved to watchlist'); } catch(e:any){ alert(e?.message||'save failed'); } }} className="text-xs border rounded px-2 py-1">Save to my watchlist</button>
+          <button onClick={async()=>{ 
+            if (!isPro) { try { showProToast(); } catch {} return; }
+            if (!names.trim()) { 
+              try { const { toast } = await import('@/lib/toast-client'); toast('Enter card names first', 'error'); } catch {} 
+              return; 
+            }
+            try{ 
+              const cardNames = names.split('\n').map(n => n.trim()).filter(Boolean);
+              let added = 0;
+              for (const name of cardNames) {
+                const res = await fetch('/api/watchlist/add', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (data.ok) added++;
+              }
+              try { 
+                const { toast } = await import('@/lib/toast-client'); 
+                toast(`Added ${added} card${added !== 1 ? 's' : ''} to watchlist`, 'success'); 
+              } catch {} 
+            } catch(e:any){ 
+              try { 
+                const { toast } = await import('@/lib/toast-client'); 
+                toast(e?.message || 'Save failed', 'error'); 
+              } catch {} 
+            } 
+          }} className="text-xs border rounded px-2 py-1">Save to my watchlist</button>
         </div>
         <div className="mt-2 flex flex-wrap gap-4 items-center text-xs">
           <label className="inline-flex items-center gap-2"><input type="checkbox" checked={ma7} onChange={e=>setMa7(e.target.checked)} /> Moving Average 7D</label>
