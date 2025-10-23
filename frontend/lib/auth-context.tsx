@@ -25,15 +25,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthCtx>({ user: null, session: null, loading: true });
 
   useEffect(() => {
+    console.log('[AuthProvider] useEffect started');
     let unsub = () => {};
     let mounted = true;
 
     (async () => {
+      console.log('[AuthProvider] Calling getSession...');
       try {
-        const { data } = await supabase.auth.getSession();
+        // Add 3-second timeout to prevent hanging forever
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => {
+          console.warn('[AuthProvider] getSession timeout after 3s, relying on onAuthStateChange');
+          resolve(null);
+        }, 3000));
+        
+        const sessionPromise = supabase.auth.getSession().then(result => result.data);
+        const data = await Promise.race([sessionPromise, timeoutPromise]);
+        
+        if (data) {
+          console.log('[AuthProvider] getSession returned:', { hasSession: !!data.session, userId: data.session?.user?.id });
+        }
+        
         if (!mounted) return;
-        setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
-      } catch {
+        
+        // If timeout occurred (data is null), onAuthStateChange will handle it
+        if (data) {
+          setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
+        } else {
+          // Timeout - set loading false and let onAuthStateChange populate the session
+          setState((s) => ({ ...s, loading: false }));
+        }
+      } catch (err) {
+        console.error('[AuthProvider] getSession error:', err);
         if (!mounted) return;
         setState((s) => ({ ...s, loading: false }));
       }
