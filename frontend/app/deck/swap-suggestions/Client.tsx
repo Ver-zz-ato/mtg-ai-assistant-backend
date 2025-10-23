@@ -2,7 +2,7 @@
 import React from "react";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { usePro as useProContext } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 
 async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: string; large?: string; set?: string; rarity?: string }>>{
   const out: Record<string, { small?: string; large?: string; set?: string; rarity?: string }> = {};
@@ -23,7 +23,7 @@ async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: 
 }
 
 export default function BudgetSwapsClient(){
-  const { isPro } = useProContext();
+  const { isPro } = useProStatus();
 
   const [deckId, setDeckId] = React.useState("");
   const [deckText, setDeckText] = React.useState("");

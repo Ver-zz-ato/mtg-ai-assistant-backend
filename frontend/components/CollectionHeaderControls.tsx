@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePro } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 
 export default function CollectionHeaderControls({ collectionId }: { collectionId: string }){
@@ -66,7 +66,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
     setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
   }
 
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">

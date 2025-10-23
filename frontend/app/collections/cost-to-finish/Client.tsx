@@ -7,7 +7,7 @@ import { trackApiCall, trackPerformance } from '@/lib/analytics-performance';
 import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { usePrefs } from "@/components/PrefsContext";
-import { usePro } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 
 type Deck = { id: string; title: string; deck_text?: string | null };
 type Collection = { id: string; name: string };
@@ -141,7 +141,7 @@ export default function CostToFinishClient() {
   const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string }>>({});
   const [imgMapRows, setImgMapRows] = React.useState<Record<string, { small?: string; normal?: string }>>({});
   const [pv, setPv] = React.useState<{ src: string; x: number; y: number; shown: boolean }>({ src: "", x: 0, y: 0, shown: false });
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [series, setSeries] = React.useState<Array<{ date:string; total:number }>>([]);
   const [excludeLands, setExcludeLands] = React.useState(false);
   const [isLandMap, setIsLandMap] = React.useState<Record<string, boolean>>({});

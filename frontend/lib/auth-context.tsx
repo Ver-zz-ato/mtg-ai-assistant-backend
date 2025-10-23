@@ -25,18 +25,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthCtx>({ user: null, session: null, loading: true });
 
   useEffect(() => {
-    console.log('[AuthProvider] useEffect started');
     let unsub = () => {};
     let mounted = true;
 
     (async () => {
-      console.log('[AuthProvider] Calling getSession...');
       let timedOut = false;
       
       try {
         // Add 3-second timeout to prevent hanging forever
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => {
-          console.warn('[AuthProvider] getSession timeout after 3s, relying on onAuthStateChange');
           timedOut = true;
           if (mounted) {
             setState((s) => ({ ...s, loading: false }));
@@ -49,15 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Only use getSession result if we didn't timeout
         if (data && !timedOut) {
-          console.log('[AuthProvider] getSession returned in time:', { hasSession: !!data.session, userId: data.session?.user?.id });
           if (mounted) {
             setState({ user: data.session?.user ?? null, session: data.session ?? null, loading: false });
           }
-        } else if (data && timedOut) {
-          console.log('[AuthProvider] getSession returned but already timed out, ignoring (onAuthStateChange will handle it)');
         }
       } catch (err) {
-        console.error('[AuthProvider] getSession error:', err);
         if (mounted && !timedOut) {
           setState((s) => ({ ...s, loading: false }));
         }
@@ -65,7 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthProvider] onAuthStateChange fired:', { event, hasSession: !!session, userId: session?.user?.id });
       setState({ user: session?.user ?? null, session: session ?? null, loading: false });
     });
     unsub = () => data.subscription.unsubscribe();

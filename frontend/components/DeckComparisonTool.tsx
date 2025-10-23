@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { usePro } from '@/components/ProContext';
+import { useProStatus } from '@/hooks/useProStatus';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface Deck {
@@ -31,7 +31,7 @@ interface ComparisonStats {
 
 export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
   const searchParams = useSearchParams();
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
   const [deckData, setDeckData] = useState<Map<string, DeckData>>(new Map());
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { usePro } from '@/components/ProContext';
+import { useProStatus } from '@/hooks/useProStatus';
 import { trackProGateViewed, trackProGateClicked, trackProUpgradeStarted, trackProFeatureUsed } from '@/lib/analytics-pro';
 
 type Card = {
@@ -45,7 +45,7 @@ export default function HandTestingWidget({
   compact = false, 
   className = "" 
 }: HandTestingWidgetProps) {
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [currentHand, setCurrentHand] = useState<HandCard[]>([]);
   const [mulliganCount, setMulliganCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);

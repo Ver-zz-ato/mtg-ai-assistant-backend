@@ -277,7 +277,7 @@ export type CollectionEditorProps = {
 type Item = { id?: string; name: string; qty: number; created_at?: string };
 
 import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
-import { usePro } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 import { DualRange } from "@/components/shared/DualRange";
 import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
 import PriceChip from "@/components/shared/PriceChip";
@@ -286,7 +286,7 @@ import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import CardAutocomplete from "@/components/CardAutocomplete";
 
 function FixNamesButton({ collectionId }: { collectionId: string }){
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [open, setOpen] = React.useState(false);
   
   // Track PRO gate view when component renders for non-PRO users
@@ -349,7 +349,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [lastSnapshotAt, setLastSnapshotAt] = React.useState<string>('');
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>('USD');
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   React.useEffect(()=>{ try{ const saved = localStorage.getItem('price_currency') as any; if(saved && (saved==='USD'||saved==='EUR'||saved==='GBP')) setCurrency(saved); }catch{} }, []);
   React.useEffect(()=>{ try{ localStorage.setItem('price_currency', currency); } catch{} }, [currency]);
   // Meta cache for set/color per name

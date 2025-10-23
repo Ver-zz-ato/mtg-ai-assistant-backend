@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceDot, CartesianGrid } from "recharts";
-import { usePro } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 import ProBadge from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 import CardAutocomplete from "@/components/CardAutocomplete";
@@ -303,7 +303,7 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
 }
 
 function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; currency: 'USD'|'EUR'|'GBP'; setDeckId: (id: string)=>void }){
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const { createBrowserSupabaseClient } = require('@/lib/supabase/client');
   const [decks, setDecks] = React.useState<Array<{ id:string; title:string }>>([]);
   const pro = !!isPro;
@@ -328,7 +328,7 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
 }
 
 function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:string)=>void }){
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = React.useState(true);
   const [q, setQ] = React.useState('');

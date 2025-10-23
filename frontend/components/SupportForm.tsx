@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePro } from '@/components/ProContext';
+import { useProStatus } from '@/hooks/useProStatus';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 export default function SupportForm() {
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
-import { usePro } from '@/components/ProContext';
+import { useProStatus } from '@/hooks/useProStatus';
 import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import ProValueTooltip from '@/components/ProValueTooltip';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
 
 export default function PricingPage() {
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
   const { user, loading } = useAuth(); // NEW: Get auth state from context
 
   useEffect(() => {

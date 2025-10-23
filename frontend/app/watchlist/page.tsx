@@ -7,11 +7,11 @@ import { capture } from "@/lib/ph";
 import { usePrefs } from "@/components/PrefsContext";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import GuestLandingPage from "@/components/GuestLandingPage";
-import { usePro } from "@/components/ProContext";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function WatchlistPage() {
   const { user, loading: authLoading } = useAuth();
-  const { isPro } = usePro();
+  const { isPro } = useProStatus();
 
   useEffect(() => {
     if (user) {
