@@ -13,6 +13,7 @@ const Y_AXIS_WIDTH = 48;
 
 export default function PriceTrackerPage(){
   const { isPro } = useProStatus();
+  const watchlistRef = React.useRef<WatchlistPanelRef>(null);
   const [names, setNames] = React.useState<string>("");
   const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
   const [range, setRange] = React.useState<"30"|"90"|"365"|"all">("90");
@@ -139,7 +140,7 @@ export default function PriceTrackerPage(){
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* LEFT: Watchlist (Pro) */}
         <aside className="md:col-span-3 space-y-3">
-          <WatchlistPanel names={names} setNames={setNames} />
+          <WatchlistPanel ref={watchlistRef} names={names} setNames={setNames} />
         </aside>
 
         {/* CENTER: Controls + Chart + Summary + Movers */}
@@ -190,6 +191,8 @@ export default function PriceTrackerPage(){
                 const data = await res.json();
                 if (data.ok) added++;
               }
+              // Refresh the mini watchlist panel
+              await watchlistRef.current?.refresh();
               try { 
                 const { toast } = await import('@/lib/toast-client'); 
                 toast(`Added ${added} card${added !== 1 ? 's' : ''} to watchlist`, 'success'); 
@@ -356,7 +359,13 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
   );
 }
 
-function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:string)=>void }){
+// Create a ref type for the watchlist panel to allow external refresh
+interface WatchlistPanelRef {
+  refresh: () => Promise<void>;
+}
+
+const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setNames: (s:string)=>void }>(
+  function WatchlistPanel({ names, setNames }, ref) {
   const { isPro } = useProStatus();
   const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = React.useState(true);
@@ -382,6 +391,11 @@ function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:strin
   };
 
   React.useEffect(() => { loadWatchlist(); }, []);
+
+  // Expose loadWatchlist via ref
+  React.useImperativeHandle(ref, () => ({
+    refresh: loadWatchlist
+  }));
 
   const quickAdd = async () => {
     if (!isPro) { try { showProToast(); } catch {} return; }
@@ -450,23 +464,30 @@ function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:strin
         Watchlist 
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>
       </div>
-      <div className="flex gap-2 items-end">
-        <label className="text-sm flex-1">
+      <div className="space-y-2">
+        <label className="text-sm block">
           <div className="opacity-70 mb-1">Quick add</div>
-          <input 
-            value={q} 
-            onChange={e => setQ(e.target.value)} 
-            onKeyDown={e => e.key === 'Enter' && quickAdd()}
-            placeholder="Search card…" 
-            className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" 
+          <CardAutocomplete
+            value={q}
+            onChange={setQ}
+            onPick={(name) => {
+              setQ(name);
+              // Auto-add when picking from autocomplete
+              setTimeout(() => {
+                const btn = document.querySelector('[data-watchlist-add]') as HTMLButtonElement;
+                btn?.click();
+              }, 100);
+            }}
+            placeholder="Search cards..."
           />
         </label>
         <button 
+          data-watchlist-add
           onClick={quickAdd} 
           disabled={adding || !q.trim()}
-          className="text-xs border rounded px-2 py-1 disabled:opacity-50"
+          className="w-full text-xs border rounded px-2 py-1 disabled:opacity-50 bg-blue-600 hover:bg-blue-500 transition-colors"
         >
-          {adding ? '...' : 'Add'}
+          {adding ? 'Adding...' : 'Add to Watchlist'}
         </button>
       </div>
       {items.length > 0 && (
@@ -508,7 +529,7 @@ function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:strin
       )}
     </section>
   );
-}
+});
 
 function CardSearch({ value, onChange, onPick }: { value: string; onChange: (v:string)=>void; onPick: (n:string)=>void }){
   const [img, setImg] = React.useState<string>('');
