@@ -15,9 +15,15 @@ export default function ProProvider({ children }: { children: React.ReactNode })
   const { user, loading } = useAuth(); // NEW: Get auth state from context
 
   React.useEffect(() => {
-    if (loading) return; // Wait for auth to be ready
+    console.log('[ProContext] useEffect fired! loading:', loading, 'user:', user?.id || 'null');
+    
+    if (loading) {
+      console.log('[ProContext] Still loading auth, waiting...');
+      return; // Wait for auth to be ready
+    }
     
     if (!user) {
+      console.log('[ProContext] No user found, setting isPro=false');
       setIsPro(false);
       return;
     }
