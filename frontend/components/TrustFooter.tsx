@@ -189,23 +189,37 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         </div>
         
         {/* Support & Payment Links */}
-        <div className="flex justify-center mb-6">
-          <nav className="flex gap-6 items-center flex-wrap justify-center text-base">
-            <a className="hover:text-gray-200 transition-colors" href="/support">Support</a>
-            <a className="hover:text-gray-200 transition-colors" href="/pricing">Pricing</a>
-            {monetizeConfig.stripe && (
-              <a className="hover:text-gray-200 transition-colors" href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01" target="_blank" rel="noreferrer">Stripe</a>
-            )}
-            {monetizeConfig.kofi && (
-              <a className="hover:text-gray-200 transition-colors" href="https://ko-fi.com/davydraws7/tip" target="_blank" rel="noreferrer">Ko‑fi</a>
-            )}
-            {monetizeConfig.paypal && (
-              <a className="hover:text-gray-200 transition-colors" href="https://paypal.me/DavyDraws7" target="_blank" rel="noreferrer">PayPal</a>
-            )}
-            <a className="hover:text-gray-200 transition-colors" href="/terms">Terms</a>
-            <a className="hover:text-gray-200 transition-colors" href="/privacy">Privacy</a>
-            <a className="hover:text-gray-200 transition-colors" href="/refund">Refund Policy</a>
-          </nav>
+        <div className="mb-6 space-y-3">
+          {/* Row 1: Support me */}
+          <div className="flex justify-center">
+            <div className="flex gap-3 items-center flex-wrap justify-center text-base">
+              <span className="text-gray-300 font-medium">Support me:</span>
+              {monetizeConfig.kofi && (
+                <a className="hover:text-gray-200 transition-colors text-pink-400 hover:text-pink-300" href="https://ko-fi.com/davydraws7/tip" target="_blank" rel="noreferrer">Ko‑fi</a>
+              )}
+              {monetizeConfig.paypal && (
+                <a className="hover:text-gray-200 transition-colors text-blue-400 hover:text-blue-300" href="https://paypal.me/DavyDraws7" target="_blank" rel="noreferrer">PayPal</a>
+              )}
+              {monetizeConfig.stripe && (
+                <a className="hover:text-gray-200 transition-colors text-purple-400 hover:text-purple-300" href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01" target="_blank" rel="noreferrer">Stripe</a>
+              )}
+            </div>
+          </div>
+          
+          {/* Row 2: Legal & Info */}
+          <div className="flex justify-center">
+            <nav className="flex gap-4 items-center flex-wrap justify-center text-sm text-gray-400">
+              <a className="hover:text-gray-200 transition-colors" href="/support">Support</a>
+              <span className="text-gray-600">•</span>
+              <a className="hover:text-gray-200 transition-colors" href="/pricing">Pricing</a>
+              <span className="text-gray-600">•</span>
+              <a className="hover:text-gray-200 transition-colors" href="/terms">Terms</a>
+              <span className="text-gray-600">•</span>
+              <a className="hover:text-gray-200 transition-colors" href="/privacy">Privacy</a>
+              <span className="text-gray-600">•</span>
+              <a className="hover:text-gray-200 transition-colors" href="/refund">Refund Policy</a>
+            </nav>
+          </div>
         </div>
 
         {/* Legal disclaimer */}

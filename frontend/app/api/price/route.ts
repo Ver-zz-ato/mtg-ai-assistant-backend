@@ -192,6 +192,80 @@ async function toCurrencyUnit(card: ScryfallCard | undefined, currency: Currency
   return 0;
 }
 
+export const GET = withLogging(async (req: NextRequest) => {
+  try {
+    const { searchParams } = new URL(req.url);
+    const name = searchParams.get('name');
+    const currency = (searchParams.get('currency') || 'USD').toUpperCase() as Currency;
+
+    if (!name) {
+      return NextResponse.json({ ok: false, error: 'name required' }, { status: 400 });
+    }
+
+    // Use the same POST logic but for a single card
+    const names = [name];
+    const cachedPrices = await getCachedPrices(names);
+    const normName = normalizeName(name);
+    
+    let priceData = cachedPrices[normName];
+    
+    // If not in cache, fetch from Scryfall
+    if (!priceData) {
+      const freshPrices = await fetchScryfallPrices([normName]);
+      const card = freshPrices[normName];
+      
+      if (card) {
+        const { USD_EUR, USD_GBP } = await getFxRates();
+        const usdRaw = card.prices.usd ? Number(card.prices.usd) : undefined;
+        const eurRaw = card.prices.eur ? Number(card.prices.eur) : undefined;
+        
+        priceData = {
+          usd: usdRaw,
+          eur: eurRaw || (usdRaw ? Number((usdRaw * USD_EUR).toFixed(2)) : undefined),
+          gbp: usdRaw ? Number((usdRaw * USD_GBP).toFixed(2)) : undefined
+        };
+        
+        // Cache it
+        await cachePrices({ [normName]: priceData });
+      }
+    }
+
+    if (!priceData) {
+      return NextResponse.json({ ok: true, price: 0, delta_24h: 0, delta_7d: 0, delta_30d: 0 });
+    }
+
+    // Convert to requested currency
+    const { USD_EUR, USD_GBP } = await getFxRates();
+    let price = 0;
+    
+    if (currency === 'USD' && priceData.usd != null) {
+      price = priceData.usd;
+    } else if (currency === 'EUR' && priceData.eur != null) {
+      price = priceData.eur;
+    } else if (currency === 'GBP' && priceData.gbp != null) {
+      price = priceData.gbp;
+    } else {
+      // Fallback conversion to GBP
+      const usdRaw = priceData.usd;
+      const eurRaw = priceData.eur;
+      if (usdRaw != null) price = +(usdRaw * USD_GBP).toFixed(2);
+      else if (eurRaw != null) price = +(eurRaw * (1 / USD_EUR) * USD_GBP).toFixed(2);
+    }
+
+    // TODO: Fetch deltas from price_snapshots table (for now return 0)
+    return NextResponse.json({
+      ok: true,
+      price: price,
+      delta_24h: 0,
+      delta_7d: 0,
+      delta_30d: 0
+    });
+  } catch (e: any) {
+    console.error('GET /api/price error:', e);
+    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
+  }
+});
+
 export const POST = withLogging(async (req: NextRequest) => {
   try {
     const { names, currency } = (await req.json()) as {

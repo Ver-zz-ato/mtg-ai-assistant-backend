@@ -8,6 +8,7 @@ import { usePrefs } from "@/components/PrefsContext";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { useProStatus } from "@/hooks/useProStatus";
+import { getImagesForNames } from "@/lib/scryfall";
 
 export default function WatchlistPage() {
   const { user, loading: authLoading } = useAuth();
@@ -159,6 +160,10 @@ function WatchlistEditor() {
   const [addName, setAddName] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [previewCard, setPreviewCard] = useState<{ src: string; x: number; y: number } | null>(null);
+  const [editingTarget, setEditingTarget] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const loadWatchlist = async () => {
     try {
@@ -269,9 +274,63 @@ function WatchlistEditor() {
     }
   };
 
+  const updateTargetPrice = async (id: string, newTarget: number | null) => {
+    try {
+      const res = await fetch('/api/watchlist/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, target_price: newTarget })
+      });
+      
+      const data = await res.json();
+      
+      if (data.ok) {
+        // Update local state
+        setItems(prev => prev.map(item => 
+          item.id === id ? { ...item, target_price: newTarget } : item
+        ));
+        setEditingTarget(null);
+      } else {
+        setError(data.error || 'Failed to update target');
+      }
+    } catch (e: any) {
+      console.error('Update error:', e);
+      setError(e?.message || 'Update failed');
+    }
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent, card: string) => {
+    const img = images[card.toLowerCase()]?.normal;
+    if (!img) return;
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPreviewCard({ src: img, x: rect.right + 10, y: rect.top });
+  };
+
+  const handleMouseLeave = () => {
+    setPreviewCard(null);
+  };
+
   useEffect(() => {
     loadWatchlist();
   }, [currency]);
+
+  // Load card images
+  useEffect(() => {
+    if (items.length === 0) return;
+    (async () => {
+      try {
+        const names = items.map(i => i.name);
+        const imgsMap = await getImagesForNames(names);
+        const imgsRecord: Record<string, { small?: string; normal?: string }> = {};
+        imgsMap.forEach((value, key) => {
+          imgsRecord[key] = value;
+        });
+        setImages(imgsRecord);
+      } catch (e) {
+        console.error('Failed to load images:', e);
+      }
+    })();
+  }, [items]);
 
   const formatPrice = (p: number) => {
     const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
@@ -362,19 +421,74 @@ function WatchlistEditor() {
                   const current = priceData?.current || 0;
                   const targetHit = item.target_price && current > 0 && current <= item.target_price;
 
+                  const cardImg = images[item.name.toLowerCase()];
+                  
                   return (
                     <tr key={item.id} className={`hover:bg-neutral-800/30 ${targetHit ? 'bg-green-900/10' : ''}`}>
                       <td className="p-4">
-                        <div className="font-medium">{item.name}</div>
-                        {targetHit && (
-                          <div className="text-xs text-green-500 mt-1">🎯 Target price hit!</div>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {cardImg?.small && (
+                            <img 
+                              src={cardImg.small} 
+                              alt={item.name}
+                              className="w-10 h-14 rounded object-cover cursor-pointer"
+                              onMouseEnter={(e) => handleMouseEnter(e, item.name)}
+                              onMouseLeave={handleMouseLeave}
+                            />
+                          )}
+                          <div>
+                            <div className="font-medium">{item.name}</div>
+                            {targetHit && (
+                              <div className="text-xs text-green-500 mt-1">🎯 Target price hit!</div>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="text-right p-4 font-mono">
                         {priceData ? formatPrice(current) : '—'}
                       </td>
-                      <td className="text-right p-4 font-mono text-sm opacity-70">
-                        {item.target_price ? formatPrice(item.target_price) : '—'}
+                      <td className="text-right p-4 font-mono text-sm">
+                        {editingTarget === item.id ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-right"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  updateTargetPrice(item.id, editValue ? parseFloat(editValue) : null);
+                                } else if (e.key === 'Escape') {
+                                  setEditingTarget(null);
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => updateTargetPrice(item.id, editValue ? parseFloat(editValue) : null)}
+                              className="text-green-500 hover:text-green-400 text-xs"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => setEditingTarget(null)}
+                              className="text-red-500 hover:text-red-400 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="opacity-70 cursor-pointer hover:opacity-100 hover:text-blue-400"
+                            onClick={() => {
+                              setEditingTarget(item.id);
+                              setEditValue(item.target_price ? item.target_price.toString() : '');
+                            }}
+                          >
+                            {item.target_price ? formatPrice(item.target_price) : <span className="opacity-50">Set target</span>}
+                          </div>
+                        )}
                       </td>
                       <td className="text-right p-4">
                         {priceData ? formatDelta(priceData.delta_24h) : '—'}
@@ -399,6 +513,20 @@ function WatchlistEditor() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Hover Preview */}
+      {previewCard && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{ left: previewCard.x, top: previewCard.y }}
+        >
+          <img
+            src={previewCard.src}
+            alt="Card preview"
+            className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
+          />
         </div>
       )}
     </div>
