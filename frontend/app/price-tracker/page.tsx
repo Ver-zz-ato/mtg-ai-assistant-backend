@@ -329,59 +329,152 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
 
 function WatchlistPanel({ names, setNames }: { names: string; setNames: (s:string)=>void }){
   const { isPro } = usePro();
-  const { createBrowserSupabaseClient } = require('@/lib/supabase/client');
-  const [items, setItems] = React.useState<string[]>([]);
-  React.useEffect(()=>{ (async()=>{ try{ const sb = createBrowserSupabaseClient(); const { data: u } = await sb.auth.getUser(); const arr = (u?.user?.user_metadata?.watchlist_cards || []) as any[]; if (Array.isArray(arr)) setItems(arr.map(s=>String(s))); } catch{} })(); },[]);
-  const save = async()=>{ if (!isPro) { try{ showProToast(); } catch{} return; } try{ const sb = createBrowserSupabaseClient(); const list = names.split(/[\n,]/).map(s=>s.trim()).filter(Boolean); await sb.auth.updateUser({ data: { watchlist_cards: list } }); setItems(list); } catch(e:any){ alert(e?.message||'save failed'); } };
+  const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [loading, setLoading] = React.useState(true);
   const [q, setQ] = React.useState('');
-  const quickAdd = async()=>{
-    if (!isPro) { try{ showProToast(); } catch{} return; }
-    const sb = createBrowserSupabaseClient();
-    const norm = (s:string)=> s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-    let name = q.trim(); if (!name) return;
+  const [adding, setAdding] = React.useState(false);
+
+  const loadWatchlist = async () => {
     try {
-      // try exact match via latest snapshot
-      const { data: d0 } = await sb.from('price_snapshots').select('name_norm').eq('name_norm', norm(name)).limit(1);
-      let final = d0?.[0]?.name_norm ? d0[0].name_norm : '';
-      if (!final) {
-        // try ilike
-        const { data: d1 } = await sb.from('price_snapshots').select('name_norm').ilike('name_norm', `%${norm(name)}%`).limit(1);
-        final = d1?.[0]?.name_norm || '';
+      setLoading(true);
+      const res = await fetch('/api/watchlist/list', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok && data.watchlist?.items) {
+        setItems(data.watchlist.items.map((item: any) => ({
+          id: item.id,
+          name: item.name
+        })));
       }
-      if (!final) {
-        // fallback to Scryfall fuzzy for canonical
-        const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
-        if (r.ok) { const j:any = await r.json().catch(()=>({})); final = norm(j?.name||name); }
-      }
-      const next = Array.from(new Set([...(items||[]), final]));
-      await sb.auth.updateUser({ data: { watchlist_cards: next } });
-      setItems(next); setQ('');
-    } catch(e:any){ alert(e?.message||'add failed'); }
+    } catch (e) {
+      // Silent fail - watchlist load errors are non-critical
+    } finally {
+      setLoading(false);
+    }
   };
-  const remove = async(idx:number)=>{ if (!isPro) { try{ showProToast(); } catch{} return; } try{ const next = items.slice(); next.splice(idx,1); const sb = createBrowserSupabaseClient(); await sb.auth.updateUser({ data: { watchlist_cards: next } }); setItems(next); } catch(e:any){ alert(e?.message||'remove failed'); } };
+
+  React.useEffect(() => { loadWatchlist(); }, []);
+
+  const quickAdd = async () => {
+    if (!isPro) { try { showProToast(); } catch {} return; }
+    const name = q.trim();
+    if (!name) return;
+    
+    try {
+      setAdding(true);
+      const res = await fetch('/api/watchlist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      
+      const data = await res.json();
+      if (data.ok) {
+        setQ('');
+        await loadWatchlist();
+        try {
+          const { toast } = await import('@/lib/toast-client');
+          toast(`Added ${data.name || name} to watchlist`, 'success');
+        } catch {}
+      } else {
+        try {
+          const { toast } = await import('@/lib/toast-client');
+          toast(data.error || 'Failed to add card', 'error');
+        } catch {}
+      }
+    } catch (e: any) {
+      try {
+        const { toast } = await import('@/lib/toast-client');
+        toast(e?.message || 'Add failed', 'error');
+      } catch {}
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const remove = async (id: string, name: string) => {
+    if (!isPro) { try { showProToast(); } catch {} return; }
+    try {
+      const res = await fetch('/api/watchlist/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      
+      if (res.ok) {
+        await loadWatchlist();
+        try {
+          const { toast } = await import('@/lib/toast-client');
+          toast(`Removed ${name} from watchlist`, 'success');
+        } catch {}
+      }
+    } catch (e: any) {
+      try {
+        const { toast } = await import('@/lib/toast-client');
+        toast(e?.message || 'Remove failed', 'error');
+      } catch {}
+    }
+  };
+
   return (
     <section className="rounded border border-neutral-800 p-3 space-y-2">
-      <div className="font-medium flex items-center gap-2">Watchlist <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span></div>
+      <div className="font-medium flex items-center gap-2">
+        Watchlist 
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>
+      </div>
       <div className="flex gap-2 items-end">
         <label className="text-sm flex-1">
           <div className="opacity-70 mb-1">Quick add</div>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search card…" className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+          <input 
+            value={q} 
+            onChange={e => setQ(e.target.value)} 
+            onKeyDown={e => e.key === 'Enter' && quickAdd()}
+            placeholder="Search card…" 
+            className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" 
+          />
         </label>
-        <button onClick={quickAdd} className="text-xs border rounded px-2 py-1">Add</button>
+        <button 
+          onClick={quickAdd} 
+          disabled={adding || !q.trim()}
+          className="text-xs border rounded px-2 py-1 disabled:opacity-50"
+        >
+          {adding ? '...' : 'Add'}
+        </button>
       </div>
-      <div className="flex gap-2">
-        <button onClick={save} className="text-xs border rounded px-2 py-1">Save to my watchlist</button>
-      </div>
-      {items.length===0 ? (
-        <div className="text-xs opacity-70">No watchlist saved.</div>
+      {items.length > 0 && (
+        <a 
+          href="/watchlist" 
+          className="text-xs text-blue-400 hover:text-blue-300 underline block"
+        >
+          → Go to full watchlist
+        </a>
+      )}
+      {loading ? (
+        <div className="text-xs opacity-70">Loading...</div>
+      ) : items.length === 0 ? (
+        <div className="text-xs opacity-70">No cards in watchlist.</div>
       ) : (
-        <ul className="text-sm space-y-1">
-          {items.map((n,i)=> (
-            <li key={n+i} className="flex items-center justify-between gap-2">
-              <button onClick={()=> setNames(names ? `${names.replace(/\s+$/,'')}, ${n}` : n)} className="underline text-left truncate flex-1">{n}</button>
-              <button onClick={()=>remove(i)} className="text-xs border rounded px-1">×</button>
+        <ul className="text-sm space-y-1 max-h-48 overflow-y-auto">
+          {items.slice(0, 10).map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-2">
+              <button 
+                onClick={() => setNames(names ? `${names.replace(/\s+$/,'')}, ${item.name}` : item.name)} 
+                className="underline text-left truncate flex-1 hover:text-blue-400"
+              >
+                {item.name}
+              </button>
+              <button 
+                onClick={() => remove(item.id, item.name)} 
+                className="text-xs border rounded px-1 hover:bg-red-600/20"
+              >
+                ×
+              </button>
             </li>
           ))}
+          {items.length > 10 && (
+            <li className="text-xs opacity-70 pt-1">
+              +{items.length - 10} more cards
+            </li>
+          )}
         </ul>
       )}
     </section>

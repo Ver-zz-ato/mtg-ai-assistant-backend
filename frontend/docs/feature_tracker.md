@@ -1,5 +1,49 @@
 # Feature tracker
 
+## Critical Fixes & Improvements — Oct 23, 2025
+
+### 🔐 Authentication System Overhaul
+- [x] **Fixed Random Logout Bug** — Eliminated race condition with `getSession()` hanging on window focus
+  - Root cause: Duplicate auth subscriptions (Header + AuthProvider) conflicting
+  - Solution: Migrated to push-based auth with single `AuthProvider` using `onAuthStateChange`
+  - Removed all duplicate `getSession()` calls from client components
+  - All pages now use `useAuth()` hook for consistent auth state
+- [x] **Removed Auth Debug Logging** — Cleaned up console spam from AuthProvider, Header, my-decks, profile, Supabase client
+- [x] **Removed DebugNavigationTracker** — No longer needed after auth fix
+
+### 💎 Pro Status & Billing System
+- [x] **Fixed Pro Status Synchronization** — Made `profiles.is_pro` the single source of truth
+  - Admin panel now updates BOTH `user_metadata.pro` AND `profiles.is_pro`
+  - Stripe webhooks now update BOTH `user_metadata.pro` AND `profiles.is_pro`
+  - ProContext prioritizes database over metadata with fallback
+  - All Pro checks now use database first for consistency
+- [x] **Fixed Stripe Product IDs** — Corrected typo in billing.ts (prod_TDcEDlXjpoi33U → prod_TDaREGWGBQSSBQ)
+- [x] **Stripe Checkout Working** — Resolved "Invalid API Key" and "Failed to get price" errors
+
+### 🎯 Meta Snapshot & Commander Detection
+- [x] **Commander Detection (Scryfall API)** — Intelligent commander identification for new/updated decks
+  - Checks for: Legendary Creatures, Legendary Planeswalkers with "can be your commander", Partner abilities
+  - Applied to `/api/decks/create` and `/api/decks/update` routes
+- [x] **Commander Backfill Script** — Created `/api/admin/backfill-commanders` route with Scryfall validation
+  - Backfilled 10 existing Commander decks with correct commanders
+- [x] **Meta Snapshot Fixed** — Now displays top commanders with deck counts
+  - Extended timeframe to 365 days with multi-layer fallback for sparse data
+  - Updated label to "Public Decks (Last Year)"
+
+### 📅 Footer & Data Display
+- [x] **Dynamic Card Data Update Date** — Footer now fetches and formats bulk import timestamp
+  - Queries `/api/admin/config?key=job:last:bulk_price_import`
+  - Formats as "Oct 19, 2025" format instead of static date
+
+### 🎨 Performance Optimizations
+- [x] **Deferred PostHog Initialization** — Moved to after initial page load
+- [x] **Lazy-loaded Components** — Dynamic imports for RightSidebar, MetaDeckPanel
+- [x] **Bot Detection** — Tour modal skips for Lighthouse/headless browsers
+- [x] **Resource Hints** — Added preconnect/dns-prefetch for Scryfall, PostHog
+- [x] **CSP Updates** — Added worker-src for PostHog/Sentry web workers
+
+---
+
 ## Playtest Fix Checklist — Oct 18, 2025
 
 Homepage / Global

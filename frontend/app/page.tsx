@@ -3,13 +3,12 @@ import dynamic from "next/dynamic";
 import ModeOptions from "../components/ModeOptions";
 import LeftSidebar from "../components/LeftSidebar";
 import Chat from "../components/Chat";
-import FeedbackFab from "../components/FeedbackFab"; // ← add this
+import FeedbackFab from "../components/FeedbackFab";
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import HomepageTourWrapper from "../components/HomepageTourWrapper";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
-// Note: These are client components, so they won't SSR anyway when lazy loaded
 const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
   loading: () => <div className="animate-pulse bg-gray-800 rounded-2xl h-48" />
 });
@@ -80,7 +79,7 @@ export default function Page() {
           </aside>
         </div>
       </div>
-      <FeedbackFab /> {/* ← floating feedback button */}
+      <FeedbackFab />
       <HomepageTourWrapper />
     </>
   );

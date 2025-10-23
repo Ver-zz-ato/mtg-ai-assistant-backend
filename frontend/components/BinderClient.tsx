@@ -57,11 +57,10 @@ export default function BinderClient({ collectionId }: { collectionId: string })
       const m = await (await import("@/lib/scryfall")).getImagesForNames(names);
       const obj: any = {}; m.forEach((v: any, k: string) => { obj[k] = { small: v.small, normal: v.normal||v.large }; });
       setImgMap(obj);
-      // Scryfall metadata (set, rarity, type_line, color_identity)
+      // Scryfall metadata (set, rarity, type_line, color_identity) - use cached API route
       const chunked: string[][] = []; for(let i=0;i<names.length;i+=75) chunked.push(names.slice(i,i+75));
       for(const part of chunked){
-        const req = { identifiers: part.map(n=>({ name:n })) };
-        const rr = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(req) });
+        const rr = await fetch('/api/cards/batch-metadata', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: part }) });
         const jj:any = rr.ok? await rr.json().catch(()=>({})) : {};
         const data:any[] = Array.isArray(jj?.data)? jj.data : [];
         for(const c of data){

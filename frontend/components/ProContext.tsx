@@ -44,13 +44,6 @@ export default function ProProvider({ children }: { children: React.ReactNode })
         // Database is the single source of truth
         const profileIsPro = Boolean(profile?.is_pro);
         setIsPro(profileIsPro);
-        
-        // Log mismatch for debugging (can remove later)
-        const md: any = user.user_metadata || {};
-        const metadataIsPro = Boolean(md?.is_pro || md?.pro);
-        if (profileIsPro !== metadataIsPro) {
-          console.warn('[ProContext] Pro status mismatch! Database:', profileIsPro, 'Metadata:', metadataIsPro);
-        }
       } catch (err) {
         console.error('[ProContext] Unexpected error:', err);
         setIsPro(false);

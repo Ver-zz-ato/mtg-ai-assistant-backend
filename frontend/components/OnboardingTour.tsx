@@ -255,74 +255,88 @@ export default function OnboardingTour({
     }
 
     const offset = 16;
-    const tooltipHeight = 350; // Estimated tooltip height
-    const minTopMargin = 20; // Minimum pixels from top of screen
-    const minBottomMargin = 20; // Minimum pixels from bottom of screen
+    const tooltipHeight = 400; // Estimated tooltip height (increased for safety)
+    const tooltipWidth = Math.min(450, window.innerWidth - 40); // Responsive width
+    const minMargin = 20; // Minimum pixels from any screen edge
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
     
     let style: React.CSSProperties = {
       position: 'fixed',
       zIndex: 10002,
+      maxWidth: '90vw', // Ensure it never exceeds viewport
     };
+    
+    // Helper to check if element is near bottom of screen
+    const isNearBottom = targetRect.bottom > viewportHeight * 0.6;
+    
+    // Helper to check if we're on a small screen
+    const isSmallScreen = viewportWidth < 768;
     
     switch (step.placement) {
       case 'top':
         // Place above the target
         const topPos = targetRect.top - tooltipHeight - offset;
-        if (topPos < minTopMargin) {
+        if (topPos < minMargin) {
           // Not enough space above, place below instead
-          style.top = `${Math.max(minTopMargin, targetRect.bottom + offset)}px`;
+          style.top = `${Math.min(targetRect.bottom + offset, viewportHeight - tooltipHeight - minMargin)}px`;
         } else {
           style.top = `${topPos}px`;
         }
-        style.left = `${targetRect.left + targetRect.width / 2}px`;
+        style.left = '50%';
         style.transform = 'translateX(-50%)';
         break;
         
       case 'bottom':
         // Place below the target
         const bottomPos = targetRect.bottom + offset;
-        const spaceBelow = window.innerHeight - bottomPos;
+        const spaceBelow = viewportHeight - bottomPos;
         
-        if (spaceBelow < tooltipHeight) {
-          // Not enough space below, place it where it fits
-          style.top = `${Math.max(minTopMargin, window.innerHeight - tooltipHeight - minBottomMargin)}px`;
+        // On small screens or if not enough space, center it in viewport
+        if (isSmallScreen || spaceBelow < tooltipHeight + minMargin) {
+          // Center vertically in viewport
+          style.top = '50%';
+          style.transform = 'translate(-50%, -50%)';
         } else {
           // Enough space, place normally below target
-          style.top = `${bottomPos}px`;
-        }
-        
-        // Center horizontally on the target
-        style.left = `${targetRect.left + targetRect.width / 2}px`;
-        style.transform = 'translateX(-50%)';
-        
-        // Ensure it doesn't go off screen horizontally
-        const tooltipWidth = 450; // Estimated max width
-        const leftPos = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-        const rightPos = targetRect.left + targetRect.width / 2 + tooltipWidth / 2;
-        
-        if (leftPos < 20) {
-          style.left = '50%';
-          style.transform = 'translateX(-50%)';
-        } else if (rightPos > window.innerWidth - 20) {
-          style.left = '50%';
+          style.top = `${Math.min(bottomPos, viewportHeight - tooltipHeight - minMargin)}px`;
           style.transform = 'translateX(-50%)';
         }
+        
+        // Always center horizontally on small screens
+        style.left = '50%';
         break;
         
       case 'left':
-        style.right = `${window.innerWidth - targetRect.left + offset}px`;
-        style.top = `${Math.max(minTopMargin, Math.min(
-          targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
-          window.innerHeight - tooltipHeight - minBottomMargin
-        ))}px`;
+        const leftSpace = targetRect.left - offset;
+        if (isSmallScreen || leftSpace < tooltipWidth) {
+          // Not enough space on left, center instead
+          style.top = '50%';
+          style.left = '50%';
+          style.transform = 'translate(-50%, -50%)';
+        } else {
+          style.right = `${viewportWidth - targetRect.left + offset}px`;
+          style.top = `${Math.max(minMargin, Math.min(
+            targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+            viewportHeight - tooltipHeight - minMargin
+          ))}px`;
+        }
         break;
         
       case 'right':
-        style.left = `${targetRect.right + offset}px`;
-        style.top = `${Math.max(minTopMargin, Math.min(
-          targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
-          window.innerHeight - tooltipHeight - minBottomMargin
-        ))}px`;
+        const rightSpace = viewportWidth - targetRect.right - offset;
+        if (isSmallScreen || rightSpace < tooltipWidth) {
+          // Not enough space on right, center instead
+          style.top = '50%';
+          style.left = '50%';
+          style.transform = 'translate(-50%, -50%)';
+        } else {
+          style.left = `${Math.min(targetRect.right + offset, viewportWidth - tooltipWidth - minMargin)}px`;
+          style.top = `${Math.max(minMargin, Math.min(
+            targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+            viewportHeight - tooltipHeight - minMargin
+          ))}px`;
+        }
         break;
         
       default:
@@ -337,23 +351,23 @@ export default function OnboardingTour({
 
   return (
     <>
-      {/* Backdrop overlay */}
+      {/* Backdrop overlay - no blur */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000]"
+        className="fixed inset-0 bg-black/50 z-[10000]"
         style={{ animation: 'fadeIn 0.3s ease-in' }}
       />
 
-      {/* Spotlight on target element */}
+      {/* Spotlight on target element - simple border highlight, no masking */}
       {step.target && targetRect && (
         <div
-          className="fixed z-[10001] pointer-events-none"
+          className="fixed z-[10001] pointer-events-none border-4 border-blue-500"
           style={{
-            top: targetRect.top - 8,
-            left: targetRect.left - 8,
-            width: targetRect.width + 16,
-            height: targetRect.height + 16,
-            boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.6)',
-            borderRadius: '8px',
+            top: targetRect.top - 4,
+            left: targetRect.left - 4,
+            width: targetRect.width + 8,
+            height: targetRect.height + 8,
+            borderRadius: '12px',
+            boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5)',
             animation: 'pulse 2s ease-in-out infinite',
           }}
         />
@@ -450,8 +464,14 @@ export default function OnboardingTour({
           to { opacity: 1; }
         }
         @keyframes pulse {
-          0%, 100% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.6); }
-          50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.7), 0 0 0 9999px rgba(0, 0, 0, 0.6); }
+          0%, 100% { 
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5);
+            opacity: 1;
+          }
+          50% { 
+            box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.5), 0 0 30px rgba(59, 130, 246, 0.7);
+            opacity: 0.9;
+          }
         }
       `}</style>
     </>

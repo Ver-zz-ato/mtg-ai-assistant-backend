@@ -14,6 +14,7 @@ import { getImagesForNames } from "@/lib/scryfall";
 import PrivacyDataToggle from "@/components/PrivacyDataToggle";
 import BadgeShareBanner from "@/components/BadgeShareBanner";
 import RateLimitIndicator from "@/components/RateLimitIndicator";
+import { showProToast } from "@/lib/pro-ux";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -512,7 +513,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     })();
   }, [recentDecks.map(d=>d.id).join(',')]);
 
-  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'security'|'billing'>('profile');
+  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
   return (
     <div className="space-y-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Header card with optional signature deck art banner (match public profile) */}
@@ -547,7 +548,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         {/* Left menu */}
         <aside className="col-span-12 md:col-span-3">
           <nav className="rounded-xl border border-neutral-800 p-3 space-y-2 sticky top-4">
-            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['wishlist','Wishlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
+            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['wishlist','Wishlist'],['watchlist','Price Watchlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
               <button key={k} onClick={()=>setTab(k as any)} className={`w-full text-left px-3 py-2 rounded border ${tab===k?'border-emerald-500 bg-emerald-600/10':'border-neutral-800 hover:bg-neutral-900'}`}>{label}</button>
             ))}
           </nav>
@@ -920,6 +921,20 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   </div>
                 </div>
               </details>
+            </section>
+          )}
+          {tab==='watchlist' && (
+            <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold flex items-center gap-2">
+                    Price Watchlist
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>
+                  </div>
+                  <div className="text-sm opacity-80">Track price movements and set target prices for cards you're watching.</div>
+                </div>
+              </div>
+              <MiniWatchlistPanel pro={pro} />
             </section>
           )}
           {tab==='security' && (
@@ -2118,6 +2133,172 @@ function FixNamesModalWishlist({ wishlistId, open, onClose, pro }: { wishlistId:
           <button onClick={apply} disabled={saving || loading || items.length===0 || !pro} className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-xs">Apply</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniWatchlistPanel({ pro }: { pro: boolean }) {
+  const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [addName, setAddName] = React.useState('');
+  const [adding, setAdding] = React.useState(false);
+
+  const loadWatchlist = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/watchlist/list', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok && data.watchlist?.items) {
+        setItems(data.watchlist.items); // Show all items
+      }
+    } catch (e) {
+      console.error('Load watchlist error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadWatchlist();
+  }, []);
+
+  const addCard = async () => {
+    if (!pro) {
+      try { showProToast(); } catch {}
+      return;
+    }
+    
+    const name = addName.trim();
+    if (!name) return;
+
+    try {
+      setAdding(true);
+      const res = await fetch('/api/watchlist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      const data = await res.json();
+      
+      if (data.ok) {
+        setAddName('');
+        await loadWatchlist();
+        try {
+          const { toast } = await import('@/lib/toast-client');
+          toast(`Added ${data.name || name} to watchlist`, 'success');
+        } catch {}
+      } else {
+        throw new Error(data.error || 'Failed to add card');
+      }
+    } catch (e: any) {
+      console.error('Add card error:', e);
+      try {
+        const { toast } = await import('@/lib/toast-client');
+        toast(e?.message || 'Failed to add card', 'error');
+      } catch {}
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const removeCard = async (id: string, name: string) => {
+    if (!pro) return;
+    
+    try {
+      const res = await fetch('/api/watchlist/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (res.ok) {
+        await loadWatchlist();
+        try {
+          const { toast } = await import('@/lib/toast-client');
+          toast(`Removed ${name} from watchlist`, 'success');
+        } catch {}
+      }
+    } catch (e: any) {
+      console.error('Remove card error:', e);
+      try {
+        const { toast } = await import('@/lib/toast-client');
+        toast('Failed to remove card', 'error');
+      } catch {}
+    }
+  };
+
+  if (!pro) {
+    return (
+      <div className="text-sm opacity-70 p-4 bg-neutral-900/50 rounded border border-neutral-800 text-center">
+        <div className="mb-2">💎</div>
+        <div>Price Watchlist is a Pro feature</div>
+        <a href="/pricing" className="text-blue-400 hover:text-blue-300 underline text-xs mt-2 inline-block">
+          Upgrade to Pro
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Quick Add */}
+      <div className="space-y-2">
+        <label className="text-sm block">
+          <div className="opacity-70 mb-1">Quick Add</div>
+          {(() => {
+            const CardAutocomplete = require('@/components/CardAutocomplete').default;
+            return (
+              <CardAutocomplete
+                value={addName}
+                onChange={setAddName}
+                onPick={(name: string) => {
+                  setAddName(name);
+                  setTimeout(() => addCard(), 100);
+                }}
+              />
+            );
+          })()}
+        </label>
+        <button
+          onClick={addCard}
+          disabled={adding || !addName.trim()}
+          className="w-full px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+        >
+          {adding ? 'Adding...' : 'Add to Watchlist'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-sm opacity-70">Loading watchlist...</div>
+      ) : items.length === 0 ? (
+        <div className="text-sm opacity-70 p-4 bg-neutral-900/50 rounded border border-neutral-800">
+          <div className="mb-2">No cards in your watchlist yet.</div>
+          <div className="text-xs">Add cards above to start tracking prices.</div>
+        </div>
+      ) : (
+        <>
+          <ul className="text-sm space-y-1 p-3 bg-neutral-900/50 rounded border border-neutral-800 max-h-64 overflow-y-auto">
+            {items.map((item) => (
+              <li key={item.id} className="flex items-center justify-between gap-2">
+                <span className="flex-1 truncate">{item.name}</span>
+                <button
+                  onClick={() => removeCard(item.id, item.name)}
+                  className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <a
+            href="/watchlist"
+            className="text-sm text-blue-400 hover:text-blue-300 underline block text-center"
+          >
+            → View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
+          </a>
+        </>
+      )}
     </div>
   );
 }
