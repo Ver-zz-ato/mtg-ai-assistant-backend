@@ -33,16 +33,24 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           .eq('id', user.id)
           .single();
         
+        // TEMPORARY DEBUG LOGGING
+        console.log('[ProContext] User ID:', user.id);
+        console.log('[ProContext] Profile query result:', { profile, error });
+        console.log('[ProContext] Metadata pro:', user.user_metadata?.pro);
+        
         if (error) {
           console.error('[ProContext] Failed to fetch Pro status from database:', error);
           // Fallback to metadata if database query fails
           const md: any = user.user_metadata || {};
-          setIsPro(Boolean(md?.is_pro || md?.pro));
+          const fallbackPro = Boolean(md?.is_pro || md?.pro);
+          console.log('[ProContext] Using metadata fallback, isPro:', fallbackPro);
+          setIsPro(fallbackPro);
           return;
         }
         
         // Database is the single source of truth
         const profileIsPro = Boolean(profile?.is_pro);
+        console.log('[ProContext] Final isPro from database:', profileIsPro);
         setIsPro(profileIsPro);
       } catch (err) {
         console.error('[ProContext] Unexpected error:', err);
