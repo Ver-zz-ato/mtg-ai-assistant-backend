@@ -89,9 +89,15 @@ export default function DataPage(){
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="text-xl font-semibold">Data & Pricing</div>
-      <ELI5 heading="Data & Pricing" items={[
-        'Peek at or refresh a single card\'s cached Scryfall entry when something looks stale.',
-        'Kick off maintenance jobs like prewarming caches or building price snapshots.',
+      <ELI5 heading="Data & Pricing Cache Management" items={[
+        '🔍 Card Lookup: Check if a card is cached and what data Scryfall has for it',
+        '🔄 Refresh Cache: Force-update a specific card if data is stale or wrong',
+        '⚡ Prewarm Jobs: Pre-load popular cards so pages load instantly',
+        '💰 Price Snapshots: Daily/weekly jobs to capture card price history',
+        '📊 Bulk Import: Updates ALL 27k+ cached cards with latest Scryfall prices (491MB file)',
+        '⏱️ When to use: User reports wrong price/data, or cache seems outdated',
+        '🔄 How often: Bulk import runs weekly automatically; manual refresh as needed',
+        '💡 Each job shows when it last ran successfully',
         'Future: a heatmap to spot big price swings.'
       ]} />
 

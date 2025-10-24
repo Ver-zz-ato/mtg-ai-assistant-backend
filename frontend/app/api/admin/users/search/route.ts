@@ -27,14 +27,28 @@ export async function GET(req: NextRequest){
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
 
+    // Fetch profiles data for Pro status (single source of truth)
+    const userIds = (data?.users || []).map((u:any) => u.id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, is_pro, pro_plan')
+      .in('id', userIds);
+    
+    const profilesMap = new Map((profiles || []).map((p:any) => [p.id, p]));
+
     const needle = norm(q);
     const users = (data?.users || []).map((u:any) => {
       const um = (u?.user_metadata || {}) as any;
       const avatar = um.avatar || um.avatar_url || null;
       const username = um.username || um.display_name || null;
-      const pro = !!um.pro;
+      
+      // Read Pro status from profiles table (single source of truth)
+      const profile = profilesMap.get(u.id);
+      const pro = profile ? !!profile.is_pro : !!um.pro; // Fallback to user_metadata if profile missing
+      const pro_plan = profile?.pro_plan || null;
+      
       const billing_active = !!um.billing_active;
-      return { id: u.id, email: u.email, username, avatar, pro, billing_active } as any;
+      return { id: u.id, email: u.email, username, avatar, pro, pro_plan, billing_active } as any;
     }).filter((u:any) => {
       if (!needle) return true;
       return [u.id, u.email, u.username].some(v => norm(v||"").includes(needle));

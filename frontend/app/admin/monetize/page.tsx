@@ -29,7 +29,15 @@ export default function AdminMonetizePage() {
   return (
     <div className="max-w-xl mx-auto p-4 space-y-3">
       <h1 className="text-xl font-semibold">Admin • Monetization</h1>
-      <ELI5 heading="Monetization" items={["Show or hide donation/payment buttons across the site.", "Saved as app_config → monetize; no deploy needed."]} />
+      <ELI5 heading="Monetization Controls" items={[
+        "💳 Toggle Payment Buttons: Show/hide Ko-fi, PayPal, Stripe links across the site",
+        "💰 Instant Effect: Changes apply immediately - no deploy needed!",
+        "🎯 Use Cases: Disable a payment provider if having issues, test different combinations",
+        "⚙️ Saved in app_config → monetize key",
+        "⏱️ When to use: Changing payment providers, temporarily disabling payments",
+        "🔄 How often: Rarely - only when payment provider status changes",
+        "💡 Users see these buttons in footer, pricing page, and support page"
+      ]} />
       <p className="text-sm opacity-80">Toggle which donation/payment buttons are visible. Saved in app_config → key "monetize".</p>
 
       <label className="flex items-center gap-2"><input type="checkbox" checked={cfg.stripe} onChange={e=>setCfg(p=>({...p, stripe: e.target.checked}))}/> <span>Stripe</span></label>

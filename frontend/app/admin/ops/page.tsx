@@ -144,9 +144,16 @@ export default function OpsPage() {
           <div className="text-center py-4 opacity-60">Loading health data...</div>
         )}
       </section>
-      <ELI5 heading="Ops & Safety" items={[
-        'Flip features on or off (kill switches) when something misbehaves.',
-        'Show a maintenance banner or fully pause the app if needed.',
+      <ELI5 heading="Ops & Safety - EMERGENCY CONTROLS" items={[
+        '🚨 DANGER ZONE: Kill switches for broken features',
+        '🔴 Maintenance Mode: Show banner or completely pause the app',
+        '💰 LLM Budget Limits: Set daily/weekly AI spending caps to prevent runaway costs',
+        '📊 Audit Pinboard: Recent errors, security events, suspicious activity',
+        '⚠️ Feature Flags: widgets, chat_extras, risky_betas - toggle on/off',
+        '⏱️ When to use: ONLY DURING EMERGENCIES - bad deploy, security issue, cost spike',
+        '🔄 How often: Never (hopefully!), or immediately when something breaks',
+        '🛑 Use rollback-snapshot for database disasters',
+        '💡 This is your nuclear option - use carefully!',
         'Put a hard daily/weekly cost cap for LLM usage to avoid surprise bills.',
         'If pricing data goes wrong, rollback to yesterday\'s snapshot with one click.'
       ]} />

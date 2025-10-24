@@ -249,38 +249,39 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   async function remove(id: string, name: string, qty: number) {
     if (!deckId) return;
     
-    // Use undo toast instead of confirm dialog
+    // INSTANT UPDATE: Remove from UI immediately (optimistic)
+    const cardToRemove = cards.find(c => c.id === id);
+    if (!cardToRemove) return;
+    
+    setCards(prev => prev.filter(c => c.id !== id));
+    
+    // Use undo toast with 8 second window
     const { undoToastManager } = await import('@/lib/undo-toast');
     
     undoToastManager.showUndo({
       id: `remove-card-${id}`,
-      message: `Removing ${qty}x ${name} from deck`,
-      duration: 7000,
+      message: `Removed ${qty}x ${name}`,
+      duration: 8000, // 8 seconds as requested
       onUndo: async () => {
-        // Re-add the card
-        try {
-          await fetch(`/api/decks/cards`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deckId, name, qty }),
-          });
-          window.dispatchEvent(new CustomEvent("toast", { detail: `Restored ${qty}x ${name}` }));
-          await load();
-          try { window.dispatchEvent(new Event('deck:changed')); } catch {}
-        } catch (e) {
-          console.error('Failed to undo remove:', e);
-          alert('Failed to undo removal');
-        }
+        // Restore card to UI immediately
+        setCards(prev => [...prev, cardToRemove]);
+        
+        // Don't need to call API - card was never actually deleted yet
+        window.dispatchEvent(new CustomEvent("toast", { detail: `Restored ${qty}x ${name}` }));
+        try { window.dispatchEvent(new Event('deck:changed')); } catch {}
       },
       onExecute: async () => {
-        // Actually remove the card
-        setBusyId(id);
+        // Actually delete from database (only runs if undo not clicked within 8 seconds)
         try {
           const res = await fetch(`/api/decks/cards?id=${encodeURIComponent(id)}&deckid=${encodeURIComponent(deckId)}`, {
             method: "DELETE",
           });
           const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
-          if (!json.ok) throw new Error(json.error || "Delete failed");
+          if (!json.ok) {
+            // If delete fails, restore the card
+            setCards(prev => [...prev, cardToRemove]);
+            throw new Error(json.error || "Delete failed");
+          }
           
           // Track card removal
           capture('deck_card_removed', {
@@ -289,12 +290,11 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
             quantity: qty,
           });
           
-          await load();
           try { window.dispatchEvent(new Event('deck:changed')); } catch {}
         } catch (e: any) {
-          alert(e?.message || "Error");
-        } finally {
-          setBusyId(null);
+          alert(e?.message || "Error deleting card");
+          // Restore on error
+          setCards(prev => [...prev, cardToRemove]);
         }
       },
     });

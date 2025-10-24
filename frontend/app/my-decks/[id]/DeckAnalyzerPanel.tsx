@@ -108,7 +108,19 @@ export default function DeckAnalyzerPanel({ deckId, proAuto }: { deckId: string;
                   <li key={`${m.card}-${i}`} className="flex items-center justify-between gap-2">
                     <span className="truncate"><span className="font-medium">{m.card}</span> <span className="opacity-70">({m.inclusion_rate})</span></span>
                     <button onClick={async()=>{
-                      try { const res = await fetch('/api/decks/cards', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckid: deckId, name: m.card, qty: 1 }) }); const j = await res.json().catch(()=>({})); if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); window.dispatchEvent(new Event('deck:changed')); } catch(e:any){ alert(e?.message||'Add failed'); }
+                      try { 
+                        const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
+                          method:'POST', 
+                          headers:{'content-type':'application/json'}, 
+                          body: JSON.stringify({ name: m.card, qty: 1 }) 
+                        }); 
+                        const j = await res.json().catch(()=>({})); 
+                        if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                        window.dispatchEvent(new Event('deck:changed')); 
+                        window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${m.card}` }));
+                      } catch(e:any){ 
+                        alert(e?.message||'Add failed'); 
+                      }
                     }} className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700">Add</button>
                   </li>
                 ))}

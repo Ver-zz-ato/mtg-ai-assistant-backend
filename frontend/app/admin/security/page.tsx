@@ -18,8 +18,14 @@ export default function SecurityPage(){
     <div className="max-w-5xl mx-auto p-4 space-y-6">
       <div className="text-xl font-semibold">Security & Compliance</div>
       <ELI5 heading="Security & Compliance" items={[
-        'See recent admin actions for accountability.',
-        'Edit allowed hosts for images/scripts via a report‑only CSP.',
+        '🔒 Audit Log: See recent admin actions for accountability and troubleshooting',
+        '🛡️ CSP (Content Security Policy): Control which external domains can load images/scripts',
+        '⚠️ Failed Auth Attempts: Spot suspicious login attempts or brute force attacks',
+        '📊 Rate Limit Monitoring: Track API abuse or bot traffic',
+        '🔍 Security Events: Unusual activity, blocked requests, potential threats',
+        '⏱️ When to use: Weekly security spot-checks, investigating abuse reports',
+        '🔄 How often: Weekly reviews, or immediately after suspicious activity',
+        '💡 Helps catch: Compromised accounts, API abuse, scraping bots, DDoS attempts',
         'Track when sensitive keys were last rotated.'
       ]} />
 

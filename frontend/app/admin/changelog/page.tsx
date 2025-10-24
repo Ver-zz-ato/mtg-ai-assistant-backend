@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ELI5 } from '@/components/AdminHelp';
 
 interface ChangelogEntry {
   version: string;
@@ -123,7 +124,21 @@ export default function AdminChangelogPage() {
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">Changelog Manager</h1>
+          <h1 className="text-2xl font-bold text-white">Admin • Changelog Manager</h1>
+        </div>
+        <div className="mb-6">
+          <ELI5 heading="Public Changelog" items={[
+            "📝 User-Facing Updates: Add changelog entries users see on the /changelog page",
+            "🎯 Announce Features: Document new features, bug fixes, improvements",
+            "🏷️ Version Tracking: Tag releases with version numbers and dates",
+            "✨ Engagement: Keep users informed about what's new and improved",
+            "⏱️ When to use: After every deploy with user-visible changes",
+            "🔄 How often: Every major feature release or bug fix users will notice",
+            "💡 Good practice: Write clear, user-friendly descriptions - avoid technical jargon",
+            "🚀 Types: Features (new stuff), Fixes (bugs squashed), Improvements (better UX), Breaking (major changes)"
+          ]} />
+        </div>
+        <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
             <button 
               onClick={addEntry}

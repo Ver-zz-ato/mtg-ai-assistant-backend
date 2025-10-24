@@ -4,7 +4,7 @@ import { ELI5, HelpTip } from "@/components/AdminHelp";
 
 function norm(s:string){return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 
-type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean; billing_active?: boolean };
+type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean; pro_plan?: string|null; billing_active?: boolean };
 
 export default function AdminUsersPage(){
   const [q, setQ] = React.useState("");
@@ -55,7 +55,18 @@ export default function AdminUsersPage(){
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
       <h1 className="text-xl font-semibold">Admin • Users</h1>
-      <ELI5 heading="Users" items={["Search by email, id, or username.", "Flip a user\'s Pro flag on/off when support needs to grant or revoke access."]} />
+      <ELI5 
+        heading="User Management" 
+        items={[
+          "🔍 Search by email, username, or user ID",
+          "✅ Pro Toggle: Manually grant/revoke Pro status (sets pro_plan='manual')",
+          "💳 Billing Toggle: Enable/disable billing features per user",
+          "📊 Shows Pro plan type: (Manual), (Monthly), or (Yearly)",
+          "⏱️ When to use: Customer support requests, VIP access, testing",
+          "🔄 How often: As needed for support tickets",
+          "💡 Pro status is stored in both profiles.is_pro (database) and user_metadata.pro (auth)"
+        ]} 
+      />
 
       <div className="flex gap-2 items-end">
         <label className="text-sm flex-1">
@@ -93,7 +104,12 @@ export default function AdminUsersPage(){
                 <td className="py-2 px-3 text-center">
                   <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" checked={!!u.pro} onChange={e=>setPro(u.id, e.target.checked)} />
-                    <span className="text-xs opacity-80">{u.pro ? 'Enabled' : 'Disabled'}</span>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs opacity-80">{u.pro ? 'Enabled' : 'Disabled'}</span>
+                      {u.pro && u.pro_plan && (
+                        <span className="text-[10px] opacity-60 uppercase">({u.pro_plan})</span>
+                      )}
+                    </div>
                   </label>
                 </td>
                 <td className="py-2 px-3 text-center">

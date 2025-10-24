@@ -92,11 +92,19 @@ export default function AdminPricingPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Pricing Analytics
+            Admin • Pricing Analytics
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Monitor conversion rates, user growth, and pricing page performance
-          </p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800 space-y-2">
+            <div className="font-semibold text-blue-900 dark:text-blue-200">📊 ELI5: What This Page Does</div>
+            <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
+              <li>• 💰 <strong>Monthly Revenue Tracking:</strong> See how much money Pro subscriptions bring in</li>
+              <li>• 📈 <strong>Conversion Metrics:</strong> How many visitors become paying customers</li>
+              <li>• 🎯 <strong>Upgrade Funnel:</strong> Track clicks on "Upgrade to Pro" buttons</li>
+              <li>• 👥 <strong>User Growth:</strong> Total users vs Pro users over time</li>
+              <li>• ⏱️ <strong>When to use:</strong> Monthly business reviews, pricing strategy decisions</li>
+              <li>• 🔄 <strong>How often:</strong> Weekly/monthly to track growth trends</li>
+            </ul>
+          </div>
         </div>
 
         {/* Time Range Selector */}

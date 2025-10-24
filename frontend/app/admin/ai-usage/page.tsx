@@ -166,10 +166,16 @@ export default function AdminAIUsagePage() {
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-4">
       <h1 className="text-xl font-semibold">Admin • AI Usage</h1>
-      <ELI5 heading="AI Usage" items={[
-        'See message/token/cost totals over a time window.',
-        'Slice by model/day/user; export CSVs.',
-        'Warm Scryfall cache and build price snapshots when needed.'
+      <ELI5 heading="AI Usage & Cost Monitoring" items={[
+        '💸 Cost Tracking: See total AI API spend per user, per model, per day',
+        '📊 Token Usage: Monitor input/output tokens to understand what\'s expensive',
+        '🤖 Model Breakdown: Which AI models cost the most (GPT-4, Claude, etc.)',
+        '👤 User Analysis: Find power users or cost outliers - click a user to filter',
+        '📉 Price Snapshot Status: Check if daily price caching is working',
+        '📥 Export CSVs: Download data for external analysis',
+        '⏱️ When to use: Weekly/monthly budget reviews, investigating cost spikes',
+        '🔄 How often: Monthly for budget planning, daily if costs are high',
+        '💡 Helps decide: Should you rate-limit expensive features or adjust pricing?'
       ]} />
 
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">

@@ -70,8 +70,13 @@ export default function BackupsPage() {
       <div className="text-xl font-semibold">Database Backups & Recovery</div>
       
       <ELI5 heading="Database Backup System" items={[
-        'Daily automated backups ensure data protection against disasters.',
-        'Supabase provides point-in-time recovery for the last 7 days.',
+        '🛡️ Safety Net: Manually create database snapshots before risky changes',
+        '📅 Daily automated backups run automatically (no action needed)',
+        '⏪ Point-in-time recovery: Supabase keeps 7 days of backup history',
+        '🧪 Test Restore: Verify backups work without affecting production',
+        '⏱️ When to use: Before migrations, major schema changes, or risky updates',
+        '🔄 How often: Weekly manual backups for peace of mind, or before big changes',
+        '🚨 Emergency: If production breaks, you can roll back using these snapshots',
         'Test restore procedures regularly to verify backup integrity.',
         'Keep documentation updated for emergency recovery scenarios.'
       ]} />
