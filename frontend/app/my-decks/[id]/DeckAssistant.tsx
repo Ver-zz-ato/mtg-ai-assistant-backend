@@ -12,7 +12,7 @@ import {
   type ChatSource 
 } from "@/lib/chat/enhancements";
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
-import { getImagesForNames, type ImageInfo } from "@/lib/scryfall";
+import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };

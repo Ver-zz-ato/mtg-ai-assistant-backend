@@ -1,6 +1,5 @@
 // lib/chat/cardImageDetector.ts
-// Smart card name extraction for displaying card images in chat
-// Only extracts cards that appear in meaningful contexts (suggestions, lists, comparisons)
+// Intelligently extract card names from AI responses for image display
 
 export type ExtractedCard = {
   name: string;
@@ -9,14 +8,8 @@ export type ExtractedCard = {
 };
 
 /**
- * Extract card names from AI responses, but only when they appear in meaningful contexts
- * 
- * Extracts from:
- * - Numbered/bulleted lists: "1. Sol Ring" or "- Sol Ring"
- * - Explicit suggestions: "Add: Sol Ring", "Consider Sol Ring", "Try Sol Ring"
- * - Comparisons: "Sol Ring vs Arcane Signet"
- * 
- * Ignores casual mentions: "Sol Ring is powerful" (no context markers)
+ * Extract card names from AI response text
+ * ONLY extracts from numbered/bulleted lists to avoid false positives
  */
 export function extractCardsForImages(text: string): ExtractedCard[] {
   const cards: ExtractedCard[] = [];
@@ -26,66 +19,27 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     const line = lines[i].trim();
     if (!line) continue;
     
-    // Pattern 1: Numbered lists - "1. Sol Ring" or "1) Sol Ring"
-    const numberedMatch = line.match(/^(\d+)[\.\)]\s+([^-:\n]+?)(?:\s*[-:]|$)/);
+    // ONLY extract from numbered/bulleted lists with card descriptions
+    // Pattern 1: Numbered lists - "1. **Cultivate** - Description" or "1. Cultivate - Description"
+    const numberedMatch = line.match(/^(\d+)[\.\)]\s+(?:\*\*)?([A-Z][^*\-:\n]{2,45}?)(?:\*\*)?\s*[-:—]/);
     if (numberedMatch) {
       let cardName = numberedMatch[2].trim();
-      // Strip markdown formatting (bold, italic, etc.)
-      cardName = stripMarkdown(cardName);
-      if (isValidCardName(cardName)) {
-        cards.push({ name: cardName, context: 'list', lineNumber: i });
-        continue;
-      }
-    }
-    
-    // Pattern 2: Bulleted lists - "- Sol Ring" or "* Sol Ring"
-    const bulletMatch = line.match(/^[\-\*\•]\s+([^-:\n]+?)(?:\s*[-:]|$)/);
-    if (bulletMatch) {
-      let cardName = bulletMatch[1].trim();
-      // Strip markdown formatting
-      cardName = stripMarkdown(cardName);
-      if (isValidCardName(cardName)) {
-        cards.push({ name: cardName, context: 'list', lineNumber: i });
-        continue;
-      }
-    }
-    
-    // Pattern 3: Explicit suggestions - "Add: Sol Ring", "Consider Sol Ring", "Try Sol Ring"
-    const suggestionMatch = line.match(/(?:add|consider|try|include|run|play|use):\s*([^,\n]+)/i);
-    if (suggestionMatch) {
-      let cardName = suggestionMatch[1].trim();
-      cardName = stripMarkdown(cardName);
-      if (isValidCardName(cardName)) {
-        cards.push({ name: cardName, context: 'suggestion', lineNumber: i });
-        continue;
-      }
-    }
-    
-    // Pattern 4: Verb-driven suggestions - "Consider adding Sol Ring"
-    const verbMatch = line.match(/(?:consider|try|add|include|run|play|use)\s+(?:adding|running|playing|using)?\s*([A-Z][^,.\n]{2,40}?)(?:\s+(?:to|for|in)|[,.]|$)/i);
-    if (verbMatch) {
-      let cardName = verbMatch[1].trim();
       cardName = stripMarkdown(cardName);
       if (isValidCardName(cardName) && !isCommonPhrase(cardName)) {
-        cards.push({ name: cardName, context: 'suggestion', lineNumber: i });
+        cards.push({ name: cardName, context: 'list', lineNumber: i });
         continue;
       }
     }
     
-    // Pattern 5: Comparisons - "Sol Ring vs Arcane Signet" or "Sol Ring or Arcane Signet"
-    const comparisonMatch = line.match(/([A-Z][^,\n]{2,40}?)\s+(?:vs\.?|versus|or|instead of)\s+([A-Z][^,\n]{2,40}?)(?:[,.\n]|$)/i);
-    if (comparisonMatch) {
-      let card1 = comparisonMatch[1].trim();
-      let card2 = comparisonMatch[2].trim();
-      card1 = stripMarkdown(card1);
-      card2 = stripMarkdown(card2);
-      if (isValidCardName(card1) && !isCommonPhrase(card1)) {
-        cards.push({ name: card1, context: 'comparison', lineNumber: i });
+    // Pattern 2: Bulleted lists - "- **Sol Ring** - Description" or "* Sol Ring - Description"
+    const bulletMatch = line.match(/^[\-\*\•]\s+(?:\*\*)?([A-Z][^*\-:\n]{2,45}?)(?:\*\*)?\s*[-:—]/);
+    if (bulletMatch) {
+      let cardName = bulletMatch[1].trim();
+      cardName = stripMarkdown(cardName);
+      if (isValidCardName(cardName) && !isCommonPhrase(cardName)) {
+        cards.push({ name: cardName, context: 'list', lineNumber: i });
+        continue;
       }
-      if (isValidCardName(card2) && !isCommonPhrase(card2)) {
-        cards.push({ name: card2, context: 'comparison', lineNumber: i });
-      }
-      continue;
     }
   }
   
@@ -98,28 +52,28 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     return true;
   });
   
-  // Limit to 10 cards per message to avoid overwhelming the UI
+  // Limit to 10 cards per message
   return unique.slice(0, 10);
 }
 
 /**
- * Check if a string is likely a valid card name
+ * Check if a string is a valid card name
  */
-function isValidCardName(name: string): boolean {
-  if (!name) return false;
+function isValidCardName(text: string): boolean {
+  // Must start with a letter or number
+  if (!/^[A-Za-z0-9]/.test(text)) return false;
   
-  // Must be between 2 and 50 characters
-  if (name.length < 2 || name.length > 50) return false;
+  // Must be between 2 and 45 characters
+  if (text.length < 2 || text.length > 45) return false;
   
-  // Should start with a capital letter or number
-  if (!/^[A-Z0-9]/.test(name)) return false;
+  // Should not contain sentence-ending punctuation
+  if (/[!?;]/.test(text)) return false;
   
-  // Should contain at least one letter
-  if (!/[a-zA-Z]/.test(name)) return false;
+  // Should not be all lowercase (card names are title case)
+  if (text === text.toLowerCase()) return false;
   
-  // Should not contain excessive punctuation
-  const punctuationCount = (name.match(/[.,;:!?]/g) || []).length;
-  if (punctuationCount > 2) return false;
+  // Should not end with common sentence fragments
+  if (/\b(and|or|the|to|for|with|from|in|on|at)$/i.test(text)) return false;
   
   return true;
 }
@@ -159,9 +113,18 @@ function isCommonPhrase(text: string): boolean {
     'combat trick', 'removal spell',
     'the commander', 'your commander',
     'turn one', 'turn two', 'turn three',
-    'each turn', 'each player', 'each opponent'
+    'each turn', 'each player', 'each opponent',
+    'play it', 'use it', 'run it',
+    'mana ramp', 'mana rock',
+    'first turn', 'powerful spells'
   ];
   
-  return commonPhrases.some(phrase => lower.includes(phrase));
+  // Check if it's a common phrase
+  if (commonPhrases.some(phrase => lower.includes(phrase))) return true;
+  
+  // Check if it's a full sentence (has many words)
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount > 6) return true; // Card names are rarely more than 6 words
+  
+  return false;
 }
-
