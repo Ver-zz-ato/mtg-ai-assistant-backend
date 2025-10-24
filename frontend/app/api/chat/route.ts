@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
       const guestCheck = await checkGuestMessageLimit(guestMessageCount);
       if (!guestCheck.allowed) {
         status = 401;
-        return err(`Please sign in to continue chatting. You've reached the 20 message limit for guest users.`, "guest_limit_reached", 401);
+        return err(`Please sign in to continue chatting. You've reached the 50 message limit for guest users.`, "guest_limit_reached", 401);
       }
       isGuest = true;
       userId = null;

@@ -1077,7 +1077,7 @@ function Chat() {
             <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">AI Assistant</h1>
             {isLoggedIn === false && (
               <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
-                Guest Mode ({guestMessageCount}/20)
+                Guest Mode ({guestMessageCount}/50)
               </span>
             )}
           </div>

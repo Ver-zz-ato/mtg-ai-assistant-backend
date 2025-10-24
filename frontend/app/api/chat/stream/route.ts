@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     // Guest user limit checking
     if (isGuest) {
       const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
-      const GUEST_MESSAGE_LIMIT = 20;
+      const GUEST_MESSAGE_LIMIT = 50;
       
       console.log("[stream] Guest user, message count:", guestMessageCount);
       

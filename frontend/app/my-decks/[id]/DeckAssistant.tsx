@@ -16,6 +16,7 @@ import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 import { parseDeckCommand } from "@/lib/chat/commandParser";
 import { toast } from "@/lib/toast-client";
+import { validateAndNormalizeCardName } from "@/lib/chat/cardValidator";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };
 
@@ -242,7 +243,14 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
         switch (command.type) {
           case 'add':
             for (const card of command.cards) {
-              await addCard(card.name, card.qty);
+              // Validate and normalize card name
+              const validName = await validateAndNormalizeCardName(card.name);
+              if (!validName) {
+                toast(`❌ Card "${card.name}" not found. Check spelling?`, 'error');
+                setBusy(false);
+                return;
+              }
+              await addCard(validName, card.qty);
             }
             toast(`✅ Added ${command.cards[0].name} to deck!`, 'success');
             setText('');
@@ -250,16 +258,38 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
             
           case 'remove':
             for (const card of command.cards) {
-              await removeCard(card.name, card.qty);
+              // Validate and normalize card name
+              const validName = await validateAndNormalizeCardName(card.name);
+              if (!validName) {
+                toast(`❌ Card "${card.name}" not found. Check spelling?`, 'error');
+                setBusy(false);
+                return;
+              }
+              await removeCard(validName, card.qty);
             }
             toast(`✅ Removed ${command.cards[0].name} from deck!`, 'success');
             setText('');
             return;
             
           case 'swap':
-            await removeCard(command.remove, 1);
-            await addCard(command.add, 1);
-            toast(`✅ Swapped ${command.remove} for ${command.add}!`, 'success');
+            // Validate both card names
+            const validRemove = await validateAndNormalizeCardName(command.remove);
+            const validAdd = await validateAndNormalizeCardName(command.add);
+            
+            if (!validRemove) {
+              toast(`❌ Card "${command.remove}" not found. Check spelling?`, 'error');
+              setBusy(false);
+              return;
+            }
+            if (!validAdd) {
+              toast(`❌ Card "${command.add}" not found. Check spelling?`, 'error');
+              setBusy(false);
+              return;
+            }
+            
+            await removeCard(validRemove, 1);
+            await addCard(validAdd, 1);
+            toast(`✅ Swapped ${validRemove} for ${validAdd}!`, 'success');
             setText('');
             return;
         }
