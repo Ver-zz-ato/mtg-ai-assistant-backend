@@ -26,9 +26,10 @@ export async function POST(req: NextRequest) {
     );
 
     // Query scryfall_cache for all names at once (name column is already normalized)
+    // Note: small, normal, art_crop are separate columns, not nested in image_uris
     const { data: cards, error } = await supabase
       .from("scryfall_cache")
-      .select("name, image_uris")
+      .select("name, small, normal, art_crop")
       .in("name", normalizedNames)
       .limit(100);
 
@@ -48,11 +49,10 @@ export async function POST(req: NextRequest) {
         .replace(/\s+/g, " ")
         .trim();
       
-      const imageUris = card.image_uris || {};
       images[normalized] = {
-        small: imageUris.small,
-        normal: imageUris.normal,
-        art_crop: imageUris.art_crop
+        small: card.small || undefined,
+        normal: card.normal || undefined,
+        art_crop: card.art_crop || undefined
       };
     }
 
