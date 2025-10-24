@@ -14,6 +14,8 @@ import {
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
+import { parseDeckCommand } from "@/lib/chat/commandParser";
+import { toast } from "@/lib/toast-client";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };
 
@@ -232,6 +234,42 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       setIsListening(false);
     }
     
+    // Check for direct deck editing commands (Pro feature)
+    const command = parseDeckCommand(text);
+    if (command) {
+      setBusy(true);
+      try {
+        switch (command.type) {
+          case 'add':
+            for (const card of command.cards) {
+              await addCard(card.name, card.qty);
+            }
+            toast(`✅ Added ${command.cards[0].name} to deck!`, 'success');
+            setText('');
+            return;
+            
+          case 'remove':
+            for (const card of command.cards) {
+              await removeCard(card.name, card.qty);
+            }
+            toast(`✅ Removed ${command.cards[0].name} from deck!`, 'success');
+            setText('');
+            return;
+            
+          case 'swap':
+            await removeCard(command.remove, 1);
+            await addCard(command.add, 1);
+            toast(`✅ Swapped ${command.remove} for ${command.add}!`, 'success');
+            setText('');
+            return;
+        }
+      } catch (error: any) {
+        toast(error.message || 'Command failed', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+    
     setBusy(true);
     try {
       const ctx = await deckContext();
@@ -424,6 +462,27 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
         ))}
       </div>
     );
+  }
+  
+  // Helper function for removing cards
+  async function removeCard(name: string, qty: number) {
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, qty })
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to remove card');
+      }
+      
+      // Trigger deck update event
+      window.dispatchEvent(new CustomEvent('deck:changed'));
+    } catch (error) {
+      console.error('Remove card error:', error);
+      throw error;
+    }
   }
   
   // Helper function for adding cards

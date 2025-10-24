@@ -39,3 +39,4 @@ export async function getBulkPrices(cardNames: string[]): Promise<Map<string, nu
   }
 }
 
+

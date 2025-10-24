@@ -122,11 +122,35 @@ async function callOpenAI(userText: string, sys?: string) {
 
 // Guest mode constants
 const GUEST_MESSAGE_LIMIT = 50;
+const FREE_USER_DAILY_LIMIT = 50;
 
 // Check if guest user has exceeded message limit
 async function checkGuestMessageLimit(guestMessageCount: number): Promise<{ allowed: boolean; count: number }> {
   const allowed = guestMessageCount < GUEST_MESSAGE_LIMIT;
   return { allowed, count: guestMessageCount };
+}
+
+// Check if free user has exceeded daily limit
+async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allowed: boolean; count: number }> {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from('chat_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', oneDayAgo);
+    
+    if (error) {
+      console.error('[checkFreeUserLimit] Error:', error);
+      return { allowed: true, count: 0 }; // Allow on error
+    }
+    
+    const messageCount = count || 0;
+    return { allowed: messageCount < FREE_USER_DAILY_LIMIT, count: messageCount };
+  } catch (err) {
+    console.error('[checkFreeUserLimit] Exception:', err);
+    return { allowed: true, count: 0 };
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -156,12 +180,32 @@ export async function POST(req: NextRequest) {
       userId = user.id;
     }
 
+    // Check Pro status
+    let isPro = false;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_pro')
+        .eq('id', userId)
+        .single();
+      isPro = profile?.is_pro || false;
+    }
+
     // Only check rate limits for authenticated users
     if (!isGuest && userId) {
       const rl = await checkRateLimit(supabase as any, userId);
       if (!rl.ok) {
         status = 429;
         return err(rl.error || "rate limited", "rate_limited", status);
+      }
+      
+      // Check daily limits for free users
+      if (!isPro) {
+        const freeCheck = await checkFreeUserLimit(supabase, userId);
+        if (!freeCheck.allowed) {
+          status = 429;
+          return err(`You've reached your daily limit of ${FREE_USER_DAILY_LIMIT} messages. Upgrade to Pro for unlimited messages!`, "free_user_limit", 429);
+        }
       }
     }
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
