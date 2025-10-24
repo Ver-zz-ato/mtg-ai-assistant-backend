@@ -976,61 +976,43 @@ function Chat() {
     setHoverCard(null);
   }
   
-  // Render message content with card images and markdown
+  // Render message content with card images at bottom
   function renderMessageContent(content: string, isAssistant: boolean) {
     if (!isAssistant) {
-      // User messages: just render as plain text
-      return content;
+      // User messages: just render markdown
+      return renderMarkdown(content);
     }
     
     // Extract cards from this message
     const extractedCards = extractCardsForImages(content);
     
-    if (extractedCards.length === 0) {
-      // No cards, just render markdown
-      return renderMarkdown(content);
-    }
-    
-    // Split content into lines
-    const lines = content.split('\n');
-    
     return (
-      <div>
-        {lines.map((line, lineIdx) => {
-          // Check if this line has any extracted cards
-          const lineCards = extractedCards.filter(c => c.lineNumber === lineIdx);
-          
-          if (lineCards.length === 0) {
-            // No cards on this line, render markdown
-            return <div key={lineIdx}>{renderMarkdown(line)}</div>;
-          }
-          
-          // Render line with markdown AND inline card images
-          return (
-            <div key={lineIdx} className="flex items-start gap-2">
-              <span className="flex-1">{renderMarkdown(line)}</span>
-              <div className="flex gap-1 flex-shrink-0">
-                {lineCards.map((card, cardIdx) => {
-                  const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-                  const image = cardImages.get(normalized);
-                  if (!image?.small) return null;
-                  
-                  return (
-                    <img
-                      key={cardIdx}
-                      src={image.small}
-                      alt={card.name}
-                      className="inline-block w-10 h-14 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors"
-                      onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
-                      onMouseLeave={handleCardMouseLeave}
-                      title={card.name}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-3">
+        {/* Main message content */}
+        <div>{renderMarkdown(content)}</div>
+        
+        {/* Card images row at bottom */}
+        {extractedCards.length > 0 && (
+          <div className="flex gap-2 flex-wrap pt-2 border-t border-neutral-600">
+            {extractedCards.map((card, idx) => {
+              const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+              const image = cardImages.get(normalized);
+              if (!image?.small) return null;
+              
+              return (
+                <img
+                  key={idx}
+                  src={image.small}
+                  alt={card.name}
+                  className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
+                  onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
+                  onMouseLeave={handleCardMouseLeave}
+                  title={card.name}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
