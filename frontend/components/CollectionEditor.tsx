@@ -443,10 +443,39 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     reload(); if(delta>0) showToast(`Added x${delta} ${it.name}`); else if(delta<0) showToast(`Removed x${Math.abs(delta)} ${it.name}`);
   }
   async function remove(it: Item){
-    if(!confirm(`Delete ${it.name}?`)) return;
-    const res = await fetch('/api/collections/cards', { method:'DELETE', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id }) });
-    const j = await res.json(); if(!res.ok || !j?.ok){ alert(j?.error||'Delete failed'); return; }
-    reload(); showToast(`Removed ${it.name}`);
+    // INSTANT UPDATE: Remove from UI immediately (optimistic)
+    const previousItems = items;
+    setItems(prev => prev.filter(i => i.id !== it.id));
+    
+    // Use undo toast with 8 second window
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `remove-collection-card-${it.id}`,
+      message: `Removed ${it.name}`,
+      duration: 8000,
+      onUndo: async () => {
+        // Restore card to UI immediately
+        setItems(previousItems);
+        showToast(`Restored ${it.name}`);
+      },
+      onExecute: async () => {
+        // Actually delete from database (only runs if undo not clicked within 8 seconds)
+        try {
+          const res = await fetch('/api/collections/cards', { method:'DELETE', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id }) });
+          const j = await res.json();
+          if(!res.ok || !j?.ok){
+            // If delete fails, restore the card
+            setItems(previousItems);
+            alert(j?.error||'Delete failed');
+          }
+        } catch (e: any) {
+          alert(e?.message || 'Error deleting card');
+          // Restore on error
+          setItems(previousItems);
+        }
+      },
+    });
   }
 
   const totalCards = React.useMemo(()=> items.reduce((s,it)=>s+it.qty,0), [items]);

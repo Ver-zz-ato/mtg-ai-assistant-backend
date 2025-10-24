@@ -76,7 +76,27 @@ export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boo
         {(() => { 
           try {
             const DeckCardRecs = require('@/components/DeckCardRecommendations').default;
-            return <DeckCardRecs deckId={String(deckId)} />;
+            return <DeckCardRecs 
+              deckId={String(deckId)} 
+              onAddCard={async (cardName: string) => {
+                try {
+                  const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: cardName, qty: 1 })
+                  });
+                  const data = await res.json();
+                  if (data.ok) {
+                    window.dispatchEvent(new Event('deck:changed'));
+                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
+                  } else {
+                    alert(data.error || 'Failed to add card');
+                  }
+                } catch (e: any) {
+                  alert(e?.message || 'Failed to add card');
+                }
+              }}
+            />;
           } catch {
             return null;
           }

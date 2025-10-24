@@ -394,7 +394,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   }
 
   async function remove(name:string){
-    // Optimistic update - remove immediately from UI
+    // INSTANT UPDATE: Remove from UI immediately (optimistic)
     const itemToRemove = items.find(it => it.name === name);
     if (!itemToRemove) return;
     
@@ -405,30 +405,38 @@ function WishlistEditor({ pro }: { pro: boolean }) {
     const removedValue = (itemToRemove.unit || 0) * Math.max(0, itemToRemove.qty || 0);
     setTotal(prev => prev - removedValue);
     
-    try{
-      const r = await fetch('/api/wishlists/remove', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name }) });
-      const j = await r.json().catch(()=>({}));
-      
-      if (!r.ok || j?.ok===false) {
-        // Revert optimistic update
+    // Use undo toast with 8 second window
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `remove-wishlist-${name}`,
+      message: `Removed ${name} from wishlist`,
+      duration: 8000,
+      onUndo: async () => {
+        // Restore card to UI immediately
         setItems(previousItems);
         setTotal(previousTotal);
-        
-        const retry = confirm(`Failed to remove ${name}. Retry?`);
-        if (retry) {
-          remove(name);
+      },
+      onExecute: async () => {
+        // Actually delete from database (only runs if undo not clicked within 8 seconds)
+        try{
+          const r = await fetch('/api/wishlists/remove', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name }) });
+          const j = await r.json().catch(()=>({}));
+          
+          if (!r.ok || j?.ok===false) {
+            // If delete fails, restore the card
+            setItems(previousItems);
+            setTotal(previousTotal);
+            alert(`Failed to remove ${name}`);
+          }
+        } catch(e:any){
+          // Restore on network error
+          setItems(previousItems);
+          setTotal(previousTotal);
+          alert(e?.message || 'Remove failed');
         }
-      }
-    } catch(e:any){
-      // Revert on network error
-      setItems(previousItems);
-      setTotal(previousTotal);
-      
-      const retry = confirm(`Network error removing ${name}. Retry?`);
-      if (retry) {
-        remove(name);
-      }
-    }
+      },
+    });
   }
 
   async function inlineFix(name:string){

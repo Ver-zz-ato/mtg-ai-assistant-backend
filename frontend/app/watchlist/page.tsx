@@ -254,24 +254,48 @@ function WatchlistEditor() {
   };
 
   const removeCard = async (id: string) => {
-    try {
-      const res = await fetch('/api/watchlist/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      
-      const data = await res.json();
-      
-      if (data.ok) {
-        await loadWatchlist();
-      } else {
-        setError(data.error || 'Failed to remove card');
-      }
-    } catch (e: any) {
-      console.error('Remove error:', e);
-      setError(e?.message || 'Remove failed');
-    }
+    // INSTANT UPDATE: Remove from UI immediately (optimistic)
+    const cardToRemove = items.find(i => i.id === id);
+    if (!cardToRemove) return;
+    
+    const previousItems = items;
+    setItems(prev => prev.filter(i => i.id !== id));
+    
+    // Use undo toast with 8 second window
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    
+    undoToastManager.showUndo({
+      id: `remove-watchlist-${id}`,
+      message: `Removed ${cardToRemove.name} from watchlist`,
+      duration: 8000,
+      onUndo: async () => {
+        // Restore card to UI immediately
+        setItems(previousItems);
+      },
+      onExecute: async () => {
+        // Actually delete from database (only runs if undo not clicked within 8 seconds)
+        try {
+          const res = await fetch('/api/watchlist/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+          });
+          
+          const data = await res.json();
+          
+          if (!data.ok) {
+            // If delete fails, restore the card
+            setItems(previousItems);
+            setError(data.error || 'Failed to remove card');
+          }
+        } catch (e: any) {
+          console.error('Remove error:', e);
+          setError(e?.message || 'Remove failed');
+          // Restore on error
+          setItems(previousItems);
+        }
+      },
+    });
   };
 
   const updateTargetPrice = async (id: string, newTarget: number | null) => {
