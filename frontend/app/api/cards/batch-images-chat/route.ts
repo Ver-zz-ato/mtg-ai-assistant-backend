@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
         .trim()
     );
 
-    // Query scryfall_cache for all names at once
+    // Query scryfall_cache for all names at once (name column is already normalized)
     const { data: cards, error } = await supabase
       .from("scryfall_cache")
       .select("name, image_uris")
-      .in("name_lower", normalizedNames)
+      .in("name", normalizedNames)
       .limit(100);
 
     if (error) {
