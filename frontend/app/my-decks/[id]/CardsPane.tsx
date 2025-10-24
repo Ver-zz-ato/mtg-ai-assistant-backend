@@ -25,7 +25,14 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     setStatus(null);
   }
 
-  useEffect(() => { load(); }, [deckId]);
+  useEffect(() => { 
+    load(); 
+    
+    // Listen for deck changes from other components (AI suggestions, etc.)
+    const handleDeckChange = () => load();
+    window.addEventListener('deck:changed', handleDeckChange);
+    return () => window.removeEventListener('deck:changed', handleDeckChange);
+  }, [deckId]);
 
   async function add(name: string | { name: string }, qty: number) {
     if (!deckId) return;

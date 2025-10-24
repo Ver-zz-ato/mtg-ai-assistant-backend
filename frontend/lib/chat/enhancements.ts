@@ -21,7 +21,7 @@ export type ChatSource = {
 export type ActionChip = {
   id: string;
   label: string;
-  action: 'add_to_deck' | 'budget_swaps' | 'view_scryfall' | 'run_probability' | 'open_ctf';
+  action: 'add_to_deck' | 'budget_swaps' | 'view_scryfall' | 'run_probability' | 'open_ctf' | 'add_to_watchlist' | 'add_to_wishlist' | 'check_collection' | 'view_price' | 'test_hand';
   data?: any;
   prefill?: any;
   icon?: string;
@@ -195,7 +195,7 @@ export function extractCardNames(text: string): string[] {
 export function generateActionChips(
   responseText: string, 
   linkedDeckId?: string | null,
-  context?: { format?: string; colors?: string[] }
+  context?: { format?: string; colors?: string[]; checkCollections?: boolean }
 ): ActionChip[] {
   const chips: ActionChip[] = [];
   const cardNames = extractCardNames(responseText);
@@ -254,8 +254,63 @@ export function generateActionChips(
       prefill: { deckId: linkedDeckId }
     });
   }
+  
+  // Track Price (watchlist) - if discussing prices
+  if (/\b(price|cost|expensive|cheap|budget|track|worth)\b/i.test(responseText) && cardNames.length > 0) {
+    chips.push({
+      id: 'add_to_watchlist',
+      label: 'Track Price',
+      action: 'add_to_watchlist',
+      icon: '📊',
+      data: { cards: cardNames.slice(0, 3) }
+    });
+  }
+  
+  // Add to Wishlist - if suggesting cards or discussing wants
+  if (/\b(want|need|wishlist|acquire|buy|purchase)\b/i.test(responseText) && cardNames.length > 0) {
+    chips.push({
+      id: 'add_to_wishlist',
+      label: 'Add to Wishlist',
+      action: 'add_to_wishlist',
+      icon: '⭐',
+      data: { cards: cardNames.slice(0, 3) }
+    });
+  }
+  
+  // Check Collection - if suggesting cards and context allows
+  if (cardNames.length > 0 && context?.checkCollections) {
+    chips.push({
+      id: 'check_collection',
+      label: 'Check Ownership',
+      action: 'check_collection',
+      icon: '🗂️',
+      data: { cards: cardNames.slice(0, 5) }
+    });
+  }
+  
+  // View Price - if mentioning specific card prices
+  if (/\$|£|€/.test(responseText) && cardNames.length > 0) {
+    chips.push({
+      id: 'view_price',
+      label: `Price: ${cardNames[0]}`,
+      action: 'view_price',
+      icon: '💰',
+      data: { cardName: cardNames[0] }
+    });
+  }
+  
+  // Test Hand (mulligan tool) - if discussing opening hands
+  if (linkedDeckId && /\b(hand|mulligan|opening|keep|starting)\b/i.test(responseText)) {
+    chips.push({
+      id: 'test_hand',
+      label: 'Test Hands',
+      action: 'test_hand',
+      icon: '🎲',
+      prefill: { deckId: linkedDeckId }
+    });
+  }
 
-  return chips.slice(0, 4); // Limit to 4 chips max
+  return chips.slice(0, 5); // Limit to 5 chips max
 }
 
 /**

@@ -31,6 +31,8 @@ import {
   type ActionChip,
   type ChatSource 
 } from "@/lib/chat/enhancements";
+import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
+import { getImagesForNames, type ImageInfo } from "@/lib/scryfall";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -105,6 +107,10 @@ function Chat() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking, false = guest, true = logged in
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
+  
+  // Card image states
+  const [cardImages, setCardImages] = useState<Map<string, ImageInfo>>(new Map());
+  const [hoverCard, setHoverCard] = useState<{ name: string; x: number; y: number; src: string } | null>(null);
   
   const recognitionRef = useRef<any>(null);
   const streamStartTimeRef = useRef<number>(0);
@@ -296,6 +302,35 @@ function Chat() {
       }
     };
   }, [isLoggedIn]);
+  
+  // Extract and fetch card images from assistant messages
+  useEffect(() => {
+    (async () => {
+      try {
+        const assistantMessages = messages.filter(m => m.role === 'assistant');
+        if (assistantMessages.length === 0) return;
+        
+        // Extract cards from all assistant messages
+        const allCards: string[] = [];
+        for (const msg of assistantMessages) {
+          const extracted = extractCardsForImages(msg.content || '');
+          extracted.forEach(card => {
+            if (!allCards.includes(card.name)) {
+              allCards.push(card.name);
+            }
+          });
+        }
+        
+        if (allCards.length === 0) return;
+        
+        // Fetch images for extracted cards
+        const imagesMap = await getImagesForNames(allCards);
+        setCardImages(imagesMap);
+      } catch (error) {
+        console.warn('Failed to fetch card images:', error);
+      }
+    })();
+  }, [messages]);
 
   // Deck linking
   useEffect(() => {
@@ -468,10 +503,15 @@ function Chat() {
     setText("");
     setBusy(true);
     const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setMessages((m: any) => [
-      ...m,
-      { id: userMsgId, thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
-    ]);
+    
+    // For guest users, add message to UI immediately
+    // For logged-in users, message will be added later after thread creation to avoid duplicates
+    if (!isLoggedIn) {
+      setMessages((m: any) => [
+        ...m,
+        { id: userMsgId, thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
+      ]);
+    }
 
     // Track analytics
     const streamStartTime = Date.now();
@@ -917,6 +957,75 @@ function Chat() {
     );
   }
 
+  // Card image hover handlers
+  function handleCardMouseEnter(e: React.MouseEvent, cardName: string) {
+    const image = cardImages.get(cardName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
+    if (!image?.normal) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoverCard({
+      name: cardName,
+      x: rect.right + 10,
+      y: rect.top,
+      src: image.normal
+    });
+  }
+  
+  function handleCardMouseLeave() {
+    setHoverCard(null);
+  }
+  
+  // Render message content with card images
+  function renderMessageContent(content: string, isAssistant: boolean) {
+    if (!isAssistant) return content;
+    
+    // Extract cards from this message
+    const extractedCards = extractCardsForImages(content);
+    if (extractedCards.length === 0) return content;
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    
+    return (
+      <div>
+        {lines.map((line, lineIdx) => {
+          // Check if this line has any extracted cards
+          const lineCards = extractedCards.filter(c => c.lineNumber === lineIdx);
+          
+          if (lineCards.length === 0) {
+            return <div key={lineIdx}>{line}</div>;
+          }
+          
+          // Render line with inline card images
+          return (
+            <div key={lineIdx} className="flex items-start gap-2">
+              <span className="flex-1">{line}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                {lineCards.map((card, cardIdx) => {
+                  const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                  const image = cardImages.get(normalized);
+                  if (!image?.small) return null;
+                  
+                  return (
+                    <img
+                      key={cardIdx}
+                      src={image.small}
+                      alt={card.name}
+                      className="inline-block w-10 h-14 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors"
+                      onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
+                      onMouseLeave={handleCardMouseLeave}
+                      title={card.name}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  
   function ManaIcon({ c, active }: { c: 'W'|'U'|'B'|'R'|'G'; active: boolean }){
     const srcCdn = c==='W' ? 'https://svgs.scryfall.io/card-symbols/W.svg'
       : c==='U' ? 'https://svgs.scryfall.io/card-symbols/U.svg'
@@ -1113,7 +1222,7 @@ function Chat() {
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                     <span>{isAssistant ? 'assistant' : (displayName || 'you')}</span>
                   </div>
-                  <div className="leading-relaxed">{m.content}</div>
+                  <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
                   {isAssistant && (
                     <div className="mt-2">
                       <InlineFeedback msgId={String(m.id)} content={String(m.content || '')} />
@@ -1280,6 +1389,20 @@ function Chat() {
         onClose={() => setShowGuestLimitModal(false)}
         messageCount={guestMessageCount}
       />
+      
+      {/* Card hover preview */}
+      {hoverCard && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{ left: hoverCard.x, top: hoverCard.y }}
+        >
+          <img
+            src={hoverCard.src}
+            alt={hoverCard.name}
+            className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
+          />
+        </div>
+      )}
     </div>
   );
 }

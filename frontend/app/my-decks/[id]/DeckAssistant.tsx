@@ -11,6 +11,8 @@ import {
   type ActionChip,
   type ChatSource 
 } from "@/lib/chat/enhancements";
+import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
+import { getImagesForNames, type ImageInfo } from "@/lib/scryfall";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };
 
@@ -37,6 +39,10 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
   const [teaching, setTeaching] = React.useState<boolean>(false);
   const [isListening, setIsListening] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
+  
+  // Card image states
+  const [cardImages, setCardImages] = React.useState<Map<string, ImageInfo>>(new Map());
+  const [hoverCard, setHoverCard] = React.useState<{ name: string; x: number; y: number; src: string } | null>(null);
 
   async function deckContext(): Promise<string> {
     try {
@@ -88,6 +94,35 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       setMsgs(arr.map((m:any)=>({ id: m.id, role: m.role, content: m.content })) as Msg[]);
     } catch {}
   }
+  
+  // Extract and fetch card images from assistant messages
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const assistantMessages = msgs.filter(m => m.role === 'assistant');
+        if (assistantMessages.length === 0) return;
+        
+        // Extract cards from all assistant messages
+        const allCards: string[] = [];
+        for (const msg of assistantMessages) {
+          const extracted = extractCardsForImages(msg.content || '');
+          extracted.forEach(card => {
+            if (!allCards.includes(card.name)) {
+              allCards.push(card.name);
+            }
+          });
+        }
+        
+        if (allCards.length === 0) return;
+        
+        // Fetch images for extracted cards
+        const imagesMap = await getImagesForNames(allCards);
+        setCardImages(imagesMap);
+      } catch (error) {
+        console.warn('Failed to fetch card images:', error);
+      }
+    })();
+  }, [msgs]);
 
   function parseAdds(s: string): Array<{ qty:number; name:string }> {
     const out: Array<{qty:number; name:string}> = [];
@@ -256,6 +291,75 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
     finally { setBusy(false); setText(''); }
   }
 
+  // Card image hover handlers
+  function handleCardMouseEnter(e: React.MouseEvent, cardName: string) {
+    const image = cardImages.get(cardName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
+    if (!image?.normal) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoverCard({
+      name: cardName,
+      x: rect.right + 10,
+      y: rect.top,
+      src: image.normal
+    });
+  }
+  
+  function handleCardMouseLeave() {
+    setHoverCard(null);
+  }
+  
+  // Render message content with card images
+  function renderMessageContent(content: string, isAssistant: boolean) {
+    if (!isAssistant) return content;
+    
+    // Extract cards from this message
+    const extractedCards = extractCardsForImages(content);
+    if (extractedCards.length === 0) return content;
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    
+    return (
+      <div>
+        {lines.map((line, lineIdx) => {
+          // Check if this line has any extracted cards
+          const lineCards = extractedCards.filter(c => c.lineNumber === lineIdx);
+          
+          if (lineCards.length === 0) {
+            return <div key={lineIdx}>{line}</div>;
+          }
+          
+          // Render line with inline card images
+          return (
+            <div key={lineIdx} className="flex items-start gap-2">
+              <span className="flex-1">{line}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                {lineCards.map((card, cardIdx) => {
+                  const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                  const image = cardImages.get(normalized);
+                  if (!image?.small) return null;
+                  
+                  return (
+                    <img
+                      key={cardIdx}
+                      src={image.small}
+                      alt={card.name}
+                      className="inline-block w-10 h-14 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors"
+                      onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
+                      onMouseLeave={handleCardMouseLeave}
+                      title={card.name}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  
   // Source attribution component
   function SourceReceipts({ sources }: { sources: ChatSource[] }) {
     if (sources.length === 0) return null;
@@ -469,7 +573,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
           return (
             <div key={m.id} className={m.role==='assistant'?"":"opacity-80"}>
               <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">{m.role==='assistant'? 'assistant' : 'you'}</div>
-              <div className="whitespace-pre-wrap">{m.content}</div>
+              <div className="whitespace-pre-wrap">{renderMessageContent(m.content, m.role === 'assistant')}</div>
               {m.role==='assistant' && (() => {
                 // Generate enhanced features for assistant responses
                 const sources = generateSourceAttribution(m.content, { deckId });
@@ -513,6 +617,20 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
           <button onClick={send} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Send</button>
         </div>
       </div>
+      
+      {/* Card hover preview */}
+      {hoverCard && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{ left: hoverCard.x, top: hoverCard.y }}
+        >
+          <img
+            src={hoverCard.src}
+            alt={hoverCard.name}
+            className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
+          />
+        </div>
+      )}
     </div>
   );
 }

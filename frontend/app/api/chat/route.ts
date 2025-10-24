@@ -121,7 +121,7 @@ async function callOpenAI(userText: string, sys?: string) {
 }
 
 // Guest mode constants
-const GUEST_MESSAGE_LIMIT = 20;
+const GUEST_MESSAGE_LIMIT = 50;
 
 // Check if guest user has exceeded message limit
 async function checkGuestMessageLimit(guestMessageCount: number): Promise<{ allowed: boolean; count: number }> {
