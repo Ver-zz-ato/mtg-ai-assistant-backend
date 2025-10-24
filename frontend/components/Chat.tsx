@@ -34,6 +34,7 @@ import {
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
+import { getBulkPrices } from "@/lib/chat/actions/bulk-prices";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -109,8 +110,9 @@ function Chat() {
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   
-  // Card image states
+  // Card image and price states
   const [cardImages, setCardImages] = useState<Map<string, ImageInfo>>(new Map());
+  const [cardPrices, setCardPrices] = useState<Map<string, number>>(new Map());
   const [hoverCard, setHoverCard] = useState<{ name: string; x: number; y: number; src: string } | null>(null);
   
   const recognitionRef = useRef<any>(null);
@@ -304,7 +306,7 @@ function Chat() {
     };
   }, [isLoggedIn]);
   
-  // Extract and fetch card images from assistant messages
+  // Extract and fetch card images and prices from assistant messages
   useEffect(() => {
     (async () => {
       try {
@@ -324,11 +326,16 @@ function Chat() {
         
         if (allCards.length === 0) return;
         
-        // Fetch images for extracted cards
-        const imagesMap = await getImagesForNames(allCards);
+        // Fetch images and prices in parallel
+        const [imagesMap, pricesMap] = await Promise.all([
+          getImagesForNames(allCards),
+          getBulkPrices(allCards)
+        ]);
+        
         setCardImages(imagesMap);
+        setCardPrices(pricesMap);
       } catch (error) {
-        console.warn('Failed to fetch card images:', error);
+        console.warn('Failed to fetch card data:', error);
       }
     })();
   }, [messages]);
@@ -991,24 +998,31 @@ function Chat() {
         {/* Main message content */}
         <div>{renderMarkdown(content)}</div>
         
-        {/* Card images row at bottom */}
+        {/* Card images row at bottom with price badges */}
         {extractedCards.length > 0 && (
-          <div className="flex gap-2 flex-wrap pt-2 border-t border-neutral-600">
+          <div className="flex gap-3 flex-wrap pt-2 border-t border-neutral-600">
             {extractedCards.map((card, idx) => {
               const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
               const image = cardImages.get(normalized);
+              const price = cardPrices.get(normalized);
               if (!image?.small) return null;
               
               return (
-                <img
-                  key={idx}
-                  src={image.small}
-                  alt={card.name}
-                  className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
-                  onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
-                  onMouseLeave={handleCardMouseLeave}
-                  title={card.name}
-                />
+                <div key={idx} className="relative">
+                  <img
+                    src={image.small}
+                    alt={card.name}
+                    className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
+                    onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
+                    onMouseLeave={handleCardMouseLeave}
+                    title={card.name}
+                  />
+                  {price !== undefined && (
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-lg">
+                      ${price.toFixed(2)}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
