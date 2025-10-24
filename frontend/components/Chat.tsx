@@ -324,8 +324,11 @@ function Chat() {
         
         if (allCards.length === 0) return;
         
+        console.log('[Chat] Extracted card names:', allCards);
+        
         // Fetch images for extracted cards
         const imagesMap = await getImagesForNames(allCards);
+        console.log('[Chat] Fetched images for:', Array.from(imagesMap.keys()));
         setCardImages(imagesMap);
       } catch (error) {
         console.warn('Failed to fetch card images:', error);
@@ -1013,7 +1016,10 @@ function Chat() {
                 {lineCards.map((card, cardIdx) => {
                   const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
                   const image = cardImages.get(normalized);
-                  if (!image?.small) return null;
+                  if (!image?.small) {
+                    console.warn('[Chat] No image found for card:', card.name, 'normalized:', normalized, 'available keys:', Array.from(cardImages.keys()));
+                    return null;
+                  }
                   
                   return (
                     <img
