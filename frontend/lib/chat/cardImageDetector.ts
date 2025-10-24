@@ -29,7 +29,9 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     // Pattern 1: Numbered lists - "1. Sol Ring" or "1) Sol Ring"
     const numberedMatch = line.match(/^(\d+)[\.\)]\s+([^-:\n]+?)(?:\s*[-:]|$)/);
     if (numberedMatch) {
-      const cardName = numberedMatch[2].trim();
+      let cardName = numberedMatch[2].trim();
+      // Strip markdown formatting (bold, italic, etc.)
+      cardName = stripMarkdown(cardName);
       if (isValidCardName(cardName)) {
         cards.push({ name: cardName, context: 'list', lineNumber: i });
         continue;
@@ -39,7 +41,9 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     // Pattern 2: Bulleted lists - "- Sol Ring" or "* Sol Ring"
     const bulletMatch = line.match(/^[\-\*\•]\s+([^-:\n]+?)(?:\s*[-:]|$)/);
     if (bulletMatch) {
-      const cardName = bulletMatch[1].trim();
+      let cardName = bulletMatch[1].trim();
+      // Strip markdown formatting
+      cardName = stripMarkdown(cardName);
       if (isValidCardName(cardName)) {
         cards.push({ name: cardName, context: 'list', lineNumber: i });
         continue;
@@ -49,7 +53,8 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     // Pattern 3: Explicit suggestions - "Add: Sol Ring", "Consider Sol Ring", "Try Sol Ring"
     const suggestionMatch = line.match(/(?:add|consider|try|include|run|play|use):\s*([^,\n]+)/i);
     if (suggestionMatch) {
-      const cardName = suggestionMatch[1].trim();
+      let cardName = suggestionMatch[1].trim();
+      cardName = stripMarkdown(cardName);
       if (isValidCardName(cardName)) {
         cards.push({ name: cardName, context: 'suggestion', lineNumber: i });
         continue;
@@ -59,7 +64,8 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     // Pattern 4: Verb-driven suggestions - "Consider adding Sol Ring"
     const verbMatch = line.match(/(?:consider|try|add|include|run|play|use)\s+(?:adding|running|playing|using)?\s*([A-Z][^,.\n]{2,40}?)(?:\s+(?:to|for|in)|[,.]|$)/i);
     if (verbMatch) {
-      const cardName = verbMatch[1].trim();
+      let cardName = verbMatch[1].trim();
+      cardName = stripMarkdown(cardName);
       if (isValidCardName(cardName) && !isCommonPhrase(cardName)) {
         cards.push({ name: cardName, context: 'suggestion', lineNumber: i });
         continue;
@@ -69,8 +75,10 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     // Pattern 5: Comparisons - "Sol Ring vs Arcane Signet" or "Sol Ring or Arcane Signet"
     const comparisonMatch = line.match(/([A-Z][^,\n]{2,40}?)\s+(?:vs\.?|versus|or|instead of)\s+([A-Z][^,\n]{2,40}?)(?:[,.\n]|$)/i);
     if (comparisonMatch) {
-      const card1 = comparisonMatch[1].trim();
-      const card2 = comparisonMatch[2].trim();
+      let card1 = comparisonMatch[1].trim();
+      let card2 = comparisonMatch[2].trim();
+      card1 = stripMarkdown(card1);
+      card2 = stripMarkdown(card2);
       if (isValidCardName(card1) && !isCommonPhrase(card1)) {
         cards.push({ name: card1, context: 'comparison', lineNumber: i });
       }
@@ -114,6 +122,27 @@ function isValidCardName(name: string): boolean {
   if (punctuationCount > 2) return false;
   
   return true;
+}
+
+/**
+ * Strip markdown formatting from text
+ */
+function stripMarkdown(text: string): string {
+  // Remove bold: **text** or __text__
+  text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+  text = text.replace(/__([^_]+)__/g, '$1');
+  
+  // Remove italic: *text* or _text_
+  text = text.replace(/\*([^*]+)\*/g, '$1');
+  text = text.replace(/_([^_]+)_/g, '$1');
+  
+  // Remove inline code: `text`
+  text = text.replace(/`([^`]+)`/g, '$1');
+  
+  // Remove strikethrough: ~~text~~
+  text = text.replace(/~~([^~]+)~~/g, '$1');
+  
+  return text.trim();
 }
 
 /**

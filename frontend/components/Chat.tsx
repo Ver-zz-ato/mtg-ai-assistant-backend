@@ -33,6 +33,7 @@ import {
 } from "@/lib/chat/enhancements";
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall";
+import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -975,13 +976,20 @@ function Chat() {
     setHoverCard(null);
   }
   
-  // Render message content with card images
+  // Render message content with card images and markdown
   function renderMessageContent(content: string, isAssistant: boolean) {
-    if (!isAssistant) return content;
+    if (!isAssistant) {
+      // User messages: just render as plain text
+      return content;
+    }
     
     // Extract cards from this message
     const extractedCards = extractCardsForImages(content);
-    if (extractedCards.length === 0) return content;
+    
+    if (extractedCards.length === 0) {
+      // No cards, just render markdown
+      return renderMarkdown(content);
+    }
     
     // Split content into lines
     const lines = content.split('\n');
@@ -993,13 +1001,14 @@ function Chat() {
           const lineCards = extractedCards.filter(c => c.lineNumber === lineIdx);
           
           if (lineCards.length === 0) {
-            return <div key={lineIdx}>{line}</div>;
+            // No cards on this line, render markdown
+            return <div key={lineIdx}>{renderMarkdown(line)}</div>;
           }
           
-          // Render line with inline card images
+          // Render line with markdown AND inline card images
           return (
             <div key={lineIdx} className="flex items-start gap-2">
-              <span className="flex-1">{line}</span>
+              <span className="flex-1">{renderMarkdown(line)}</span>
               <div className="flex gap-1 flex-shrink-0">
                 {lineCards.map((card, cardIdx) => {
                   const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
