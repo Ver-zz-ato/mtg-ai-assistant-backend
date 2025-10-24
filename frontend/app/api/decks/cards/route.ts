@@ -142,13 +142,47 @@ export async function DELETE(req: NextRequest) {
   try {
     const sp = new URL(req.url).searchParams;
     const id = sp.get("id") || "";
-    if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
+    const deckId = getDeckId(req.url);
+    
+    // Support deletion by ID or by deck+name
+    if (id) {
+      const supabase = await createClient();
+      const { error } = await supabase.from("deck_cards").delete().eq("id", id);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true, deleted: true });
+    }
+    
+    // Delete by name (for direct commands)
+    const body = await req.json().catch(() => ({}));
+    const name = String(body?.name ?? "").trim();
+    const qty = Math.max(1, Number(body?.qty ?? 1) || 1);
+    
+    if (!deckId || !name) {
+      return NextResponse.json({ ok: false, error: "deckId and name required" }, { status: 400 });
+    }
 
     const supabase = await createClient();
-    const { error } = await supabase.from("deck_cards").delete().eq("id", id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    const { data: existing } = await supabase
+      .from("deck_cards")
+      .select("id, qty")
+      .eq("deck_id", deckId)
+      .eq("name", name)
+      .maybeSingle();
 
-    return NextResponse.json({ ok: true, deleted: true });
+    if (!existing?.id) {
+      return NextResponse.json({ ok: false, error: "Card not found in deck" }, { status: 404 });
+    }
+
+    const newQty = Math.max(0, (existing.qty || 0) - qty);
+    if (newQty <= 0) {
+      const { error } = await supabase.from("deck_cards").delete().eq("id", existing.id);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true, deleted: true });
+    } else {
+      const { error } = await supabase.from("deck_cards").update({ qty: newQty }).eq("id", existing.id);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true, qty: newQty });
+    }
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }

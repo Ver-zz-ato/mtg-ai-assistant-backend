@@ -235,9 +235,11 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       setIsListening(false);
     }
     
-    // Check for direct deck editing commands (Pro feature)
+    // Check for direct deck editing commands FIRST (before sending to chat)
     const command = parseDeckCommand(text);
     if (command) {
+      // Prevent text from being sent to chat
+      setText('');
       setBusy(true);
       try {
         switch (command.type) {
@@ -253,7 +255,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
               await addCard(validName, card.qty);
             }
             toast(`✅ Added ${command.cards[0].name} to deck!`, 'success');
-            setText('');
+            setBusy(false);
             return;
             
           case 'remove':
@@ -268,7 +270,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
               await removeCard(validName, card.qty);
             }
             toast(`✅ Removed ${command.cards[0].name} from deck!`, 'success');
-            setText('');
+            setBusy(false);
             return;
             
           case 'swap':
@@ -290,7 +292,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
             await removeCard(validRemove, 1);
             await addCard(validAdd, 1);
             toast(`✅ Swapped ${validRemove} for ${validAdd}!`, 'success');
-            setText('');
+            setBusy(false);
             return;
         }
       } catch (error: any) {
