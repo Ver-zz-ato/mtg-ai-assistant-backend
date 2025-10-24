@@ -13,18 +13,18 @@ export async function GET() {
   try {
     const supabase = await createClient();
     
-    // Get top commanders from public decks (last 365 days for better coverage)
-    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+    // Get top commanders from public decks (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     
     let { data: decks, error: decksError } = await supabase
       .from("decks")
       .select("commander, format, created_at")
       .eq("is_public", true)
-      .gte("created_at", oneYearAgo);
+      .gte("created_at", thirtyDaysAgo);
     
     // Fallback 1: If no recent public decks, get ALL public decks (no date filter)
     if (!decksError && (!decks || decks.length === 0)) {
-      console.log('[Meta] No public decks in last year, trying all public decks');
+      console.log('[Meta] No public decks in last 30 days, trying all public decks');
       const { data: allPublicDecks } = await supabase
         .from("decks")
         .select("commander, format, created_at")
