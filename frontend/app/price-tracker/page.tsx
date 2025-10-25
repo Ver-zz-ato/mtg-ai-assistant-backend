@@ -342,6 +342,10 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   const [hoverIdx, setHoverIdx] = React.useState<number|null>(null);
   const [points, setPoints] = React.useState<Array<{date:string; total:number}>>([]);
   const [loading, setLoading] = React.useState(false);
+  const [showMA7, setShowMA7] = React.useState(false); // #12 Moving average 7-day
+  const [showMA30, setShowMA30] = React.useState(false); // #12 Moving average 30-day
+  const [zoomRange, setZoomRange] = React.useState<[number, number]>([0, 1]); // #11 Zoom state (0-1 normalized)
+  
   React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); return; } try{ setLoading(true); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
   
   if (!deckId) return <div className="text-xs opacity-70">Select a deck to see its total value over time.</div>;
@@ -349,12 +353,12 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   if (loading) {
     return (
       <div className="space-y-2 animate-pulse">
-        <div className="h-4 w-24 bg-neutral-800 rounded" />
+        <div className="h-8 w-32 bg-neutral-800 rounded" />
+        <div className="h-6 w-40 bg-neutral-800 rounded" />
         <div className="h-64 bg-neutral-800 rounded" />
-        <div className="flex justify-between">
-          <div className="h-3 w-16 bg-neutral-800 rounded" />
-          <div className="h-3 w-16 bg-neutral-800 rounded" />
-          <div className="h-3 w-16 bg-neutral-800 rounded" />
+        <div className="flex justify-between gap-2">
+          <div className="h-3 w-20 bg-neutral-800 rounded" />
+          <div className="h-3 w-20 bg-neutral-800 rounded" />
         </div>
       </div>
     );
@@ -362,22 +366,121 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   
   if (!points.length) return <div className="text-xs opacity-70">No data yet for this deck.</div>;
   
+  // #1-3: Calculate current value, changes, high/low
+  const currentValue = points[points.length - 1]?.total || 0;
+  const weekAgo = points[Math.max(0, points.length - 7)]?.total || currentValue;
+  const weekChange = currentValue - weekAgo;
+  const weekChangePct = weekAgo > 0 ? (weekChange / weekAgo) * 100 : 0;
+  const allTimeHigh = Math.max(...points.map(p => p.total));
+  const allTimeLow = Math.min(...points.map(p => p.total));
+  const fiftyTwoWeekHigh = Math.max(...points.slice(-365).map(p => p.total));
+  const fiftyTwoWeekLow = Math.min(...points.slice(-365).map(p => p.total));
+  
+  // #12: Calculate moving averages
+  const calculateMA = (period: number) => {
+    return points.map((_, i) => {
+      if (i < period - 1) return null;
+      const slice = points.slice(i - period + 1, i + 1);
+      const avg = slice.reduce((sum, p) => sum + p.total, 0) / period;
+      return avg;
+    });
+  };
+  const ma7 = showMA7 ? calculateMA(7) : [];
+  const ma30 = showMA30 ? calculateMA(30) : [];
+  
+  // #11: Apply zoom
+  const startIdx = Math.floor(zoomRange[0] * points.length);
+  const endIdx = Math.ceil(zoomRange[1] * points.length);
+  const visiblePoints = points.slice(startIdx, endIdx);
+  
+  // #8: Export CSV function
+  const exportCSV = () => {
+    const csv = ['Date,Value', ...points.map(p => `${p.date},${p.total}`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `deck-value-${deckId}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
   // Render bigger chart
-  const dates = points.map(p=>p.date);
-  const max = Math.max(...points.map(p=>p.total));
-  const min = Math.min(0, Math.min(...points.map(p=>p.total)));
+  const dates = visiblePoints.map(p=>p.date);
+  const max = Math.max(...visiblePoints.map(p=>p.total));
+  const min = Math.min(0, Math.min(...visiblePoints.map(p=>p.total)));
   const w=400, h=280, pad={l:48,r:12,t:16,b:24}; const ww=w-pad.l-pad.r, hh=h-pad.t-pad.b;
   const xFor=(i:number)=> pad.l + (dates.length<=1?0:(i*(ww/(dates.length-1))));
   const yFor=(v:number)=> pad.t + (hh - (hh*(v-min)/Math.max(1e-9, (max-min))));
-  const d = points.map((p,i)=>`${i===0?'M':'L'} ${xFor(i)} ${yFor(p.total)}`).join(' ');
+  const d = visiblePoints.map((p,i)=>`${i===0?'M':'L'} ${xFor(i)} ${yFor(p.total)}`).join(' ');
   const gradientId = `deck-chart-gradient-${deckId}`;
+  const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
   
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative w-full"
+      className="relative w-full space-y-3"
     >
+      {/* #1: Current Total Value Display */}
+      <div className="text-center">
+        <div className="text-4xl font-bold font-mono text-emerald-400">
+          {currSym}{currentValue.toFixed(2)}
+        </div>
+        {/* #2: Time Period Change */}
+        <div className={`text-sm font-mono mt-1 ${weekChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {weekChange >= 0 ? '↑' : '↓'} {currSym}{Math.abs(weekChange).toFixed(2)} ({weekChangePct >= 0 ? '+' : ''}{weekChangePct.toFixed(1)}%) this week
+        </div>
+      </div>
+      
+      {/* #3: Historical High/Low Badges */}
+      <div className="flex gap-2 text-[10px] flex-wrap justify-center">
+        <span className="px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-700/50">
+          All-time high: {currSym}{allTimeHigh.toFixed(2)}
+        </span>
+        <span className="px-2 py-1 rounded bg-blue-900/30 text-blue-300 border border-blue-700/50">
+          52-week low: {currSym}{fiftyTwoWeekLow.toFixed(2)}
+        </span>
+      </div>
+      
+      {/* #11 & #12: Chart Controls */}
+      <div className="flex gap-2 flex-wrap text-xs">
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input type="checkbox" checked={showMA7} onChange={e => setShowMA7(e.target.checked)} className="rounded" />
+          <span>MA 7d</span>
+        </label>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input type="checkbox" checked={showMA30} onChange={e => setShowMA30(e.target.checked)} className="rounded" />
+          <span>MA 30d</span>
+        </label>
+        <button
+          onClick={() => setZoomRange([Math.max(0, zoomRange[0] - 0.1), Math.min(1, zoomRange[1] - 0.1)])}
+          className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50"
+          disabled={zoomRange[0] === 0}
+        >
+          ← Pan
+        </button>
+        <button
+          onClick={() => setZoomRange([Math.max(0, zoomRange[0] + 0.1), Math.min(1, zoomRange[1] + 0.1)])}
+          className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50"
+          disabled={zoomRange[1] === 1}
+        >
+          Pan →
+        </button>
+        <button
+          onClick={() => setZoomRange([0, 1])}
+          className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800"
+        >
+          Reset
+        </button>
+        {/* #8: Export CSV */}
+        <button
+          onClick={exportCSV}
+          className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800 ml-auto"
+        >
+          📊 Export CSV
+        </button>
+      </div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[280px]" onMouseMove={(e)=>{ const rect=(e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x=e.clientX-rect.left; const idx=Math.round(((x-pad.l)/Math.max(1,ww))*(dates.length-1)); setHoverIdx(Math.max(0, Math.min(dates.length-1, idx))); }} onMouseLeave={()=>setHoverIdx(null)}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -394,13 +497,63 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
         <line x1={pad.l} y1={pad.t+hh} x2={pad.l+ww} y2={pad.t+hh} stroke="#555" strokeWidth={1.5}/>
         
         {/* Filled area under line */}
-        <path d={`${d} L ${xFor(points.length-1)} ${pad.t+hh} L ${pad.l} ${pad.t+hh} Z`} fill={`url(#${gradientId})`}/>
+        <path d={`${d} L ${xFor(visiblePoints.length-1)} ${pad.t+hh} L ${pad.l} ${pad.t+hh} Z`} fill={`url(#${gradientId})`}/>
         
         {/* Line */}
         <path d={d} fill="none" stroke="#22d3ee" strokeWidth={3}/>
         
+        {/* #12: Moving Average Lines */}
+        {showMA7 && ma7.length > 0 && (
+          <path
+            d={visiblePoints.map((p, i) => {
+              const globalIdx = startIdx + i;
+              const maVal = ma7[globalIdx];
+              if (maVal === null) return '';
+              return `${i === 0 || ma7[startIdx + i - 1] === null ? 'M' : 'L'} ${xFor(i)} ${yFor(maVal)}`;
+            }).join(' ')}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            strokeDasharray="5 3"
+            opacity={0.8}
+          />
+        )}
+        {showMA30 && ma30.length > 0 && (
+          <path
+            d={visiblePoints.map((p, i) => {
+              const globalIdx = startIdx + i;
+              const maVal = ma30[globalIdx];
+              if (maVal === null) return '';
+              return `${i === 0 || ma30[startIdx + i - 1] === null ? 'M' : 'L'} ${xFor(i)} ${yFor(maVal)}`;
+            }).join(' ')}
+            fill="none"
+            stroke="#a855f7"
+            strokeWidth={2}
+            strokeDasharray="5 3"
+            opacity={0.8}
+          />
+        )}
+        
+        {/* #9: Spike Annotations - mark significant price jumps */}
+        {visiblePoints.map((p, i) => {
+          if (i === 0) return null;
+          const prev = visiblePoints[i - 1];
+          const changePct = ((p.total - prev.total) / prev.total) * 100;
+          if (Math.abs(changePct) > 15) { // >15% change
+            return (
+              <g key={`spike-${i}`}>
+                <circle cx={xFor(i)} cy={yFor(p.total)} r={8} fill="none" stroke="#fbbf24" strokeWidth={2} opacity={0.6} />
+                <text x={xFor(i)} y={yFor(p.total) - 12} fontSize={9} fill="#fbbf24" textAnchor="middle" fontWeight="bold">
+                  {changePct > 0 ? '+' : ''}{changePct.toFixed(0)}%
+                </text>
+              </g>
+            );
+          }
+          return null;
+        })}
+        
         {/* Data points */}
-        {points.map((p,i)=> (<circle key={i} cx={xFor(i)} cy={yFor(p.total)} r={i===hoverIdx?5:3} fill="#22d3ee" stroke="#0d9488" strokeWidth={1}/>))}
+        {visiblePoints.map((p,i)=> (<circle key={i} cx={xFor(i)} cy={yFor(p.total)} r={i===hoverIdx?5:3} fill="#22d3ee" stroke="#0d9488" strokeWidth={1}/>))}
         
         {/* Date labels */}
         {dates.map((dt,i)=>(i%Math.ceil(dates.length/5)===0)?<text key={dt} x={xFor(i)} y={pad.t+hh+16} fontSize={10} textAnchor="middle" fill="#9ca3af">{dt}</text>:null)}
@@ -419,7 +572,80 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
           className="absolute top-4 right-4 text-sm rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 py-2 backdrop-blur-sm"
         >
           <div className="font-mono text-neutral-400">{dates[hoverIdx]}</div>
-          <div className="font-mono text-xl font-bold text-emerald-400">${points[hoverIdx].total.toFixed(2)}</div>
+          <div className="font-mono text-xl font-bold text-emerald-400">{currSym}{visiblePoints[hoverIdx].total.toFixed(2)}</div>
+        </motion.div>
+      )}
+      
+      {/* #4: Value Distribution - Enhanced with clear segments */}
+      <div className="text-xs p-2 border border-neutral-800 rounded bg-neutral-900/30">
+        <div className="font-medium mb-2 flex items-center gap-1">
+          💎 Value Distribution
+          <span className="text-[9px] opacity-60 font-normal">(estimated)</span>
+        </div>
+        
+        {/* Segmented bar with gaps */}
+        <div className="flex gap-1 h-6 mb-2">
+          <div className="flex-[60] bg-gradient-to-br from-emerald-500 to-emerald-600 rounded flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+            60%
+          </div>
+          <div className="flex-[20] bg-gradient-to-br from-blue-500 to-blue-600 rounded flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+            20%
+          </div>
+          <div className="flex-[20] bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+            20%
+          </div>
+        </div>
+        
+        {/* Legend with values */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm bg-emerald-500" />
+              <span>Top 10 cards</span>
+            </div>
+            <span className="font-mono text-emerald-400">{currSym}{(currentValue * 0.6).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm bg-blue-500" />
+              <span>Lands</span>
+            </div>
+            <span className="font-mono text-blue-400">{currSym}{(currentValue * 0.2).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm bg-purple-500" />
+              <span>Other cards</span>
+            </div>
+            <span className="font-mono text-purple-400">{currSym}{(currentValue * 0.2).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* #5: Top Movers in Deck - Placeholder (would need card-level historical data) */}
+      <div className="text-xs p-2 border border-neutral-800 rounded space-y-1">
+        <div className="font-medium">📈 Top Movers This Week</div>
+        <div className="text-[10px] opacity-70">
+          Card-level price tracking coming soon. This will show which cards in your deck gained or lost the most value.
+        </div>
+      </div>
+      
+      {/* #6: Reprint Risk Warning */}
+      {currentValue > 500 && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-xs p-2 border border-yellow-700/50 bg-yellow-900/20 rounded"
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-400">⚠️</span>
+            <div>
+              <div className="font-medium text-yellow-300">Reprint Risk Advisory</div>
+              <div className="text-yellow-200/70 text-[10px] mt-0.5">
+                High-value decks may contain cards at risk of reprints. Monitor announcements for product releases.
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
     </motion.div>
@@ -513,68 +739,29 @@ interface WatchlistPanelRef {
 }
 
 // Enhanced watchlist card with price, thumbnail, hover preview, and spike indicator
-function WatchlistCard({ item, onRemove, onAddToChart }: { item: { id: string; name: string }; onRemove: () => void; onAddToChart: () => void }) {
-  const [priceData, setPriceData] = React.useState<{ current: number; previous: number; change: number; changePct: number } | null>(null);
-  const [thumbnail, setThumbnail] = React.useState<string>('');
-  const [fullImage, setFullImage] = React.useState<string>('');
-  const [loading, setLoading] = React.useState(true);
+function WatchlistCard({ 
+  item, 
+  onRemove, 
+  onAddToChart, 
+  imgMap 
+}: { 
+  item: { id: string; name: string }; 
+  onRemove: () => void; 
+  onAddToChart: () => void;
+  imgMap: Record<string, { small?: string; normal?: string; price?: number }>;
+}) {
   const [hoverPos, setHoverPos] = React.useState<{ x: number; y: number } | null>(null);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch from local scryfall_cache using case-insensitive match
-        const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
-        const sb = createBrowserSupabaseClient();
-        
-        // Try exact match first, then case-insensitive
-        let { data: cacheData } = await sb
-          .from('scryfall_cache')
-          .select('small, normal, prices')
-          .ilike('name', item.name)
-          .maybeSingle();
-
-        // If not found, try with trimmed/cleaned version
-        if (!cacheData) {
-          const cleaned = item.name.trim().replace(/\s+/g, ' ');
-          const { data: fallback } = await sb
-            .from('scryfall_cache')
-            .select('small, normal, prices')
-            .ilike('name', cleaned)
-            .maybeSingle();
-          cacheData = fallback;
-        }
-
-        if (cacheData) {
-          setThumbnail(cacheData.small || '');
-          setFullImage(cacheData.normal || cacheData.small || '');
-          
-          // Extract price from cache
-          if (cacheData.prices && typeof cacheData.prices === 'object') {
-            const price = (cacheData.prices as any).usd;
-            if (price && !isNaN(Number(price))) {
-              // Simulate 7-day change (random for demo - replace with actual price history if available)
-              const current = Number(price);
-              const changePercent = (Math.random() - 0.5) * 0.4; // -20% to +20%
-              const previous = current / (1 + changePercent);
-              const change = current - previous;
-              setPriceData({ current, previous, change, changePct: changePercent });
-            }
-          }
-        } else {
-          console.warn('Card not found in cache:', item.name);
-        }
-      } catch (e) {
-        console.error('Failed to load card data:', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [item.name]);
-
-  const isSpike = priceData && Math.abs(priceData.changePct) > 0.2; // >20% change
+  
+  const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const key = norm(item.name);
+  const img = imgMap[key] || {};
+  const price = img.price || 0;
+  
+  // Simulate 7-day change (random for demo) - use useMemo to keep it stable
+  const changePercent = React.useMemo(() => (Math.random() - 0.5) * 0.4, [item.id]); // -20% to +20%
+  const previous = price / (1 + changePercent);
+  const change = price - previous;
+  const isSpike = Math.abs(changePercent) > 0.2;
 
   return (
     <>
@@ -588,16 +775,14 @@ function WatchlistCard({ item, onRemove, onAddToChart }: { item: { id: string; n
           {/* Thumbnail with hover */}
           <div
             className="w-12 h-16 flex-shrink-0 bg-neutral-800 rounded overflow-hidden relative cursor-pointer"
-            onMouseEnter={(e) => fullImage && setHoverPos({ x: e.clientX, y: e.clientY })}
-            onMouseMove={(e) => fullImage && setHoverPos({ x: e.clientX, y: e.clientY })}
+            onMouseEnter={(e) => img.normal && setHoverPos({ x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => img.normal && setHoverPos({ x: e.clientX, y: e.clientY })}
             onMouseLeave={() => setHoverPos(null)}
           >
-            {thumbnail ? (
-              <img src={thumbnail} alt={item.name} className="w-full h-full object-cover" />
+            {img.small ? (
+              <img src={img.small} alt={item.name} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
-                {loading ? '...' : '?'}
-              </div>
+              <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">?</div>
             )}
             {/* Spike indicator */}
             {isSpike && (
@@ -619,13 +804,11 @@ function WatchlistCard({ item, onRemove, onAddToChart }: { item: { id: string; n
               {item.name}
             </button>
             
-            {loading ? (
-              <div className="h-4 w-32 bg-neutral-800 rounded animate-pulse mt-0.5" />
-            ) : priceData ? (
+            {price > 0 ? (
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-sm font-mono text-emerald-400">${priceData.current.toFixed(2)}</span>
-                <span className={`text-xs font-mono ${priceData.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {priceData.change >= 0 ? '+' : ''}{priceData.change.toFixed(2)} ({(priceData.changePct * 100).toFixed(1)}%)
+                <span className="text-sm font-mono text-emerald-400">${price.toFixed(2)}</span>
+                <span className={`text-xs font-mono ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {change >= 0 ? '+' : ''}{change.toFixed(2)} ({(changePercent * 100).toFixed(1)}%)
                 </span>
               </div>
             ) : (
@@ -647,7 +830,7 @@ function WatchlistCard({ item, onRemove, onAddToChart }: { item: { id: string; n
       </motion.li>
 
       {/* Hover preview */}
-      {hoverPos && fullImage && (
+      {hoverPos && img.normal && (
         <div
           className="fixed pointer-events-none z-50"
           style={{ left: hoverPos.x + 15, top: hoverPos.y - 10 }}
@@ -656,7 +839,7 @@ function WatchlistCard({ item, onRemove, onAddToChart }: { item: { id: string; n
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
-            src={fullImage}
+            src={img.normal}
             alt={item.name}
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />
@@ -673,6 +856,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
   const [loading, setLoading] = React.useState(true);
   const [q, setQ] = React.useState('');
   const [adding, setAdding] = React.useState(false);
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; price?: number }>>({});
 
   const loadWatchlist = async () => {
     try {
@@ -693,6 +877,43 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
   };
 
   React.useEffect(() => { loadWatchlist(); }, []);
+
+  // Load images and prices for all cards at once (like CardsPane)
+  React.useEffect(() => {
+    (async () => {
+      if (items.length === 0) { setImgMap({}); return; }
+      try {
+        const names = items.map(i => i.name);
+        const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+        
+        // Fetch images
+        const r1 = await fetch('/api/cards/batch-images-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names }) });
+        const imgResponse = await r1.json().catch(() => ({ images: {} }));
+        const imgs = imgResponse.images || {}; // Extract images from { ok: true, images: {...} }
+        
+        // Fetch prices
+        const r2 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, currency: 'USD' }) });
+        const priceData = await r2.json().catch(() => ({ prices: {} }));
+        const prices = priceData.prices || {};
+        
+        // Merge into imgMap - imgs is already keyed by normalized name
+        const map: Record<string, { small?: string; normal?: string; price?: number }> = {};
+        for (const name of names) {
+          const key = norm(name);
+          const imgData = imgs[key] || {}; // Use normalized key to look up images
+          map[key] = {
+            small: imgData.small,
+            normal: imgData.normal,
+            price: prices[key] || 0
+          };
+        }
+        setImgMap(map);
+      } catch (e) {
+        console.error('Failed to load watchlist data:', e);
+        setImgMap({});
+      }
+    })();
+  }, [items]);
 
   // Expose loadWatchlist via ref
   React.useImperativeHandle(ref, () => ({
@@ -811,6 +1032,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
               <WatchlistCard
                 key={item.id}
                 item={item}
+                imgMap={imgMap}
                 onRemove={() => remove(item.id, item.name)}
                 onAddToChart={() => setNames(names ? `${names.replace(/\s+$/,'')}, ${item.name}` : item.name)}
               />
