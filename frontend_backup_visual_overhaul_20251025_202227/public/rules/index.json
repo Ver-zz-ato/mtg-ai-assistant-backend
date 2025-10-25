@@ -1,0 +1,15 @@
+[
+  { "rule": "CR 117.1", "text": "Players draw a card during their draw step." },
+  { "rule": "CR 608.2", "text": "Resolving spells and abilities: follow instructions in order, handle targets that become illegal." },
+  { "rule": "CR 614", "text": "Replacement effects modify events and apply before the event would occur." },
+  { "rule": "CR 616", "text": "When multiple replacement effects apply, the affected player or controller chooses one to apply first." },
+  { "rule": "CR 702.8", "text": "Flying: This creature can’t be blocked except by creatures with flying or reach." },
+  { "rule": "CR 702.14", "text": "Lifelink: Damage dealt by this creature also causes its controller to gain that much life." },
+  { "rule": "CR 702.91", "text": "Hexproof: This permanent can’t be the target of spells or abilities your opponents control." },
+  { "rule": "CR 702.11", "text": "Trample: Assign lethal damage to blockers first; the rest may be assigned to the defending player or planeswalker." },
+  { "rule": "CR 704.5", "text": "State-based actions include a creature dying with 0 toughness or having lethal damage." },
+  { "rule": "CR 119.3", "text": "Damage causes loss of life; life loss isn’t damage." },
+  { "rule": "CR 120.4", "text": "The active player draws a card during the draw step." },
+  { "rule": "CR 903.4", "text": "In Commander, the color identity of a card is the colors of the mana symbols in its mana cost and rules text." },
+  { "rule": "CR 903.5", "text": "Commander decks must contain exactly 100 cards including the commander; no duplicates except basic lands." }
+]

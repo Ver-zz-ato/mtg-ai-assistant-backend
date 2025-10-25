@@ -1,0 +1,141 @@
+name: Backup & Health Monitor
+# Updated to ensure GitHub recognizes this workflow
+
+on:
+  schedule:
+    # Run daily at 3:15 AM UTC (after Supabase backups complete at ~2 AM)
+    - cron: '15 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+    inputs:
+      test_mode:
+        description: 'Run in test mode (no alerts)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  monitor:
+    name: Monitor System Health & Backups
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          # Only install what's needed for the monitoring script
+          cd frontend
+          npm install --production --silent
+      
+      - name: Create logs directory
+        run: mkdir -p frontend/logs
+      
+      - name: Create Manual Database Backup
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "📦 Creating database backup (Supabase free tier)..."
+          cd frontend
+          node scripts/manual-backup.js
+      
+      - name: Run Health Monitor
+        env:
+          HEALTH_CHECK_URL: 'https://manatap.ai/api/health'
+          BACKUP_CHECK_URL: 'https://manatap.ai/api/admin/backups'
+          ADMIN_EMAIL: 'davy@manatap.ai'
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        run: |
+          echo "🔍 Starting ManaTap.ai backup monitoring..."
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "Repository: ${{ github.repository }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo ""
+          
+          if [ "$TEST_MODE" = "true" ]; then
+            echo "🧪 Running in TEST MODE - alerts disabled"
+          fi
+          
+          # Run the monitoring script
+          cd frontend
+          node scripts/backup-monitor.js
+          
+          # Capture exit code
+          MONITOR_EXIT_CODE=$?
+          
+          echo ""
+          echo "📊 Monitoring completed with exit code: $MONITOR_EXIT_CODE"
+          
+          if [ $MONITOR_EXIT_CODE -eq 0 ]; then
+            echo "✅ All checks passed successfully"
+          else
+            echo "⚠️  Some checks failed - check logs above"
+          fi
+          
+          # Exit with the monitoring script's exit code
+          exit $MONITOR_EXIT_CODE
+      
+      - name: Upload backup files and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-and-logs-${{ github.run_number }}
+          path: |
+            frontend/logs/
+            frontend/backups/
+          retention-days: 30
+      
+      - name: Report success to GitHub
+        if: success()
+        run: |
+          echo "✅ Backup monitoring completed successfully"
+          echo "- Health checks: PASSED"
+          echo "- Backup verification: PASSED" 
+          echo "- System status: HEALTHY"
+      
+      - name: Report failure to GitHub
+        if: failure()
+        run: |
+          echo "❌ Backup monitoring detected issues"
+          echo "Please check the logs above for details"
+          echo "Consider checking:"
+          echo "- System health endpoint: https://manatap.ai/api/health"
+          echo "- Admin backup interface: https://manatap.ai/admin/backups"
+          echo "- Service status pages (Vercel, Render, Supabase)"
+          
+          # This will make the workflow show as failed in GitHub
+          exit 1
+
+  # Optional: Send summary to Slack on failure
+  notify-failure:
+    name: Notify on Monitoring Failure
+    runs-on: ubuntu-latest
+    needs: monitor
+    if: failure() && vars.ENABLE_FAILURE_NOTIFICATIONS == 'true'
+    
+    steps:
+      - name: Send Slack notification
+        if: vars.SLACK_WEBHOOK_URL
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚨 ManaTap.ai backup monitoring failed in GitHub Actions. Check workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+# Security: Ensure workflow only runs on main branch and has proper permissions
+concurrency:
+  group: backup-monitor
+  cancel-in-progress: false # Don't cancel running monitors
+
+permissions:
+  contents: read
+  actions: read

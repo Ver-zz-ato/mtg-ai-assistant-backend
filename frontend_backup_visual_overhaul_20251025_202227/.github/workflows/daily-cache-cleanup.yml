@@ -1,0 +1,100 @@
+name: Daily Cache Cleanup
+
+on:
+  schedule:
+    # Every day at 4:00 AM UTC (after price updates complete)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Allow manual triggers
+
+jobs:
+  cache-cleanup:
+    name: Clean Old Cache Entries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Continue even if previous runs failed
+    continue-on-error: true
+
+    steps:
+      - name: Test Connection First
+        run: |
+          echo "🧪 Testing cleanup endpoint connectivity..."
+          
+          # Simple connectivity test (we'll use the price update endpoint in test mode as a proxy)
+          response=$(curl -w "%{http_code}" -s -o test_response.json -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "x-test-mode: true" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BASE_URL }}/api/cron/daily-price-update")
+          
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Server connectivity test successful"
+            cat test_response.json
+          else
+            echo "❌ Server connectivity test failed with HTTP $response"
+            cat test_response.json || echo "No response body"
+            
+            # Don't fail the whole job on test failure - cleanup might still work
+            echo "⚠️ Connectivity test failed but continuing with cleanup..."
+          fi
+
+      - name: Clean Old Cache Entries
+        run: |
+          echo "🧹 Starting daily cache cleanup..."
+          
+          # Call the cache cleanup API endpoint
+          response=$(curl -w "%{http_code}" -s -o response.json -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BASE_URL }}/api/cron/cleanup-price-cache")
+          
+          # Check if request was successful
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Cache cleanup completed successfully"
+            
+            # Show results
+            cleaned=$(cat response.json | jq -r '.cleaned // "unknown"')
+            cutoff_time=$(cat response.json | jq -r '.cutoff_time // "unknown"')
+            
+            echo "🧹 Results:"
+            echo "  • Entries cleaned: $cleaned"
+            echo "  • Cutoff time: $cutoff_time"
+            echo "  • Kept entries newer than 48 hours"
+            
+            # Set GitHub environment variables for summary
+            echo "CLEANUP_SUCCESS=true" >> $GITHUB_ENV
+            echo "ENTRIES_CLEANED=$cleaned" >> $GITHUB_ENV
+            echo "CUTOFF_TIME=$cutoff_time" >> $GITHUB_ENV
+          else
+            echo "❌ Cache cleanup failed with HTTP $response"
+            cat response.json || echo "No response body"
+            echo "CLEANUP_SUCCESS=false" >> $GITHUB_ENV
+            
+            # Don't exit 1 here - we want to try alternative scheduling
+            echo "⚠️ GitHub Actions failed, but alternative schedulers may still work"
+          fi
+
+      - name: Create Job Summary
+        if: always()
+        run: |
+          if [ "$CLEANUP_SUCCESS" = "true" ]; then
+            echo "## 🧹 Daily Cache Cleanup Completed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Entries Cleaned:** $ENTRIES_CLEANED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cutoff Time:** $CUTOFF_TIME" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Success" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Old price cache entries (>48 hours) have been cleaned up to maintain optimal performance." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Daily Cache Cleanup Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "GitHub Actions scheduling failed. Alternative schedulers (Render Cron, Vercel, UptimeRobot) may still be running." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "::warning::Daily cache cleanup failed. Check alternative schedulers (Render, Vercel, UptimeRobot) for backup execution."

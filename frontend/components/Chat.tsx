@@ -82,6 +82,15 @@ async function appendAssistant(threadId: string, content: string) {
 }
 
 function Chat() {
+  // Rotating example prompts
+  const examplePrompts = [
+    "Build a token deck under £50",
+    "What's the best vampire draw engine?",
+    "Find budget alternatives for Sol Ring",
+    "How can I improve my mana curve?",
+    "Suggest cards for a sacrifice theme"
+  ];
+  
   // State management
   const [flags, setFlags] = useState<any>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -98,6 +107,7 @@ function Chat() {
   const [fmt, setFmt] = useState<'commander'|'standard'|'modern'>('commander');
   const [colors, setColors] = useState<{[k in 'W'|'U'|'B'|'R'|'G']: boolean}>({W:false,U:false,B:false,R:false,G:false});
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
@@ -126,6 +136,14 @@ function Chat() {
   const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
   
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+  
+  // Rotate example prompts every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPromptIndex((prev) => (prev + 1) % examplePrompts.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [examplePrompts.length]);
   
   // Auto-scroll to bottom when new messages arrive or when streaming
   // Only scroll the messages container, not the entire page
@@ -1073,13 +1091,19 @@ function Chat() {
       {/* Mobile-optimized Header */}
       <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">AI Assistant</h1>
-            {isLoggedIn === false && (
-              <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
-                Guest Mode ({guestMessageCount}/50)
-              </span>
-            )}
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
+                ManaTap AI — Your Deck-Building Companion
+              </h1>
+              {isLoggedIn === false && (
+                <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
+                  Guest Mode ({guestMessageCount}/50)
+                </span>
+              )}
+            </div>
+            {/* Cycling mana-colored underline */}
+            <div className="h-0.5 w-32 bg-gradient-to-r from-yellow-400 via-blue-500 to-green-500 rounded-full animate-pulse" />
           </div>
         </div>
       </div>
@@ -1204,14 +1228,26 @@ function Chat() {
               <h3 className="text-xl font-bold text-neutral-200 mb-3">
                 Welcome to ManaTap AI!
               </h3>
-              <p className="text-neutral-400 mb-8 max-w-md">
+              <p className="text-neutral-400 mb-6 max-w-md">
                 Start building your perfect deck. Ask me anything about Magic: The Gathering, or get started with a sample Commander deck.
               </p>
-              <div className="flex gap-4 flex-wrap justify-center">
+              <div className="flex gap-4 flex-wrap justify-center mb-4">
                 {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
-                <div className="text-xs text-neutral-500 w-full mt-4">
-                  💡 Try: "Build me a Gruul aggro deck" or "Find budget alternatives for Sol Ring"
-                </div>
+              </div>
+              {/* Example prompt pills */}
+              <div className="flex gap-2 flex-wrap justify-center max-w-2xl">
+                {examplePrompts.slice(0, 3).map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setText(prompt)}
+                    className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-purple-500 rounded-full text-xs text-neutral-300 transition-all hover:scale-105"
+                    style={{ 
+                      animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
+                    }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
             </div>
           ) : messages.map((m) => {
@@ -1288,7 +1324,7 @@ function Chat() {
                   send();
                 }
               }}
-              placeholder="Ask anything or paste a decklist… (Shift+Enter for newline)"
+              placeholder={examplePrompts[currentPromptIndex]}
               rows={3}
               className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               style={{

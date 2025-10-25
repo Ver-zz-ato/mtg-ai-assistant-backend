@@ -1,0 +1,112 @@
+{
+  "name": "ManaTap AI - MTG Deck Builder",
+  "short_name": "ManaTap",
+  "description": "Build, analyze, and optimize your Magic: The Gathering decks with AI assistance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-64x64.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Deck",
+      "short_name": "New",
+      "description": "Create a new deck",
+      "url": "/new-deck",
+      "icons": [
+        {
+          "src": "/favicon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "My Decks",
+      "short_name": "Decks",
+      "description": "View all your decks",
+      "url": "/my-decks",
+      "icons": [
+        {
+          "src": "/favicon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Price Tracker",
+      "short_name": "Prices",
+      "description": "Track card prices",
+      "url": "/price-tracker",
+      "icons": [
+        {
+          "src": "/favicon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Collections",
+      "short_name": "Collection",
+      "description": "Manage your card collection",
+      "url": "/collections",
+      "icons": [
+        {
+          "src": "/favicon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
