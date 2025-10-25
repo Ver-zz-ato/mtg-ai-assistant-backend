@@ -61,14 +61,20 @@ export default function Page() {
           <TopToolsStrip />
         </div>
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Main chat area - expanded to fill left sidebar space */}
-          <section className="col-span-1 lg:col-span-9 flex flex-col gap-3" data-tour="chat">
+          {/* Left sidebar - hidden on mobile, shown on large screens */}
+          <aside className="hidden lg:block lg:col-span-2 space-y-4">
+            <MetaDeckPanel />
+            <LeftSidebar />
+          </aside>
+          
+          {/* Main chat area - 1.5x wider */}
+          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3" data-tour="chat">
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
           
           {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop */}
-          <aside className="col-span-1 lg:col-span-3 order-last lg:order-none" data-tour="custom-card">
+          <aside className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none" data-tour="custom-card">
             <RightSidebar />
           </aside>
         </div>
