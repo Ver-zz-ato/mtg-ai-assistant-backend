@@ -3,8 +3,6 @@ import React from "react";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useProStatus } from "@/hooks/useProStatus";
-import { motion, AnimatePresence } from "framer-motion";
-import { getManaGlow } from "@/lib/mana-colors";
 
 async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: string; large?: string; set?: string; rarity?: string }>>{
   const out: Record<string, { small?: string; large?: string; set?: string; rarity?: string }> = {};
@@ -45,17 +43,6 @@ export default function BudgetSwapsClient(){
   const [whyMap, setWhyMap] = React.useState<Record<string, string>>({});
   const [whyBusy, setWhyBusy] = React.useState<Record<string, boolean>>({});
 
-  // Deck context
-  const [commanderArt, setCommanderArt] = React.useState<string>('');
-  const [commanderName, setCommanderName] = React.useState<string>('');
-  const [deckTitle, setDeckTitle] = React.useState<string>('');
-  const [colorIdentity, setColorIdentity] = React.useState<string>('');
-
-  // Batch selection
-  const [selectedSwaps, setSelectedSwaps] = React.useState<Set<number>>(new Set());
-  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
-  const [newDeckLink, setNewDeckLink] = React.useState<string>('');
-
   React.useEffect(()=>{
     let alive = true;
     (async()=>{
@@ -71,55 +58,6 @@ export default function BudgetSwapsClient(){
     })();
     return ()=>{ alive=false; };
   }, []);
-
-  // Fetch commander art when deck is selected
-  React.useEffect(() => {
-    (async () => {
-      if (!deckId) {
-        setCommanderArt('');
-        setCommanderName('');
-        setDeckTitle('');
-        setColorIdentity('');
-        return;
-      }
-
-      try {
-        const sb = createBrowserSupabaseClient();
-        const { data: deck } = await sb
-          .from('decks')
-          .select('commander, color_identity, title')
-          .eq('id', deckId)
-          .maybeSingle();
-
-        if (!deck) return;
-
-        setDeckTitle(deck.title || '');
-        setCommanderName(deck.commander || '');
-        setColorIdentity(deck.color_identity || '');
-
-        if (deck.commander) {
-          // Normalize commander name like price tracker does
-          const normalized = deck.commander.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-
-          // Fetch commander art from scryfall_cache
-          const { data } = await sb
-            .from('scryfall_cache')
-            .select('art_crop')
-            .ilike('name', normalized)
-            .limit(1)
-            .maybeSingle();
-
-          if (data?.art_crop) {
-            setCommanderArt(data.art_crop);
-          } else {
-            setCommanderArt('');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch commander art:', err);
-      }
-    })();
-  }, [deckId]);
 
   const isProFinal = isPro || isProLocal;
   const hasResults = sugs.length > 0;
@@ -193,134 +131,33 @@ export default function BudgetSwapsClient(){
   // format currency
   const fmt = (n:number)=> new Intl.NumberFormat(undefined, { style:'currency', currency }).format(Number(n||0));
 
-  // Batch selection functions
-  const toggleSelection = (idx: number) => {
-    const newSet = new Set(selectedSwaps);
-    if (newSet.has(idx)) {
-      newSet.delete(idx);
-    } else {
-      newSet.add(idx);
-    }
-    setSelectedSwaps(newSet);
-  };
-
-  const clearSelection = () => {
-    setSelectedSwaps(new Set());
-  };
-
-  const applySwapsToDeck = async () => {
-    if (!isProFinal) {
-      try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('Apply to Deck is a Pro feature'); }
-      return;
-    }
-
-    if (!deckId) {
-      alert('Please select a deck first');
-      return;
-    }
-
-    try {
-      const swapsToApply = Array.from(selectedSwaps).map(idx => sugs[idx]);
-      
-      // Create modifications
-      const cardsToRemove = swapsToApply.map(s => s.from);
-      const cardsToAdd = swapsToApply.map(s => s.to);
-
-      // Build new deck text
-      const lines = deckText.split('\n');
-      const newLines = lines.filter(line => {
-        const cardName = line.replace(/^\d+\s+/, '').trim();
-        return !cardsToRemove.some(remove => cardName.toLowerCase().includes(remove.toLowerCase()));
-      });
-      
-      // Add new cards
-      cardsToAdd.forEach(card => {
-        newLines.push(`1 ${card}`);
-      });
-
-      const newDeckText = newLines.join('\n');
-
-      // Create forked deck
-      const res = await fetch('/api/decks/create', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          title: `${deckTitle || 'My Deck'} (Budget Swaps)`,
-          deck_text: newDeckText,
-          commander: commanderName,
-          color_identity: colorIdentity
-        })
-      });
-
-      if (!res.ok) throw new Error('Failed to create deck');
-
-      const { id: newId } = await res.json();
-      setNewDeckLink(`/my-decks/${newId}`);
-      setShowSuccessModal(true);
-      clearSelection();
-    } catch (e: any) {
-      alert(e?.message || 'Failed to apply swaps');
-    }
-  };
-
   return (
     <div className="w-full">
       {/* Enhanced sticky header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="sticky top-0 z-[5] relative overflow-hidden rounded-t-2xl border-b border-neutral-800 bg-gradient-to-br from-purple-900/20 via-pink-900/10 to-rose-900/20 backdrop-blur-sm p-6 -mx-4 sm:mx-0"
-      >
-        {/* Animated background blobs */}
-        <motion.div
-          className="absolute -top-24 -left-24 w-64 h-64 rounded-full blur-3xl opacity-30"
-          style={{ background: getManaGlow('blue') }}
-          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.3, 0.2] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-30"
-          style={{ background: getManaGlow('red') }}
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.2, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        />
-
+      <header className="sticky top-0 z-[5] relative overflow-hidden rounded-t-2xl border-b border-neutral-800 bg-gradient-to-br from-purple-900/20 via-pink-900/10 to-rose-900/20 backdrop-blur-sm p-6 -mx-4 sm:mx-0">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <motion.span
-              className="text-4xl"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            >
-              💎
-            </motion.span>
+            <span className="text-4xl">💎</span>
             <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
               Budget Swaps
             </h1>
           </div>
           <p className="text-base text-neutral-300 max-w-4xl leading-relaxed">
-            Find cheaper versions of your staples — keep your deck's power, not its price tag.
+            Find powerful budget alternatives to expensive cards. Get AI-powered suggestions or rules-based swaps to keep your deck competitive without breaking the bank. Compare prices, track trends, and export to Moxfield.
           </p>
           <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
-            {[
-              { icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", text: "Smart Alternatives", color: "text-purple-400" },
-              { icon: "M13 10V3L4 14h7v7l9-11h-7z", text: "AI-Powered", color: "text-pink-400" },
-              { icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z", text: "Price Comparison", color: "text-rose-400" }
-            ].map((badge, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1, duration: 0.4 }}
-                className={`flex items-center gap-1.5 ${badge.color}`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={badge.icon} />
-                </svg>
-                <span>{badge.text}</span>
-              </motion.div>
-            ))}
+            <div className="flex items-center gap-1.5 text-purple-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+              <span>Smart Alternatives</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-pink-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span>AI-Powered</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-rose-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>Price Comparison</span>
+            </div>
           </div>
           {!isProFinal && (
             <div className="mt-3 text-xs bg-amber-900/20 border border-amber-600/30 rounded-lg px-3 py-2 flex items-start gap-2">
@@ -332,7 +169,7 @@ export default function BudgetSwapsClient(){
             </div>
           )}
         </div>
-      </motion.header>
+      </header>
 
       {/* Two-column layout */}
       <div className="grid grid-cols-12 gap-4 mt-3">
@@ -399,80 +236,9 @@ export default function BudgetSwapsClient(){
 
         {/* Right: results */}
         <section className="col-span-12 md:col-span-8">
-          {/* Deck context - commander art banner */}
-          {deckId && commanderArt && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="mb-4 relative rounded-lg overflow-hidden border-2 border-neutral-700"
-            >
-              <img
-                src={commanderArt}
-                alt={commanderName}
-                className="w-full h-32 object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
-              <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between">
-                <div>
-                  <div className="font-semibold text-sm text-white drop-shadow-lg">{deckTitle}</div>
-                  <div className="text-xs text-neutral-200 drop-shadow-lg">{commanderName}</div>
-                </div>
-                {/* Color identity badges */}
-                {colorIdentity && (
-                  <div className="flex gap-1">
-                    {colorIdentity.split('').map((c, i) => (
-                      <div
-                        key={i}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 shadow-lg"
-                        style={{
-                          backgroundColor: c === 'W' ? '#f0e68c' : c === 'U' ? '#1e90ff' : c === 'B' ? '#2f2f2f' : c === 'R' ? '#ff4500' : c === 'G' ? '#228b22' : '#ccc',
-                          borderColor: c === 'W' ? '#daa520' : c === 'U' ? '#00bfff' : c === 'B' ? '#666' : c === 'R' ? '#dc143c' : c === 'G' ? '#006400' : '#999',
-                          color: c === 'B' ? '#fff' : '#000'
-                        }}
-                      >
-                        {c}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
           {!hasResults ? (
             <div className="space-y-4">
-              {/* Quick-start tutorial */}
-              {!busy && (
-                <div className="mb-4">
-                  <div className="text-sm font-semibold mb-3">Quick Start Guide</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      { step: '1', text: 'Paste your decklist or select a deck', icon: '📝' },
-                      { step: '2', text: 'Set your budget threshold', icon: '💰' },
-                      { step: '3', text: 'Click Compute to find savings', icon: '🔍' }
-                    ].map((item, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1, duration: 0.4 }}
-                        className="p-3 rounded-lg border border-neutral-700 bg-neutral-900/50 hover:bg-neutral-900 transition-colors"
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-                            {item.step}
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-2xl mb-1">{item.icon}</div>
-                            <div className="text-xs">{item.text}</div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="text-sm opacity-70">Paste a deck and click Compute to see budget swap suggestions.</div>
               
               {/* Guest Example - only show when no results and not busy */}
               {!busy && (
@@ -547,44 +313,22 @@ export default function BudgetSwapsClient(){
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Summary card with mana-colored glows */}
+              {/* Summary card */}
               <div className="rounded-xl border border-neutral-800 p-3">
                 <div className="text-sm font-semibold">Summary</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 text-sm">
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="rounded-lg border border-neutral-800 bg-neutral-950 p-3"
-                  >
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3">
                     <div className="opacity-70 text-xs">Cards over threshold</div>
                     <div className="text-xl font-semibold">{sugs.length}</div>
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0, scale: [1, 1.02, 1] }}
-                    transition={{ delay: 0.2, scale: { duration: 2, repeat: Infinity } }}
-                    className="rounded-lg border border-neutral-800 bg-neutral-950 p-3"
-                    style={{
-                      boxShadow: savings > 50 
-                        ? `0 0 20px ${getManaGlow('green')}40` 
-                        : savings > 20 
-                        ? `0 0 20px rgba(251, 191, 36, 0.3)` 
-                        : `0 0 20px ${getManaGlow('red')}40`
-                    }}
-                  >
+                  </div>
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3">
                     <div className="opacity-70 text-xs">Estimated savings</div>
                     <div className="text-xl font-semibold text-emerald-400">{fmt(savings)}</div>
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="rounded-lg border border-neutral-800 bg-neutral-950 p-3"
-                  >
+                  </div>
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3">
                     <div className="opacity-70 text-xs">Budget check</div>
                     <div className={`text-sm font-semibold ${withinBudget? 'text-emerald-400':'text-amber-400'}`}>{withinBudget? `✅ Within your ${new Intl.NumberFormat(undefined,{style:'currency', currency}).format(threshold)} budget!` : '⚠️ Some staples remain above threshold.'}</div>
-                  </motion.div>
+                  </div>
                 </div>
               </div>
 
@@ -600,50 +344,64 @@ export default function BudgetSwapsClient(){
               {/* Divider to separate summary from swaps */}
               <div className="my-4 border-t border-neutral-800" />
 
-              {/* Card-based swap grid with checkboxes */}
-              <div className="space-y-3">
-                {sugs.map((s, idx) => {
-                  const mFrom = meta[s.from.toLowerCase()] || {};
-                  const mTo = meta[s.to.toLowerCase()] || {};
-                  const diff = (s.price_to||0) - (s.price_from||0);
-                  const good = diff < 0;
-                  const savings = Math.abs(diff);
-                  return (
-                    <motion.div
-                      key={`s-${idx}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05, duration: 0.3 }}
-                      className={`relative rounded-xl border ${selectedSwaps.has(idx) ? 'border-purple-500 bg-purple-950/20' : 'border-neutral-800 bg-neutral-950'} p-4 hover:shadow-lg hover:border-neutral-700 transition-all`}
-                    >
-                      {/* Checkbox */}
-                      <input
-                        type="checkbox"
-                        checked={selectedSwaps.has(idx)}
-                        onChange={() => toggleSelection(idx)}
-                        className="absolute top-3 left-3 w-4 h-4 rounded border-neutral-600 text-purple-600 focus:ring-purple-500 focus:ring-2 cursor-pointer z-10"
-                      />
-
-                      {/* Savings badge */}
-                      <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${good ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                        {good ? 'Save ' : '+'}{fmt(savings)}
-                      </div>
-
-                      {/* Card layout: FROM → TO */}
-                      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center mt-6">
-                        {/* FROM card */}
-                        <div className="border-l-4 border-red-500 pl-3 pr-2 py-2 rounded bg-red-950/10">
-                          <div className="text-[10px] uppercase tracking-wide text-red-400 mb-1 font-semibold">Remove</div>
-                          <CardRowPreviewLeft name={s.from} imageSmall={mFrom.small} imageLarge={mFrom.large} setCode={mFrom.set} rarity={mFrom.rarity} />
-                          <div className="text-xs text-red-400 mt-1">{fmt(s.price_from)}</div>
+              {/* Compact swap table */}
+              <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-950">
+                <table className="table-fixed w-full text-sm">
+                  <colgroup>
+                    <col style={{ width: '45%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '35%' }} />
+                    <col style={{ width: '10%' }} />
+                  </colgroup>
+                  <thead className="sticky top-0 z-[1] bg-neutral-950/90 backdrop-blur">
+                    <tr className="text-left text-xs">
+                      <th className="px-3 py-2 whitespace-normal break-words align-middle">Original</th>
+                      <th className="px-3 py-2 whitespace-normal break-words align-middle text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Why
+                          {(() => {
+                            const ContextualTip = require('@/components/ContextualTip').default;
+                            return (
+                              <ContextualTip
+                                id="budget-swaps-why-button"
+                                placement="bottom"
+                                maxShowCount={2}
+                                trigger={
+                                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600/20 text-blue-400 text-[10px] cursor-help">?</span>
+                                }
+                                content={
+                                  <div className="space-y-2">
+                                    <p className="font-semibold">AI-Powered Swap Analysis</p>
+                                    <p className="text-xs opacity-90">Click "Why?" to get AI analysis explaining why each swap makes sense for your deck's strategy and power level.</p>
+                                    <p className="text-xs opacity-75 italic">Pro feature - unlock detailed insights!</p>
+                                  </div>
+                                }
+                              />
+                            );
+                          })()}
                         </div>
-
-                        {/* Arrow + Why button */}
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="text-3xl text-neutral-500">→</div>
-                          <button
-                            className="inline-flex items-center px-2 py-1 rounded bg-amber-400 hover:bg-amber-300 text-black font-semibold text-[10px] transition-colors"
-                            onClick={async ()=>{
+                      </th>
+                      <th className="px-3 py-2 whitespace-normal break-words align-middle">Suggested swap</th>
+                      <th className="px-3 py-2 whitespace-normal break-words align-middle text-right">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sugs.map((s, idx) => {
+                      const mFrom = meta[s.from.toLowerCase()] || {};
+                      const mTo = meta[s.to.toLowerCase()] || {};
+                      const diff = (s.price_to||0) - (s.price_from||0);
+                      const good = diff < 0;
+                      return (
+                        <React.Fragment key={`s-${idx}`}>
+                          <tr className="border-t border-neutral-800">
+                            <td className="px-3 py-2 align-middle">
+                            <div className="flex items-center gap-2 border border-red-900/40 rounded p-1">
+                              <CardRowPreviewLeft name={s.from} imageSmall={mFrom.small} imageLarge={mFrom.large} setCode={mFrom.set} rarity={mFrom.rarity} />
+                              <span className="ml-auto text-xs opacity-70">{fmt(s.price_from)}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 align-middle text-center">
+                            <button className="inline-flex items-center px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-300 text-black font-semibold text-[11px]" onClick={async ()=>{
                               const key = `${s.from}→${s.to}`;
                               if(!isProFinal){ (async()=>{ try{ const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('Pro feature'); } })(); return; }
                               if(whyBusy[key]) return; setWhyBusy(p=>({ ...p, [key]: true }));
@@ -654,33 +412,28 @@ export default function BudgetSwapsClient(){
                                 if (out) setWhyMap(m=>({ ...m, [key]: out }));
                               } catch(e:any){ try { const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Explain failed'); } catch { alert(e?.message||'Explain failed'); } }
                               finally { setWhyBusy(p=>({ ...p, [key]: false })); }
-                            }}
-                          >
-                            {whyBusy[`${s.from}→${s.to}`] ? '…' : 'Why?'}
-                          </button>
-                        </div>
-
-                        {/* TO card */}
-                        <div className="border-l-4 border-green-500 pl-3 pr-2 py-2 rounded bg-green-950/10">
-                          <div className="text-[10px] uppercase tracking-wide text-green-400 mb-1 font-semibold">Add</div>
-                          <CardRowPreviewLeft name={s.to} imageSmall={mTo.small} imageLarge={mTo.large} setCode={mTo.set} rarity={mTo.rarity} />
-                          <div className="text-xs text-green-400 mt-1">{fmt(s.price_to)}</div>
-                        </div>
-                      </div>
-
-                      {/* Why explanation (if present) */}
-                      {whyMap[`${s.from}→${s.to}`] && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          className="mt-3 pt-3 border-t border-neutral-700 text-xs text-neutral-300"
-                        >
-                          {whyMap[`${s.from}→${s.to}`]}
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  );
-                })}
+                            }}>{whyBusy[`${s.from}→${s.to}`] ? '…' : 'Why?'}</button>
+                          </td>
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex items-center gap-2 border border-emerald-900/40 rounded p-1">
+                              <CardRowPreviewLeft name={s.to} imageSmall={mTo.small} imageLarge={mTo.large} setCode={mTo.set} rarity={mTo.rarity} />
+                              <span className="ml-auto text-xs opacity-70">{fmt(s.price_to)}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 align-middle text-right">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${good? 'bg-emerald-900/30 text-emerald-300':'bg-red-900/30 text-red-300'}`}>{good? '–' : '+'}{fmt(Math.abs(diff))}</span>
+                          </td>
+                        </tr>
+                        {whyMap[`${s.from}→${s.to}`] && (
+                          <tr>
+                            <td colSpan={4} className="px-3 py-2 text-xs text-neutral-300 bg-neutral-900/40">{whyMap[`${s.from}→${s.to}`]}</td>
+                          </tr>
+                        )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               {/* Divider to separate swaps from advanced */}
@@ -711,80 +464,6 @@ export default function BudgetSwapsClient(){
           )}
         </section>
       </div>
-
-      {/* Floating batch action bar */}
-      <AnimatePresence>
-        {selectedSwaps.size > 0 && (
-          <motion.div
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            transition={{ type: "spring", damping: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-neutral-900 border-2 border-purple-500 rounded-lg px-6 py-3 shadow-2xl flex items-center gap-4 z-50"
-            style={{ boxShadow: `0 10px 40px ${getManaGlow('blue')}60` }}
-          >
-            <span className="font-semibold text-sm">
-              {selectedSwaps.size} swap{selectedSwaps.size !== 1 ? 's' : ''} selected
-            </span>
-            <button
-              onClick={clearSelection}
-              className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm transition-colors"
-            >
-              Clear
-            </button>
-            <button
-              onClick={applySwapsToDeck}
-              className="px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm transition-colors flex items-center gap-2"
-            >
-              Apply to Deck
-              {!isProFinal && <span className="px-1.5 rounded bg-amber-400 text-black text-[10px]">Pro</span>}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Success modal */}
-      <AnimatePresence>
-        {showSuccessModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-            onClick={() => setShowSuccessModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-neutral-900 border-2 border-emerald-500 rounded-xl p-6 max-w-md mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center">
-                <div className="text-5xl mb-3">✨</div>
-                <h3 className="text-xl font-bold mb-2 text-emerald-400">Deck Forked!</h3>
-                <p className="text-sm text-neutral-300 mb-4">
-                  Your new budget-optimized deck has been created successfully.
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <a
-                    href={newDeckLink}
-                    className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
-                  >
-                    View New Deck
-                  </a>
-                  <button
-                    onClick={() => setShowSuccessModal(false)}
-                    className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );
