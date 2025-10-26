@@ -1024,7 +1024,15 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
       {loading ? (
         <div className="text-xs opacity-70">Loading...</div>
       ) : items.length === 0 ? (
-        <div className="text-xs opacity-70">No cards in watchlist.</div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border-2 border-dashed border-neutral-700 rounded-lg p-6 text-center"
+        >
+          <div className="text-5xl mb-3">🔮</div>
+          <div className="font-medium text-sm mb-1">No tracked cards yet</div>
+          <div className="text-xs opacity-70">Add your first spell above to monitor price changes!</div>
+        </motion.div>
       ) : (
         <AnimatePresence>
           <ul className="space-y-2 max-h-[500px] overflow-y-auto">
