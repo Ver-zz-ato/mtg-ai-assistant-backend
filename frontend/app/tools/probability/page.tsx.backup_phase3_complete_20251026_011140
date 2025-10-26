@@ -3,7 +3,6 @@ import React from "react";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
 import { motion, AnimatePresence } from "framer-motion";
 import { getManaGlow } from "@/lib/mana-colors";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 // Hypergeometric PMF/CDF helpers
 function comb(n: number, k: number): number {
@@ -42,17 +41,6 @@ export default function ProbabilityHelpersPage() {
   // Play/draw + extra draws per turn
   const [onDraw, setOnDraw] = React.useState(false);
   const [extraPerTurn, setExtraPerTurn] = React.useState(0); // cantrip per turn, etc.
-
-  // Copy button states
-  const [copiedSummary, setCopiedSummary] = React.useState(false);
-  const [copiedLink, setCopiedLink] = React.useState(false);
-  
-  // Explanation toggle
-  const [showExplanation, setShowExplanation] = React.useState(false);
-  
-  // Deck selection & commander art
-  const [selectedDeckId, setSelectedDeckId] = React.useState<string | null>(null);
-  const [commanderArt, setCommanderArt] = React.useState<string | null>(null);
 
   // K-chips counts (user editable quick-picks)
   const [kLands, setKLands] = React.useState(35);
@@ -99,44 +87,6 @@ export default function ProbabilityHelpersPage() {
   }, []);
 
   React.useEffect(()=>{ try{ localStorage.setItem('prob:adv', advanced ? '1':'0'); } catch{} }, [advanced]);
-
-  // Fetch commander art when deck is selected
-  React.useEffect(() => {
-    (async () => {
-      if (!selectedDeckId) { setCommanderArt(null); return; }
-      
-      try {
-        const sb = createBrowserSupabaseClient();
-        const { data: deck } = await sb
-          .from('decks')
-          .select('commander')
-          .eq('id', selectedDeckId)
-          .maybeSingle();
-        
-        if (!deck?.commander) { setCommanderArt(null); return; }
-        
-        // Normalize commander name like price tracker does
-        const normalized = deck.commander.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-        
-        // Fetch commander art from scryfall_cache
-        const { data } = await sb
-          .from('scryfall_cache')
-          .select('art_crop')
-          .ilike('name', normalized)
-          .limit(1)
-          .maybeSingle();
-        
-        if (data?.art_crop) {
-          setCommanderArt(data.art_crop);
-        } else {
-          setCommanderArt(null);
-        }
-      } catch (err) {
-        console.error('Failed to fetch commander art:', err);
-        setCommanderArt(null);
-      }
-    })();
-  }, [selectedDeckId]);
 
   // Persist + update URL
   React.useEffect(() => {
@@ -193,8 +143,7 @@ export default function ProbabilityHelpersPage() {
     const text = `P(X≥${atLeast}) by end of turn ${turns} with N=${deckSize}, K=${successCards}, opening hand ${openingHand}: ${(p*100).toFixed(2)}%`;
     try {
       await navigator.clipboard?.writeText?.(text);
-      setCopiedSummary(true);
-      setTimeout(() => setCopiedSummary(false), 2000);
+      alert('✅ Copied to clipboard!');
     } catch (err) {
       alert('❌ Failed to copy');
     }
@@ -241,7 +190,7 @@ export default function ProbabilityHelpersPage() {
             </h1>
           </div>
           <p className="text-base text-neutral-300 max-w-3xl leading-relaxed">
-            What are the odds you'll draw your combo by turn five? Let's do the math — and the magic. ✨
+            Calculate real draw probabilities using hypergeometric distribution. Answer questions like "What's the chance I draw at least 2 ramp spells by turn 4?" Includes color requirements, mulligans, and custom draw rules.
           </p>
           <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
             {[
@@ -278,7 +227,6 @@ export default function ProbabilityHelpersPage() {
         onApply={({ deckId, deckSize: N, successCards: K }: any) => {
           setDeckSize(N || deckSize);
           if (K && Number.isFinite(K)) setSuccessCards(K);
-          setSelectedDeckId(deckId || null);
           try {
             const url = new URL(window.location.href);
             url.searchParams.set("deckId", deckId);
@@ -298,7 +246,7 @@ export default function ProbabilityHelpersPage() {
               <div className="opacity-70 mb-1 text-xs">Deck size (N)</div>
               <input
                 type="number"
-                className="w-full bg-neutral-950/60 backdrop-blur-sm border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:bg-neutral-950/80 focus:shadow-[0_0_15px_rgba(96,165,250,0.3)] transition-all text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
                 value={deckSize}
                 onChange={e=>setDeckSize(parseInt(e.target.value||"0",10))}
               />
@@ -307,7 +255,7 @@ export default function ProbabilityHelpersPage() {
               <div className="opacity-70 mb-1 text-xs">Desired cards (K)</div>
               <input
                 type="number"
-                className="w-full bg-neutral-950/60 backdrop-blur-sm border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 focus:bg-neutral-950/80 focus:shadow-[0_0_15px_rgba(192,132,252,0.3)] transition-all text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-sm"
                 value={successCards}
                 onChange={e=>setSuccessCards(parseInt(e.target.value||"0",10))}
               />
@@ -316,7 +264,7 @@ export default function ProbabilityHelpersPage() {
               <div className="opacity-70 mb-1 text-xs">Opening hand</div>
               <input
                 type="number"
-                className="w-full bg-neutral-950/60 backdrop-blur-sm border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:bg-neutral-950/80 focus:shadow-[0_0_15px_rgba(96,165,250,0.3)] transition-all text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
                 value={openingHand}
                 onChange={e=>setOpeningHand(parseInt(e.target.value||"0",10))}
               />
@@ -325,7 +273,7 @@ export default function ProbabilityHelpersPage() {
               <div className="opacity-70 mb-1 text-xs">Turns to draw</div>
               <input
                 type="number"
-                className="w-full bg-neutral-950/60 backdrop-blur-sm border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 focus:bg-neutral-950/80 focus:shadow-[0_0_15px_rgba(192,132,252,0.3)] transition-all text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-sm"
                 value={turns}
                 onChange={e=>setTurns(parseInt(e.target.value||"0",10))}
               />
@@ -334,7 +282,7 @@ export default function ProbabilityHelpersPage() {
               <div className="opacity-70 mb-1 text-xs">At least (k)</div>
               <input
                 type="number"
-                className="w-full bg-neutral-950/60 backdrop-blur-sm border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 focus:bg-neutral-950/80 focus:shadow-[0_0_15px_rgba(52,211,153,0.3)] transition-all text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-sm"
                 value={atLeast}
                 onChange={e=>setAtLeast(parseInt(e.target.value||"0",10))}
               />
@@ -347,23 +295,6 @@ export default function ProbabilityHelpersPage() {
 
         {/* MIDDLE COLUMN: Main Result */}
         <div className="lg:col-span-6 space-y-3">
-          {/* Commander art banner */}
-          {commanderArt && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="mb-3 relative rounded-lg overflow-hidden border-2 border-neutral-700"
-            >
-              <img
-                src={commanderArt}
-                alt="Commander"
-                className="w-full h-32 object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-            </motion.div>
-          )}
-
           <motion.div
         key={`${p}-${successCards}`}
         initial={{ scale: 0.95, opacity: 0 }}
@@ -373,35 +304,13 @@ export default function ProbabilityHelpersPage() {
       >
         <div className="text-sm opacity-70 mb-1">Draws by end of turn: <span className="font-mono font-semibold">{draws}</span></div>
         <motion.div
-          className="relative text-5xl font-bold font-mono mb-1"
+          className="text-5xl font-bold font-mono mb-1"
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
         >
-          {/* Sparkline background */}
-          <svg
-            className="absolute inset-0 w-full h-full opacity-10 pointer-events-none"
-            viewBox="0 0 200 80"
-            preserveAspectRatio="none"
-          >
-            <path
-              d={(() => {
-                const points = perTurn.map((pt, i) => {
-                  const x = (i / (perTurn.length - 1)) * 200;
-                  const y = 80 - (pt.p * 70);
-                  return `${x},${y}`;
-                }).join(' L ');
-                return `M ${points}`;
-              })()}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="text-blue-400"
-            />
-          </svg>
-          
           <span
-            className="relative z-10 text-transparent bg-clip-text"
+            className="text-transparent bg-clip-text"
             style={{
               backgroundImage: p >= 0.7 ? 'linear-gradient(to right, #10b981, #34d399)' :
                                p >= 0.4 ? 'linear-gradient(to right, #fbbf24, #fcd34d)' :
@@ -411,54 +320,7 @@ export default function ProbabilityHelpersPage() {
             {(p*100).toFixed(1)}%
           </span>
         </motion.div>
-        <div className="text-xs opacity-60 mb-2">Hypergeometric distribution (draws without replacement)</div>
-        
-        {/* Collapsible Explanation */}
-        <div className="mb-3">
-          <button
-            onClick={() => setShowExplanation(!showExplanation)}
-            className="text-xs text-blue-400 hover:text-blue-300 underline decoration-dotted"
-          >
-            {showExplanation ? '▼ Hide explanation' : '▶ Show explanation'}
-          </button>
-          <AnimatePresence>
-            {showExplanation && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="mt-3 p-3 rounded-lg bg-blue-950/20 border border-blue-800/30 text-xs space-y-2"
-              >
-                <p className="leading-relaxed">
-                  This uses the <strong>hypergeometric distribution</strong>, which estimates the chance of seeing at least <strong>k</strong> cards drawn from <strong>n</strong> without replacement. In plain English: <em>shuffling once, no cheating.</em> 🎴
-                </p>
-                
-                {/* Visual card drawing animation */}
-                <div className="flex items-center gap-2 justify-center py-2">
-                  <div className="flex gap-1">
-                    {[...Array(7)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, scale: 0, rotate: -45 }}
-                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                        transition={{ delay: i * 0.1, type: "spring", stiffness: 300 }}
-                        className="w-6 h-8 rounded-sm bg-gradient-to-br from-blue-500/60 to-purple-500/60 border border-blue-400/40 flex items-center justify-center text-[10px]"
-                      >
-                        {i < atLeast ? '✓' : '·'}
-                      </motion.div>
-                    ))}
-                  </div>
-                  <span className="text-neutral-400">← Your draw</span>
-                </div>
-                
-                <div className="text-[11px] opacity-70 pt-1 border-t border-blue-800/20">
-                  <strong>Formula:</strong> P(X ≥ k) = Σ [C(K,i) × C(N-K, n-i)] / C(N,n) for i from k to min(n,K)
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <div className="text-xs opacity-60 mb-3">Hypergeometric distribution (draws without replacement)</div>
 
         {/* Comparison View */}
         {advanced && (
@@ -516,33 +378,10 @@ export default function ProbabilityHelpersPage() {
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <motion.button
-            onClick={copySummary}
-            animate={copiedSummary ? { scale: [1, 1.05, 1] } : {}}
-            transition={{ duration: 0.3 }}
-            className={`px-2 py-1 rounded text-xs transition-colors ${copiedSummary ? 'bg-emerald-600 text-white' : 'bg-neutral-800 hover:bg-neutral-700'}`}
-          >
-            {copiedSummary ? '✓ Copied!' : 'Copy summary'}
-          </motion.button>
+          <button onClick={copySummary} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Copy summary</button>
           {advanced && (
             <>
-          <motion.button
-            onClick={async()=>{ 
-              try{ 
-                await navigator.clipboard?.writeText?.(window.location.href); 
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2000);
-                fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'prob_save'})}); 
-              } catch{ 
-                alert('❌ Failed to copy link'); 
-              } 
-            }}
-            animate={copiedLink ? { scale: [1, 1.05, 1] } : {}}
-            transition={{ duration: 0.3 }}
-            className={`px-2 py-1 rounded text-xs transition-colors ${copiedLink ? 'bg-emerald-600 text-white' : 'bg-neutral-800 hover:bg-neutral-700'}`}
-          >
-            {copiedLink ? '✓ Copied!' : 'Copy link'}
-          </motion.button>
+          <button onClick={async()=>{ try{ await navigator.clipboard?.writeText?.(window.location.href); alert('🔗 Link copied! Share this URL to preserve your setup.'); fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'prob_save'})}); } catch{ alert('❌ Failed to copy link'); } }} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Copy link</button>
               <div className="flex flex-wrap gap-2 text-xs">
                 {presets.map(pr => (
                   <button key={pr.label} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700" onClick={() => { setDeckSize(pr.vals.N as any); setSuccessCards(pr.vals.K as any); setOpeningHand(pr.vals.H as any); setTurns(pr.vals.T as any); setAtLeast(pr.vals.k as any); }}>{pr.label}</button>
