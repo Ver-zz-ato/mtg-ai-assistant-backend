@@ -54,12 +54,20 @@ export default function InlineDeckTitle({ deckId, initial }: { deckId: string; i
   }
 
   return (
-    <button
-      type="button"
-      title="Rename deck"
-      onClick={() => setEditing(true)}
-      className="text-2xl font-semibold text-left hover:opacity-90">
-      {title}
-    </button>
+    <div className="group relative inline-block">
+      <button
+        type="button"
+        title="Rename deck"
+        onClick={() => setEditing(true)}
+        className="text-2xl font-semibold text-left hover:opacity-90 transition-opacity">
+        {title}
+      </button>
+      <div className="absolute -bottom-5 left-0 text-[10px] text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center gap-1">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+        <span>Click to rename</span>
+      </div>
+    </div>
   );
 }

@@ -72,15 +72,20 @@ export default function LegalityTokensPanel({ deckId }: { deckId: string }) {
   }, []);
 
   return (
-    <section className="mt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Legality & Tokens</h2>
-        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
+    <section className="mt-6 rounded-xl border border-neutral-800 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-cyan-400 to-teal-500 bg-clip-text text-transparent">
+            Legality & Tokens
+          </h3>
+        </div>
+        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
           {open ? 'Hide' : 'Show'}
         </button>
       </div>
       {open && (
-        <div className="mt-3 border rounded p-3 space-y-3">
+        <div className="mt-3 space-y-3">
           <div className="text-sm text-neutral-300">
             Choose colors for color-identity checks:
             <div className="mt-2 flex gap-2">

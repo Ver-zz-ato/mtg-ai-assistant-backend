@@ -12,7 +12,7 @@ export default function RecomputeButton() {
           // noop
         }
       }}
-      className="text-xs border rounded px-2 py-1"
+      className="text-xs border border-rose-500/50 bg-rose-600/20 hover:bg-rose-600/40 rounded px-3 py-1.5 transition-all font-medium"
       title="Recalculate snapshot prices and refresh the page"
     >
       Recalculate prices

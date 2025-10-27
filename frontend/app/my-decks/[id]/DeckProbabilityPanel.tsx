@@ -51,7 +51,13 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
 
   return (
     <section className="mt-6 rounded-xl border border-neutral-800 p-3 space-y-2">
-      <div className="text-sm font-medium flex items-center gap-2">Probability {!isPro && (<span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase">Pro</span>)} </div>
+      <div className="flex items-center gap-2 mb-1">
+        <div className="h-1 w-1 rounded-full bg-pink-400 animate-pulse shadow-lg shadow-pink-400/50"></div>
+        <h3 className="text-sm font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">
+          Probability Calculator
+        </h3>
+        {!isPro && (<span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase">Pro</span>)}
+      </div>
       {!isPro && (<div className="text-[11px] opacity-70">Pro only — estimate odds (hypergeometric) such as drawing key cards by a given turn.</div>)}
 
       <div className="text-[11px] flex flex-wrap gap-2">

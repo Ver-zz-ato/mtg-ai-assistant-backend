@@ -117,7 +117,16 @@ export default function RightSidebar() {
       </div>
 
       <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
-        <div className="font-bold mb-3 text-lg text-center">Shoutbox (live)</div>
+        <div className="flex flex-col items-center gap-1.5 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"></div>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
+              Shoutbox
+            </h2>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"></div>
+          </div>
+          <div className="h-0.5 w-24 bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 rounded-full animate-pulse"></div>
+        </div>
         <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm">
           {items.map((t, idx) => (
             <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">

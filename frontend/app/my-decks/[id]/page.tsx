@@ -220,60 +220,82 @@ export default async function Page({ params, searchParams }: { params: Promise<P
       <div className="max-w-[1600px] mx-auto">
         <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-12 md:col-span-3 space-y-4">
-          <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="text-sm font-semibold mb-2">Deck trends</div>
-            <div className="flex flex-col items-center gap-4">
-            <div className="flex flex-col items-center">
-              <div className="text-xs opacity-80 mb-1"><span title="Derived from commander and title; falls back to deck cards">Color balance</span></div>
+          <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+              <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Deck Trends
+              </h3>
+            </div>
+            <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
+              <div className="text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-1">
+                <span>⚪</span>
+                <span title="Derived from commander and title; falls back to deck cards">Color Balance</span>
+              </div>
               {hasPie ? (
                 <>
                   {pieSvg(pieCounts)}
-                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-neutral-200">
                     {(['W','U','B','R','G'] as const).map(k => {
                       const count = (pieCounts as any)[k] || 0;
                       const colorTotal = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
                       const percentage = colorTotal > 0 ? Math.round((count / colorTotal) * 100) : 0;
                       const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
+                      const colorBg = k==='W'?'bg-gray-200':k==='U'?'bg-blue-400':k==='B'?'bg-gray-600':k==='R'?'bg-red-500':'bg-green-500';
                       return (
-                        <div key={`leg-${k}`}>{colorName}: {count} ({percentage}%)</div>
+                        <div key={`leg-${k}`} className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${colorBg}`}></div>
+                          <span className="font-medium">{colorName}: {count} ({percentage}%)</span>
+                        </div>
                       );
                     })}
                   </div>
-                  <div className="mt-1 text-[10px] opacity-70">
-                    Cards: <span className="font-mono">{totalCards}</span>
+                  <div className="mt-2 text-[10px] text-neutral-400 text-center">
+                    Cards: <span className="font-mono font-semibold text-neutral-300">{totalCards}</span>
                     {Object.values(pieCounts).reduce((a,b)=>a+b,0) !== totalCards && (
                       <span className="ml-2" title="Multicolored cards contribute to multiple colors">
-                        • Color instances: <span className="font-mono">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
+                        • Color instances: <span className="font-mono font-semibold text-neutral-300">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
                       </span>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-[10px] opacity-60">Not enough data to calculate.</div>
+                <div className="text-xs text-neutral-400 text-center py-4">Not enough data to calculate.</div>
               )}
             </div>
-              <div className="flex flex-col items-center">
-              <div className="text-xs opacity-80 mb-1"><span title="Heuristic based on types/keywords/curve">Playstyle radar</span></div>
+              <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
+              <div className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1">
+                <span>📊</span>
+                <span title="Heuristic based on types/keywords/curve">Playstyle Radar</span>
+              </div>
                 {Object.values(radar).some(v=>v>0) ? (
                   <>
                     {radarSvg(radar)}
-                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-neutral-300">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-neutral-200">
                       {['Aggro','Control','Combo','Midrange','Stax'].map((t) => {
                         const key = t.toLowerCase() as keyof typeof radar;
                         const value = radar[key] || 0;
-                        return (<div key={t}>{t}: {value.toFixed(1)}</div>);
+                        return (<div key={t} className="font-medium">{t}: <span className="text-purple-400 font-semibold">{value.toFixed(1)}</span></div>);
                       })}
                     </div>
                   </>
-                ) : (<div className="text-[10px] opacity-60">Not enough data to calculate.</div>)}
+                ) : (<div className="text-xs text-neutral-400 text-center py-4">Not enough data to calculate.</div>)}
               </div>
-              <div className="text-[10px] text-neutral-400 text-center">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</div>
+              <div className="text-[10px] text-neutral-400 text-center leading-relaxed px-2">
+                <span className="opacity-70">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</span>
+              </div>
             </div>
           </div>
 
           {/* Mana curve */}
           <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="text-sm font-semibold mb-2">Mana curve</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50"></div>
+              <h3 className="text-sm font-bold bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
+                Mana Curve
+              </h3>
+            </div>
             <div className="grid grid-cols-7 gap-1 items-end h-24">
               {(['1','2','3','4','5','6','7+'] as const).map(k => {
                 const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
@@ -292,7 +314,12 @@ export default async function Page({ params, searchParams }: { params: Promise<P
 
           {/* Type distribution */}
           <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="text-sm font-semibold mb-2">Types</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1 w-1 rounded-full bg-sky-400 animate-pulse shadow-lg shadow-sky-400/50"></div>
+              <h3 className="text-sm font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">
+                Card Types
+              </h3>
+            </div>
             <div className="space-y-1 text-[11px]">
               {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
                 const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
@@ -309,7 +336,12 @@ export default async function Page({ params, searchParams }: { params: Promise<P
 
           {/* Core needs meters */}
           <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="text-sm font-semibold mb-2">Core needs</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
+              <h3 className="text-sm font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                Deck Fundamentals
+              </h3>
+            </div>
             <div className="space-y-2 text-[11px]">
               {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
                 const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
@@ -329,11 +361,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           <div className="rounded-xl border border-neutral-800 p-3">
             {(() => { const PriceMini = require('@/components/DeckPriceMini').default; return <PriceMini deckId={id} />; })()}
           </div>
-
-          {/* Analyzer under trends */}
-          <div className="rounded-xl border border-neutral-800 p-3">
-            {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={id} proAuto={isPro} />; })()}
-          </div>
         </aside>
 
         <section className="col-span-12 md:col-span-9">
@@ -343,7 +370,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               <InlineDeckTitle deckId={id} initial={title} />
               <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
                 {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
-                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':' '}${t==='Control'?'counter/board wipes, instants/sorceries':''}${t==='Combo'?'tutors, search your library':''}${t==='Midrange'?'creatures at 5+ cmc':''}${t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`.trim()} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
+                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':t==='Control'?'counter/board wipes, instants/sorceries':t==='Combo'?'tutors, search your library':t==='Midrange'?'creatures at 5+ cmc':t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
                     {t}
                   </span>
                 ))}
@@ -351,16 +378,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               {/* Deck ID removed per request */}
             </div>
             <div className="flex items-center gap-2">
-              <Link 
-                href={`/compare-decks?deck1=${id}`}
-                className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
-                title="Compare this deck to another"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span>Compare</span>
-              </Link>
               <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
               {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>

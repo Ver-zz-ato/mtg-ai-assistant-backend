@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { capture } from '@/lib/ph';
 import EditorAddBar from "@/components/EditorAddBar";
+import FixSingleCardModal from "./FixSingleCardModal";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
 
@@ -12,6 +13,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [fixModalCard, setFixModalCard] = useState<{ id: string; name: string } | null>(null);
   const addBarRef = React.useRef<HTMLDivElement|null>(null);
   const listRef = React.useRef<HTMLDivElement|null>(null);
 
@@ -427,7 +429,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-col gap-2" ref={listRef}>
+      <div className="mt-3 flex flex-col gap-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2" ref={listRef}>
         {rows.map((c, idx) => (
           <div
             key={c.id}
@@ -465,55 +467,60 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
                 value={c.qty}
                 onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - c.qty; if (d!==0) delta(c.id, d); }}
               />
-              {(() => { const key = c.name.toLowerCase(); const src = imgMap[key]?.small; return src ? (
-                <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
-                  onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: imgMap[key]?.normal || src, x, y, shown: true, below }); }}
-                  onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
-                  onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
-                />) : null; })()}
+              {(() => { 
+                let key = c.name.toLowerCase(); 
+                let src = imgMap[key]?.small;
+                let normalSrc = imgMap[key]?.normal;
+                
+                // For DFCs, try front face if full name doesn't have image
+                if (!src && c.name.includes('//')) {
+                  const frontFace = c.name.split('//')[0].trim().toLowerCase();
+                  src = imgMap[frontFace]?.small;
+                  normalSrc = imgMap[frontFace]?.normal;
+                  key = frontFace;
+                }
+                
+                return src ? (
+                  <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
+                    onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: normalSrc || src, x, y, shown: true, below }); }}
+                    onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
+                    onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
+                  />
+                ) : null; 
+              })()}
               <a className="hover:underline truncate max-w-[40vw]" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
             </div>
 
             <div className="flex items-center gap-2">
-              {(() => { try { const key = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); const unit = priceMap[key]; const hasImg = !!imgMap[c.name.toLowerCase()]?.small; if (unit>0) { const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); return (
-                <span className="text-xs opacity-80 w-40 text-right tabular-nums">
-                  {sym}{(unit*c.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span>
-                </span>
-              ); } else { return (
-                <span className="text-xs opacity-60 w-40 text-right">
-                  — {(!hasImg) && (<button className="underline ml-1" onClick={async()=>{
-                    try {
-                      const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[c.name] }) });
-                      const j = await r.json();
-                      const sugg = j?.results?.[c.name]?.suggestion;
-                      if (!sugg) { alert('No suggestion found'); return; }
-                      if (!confirm(`Rename to "${sugg}"?`)) return;
-                      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId||'')}`, { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: c.id, new_name: sugg }) });
-                      const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed');
-                      await load();
-                    } catch(e:any){ alert(e?.message || 'Failed'); }
-                  }}>fix?</button>)}
-                </span>
-              ); } } catch {}
-              return (<span className="text-xs opacity-40 w-40 text-right">— <button className="underline ml-1" onClick={async()=>{
-                try {
-                  const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[c.name] }) });
-                  const j = await r.json();
-                  const list: string[] = j?.results?.[c.name]?.all || [];
-                  if (!Array.isArray(list) || list.length===0) { alert('No suggestion found'); return; }
-                  let choice = list[0];
-                  if (list.length>1) {
-                    const pick = prompt('Pick a number:\n' + list.map((s:any,i:number)=>`${i+1}. ${s}`).join('\n'), '1');
-                    const idx = Math.max(1, Math.min(list.length, parseInt(String(pick||'1'),10))) - 1;
-                    choice = list[idx];
-                  }
-                  if (!choice) return;
-                  if (!confirm(`Rename to "${choice}"?`)) return;
-                  const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId||'')}`, { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: c.id, new_name: choice }) });
-                  const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed');
-                  await load();
-                } catch(e:any){ alert(e?.message || 'Failed'); }
-              }}>fix?</button></span>);
+              {(() => { try { 
+                const key = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); 
+                let unit = priceMap[key];
+                let hasImg = !!imgMap[c.name.toLowerCase()]?.small;
+                
+                // For DFCs, try matching the front face if full name doesn't work
+                if (!unit && !hasImg && c.name.includes('//')) {
+                  const frontFace = c.name.split('//')[0].trim();
+                  const frontKey = frontFace.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+                  unit = priceMap[frontKey];
+                  hasImg = !!imgMap[frontFace.toLowerCase()]?.small;
+                }
+                
+                if (unit>0) { 
+                  const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); 
+                  return (
+                    <span className="text-xs opacity-80 w-40 text-right tabular-nums">
+                      {sym}{(unit*c.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span>
+                    </span>
+                  );
+                } else { 
+                  return (
+                    <span className="text-xs opacity-60 w-40 text-right">
+                      — {(!hasImg) && (<button className="underline text-cyan-400 ml-1 hover:text-cyan-300 transition-colors" onClick={()=>setFixModalCard({ id: c.id, name: c.name })}>fix?</button>)}
+                    </span>
+                  );
+                }
+              } catch {}
+              return (<span className="text-xs opacity-40 w-40 text-right">— <button className="underline text-cyan-400 ml-1 hover:text-cyan-300 transition-colors" onClick={()=>setFixModalCard({ id: c.id, name: c.name })}>fix?</button></span>);
               })()}
               <button
                 className="ml-3 px-2 py-0.5 text-red-300 border border-red-400 rounded hover:bg-red-950/40 disabled:opacity-50"
@@ -552,6 +559,15 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
           </div>
         </div>
       )}
+
+      {/* Fix single card modal */}
+      <FixSingleCardModal
+        card={fixModalCard}
+        deckId={deckId || ''}
+        open={!!fixModalCard}
+        onClose={() => setFixModalCard(null)}
+        onSuccess={() => load()}
+      />
     </div>
   );
 }

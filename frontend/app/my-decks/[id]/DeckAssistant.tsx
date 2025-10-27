@@ -59,7 +59,12 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       const p = String((data as any)?.plan || 'Optimized').toLowerCase();
       setFmt(f.includes('commander') ? 'commander' : f);
       setPlan(p);
-      const lines = String((data as any)?.deck_text || '').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean).slice(0, 40).join("; ");
+      
+      // Get ALL deck cards instead of just top 40 lines
+      const { data: allCards } = await sb.from('deck_cards').select('name, qty').eq('deck_id', deckId).limit(400);
+      const cardList = Array.isArray(allCards) 
+        ? allCards.map((c: any) => `${c.qty}x ${c.name}`).join("; ")
+        : String((data as any)?.deck_text || '').split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean).join("; ");
       
       // Fetch commander color identity for filtering suggestions
       try {
@@ -75,7 +80,7 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
       } catch {}
       
       // Enhanced deck context with problem analysis
-      let enhancedContext = `Deck: ${title}${cmd?` | Commander: ${cmd}`:''} | Cards: ${lines}`;
+      let enhancedContext = `Deck: ${title}${cmd?` | Commander: ${cmd}`:''} | Full Decklist: ${cardList}`;
       
       try {
         const deckProblems = await analyzeDeckProblems(deckId);
@@ -637,9 +642,20 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
   }
 
   return (
-    <div className="text-xs">
-      <div className="h-56 overflow-auto rounded border border-neutral-800 p-2 bg-black/20 space-y-2">
-        {msgs.length===0 && (<div className="opacity-60">Ask anything about this deck. I’ll use its commander/title and top lines as context.</div>)}
+    <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
+        <h3 className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+          Deck Assistant
+        </h3>
+      </div>
+      <div className="h-56 overflow-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar">
+        {msgs.length===0 && (
+          <div className="text-neutral-400 text-center py-8">
+            <p className="mb-2">💬 Ask me anything about your deck!</p>
+            <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
+          </div>
+        )}
         {msgs.map(m => {
           try {
             const obj = JSON.parse(m.content);
@@ -673,30 +689,48 @@ export default function DeckAssistant({ deckId }: { deckId: string }) {
           );
         })}
       </div>
-      <div className="mt-2 space-y-2">
-        <label className="inline-flex items-center gap-1">
-          <input type="checkbox" checked={!!teaching} onChange={e=>setTeaching(e.target.checked)} />
-          <span>Teaching</span>
+      <div className="mt-4 space-y-3">
+        <label className="inline-flex items-center gap-2 text-xs cursor-pointer group">
+          <input 
+            type="checkbox" 
+            checked={!!teaching} 
+            onChange={e=>setTeaching(e.target.checked)}
+            className="w-4 h-4 rounded border-neutral-600 text-purple-500 focus:ring-purple-500 focus:ring-offset-neutral-900"
+          />
+          <span className="text-neutral-300 group-hover:text-white transition-colors">
+            <span className="font-medium">Teaching mode</span>
+            <span className="opacity-70"> - explain in more detail</span>
+          </span>
         </label>
         <div className="flex items-center gap-2">
-          <input value={text} onChange={e=>setText(e.target.value)} placeholder="Ask the assistant…"
-            onKeyDown={e=>{ if (e.key==='Enter') send(); }}
-            className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+          <input 
+            value={text} 
+            onChange={e=>setText(e.target.value)} 
+            placeholder="Ask the assistant…"
+            onKeyDown={e=>{ if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            className="flex-1 bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-neutral-500"
+          />
           <button 
             onClick={toggleVoiceInput} 
-            className={`px-2 py-1 rounded border text-white transition-colors ${
+            className={`px-3 py-2 rounded-lg border text-white transition-all ${
               isListening 
-                ? 'bg-red-600 border-red-500 animate-pulse' 
+                ? 'bg-red-600 border-red-500 animate-pulse shadow-lg shadow-red-500/50' 
                 : 'bg-neutral-700 border-neutral-600 hover:bg-neutral-600'
             }`}
-            title={isListening ? 'Stop voice input' : 'Start voice input'}
+            title={isListening ? 'Stop voice input (recording...)' : 'Start voice input'}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
             </svg>
           </button>
-          <button onClick={send} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Send</button>
+          <button 
+            onClick={send} 
+            disabled={busy || !text.trim()} 
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {busy ? 'Sending...' : 'Send'}
+          </button>
         </div>
       </div>
       

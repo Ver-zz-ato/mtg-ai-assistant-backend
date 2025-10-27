@@ -61,7 +61,12 @@ export default function DeckAnalyzerPanel({ deckId, proAuto }: { deckId: string;
   return (
     <section className="rounded-xl border border-neutral-800 p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">Deck analyzer</div>
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-violet-400 animate-pulse shadow-lg shadow-violet-400/50"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent">
+            Deck Analyzer
+          </h3>
+        </div>
         <button onClick={run} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60">{busy?'Analyzing…':'Run'}</button>
       </div>
       {error && <div className="text-xs text-red-400">{error}</div>}

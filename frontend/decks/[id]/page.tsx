@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import Client from "./Client";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
+import ExportToMoxfield from "@/components/ExportToMoxfield";
+import ExportToTCGPlayer from "@/components/ExportToTCGPlayer";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
 
 type Params = { id: string };
@@ -20,6 +22,8 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         <div className="flex items-center gap-2">
           <CopyDecklistButton deckId={id} small />
           <ExportDeckCSV deckId={id} small />
+          <ExportToMoxfield deckId={id} className="text-xs underline hover:text-purple-400 transition-colors" />
+          <ExportToTCGPlayer deckId={id} className="text-xs underline hover:text-amber-400 transition-colors" />
           <DeckCsvUpload deckId={id} />
         </div>
       </header>

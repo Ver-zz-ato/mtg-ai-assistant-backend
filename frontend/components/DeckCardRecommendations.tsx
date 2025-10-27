@@ -53,7 +53,12 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
   if (loading) {
     return (
       <div className="rounded-xl border border-neutral-800 p-3">
-        <div className="text-xs font-semibold mb-2 text-gray-300">💡 Suggestions</div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-1 w-1 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+            Card Suggestions
+          </h3>
+        </div>
         <div className="animate-pulse space-y-2">
           <div className="h-3 bg-neutral-800 rounded w-3/4"></div>
           <div className="h-3 bg-neutral-800 rounded w-1/2"></div>
@@ -77,9 +82,12 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between p-3 hover:bg-neutral-800/50 transition-colors"
       >
-        <div className="text-xs font-semibold text-gray-300 flex items-center gap-2">
-          💡 Card Suggestions
-          <span className="text-gray-500">({recommendations.length})</span>
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+            Card Suggestions
+          </h3>
+          <span className="text-neutral-500 text-xs">({recommendations.length})</span>
         </div>
         <span className="text-gray-400 text-xs">{expanded ? '▼' : '▶'}</span>
       </button>

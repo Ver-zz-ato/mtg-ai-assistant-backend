@@ -32,6 +32,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [swapThreshold, setSwapThreshold] = React.useState<{budget: number; currency: string} | null>(null);
   const { showPanel, removeToast } = useToast();
 
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
@@ -138,15 +139,15 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
     await toast(`Redid: ${next.label}`, 'info');
   }
 
-  async function runBudgetSwaps(ev?: React.MouseEvent) {
-    const currency = String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase();
-    const budget = Number(intent?.budget || 5);
-    const { deckText } = await getDeckTextAndNames();
-    const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, currency, budget, useSnapshot: true, snapshotDate: new Date().toISOString().slice(0,10) }) });
-    const j = await r.json().catch(()=>({ ok:false }));
-    if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Swap suggestions failed');
-    const sugs: Array<{ from:string; to:string; price_from?: number; price_to?: number; price_delta?: number }>= Array.isArray(j?.suggestions)? j.suggestions: [];
-    if (!sugs.length) { await toast('No budget swaps found under threshold', 'info'); return; }
+  async function runBudgetSwaps(budget: number, currency: string, ev?: React.MouseEvent) {
+    try {
+      setBusy('swaps');
+      const { deckText } = await getDeckTextAndNames();
+      const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, currency, budget, useSnapshot: true, snapshotDate: new Date().toISOString().slice(0,10) }) });
+      const j = await r.json().catch(()=>({ ok:false }));
+      if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Swap suggestions failed');
+      const sugs: Array<{ from:string; to:string; price_from?: number; price_to?: number; price_delta?: number }>= Array.isArray(j?.suggestions)? j.suggestions: [];
+      if (!sugs.length) { await toast(`No swaps under ${currency} ${budget} threshold`, 'info'); return; }
 
     const list = sugs.slice(0, 8);
     const savings = list.reduce((acc, s) => acc + Math.max(0, Number(s.price_from||0) - Number(s.price_to||0)), 0);
@@ -189,6 +190,11 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
       anchor,
       large: true,
     });
+    } catch (e:any) {
+      await toast(e?.message || 'Budget swaps failed', 'error');
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function runBalanceCurve(ev?: React.MouseEvent) {
@@ -370,24 +376,26 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
                 <div className="text-xs opacity-70">Optimize mana curve</div>
               </button>
               <button 
-                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
-                onClick={(e)=>{ if (!proGuard()) return; runBudgetSwaps(e); }}
+                disabled={busy==='swaps'}
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
+                onClick={()=>{ if (!proGuard()) return; setSwapThreshold({ budget: Number(intent?.budget || 5), currency: String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase() }); }}
               >
                 <div className="font-semibold text-xs flex items-center gap-1">
                   💰 Budget Swaps
                   <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
                 </div>
-                <div className="text-xs opacity-70">Find cheaper alternatives</div>
+                <div className="text-xs opacity-70">{busy==='swaps' ? 'Computing...' : 'Find cheaper alternatives'}</div>
               </button>
               <button 
-                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
-                onClick={()=>{ if (!proGuard()) return; try { window.dispatchEvent(new Event('analyzer:run')); } catch {} }}
+                disabled={busy==='analyze'}
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
+                onClick={async()=>{ if (!proGuard()) return; setBusy('analyze'); try { window.dispatchEvent(new Event('analyzer:run')); await new Promise(r=>setTimeout(r,100)); await toast('Deck stats updated', 'success'); } catch {} finally { setBusy(null); } }}
               >
                 <div className="font-semibold text-xs flex items-center gap-1">
                   🔄 Re-analyze
                   <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
                 </div>
-                <div className="text-xs opacity-70">Update deck stats</div>
+                <div className="text-xs opacity-70">{busy==='analyze' ? 'Analyzing...' : 'Update deck stats'}</div>
               </button>
             </div>
           </div>
@@ -399,6 +407,64 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
               <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || history.length===0} onClick={undo}>Undo</button>
               <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || future.length===0} onClick={redo}>Redo</button>
               {!isPro && (<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Swaps Threshold Popup */}
+      {swapThreshold && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>setSwapThreshold(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-5 shadow-2xl max-w-sm w-full mx-4" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">💰</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
+                Budget Swap Threshold
+              </h3>
+            </div>
+            <p className="text-sm text-neutral-400 mb-4">
+              Find cheaper alternatives for cards above this price:
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-300 mb-1.5">Maximum card price</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="0.5"
+                  value={swapThreshold.budget} 
+                  onChange={(e)=>setSwapThreshold({...swapThreshold, budget: Number(e.target.value)})}
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  placeholder="5.00"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-300 mb-1.5">Currency</label>
+                <select 
+                  value={swapThreshold.currency} 
+                  onChange={(e)=>setSwapThreshold({...swapThreshold, currency: e.target.value})}
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button 
+                onClick={()=>setSwapThreshold(null)}
+                className="flex-1 px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={()=>{ const t = swapThreshold; setSwapThreshold(null); runBudgetSwaps(t.budget, t.currency); }}
+                disabled={busy==='swaps'}
+                className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              >
+                {busy==='swaps' ? 'Computing...' : 'Go'}
+              </button>
             </div>
           </div>
         </div>

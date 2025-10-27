@@ -32,8 +32,13 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
 
   return (
     <div className="rounded-xl border border-neutral-800 p-3 text-sm">
-      <div className="flex items-center justify-between">
-        <div className="font-medium">Deck value</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+            Deck Value
+          </h3>
+        </div>
         <select value={currency} onChange={e=> setCurrency(e.currentTarget.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs">
           <option>USD</option>
           <option>EUR</option>

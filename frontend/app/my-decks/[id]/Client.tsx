@@ -112,6 +112,11 @@ export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boo
           />
         </section>
         
+        {/* Deck Analyzer */}
+        <div className="rounded-xl border border-neutral-800 p-3">
+          {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={deckId} proAuto={!!isPro} />; })()}
+        </div>
+        
         <LegalityTokensPanel deckId={deckId} />
 {(() => { const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) }); return <Prob deckId={deckId} isPro={!!isPro} />; })()}
       </aside>

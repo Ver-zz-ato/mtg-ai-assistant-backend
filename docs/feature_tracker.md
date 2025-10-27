@@ -517,3 +517,61 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Offline capability for deck viewing and basic functionality
 - Push notifications for price alerts and system updates
 - Additional mobile component optimizations (deck editor, collections, profile)
+
+## Pro Features Audit & Consistency (2025-10-27)
+
+☑ Complete Pro Features Audit and Gate Implementation <!-- id:pro.features_audit_oct27 -->
+- Comprehensive audit of all 20 Pro features across entire codebase
+- 16/20 features already fully implemented with proper Pro gates
+- 2/20 features needed Pro gate additions (deck versions)
+- 2/20 features needed UI consistency fixes (export button labels)
+
+☑ Deck Versions API Pro Gates <!-- id:pro.deck_versions_gates -->
+- Added Pro gates to all three HTTP handlers (GET, POST, PUT) in `/api/decks/[id]/versions`
+- GET handler: Pro check added after ownership validation
+- POST handler: Updated from user_metadata check to profiles.is_pro (single source of truth)
+- PUT handler: Updated from user_metadata check to profiles.is_pro (single source of truth)
+- All handlers now return 403 with "Deck versions are a Pro feature. Upgrade to unlock version history!" message
+- Deck Comments API confirmed to stay FREE (auth-only) per user request
+
+☑ Pro Check Consistency Across Site <!-- id:pro.check_consistency -->
+- Standardized all Pro checks to use `profiles.is_pro` from database (single source of truth)
+- Removed inconsistent `user_metadata.pro` checks in favor of database queries
+- Works seamlessly with all 3 Pro subscription types: monthly (£1.99), yearly (£14.99), and manual admin grants
+- Ensures real-time Pro status accuracy after Stripe webhook updates or admin toggles
+
+☑ Export Button UI Consistency <!-- id:pro.export_buttons_consistency -->
+- Updated Budget Swaps export buttons to match Cost to Finish styling
+- Moxfield and MTGO export buttons now always show "Pro" badge (not conditional)
+- Standardized badge styling: `bg-amber-400 text-black text-[10px] font-bold uppercase`
+- Consistent visual indication of Pro features across all pages
+
+☑ Pro Features Integration Verification <!-- id:pro.integration_verification -->
+- All 20 Pro features verified working correctly:
+  1. ✅ AI-Powered Budget Swaps (strict mode free, AI mode Pro)
+  2. ✅ Export to Moxfield (Pro badge, gate enforced)
+  3. ✅ Export to MTGO (Pro badge, gate enforced)
+  4. ✅ Fork Deck with Swaps (Pro badge, gate enforced)
+  5. ✅ Explain Why (budget swap reasoning, Pro-gated)
+  6. ✅ Price Tracker Watchlist Panel (Pro-gated)
+  7. ✅ Price Tracker Deck Value Panel (Pro-gated)
+  8. ✅ Fix Card Names (collections, Pro-gated)
+  9. ✅ Set to Playset (collections bulk action, Pro-gated)
+  10. ✅ Price Snapshot Refresh (collections, Pro-gated)
+  11. ✅ Unlimited Chat Messages (free: 50/day, Pro: unlimited)
+  12. ✅ Custom Cards Save (free: 5, Pro: 20)
+  13. ✅ Deck Versions (GET/POST/PUT all Pro-gated) **NEWLY ADDED**
+  14. ✅ Deck Comments (FREE per user request)
+  15. ✅ Probability Helpers Embedded Panel (Pro-gated)
+  16. ✅ Hand Testing Widget (Pro-gated)
+  17. ✅ Build Assistant Actions (balance curve, Pro-gated)
+  18. ✅ Build Assistant Re-analyze (Pro-gated)
+  19. ✅ Wishlist Editor Advanced Features (Pro-gated)
+  20. ✅ Enhanced Analytics (advanced panels, Pro-gated)
+
+☑ Safe Implementation & Rollback Plan <!-- id:pro.safe_implementation -->
+- All changes are additions only - no breaking modifications to existing code
+- Can revert by removing Pro check blocks if needed
+- No linter errors introduced
+- Verified all files compile successfully
+- Changes isolated to 2 files: versions API route and Budget Swaps client component

@@ -136,7 +136,7 @@ export default function ShareButton({
       <div className="relative">
         <button
           onClick={handleCopy}
-          className={`flex items-center gap-1 text-xs ${copiedRecently ? 'text-green-600' : 'text-gray-600 hover:text-gray-800'} ${className}`}
+          className={`flex items-center gap-1 ${copiedRecently ? 'text-green-400' : ''} ${className}`}
         >
           {copiedRecently ? (
             <>
