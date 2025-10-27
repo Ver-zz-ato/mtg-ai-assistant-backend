@@ -9,7 +9,7 @@ interface ChangelogEntry {
   description: string;
   features?: string[];
   fixes?: string[];
-  type: 'feature' | 'fix' | 'improvement' | 'breaking';
+  type?: 'feature' | 'fix' | 'improvement' | 'breaking';
 }
 
 const typeColors = {
@@ -108,10 +108,12 @@ export default function ChangelogPage() {
                 <span className="font-mono text-lg font-semibold text-white">
                   {entry.version}
                 </span>
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${typeColors[entry.type]}`}>
-                  <span>{typeEmojis[entry.type]}</span>
-                  {entry.type.charAt(0).toUpperCase() + entry.type.slice(1)}
-                </span>
+                {entry.type && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${typeColors[entry.type]}`}>
+                    <span>{typeEmojis[entry.type]}</span>
+                    {entry.type.charAt(0).toUpperCase() + entry.type.slice(1)}
+                  </span>
+                )}
               </div>
               <h2 className="text-xl font-semibold text-white mb-1">
                 {entry.title}

@@ -511,71 +511,107 @@ export default function BudgetSwapsClient(){
               {/* Guest Example - only show when no results and not busy */}
               {!busy && (
                 <div className="rounded-xl border border-blue-500/40 bg-blue-950/20 p-4">
-                  <div className="text-sm font-semibold mb-3 text-blue-300">👁️ Example Result Preview</div>
-                  <div className="text-xs text-neutral-300 mb-3">Here's what Budget Swaps looks like for a sample competitive deck:</div>
+                  <div className="text-sm font-semibold mb-3 text-blue-300 flex items-center gap-2">
+                    <span>👁️</span>
+                    <span>Example Result Preview</span>
+                  </div>
+                  <div className="text-xs text-neutral-300 mb-3">Here's what Budget Swaps looks like for a sample competitive deck.</div>
                   
-                  {/* Mock summary */}
-                  <div
-                    className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 mb-3 animate-pulse cursor-pointer"
-                    onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
-                  >
-                    <div className="text-xs font-medium mb-2 opacity-80">Summary</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <div className="rounded border border-neutral-800 p-2">
-                        <div className="opacity-70 text-[10px]">Cards over threshold</div>
-                        <div className="font-bold">6</div>
-                      </div>
-                      <div className="rounded border border-neutral-800 p-2">
-                        <div className="opacity-70 text-[10px]">Estimated savings</div>
-                        <div className="font-bold text-emerald-400">$89.75</div>
-                      </div>
-                      <div className="rounded border border-neutral-800 p-2">
-                        <div className="opacity-70 text-[10px]">Budget check</div>
-                        <div className="font-bold text-emerald-400">✅ Within your $5.00 budget!</div>
-                      </div>
+                  {/* Mock deck banner with Atraxa commander art */}
+                  <div className="mb-3 relative rounded-lg overflow-hidden border-2 border-neutral-700">
+                    <img
+                      src="https://cards.scryfall.io/art_crop/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg"
+                      alt="Atraxa, Praetors' Voice"
+                      className="w-full h-24 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                    <div className="absolute bottom-2 left-3">
+                      <div className="font-semibold text-xs text-white drop-shadow-lg">Sample Competitive Deck</div>
+                      <div className="text-[10px] text-neutral-200 drop-shadow-lg">Atraxa, Praetors' Voice</div>
                     </div>
                   </div>
                   
-                  {/* Mock swap table */}
-                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
-                    <div className="text-xs font-medium mb-2 opacity-80">Top Swaps</div>
-                    <div className="space-y-2 text-xs">
-                      <div
-                        className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
-                        onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="px-1 py-0.5 bg-red-900/30 rounded text-[10px]">From:</span>
-                          <span>Mana Crypt ($45.00)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1 py-0.5 bg-emerald-900/30 rounded text-[10px]">To:</span>
-                          <span>Sol Ring ($2.50)</span>
-                          <span className="text-emerald-400">-$42.50</span>
-                        </div>
+                  {/* Mock summary with action buttons */}
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3 mb-3">
+                    <div className="text-xs font-semibold mb-2">Summary</div>
+                    <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                      <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
+                        <div className="opacity-70 text-[9px] mb-0.5">Cards over threshold</div>
+                        <div className="font-bold text-sm">5</div>
                       </div>
-                      <div
-                        className="flex justify-between items-center py-1 border-b border-neutral-800 cursor-pointer hover:bg-neutral-900/40"
-                        onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to find real budget alternatives','info'); } catch { alert('Paste your deck to find real budget alternatives'); } }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="px-1 py-0.5 bg-red-900/30 rounded text-[10px]">From:</span>
-                          <span>Force of Will ($35.00)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1 py-0.5 bg-emerald-900/30 rounded text-[10px]">To:</span>
-                          <span>Counterspell ($1.25)</span>
-                          <span className="text-emerald-400">-$33.75</span>
-                        </div>
+                      <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
+                        <div className="opacity-70 text-[9px] mb-0.5">Estimated savings</div>
+                        <div className="font-bold text-sm text-emerald-400">£2,456.20</div>
                       </div>
-                      <div className="flex justify-between items-center py-1">
-                        <span className="opacity-70">+ 4 more swaps...</span>
-                        <span className="text-emerald-400 opacity-70">-$13.50</span>
+                      <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
+                        <div className="opacity-70 text-[9px] mb-0.5">Budget check</div>
+                        <div className="text-[9px] text-amber-400">⚠️ Some above threshold</div>
                       </div>
+                    </div>
+                    
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-800">
+                      <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-emerald-600 text-white font-medium">
+                        <span>📊</span> Export CSV
+                      </button>
+                      <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-neutral-800 text-white border border-neutral-700">
+                        Export → Moxfield <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                      </button>
+                      <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-neutral-800 text-white border border-neutral-700">
+                        Export → MTGO <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                      </button>
+                      <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-sky-600 text-white font-medium">
+                        <span>+</span> Add to Wishlist
+                      </button>
+                      <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-purple-600 text-white font-medium">
+                        Fork deck <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                      </button>
                     </div>
                   </div>
                   
-                  <div className="mt-3 text-xs opacity-70">💡 Paste your own deck above to find real budget alternatives!</div>
+                  {/* Mock swap cards with images */}
+                  <div className="space-y-2">
+                    {[
+                      { from: "Gaea's Cradle", fromPrice: 774.59, fromImg: 'https://cards.scryfall.io/small/front/2/5/25b0b816-0583-44aa-9dc5-f3ff48993a51.jpg', to: 'Growing Rites of Itlimoc', toPrice: 3.46, toImg: 'https://cards.scryfall.io/small/front/b/3/b3b87bfc-ed66-4e3c-aa24-27e19e1a37d8.jpg' },
+                      { from: 'Chrome Mox', fromPrice: 86.05, fromImg: 'https://cards.scryfall.io/small/front/f/3/f340cbf7-5bbe-45b9-a4bf-d1caa500ff93.jpg', to: 'Arcane Signet', toPrice: 0.34, toImg: 'https://cards.scryfall.io/small/front/1/4/1486170d-4ad3-4318-bf72-f948617d567f.jpg' }
+                    ].map((swap, i) => (
+                      <div key={i} className="rounded-lg border border-neutral-800 bg-neutral-950 p-2 hover:bg-neutral-900/50 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="w-3 h-3" />
+                          
+                          {/* FROM */}
+                          <div className="flex items-start gap-2 flex-1 border-l-4 border-red-500 pl-2 py-1">
+                            <img src={swap.fromImg} alt={swap.from} className="w-8 h-11 object-cover rounded" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] uppercase text-red-400 font-semibold mb-0.5">Remove</div>
+                              <div className="text-xs font-medium truncate">{swap.from}</div>
+                              <div className="text-[10px] text-red-400">£{swap.fromPrice}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Arrow */}
+                          <div className="text-lg text-neutral-500">→</div>
+                          
+                          {/* TO */}
+                          <div className="flex items-start gap-2 flex-1 border-l-4 border-green-500 pl-2 py-1">
+                            <img src={swap.toImg} alt={swap.to} className="w-8 h-11 object-cover rounded" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] uppercase text-green-400 font-semibold mb-0.5">Add</div>
+                              <div className="text-xs font-medium truncate">{swap.to}</div>
+                              <div className="text-[10px] text-green-400">£{swap.toPrice}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Savings */}
+                          <div className="text-xs font-bold text-emerald-400 shrink-0">
+                            Save £{(swap.fromPrice - swap.toPrice).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-3 pt-2 border-t border-neutral-700 text-xs opacity-70 text-center">💡 Paste your own deck above to find real budget alternatives!</div>
                 </div>
               )}
             </div>
@@ -622,13 +658,25 @@ export default function BudgetSwapsClient(){
                 </div>
               </div>
 
-              {/* Quick actions grouped at bottom of summary */}
-              <div className="mt-3 pt-3 border-t border-neutral-800 flex flex-wrap items-center gap-2 text-xs">
-                <button onClick={exportCSV} className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800">Export CSV</button>
-                <button onClick={()=>exportTxt('moxfield')} className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800">Export → Moxfield { !isProFinal && (<span className="ml-1 px-1 rounded bg-amber-300 text-black text-[10px]">Pro</span>)}</button>
-                <button onClick={()=>exportTxt('mtgo')} className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800">Export → MTGO { !isProFinal && (<span className="ml-1 px-1 rounded bg-amber-300 text-black text-[10px]">Pro</span>)}</button>
-                <button onClick={addToWishlist} className="px-2 py-1 rounded bg-sky-600 hover:bg-sky-500 text-black">Add swaps to Wishlist</button>
-                <button onClick={forkDeck} className="px-2 py-1 rounded bg-purple-600 hover:bg-purple-500 text-black">Fork deck with swaps (Pro)</button>
+              {/* Quick actions grouped at bottom of summary - matching Cost to Finish styling */}
+              <div className="mt-3 pt-3 border-t border-neutral-800 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={exportCSV} className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium">
+                    <span>📊</span> Export CSV
+                  </button>
+                  <button onClick={()=>exportTxt('moxfield')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
+                    Export → Moxfield { !isProFinal && (<span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>)}
+                  </button>
+                  <button onClick={()=>exportTxt('mtgo')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
+                    Export → MTGO { !isProFinal && (<span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>)}
+                  </button>
+                  <button onClick={addToWishlist} className="flex items-center gap-1 px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium">
+                    <span>+</span> Add swaps to Wishlist
+                  </button>
+                  <button onClick={forkDeck} className="flex items-center gap-1 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium">
+                    Fork deck with swaps <span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>
+                  </button>
+                </div>
               </div>
 
               {/* Divider to separate summary from swaps */}

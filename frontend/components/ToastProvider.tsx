@@ -122,8 +122,15 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
   }, []);
 
   // Position helper for anchored panel
-  const anchoredStyle = (t: Toast): React.CSSProperties | undefined => {
-    if (!t.anchor) return undefined;
+  const anchoredStyle = (t: Toast): React.CSSProperties => {
+    if (!t.anchor) {
+      // Default to center of screen
+      return { 
+        left: '50%', 
+        top: '50%', 
+        transform: 'translate(-50%, -50%)' 
+      };
+    }
     const x = Math.max(12, Math.min((typeof window !== 'undefined' ? window.innerWidth - 12 : 9999), t.anchor.x));
     const y = Math.max(12, Math.min((typeof window !== 'undefined' ? window.innerHeight - 12 : 9999), t.anchor.y));
     return { left: x, top: y, transform: 'translate(-50%, -110%)' };

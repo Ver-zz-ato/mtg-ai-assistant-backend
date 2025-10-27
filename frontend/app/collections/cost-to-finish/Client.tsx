@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { usePrefs } from "@/components/PrefsContext";
 import { useProStatus } from "@/hooks/useProStatus";
+import { useToast } from "@/components/ToastProvider";
 
 type Deck = { id: string; title: string; deck_text?: string | null };
 type Collection = { id: string; name: string };
@@ -21,6 +22,8 @@ type ResultRow = {
 };
 
 export default function CostToFinishClient() {
+  const { showPanel: showToastPanel, removeToast } = useToast();
+  
   function DistributionCharts() {
     if (rowsToShow.length===0) return null;
     const buckets = { small:0, low:0, mid:0, high:0 } as any;
@@ -198,6 +201,7 @@ export default function CostToFinishClient() {
   const [acceptedSwaps, setAcceptedSwaps] = React.useState<Set<string>>(new Set());
   const [cardSwapLoading, setCardSwapLoading] = React.useState<Record<string, boolean>>({});
   const [cardSwapResults, setCardSwapResults] = React.useState<Record<string, any[]>>({});
+  const [batchSwapsLoading, setBatchSwapsLoading] = React.useState(false);
 
   // Lazy load more shopping list items
   const loadMoreShopItems = React.useCallback(async () => {
@@ -487,14 +491,14 @@ export default function CostToFinishClient() {
         console.log('[Cost to Finish] First 3 data items:', metaData.data?.slice(0, 3));
         const pairs = (metaData.data || []).map((j: any) => {
           const name = j.name || '';
-          const rarity = String(j?.rarity || '').toLowerCase();
-          const type_line = String(j?.type_line||'');
-          const oracle = String(j?.oracle_text||'');
-          const land = /\bLand\b/i.test(type_line);
-          const draw = /draw a card|scry [1-9]/i.test(oracle);
+            const rarity = String(j?.rarity || '').toLowerCase();
+            const type_line = String(j?.type_line||'');
+            const oracle = String(j?.oracle_text||'');
+            const land = /\bLand\b/i.test(type_line);
+            const draw = /draw a card|scry [1-9]/i.test(oracle);
           const ramp = /add \{[wubrg]\}|search your library for (a|up to .*?) land|signet|talisman|sol ring/i.test(oracle + ' ' + name);
-          const removal = /destroy target|exile target|counter target/i.test(oracle);
-          return { name, rarity, land, ramp, draw, removal };
+            const removal = /destroy target|exile target|counter target/i.test(oracle);
+            return { name, rarity, land, ramp, draw, removal };
         });
         
         const rm: Record<string,string> = {};
@@ -580,7 +584,7 @@ export default function CostToFinishClient() {
                   });
                 }
                 
-                setImgMap(obj);
+              setImgMap(obj);
               }
             } catch {}
           }
@@ -618,7 +622,10 @@ export default function CostToFinishClient() {
     
     try {
       const tempDeckText = `1 ${cardName}`;
-      const body = { deckText: tempDeckText, currency, budget: Math.max(5, currentPrice * 0.5), ai: false };
+      // For expensive cards, cap the budget at $20 to get truly budget-friendly alternatives
+      // For cheaper cards, use 50% of the price
+      const budgetCap = currentPrice > 40 ? 20 : Math.max(5, currentPrice * 0.5);
+      const body = { deckText: tempDeckText, currency, budget: budgetCap, ai: false };
       const r = await fetch('/api/deck/swap-suggestions', { 
         method: 'POST', 
         headers: { 'content-type': 'application/json' }, 
@@ -685,8 +692,8 @@ export default function CostToFinishClient() {
               <div>
                 <span className="font-semibold text-amber-300">Pro Features:</span>
                 <span className="text-neutral-300 ml-1">Budget swap suggestions, Moxfield/MTGO exports, price trend sparklines, and historical snapshots.</span>
-              </div>
-            </div>
+        </div>
+      </div>
           )}
         </div>
       </header>
@@ -807,185 +814,13 @@ export default function CostToFinishClient() {
               Here's what a Cost to Finish analysis looks like for a sample Atraxa deck. Paste your own deck in the panel to the left to see real results!
             </div>
             
-            {/* Enhanced mock summary matching actual output */}
-            <div className="rounded-xl border border-emerald-700/60 bg-neutral-950 p-4 mb-3 cursor-pointer hover:border-emerald-600/80 transition-colors"
+            {/* Example screenshot */}
+            <img 
+              src="/screenshot-cost-to-finish-example.png" 
+              alt="Example Cost to Finish analysis showing total cost, deck completion, top missing cards, and shopping list" 
+              className="w-full rounded-lg border border-neutral-700 shadow-lg cursor-pointer hover:border-blue-500/60 transition-colors"
               onClick={async()=>{ try{ const { toast } = await import('@/lib/toast-client'); toast('Paste your deck to see real results','info'); } catch { alert('Paste your deck to see real results'); } }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-bold">💰 Total Cost to Finish</div>
-              </div>
-              
-              {/* Main cost display */}
-              <div className="mb-4">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400 mb-1">
-                  $127.45
-                </div>
-                <div className="text-[10px] text-neutral-400">Based on live market prices from Scryfall</div>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-[10px] mb-1">
-                  <div className="font-medium">🧩 Deck Completion</div>
-                  <div className="text-neutral-400">77/100 cards (77%)</div>
-                </div>
-                <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full" style={{ width: '77%' }} />
-                </div>
-              </div>
-              
-              {/* Stats grid */}
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-2">
-                  <div className="opacity-70 text-[9px] mb-1">💾 Cards Owned</div>
-                  <div className="text-sm font-bold text-emerald-400">77</div>
-                </div>
-                <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-2">
-                  <div className="opacity-70 text-[9px] mb-1">❌ Missing</div>
-                  <div className="text-sm font-bold text-amber-400">23</div>
-                </div>
-                <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-2">
-                  <div className="opacity-70 text-[9px] mb-1">💸 Biggest</div>
-                  <div className="text-xs font-bold truncate">$45</div>
-                  <div className="text-[8px] opacity-70 truncate">Mana Crypt</div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Mock Top Missing Cards with images */}
-            <div className="rounded-xl border border-red-700/40 bg-neutral-950 p-4 mb-3">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">🔥</span>
-                <div className="text-base font-bold">Top Missing Cards</div>
-              </div>
-              <div className="space-y-2">
-                {[
-                  { name: 'Mana Crypt', price: '$45.00', img: 'https://cards.scryfall.io/large/front/4/c/4cb33b64-9473-4043-a8e2-f4237afa88bd.jpg?1599709515' },
-                  { name: 'Cyclonic Rift', price: '$18.50', img: 'https://cards.scryfall.io/large/front/f/f/ff08e5ed-f47b-4d8e-8b8b-41675dccef8b.jpg?1598303834' },
-                  { name: 'Rhystic Study', price: '$15.25', img: 'https://cards.scryfall.io/large/front/d/6/d6184dfd-82f5-4a39-afdf-ad0c3f0337c6.jpg?1594735985' }
-                ].map(({ name, price, img }) => (
-                  <div key={name} className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3">
-                    <div className="flex items-start gap-3">
-                      {/* Card thumbnail */}
-                      <div className="w-10 h-14 shrink-0 rounded overflow-hidden bg-neutral-800">
-                        <img src={img} alt={name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold mb-1">{name}</div>
-                        <div className="text-xs font-mono text-emerald-400">{price}</div>
-                      </div>
-                    </div>
-                    <button className="w-full mt-2 px-2 py-1 rounded text-xs bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 transition-colors">
-                      Find budget alternative
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Mock distribution charts */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="rounded-xl border border-emerald-700/40 bg-neutral-950 p-2">
-                <div className="flex items-center gap-1 mb-2">
-                  <span className="text-sm">💵</span>
-                  <div className="text-[10px] font-bold">By Price Bucket</div>
-                </div>
-                <div className="space-y-1 text-[9px]">
-                  {[['<$1', 45, 'bg-slate-400'], ['$1–5', 30, 'bg-sky-500'], ['$5–20', 15, 'bg-amber-500'], ['$20+', 10, 'bg-rose-500']].map(([label, pct, color]) => (
-                    <div key={String(label)}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span>{label}</span>
-                        <span className="opacity-70">{pct}%</span>
-                      </div>
-                      <div className="h-1 rounded bg-neutral-800 overflow-hidden">
-                        <div className={`h-1 ${color}`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="rounded-xl border border-amber-700/40 bg-neutral-950 p-2">
-                <div className="flex items-center gap-1 mb-2">
-                  <span className="text-sm">✨</span>
-                  <div className="text-[10px] font-bold">By Rarity</div>
-                </div>
-                <div className="space-y-1 text-[9px]">
-                  {[['Common', 40, 'bg-neutral-500'], ['Uncommon', 30, 'bg-gray-400'], ['Rare', 20, 'bg-yellow-500'], ['Mythic', 10, 'bg-orange-500']].map(([label, pct, color]) => (
-                    <div key={String(label)}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span>{label}</span>
-                        <span className="opacity-70">{pct}%</span>
-                      </div>
-                      <div className="h-1 rounded bg-neutral-800 overflow-hidden">
-                        <div className={`h-1 ${color}`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {/* Mock Shopping List with card images */}
-            <div className="rounded-xl border border-blue-700/40 bg-neutral-950 p-4 mb-3">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">🛒</span>
-                <div className="text-base font-bold">Shopping List</div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
-                    <tr className="text-left">
-                      <th className="py-2 px-2 font-semibold text-neutral-400">Card</th>
-                      <th className="py-2 px-2 font-semibold text-neutral-400">Cheapest print</th>
-                      <th className="py-2 px-2 font-semibold text-neutral-400 text-right">Qty</th>
-                      <th className="py-2 px-2 font-semibold text-neutral-400 text-right">Unit</th>
-                      <th className="py-2 px-2 font-semibold text-neutral-400 text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name: 'Mana Crypt', set: 'EMA', num: '225', qty: 1, unit: '$45.00', img: 'https://cards.scryfall.io/normal/front/4/c/4cb33b64-9473-4043-a8e2-f4237afa88bd.jpg' },
-                      { name: 'Cyclonic Rift', set: 'C14', num: '104', qty: 1, unit: '$18.50', img: 'https://cards.scryfall.io/normal/front/f/f/ff08e5ed-f47b-4d8e-8b8b-41675dccef8b.jpg' },
-                      { name: 'Rhystic Study', set: 'PCY', num: '45', qty: 1, unit: '$15.25', img: 'https://cards.scryfall.io/normal/front/d/6/d6184dfd-82f5-4a39-afdf-ad0c3f0337c6.jpg' },
-                      { name: 'Sol Ring', set: 'C21', num: '263', qty: 1, unit: '$1.50', img: 'https://cards.scryfall.io/normal/front/4/c/4cbc6901-6a4a-4d0a-83ea-7eefa3b35021.jpg' },
-                      { name: 'Command Tower', set: 'C13', num: '281', qty: 1, unit: '$0.75', img: 'https://cards.scryfall.io/normal/front/6/4/64ad2489-0b35-4327-ad53-19c7cdde1fc3.jpg' }
-                    ].map(({ name, set, num, qty, unit, img }) => {
-                      const unitVal = parseFloat(unit.replace('$', ''));
-                      const subtotal = `$${(unitVal * qty).toFixed(2)}`;
-                      return (
-                        <tr key={name} className="border-b border-neutral-800/50 hover:bg-neutral-900/30">
-                          <td className="py-2 px-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-8 shrink-0 rounded overflow-hidden bg-neutral-800">
-                                <img src={img} alt={name} className="w-full h-full object-cover" />
-                              </div>
-                              <span className="font-medium">{name}</span>
-                            </div>
-                          </td>
-                          <td className="py-2 px-2">
-                            <div className="text-xs text-neutral-400">{set} #{num}</div>
-                          </td>
-                          <td className="py-2 px-2 text-right text-neutral-400">{qty}</td>
-                          <td className="py-2 px-2 text-right font-mono text-emerald-400">{unit}</td>
-                          <td className="py-2 px-2 text-right font-mono font-semibold text-emerald-400">{subtotal}</td>
-                        </tr>
-                      );
-                    })}
-                    <tr className="font-semibold bg-neutral-900/50">
-                      <td className="py-2 px-2" colSpan={2}>Total</td>
-                      <td className="py-2 px-2 text-right">5</td>
-                      <td className="py-2 px-2"></td>
-                      <td className="py-2 px-2 text-right font-mono text-emerald-400 text-base">$81.00</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            
-            <div className="text-[10px] opacity-70 text-center p-2 border-t border-neutral-700">
-              💡 This is a preview. Paste your own Commander deck to see real analysis with live pricing, card images, and budget swap suggestions!
-            </div>
+            />
           </div>
         )}
 
@@ -1043,7 +878,7 @@ export default function CostToFinishClient() {
                     <div className="mb-6 text-center">
                       <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400 mb-2">
                         {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(computedTotal)}
-                      </div>
+                    </div>
                       <div className="text-sm text-neutral-400">Based on live market prices from Scryfall</div>
                     </div>
                     
@@ -1052,13 +887,13 @@ export default function CostToFinishClient() {
                       <div className="flex items-center justify-between text-sm mb-2">
                         <div className="font-medium">🧩 Deck Completion</div>
                         <div className="text-neutral-400">{owned}/{deckSize} cards ({completionPercent}%)</div>
-                      </div>
+                    </div>
                       <div className="h-3 bg-neutral-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full transition-all duration-500"
                           style={{ width: `${completionPercent}%` }}
                         />
-                      </div>
+                    </div>
                     </div>
                     
                   {/* Stats grid */}
@@ -1141,7 +976,7 @@ export default function CostToFinishClient() {
                         const { toastError } = await import('@/lib/toast-client');
                         toastError(e?.message || 'Export failed');
                       } catch {
-                        alert(e?.message || 'Export failed');
+                      alert(e?.message || 'Export failed');
                       }
                     }
                   }}
@@ -1212,6 +1047,7 @@ export default function CostToFinishClient() {
                 <button
                   onClick={async () => {
                     if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); } return; }
+                    setBatchSwapsLoading(true);
                     try{
                       // Don't set a budget threshold - find ALL possible swaps
                       const body:any = { deckText, currency, useSnapshot, snapshotDate, ai: false };
@@ -1235,10 +1071,13 @@ export default function CostToFinishClient() {
                       } catch {
                         alert(e?.message||'Suggestions failed');
                       }
+                    } finally {
+                      setBatchSwapsLoading(false);
                     }
                   }}
-                  className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm inline-flex items-center gap-2 transition-colors">
-                  💡 Suggest budget swaps <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                  disabled={batchSwapsLoading}
+                  className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm inline-flex items-center gap-2 transition-colors">
+                  {batchSwapsLoading ? '🔄 Loading...' : '💡 Suggest budget swaps'} {!batchSwapsLoading && <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>}
                 </button>
               </div>
             </div>
@@ -1380,7 +1219,7 @@ export default function CostToFinishClient() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Loading more cards...
-                  </div>
+              </div>
                 )}
                 {!shopItemsLoading && !shopItemsHasMore && shopItems.length > 0 && (
                   <div className="text-xs text-neutral-500">
@@ -1390,14 +1229,14 @@ export default function CostToFinishClient() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
         )}
-        
+
         </div>
         )}
 
       {/* Swaps modal (Pro) - Interactive with pagination - MODAL OVERLAY */}
-      {swapsOpen && (
+        {swapsOpen && (
         <>
           {/* Backdrop overlay */}
           <div 
@@ -1416,7 +1255,7 @@ export default function CostToFinishClient() {
                 >
                   Close
                 </button>
-              </div>
+            </div>
               
               {swaps.length === 0 ? (
                 <div className="text-center py-8">
@@ -1428,7 +1267,7 @@ export default function CostToFinishClient() {
                 <>
                   <div className="text-sm text-neutral-300 mb-3">
                     Found <span className="font-bold text-emerald-400">{swaps.length}</span> potential swaps to save money
-                  </div>
+            </div>
                   
                   {/* Paginated swap cards */}
                   <div className="space-y-2 mb-4">
@@ -1445,7 +1284,7 @@ export default function CostToFinishClient() {
                                 <span className="font-mono text-sm font-semibold">{s.from}</span>
                                 <span className="text-neutral-500">→</span>
                                 <span className="font-mono text-sm font-semibold text-emerald-400">{s.to}</span>
-                              </div>
+          </div>
                               <div className="flex items-center gap-3 text-xs text-neutral-400">
                                 <span className="line-through">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(s.price_from || 0)}</span>
                                 <span className="text-emerald-400 font-semibold">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(s.price_to || 0)}</span>
@@ -1453,8 +1292,8 @@ export default function CostToFinishClient() {
                                   Save {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(savings)}
                                 </span>
                               </div>
-                            </div>
-                            
+        </div>
+        
                             <button
                                 onClick={() => {
                                   if (isAccepted) {
@@ -1515,13 +1354,13 @@ export default function CostToFinishClient() {
                               Show me more →
                             </button>
                           )}
-                        </div>
-                      </div>
+                </div>
+                </div>
                     )}
                   </>
                 )}
+                </div>
               </div>
-            </div>
           </>
         )}
 
@@ -1538,7 +1377,7 @@ export default function CostToFinishClient() {
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xl">🔥</span>
                   <div className="text-base font-bold">Top Missing Cards</div>
-                </div>
+            </div>
                 <div className="space-y-2">
                   {topCards.map((r, i) => {
                     const key = String(r.card || '').toLowerCase();
@@ -1581,7 +1420,7 @@ export default function CostToFinishClient() {
                             ) : (
                               <div className="text-[10px] text-neutral-600 text-center px-1">🃏</div>
                             )}
-                          </div>
+                </div>
                           
                           {/* Card info */}
                           <div className="flex-1 min-w-0">
@@ -1589,7 +1428,7 @@ export default function CostToFinishClient() {
                             <div className="text-xs text-emerald-400 font-mono">
                               {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(r.unit)}
                               {r.need > 1 && ` × ${r.need}`}
-                            </div>
+                </div>
                             
                             {/* Budget swap button */}
                             <button
@@ -1600,11 +1439,53 @@ export default function CostToFinishClient() {
                               {loading ? 'Finding...' : 'Find budget alternative'}
                             </button>
                             
-                            {/* Swap results */}
+                            {/* Swap results - clickable */}
                             {swaps.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {swaps.slice(0, 3).map((swap: any, si: number) => (
-                                  <div key={si} className="text-xs bg-neutral-800 rounded px-2 py-1">
+                                  <div 
+                                    key={si} 
+                                    className="text-xs bg-neutral-800 hover:bg-neutral-700 rounded px-2 py-1 cursor-pointer transition-colors"
+                                    onClick={async () => {
+                                      const fromCard = capitalize(String(r.card || ''));
+                                      const toCard = capitalize(swap.to || swap.name || '');
+                                      const savings = (swap.price_from || r.unit) - (swap.price_to || swap.price || 0);
+                                      
+                                      const panelId = showToastPanel({
+                                        title: '💱 Apply Budget Swap?',
+                                        lines: [
+                                          { text: `Replace ${fromCard} (${new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(r.unit)})` },
+                                          { text: `with ${toCard} (${new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(swap.price_to || swap.price || 0)})?` },
+                                          { text: `Savings: ${new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(savings)}` }
+                                        ],
+                                        actions: [
+                                          {
+                                            id: 'apply',
+                                            label: 'Apply Swap',
+                                            variant: 'primary',
+                                            onClick: async () => {
+                                              // Close the modal immediately
+                                              removeToast(panelId.id);
+                                              
+                                              // Update the shopping list by replacing the original card with the budget alternative
+                                              setRows(prev => prev.map(row => 
+                                                String(row.card || '').toLowerCase() === String(r.card || '').toLowerCase()
+                                                  ? { ...row, card: toCard, unit: swap.price_to || swap.price || 0 }
+                                                  : row
+                                              ));
+                                              
+                                              try {
+                                                const { toast } = await import('@/lib/toast-client');
+                                                toast(`✅ Swapped ${fromCard} → ${toCard}`, 'success');
+                                              } catch {}
+                                            }
+                                          },
+                                          { id: 'cancel', label: 'Cancel' }
+                                        ],
+                                        autoCloseMs: null
+                                      });
+                                    }}
+                                  >
                                     <div className="font-medium">{capitalize(swap.to || swap.name || '')}</div>
                                     <div className="text-emerald-400">
                                       {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(swap.price_to || swap.price || 0)}
@@ -1612,14 +1493,14 @@ export default function CostToFinishClient() {
                                       <span className="text-neutral-400">
                                         (save {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format((swap.price_from || r.unit) - (swap.price_to || swap.price || 0))})
                                       </span>
-                                    </div>
-                                  </div>
+                </div>
+                </div>
                                 ))}
-                              </div>
+              </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
+            </div>
+          </div>
+        </div>
                     );
                   })}
                 </div>

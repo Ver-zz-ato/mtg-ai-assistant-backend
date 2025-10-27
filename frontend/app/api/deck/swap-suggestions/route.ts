@@ -20,10 +20,68 @@ type Suggestion = {
 };
 
 const BUILTIN_SWAPS: Record<string, string[]> = {
-  "cyclonic rift": ["Evacuation", "Aetherize"],
-  "sol ring": ["Mind Stone", "Guardian Idol"],
-  "mana crypt": ["Arcane Signet", "Thought Vessel"],
-  "force of will": ["Counterspell", "Pact of Negation"],
+  // Expensive ramp
+  "gaea's cradle": ["Growing Rites of Itlimoc", "Nykthos, Shrine to Nyx", "Circle of Dreams Druid"],
+  "mana crypt": ["Arcane Signet", "Thought Vessel", "Sol Ring"],
+  "chrome mox": ["Mox Amber", "Fellwar Stone", "Arcane Signet"],
+  "mox diamond": ["Lotus Petal", "Arcane Signet", "Chrome Mox"],
+  "ancient tomb": ["Temple of the False God", "Nykthos, Shrine to Nyx"],
+  "city of traitors": ["Ancient Tomb", "Temple of the False God"],
+  
+  // Expensive tutors
+  "imperial seal": ["Vampiric Tutor", "Demonic Tutor", "Grim Tutor"],
+  "vampiric tutor": ["Demonic Tutor", "Diabolic Intent", "Grim Tutor"],
+  "demonic tutor": ["Diabolic Tutor", "Diabolic Intent", "Beseech the Queen"],
+  "enlightened tutor": ["Idyllic Tutor", "Academy Rector", "Three Dreams"],
+  "mystical tutor": ["Merchant Scroll", "Personal Tutor", "Mystical Teachings"],
+  
+  // Expensive counterspells
+  "force of will": ["Force of Negation", "Pact of Negation", "Fierce Guardianship"],
+  "force of negation": ["Pact of Negation", "Counterspell", "Arcane Denial"],
+  "mana drain": ["Counterspell", "Arcane Denial", "Swan Song"],
+  "fierce guardianship": ["Counterspell", "Negate", "Arcane Denial"],
+  "pact of negation": ["Counterspell", "Force of Negation", "Mana Leak"],
+  
+  // Expensive removal/board wipes
+  "cyclonic rift": ["Evacuation", "Aetherize", "Engulf the Shore"],
+  "toxic deluge": ["Black Sun's Zenith", "Damnation", "Languish"],
+  "force of vigor": ["Nature's Claim", "Beast Within", "Krosan Grip"],
+  "deflecting swat": ["Bolt Bend", "Ricochet Trap", "Wild Ricochet"],
+  
+  // Expensive card draw
+  "rhystic study": ["Mystic Remora", "Phyrexian Arena", "Trouble in Pairs"],
+  "smothering tithe": ["Monologue Tax", "Approach of the Second Sun", "Bident of Thassa"],
+  "mystic remora": ["Rhystic Study", "Phyrexian Arena", "Curiosity"],
+  "necropotence": ["Phyrexian Arena", "Dark Tutelage", "Dark Confidant"],
+  
+  // Expensive creatures
+  "craterhoof behemoth": ["End-Raze Forerunners", "Decimator of the Provinces", "Pathbreaker Ibex"],
+  "dockside extortionist": ["Treasure Nabber", "Dire Fleet Daredevil", "Professional Face-Breaker"],
+  "gilded drake": ["Control Magic", "Sower of Temptation", "Agent of Treachery"],
+  "opposition agent": ["Aven Mindcensor", "Leonin Arbiter", "Notion Thief"],
+  
+  // Expensive lands
+  "lion's eye diamond": ["Lotus Petal", "Chromatic Star", "Chromatic Sphere"],
+  "fetchlands": ["Evolving Wilds", "Terramorphic Expanse", "Fabled Passage"],
+  "underground sea": ["Drowned Catacomb", "Sunken Hollow", "Choked Estuary"],
+  "volcanic island": ["Sulfur Falls", "Steam Vents", "Cascade Bluffs"],
+  "tropical island": ["Hinterland Harbor", "Breeding Pool", "Flooded Grove"],
+  "tundra": ["Glacial Fortress", "Hallowed Fountain", "Mystic Gate"],
+  "taiga": ["Rootbound Crag", "Stomping Ground", "Fire-Lit Thicket"],
+  "savannah": ["Sunpetal Grove", "Temple Garden", "Wooded Bastion"],
+  "scrubland": ["Isolated Chapel", "Godless Shrine", "Fetid Heath"],
+  "badlands": ["Dragonskull Summit", "Blood Crypt", "Graven Cairns"],
+  "bayou": ["Woodland Cemetery", "Overgrown Tomb", "Twilight Mire"],
+  "plateau": ["Clifftop Retreat", "Sacred Foundry", "Rugged Prairie"],
+  
+  // Specific Commander staples
+  "sylvan library": ["Abundance", "Mirri's Guile", "Sensei's Divining Top"],
+  "scroll rack": ["Sensei's Divining Top", "Crystal Ball", "Soothsaying"],
+  "mana vault": ["Sol Ring", "Arcane Signet", "Thought Vessel"],
+  "timetwister": ["Time Reversal", "Windfall", "Wheel of Fortune"],
+  "wheel of fortune": ["Reforge the Soul", "Magus of the Wheel", "Wheel of Misfortune"],
+  "survival of the fittest": ["Fauna Shaman", "Survival", "Birthing Pod"],
+  "the tabernacle at pendrell vale": ["Magus of the Tabernacle", "Sphere of Resistance"],
 };
 
 async function scryPrice(name: string, currency = "USD"): Promise<number> {
