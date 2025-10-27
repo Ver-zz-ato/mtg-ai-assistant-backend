@@ -1,0 +1,20 @@
+{
+  "name": "bulk-jobs-server",
+  "version": "1.0.0",
+  "description": "Express server for long-running bulk MTG data import jobs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["mtg", "bulk-import", "scryfall"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.76.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}

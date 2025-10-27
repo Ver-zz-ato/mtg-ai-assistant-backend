@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mtg-bulk-jobs
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CRON_KEY
+        sync: false
+
