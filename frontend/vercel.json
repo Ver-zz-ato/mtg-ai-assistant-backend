@@ -1,12 +1,12 @@
 {
   "functions": {
-    "api/cron/bulk-scryfall": {
+    "app/api/cron/bulk-scryfall/route.js": {
       "maxDuration": 600
     },
-    "api/cron/bulk-price-import": {
+    "app/api/cron/bulk-price-import/route.js": {
       "maxDuration": 600
     },
-    "api/admin/price/snapshot/bulk": {
+    "app/api/admin/price/snapshot/bulk/route.js": {
       "maxDuration": 600
     }
   },
