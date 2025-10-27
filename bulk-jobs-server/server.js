@@ -153,67 +153,84 @@ app.post('/bulk-price-import', checkAuth, async (req, res) => {
 
 async function runBulkPriceImport() {
   try {
-    console.log('🚀 Starting bulk price import...');
+    console.log('🚀 Starting lightweight price refresh...');
+    console.log('💡 This uses Scryfall API (no bulk download) to update existing price_cache entries');
     
-    // Get Scryfall bulk data URL
-    const bulkDataResp = await fetch('https://api.scryfall.com/bulk-data');
-    const bulkData = await bulkDataResp.json();
-    const defaultCardsEntry = bulkData.data.find(d => d.type === 'default_cards');
+    // Get all cards from price_cache that need updating (older than 24 hours)
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: staleCards, error: fetchError } = await supabase
+      .from('price_cache')
+      .select('name')
+      .or(`updated_at.lt.${yesterday},updated_at.is.null`)
+      .limit(1000); // Only refresh 1000 cards per run to stay within memory
     
-    if (!defaultCardsEntry) {
-      throw new Error('Could not find default_cards bulk data');
+    if (fetchError) {
+      throw new Error(`Failed to fetch stale prices: ${fetchError.message}`);
     }
     
-    console.log('📥 Downloading bulk data for prices...');
+    if (!staleCards || staleCards.length === 0) {
+      console.log('✅ All prices are up to date!');
+      return;
+    }
     
-    const cardsResp = await fetch(defaultCardsEntry.download_uri);
-    const cards = await cardsResp.json();
+    console.log(`🎯 Found ${staleCards.length} cards needing price updates`);
     
-    console.log(`📊 Processing prices for ${cards.length} cards...`);
+    // Update prices in chunks of 75 (Scryfall API limit)
+    const chunkSize = 75;
+    let updated = 0;
     
-    // Get existing cached cards
-    const { data: cachedCards } = await supabase
-      .from('scryfall_cache')
-      .select('name');
-    
-    const cachedNames = new Set(cachedCards?.map(c => c.name) || []);
-    
-    // Filter to only cards in cache
-    const cardsToUpdate = cards.filter(card => cachedNames.has(card.name));
-    
-    console.log(`🎯 Updating prices for ${cardsToUpdate.length} cached cards...`);
-    
-    // Process in batches
-    const batchSize = 1000;
-    let processed = 0;
-    
-    for (let i = 0; i < cardsToUpdate.length; i += batchSize) {
-      const batch = cardsToUpdate.slice(i, i + batchSize);
-      const rows = batch.map(card => ({
-        name: card.name,
-        usd_price: card.prices?.usd || null,
-        usd_foil_price: card.prices?.usd_foil || null,
-        eur_price: card.prices?.eur || null,
-        tix_price: card.prices?.tix || null,
-      }));
+    for (let i = 0; i < staleCards.length; i += chunkSize) {
+      const chunk = staleCards.slice(i, i + chunkSize);
+      const identifiers = chunk.map(c => ({ name: c.name }));
       
-      const { error } = await supabase.from('scryfall_cache').upsert(rows, {
-        onConflict: 'name',
-        ignoreDuplicates: false
-      });
-      
-      if (error) {
-        console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error);
-      } else {
-        processed += rows.length;
-        console.log(`✅ Updated ${processed}/${cardsToUpdate.length} prices (${Math.round(processed/cardsToUpdate.length*100)}%)`);
+      try {
+        const response = await fetch('https://api.scryfall.com/cards/collection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifiers })
+        });
+        
+        if (!response.ok) {
+          console.warn(`⚠️ Scryfall API error for chunk ${i}:`, response.status);
+          continue;
+        }
+        
+        const result = await response.json();
+        const cards = result.data || [];
+        
+        // Update price_cache with fresh prices
+        const rows = cards.map(card => ({
+          name: card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(),
+          usd: card.prices?.usd ? parseFloat(card.prices.usd) : null,
+          eur: card.prices?.eur ? parseFloat(card.prices.eur) : null,
+          gbp: null, // Will be calculated separately if needed
+          updated_at: new Date().toISOString()
+        }));
+        
+        const { error: upsertError } = await supabase
+          .from('price_cache')
+          .upsert(rows, { onConflict: 'name' });
+        
+        if (upsertError) {
+          console.error(`❌ Error updating chunk ${i}:`, upsertError.message);
+        } else {
+          updated += rows.length;
+          console.log(`✅ Updated ${updated}/${staleCards.length} prices`);
+        }
+        
+        // Rate limit: wait 100ms between requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (chunkError) {
+        console.error(`❌ Error processing chunk ${i}:`, chunkError.message);
       }
     }
     
-    console.log(`🎉 Bulk price import completed! Updated ${processed} cards`);
+    console.log(`🎉 Price refresh completed! Updated ${updated}/${staleCards.length} prices`);
     
   } catch (error) {
-    console.error('❌ Bulk price import failed:', error);
+    console.error('❌ Price refresh failed:', error);
+    throw error;
   }
 }
 
@@ -240,31 +257,57 @@ app.post('/price-snapshot', checkAuth, async (req, res) => {
 
 async function runPriceSnapshot() {
   try {
-    console.log('🚀 Starting price snapshot...');
+    console.log('🚀 Starting lightweight price snapshot...');
+    console.log('💡 This uses existing price_cache data (no bulk download)');
     
     const today = new Date().toISOString().split('T')[0];
     
-    // Get all cards with prices from cache
+    // Get all cards with prices from price_cache
     const { data: cards, error: fetchError } = await supabase
-      .from('scryfall_cache')
-      .select('name, usd_price, usd_foil_price, eur_price, tix_price')
-      .not('usd_price', 'is', null);
+      .from('price_cache')
+      .select('name, usd, eur, gbp')
+      .not('usd', 'is', null);
     
     if (fetchError) {
-      throw new Error(`Failed to fetch cards: ${fetchError.message}`);
+      throw new Error(`Failed to fetch prices: ${fetchError.message}`);
     }
     
     console.log(`📊 Creating snapshots for ${cards.length} cards...`);
     
-    // Create snapshot rows
-    const snapshots = cards.map(card => ({
-      card_name: card.name,
-      date: today,
-      usd: card.usd_price ? parseFloat(card.usd_price) : null,
-      usd_foil: card.usd_foil_price ? parseFloat(card.usd_foil_price) : null,
-      eur: card.eur_price ? parseFloat(card.eur_price) : null,
-      tix: card.tix_price ? parseFloat(card.tix_price) : null,
-    }));
+    // Create snapshot rows in price_snapshots format:
+    // Each card gets 3 rows (USD, EUR, GBP)
+    const snapshots = [];
+    for (const card of cards) {
+      if (card.usd) {
+        snapshots.push({
+          snapshot_date: today,
+          name_norm: card.name,
+          currency: 'USD',
+          unit: parseFloat(card.usd),
+          source: 'PriceCache'
+        });
+      }
+      if (card.eur) {
+        snapshots.push({
+          snapshot_date: today,
+          name_norm: card.name,
+          currency: 'EUR',
+          unit: parseFloat(card.eur),
+          source: 'PriceCache'
+        });
+      }
+      if (card.gbp) {
+        snapshots.push({
+          snapshot_date: today,
+          name_norm: card.name,
+          currency: 'GBP',
+          unit: parseFloat(card.gbp),
+          source: 'PriceCache'
+        });
+      }
+    }
+    
+    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR+GBP)`);
     
     // Insert in batches
     const batchSize = 1000;
@@ -274,12 +317,12 @@ async function runPriceSnapshot() {
       const batch = snapshots.slice(i, i + batchSize);
       
       const { error } = await supabase.from('price_snapshots').upsert(batch, {
-        onConflict: 'card_name,date',
+        onConflict: 'snapshot_date,name_norm,currency',
         ignoreDuplicates: true
       });
       
       if (error) {
-        console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error);
+        console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error.message);
       } else {
         processed += batch.length;
         console.log(`✅ Inserted ${processed}/${snapshots.length} snapshots (${Math.round(processed/snapshots.length*100)}%)`);
@@ -290,6 +333,7 @@ async function runPriceSnapshot() {
     
   } catch (error) {
     console.error('❌ Price snapshot failed:', error);
+    throw error;
   }
 }
 
