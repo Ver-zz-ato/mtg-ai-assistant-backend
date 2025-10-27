@@ -62,7 +62,7 @@ jobs:
           START_TIME=$(date +%s)
           echo "🕐 Start time: $(date -u)"
           
-          API_URL="${{ secrets.VERCEL_URL }}/api/bulk-jobs/scryfall-import"
+          API_URL="https://mtg-bulk-jobs.onrender.com/bulk-scryfall"
           echo "🌐 Calling: $API_URL"
           
           # Make the request with detailed output

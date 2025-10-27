@@ -1,6 +1,6 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 require('dotenv').config();
 
 const app = express();
