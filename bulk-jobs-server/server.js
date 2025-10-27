@@ -73,15 +73,16 @@ async function runBulkScryfallImport() {
     }
     
     console.log('📥 Downloading bulk data from:', defaultCardsEntry.download_uri);
+    console.log('⚠️ Memory optimization: Processing in small batches to fit 512MB limit');
     
-    // Stream and process cards
+    // Fetch data but process in chunks to avoid memory overflow
     const cardsResp = await fetch(defaultCardsEntry.download_uri);
     const cards = await cardsResp.json();
     
-    console.log(`📊 Processing ${cards.length} cards...`);
+    console.log(`📊 Processing ${cards.length} cards in memory-efficient batches...`);
     
-    // Process in batches of 1000
-    const batchSize = 1000;
+    // Process in SMALLER batches of 500 and clear memory aggressively
+    const batchSize = 500;
     let processed = 0;
     
     for (let i = 0; i < cards.length; i += batchSize) {
@@ -111,7 +112,14 @@ async function runBulkScryfallImport() {
         console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error);
       } else {
         processed += rows.length;
-        console.log(`✅ Processed ${processed}/${cards.length} cards (${Math.round(processed/cards.length*100)}%)`);
+        if (processed % 5000 === 0 || processed === cards.length) {
+          console.log(`✅ Processed ${processed}/${cards.length} cards (${Math.round(processed/cards.length*100)}%)`);
+        }
+      }
+      
+      // Force garbage collection hint every 10 batches
+      if (i % (batchSize * 10) === 0) {
+        if (global.gc) global.gc();
       }
     }
     
