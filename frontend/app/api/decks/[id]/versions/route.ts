@@ -41,6 +41,20 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       );
     }
 
+    // Check Pro status (single source of truth: profiles.is_pro)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_pro')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.is_pro) {
+      return NextResponse.json(
+        { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
+        { status: 403 }
+      );
+    }
+
     // Get versions
     const { data: versions, error: versionsError } = await supabase
       .from("deck_versions")
@@ -87,11 +101,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // Check Pro status
-    const isPro = user.user_metadata?.pro === true;
-    if (!isPro) {
+    // Check Pro status (single source of truth: profiles.is_pro)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_pro')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.is_pro) {
       return NextResponse.json(
-        { ok: false, error: "Deck versioning is a Pro feature" },
+        { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
       );
     }
@@ -219,11 +238,16 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       );
     }
 
-    // Check Pro status
-    const isPro = user.user_metadata?.pro === true;
-    if (!isPro) {
+    // Check Pro status (single source of truth: profiles.is_pro)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_pro')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.is_pro) {
       return NextResponse.json(
-        { ok: false, error: "Deck versioning is a Pro feature" },
+        { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
       );
     }

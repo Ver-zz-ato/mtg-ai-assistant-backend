@@ -665,10 +665,10 @@ export default function BudgetSwapsClient(){
                     <span>📊</span> Export CSV
                   </button>
                   <button onClick={()=>exportTxt('moxfield')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
-                    Export → Moxfield { !isProFinal && (<span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>)}
+                    Export → Moxfield <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
                   </button>
                   <button onClick={()=>exportTxt('mtgo')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
-                    Export → MTGO { !isProFinal && (<span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>)}
+                    Export → MTGO <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
                   </button>
                   <button onClick={addToWishlist} className="flex items-center gap-1 px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium">
                     <span>+</span> Add swaps to Wishlist
