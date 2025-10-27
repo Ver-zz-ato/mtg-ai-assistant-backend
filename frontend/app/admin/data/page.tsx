@@ -11,10 +11,10 @@ export default function DataPage(){
   const [lastRun, setLastRun] = React.useState<Record<string, string|undefined>>({});
 
   React.useEffect(() => {
-    // Fetch last-run timestamps from app_config keys
+    // Fetch last-run timestamps from app_config keys (only the 3 essential jobs)
     async function load() {
       try {
-        const q = ['/api/admin/config?key=job:last:prewarm_scryfall','key=job:last:price_snapshot_build','key=job:last:price_snapshot_bulk','key=job:last:cron_price_snapshot','key=job:last:bulk_price_import','key=job:last:bulk_scryfall'].join('&');
+        const q = ['/api/admin/config?key=job:last:bulk_scryfall','key=job:last:bulk_price_import','key=job:last:price_snapshot_bulk'].join('&');
         const r = await fetch(`/api/admin/config?${q}`, { cache: 'no-store' });
         const j = await r.json();
         if (j?.ok !== false) setLastRun(j?.config || {});
@@ -88,17 +88,17 @@ export default function DataPage(){
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <div className="text-xl font-semibold">Data & Pricing</div>
-      <ELI5 heading="Data & Pricing Cache Management" items={[
-        '🔍 Card Lookup: Check if a card is cached and what data Scryfall has for it',
-        '🔄 Refresh Cache: Force-update a specific card if data is stale or wrong',
-        '⚡ Prewarm Jobs: Pre-load popular cards so pages load instantly',
-        '💰 Price Snapshots: Daily/weekly jobs to capture card price history',
-        '📊 Bulk Import: Updates ALL 27k+ cached cards with latest Scryfall prices (491MB file)',
-        '⏱️ When to use: User reports wrong price/data, or cache seems outdated',
-        '🔄 How often: Bulk import runs weekly automatically; manual refresh as needed',
-        '💡 Each job shows when it last ran successfully',
-        'Future: a heatmap to spot big price swings.'
+      <div className="text-xl font-semibold">Data & Pricing - Consolidated Jobs</div>
+      <ELI5 heading="Simplified Cache Management (3 Essential Jobs)" items={[
+        '🎯 CONSOLIDATION: Reduced from 6 jobs to 3 essential ones for simplicity and reliability',
+        '🔍 Card Lookup: Check individual card cache data (manual tool below)',
+        '🔄 Refresh Cache: Force-update a specific card if data is stale',
+        '🤖 AUTOMATED: All 3 jobs run nightly at 2 AM UTC via GitHub Actions',
+        '📊 Job 1: Bulk Scryfall Import - ALL 110k+ cards metadata (images, rarity, types)',
+        '💰 Job 2: Bulk Price Import - Live prices for ALL cached cards',
+        '📈 Job 3: Weekly FULL Snapshot - Historical price tracking for charts',
+        '⏱️ Total nightly runtime: ~10-15 minutes for complete data refresh',
+        '💡 Each job shows when it last ran successfully below'
       ]} />
 
       {/* Scryfall cache inspector */}
@@ -138,140 +138,122 @@ export default function DataPage(){
         </section>
       )}
 
-      {/* Bulk jobs monitor (trigger buttons + ELI5) */}
+      {/* Essential Jobs Monitor (3 consolidated jobs) */}
       <section className="rounded border border-neutral-800 p-3 space-y-3">
-        <div className="font-medium">Bulk Jobs Monitor <HelpTip text="Fire-and-forget admin tasks: warm caches or build price snapshots. These may run server-side for a while." /></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded border border-neutral-800 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">Prewarm Scryfall</div>
-              <button 
-                onClick={()=>runCron('/api/cron/prewarm-scryfall')} 
-                disabled={busy}
-                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
-              >
-                {busy && currentOperation === 'prewarm-scryfall' ? '🔄 Running...' : 'Run'}
-              </button>
-            </div>
-            <div className="mt-2">
-              <ELI5 heading="Prewarm Scryfall" items={[
-                'Preloads popular card images and details so pages feel instant for users.',
-                'Scans recent public decks and commanders, then warms the cache for the top ~400 names.',
-                'Run daily (or before big spikes in traffic).',
-                `Last run: ${fmt(lastRun['job:last:prewarm_scryfall'])}`,
-              ]} />
-            </div>
+        <div className="font-medium">Essential Jobs Monitor (3 Jobs) <HelpTip text="Consolidated to 3 essential jobs that run automatically nightly via GitHub Actions. Manual triggers available for testing or emergency updates." /></div>
+        
+        <div className="bg-blue-900/20 border border-blue-800 rounded p-3 mb-4">
+          <div className="text-sm text-blue-200 space-y-1">
+            <div className="font-semibold">🤖 Automated Nightly Schedule (GitHub Actions)</div>
+            <div>• Runs every night at 2:00 AM UTC</div>
+            <div>• All 3 jobs run in sequence automatically</div>
+            <div>• Total runtime: ~10-15 minutes</div>
+            <div>• You can also trigger manually below for testing</div>
           </div>
+        </div>
 
-          <div className="rounded border border-neutral-800 p-2">
+        <div className="grid grid-cols-1 gap-4">
+          <div className="rounded border border-purple-800 bg-purple-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">Daily Snapshot</div>
-              <button 
-                onClick={()=>runCron('/api/price/snapshot')} 
-                disabled={busy}
-                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
-              >
-                {busy && currentOperation === 'snapshot' ? '🔄 Running...' : 'Run'}
-              </button>
-            </div>
-            <div className="mt-2">
-              <ELI5 heading="Daily Snapshot" items={[
-                'Captures current prices for cards appearing in user decks (targeted set).',
-                'Useful for lightweight daily updates without full bulk import.',
-                'Run daily (off-peak hours).',
-                `Last run: ${fmt(lastRun['job:last:cron_price_snapshot'])}`,
-              ]} />
-            </div>
-          </div>
-
-          <div className="rounded border border-neutral-800 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">Build Snapshot (admin)</div>
-              <button 
-                onClick={()=>runCron('/api/admin/price/snapshot/build', true)} 
-                disabled={busy}
-                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
-              >
-                {busy && currentOperation === 'build' ? '🔄 Running...' : 'Run'}
-              </button>
-            </div>
-            <div className="mt-2">
-              <ELI5 heading="Build Snapshot" items={[
-                'Builds and saves today\'s snapshot for all names observed in decks (USD/EUR/derived GBP).',
-                'Populates price_snapshots for reporting and charts.',
-                'Run daily after prewarm (cron).',
-                `Last run: ${fmt(lastRun['job:last:price_snapshot_build'])}`,
-              ]} />
-            </div>
-          </div>
-
-          <div className="rounded border border-neutral-800 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">Weekly FULL (admin)</div>
-              <button 
-                onClick={()=>runCron('/api/admin/price/snapshot/bulk', true)} 
-                disabled={busy}
-                className="px-3 py-1.5 rounded border border-neutral-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-800"
-              >
-                {busy && currentOperation === 'bulk' ? '🔄 Running...' : 'Run'}
-              </button>
-            </div>
-            <div className="mt-2">
-              <ELI5 heading="Weekly FULL" items={[
-                'Downloads the full Scryfall bulk list and computes median prices by card name.',
-                'Heavier job; produces a comprehensive snapshot across all cards.',
-                'Run weekly (off-peak), e.g., Sunday early morning.',
-                `Last run: ${fmt(lastRun['job:last:price_snapshot_bulk'])}`,
-              ]} />
-            </div>
-          </div>
-
-
-          <div className="rounded border border-green-800 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">🚀 Bulk Price Import (NEW)</div>
-              <button 
-                onClick={()=>runCron('/api/cron/bulk-price-import', true)} 
-                disabled={busy}
-                className="px-3 py-1.5 rounded border border-green-700 bg-green-900/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-800/50"
-              >
-                {busy && currentOperation === 'bulk-price-import' ? '🔄 Running...' : 'Import ALL Prices'}
-              </button>
-            </div>
-            <div className="mt-2">
-              <ELI5 heading="Bulk Price Import" items={[
-                '🔥 Downloads Scryfall\'s complete 491MB daily bulk file with ALL card pricing.',
-                'Updates prices for ALL cached cards (~27k+) in one go - 100% coverage!',
-                'Takes 3-5 minutes but covers every single card vs 200/day from regular updates.',
-                'Uses bulk download (no API rate limits) - Scryfall\'s preferred method.',
-                'Perfect for weekly manual runs to ensure all prices are fresh.',
-                `Last run: ${fmt(lastRun['job:last:bulk_price_import'])}`,
-              ]} />
-            </div>
-          </div>
-
-          <div className="rounded border border-purple-800 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">🎨 Bulk Scryfall Import (NEW)</div>
+              <div className="font-medium text-lg">🎨 Job 1: Bulk Scryfall Import</div>
               <button 
                 onClick={()=>runCron('/api/cron/bulk-scryfall', true)} 
                 disabled={busy}
-                className="px-3 py-1.5 rounded border border-purple-700 bg-purple-900/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-800/50"
+                className="px-4 py-2 rounded border border-purple-700 bg-purple-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-800/50"
               >
-                {busy && currentOperation === 'bulk-scryfall' ? '🔄 Running...' : 'Import Card Metadata'}
+                {busy && currentOperation === 'bulk-scryfall' ? '🔄 Running...' : 'Manual Run'}
               </button>
             </div>
-            <div className="mt-2">
-              <ELI5 heading="Bulk Scryfall Import" items={[
-                '🎨 Downloads ALL 110k+ cards with complete metadata (images, text, types, RARITY, set info).',
-                '✨ Populates the scryfall_cache table with EVERYTHING - not just prices!',
-                '🔥 CRITICAL: This is the ONLY way to populate rarity data for "Cost to Finish" charts!',
-                'Takes 3-5 minutes but gives 100% coverage for card details.',
-                'Uses Scryfall\'s bulk download (no rate limits) - downloads ~300MB of card data.',
-                'Run this AFTER Bulk Price Import to get both prices AND card details.',
-                '💡 "Prewarm" only updates ~400 popular cards; this updates ALL 110k!',
-                `Last run: ${fmt(lastRun['job:last:bulk_scryfall'])}`,
-              ]} />
+            <div className="mt-3 text-sm text-neutral-300 space-y-1">
+              <div className="font-semibold text-purple-300">What it does:</div>
+              <div>Downloads ALL 110,000+ Magic cards from Scryfall with complete metadata including card images, oracle text, card types, rarity, set information, and collector numbers.</div>
+              
+              <div className="font-semibold text-purple-300 mt-2">Database table:</div>
+              <div><code className="bg-black/40 px-1 rounded">scryfall_cache</code> - Updates metadata fields (NOT prices)</div>
+              
+              <div className="font-semibold text-purple-300 mt-2">Why it's needed:</div>
+              <div>• Required for "Cost to Finish" rarity charts to work</div>
+              <div>• Provides card images for all site features</div>
+              <div>• Ensures card type/color data is accurate</div>
+              
+              <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
+              <div>• Takes ~3-5 minutes (downloads ~300MB)</div>
+              <div>• Runs nightly at 2:00 AM UTC (first job)</div>
+              
+              <div className="font-semibold text-purple-300 mt-2">Last successful run:</div>
+              <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_scryfall'])}</div>
+            </div>
+          </div>
+
+          <div className="rounded border border-green-800 bg-green-900/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium text-lg">💰 Job 2: Bulk Price Import</div>
+              <button 
+                onClick={()=>runCron('/api/cron/bulk-price-import', true)} 
+                disabled={busy}
+                className="px-4 py-2 rounded border border-green-700 bg-green-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-800/50"
+              >
+                {busy && currentOperation === 'bulk-price-import' ? '🔄 Running...' : 'Manual Run'}
+              </button>
+            </div>
+            <div className="mt-3 text-sm text-neutral-300 space-y-1">
+              <div className="font-semibold text-green-300">What it does:</div>
+              <div>Downloads Scryfall's complete daily bulk pricing file (491MB) and updates live prices for ALL cached cards in USD, EUR, foil, and MTGO tix.</div>
+              
+              <div className="font-semibold text-green-300 mt-2">Database table:</div>
+              <div><code className="bg-black/40 px-1 rounded">scryfall_cache</code> - Updates price fields (usd_price, eur_price, etc.)</div>
+              
+              <div className="font-semibold text-green-300 mt-2">Why it's needed:</div>
+              <div>• Powers deck valuations on individual deck pages</div>
+              <div>• Required for "Cost to Finish" shopping lists</div>
+              <div>• Shows accurate prices across the entire site</div>
+              <div>• 100% price coverage vs partial updates</div>
+              
+              <div className="font-semibold text-green-300 mt-2">Runtime & Schedule:</div>
+              <div>• Takes ~3-5 minutes (processes 27k+ cards)</div>
+              <div>• Runs nightly at 2:05 AM UTC (second job, after metadata)</div>
+              
+              <div className="font-semibold text-green-300 mt-2">Dependencies:</div>
+              <div>⚠️ Run Job 1 (Bulk Scryfall) first to ensure cards exist in cache</div>
+              
+              <div className="font-semibold text-green-300 mt-2">Last successful run:</div>
+              <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_price_import'])}</div>
+            </div>
+          </div>
+
+          <div className="rounded border border-blue-800 bg-blue-900/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots</div>
+              <button 
+                onClick={()=>runCron('/api/admin/price/snapshot/bulk', true)} 
+                disabled={busy}
+                className="px-4 py-2 rounded border border-blue-700 bg-blue-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800/50"
+              >
+                {busy && currentOperation === 'bulk' ? '🔄 Running...' : 'Manual Run'}
+              </button>
+            </div>
+            <div className="mt-3 text-sm text-neutral-300 space-y-1">
+              <div className="font-semibold text-blue-300">What it does:</div>
+              <div>Downloads Scryfall bulk data, computes median prices per card name, and saves historical snapshots for price trend analysis and charts.</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">Database table:</div>
+              <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data with dates</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">Why it's needed:</div>
+              <div>• Powers price history charts and graphs</div>
+              <div>• Tracks price trends over time</div>
+              <div>• Enables "Price Movers" features</div>
+              <div>• Supports price spike detection</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
+              <div>• Takes ~2-3 minutes (aggregates pricing data)</div>
+              <div>• Runs nightly at 2:10 AM UTC (third job, after prices updated)</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
+              <div>⚠️ Independent - pulls fresh data from Scryfall directly</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
+              <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>
             </div>
           </div>
         </div>

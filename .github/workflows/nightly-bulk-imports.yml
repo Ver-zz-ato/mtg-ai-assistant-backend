@@ -1,0 +1,269 @@
+name: Nightly Bulk Data Import
+
+on:
+  # Run every night at 2:00 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual triggering for testing
+  workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: 'Enable extra debug logging'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  bulk-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # Generous timeout to prevent crashes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up environment
+        run: |
+          echo "🚀 Starting nightly bulk data import"
+          echo "📅 Run date: $(date -u)"
+          echo "🔧 GitHub Actions Runner: ubuntu-latest"
+          echo "⏰ Timeout: 60 minutes"
+      
+      - name: Health Check - Ping Application
+        id: health_check
+        run: |
+          echo "🏥 Checking if application is reachable..."
+          HEALTH_URL="${{ secrets.VERCEL_URL }}/api/health"
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Application is healthy (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Application returned HTTP $HTTP_CODE"
+            echo "⚠️ Continuing anyway (some apps don't have health endpoint)"
+          fi
+          
+          echo "health_status=$HTTP_CODE" >> $GITHUB_OUTPUT
+      
+      - name: Job 1 - Bulk Scryfall Import (Metadata)
+        id: job1
+        continue-on-error: false
+        run: |
+          echo "🎨 =========================================="
+          echo "🎨 JOB 1: Bulk Scryfall Import (Metadata)"
+          echo "🎨 =========================================="
+          echo "📋 What: Downloads ALL 110k+ cards with metadata"
+          echo "💾 Target: scryfall_cache table"
+          echo "⏱️ Expected: 3-5 minutes"
+          echo ""
+          
+          START_TIME=$(date +%s)
+          echo "🕐 Start time: $(date -u)"
+          
+          API_URL="${{ secrets.VERCEL_URL }}/api/cron/bulk-scryfall"
+          echo "🌐 Calling: $API_URL"
+          
+          # Make the request with detailed output
+          HTTP_CODE=$(curl -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Actions-Nightly-Import/1.0" \
+            -w "\n%{http_code}" \
+            -s \
+            --max-time 600 \
+            --connect-timeout 30 \
+            "$API_URL" \
+            -o response.json)
+          
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          echo ""
+          echo "⏱️ Completed in: ${DURATION} seconds"
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo ""
+          echo "📄 Response body:"
+          cat response.json | jq '.' || cat response.json
+          echo ""
+          
+          # Check for success
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Job 1 completed successfully!"
+            
+            # Extract stats if available
+            INSERTED=$(cat response.json | jq -r '.inserted // "N/A"')
+            PROCESSED=$(cat response.json | jq -r '.processed // "N/A"')
+            echo "📊 Stats: Processed=$PROCESSED, Inserted=$INSERTED"
+          else
+            echo "❌ Job 1 failed with HTTP $HTTP_CODE"
+            echo "🔍 Error details:"
+            cat response.json | jq -r '.error // "No error message"' || echo "Could not parse error"
+            exit 1
+          fi
+          
+          echo "job1_duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "job1_status=success" >> $GITHUB_OUTPUT
+      
+      - name: Wait between jobs (5 seconds)
+        run: |
+          echo "⏸️ Waiting 5 seconds before next job..."
+          sleep 5
+      
+      - name: Job 2 - Bulk Price Import (Live Prices)
+        id: job2
+        continue-on-error: false
+        run: |
+          echo "💰 =========================================="
+          echo "💰 JOB 2: Bulk Price Import (Live Prices)"
+          echo "💰 =========================================="
+          echo "📋 What: Updates prices for ALL cached cards"
+          echo "💾 Target: scryfall_cache table (price fields)"
+          echo "⏱️ Expected: 3-5 minutes"
+          echo ""
+          
+          START_TIME=$(date +%s)
+          echo "🕐 Start time: $(date -u)"
+          
+          API_URL="${{ secrets.VERCEL_URL }}/api/cron/bulk-price-import"
+          echo "🌐 Calling: $API_URL"
+          
+          HTTP_CODE=$(curl -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Actions-Nightly-Import/1.0" \
+            -w "\n%{http_code}" \
+            -s \
+            --max-time 600 \
+            --connect-timeout 30 \
+            "$API_URL" \
+            -o response.json)
+          
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          echo ""
+          echo "⏱️ Completed in: ${DURATION} seconds"
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo ""
+          echo "📄 Response body:"
+          cat response.json | jq '.' || cat response.json
+          echo ""
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Job 2 completed successfully!"
+            
+            UPDATED=$(cat response.json | jq -r '.updated // "N/A"')
+            COVERAGE=$(cat response.json | jq -r '.coverage // "N/A"')
+            echo "📊 Stats: Updated=$UPDATED, Coverage=$COVERAGE"
+          else
+            echo "❌ Job 2 failed with HTTP $HTTP_CODE"
+            echo "🔍 Error details:"
+            cat response.json | jq -r '.error // "No error message"' || echo "Could not parse error"
+            exit 1
+          fi
+          
+          echo "job2_duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "job2_status=success" >> $GITHUB_OUTPUT
+      
+      - name: Wait between jobs (5 seconds)
+        run: |
+          echo "⏸️ Waiting 5 seconds before next job..."
+          sleep 5
+      
+      - name: Job 3 - Historical Price Snapshots
+        id: job3
+        continue-on-error: false
+        run: |
+          echo "📈 =========================================="
+          echo "📈 JOB 3: Historical Price Snapshots"
+          echo "📈 =========================================="
+          echo "📋 What: Creates historical price snapshots"
+          echo "💾 Target: price_snapshots table"
+          echo "⏱️ Expected: 2-3 minutes"
+          echo ""
+          
+          START_TIME=$(date +%s)
+          echo "🕐 Start time: $(date -u)"
+          
+          API_URL="${{ secrets.VERCEL_URL }}/api/admin/price/snapshot/bulk"
+          echo "🌐 Calling: $API_URL"
+          
+          HTTP_CODE=$(curl -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Actions-Nightly-Import/1.0" \
+            -w "\n%{http_code}" \
+            -s \
+            --max-time 600 \
+            --connect-timeout 30 \
+            "$API_URL" \
+            -o response.json)
+          
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          echo ""
+          echo "⏱️ Completed in: ${DURATION} seconds"
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo ""
+          echo "📄 Response body:"
+          cat response.json | jq '.' || cat response.json
+          echo ""
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Job 3 completed successfully!"
+            
+            INSERTED=$(cat response.json | jq -r '.inserted // "N/A"')
+            SNAPSHOT_DATE=$(cat response.json | jq -r '.snapshot_date // "N/A"')
+            echo "📊 Stats: Inserted=$INSERTED, Date=$SNAPSHOT_DATE"
+          else
+            echo "❌ Job 3 failed with HTTP $HTTP_CODE"
+            echo "🔍 Error details:"
+            cat response.json | jq -r '.error // "No error message"' || echo "Could not parse error"
+            exit 1
+          fi
+          
+          echo "job3_duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "job3_status=success" >> $GITHUB_OUTPUT
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "🎉 =========================================="
+          echo "🎉 NIGHTLY IMPORT SUMMARY"
+          echo "🎉 =========================================="
+          echo ""
+          echo "📅 Run completed: $(date -u)"
+          echo ""
+          echo "Job Results:"
+          echo "  🎨 Job 1 (Metadata):  ${{ steps.job1.outputs.job1_status || 'FAILED' }} - ${{ steps.job1.outputs.job1_duration || 'N/A' }}s"
+          echo "  💰 Job 2 (Prices):    ${{ steps.job2.outputs.job2_status || 'FAILED' }} - ${{ steps.job2.outputs.job2_duration || 'N/A' }}s"
+          echo "  📈 Job 3 (Snapshots): ${{ steps.job3.outputs.job3_status || 'FAILED' }} - ${{ steps.job3.outputs.job3_duration || 'N/A' }}s"
+          echo ""
+          
+          TOTAL_TIME=$((
+            ${{ steps.job1.outputs.job1_duration || 0 }} +
+            ${{ steps.job2.outputs.job2_duration || 0 }} +
+            ${{ steps.job3.outputs.job3_duration || 0 }}
+          ))
+          echo "⏱️ Total runtime: ${TOTAL_TIME} seconds (~$((TOTAL_TIME / 60)) minutes)"
+          echo ""
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ All jobs completed successfully!"
+          else
+            echo "❌ Some jobs failed - check logs above"
+          fi
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-logs-${{ github.run_id }}
+          path: |
+            response.json
+          retention-days: 7
+
