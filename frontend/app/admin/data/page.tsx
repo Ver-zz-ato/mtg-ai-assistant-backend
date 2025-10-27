@@ -153,19 +153,18 @@ export default function DataPage(){
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          <div className="rounded border border-purple-800 bg-purple-900/10 p-3">
+          <div className="rounded border border-yellow-800 bg-yellow-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-lg">🎨 Job 1: Bulk Scryfall Import</div>
-              <button 
-                onClick={()=>runCron('/api/bulk-jobs/scryfall-import', true)} 
-                disabled={busy}
-                className="px-4 py-2 rounded border border-purple-700 bg-purple-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-800/50"
-              >
-                {busy && currentOperation === 'bulk-scryfall' ? '🔄 Running...' : 'Manual Run'}
-              </button>
+              <div className="font-medium text-lg">🎨 Job 1: Bulk Scryfall Import (LOCAL ONLY)</div>
+              <div className="text-xs text-yellow-400 border border-yellow-600 bg-yellow-900/20 px-2 py-1 rounded">
+                RUN LOCALLY
+              </div>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
-              <div className="font-semibold text-purple-300">What it does:</div>
+              <div className="font-semibold text-yellow-300">⚠️ IMPORTANT:</div>
+              <div className="text-yellow-200">This job requires ~100MB RAM to process the bulk JSON. Render FREE tier only has 512MB, so it crashes. Run locally instead.</div>
+              
+              <div className="font-semibold text-purple-300 mt-2">What it does:</div>
               <div>Downloads ALL 110,000+ Magic cards from Scryfall with complete metadata including card images, oracle text, card types, rarity, set information, and collector numbers.</div>
               
               <div className="font-semibold text-purple-300 mt-2">Database table:</div>
@@ -176,9 +175,18 @@ export default function DataPage(){
               <div>• Provides card images for all site features</div>
               <div>• Ensures card type/color data is accurate</div>
               
+              <div className="font-semibold text-purple-300 mt-2">How to run locally:</div>
+              <div className="bg-black/40 p-2 rounded font-mono text-xs mt-1">
+                <div>cd bulk-jobs-server</div>
+                <div>npm start</div>
+                <div className="mt-1"># In another terminal:</div>
+                <div>$headers = @{`{`"x-cron-key" = "Boobies"; "Content-Type" = "application/json"{`}`}</div>
+                <div>Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers</div>
+              </div>
+              
               <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~3-5 minutes (downloads ~300MB)</div>
-              <div>• Runs nightly at 2:00 AM UTC (first job)</div>
+              <div>• Takes ~3-5 minutes (downloads ~100MB)</div>
+              <div>• ❌ NOT in automated schedule - run manually when new sets release (~monthly)</div>
               
               <div className="font-semibold text-purple-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_scryfall'])}</div>
@@ -189,7 +197,7 @@ export default function DataPage(){
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium text-lg">💰 Job 2: Bulk Price Import</div>
               <button 
-                onClick={()=>runCron('/api/bulk-jobs/price-import', true)} 
+                onClick={()=>runCron('https://mtg-bulk-jobs.onrender.com/bulk-price-import', true)} 
                 disabled={busy}
                 className="px-4 py-2 rounded border border-green-700 bg-green-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-800/50"
               >
@@ -225,7 +233,7 @@ export default function DataPage(){
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots</div>
               <button 
-                onClick={()=>runCron('/api/bulk-jobs/price-snapshot', true)} 
+                onClick={()=>runCron('https://mtg-bulk-jobs.onrender.com/price-snapshot', true)} 
                 disabled={busy}
                 className="px-4 py-2 rounded border border-blue-700 bg-blue-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800/50"
               >
