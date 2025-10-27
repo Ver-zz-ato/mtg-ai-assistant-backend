@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
-export const dynamic = 'force-dynamic'; // Force dynamic rendering
-export const maxDuration = 600; // Allowed on Pro Node runtime for 10-min jobs
-
 function norm(s: string): string {
   return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 }
