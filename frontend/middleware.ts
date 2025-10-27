@@ -21,8 +21,8 @@ export async function middleware(req: NextRequest) {
   if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
     const url = new URL(req.url);
     const path = req.nextUrl.pathname;
-    // Allow admin, health, config, cron, and bulk-jobs routes
-    if (!(path.startsWith('/api/admin') || path.startsWith('/api/health') || path.startsWith('/api/config') || path.startsWith('/api/cron') || path.startsWith('/api/bulk-jobs'))) {
+    // Allow admin, health, config, cron, bulk-jobs, and test routes
+    if (!(path.startsWith('/api/admin') || path.startsWith('/api/health') || path.startsWith('/api/config') || path.startsWith('/api/cron') || path.startsWith('/api/bulk-jobs') || path.startsWith('/api/test-'))) {
       // Hard override via env (for emergencies)
       if (process.env.MAINTENANCE_HARD_READONLY === '1') {
         return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message:'Maintenance mode (env) — writes paused' }), { status: 503, headers: { 'content-type': 'application/json' } });
