@@ -62,7 +62,7 @@ jobs:
           START_TIME=$(date +%s)
           echo "🕐 Start time: $(date -u)"
           
-          API_URL="${{ secrets.VERCEL_URL }}/api/cron/bulk-scryfall"
+          API_URL="${{ secrets.VERCEL_URL }}/api/bulk-jobs/scryfall-import"
           echo "🌐 Calling: $API_URL"
           
           # Make the request with detailed output
@@ -126,7 +126,7 @@ jobs:
           START_TIME=$(date +%s)
           echo "🕐 Start time: $(date -u)"
           
-          API_URL="${{ secrets.VERCEL_URL }}/api/cron/bulk-price-import"
+          API_URL="${{ secrets.VERCEL_URL }}/api/bulk-jobs/price-import"
           echo "🌐 Calling: $API_URL"
           
           HTTP_CODE=$(curl -X POST \
@@ -187,7 +187,7 @@ jobs:
           START_TIME=$(date +%s)
           echo "🕐 Start time: $(date -u)"
           
-          API_URL="${{ secrets.VERCEL_URL }}/api/admin/price/snapshot/bulk"
+          API_URL="${{ secrets.VERCEL_URL }}/api/bulk-jobs/price-snapshot"
           echo "🌐 Calling: $API_URL"
           
           HTTP_CODE=$(curl -X POST \
