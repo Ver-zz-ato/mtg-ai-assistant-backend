@@ -6,15 +6,6 @@ export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
 export const maxDuration = 600; // Allowed on Pro Node runtime for 10-min jobs
 
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    message: "Bulk Scryfall Import API",
-    method: "Use POST with x-cron-key header to trigger import",
-    status: "Ready"
-  });
-}
-
 interface ScryfallCard {
   name: string;
   type_line?: string;
