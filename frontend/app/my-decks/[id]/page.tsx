@@ -7,7 +7,6 @@ import DeckCsvUpload from "@/components/DeckCsvUpload";
 import RecomputeButton from "./RecomputeButton";
 import InlineDeckTitle from "@/components/InlineDeckTitle";
 import DeckPublicToggle from "@/components/DeckPublicToggle";
-import ProAutoToggle from "./ProAutoToggle";
 import FunctionsPanel from "./FunctionsPanel";
 import NextDynamic from "next/dynamic";
 import DeckProbabilityPanel from "./DeckProbabilityPanel";

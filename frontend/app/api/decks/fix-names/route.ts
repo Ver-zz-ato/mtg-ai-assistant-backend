@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         
         // For double-faced cards, try multiple formats
         if (deckCardName.includes('//')) {
-          const parts = deckCardName.split('//').map(p => p.trim());
+          const parts = deckCardName.split('//').map((p: string) => p.trim());
           searchVariants.push(`${parts[0]} // ${parts[1]}`);
           searchVariants.push(parts[0]); // Just front face
         }
