@@ -191,10 +191,10 @@ async function runBulkPriceImport() {
       const batch = cardsToUpdate.slice(i, i + batchSize);
       const rows = batch.map(card => ({
         name: card.name,
-        usd: card.prices?.usd || null,
-        usd_foil: card.prices?.usd_foil || null,
-        eur: card.prices?.eur || null,
-        tix: card.prices?.tix || null,
+        usd_price: card.prices?.usd || null,
+        usd_foil_price: card.prices?.usd_foil || null,
+        eur_price: card.prices?.eur || null,
+        tix_price: card.prices?.tix || null,
       }));
       
       const { error } = await supabase.from('scryfall_cache').upsert(rows, {
@@ -247,8 +247,8 @@ async function runPriceSnapshot() {
     // Get all cards with prices from cache
     const { data: cards, error: fetchError } = await supabase
       .from('scryfall_cache')
-      .select('name, usd, usd_foil, eur, tix')
-      .not('usd', 'is', null);
+      .select('name, usd_price, usd_foil_price, eur_price, tix_price')
+      .not('usd_price', 'is', null);
     
     if (fetchError) {
       throw new Error(`Failed to fetch cards: ${fetchError.message}`);
@@ -260,10 +260,10 @@ async function runPriceSnapshot() {
     const snapshots = cards.map(card => ({
       card_name: card.name,
       date: today,
-      usd: card.usd ? parseFloat(card.usd) : null,
-      usd_foil: card.usd_foil ? parseFloat(card.usd_foil) : null,
-      eur: card.eur ? parseFloat(card.eur) : null,
-      tix: card.tix ? parseFloat(card.tix) : null,
+      usd: card.usd_price ? parseFloat(card.usd_price) : null,
+      usd_foil: card.usd_foil_price ? parseFloat(card.usd_foil_price) : null,
+      eur: card.eur_price ? parseFloat(card.eur_price) : null,
+      tix: card.tix_price ? parseFloat(card.tix_price) : null,
     }));
     
     // Insert in batches
