@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "edge";
-export const maxDuration = 600; // 10 minutes - Vercel Pro with extended timeout
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
+// Note: maxDuration not supported on edge runtime
 
 export async function OPTIONS() {
   return new NextResponse(null, {

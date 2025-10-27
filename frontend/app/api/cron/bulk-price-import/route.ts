@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "edge";
-export const maxDuration = 600; // 10 minutes for bulk processing
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
+// Note: maxDuration not supported on edge runtime
 
 interface ScryfallCard {
   name: string;
