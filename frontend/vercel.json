@@ -1,15 +1,4 @@
 {
-  "functions": {
-    "app/api/cron/bulk-scryfall/route.js": {
-      "maxDuration": 600
-    },
-    "app/api/cron/bulk-price-import/route.js": {
-      "maxDuration": 600
-    },
-    "app/api/admin/price/snapshot/bulk/route.js": {
-      "maxDuration": 600
-    }
-  },
   "crons": [
     {
       "path": "/api/cron/cleanup-price-cache",
