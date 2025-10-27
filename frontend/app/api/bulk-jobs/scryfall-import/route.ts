@@ -6,17 +6,6 @@ export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
 export const maxDuration = 600; // Allowed on Pro Node runtime for 10-min jobs
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Allow': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-cron-key',
-    },
-  });
-}
-
 export async function GET() {
   return NextResponse.json({
     ok: true,
