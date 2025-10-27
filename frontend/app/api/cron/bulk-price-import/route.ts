@@ -27,6 +27,17 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, x-cron-key',
+    },
+  });
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,

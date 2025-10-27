@@ -5,6 +5,26 @@ import { getAdmin } from "@/app/api/_lib/supa";
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes - Vercel Pro with extended timeout
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, x-cron-key',
+    },
+  });
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Bulk Scryfall Import API",
+    method: "Use POST with x-cron-key header to trigger import",
+    status: "Ready"
+  });
+}
+
 interface ScryfallCard {
   name: string;
   type_line?: string;
