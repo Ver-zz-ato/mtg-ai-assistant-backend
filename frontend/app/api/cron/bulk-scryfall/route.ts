@@ -3,7 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes per chunk
+// TEMPORARILY REMOVED: maxDuration = 300 to test if route works
+// export const maxDuration = 300; // 5 minutes per chunk
+
+export async function GET() {
+  return NextResponse.json({ 
+    ok: true, 
+    message: "Bulk Scryfall Import endpoint",
+    note: "Use POST to trigger import. Requires x-cron-key header or admin auth."
+  });
+}
 
 interface ScryfallCard {
   name: string;
