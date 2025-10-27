@@ -20,7 +20,7 @@ export async function middleware(req: NextRequest) {
   const method = req.method.toUpperCase();
   if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
     const url = new URL(req.url);
-    const path = url.pathname;
+    const path = req.nextUrl.pathname;
     // Allow admin, health, config, and cron routes
     if (!(path.startsWith('/api/admin') || path.startsWith('/api/health') || path.startsWith('/api/config') || path.startsWith('/api/cron'))) {
       // Hard override via env (for emergencies)

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
-// Note: maxDuration not supported on edge runtime
+export const maxDuration = 600; // Allowed on Pro Node runtime for 10-min jobs
 
 interface ScryfallCard {
   name: string;
