@@ -160,7 +160,7 @@ async function runBulkPriceImport() {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: staleCards, error: fetchError } = await supabase
       .from('price_cache')
-      .select('name')
+      .select('card_name')
       .or(`updated_at.lt.${yesterday},updated_at.is.null`)
       .limit(1000); // Only refresh 1000 cards per run to stay within memory
     
@@ -181,7 +181,7 @@ async function runBulkPriceImport() {
     
     for (let i = 0; i < staleCards.length; i += chunkSize) {
       const chunk = staleCards.slice(i, i + chunkSize);
-      const identifiers = chunk.map(c => ({ name: c.name }));
+      const identifiers = chunk.map(c => ({ name: c.card_name }));
       
       try {
         const response = await fetch('https://api.scryfall.com/cards/collection', {
@@ -198,18 +198,19 @@ async function runBulkPriceImport() {
         const result = await response.json();
         const cards = result.data || [];
         
-        // Update price_cache with fresh prices
+        // Update price_cache with fresh prices (using bulk import schema)
         const rows = cards.map(card => ({
-          name: card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(),
-          usd: card.prices?.usd ? parseFloat(card.prices.usd) : null,
-          eur: card.prices?.eur ? parseFloat(card.prices.eur) : null,
-          gbp: null, // Will be calculated separately if needed
+          card_name: card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(),
+          usd_price: card.prices?.usd ? parseFloat(card.prices.usd) : null,
+          usd_foil_price: card.prices?.usd_foil ? parseFloat(card.prices.usd_foil) : null,
+          eur_price: card.prices?.eur ? parseFloat(card.prices.eur) : null,
+          tix_price: card.prices?.tix ? parseFloat(card.prices.tix) : null,
           updated_at: new Date().toISOString()
         }));
         
         const { error: upsertError } = await supabase
           .from('price_cache')
-          .upsert(rows, { onConflict: 'name' });
+          .upsert(rows, { onConflict: 'card_name' });
         
         if (upsertError) {
           console.error(`❌ Error updating chunk ${i}:`, upsertError.message);
@@ -262,11 +263,11 @@ async function runPriceSnapshot() {
     
     const today = new Date().toISOString().split('T')[0];
     
-    // Get all cards with prices from price_cache
+    // Get all cards with prices from price_cache (using bulk import schema)
     const { data: cards, error: fetchError } = await supabase
       .from('price_cache')
-      .select('name, usd, eur, gbp')
-      .not('usd', 'is', null);
+      .select('card_name, usd_price, eur_price')
+      .not('usd_price', 'is', null);
     
     if (fetchError) {
       throw new Error(`Failed to fetch prices: ${fetchError.message}`);
@@ -275,39 +276,30 @@ async function runPriceSnapshot() {
     console.log(`📊 Creating snapshots for ${cards.length} cards...`);
     
     // Create snapshot rows in price_snapshots format:
-    // Each card gets 3 rows (USD, EUR, GBP)
+    // Each card gets 2 rows (USD, EUR) - no GBP in bulk schema
     const snapshots = [];
     for (const card of cards) {
-      if (card.usd) {
+      if (card.usd_price) {
         snapshots.push({
           snapshot_date: today,
-          name_norm: card.name,
+          name_norm: card.card_name,
           currency: 'USD',
-          unit: parseFloat(card.usd),
+          unit: parseFloat(card.usd_price),
           source: 'PriceCache'
         });
       }
-      if (card.eur) {
+      if (card.eur_price) {
         snapshots.push({
           snapshot_date: today,
-          name_norm: card.name,
+          name_norm: card.card_name,
           currency: 'EUR',
-          unit: parseFloat(card.eur),
-          source: 'PriceCache'
-        });
-      }
-      if (card.gbp) {
-        snapshots.push({
-          snapshot_date: today,
-          name_norm: card.name,
-          currency: 'GBP',
-          unit: parseFloat(card.gbp),
+          unit: parseFloat(card.eur_price),
           source: 'PriceCache'
         });
       }
     }
     
-    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR+GBP)`);
+    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR)`);
     
     // Insert in batches
     const batchSize = 1000;
