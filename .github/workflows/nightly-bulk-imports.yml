@@ -30,22 +30,57 @@ jobs:
           echo "🔧 GitHub Actions Runner: ubuntu-latest"
           echo "⏰ Timeout: 60 minutes"
       
-      - name: Health Check - Ping Application
+      - name: Health Check - Ping Vercel Application
         id: health_check
         run: |
-          echo "🏥 Checking if application is reachable..."
+          echo "🏥 Checking if Vercel application is reachable..."
           HEALTH_URL="${{ secrets.VERCEL_URL }}/api/health"
           
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
           
           if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Application is healthy (HTTP $HTTP_CODE)"
+            echo "✅ Vercel is healthy (HTTP $HTTP_CODE)"
           else
-            echo "⚠️ Application returned HTTP $HTTP_CODE"
-            echo "⚠️ Continuing anyway (some apps don't have health endpoint)"
+            echo "⚠️ Vercel returned HTTP $HTTP_CODE"
+            echo "⚠️ Continuing anyway"
           fi
           
           echo "health_status=$HTTP_CODE" >> $GITHUB_OUTPUT
+      
+      - name: Wake Up Render Service (FREE tier spindown handling)
+        id: render_wakeup
+        run: |
+          echo "🌅 Waking up Render FREE tier service..."
+          echo "💤 Render spins down after 15min inactivity, takes ~30-60s to wake"
+          
+          RENDER_HEALTH="https://mtg-bulk-jobs.onrender.com/health"
+          
+          echo "🔔 Pinging Render health endpoint..."
+          START=$(date +%s)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$RENDER_HEALTH" || echo "000")
+          END=$(date +%s)
+          DURATION=$((END - START))
+          
+          echo "📡 Response: HTTP $HTTP_CODE in ${DURATION}s"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Render is awake!"
+            if [ $DURATION -gt 10 ]; then
+              echo "⏰ Service was asleep, took ${DURATION}s to wake up"
+              echo "⏳ Waiting 10 more seconds for full initialization..."
+              sleep 10
+            fi
+          else
+            echo "❌ Render health check failed (HTTP $HTTP_CODE)"
+            echo "⏳ Waiting 30s and retrying..."
+            sleep 30
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$RENDER_HEALTH" || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Render is awake after retry!"
+            else
+              echo "❌ Render still not responding, jobs may fail"
+            fi
+          fi
       
       # Job 1 - DISABLED: Run locally due to Render FREE tier 512MB RAM limit
       # Bulk Scryfall import requires ~100MB+ JSON file which exceeds free tier

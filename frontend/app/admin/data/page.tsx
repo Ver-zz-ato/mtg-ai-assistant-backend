@@ -180,13 +180,14 @@ export default function DataPage(){
                 <div>cd bulk-jobs-server</div>
                 <div>npm start</div>
                 <div className="mt-1"># In another terminal:</div>
-                <div>$headers = @{`{`"x-cron-key" = "Boobies"; "Content-Type" = "application/json"{`}`}</div>
-                <div>Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers</div>
+                <div>{'$headers = @{"x-cron-key" = "Boobies"; "Content-Type" = "application/json"}'}</div>
+                <div>{'Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers'}</div>
               </div>
               
               <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes ~3-5 minutes (downloads ~100MB)</div>
-              <div>• ❌ NOT in automated schedule - run manually when new sets release (~monthly)</div>
+              <div>• ❌ NOT in automated schedule - run manually MONTHLY (or when new sets release)</div>
+              <div>• 💡 Check MTG release calendar or Scryfall's sets page</div>
               
               <div className="font-semibold text-purple-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_scryfall'])}</div>
@@ -206,23 +207,21 @@ export default function DataPage(){
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
               <div className="font-semibold text-green-300">What it does:</div>
-              <div>Downloads Scryfall's complete daily bulk pricing file (491MB) and updates live prices for ALL cached cards in USD, EUR, foil, and MTGO tix.</div>
+              <div>🔄 LIGHTWEIGHT: Checks price_cache for stale prices (&gt;24hrs old), fetches fresh prices from Scryfall API (75 cards/batch), updates max 1000 cards per run. NO bulk download!</div>
               
               <div className="font-semibold text-green-300 mt-2">Database table:</div>
-              <div><code className="bg-black/40 px-1 rounded">scryfall_cache</code> - Updates price fields (usd_price, eur_price, etc.)</div>
+              <div><code className="bg-black/40 px-1 rounded">price_cache</code> - Updates price fields (card_name, usd_price, eur_price, etc.)</div>
               
               <div className="font-semibold text-green-300 mt-2">Why it's needed:</div>
               <div>• Powers deck valuations on individual deck pages</div>
               <div>• Required for "Cost to Finish" shopping lists</div>
               <div>• Shows accurate prices across the entire site</div>
-              <div>• 100% price coverage vs partial updates</div>
+              <div>• Keeps price_cache up to date incrementally</div>
               
               <div className="font-semibold text-green-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~3-5 minutes (processes 27k+ cards)</div>
-              <div>• Runs nightly at 2:05 AM UTC (second job, after metadata)</div>
-              
-              <div className="font-semibold text-green-300 mt-2">Dependencies:</div>
-              <div>⚠️ Run Job 1 (Bulk Scryfall) first to ensure cards exist in cache</div>
+              <div>• Takes ~2-3 minutes (lightweight API calls only)</div>
+              <div>• Runs nightly at 2:00 AM UTC via GitHub Actions</div>
+              <div>• 🆓 Hosted on Render FREE tier</div>
               
               <div className="font-semibold text-green-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_price_import'])}</div>
@@ -242,10 +241,10 @@ export default function DataPage(){
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
               <div className="font-semibold text-blue-300">What it does:</div>
-              <div>Downloads Scryfall bulk data, computes median prices per card name, and saves historical snapshots for price trend analysis and charts.</div>
+              <div>🔄 LIGHTWEIGHT: Reads existing prices from price_cache, creates snapshot rows in price_snapshots table (USD + EUR) with today's date. NO bulk download!</div>
               
               <div className="font-semibold text-blue-300 mt-2">Database table:</div>
-              <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data with dates</div>
+              <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data (snapshot_date, name_norm, currency, unit)</div>
               
               <div className="font-semibold text-blue-300 mt-2">Why it's needed:</div>
               <div>• Powers price history charts and graphs</div>
@@ -254,11 +253,12 @@ export default function DataPage(){
               <div>• Supports price spike detection</div>
               
               <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~2-3 minutes (aggregates pricing data)</div>
-              <div>• Runs nightly at 2:10 AM UTC (third job, after prices updated)</div>
+              <div>• Takes ~1-2 minutes (reads from price_cache, no API calls)</div>
+              <div>• Runs nightly at 2:05 AM UTC via GitHub Actions (after price refresh)</div>
+              <div>• 🆓 Hosted on Render FREE tier</div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
-              <div>⚠️ Independent - pulls fresh data from Scryfall directly</div>
+              <div>⚠️ Depends on price_cache being populated (Job 2 runs first)</div>
               
               <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>
