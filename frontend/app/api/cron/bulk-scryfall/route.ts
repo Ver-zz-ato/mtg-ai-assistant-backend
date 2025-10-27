@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes - OK now that we're on Vercel Pro
+export const maxDuration = 600; // 10 minutes - Vercel Pro with extended timeout
 
 interface ScryfallCard {
   name: string;
