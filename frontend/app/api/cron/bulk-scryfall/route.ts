@@ -4,6 +4,7 @@ import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes - Vercel Pro with extended timeout
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 export async function OPTIONS() {
   return new NextResponse(null, {

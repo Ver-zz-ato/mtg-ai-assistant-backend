@@ -4,6 +4,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes - OK on Vercel Pro
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 function norm(s: string): string {
   return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();

@@ -4,6 +4,7 @@ import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes for bulk processing
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 interface ScryfallCard {
   name: string;
