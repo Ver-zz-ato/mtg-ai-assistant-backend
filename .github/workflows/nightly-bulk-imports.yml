@@ -51,13 +51,14 @@ jobs:
         id: render_wakeup
         run: |
           echo "🌅 Waking up Render FREE tier service..."
-          echo "💤 Render spins down after 15min inactivity, takes ~30-60s to wake"
+          echo "💤 Render spins down after 15min inactivity"
+          echo "⏰ Cold start takes ~60-90 seconds"
           
           RENDER_HEALTH="https://mtg-bulk-jobs.onrender.com/health"
           
-          echo "🔔 Pinging Render health endpoint..."
+          echo "🔔 Pinging Render health endpoint (2 min timeout)..."
           START=$(date +%s)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$RENDER_HEALTH" || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$RENDER_HEALTH" || echo "000")
           END=$(date +%s)
           DURATION=$((END - START))
           
@@ -66,19 +67,24 @@ jobs:
           if [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Render is awake!"
             if [ $DURATION -gt 10 ]; then
-              echo "⏰ Service was asleep, took ${DURATION}s to wake up"
-              echo "⏳ Waiting 10 more seconds for full initialization..."
-              sleep 10
+              echo "⏰ Service was cold, took ${DURATION}s to wake up"
+              echo "⏳ Waiting 20 more seconds for full initialization..."
+              sleep 20
+            else
+              echo "🚀 Service was already warm!"
             fi
           else
             echo "❌ Render health check failed (HTTP $HTTP_CODE)"
-            echo "⏳ Waiting 30s and retrying..."
-            sleep 30
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$RENDER_HEALTH" || echo "000")
+            echo "⏳ Waiting 60s and retrying..."
+            sleep 60
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$RENDER_HEALTH" || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Render is awake after retry!"
+              echo "⏳ Waiting 20s for full initialization..."
+              sleep 20
             else
-              echo "❌ Render still not responding, jobs may fail"
+              echo "❌ Render still not responding, jobs will likely fail"
+              exit 1
             fi
           fi
       
