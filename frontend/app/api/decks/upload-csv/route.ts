@@ -41,6 +41,18 @@ export async function POST(req: Request) {
       }
     }
 
+    // After importing, rebuild deck_text from all deck_cards so Cost to Finish can load it
+    try {
+      const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckId).order("name");
+      if (allCards && allCards.length > 0) {
+        const deckTextLines = allCards.map((c: any) => `${c.qty} ${c.name}`);
+        const deckTextString = deckTextLines.join("\n");
+        await supabase.from("decks").update({ deck_text: deckTextString }).eq("id", deckId);
+      }
+    } catch (e) {
+      console.warn("Failed to update deck_text after CSV import:", e);
+    }
+
     return NextResponse.json({ ok: true, report: { added, updated, skipped, total: items.length } }, { status: 200 });
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });

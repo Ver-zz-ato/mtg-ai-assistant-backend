@@ -27,12 +27,23 @@ export const POST = withLogging(async (req: NextRequest) => {
     const supabase = await createClient();
     const uniq = Array.from(new Set(names.map((n: string) => n.trim()).filter(Boolean)));
     const keys = uniq.map(norm);
+    
+    console.log('[batch-metadata] Querying for', keys.length, 'unique cards');
+    console.log('[batch-metadata] First 3 keys:', keys.slice(0, 3));
 
     // Fetch metadata from our scryfall_cache table
-    const { data: rows } = await supabase
+    const { data: rows, error } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, rarity, set")
+      .select("name, type_line, oracle_text, color_identity, rarity, set, small, normal, art_crop")
       .in("name", keys);
+    
+    console.log('[batch-metadata] Query returned', rows?.length || 0, 'rows');
+    if (error) console.error('[batch-metadata] Query error:', error);
+    if (rows && rows.length > 0) {
+      console.log('[batch-metadata] First 3 rows:', rows.slice(0, 3));
+      console.log('[batch-metadata] First row raw data:', JSON.stringify(rows[0], null, 2));
+      console.log('[batch-metadata] Checking rarity field:', rows[0]?.rarity, 'type:', typeof rows[0]?.rarity);
+    }
 
     const rowsArray = (rows || []) as any[];
     const dataMap = new Map();
@@ -40,9 +51,15 @@ export const POST = withLogging(async (req: NextRequest) => {
     for (const row of rowsArray) {
       dataMap.set(row.name, {
         set: String(row.set || '').toUpperCase(),
-        rarity: String(row.rarity || '').toLowerCase(),
+        rarity: row.rarity ? String(row.rarity).toLowerCase() : null, // Keep null if missing
         type_line: String(row.type_line || ''),
-        color_identity: Array.isArray(row.color_identity) ? row.color_identity : []
+        oracle_text: String(row.oracle_text || ''),
+        color_identity: Array.isArray(row.color_identity) ? row.color_identity : [],
+        image_uris: {
+          small: row.small || undefined,
+          normal: row.normal || undefined,
+          art_crop: row.art_crop || undefined
+        }
       });
     }
 

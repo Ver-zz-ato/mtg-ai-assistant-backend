@@ -59,6 +59,7 @@ function parseDeckText(text: string): Map<string, number> {
     //  "1 Sol Ring"
     //  "Sol Ring x1"
     //  "4x Lightning Bolt"
+    //  "Sol Ring,1" (CSV format)
     let qty = 1;
     let name = line;
 
@@ -73,6 +74,13 @@ function parseDeckText(text: string): Map<string, number> {
       if (mTrail) {
         name = mTrail[1]!.trim();
         qty = Math.max(1, parseInt(mTrail[2]!, 10));
+      } else {
+        // comma-separated: "Card Name,1" or "Card Name, 1"
+        const mComma = line.match(/^(.+?)\s*,\s*(\d+)$/);
+        if (mComma) {
+          name = mComma[1]!.trim();
+          qty = Math.max(1, parseInt(mComma[2]!, 10));
+        }
       }
     }
 

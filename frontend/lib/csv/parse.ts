@@ -13,6 +13,7 @@ type ParseReport = { parsed: number; duplicatesCollapsed: number; errors: string
 const HEADER_ALIASES: Record<string, "name" | "qty" | "set" | "collector" | "foil" | null> = {
   name: "name",
   card: "name",
+  cardname: "name",
   card_name: "name",
   qty: "qty",
   quantity: "qty",

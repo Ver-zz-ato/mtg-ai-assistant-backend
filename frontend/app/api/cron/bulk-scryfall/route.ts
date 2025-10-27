@@ -13,6 +13,9 @@ interface ScryfallCard {
   colors?: string[];
   mana_cost?: string;
   cmc?: number;
+  rarity?: string;
+  set?: string;
+  collector_number?: string;
   image_uris?: {
     small?: string;
     normal?: string;
@@ -279,6 +282,9 @@ export async function POST(req: NextRequest) {
         }
         if (card.mana_cost) row.mana_cost = String(card.mana_cost).trim();
         if (cmc >= 0) row.cmc = cmc; // Allow 0 CMC cards
+        if (card.rarity) row.rarity = String(card.rarity).toLowerCase().trim();
+        if (card.set) row.set = String(card.set).toUpperCase().trim();
+        if (card.collector_number) row.collector_number = String(card.collector_number).trim();
         
         // Only keep the first occurrence of each card name in this batch
         // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"

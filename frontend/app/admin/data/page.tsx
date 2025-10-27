@@ -14,7 +14,7 @@ export default function DataPage(){
     // Fetch last-run timestamps from app_config keys
     async function load() {
       try {
-        const q = ['/api/admin/config?key=job:last:prewarm_scryfall','key=job:last:price_snapshot_build','key=job:last:price_snapshot_bulk','key=job:last:cron_price_snapshot','key=job:last:bulk_price_import'].join('&');
+        const q = ['/api/admin/config?key=job:last:prewarm_scryfall','key=job:last:price_snapshot_build','key=job:last:price_snapshot_bulk','key=job:last:cron_price_snapshot','key=job:last:bulk_price_import','key=job:last:bulk_scryfall'].join('&');
         const r = await fetch(`/api/admin/config?${q}`, { cache: 'no-store' });
         const j = await r.json();
         if (j?.ok !== false) setLastRun(j?.config || {});
@@ -246,6 +246,31 @@ export default function DataPage(){
                 'Uses bulk download (no API rate limits) - Scryfall\'s preferred method.',
                 'Perfect for weekly manual runs to ensure all prices are fresh.',
                 `Last run: ${fmt(lastRun['job:last:bulk_price_import'])}`,
+              ]} />
+            </div>
+          </div>
+
+          <div className="rounded border border-purple-800 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium">🎨 Bulk Scryfall Import (NEW)</div>
+              <button 
+                onClick={()=>runCron('/api/cron/bulk-scryfall', true)} 
+                disabled={busy}
+                className="px-3 py-1.5 rounded border border-purple-700 bg-purple-900/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-800/50"
+              >
+                {busy && currentOperation === 'bulk-scryfall' ? '🔄 Running...' : 'Import Card Metadata'}
+              </button>
+            </div>
+            <div className="mt-2">
+              <ELI5 heading="Bulk Scryfall Import" items={[
+                '🎨 Downloads ALL 110k+ cards with complete metadata (images, text, types, RARITY, set info).',
+                '✨ Populates the scryfall_cache table with EVERYTHING - not just prices!',
+                '🔥 CRITICAL: This is the ONLY way to populate rarity data for "Cost to Finish" charts!',
+                'Takes 3-5 minutes but gives 100% coverage for card details.',
+                'Uses Scryfall\'s bulk download (no rate limits) - downloads ~300MB of card data.',
+                'Run this AFTER Bulk Price Import to get both prices AND card details.',
+                '💡 "Prewarm" only updates ~400 popular cards; this updates ALL 110k!',
+                `Last run: ${fmt(lastRun['job:last:bulk_scryfall'])}`,
               ]} />
             </div>
           </div>

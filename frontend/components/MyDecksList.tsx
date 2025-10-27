@@ -187,7 +187,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           const res = await fetch(`/api/decks/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deckId }),
+            body: JSON.stringify({ id: deckId }),
           });
 
           const data = await res.json();

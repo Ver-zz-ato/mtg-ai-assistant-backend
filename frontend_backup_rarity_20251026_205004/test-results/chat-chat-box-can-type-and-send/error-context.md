@@ -1,0 +1,199 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "ManaTap AI" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "My Decks" [ref=e6] [cursor=pointer]:
+          - /url: /my-decks
+        - link "My Collections" [ref=e7] [cursor=pointer]:
+          - /url: /collections
+        - link "Profile" [ref=e8] [cursor=pointer]:
+          - /url: /profile
+        - 'button "Widgets: On" [ref=e9]':
+          - text: "Widgets:"
+          - generic [ref=e10]: "On"
+        - generic [ref=e11]:
+          - textbox "email" [ref=e12]
+          - textbox "password" [ref=e13]
+          - button "Sign in" [ref=e14]
+        - button "Create account" [ref=e15]
+        - button "Forgot?" [ref=e16]
+  - main [ref=e17]:
+    - generic [ref=e20]:
+      - generic [ref=e22]:
+        - link "Cost to Finish Estimate what you still need to buy. Owned, Missing, prices, CSV export." [ref=e23] [cursor=pointer]:
+          - /url: /collections/cost-to-finish
+          - generic [ref=e24] [cursor=pointer]: Cost to Finish
+          - generic [ref=e25] [cursor=pointer]: Estimate what you still need to buy. Owned, Missing, prices, CSV export.
+        - link "Budget Swaps Find cheaper alternatives to pricey cards in your deck." [ref=e26] [cursor=pointer]:
+          - /url: /deck/swap-suggestions
+          - generic [ref=e27] [cursor=pointer]: Budget Swaps
+          - generic [ref=e28] [cursor=pointer]: Find cheaper alternatives to pricey cards in your deck.
+        - link "Deck Snapshot / Judger Paste a deck in chat to get score, curve, color identity & quick fixes." [ref=e29] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e30] [cursor=pointer]: Deck Snapshot / Judger
+          - generic [ref=e31] [cursor=pointer]: Paste a deck in chat to get score, curve, color identity & quick fixes.
+        - link "Probability Helpers Odds of drawing X by turn N (hypergeometric)." [ref=e32] [cursor=pointer]:
+          - /url: /tools/probability
+          - generic [ref=e33] [cursor=pointer]: Probability Helpers
+          - generic [ref=e34] [cursor=pointer]: Odds of drawing X by turn N (hypergeometric).
+        - link "Hand / Mulligan Simulator Approximate keep rates with simple London mulligan logic." [ref=e35] [cursor=pointer]:
+          - /url: /tools/mulligan
+          - generic [ref=e36] [cursor=pointer]: Hand / Mulligan Simulator
+          - generic [ref=e37] [cursor=pointer]: Approximate keep rates with simple London mulligan logic.
+      - generic [ref=e38]:
+        - complementary [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - generic [ref=e42]: Recent Public Decks
+              - list [ref=e43]:
+                - listitem [ref=e44]:
+                  - link "Kaust, Cunning Instigator ❤ 1 Like this deck 29/09/2025, 00:07:59" [ref=e47] [cursor=pointer]:
+                    - /url: /decks/e409c700-ac44-44c8-abbb-d353616d2010
+                    - generic [ref=e48] [cursor=pointer]:
+                      - generic [ref=e49] [cursor=pointer]: Kaust, Cunning Instigator
+                      - generic [ref=e50] [cursor=pointer]:
+                        - button "❤ 1" [ref=e51]:
+                          - text: ❤
+                          - generic [ref=e52]: "1"
+                        - generic: Like this deck
+                    - generic [ref=e53] [cursor=pointer]: 29/09/2025, 00:07:59
+                - listitem [ref=e54]:
+                  - link "Kaust, Cunning Instigator ❤ 0 Like this deck 27/09/2025, 11:13:17" [ref=e57] [cursor=pointer]:
+                    - /url: /decks/aee3afd0-b315-47ad-a6f6-1991ceda056b
+                    - generic [ref=e58] [cursor=pointer]:
+                      - generic [ref=e59] [cursor=pointer]: Kaust, Cunning Instigator
+                      - generic [ref=e60] [cursor=pointer]:
+                        - button "❤ 0" [ref=e61]:
+                          - text: ❤
+                          - generic [ref=e62]: "0"
+                        - generic: Like this deck
+                    - generic [ref=e63] [cursor=pointer]: 27/09/2025, 11:13:17
+                - listitem [ref=e64]:
+                  - link "Chatterfang, Squirrel General ❤ 0 Like this deck 26/09/2025, 13:15:44" [ref=e67] [cursor=pointer]:
+                    - /url: /decks/09caacae-51ca-45d9-8f84-66bdc9abd94f
+                    - generic [ref=e68] [cursor=pointer]:
+                      - generic [ref=e69] [cursor=pointer]: Chatterfang, Squirrel General
+                      - generic [ref=e70] [cursor=pointer]:
+                        - button "❤ 0" [ref=e71]:
+                          - text: ❤
+                          - generic [ref=e72]: "0"
+                        - generic: Like this deck
+                    - generic [ref=e73] [cursor=pointer]: 26/09/2025, 13:15:44
+            - generic [ref=e74]:
+              - generic [ref=e75]: Most liked decks
+              - list [ref=e76]:
+                - listitem [ref=e77]:
+                  - link "Kaust, Cunning Instigator" [ref=e78] [cursor=pointer]:
+                    - /url: /decks/e409c700-ac44-44c8-abbb-d353616d2010
+                  - generic [ref=e79]: ❤ 1
+                - listitem [ref=e80]:
+                  - link "Chatterfang, Squirrel General" [ref=e81] [cursor=pointer]:
+                    - /url: /decks/09caacae-51ca-45d9-8f84-66bdc9abd94f
+                  - generic [ref=e82]: ❤ 0
+                - listitem [ref=e83]:
+                  - link "Kaust, Cunning Instigator" [ref=e84] [cursor=pointer]:
+                    - /url: /decks/aee3afd0-b315-47ad-a6f6-1991ceda056b
+                  - generic [ref=e85]: ❤ 0
+            - generic [ref=e86]: AD PLACEHOLDER
+            - button "Feedback" [ref=e87]
+        - generic [ref=e89]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]: "Format:"
+              - button "commander" [ref=e94]
+              - button "standard" [ref=e95]
+              - button "modern" [ref=e96]
+            - generic [ref=e97]:
+              - generic [ref=e98]: "Colors:"
+              - button "W" [ref=e99]
+              - button "U" [ref=e100]
+              - button "B" [ref=e101]
+              - button "R" [ref=e102]
+              - button "G" [ref=e103]
+              - button "Clear" [ref=e104]
+            - generic [ref=e105]:
+              - generic [ref=e106]: "Value:"
+              - button "budget" [ref=e107]
+              - button "optimized" [ref=e108]
+              - button "luxury" [ref=e109]
+          - generic [ref=e115]:
+            - button "Rename" [disabled] [ref=e116]
+            - button "Delete" [disabled] [ref=e117]
+            - button "Link deck" [disabled] [ref=e118]
+            - generic "No deck linked" [ref=e119]:
+              - generic [ref=e120]: 🔗
+              - generic [ref=e121]: not linked
+          - generic [ref=e122]:
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - generic [ref=e126]: user
+                - button "Copy" [ref=e127]
+              - generic [ref=e128]: hello
+              - img "shell of the last kappa" [ref=e131]
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - generic [ref=e135]: assistant
+                - button "Copy" [ref=e136]
+              - generic [ref=e137]: "Sorry — HTTP 401 Unauthorized – {\"ok\":false,\"error\":{\"message\":\"unauthorized\",\"code\":\"unauthorized\",\"hint\":\"Please sign in again.\"}}"
+          - generic [ref=e138]:
+            - textbox "Ask anything or paste a decklist… (Shift+Enter for newline)" [ref=e139]
+            - button "Send" [disabled] [ref=e140]
+        - complementary [ref=e141]:
+          - generic [ref=e142]:
+            - generic [ref=e143]:
+              - generic [ref=e144]: Deck Snapshot/Judger
+              - paragraph [ref=e145]: Paste a deck into chat to get score, curve, color identity & quick fixes.
+            - generic [ref=e146]:
+              - generic [ref=e147]: Shoutbox (live)
+              - generic [ref=e149]:
+                - textbox "Anon" [ref=e150]
+                - textbox "Say something…" [ref=e151]
+                - button "Post" [ref=e152]
+            - generic [ref=e153]:
+              - generic [ref=e154]: Ad Placeholder
+              - generic [ref=e155]: 300 × 250
+    - button "Feedback" [ref=e156]
+  - generic [ref=e158]:
+    - generic [ref=e159]: This site uses cookies for analytics and login. By continuing, you accept this.
+    - button "Accept" [ref=e160]
+    - link "Learn more" [ref=e161] [cursor=pointer]:
+      - /url: /privacy
+  - contentinfo [ref=e162]:
+    - generic [ref=e163]:
+      - generic [ref=e164]: © 2025 ManaTap AI
+      - navigation [ref=e165]:
+        - link "About" [ref=e166] [cursor=pointer]:
+          - /url: "#"
+        - link "Stripe" [ref=e167] [cursor=pointer]:
+          - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - link "Ko‑fi" [ref=e168] [cursor=pointer]:
+          - /url: https://ko-fi.com/davydraws7/tip
+        - link "PayPal" [ref=e169] [cursor=pointer]:
+          - /url: https://paypal.me/DavyDraws7
+        - link "Terms" [ref=e170] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy" [ref=e171] [cursor=pointer]:
+          - /url: /privacy
+        - generic [ref=e172]: Card images and data courtesy of Scryfall. Not affiliated with Wizards of the Coast.
+  - generic [ref=e179] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e180]:
+      - img [ref=e181]
+    - generic [ref=e184] [cursor=pointer]:
+      - button "Open issues overlay" [ref=e185]:
+        - generic [ref=e186]:
+          - generic [ref=e187]: "1"
+          - generic [ref=e188]: "2"
+        - generic [ref=e189]:
+          - text: Issue
+          - generic [ref=e190]: s
+      - button "Collapse issues badge" [ref=e191]:
+        - img [ref=e192]
+  - alert [ref=e194]
+  - combobox [ref=e196]:
+    - option "New thread" [selected]
+```

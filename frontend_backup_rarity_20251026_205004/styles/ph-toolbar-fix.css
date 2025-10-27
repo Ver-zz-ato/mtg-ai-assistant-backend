@@ -1,0 +1,34 @@
+/* Ensure the chat history dropdown is always clickable and above overlays */
+.history-click-fix {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1000;
+}
+
+/* The wrapper uses isolation via class 'isolate' from Tailwind; keep a fallback here too */
+.history-click-fix-wrapper {
+  isolation: isolate;
+  position: relative;
+  z-index: 1000;
+}
+
+/* Belt & braces: if any PostHog toolbar artifacts exist, don't let them catch clicks */
+#_posthog-toolbar, .posthog-toolbar, [data-attr^="ph-"], .PostHogToolbarPortal, #__PHG {
+  pointer-events: none !important;
+}
+
+/* Ultra-guard: astronomically high z-index to out-rank toolbars/modals */
+.history-click-fix,
+.history-click-fix-wrapper {
+  z-index: 2147483647 !important; /* Max 32-bit int */
+  position: relative;
+  pointer-events: auto !important;
+  contain: paint; /* new stacking context */
+}
+
+/* Nuke common PostHog/DevTools overlays from intercepting input */
+#_posthog-toolbar, .posthog-toolbar, [data-attr^="ph-"], .PostHogToolbarPortal, #__PHG,
+#__PHG_root, [class*="PostHog"], [id*="PostHog"], [data-attr*="ph-"],
+.__next-devtools-panel, [data-testid="devtools-overlay"], #webpack-dev-server-client-overlay {
+  pointer-events: none !important;
+}

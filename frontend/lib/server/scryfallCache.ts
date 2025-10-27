@@ -65,12 +65,12 @@ export async function getDetailsForNamesCached(names: string[]) {
   const out = new Map<string, any>();
   if (!keys.length) return out;
 
-  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; updated_at?: string|null };
+  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; rarity?: string|null; set?: string|null; collector_number?: string|null; updated_at?: string|null };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, updated_at")
+      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, rarity, set, collector_number, updated_at")
       .in("name", keys);
     rows = (data || []) as any;
     for (const row of rows) {
@@ -79,6 +79,9 @@ export async function getDetailsForNamesCached(names: string[]) {
         type_line: row.type_line || undefined,
         oracle_text: row.oracle_text || undefined,
         color_identity: row.color_identity || [],
+        rarity: row.rarity || undefined,
+        set: row.set || undefined,
+        collector_number: row.collector_number || undefined,
       });
     }
   } catch {}
@@ -107,7 +110,10 @@ export async function getDetailsForNamesCached(names: string[]) {
           image_uris: img, 
           type_line: c?.type_line, 
           oracle_text: c?.oracle_text || c?.card_faces?.[0]?.oracle_text,
-          color_identity: colorIdentity
+          color_identity: colorIdentity,
+          rarity: c?.rarity,
+          set: c?.set,
+          collector_number: c?.collector_number
         });
         up.push({
           name: key,
@@ -117,6 +123,9 @@ export async function getDetailsForNamesCached(names: string[]) {
           type_line: c?.type_line || null,
           oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
           color_identity: colorIdentity,
+          rarity: c?.rarity || null,
+          set: c?.set || null,
+          collector_number: c?.collector_number || null,
           updated_at: new Date().toISOString(),
         });
       }
