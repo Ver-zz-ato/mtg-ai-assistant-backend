@@ -161,7 +161,55 @@ export async function GET(req: NextRequest) {
         })
       );
       
-      const items = itemsWithProperNames.filter(Boolean);
+      // For DFCs, enhance suggestions by adding all valid cache variants
+      const enhancedItems = await Promise.all(
+        itemsWithProperNames.filter(Boolean).map(async (item: any) => {
+          if (!item) return null;
+          
+          // Check if this is a DFC
+          const isDFC = item.name.includes('//');
+          if (!isDFC) return item;
+          
+          // Get the front face
+          const frontFace = item.name.split('//')[0].trim();
+          
+          // Query cache for ALL DFCs with this front face
+          const { data: allDFCs } = await supabase
+            .from('scryfall_cache')
+            .select('name')
+            .ilike('name', `${frontFace} //%`)
+            .limit(20);
+          
+          if (allDFCs && allDFCs.length > 1) {
+            // Filter to only valid DFCs (front ≠ back)
+            const validDFCs = allDFCs.filter((r: any) => {
+              const parts = r.name.split('//').map((p: string) => p.trim());
+              const frontNorm = norm(parts[0]);
+              const backNorm = norm(parts[1] || '');
+              return frontNorm !== backNorm && frontNorm === norm(frontFace);
+            });
+            
+            // Add all valid variants to suggestions (deduplicate)
+            const existingSuggestions = new Set(item.suggestions.map((s: string) => norm(s)));
+            const newSuggestions = validDFCs
+              .map((r: any) => r.name)
+              .filter((name: string) => !existingSuggestions.has(norm(name)));
+            
+            return {
+              ...item,
+              suggestions: [...validDFCs.map((r: any) => r.name), ...item.suggestions.filter((s: string) => {
+                // Keep non-DFC suggestions or invalid ones that weren't replaced
+                const isValidDFC = validDFCs.some((r: any) => norm(r.name) === norm(s));
+                return !isValidDFC;
+              })]
+            };
+          }
+          
+          return item;
+        })
+      );
+      
+      const items = enhancedItems.filter(Boolean);
       return NextResponse.json({ ok:true, items });
     } catch (e:any) {
       return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
