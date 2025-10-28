@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
     
     const supabase = await createClient();
     
+    const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+    
     // Try exact case-insensitive match first
     const { data: exactMatch } = await supabase
       .from('scryfall_cache')
@@ -25,20 +27,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, name: exactMatch[0].name });
     }
     
-    // For double-faced cards, try front face match
+    // For double-faced cards, search by front face and return the correct full name
     if (name.includes('//')) {
       const frontFace = name.split('//')[0].trim();
-      const { data: dfcMatch } = await supabase
+      const { data: dfcMatches } = await supabase
         .from('scryfall_cache')
         .select('name')
-        .ilike('name', `${frontFace}%`)
-        .limit(5);
+        .ilike('name', `${frontFace} //%`) // Must be a DFC starting with front face
+        .limit(10);
       
-      if (dfcMatch && dfcMatch.length > 0) {
-        // Prefer full DFC name format
-        const fullDFC = dfcMatch.find((r: any) => r.name.includes('//'));
-        if (fullDFC) {
-          return NextResponse.json({ ok: true, name: fullDFC.name });
+      if (dfcMatches && dfcMatches.length > 0) {
+        // Find the DFC where the front face matches exactly (case-insensitive)
+        const frontNorm = norm(frontFace);
+        const exactDFC = dfcMatches.find((r: any) => {
+          const cacheFront = r.name.split('//')[0].trim();
+          return norm(cacheFront) === frontNorm;
+        });
+        
+        if (exactDFC) {
+          return NextResponse.json({ ok: true, name: exactDFC.name });
+        }
+        
+        // Fallback: return first DFC if no exact match
+        const anyDFC = dfcMatches.find((r: any) => r.name.includes('//'));
+        if (anyDFC) {
+          return NextResponse.json({ ok: true, name: anyDFC.name });
         }
       }
     }

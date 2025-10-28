@@ -31,46 +31,60 @@ export async function GET(req: NextRequest) {
       const batch = names.slice(i, i + batchSize);
       
       for (const deckCardName of batch) {
-        const searchVariants: string[] = [deckCardName];
+        const isDFC = deckCardName.includes('//');
         
-        // For double-faced cards, try multiple formats
-        if (deckCardName.includes('//')) {
-          const parts = deckCardName.split('//').map((p: string) => p.trim());
-          searchVariants.push(`${parts[0]} // ${parts[1]}`);
-          searchVariants.push(parts[0]); // Just front face
-        }
+        // Try exact case-insensitive match first
+        const { data: exactMatch } = await supabase
+          .from('scryfall_cache')
+          .select('name')
+          .ilike('name', deckCardName)
+          .limit(1);
         
-        // Try each variant with case-insensitive matching
-        let foundMatch = false;
-        for (const variant of searchVariants) {
-          const { data: found } = await supabase
-            .from('scryfall_cache')
-            .select('name')
-            .ilike('name', variant)
-            .limit(1);
+        if (exactMatch && exactMatch.length > 0) {
+          // For DFCs, verify the full name matches (including back face)
+          const cacheNorm = norm(exactMatch[0].name);
+          const deckNorm = norm(deckCardName);
           
-          if (found && found.length > 0) {
-            // Store the mapping: normalized deck name -> proper cache name
-            cacheNameMap.set(norm(deckCardName), found[0].name);
-            foundMatch = true;
-            break;
+          if (cacheNorm === deckNorm) {
+            // Perfect match (accounting for case)
+            cacheNameMap.set(deckNorm, exactMatch[0].name);
+            continue;
+          } else if (isDFC) {
+            // DFC with mismatched back face - need to fix it
+            // Don't mark as found, let it go to suggestions
+          } else {
+            // Non-DFC with case difference only
+            cacheNameMap.set(deckNorm, exactMatch[0].name);
+            continue;
           }
         }
         
-        // If no exact match, try fuzzy front face for DFCs
-        if (!foundMatch && deckCardName.includes('//')) {
+        // For DFCs, try to find the correct full card by front face
+        if (isDFC) {
           const frontPart = deckCardName.split('//')[0].trim();
-          const { data: found } = await supabase
+          const { data: dfcMatches } = await supabase
             .from('scryfall_cache')
             .select('name')
-            .ilike('name', `${frontPart}%`) // Starts with front face
-            .limit(5);
+            .ilike('name', `${frontPart} //%`) // Front face followed by //
+            .limit(10);
           
-          if (found && found.length > 0) {
-            // Find the best match (prefer full DFC names)
-            const dfcMatch = found.find((r: any) => r.name.includes('//'));
-            if (dfcMatch) {
-              cacheNameMap.set(norm(deckCardName), dfcMatch.name);
+          if (dfcMatches && dfcMatches.length > 0) {
+            // Find the best DFC match
+            // Prefer exact front face match (case-insensitive)
+            const frontNorm = norm(frontPart);
+            const bestMatch = dfcMatches.find((r: any) => {
+              const cacheFront = r.name.split('//')[0].trim();
+              return norm(cacheFront) === frontNorm;
+            });
+            
+            if (bestMatch) {
+              // Check if it's the same as what we have (normalized)
+              if (norm(bestMatch.name) === norm(deckCardName)) {
+                // Same card, just need capitalization fix
+                cacheNameMap.set(norm(deckCardName), bestMatch.name);
+              } else {
+                // Different back face - this needs fixing, don't mark as found
+              }
             }
           }
         }

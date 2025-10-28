@@ -472,12 +472,27 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
                 let src = imgMap[key]?.small;
                 let normalSrc = imgMap[key]?.normal;
                 
-                // For DFCs, try front face if full name doesn't have image
+                // For DFCs, try to find any DFC with the same front face
                 if (!src && c.name.includes('//')) {
                   const frontFace = c.name.split('//')[0].trim().toLowerCase();
+                  
+                  // Try simple front face match
                   src = imgMap[frontFace]?.small;
                   normalSrc = imgMap[frontFace]?.normal;
-                  key = frontFace;
+                  
+                  // If still no match, search imgMap for any DFC starting with this front face
+                  if (!src) {
+                    const imgKeys = Object.keys(imgMap).filter(k => 
+                      k.includes('//') && k.startsWith(frontFace + ' //')
+                    );
+                    if (imgKeys.length > 0) {
+                      src = imgMap[imgKeys[0]]?.small;
+                      normalSrc = imgMap[imgKeys[0]]?.normal;
+                      key = imgKeys[0];
+                    }
+                  } else {
+                    key = frontFace;
+                  }
                 }
                 
                 return src ? (
@@ -497,12 +512,34 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
                 let unit = priceMap[key];
                 let hasImg = !!imgMap[c.name.toLowerCase()]?.small;
                 
-                // For DFCs, try matching the front face if full name doesn't work
+                // For DFCs, try matching any DFC with the same front face
                 if (!unit && !hasImg && c.name.includes('//')) {
                   const frontFace = c.name.split('//')[0].trim();
                   const frontKey = frontFace.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+                  
+                  // Try simple front face match first
                   unit = priceMap[frontKey];
                   hasImg = !!imgMap[frontFace.toLowerCase()]?.small;
+                  
+                  // If still no match, search priceMap for any DFC starting with this front face
+                  if (!unit) {
+                    const dfcKeys = Object.keys(priceMap).filter(k => 
+                      k.includes('//') && k.startsWith(frontKey + ' //')
+                    );
+                    if (dfcKeys.length > 0) {
+                      unit = priceMap[dfcKeys[0]];
+                    }
+                  }
+                  
+                  // Same for images
+                  if (!hasImg) {
+                    const imgKeys = Object.keys(imgMap).filter(k => 
+                      k.includes('//') && k.startsWith(frontFace.toLowerCase() + ' //')
+                    );
+                    if (imgKeys.length > 0) {
+                      hasImg = !!imgMap[imgKeys[0]]?.small;
+                    }
+                  }
                 }
                 
                 if (unit>0) { 

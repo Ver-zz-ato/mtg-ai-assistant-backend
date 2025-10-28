@@ -54,16 +54,29 @@ export default function FixSingleCardModal({
           throw new Error(`No suggestions found for "${card.name}". The card might already be correct, or you may need to fix it manually.`);
         }
         
-        // Look up each suggestion in cache to get proper capitalization
+        // Look up each suggestion in cache to get proper capitalization and full DFC names
         const properNames: string[] = [];
+        const seen = new Set<string>();
+        
         for (const suggestion of list.slice(0, 10)) {
           const cacheRes = await fetch(`/api/cards/cache-lookup?name=${encodeURIComponent(suggestion)}`);
           const cacheJson = await cacheRes.json().catch(() => ({}));
+          
           if (cacheJson?.name) {
-            properNames.push(cacheJson.name);
-          } else {
+            // Avoid duplicates
+            const normalized = cacheJson.name.toLowerCase();
+            if (!seen.has(normalized)) {
+              properNames.push(cacheJson.name);
+              seen.add(normalized);
+            }
+          } else if (suggestion && !seen.has(suggestion.toLowerCase())) {
             properNames.push(suggestion);
+            seen.add(suggestion.toLowerCase());
           }
+        }
+        
+        if (properNames.length === 0) {
+          throw new Error(`No valid suggestions found for "${card.name}". The card might not exist in our database.`);
         }
         
         setSuggestions(properNames);
