@@ -75,6 +75,29 @@ export default function FixSingleCardModal({
           }
         }
         
+        // For DFCs, add ALL valid cache variants with the same front face
+        if (card.name.includes('//')) {
+          const frontFace = card.name.split('//')[0].trim();
+          
+          try {
+            const variantsRes = await fetch(`/api/cards/dfc-variants?frontFace=${encodeURIComponent(frontFace)}`);
+            const variantsJson = await variantsRes.json().catch(() => ({}));
+            
+            if (variantsJson?.variants && Array.isArray(variantsJson.variants)) {
+              // Add all valid DFC variants to suggestions
+              for (const variant of variantsJson.variants) {
+                const normalized = variant.toLowerCase();
+                if (!seen.has(normalized)) {
+                  properNames.push(variant);
+                  seen.add(normalized);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch DFC variants:', e);
+          }
+        }
+        
         if (properNames.length === 0) {
           throw new Error(`No valid suggestions found for "${card.name}". The card might not exist in our database.`);
         }
