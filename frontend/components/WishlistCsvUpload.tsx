@@ -29,7 +29,12 @@ export default function WishlistCsvUpload({ wishlistId, onDone }: { wishlistId: 
   return (
     <div className="flex items-center gap-2">
       <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onChange} />
-      <button onClick={pick} disabled={busy} className="text-xs border rounded px-2 py-1">{busy?'Uploading…':'Upload CSV'}</button>
+      <button onClick={pick} disabled={busy} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        <span className="flex items-center gap-1.5">
+          <span>📤</span>
+          <span>{busy?'Uploading…':'Upload CSV'}</span>
+        </span>
+      </button>
       {report && (
         <span className="text-xs opacity-80">Imported {(report.added||0)+(report.updated||0)}/{report.total}{report.skipped?.length?` • skipped ${report.skipped.length}`:''}</span>
       )}

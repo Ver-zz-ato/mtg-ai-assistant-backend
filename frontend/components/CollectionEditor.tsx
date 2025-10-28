@@ -749,15 +749,15 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         {/* Sticky Save/Cancel + Search */}
         <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-2 border-b border-neutral-900">
           <div className="flex flex-wrap items-end gap-2">
-            <label className="text-sm">Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"/></label>
+            <label className="text-sm font-medium">🔍 Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
             {/* Fix names (PRO) */}
             <FixNamesButton collectionId={collectionId} />
-            <label className="text-sm">Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
-            <label className="text-sm">Dir<select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"><option value="asc">Asc</option><option value="desc">Desc</option></select></label>
+            <label className="text-sm font-medium">🔤 Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
+            <label className="text-sm font-medium">📊 Dir<select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"><option value="asc">Asc</option><option value="desc">Desc</option></select></label>
             <div className="ml-auto flex items-center gap-2">
-              <label className="text-sm">Currency<select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-              <button onClick={saveAll} disabled={!changed||busySave} className={`px-3 py-1.5 rounded ${!changed||busySave?'bg-neutral-800 opacity-60':'bg-emerald-600 hover:bg-emerald-500'} text-sm`}>{busySave?'Saving…':'Save'}</button>
-              <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Cancel</button>
+              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+              <button onClick={saveAll} disabled={!changed||busySave} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">{busySave?'Saving…':'💾 Save'}</button>
+              <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
             </div>
           </div>
           {/* Filters Row with chips */}
@@ -774,34 +774,85 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
               ) : null}
             </div>
-            <div className="inline-flex items-center gap-2">
-              <span className="opacity-70">Colors:</span>
-              {['W','U','B','R','G','C'].map(k=> (
-                <label key={k} className="inline-flex items-center gap-1"><input type="checkbox" checked={filterColors.includes(k)} onChange={(e)=> setFilterColors(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))}/> {k}</label>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <span className="font-semibold text-sm bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">🎨 Colors:</span>
+              {[
+                {k:'W', color:'bg-gray-100', border:'border-gray-300', text:'text-gray-900', name:'White'},
+                {k:'U', color:'bg-blue-500', border:'border-blue-400', text:'text-white', name:'Blue'},
+                {k:'B', color:'bg-gray-900', border:'border-gray-700', text:'text-white', name:'Black'},
+                {k:'R', color:'bg-red-600', border:'border-red-500', text:'text-white', name:'Red'},
+                {k:'G', color:'bg-green-600', border:'border-green-500', text:'text-white', name:'Green'},
+                {k:'C', color:'bg-neutral-500', border:'border-neutral-400', text:'text-white', name:'Colorless'}
+              ].map(({k, color, border, text, name})=> (
+                <label key={k} className={`inline-flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-lg transition-all ${filterColors.includes(k) ? `${color} ${border} border-2 shadow-md` : 'bg-neutral-800/50 border border-neutral-700 hover:bg-neutral-700/50'}`} title={name}>
+                  <input type="checkbox" checked={filterColors.includes(k)} onChange={(e)=> setFilterColors(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="hidden"/>
+                  <span className={`font-bold text-sm ${filterColors.includes(k) ? text : 'text-neutral-300'}`}>{k}</span>
+                </label>
               ))}
             </div>
-            <div className="inline-flex items-center gap-2">
-              <span className="opacity-70">Type:</span>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <span className="font-semibold text-sm bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">🃏 Type:</span>
               {['creature','instant','sorcery','land','artifact','enchantment'].map(k=> (
-                <label key={k} className="inline-flex items-center gap-1"><input type="checkbox" checked={filterTypes.includes(k)} onChange={(e)=> setFilterTypes(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))}/> {k}</label>
+                <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
+                  <input type="checkbox" checked={filterTypes.includes(k)} onChange={(e)=> setFilterTypes(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"/>
+                  <span className="font-medium capitalize">{k}</span>
+                </label>
               ))}
             </div>
-            <div className="inline-flex items-center gap-2">
-              <span className="opacity-70">Price:</span>
-              {['','<1','1-5','5-20','20-50','50-100','100+'].map(k=> (
-                <label key={k} className="inline-flex items-center gap-1"><input type="radio" name="priceband2" checked={filterPriceBand===k} onChange={()=>setFilterPriceBand(k)} /> {k||'Any'}</label>
-              ))}
-              <DualRange min={0} max={500} valueMin={pMin} valueMax={pMax} onChange={(lo,hi)=>{ setPMin(lo); setPMax(hi); }} />
+            <div className="flex flex-col gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">💲 Price Range</span>
+                <span className="text-xs text-emerald-400 font-mono">{currency} {pMin || 0} - {pMax || 500}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400 min-w-[40px]">${pMin || 0}</span>
+                <div className="flex-1">
+                  <DualRange min={0} max={500} valueMin={pMin} valueMax={pMax} onChange={(lo,hi)=>{ setPMin(lo); setPMax(hi); setFilterPriceBand(''); }} />
+                </div>
+                <span className="text-xs text-neutral-400 min-w-[40px] text-right">${pMax || 500}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {label:'Any', min:0, max:500},
+                  {label:'< $1', min:0, max:1},
+                  {label:'$1-5', min:1, max:5},
+                  {label:'$5-20', min:5, max:20},
+                  {label:'$20-50', min:20, max:50},
+                  {label:'$50-100', min:50, max:100},
+                  {label:'$100+', min:100, max:500}
+                ].map(({label, min, max})=> {
+                  const isActive = pMin === min && pMax === max;
+                  return (
+                    <button 
+                      key={label} 
+                      onClick={()=>{ setPMin(min); setPMax(max); setFilterPriceBand(''); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                        isActive 
+                          ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-md' 
+                          : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <details className="ml-auto">
-              <summary className="cursor-pointer select-none text-xs opacity-80">Advanced filters</summary>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <label className="text-sm">Qty ≥<input type="number" min={0} value={filterQtyMin} onChange={e=>setFilterQtyMin(Math.max(0, Number(e.target.value||0)))} className="ml-2 w-20 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"/></label>
-                <label className="text-sm">Sets<select multiple value={filterSets} onChange={(e)=>{ const opts=Array.from(e.currentTarget.selectedOptions).map(o=>o.value); setFilterSets(opts); }} className="ml-2 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 min-w-40 max-h-24">{allSets.map(s=> (<option key={s.set} value={s.set}>{s.set} ({s.count})</option>))}</select></label>
-                <label className="text-sm">Rarity:{['common','uncommon','rare','mythic'].map(k=> (
-                  <span key={k} className="ml-2 inline-flex items-center gap-1"><input type="checkbox" checked={filterRarity.includes(k)} onChange={(e)=> setFilterRarity(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))}/> {k}</span>
-                ))}</label>
-                <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setFilterText(''); }} className="ml-auto text-xs px-2 py-1 rounded border border-neutral-700">Clear</button>
+            <details className="ml-auto px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <summary className="cursor-pointer select-none text-xs font-semibold bg-gradient-to-r from-violet-400 to-indigo-500 bg-clip-text text-transparent">⚙️ Advanced filters</summary>
+              <div className="mt-3 flex flex-wrap items-center gap-3 p-2 rounded-lg bg-neutral-950/50 border border-neutral-700/30">
+                <label className="text-sm font-medium">Qty ≥<input type="number" min={0} value={filterQtyMin} onChange={e=>setFilterQtyMin(Math.max(0, Number(e.target.value||0)))} className="ml-2 w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"/></label>
+                <label className="text-sm font-medium">Sets<select multiple value={filterSets} onChange={(e)=>{ const opts=Array.from(e.currentTarget.selectedOptions).map(o=>o.value); setFilterSets(opts); }} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 min-w-40 max-h-24 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">{allSets.map(s=> (<option key={s.set} value={s.set}>{s.set} ({s.count})</option>))}</select></label>
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-sm font-medium">💎 Rarity:</span>
+                  {['common','uncommon','rare','mythic'].map(k=> (
+                    <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
+                      <input type="checkbox" checked={filterRarity.includes(k)} onChange={(e)=> setFilterRarity(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"/>
+                      <span className="font-medium capitalize">{k}</span>
+                    </label>
+                  ))}
+                </div>
+                <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setFilterText(''); }} className="ml-auto px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">🗑️ Clear All</button>
               </div>
             </details>
           </div>
@@ -843,7 +894,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 return (
                   <div key={`${key}-${startIndex+idx}`} className="flex items-center justify-between border-b border-neutral-900 px-3" style={{ height: rowH }}>
                     <span className="text-sm inline-flex items-center gap-2 min-w-0">
-                      <input type="checkbox" checked={selected.has(key)} onChange={(e)=>{ const n = new Set(selected); e.target.checked? n.add(key): n.delete(key); setSelected(n); }} />
+                      <input type="checkbox" checked={selected.has(key)} onChange={(e)=>{ const n = new Set(selected); e.target.checked? n.add(key): n.delete(key); setSelected(n); }} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"/>
                       <input type="number" min={0} step={1} value={staged} className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center" onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); setQtyStaged(it, v); }} />
                       <CardRowPreviewLeft name={it.name} imageSmall={imagesRef.current[k2]?.small} imageLarge={imagesRef.current[k2]?.normal} setCode={(metaRef.current.get(n(it.name))?.set)||''} rarity={(metaRef.current.get(n(it.name))?.rarity)||''} />
                     </span>
