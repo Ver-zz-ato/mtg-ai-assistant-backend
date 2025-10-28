@@ -346,14 +346,17 @@ export default function CollectionCsvUpload({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChange} />
-          <button onClick={onPick} disabled={busy} className="text-xs border rounded px-2 py-1 min-w-[100px]">
+          <button onClick={onPick} disabled={busy} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg min-w-[100px] disabled:opacity-50">
             {busy ? (
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+              <span className="flex items-center gap-1.5 justify-center">
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 {Math.round(progress)}%
               </span>
             ) : (
-              mode === 'new' ? "Import a New Collection" : "Import CSV"
+              <span className="flex items-center gap-1.5 justify-center">
+                <span>📥</span>
+                <span>{mode === 'new' ? "Import a New Collection" : "Import CSV"}</span>
+              </span>
             )}
           </button>
           {report && !busy && (

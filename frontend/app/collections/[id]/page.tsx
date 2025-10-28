@@ -15,7 +15,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       <header className="space-y-3">
         <div className="flex items-center justify-between">
           <CollectionTitleBar collectionId={id} />
-          <Link href={`/collections`} className="px-3 py-1.5 rounded border border-neutral-700 hover:bg-neutral-900 text-sm">Back to Collections</Link>
+          <Link href={`/collections`} className="px-4 py-2 rounded-lg bg-gradient-to-r from-neutral-700 to-neutral-600 hover:from-neutral-600 hover:to-neutral-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg border border-neutral-600">Back to Collections</Link>
         </div>
         <CollectionHeaderControls collectionId={id} />
       </header>

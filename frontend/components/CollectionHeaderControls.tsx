@@ -84,9 +84,9 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           {!checking && slug && slugOk===true && <span className="text-[11px] text-emerald-400">Available</span>}
           {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Taken</span>}
           <input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="w-56 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs" />
-          <button onClick={copyLink} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Copy</button>
+          <button onClick={copyLink} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
           <img src={qrSrc()} alt="QR" className="w-10 h-10 bg-white rounded border border-neutral-700" />
-          <button onClick={downloadQR} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">QR</button>
+          <button onClick={downloadQR} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">QR</button>
         </div>
       )}
 
@@ -104,12 +104,12 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
         {/* Export */}
         <div className="flex items-center gap-2">
           <span className="text-xs opacity-70">Export:</span>
-          <button onClick={()=>doExport('csv')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">CSV</button>
+          <button onClick={()=>doExport('csv')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">CSV</button>
           {isPro ? (
             <>
-              <button onClick={()=>doExport('mtga')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">MTGA</button>
-              <button onClick={()=>doExport('mtgo')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">MTGO</button>
-              <button onClick={()=>doExport('moxfield')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Moxfield</button>
+              <button onClick={()=>doExport('mtga')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">MTGA</button>
+              <button onClick={()=>doExport('mtgo')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">MTGO</button>
+              <button onClick={()=>doExport('moxfield')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Moxfield</button>
             </>
           ) : (
             <span className="text-[10px] opacity-60" title="PRO only">MTGA/MTGO/Moxfield</span>

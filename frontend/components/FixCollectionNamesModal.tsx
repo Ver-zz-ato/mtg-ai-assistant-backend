@@ -50,7 +50,7 @@ export default function FixCollectionNamesModal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={onClose}>
       <div className="max-w-xl w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">✏️</span>

@@ -480,7 +480,12 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         <div className="flex items-center gap-2 ml-auto">
           {wishlistId ? <WishlistCsvUpload wishlistId={wishlistId} onDone={async()=>{ const qs=new URLSearchParams({ wishlistId, currency }); const r=await fetch(`/api/wishlists/items?${qs.toString()}`,{cache:'no-store'}); const j=await r.json().catch(()=>({})); if (r.ok&&j?.ok){ setItems(Array.isArray(j.items)?j.items:[]); setTotal(Number(j.total||0)); } }} /> : null}
           {wishlistId ? <ExportWishlistCSV wishlistId={wishlistId} small /> : null}
-          <button onClick={()=>setFixOpen(true)} className="text-xs underline underline-offset-4">Fix names</button>
+          <button onClick={()=>setFixOpen(true)} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">
+            <span className="flex items-center gap-1.5">
+              <span>✏️</span>
+              <span>Fix names</span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -495,8 +500,18 @@ function WishlistEditor({ pro }: { pro: boolean }) {
           <div className="opacity-70 mb-1">Qty</div>
           <input type="number" min={1} value={addQty} onChange={(e)=>setAddQty(Math.max(1, Number(e.target.value||1)))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
         </label>
-        <button onClick={add} disabled={adding || !addName.trim()} className={`px-3 py-2 rounded text-sm ${adding || !addName.trim() ? 'bg-gray-300 text-black' : 'bg-white text-black hover:bg-gray-100'}`}>{adding?'Adding…':'Add'}</button>
-        <button onClick={()=>setShowBulk(true)} className="px-3 py-2 rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-sm">Bulk add</button>
+        <button onClick={add} disabled={adding || !addName.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+          <span className="flex items-center gap-1.5">
+            <span>➕</span>
+            <span>{adding?'Adding…':'Add'}</span>
+          </span>
+        </button>
+        <button onClick={()=>setShowBulk(true)} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
+          <span className="flex items-center gap-1.5">
+            <span>📋</span>
+            <span>Bulk add</span>
+          </span>
+        </button>
         <div className="ml-auto flex items-end gap-2">
           <label className="text-sm">
             <div className="opacity-70 mb-1">Compare vs Collection</div>
@@ -512,7 +527,12 @@ function WishlistEditor({ pro }: { pro: boolean }) {
               const j = await r.json().catch(()=>({}));
               if (r.ok && j?.ok) setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: String(j.currency||currency) });
             } catch{}
-          }} className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">Compare</button>
+          }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
+            <span className="flex items-center gap-1.5">
+              <span>🔄</span>
+              <span>Compare</span>
+            </span>
+          </button>
         </div>
         <FixNamesModalWishlist wishlistId={wishlistId} open={fixOpen} onClose={()=>setFixOpen(false)} pro={pro} />
       </div>
@@ -545,8 +565,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             {selSet.size>0 && (
               <>
                 <span className="opacity-80">{selSet.size} selected</span>
-                <button className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setSelSet(new Set())}>Clear</button>
-                <button className="px-2 py-0.5 rounded border border-red-500 text-red-300 hover:bg-red-900/20" onClick={removeSelected}>Remove selected</button>
+                <button className="px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-xs font-medium transition-colors" onClick={()=>setSelSet(new Set())}>Clear</button>
+                <button className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg" onClick={removeSelected}>Remove selected</button>
               </>
             )}
           </div>
@@ -581,7 +601,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   </td>
                   <td className="p-2 text-right tabular-nums">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
                   <td className="p-2 text-right">
-                    <button className="text-xs text-red-300 underline" onClick={()=>remove(it.name)}>Remove</button>
+                    <button className="px-2 py-1 rounded-lg bg-gradient-to-r from-red-600/80 to-rose-600/80 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-sm hover:shadow-md" onClick={()=>remove(it.name)}>Remove</button>
                   </td>
                 </tr>
               ))}
@@ -614,8 +634,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                 <label className="flex items-center gap-1"><input type="radio" name="bulkmode" checked={bulkMode==='replace'} onChange={()=>setBulkMode('replace')} /> Set exact quantities</label>
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-sm" onClick={()=>setBulkText('')}>Clear</button>
-                <button className="px-3 py-1.5 rounded bg-white text-black text-sm" onClick={async()=>{
+                <button className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors" onClick={()=>setBulkText('')}>Clear</button>
+                <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg" onClick={async()=>{
                   const lines = (bulkText||'').split(/\r?\n|,/).map(s=>s.trim()).filter(Boolean);
                   if (!lines.length) { setShowBulk(false); return; }
                   function parseLine(s:string){
@@ -710,8 +730,8 @@ function FixNamesModalWishlist({ wishlistId, open, onClose, pro }: { wishlistId:
         )}
         <div className="mt-3 flex items-center justify-end gap-2">
           {!pro && (<span className="text-[11px] opacity-70 mr-auto">Batch rename is a Pro feature.</span>)}
-          <button onClick={onClose} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Close</button>
-          <button onClick={apply} disabled={saving || loading || items.length===0 || !pro} className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-xs">Apply</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Close</button>
+          <button onClick={apply} disabled={saving || loading || items.length===0 || !pro} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Apply Changes</button>
         </div>
       </div>
     </div>

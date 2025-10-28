@@ -37,15 +37,15 @@ export default function CollectionTitleBar({ collectionId }: { collectionId: str
     <div className="flex items-center gap-3">
       {editing ? (
         <>
-          <input value={name} onChange={e=>setName(e.target.value)} className="w-80 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
-          <button onClick={save} disabled={busy} className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-sm">Save</button>
-          <button onClick={()=>setEditing(false)} disabled={busy} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Cancel</button>
+          <input value={name} onChange={e=>setName(e.target.value)} className="w-80 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={save} disabled={busy} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50">Save</button>
+          <button onClick={()=>setEditing(false)} disabled={busy} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Cancel</button>
         </>
       ) : (
         <>
           <h1 className="text-2xl font-semibold truncate" title={name}>{name || 'Collection'}</h1>
-          <button onClick={()=>setEditing(true)} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Rename</button>
-          <button onClick={onDelete} className="px-3 py-1.5 rounded border border-red-800 text-red-400 text-sm">Delete</button>
+          <button onClick={()=>setEditing(true)} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">Rename</button>
+          <button onClick={onDelete} className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">Delete</button>
         </>
       )}
     </div>
