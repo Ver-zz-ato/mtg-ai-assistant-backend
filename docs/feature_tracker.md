@@ -592,6 +592,35 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Individual article pages with proper metadata and SEO optimization
 - Date: 2025-10-28
 
+☑ Blog Visual Enhancements <!-- id:blog.visuals_oct28 -->
+- **Preview Card Styling**:
+  * Unique gradient backgrounds per article (emerald-green-teal for budget, violet-purple-indigo for strategy, amber-orange-rose for gems)
+  * Large animated emoji icons (💰 budget, 📊 strategy, 💎 gems)
+  * Enhanced hover states with -translate-y-2 lift effect
+  * Category badges with color coding (purple for Strategy, green for Budget)
+  * Gradient text on hover for titles
+  * Border separator for metadata section
+- **Individual Blog Post Hero Sections**:
+  * Full-width hero banner (40vh min 300px) with matching gradient
+  * Pattern overlay for visual depth
+  * Large 9xl emoji icon with drop shadow
+  * Title displays in white with drop shadow over gradient
+  * Backdrop blur category/readtime badges
+  * Author/date in rounded pill with backdrop blur
+- **Enhanced Article Content**:
+  * Prose styling with gradient H1 headings (blue-to-purple)
+  * Improved typography hierarchy (H1: 4xl, H2: 2xl, H3: xl)
+  * Better spacing and leading for readability
+  * Styled links, lists, and horizontal rules
+  * Italic styling for footnotes
+  * Shadow-xl on article card
+- **Enhanced CTA Section**:
+  * Matches article gradient for visual consistency
+  * Pattern overlay and subtle animations
+  * Rocket emoji (🚀) as focal point
+  * Two-button layout: "Start Building" (solid white) and "View Pro Features" (glass)
+  * Hover effects with -translate-y-1 and shadow changes
+
 ☑ Named Wishlist Management Complete CRUD <!-- id:wishlist.crud_complete -->
 - **API Endpoints Created**:
   * `/api/wishlists/create` - POST endpoint with name validation, duplicate checking

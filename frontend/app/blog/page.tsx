@@ -16,6 +16,8 @@ const blogPosts = [
     author: 'ManaTap Team',
     category: 'Budget Building',
     readTime: '5 min read',
+    gradient: 'from-emerald-600 via-green-600 to-teal-600',
+    icon: '💰',
   },
   {
     slug: 'mana-curve-mastery',
@@ -25,6 +27,8 @@ const blogPosts = [
     author: 'ManaTap Team',
     category: 'Strategy',
     readTime: '4 min read',
+    gradient: 'from-violet-600 via-purple-600 to-indigo-600',
+    icon: '📊',
   },
   {
     slug: 'budget-edh-hidden-gems',
@@ -34,6 +38,8 @@ const blogPosts = [
     author: 'ManaTap Team',
     category: 'Budget Building',
     readTime: '5 min read',
+    gradient: 'from-amber-600 via-orange-600 to-rose-600',
+    icon: '💎',
   },
 ];
 
@@ -73,17 +79,23 @@ export default function BlogPage() {
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}
-              className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+              className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
             >
-              {/* Featured image placeholder */}
-              <div className="h-48 bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
-                <div className="text-6xl">🃏</div>
+              {/* Hero Image */}
+              <div className={`h-48 bg-gradient-to-br ${post.gradient} flex items-center justify-center relative overflow-hidden`}>
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="relative z-10 text-8xl drop-shadow-2xl animate-pulse">{post.icon}</div>
+                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent"></div>
               </div>
 
               <div className="p-6">
                 {/* Category & Read Time */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                    post.category === 'Strategy' 
+                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                      : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  }`}>
                     {post.category}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -92,18 +104,18 @@ export default function BlogPage() {
                 </div>
 
                 {/* Title */}
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:to-purple-500 transition-all line-clamp-2">
                   {post.title}
                 </h2>
 
                 {/* Excerpt */}
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">
                   {post.excerpt}
                 </p>
 
                 {/* Meta */}
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
-                  <span>{post.author}</span>
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <span className="font-medium">{post.author}</span>
                   <span>{new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
               </div>
