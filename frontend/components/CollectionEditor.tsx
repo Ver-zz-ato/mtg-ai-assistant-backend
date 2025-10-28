@@ -66,12 +66,22 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick }: 
   })(); }, [collectionId, currency]);
   return (
     <>
-      <details className="rounded border border-neutral-800">
-        <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Type histogram</summary>
+      <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <summary className="cursor-pointer select-none px-4 py-3 list-none">
+          <div className="flex items-center gap-2">
+            <div className="h-1 w-1 rounded-full bg-sky-400 animate-pulse shadow-lg shadow-sky-400/50"></div>
+            <span className="text-base font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">Type histogram</span>
+          </div>
+        </summary>
         <div className="p-3"><BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} /></div>
       </details>
-      <details className="rounded border border-neutral-800">
-        <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Price distribution</summary>
+      <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <summary className="cursor-pointer select-none px-4 py-3 list-none">
+          <div className="flex items-center gap-2">
+            <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50"></div>
+            <span className="text-base font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">Price distribution</span>
+          </div>
+        </summary>
         <div className="p-3"><BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} /></div>
       </details>
     </>
@@ -113,11 +123,11 @@ function WishlistCompareCard({ collectionId, currency }: { collectionId: string;
   return (
     <div className="p-3 space-y-2 text-sm">
       <div className="flex gap-2">
-        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm">
           <option value="">Select wishlist…</option>
           {wishlists.map(w=> (<option key={w.id} value={w.id}>{w.name}{typeof w.card_count==='number'? ` (${w.card_count})`: ''}</option>))}
         </select>
-        <button onClick={compare} disabled={!selectedId||loading} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 rounded text-white">{loading? 'Comparing…':'Compare'}</button>
+        <button onClick={compare} disabled={!selectedId||loading} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50">{loading? 'Comparing…':'Compare'}</button>
       </div>
       {gaps.length>0 && (
         <div className="space-y-1">
@@ -259,10 +269,10 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
       <div className="border-t border-neutral-800 pt-3 space-y-2">
         <div className="text-sm font-medium">Exports</div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <button onClick={()=>doExport('mtga')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded">MTGA</button>
-          <button onClick={()=>doExport('mtgo')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded">MTGO .dek</button>
-          <button onClick={()=>doExport('moxfield')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded">Moxfield</button>
-          <button onClick={()=>doExport('csv')} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded">CSV</button>
+          <button onClick={()=>doExport('mtga')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-medium transition-all shadow-md hover:shadow-lg">MTGA</button>
+          <button onClick={()=>doExport('mtgo')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-medium transition-all shadow-md hover:shadow-lg">MTGO</button>
+          <button onClick={()=>doExport('moxfield')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-medium transition-all shadow-md hover:shadow-lg">Moxfield</button>
+          <button onClick={()=>doExport('csv')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-medium transition-all shadow-md hover:shadow-lg">CSV</button>
         </div>
       </div>
     </div>
@@ -304,11 +314,14 @@ function FixNamesButton({ collectionId }: { collectionId: string }){
         onClick={() => {
           trackProGateClicked('fix_card_names', 'collection_editor');
         }}
-        className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60"
+        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600/40 to-red-600/40 text-white font-medium text-xs transition-all shadow-md opacity-60 cursor-not-allowed border border-orange-500/30"
       >
-        Fix names
-        <span className="ml-1 inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1 py-0.5 uppercase tracking-wide">
-          PRO
+        <span className="flex items-center gap-1.5">
+          <span>✏️</span>
+          <span>Fix names</span>
+          <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
+            PRO
+          </span>
         </span>
       </button>
     );
@@ -320,9 +333,12 @@ function FixNamesButton({ collectionId }: { collectionId: string }){
           setOpen(true);
           trackProFeatureUsed('fix_card_names');
         }} 
-        className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-900"
+        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
       >
-        Fix names
+        <span className="flex items-center gap-1.5">
+          <span>✏️</span>
+          <span>Fix names</span>
+        </span>
       </button>
       <FixCollectionNamesModal collectionId={collectionId} open={open} onClose={()=>setOpen(false)} />
     </>
@@ -619,15 +635,21 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         </div>
         {tab==='overview' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded border border-neutral-800 p-3 space-y-2">
-              <div className="font-medium">Mini stats</div>
+            <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 space-y-2 shadow-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+                <span className="font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Mini stats</span>
+              </div>
               <div className="text-sm">Cards: <b className="font-mono">{totalCards}</b></div>
               <div className="text-sm">Unique: <b className="font-mono">{unique}</b></div>
               <div className="text-sm">Value ({currency} snapshot): <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD) : '—'}</b></div>
-              <button onClick={refreshValue} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Refresh value</button>
+              <button onClick={refreshValue} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Refresh value</button>
             </div>
-            <div className="rounded border border-neutral-800 p-3 space-y-2">
-              <div className="font-medium">Color pie</div>
+            <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 space-y-2 shadow-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
+                <span className="font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Color pie</span>
+              </div>
               <ColorPie />
             </div>
           </div>
@@ -790,8 +812,13 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           <div className="flex-1">
             <CardAutocomplete value={name} onChange={setName} onPick={(n)=>{ setName(n); add(); }} placeholder="Add card…" />
           </div>
-          <input type="number" min={1} value={qty} onChange={e=>setQty(Math.max(1, Number(e.target.value||1)))} className="w-20 border rounded px-2 py-1 text-sm bg-transparent" />
-          <button onClick={add} className="border rounded px-2 py-1 text-sm">Add</button>
+          <input type="number" min={1} value={qty} onChange={e=>setQty(Math.max(1, Number(e.target.value||1)))} className="w-20 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm bg-neutral-950" />
+          <button onClick={add} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
+            <span className="flex items-center gap-1.5">
+              <span>➕</span>
+              <span>Add</span>
+            </span>
+          </button>
         </div>
 
         {/* Virtualized list */}
@@ -835,23 +862,38 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
 
       {/* Right: stats/tools panels */}
       <aside className="h-full overflow-auto space-y-3 lg:col-span-1 xl:col-span-3">
-        <details open className="rounded border border-neutral-800">
-          <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Overview</summary>
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Overview</span>
+            </div>
+          </summary>
           <div className="p-3 space-y-2">
             <div className="text-sm">Cards: <b className="font-mono">{totalCards}</b></div>
             <div className="text-sm">Unique: <b className="font-mono">{unique}</b></div>
             <div className="text-sm flex items-center gap-2">Value: <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b>
               <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
             </div>
-            <button onClick={refreshValue} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Refresh now</button>
+            <button onClick={refreshValue} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Refresh now</button>
           </div>
         </details>
-        <details open className="rounded border border-neutral-800">
-          <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Color pie</summary>
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Color pie</span>
+            </div>
+          </summary>
           <div className="p-3"><ColorPie /></div>
         </details>
-        <details open className="rounded border border-neutral-800">
-          <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Price history</summary>
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Price history</span>
+            </div>
+          </summary>
           <div className="p-3 space-y-2">
             <div className="flex items-center gap-2 text-xs opacity-80">
               <span>Last snapshot:</span>
@@ -862,7 +904,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               <button onClick={async()=>{ 
                 trackProFeatureUsed('price_snapshot');
                 try{ const r=await fetch('/api/cron/price/snapshot',{ method:'POST' }); if(r.ok){ setLastSnapshotAt(new Date().toISOString()); } }catch{} 
-              }} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Take snapshot now</button>
+              }} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Take snapshot now</button>
             ) : (
               <button 
                 disabled 
@@ -881,8 +923,13 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           </div>
         </details>
         {/* Wishlist compare moved up */}
-        <details className="rounded border border-neutral-800">
-          <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Wishlist compare</summary>
+        <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-pink-400 animate-pulse shadow-lg shadow-pink-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">Wishlist compare</span>
+            </div>
+          </summary>
           <WishlistCompareCard collectionId={collectionId} currency={currency} />
         </details>
         {/* Analytics (advanced) hidden by default */}
@@ -890,11 +937,16 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           onTypeClick={(t)=> setFilterTypes(p=> p.includes(t)? p : [...p,t])}
           onBucketClick={(b)=>{ const m:any = { '<$1':'<1', '$1–5':'1-5', '$5–20':'5-20', '$20–50':'20-50', '$50–100':'50-100', '$100+':'100+' }; setFilterPriceBand(m[b]||''); }}
         />
-        <details className="rounded border border-neutral-800">
-          <summary className="cursor-pointer select-none px-3 py-2 font-medium list-none"><span className="mr-2">▸</span>Sets</summary>
+        <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-indigo-400 animate-pulse shadow-lg shadow-indigo-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-indigo-400 to-violet-500 bg-clip-text text-transparent">Sets</span>
+            </div>
+          </summary>
           <div className="p-3">
             <div className="flex flex-wrap gap-1 text-[11px]">{allSets.length? allSets.map(s=> (
-              <button key={s.set} onClick={()=> setFilterSets(p=> p.includes(s.set)? p : [...p, s.set])} className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 hover:bg-neutral-800">{s.set} • {s.count}</button>
+              <button key={s.set} onClick={()=> setFilterSets(p=> p.includes(s.set)? p : [...p, s.set])} className="px-2 py-1 rounded-lg bg-gradient-to-r from-neutral-800 to-neutral-700 hover:from-neutral-700 hover:to-neutral-600 border border-neutral-600 transition-all">{s.set} • {s.count}</button>
             )) : <span className="text-xs opacity-70">—</span>}</div>
           </div>
         </details>
