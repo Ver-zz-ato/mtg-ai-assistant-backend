@@ -37,18 +37,22 @@ export async function GET(req: NextRequest) {
         .limit(10);
       
       if (dfcMatches && dfcMatches.length > 0) {
-        // Find the DFC where the front face matches exactly (case-insensitive)
         const frontNorm = norm(frontFace);
-        const exactDFC = dfcMatches.find((r: any) => {
-          const cacheFront = r.name.split('//')[0].trim();
-          return norm(cacheFront) === frontNorm;
+        
+        // Filter to only valid DFCs (where front ≠ back)
+        const validDFCs = dfcMatches.filter((r: any) => {
+          const parts = r.name.split('//').map((p: string) => p.trim());
+          const cacheFrontNorm = norm(parts[0]);
+          const cacheBackNorm = norm(parts[1] || '');
+          return cacheFrontNorm === frontNorm && cacheFrontNorm !== cacheBackNorm;
         });
         
-        if (exactDFC) {
-          return NextResponse.json({ ok: true, name: exactDFC.name });
+        // Return first valid DFC
+        if (validDFCs.length > 0) {
+          return NextResponse.json({ ok: true, name: validDFCs[0].name });
         }
         
-        // Fallback: return first DFC if no exact match
+        // Fallback: return any DFC if no valid one found (shouldn't happen)
         const anyDFC = dfcMatches.find((r: any) => r.name.includes('//'));
         if (anyDFC) {
           return NextResponse.json({ ok: true, name: anyDFC.name });

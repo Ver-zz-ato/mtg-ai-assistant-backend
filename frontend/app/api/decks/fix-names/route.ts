@@ -33,7 +33,20 @@ export async function GET(req: NextRequest) {
       for (const deckCardName of batch) {
         const isDFC = deckCardName.includes('//');
         
-        // Try exact case-insensitive match first
+        // For DFCs with identical front/back faces, always flag as needing fix
+        if (isDFC) {
+          const parts = deckCardName.split('//').map((p: string) => p.trim());
+          const frontNorm = norm(parts[0]);
+          const backNorm = norm(parts[1] || '');
+          
+          if (frontNorm === backNorm) {
+            // DFC with same name on both faces - this is almost always wrong
+            // Skip this and let it go to suggestions
+            continue;
+          }
+        }
+        
+        // Try exact case-insensitive match
         const { data: exactMatch } = await supabase
           .from('scryfall_cache')
           .select('name')
@@ -41,49 +54,60 @@ export async function GET(req: NextRequest) {
           .limit(1);
         
         if (exactMatch && exactMatch.length > 0) {
-          // For DFCs, verify the full name matches (including back face)
           const cacheNorm = norm(exactMatch[0].name);
           const deckNorm = norm(deckCardName);
           
-          if (cacheNorm === deckNorm) {
-            // Perfect match (accounting for case)
-            cacheNameMap.set(deckNorm, exactMatch[0].name);
-            continue;
-          } else if (isDFC) {
-            // DFC with mismatched back face - need to fix it
-            // Don't mark as found, let it go to suggestions
+          // For DFCs, verify it's not a duplicate/incorrect cache entry
+          if (isDFC) {
+            const cacheParts = exactMatch[0].name.split('//').map((p: string) => p.trim());
+            const cacheFrontNorm = norm(cacheParts[0]);
+            const cacheBackNorm = norm(cacheParts[1] || '');
+            
+            if (cacheFrontNorm === cacheBackNorm) {
+              // Cache has incorrect DFC (same face twice) - need to find the right one
+              // Don't mark as found
+            } else if (cacheNorm === deckNorm) {
+              // Valid DFC match
+              cacheNameMap.set(deckNorm, exactMatch[0].name);
+              continue;
+            }
           } else {
-            // Non-DFC with case difference only
+            // Non-DFC - simple match
             cacheNameMap.set(deckNorm, exactMatch[0].name);
             continue;
           }
         }
         
-        // For DFCs, try to find the correct full card by front face
+        // For DFCs, search for the correct card by front face
         if (isDFC) {
           const frontPart = deckCardName.split('//')[0].trim();
           const { data: dfcMatches } = await supabase
             .from('scryfall_cache')
             .select('name')
-            .ilike('name', `${frontPart} //%`) // Front face followed by //
+            .ilike('name', `${frontPart} //%`)
             .limit(10);
           
           if (dfcMatches && dfcMatches.length > 0) {
-            // Find the best DFC match
-            // Prefer exact front face match (case-insensitive)
             const frontNorm = norm(frontPart);
-            const bestMatch = dfcMatches.find((r: any) => {
-              const cacheFront = r.name.split('//')[0].trim();
-              return norm(cacheFront) === frontNorm;
+            
+            // Prefer DFCs where front ≠ back (the correct format)
+            const validDFCs = dfcMatches.filter((r: any) => {
+              const cacheParts = r.name.split('//').map((p: string) => p.trim());
+              const cacheFrontNorm = norm(cacheParts[0]);
+              const cacheBackNorm = norm(cacheParts[1] || '');
+              return cacheFrontNorm === frontNorm && cacheFrontNorm !== cacheBackNorm;
             });
             
-            if (bestMatch) {
-              // Check if it's the same as what we have (normalized)
-              if (norm(bestMatch.name) === norm(deckCardName)) {
-                // Same card, just need capitalization fix
-                cacheNameMap.set(norm(deckCardName), bestMatch.name);
+            if (validDFCs.length > 0) {
+              // Use the first valid DFC
+              const bestMatch = validDFCs[0];
+              
+              // Check if it's different from what we have
+              if (norm(bestMatch.name) !== norm(deckCardName)) {
+                // Different - needs fixing, don't mark as found
               } else {
-                // Different back face - this needs fixing, don't mark as found
+                // Exact match
+                cacheNameMap.set(norm(deckCardName), bestMatch.name);
               }
             }
           }

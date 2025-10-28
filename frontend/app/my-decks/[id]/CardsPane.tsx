@@ -480,11 +480,14 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
                   src = imgMap[frontFace]?.small;
                   normalSrc = imgMap[frontFace]?.normal;
                   
-                  // If still no match, search imgMap for any DFC starting with this front face
+                  // If still no match, search imgMap for valid DFCs starting with this front face
                   if (!src) {
-                    const imgKeys = Object.keys(imgMap).filter(k => 
-                      k.includes('//') && k.startsWith(frontFace + ' //')
-                    );
+                    const imgKeys = Object.keys(imgMap).filter(k => {
+                      if (!k.includes('//') || !k.startsWith(frontFace + ' //')) return false;
+                      // Filter out invalid DFCs (same name on both faces)
+                      const parts = k.split('//').map((p: string) => p.trim());
+                      return parts[0] !== parts[1];
+                    });
                     if (imgKeys.length > 0) {
                       src = imgMap[imgKeys[0]]?.small;
                       normalSrc = imgMap[imgKeys[0]]?.normal;
@@ -521,21 +524,27 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
                   unit = priceMap[frontKey];
                   hasImg = !!imgMap[frontFace.toLowerCase()]?.small;
                   
-                  // If still no match, search priceMap for any DFC starting with this front face
+                  // If still no match, search priceMap for valid DFCs starting with this front face
                   if (!unit) {
-                    const dfcKeys = Object.keys(priceMap).filter(k => 
-                      k.includes('//') && k.startsWith(frontKey + ' //')
-                    );
+                    const dfcKeys = Object.keys(priceMap).filter(k => {
+                      if (!k.includes('//') || !k.startsWith(frontKey + ' //')) return false;
+                      // Filter out invalid DFCs (same name on both faces)
+                      const parts = k.split('//').map((p: string) => p.trim());
+                      return parts[0] !== parts[1];
+                    });
                     if (dfcKeys.length > 0) {
                       unit = priceMap[dfcKeys[0]];
                     }
                   }
                   
-                  // Same for images
+                  // Same for images - prefer valid DFCs
                   if (!hasImg) {
-                    const imgKeys = Object.keys(imgMap).filter(k => 
-                      k.includes('//') && k.startsWith(frontFace.toLowerCase() + ' //')
-                    );
+                    const imgKeys = Object.keys(imgMap).filter(k => {
+                      if (!k.includes('//') || !k.startsWith(frontFace.toLowerCase() + ' //')) return false;
+                      // Filter out invalid DFCs
+                      const parts = k.split('//').map((p: string) => p.trim());
+                      return parts[0] !== parts[1];
+                    });
                     if (imgKeys.length > 0) {
                       hasImg = !!imgMap[imgKeys[0]]?.small;
                     }
