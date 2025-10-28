@@ -77,6 +77,217 @@ Building on a budget doesn't mean sacrificing power. These five cards prove that
 *Looking for more budget deck building tips? Check out our other articles on building competitive decks without breaking the bank.*
     `,
   },
+  'mana-curve-mastery': {
+    title: 'Mastering the Mana Curve: The Foundation of Winning Deck Construction',
+    date: '2025-10-28',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '4 min read',
+    content: `
+# Mastering the Mana Curve: The Foundation of Winning Deck Construction
+
+Your mana curve is the single most important structural element of your Magic deck. Get it right, and your deck flows smoothly from turn to turn. Get it wrong, and you'll stumble over clunky hands and awkward draws. Let's break down how to build the perfect curve.
+
+## What is a Mana Curve?
+
+A mana curve is the distribution of mana costs across all cards in your deck. When you visualize it as a bar chart, you should see a smooth "curve" that peaks in the mid-game and tapers off toward expensive spells.
+
+**Why it matters:** Your curve determines what you can do each turn. A well-built curve ensures you always have plays, while a bad curve leaves you with dead cards in hand.
+
+## The 2-3-4 Rule for Commander
+
+In Commander, follow this framework for a balanced 100-card deck:
+
+- **2 mana (8-12 cards):** Ramp pieces that accelerate your gameplan. Think Sol Ring, Arcane Signet, Nature's Lore, and other mana acceleration.
+- **3 mana (12-15 cards):** Value engines and card draw. These are cards that generate advantage turn after turn—Rhystic Study, Phyrexian Arena, enchantments that stick around.
+- **4 mana (10-14 cards):** Your first wave of threats. Board wipes, powerful creatures, or game-changing enchantments that establish your position.
+
+## Early Game: Turns 1-3
+
+Your early turns are about **setup, not winning**. Prioritize:
+
+- **Ramp:** Lands, mana rocks, mana dorks. Getting ahead on mana wins games.
+- **Card draw:** Setting up engines for sustained advantage later.
+- **Early interaction:** Cheap removal or counters for opponent threats.
+
+**Common mistake:** Skipping ramp because it "doesn't do anything." Wrong! Ramp lets you deploy your threats ahead of schedule, which *is* winning.
+
+## Mid Game: Turns 4-6
+
+This is where games are won or lost. Your curve should peak here with:
+
+- **Threats:** Creatures, planeswalkers, or combo pieces that pressure opponents.
+- **Board presence:** Multiple permanents that force opponents to react.
+- **Protection:** Ways to defend your board or disrupt opponents.
+
+**Common mistake:** Too many 6+ mana cards. If your hand is full of expensive bombs on turn 4, you're not playing the game yet.
+
+## Late Game: Turn 7+
+
+Your late-game cards should be **finishers**—cards that close out games when they resolve:
+
+- Big mana haymakers (7-10 mana)
+- Win conditions and combo pieces
+- Game-ending board wipes or effects
+
+**How many?** Only 4-8 cards should cost 7+ mana. Any more and you'll flood your hand with uncastable spells.
+
+## Common Mana Curve Mistakes
+
+### 1. Too Top-Heavy
+
+**Problem:** Your deck is full of 6-8 mana bombs but nothing to do early.  
+**Fix:** Cut 3-4 expensive cards for 2-3 mana ramp and interaction.
+
+### 2. No Ramp
+
+**Problem:** You're playing fair Magic while opponents are cheating on mana.  
+**Fix:** Run 10-12 ramp pieces. Commander is a ramp format—embrace it.
+
+### 3. Ignoring Interaction
+
+**Problem:** Your curve is all threats and no answers.  
+**Fix:** Include 8-10 removal spells spread across your curve. You need to interact to win.
+
+## Build Your Perfect Curve with ManaTap AI
+
+Want to see your deck's curve visualized instantly? ManaTap AI's deck analyzer shows you exactly where your curve peaks, identifies gaps, and suggests improvements.
+
+**Try it now:**
+1. Import your deck to ManaTap
+2. View your auto-generated mana curve chart
+3. See AI-powered suggestions for balance
+4. Test hands with our mulligan simulator
+
+Start building better curves at [manatap.ai/my-decks](/my-decks)
+
+## Conclusion
+
+A well-tuned mana curve is the foundation of consistent, powerful gameplay. Start with the 2-3-4 rule, smooth out your early game, and limit your expensive spells. Your winrate will thank you.
+
+**What's your ideal mana curve?** Share your deck-building philosophy in the comments!
+
+---
+
+*Ready to optimize your deck? Check out our full suite of deck-building tools and AI-powered analysis.*
+    `,
+  },
+  'budget-commander-100': {
+    title: 'Building Competitive EDH on $100: The Complete Guide',
+    date: '2025-10-28',
+    author: 'ManaTap Team',
+    category: 'Budget Building',
+    readTime: '5 min read',
+    content: `
+# Building Competitive EDH on $100: The Complete Guide
+
+Think you need deep pockets to play competitive Commander? Think again! With smart card choices and strategic building, you can construct a powerful EDH deck for under $100 that holds its own at most tables. Here's how.
+
+## Why Budget Commander is Worth It
+
+Building on a budget forces creativity and smart deckbuilding. You learn to maximize synergy, identify undervalued cards, and build resilient gameplans. Plus, budget decks are:
+
+- **Upgradeable:** Start at $100, grow to $200, then $500 as you acquire pieces
+- **Fun:** Winning with jank feels better than winning with cEDH staples
+- **Accessible:** Get friends into the format without requiring a huge investment
+
+## The $100 Breakdown Strategy
+
+Here's how to allocate your budget across essential categories:
+
+- **Lands ($10):** 35 basics + 2-3 budget duals (Command Tower, Exotic Orchard, etc.)
+- **Ramp ($15):** Sol Ring, Arcane Signet, Cultivate, Kodama's Reach, Wayfarer's Bauble
+- **Removal ($15):** Beast Within, Generous Gift, Chaos Warp, board wipes
+- **Card Draw ($20):** The bread and butter of Commander—never skimp here
+- **Win Conditions ($20):** Your primary threats and combo pieces
+- **Synergy Pieces ($20):** Cards that make your strategy hum
+
+## Top 3 Budget Commander Picks
+
+### 1. Zada, Hedron Grinder (~$0.25)
+
+**Strategy:** Copy spells that target Zada to every creature you control  
+**Budget Power:** Turn a $0.10 cantrip into drawing 10+ cards  
+**Key Cards:** Crimson Wisps, Expedite, Fists of Flame, Young Pyromancer  
+**Win Con:** Go-wide tokens + pump spell + Zada = lethal damage
+
+**Why it's strong:** Explosive turns, cheap deck, resilient to removal. You can rebuild fast and goldfish wins on turn 5-6.
+
+### 2. Talrand, Sky Summoner (~$0.30)
+
+**Strategy:** Counter spells, make 2/2 flyers, beat down  
+**Budget Power:** Every counterspell is also a threat  
+**Key Cards:** Counterspell, Pongify, Rapid Hybridization, Mystic Sanctuary  
+**Win Con:** 20+ flying drakes overwhelm opponents
+
+**Why it's strong:** Plays control and wins through inevitability. Extremely budget-friendly since most of your deck is commons and uncommons.
+
+### 3. Krenko, Mob Boss (~$1.50)
+
+**Strategy:** Make infinite goblins, swing for lethal  
+**Budget Power:** Exponential growth with tribal synergy  
+**Key Cards:** Skirk Prospector, Goblin Chieftain, Siege-Gang Commander, Impact Tremors  
+**Win Con:** Untap Krenko multiple times = massive goblin army
+
+**Why it's strong:** Tribal decks are cheap to build, and Krenko can win out of nowhere. One untap and you've got 50+ goblins.
+
+## Where to Save Money
+
+### 1. Basics Over Duals
+
+Shock lands and fetch lands are expensive. Basics are free. In 2-color decks, you can easily run 30+ basics and be perfectly fine. Save your budget for spells that win games.
+
+### 2. Commons and Uncommons
+
+Many of Magic's best cards are common rarity: Counterspell, Lightning Bolt, Rampant Growth, Opt. Don't overlook these workhorses.
+
+### 3. Recent Reprints
+
+Commander precons reprint powerful cards every year. Cards like Arcane Signet, Sol Ring, and Command Tower are now pennies thanks to reprints.
+
+## Where to Splurge
+
+### 1. Card Draw
+
+Rhystic Study is expensive, but cheaper draw engines like Phyrexian Arena, Mystic Remora, and The Immortal Sun are worth prioritizing. Card advantage wins games.
+
+### 2. Ramp
+
+Sol Ring and Arcane Signet are cheap now, but even if they weren't, they'd be worth it. Getting ahead on mana is how you win Commander.
+
+### 3. Your Commander
+
+If your commander costs $5-10, it's probably worth it. Your commander is the one card you're guaranteed to have access to every game—make it count.
+
+## The Upgrade Path: $100 → $200 → $500
+
+**$100 to $200:** Upgrade your manabase. Add pain lands, check lands, and budget fetches like Evolving Wilds. Add 2-3 powerful staples (Cyclonic Rift, Dockside Extortionist).
+
+**$200 to $500:** Now you can afford the big hitters. Tutors (Vampiric Tutor, Demonic Tutor), fast mana (Mana Crypt if you're feeling spicy), and format staples (Smothering Tithe, Rhystic Study).
+
+## Find Budget Alternatives with ManaTap AI
+
+Want to build on a budget but don't know which expensive cards to cut? ManaTap's Budget Swaps feature finds cheaper alternatives that maintain your deck's strategy and power level.
+
+**How it works:**
+1. Import your deck to ManaTap
+2. Click "Budget Swaps" and set your threshold
+3. Review AI-generated alternatives
+4. See how much you're saving
+
+Try it now at [manatap.ai/deck/swap-suggestions](/deck/swap-suggestions)
+
+## Conclusion
+
+Building a $100 Commander deck doesn't mean building a weak one. Smart card choices, tight synergy, and explosive commanders like Zada, Talrand, and Krenko prove you don't need to break the bank to compete. Start budget, learn the format, and upgrade over time.
+
+**What's your favorite budget commander?** Share your $100 builds in the comments!
+
+---
+
+*Looking for more budget deck-building advice? Check out our other articles on maximizing value and finding hidden gems.*
+    `,
+  },
 };
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {

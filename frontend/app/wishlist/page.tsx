@@ -167,6 +167,10 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const [showBulk, setShowBulk] = React.useState(false);
   const [bulkText, setBulkText] = React.useState<string>('');
   const [bulkMode, setBulkMode] = React.useState<'increment'|'replace'>('increment');
+  const [showCreateWishlist, setShowCreateWishlist] = React.useState(false);
+  const [showRenameWishlist, setShowRenameWishlist] = React.useState(false);
+  const [showDeleteWishlist, setShowDeleteWishlist] = React.useState(false);
+  const [newWishlistName, setNewWishlistName] = React.useState('');
 
   React.useEffect(()=>{ (async()=>{
     try{
@@ -464,10 +468,49 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex items-center gap-2">
           <label className="text-sm opacity-80">Wishlist</label>
-          <select value={wishlistId} onChange={(e)=>setWishlistId(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm min-w-[12rem]">
+          <select value={wishlistId} onChange={(e)=>setWishlistId(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm min-w-[12rem] focus:ring-2 focus:ring-blue-500 transition-all">
             {wishlists.map(w => (<option key={w.id} value={w.id}>{w.name||'Untitled'}</option>))}
             {!wishlists.length && (<option value="">My Wishlist</option>)}
           </select>
+          
+          <button
+            onClick={() => setShowCreateWishlist(true)}
+            className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+            title="Create new wishlist"
+          >
+            <span className="flex items-center gap-1">
+              <span>➕</span>
+              <span>New</span>
+            </span>
+          </button>
+          
+          {wishlistId && (
+            <>
+              <button
+                onClick={() => setShowRenameWishlist(true)}
+                className="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+                title="Rename wishlist"
+              >
+                <span className="flex items-center gap-1">
+                  <span>✏️</span>
+                  <span>Rename</span>
+                </span>
+              </button>
+              
+              {wishlists.length > 1 && (
+                <button
+                  onClick={() => setShowDeleteWishlist(true)}
+                  className="px-3 py-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+                  title="Delete wishlist"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>🗑️</span>
+                    <span>Delete</span>
+                  </span>
+                </button>
+              )}
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm opacity-80">Currency</label>
@@ -671,6 +714,203 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   } catch(e:any){ alert(e?.message||'Bulk action failed'); }
                 }}>Apply</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Wishlist Modal */}
+      {showCreateWishlist && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setShowCreateWishlist(false)}>
+          <div className="max-w-md w-full rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">📋</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+                Create New Wishlist
+              </h3>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Wishlist Name</label>
+              <input
+                type="text"
+                value={newWishlistName}
+                onChange={(e) => setNewWishlistName(e.target.value)}
+                placeholder="e.g., Modern Staples, Commander Wants, Budget Pickups"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                maxLength={100}
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowCreateWishlist(false); setNewWishlistName(''); }}
+                className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const name = newWishlistName.trim();
+                  if (!name) return;
+                  try {
+                    const r = await fetch('/api/wishlists/create', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ name }),
+                    });
+                    const j = await r.json();
+                    if (j?.ok && j?.wishlist) {
+                      setWishlists(prev => [...prev, j.wishlist]);
+                      setWishlistId(j.wishlist.id);
+                      setShowCreateWishlist(false);
+                      setNewWishlistName('');
+                      try { capture('wishlist_created', { wishlist_id: j.wishlist.id, name }); } catch {}
+                    } else {
+                      alert(j?.error || 'Failed to create wishlist');
+                    }
+                  } catch (e: any) {
+                    alert(e?.message || 'Failed to create wishlist');
+                  }
+                }}
+                disabled={!newWishlistName.trim()}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create Wishlist
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Wishlist Modal */}
+      {showRenameWishlist && wishlistId && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setShowRenameWishlist(false)}>
+          <div className="max-w-md w-full rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+                Rename Wishlist
+              </h3>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">New Name</label>
+              <input
+                type="text"
+                value={newWishlistName}
+                onChange={(e) => setNewWishlistName(e.target.value)}
+                placeholder={wishlists.find(w => w.id === wishlistId)?.name || 'Wishlist name'}
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                maxLength={100}
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowRenameWishlist(false); setNewWishlistName(''); }}
+                className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const name = newWishlistName.trim();
+                  if (!name) return;
+                  try {
+                    const r = await fetch(`/api/wishlists/${wishlistId}/rename`, {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ name }),
+                    });
+                    const j = await r.json();
+                    if (j?.ok) {
+                      setWishlists(prev => prev.map(w => w.id === wishlistId ? { ...w, name } : w));
+                      setShowRenameWishlist(false);
+                      setNewWishlistName('');
+                      try { capture('wishlist_renamed', { wishlist_id: wishlistId, new_name: name }); } catch {}
+                    } else {
+                      alert(j?.error || 'Failed to rename wishlist');
+                    }
+                  } catch (e: any) {
+                    alert(e?.message || 'Failed to rename wishlist');
+                  }
+                }}
+                disabled={!newWishlistName.trim()}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Wishlist Modal */}
+      {showDeleteWishlist && wishlistId && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setShowDeleteWishlist(false)}>
+          <div className="max-w-md w-full rounded-xl border border-red-700 bg-neutral-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-red-400 to-rose-500 bg-clip-text text-transparent">
+                Delete Wishlist
+              </h3>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-neutral-300 mb-3">
+                Are you sure you want to delete <strong>{wishlists.find(w => w.id === wishlistId)?.name || 'this wishlist'}</strong>? 
+                All {items.length} items will be permanently removed.
+              </p>
+              <p className="text-xs text-neutral-400 mb-3">
+                Type <strong className="text-red-400">DELETE</strong> to confirm:
+              </p>
+              <input
+                type="text"
+                value={newWishlistName}
+                onChange={(e) => setNewWishlistName(e.target.value)}
+                placeholder="Type DELETE"
+                className="w-full bg-neutral-950 border border-red-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteWishlist(false); setNewWishlistName(''); }}
+                className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (newWishlistName !== 'DELETE') return;
+                  try {
+                    const r = await fetch(`/api/wishlists/${wishlistId}/delete`, {
+                      method: 'DELETE',
+                    });
+                    const j = await r.json();
+                    if (j?.ok) {
+                      const newWishlists = wishlists.filter(w => w.id !== wishlistId);
+                      setWishlists(newWishlists);
+                      setWishlistId(newWishlists[0]?.id || '');
+                      setShowDeleteWishlist(false);
+                      setNewWishlistName('');
+                      try { capture('wishlist_deleted', { wishlist_id: wishlistId }); } catch {}
+                    } else {
+                      alert(j?.error || 'Failed to delete wishlist');
+                    }
+                  } catch (e: any) {
+                    alert(e?.message || 'Failed to delete wishlist');
+                  }
+                }}
+                disabled={newWishlistName !== 'DELETE'}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Delete Wishlist
+              </button>
             </div>
           </div>
         </div>

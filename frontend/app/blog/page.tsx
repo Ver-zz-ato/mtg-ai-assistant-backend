@@ -9,6 +9,24 @@ export const metadata: Metadata = {
 // Blog posts data - will move to MDX files later
 const blogPosts = [
   {
+    slug: 'budget-commander-100',
+    title: 'Building Competitive EDH on $100: The Complete Guide',
+    excerpt: 'Build powerful Commander decks on a budget with smart card choices. Learn where to save, where to splurge, and which commanders offer the best value.',
+    date: '2025-10-28',
+    author: 'ManaTap Team',
+    category: 'Budget Building',
+    readTime: '5 min read',
+  },
+  {
+    slug: 'mana-curve-mastery',
+    title: 'Mastering the Mana Curve: The Foundation of Winning Deck Construction',
+    excerpt: 'Learn the 2-3-4 rule for Commander and avoid common curve mistakes. Build decks that flow smoothly from early game to victory.',
+    date: '2025-10-28',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '4 min read',
+  },
+  {
     slug: 'budget-edh-hidden-gems',
     title: 'Building Budget EDH: 5 Hidden Gems Under $1',
     excerpt: 'Discover powerful budget cards that punch above their weight class in Commander. Build competitive decks without breaking the bank.',
@@ -17,7 +35,6 @@ const blogPosts = [
     category: 'Budget Building',
     readTime: '5 min read',
   },
-  // More posts coming soon
 ];
 
 export default function BlogPage() {

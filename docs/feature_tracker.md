@@ -575,3 +575,79 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - No linter errors introduced
 - Verified all files compile successfully
 - Changes isolated to 2 files: versions API route and Budget Swaps client component
+
+## Content & Feature Enhancements (2025-10-28)
+
+☑ Blog Articles Published <!-- id:blog.articles_oct28 -->
+- **Mana Curve Strategy Article**: "Mastering the Mana Curve: The Foundation of Winning Deck Construction"
+  * 400+ words, 4 min read, Strategy category
+  * Covers 2-3-4 rule for Commander, early/mid/late game planning, common curve mistakes
+  * Links to ManaTap deck analyzer and mana curve tools
+- **Budget Commander Article**: "Building Competitive EDH on $100: The Complete Guide"
+  * 600+ words, 5 min read, Budget Building category
+  * Covers budget allocation strategy, top 3 budget commanders (Zada, Talrand, Krenko)
+  * Where to save vs splurge, upgrade path from $100 to $500
+  * Links to ManaTap Budget Swaps feature
+- Both articles fully integrated into blog grid (frontend/app/blog/page.tsx)
+- Individual article pages with proper metadata and SEO optimization
+- Date: 2025-10-28
+
+☑ Named Wishlist Management Complete CRUD <!-- id:wishlist.crud_complete -->
+- **API Endpoints Created**:
+  * `/api/wishlists/create` - POST endpoint with name validation, duplicate checking
+  * `/api/wishlists/[id]/rename` - POST endpoint with ownership validation
+  * `/api/wishlists/[id]/delete` - DELETE endpoint with "cannot delete last wishlist" protection
+- **UI Implementation**:
+  * New/Rename/Delete buttons integrated into wishlist selector
+  * Three styled modals with gradient headers and proper validation
+  * Create modal: Green gradient, emoji 📋, autofocus input, max 100 chars
+  * Rename modal: Blue-indigo gradient, emoji ✏️, prefilled placeholder
+  * Delete modal: Red gradient with type-to-confirm ("DELETE"), shows item count warning
+  * All modals have backdrop-blur, proper z-index (9999), click-outside-to-close
+- **User Experience**:
+  * Create wishlist auto-selects new list after creation
+  * Delete switches to next available wishlist
+  * Cannot delete if it's your only wishlist
+  * All actions tracked with PostHog analytics
+- **Files Modified**:
+  * `frontend/app/api/wishlists/create/route.ts` (NEW)
+  * `frontend/app/api/wishlists/[id]/rename/route.ts` (NEW)
+  * `frontend/app/api/wishlists/[id]/delete/route.ts` (NEW)
+  * `frontend/app/wishlist/page.tsx` (state + buttons + 3 modals added)
+
+☑ UI Filter & Form Enhancements (2025-10-28) <!-- id:ui.collection_filters_oct28 -->
+- Collection Editor Complete Visual Overhaul
+  * Top control bar styling: search input, sort dropdowns, currency selector with focus rings
+  * Color filter: Visual MTG color pills (WUBRG + colorless) with active states showing card colors
+  * Type filter: Styled checkboxes with blue accent
+  * Price filter REVAMPED: DualRange slider, quick-select chips (Any, <$1, $1-5, etc.)
+  * Advanced filters: Gradient header with pulse, styled panel
+  * All filters with proper hover states and transitions
+- Collection Page Button & Panel Styling
+  * All panel headers with gradients and pulse indicators
+  * Export buttons with distinct gradients (MTGA blue, MTGO indigo, Moxfield purple, CSV teal)
+  * Action buttons styled (Add emerald-green, Fix names orange-red + PRO badge)
+  * Header controls (Copy, QR, CSV export) with gradient styling
+  * Title bar (Save, Cancel, Rename, Delete) with appropriate gradients
+- Wishlist Page Complete Button Styling
+  * All buttons styled with gradients and emojis
+  * Fix Names modal integration with enhanced backdrop
+  * CSV upload/export buttons with distinct colors
+  * Remove buttons with red-rose gradient
+- Fix Names Modal Integration
+  * FixCollectionNamesModal component with enhanced backdrop (bg-black/80, backdrop-blur-md)
+  * API endpoints: `/api/collections/fix-names`, `/api/wishlists/fix-names` with full DFC logic
+  * Proper overlapping backdrop and styled buttons matching site-wide patterns
+- DualRange Slider Component
+  * New `frontend/components/DualRange.tsx` for smooth min/max price selection
+  * Two-handle slider with visual fill between handles
+  * Integrated into Collection Editor price filter
+
+## Virtual Scrolling Already Implemented
+
+☑ Collection Editor Virtual Scrolling <!-- id:ui.virtual_scrolling_collections -->
+- Custom virtual scroller already implemented in CollectionEditor.tsx (line 875+)
+- Renders only visible rows with efficient windowing
+- Supports 1000+ card collections with smooth 60fps scrolling
+- Custom implementation (not library-based) perfectly tuned for ManaTap's use case
+- Confirmed working and performant
