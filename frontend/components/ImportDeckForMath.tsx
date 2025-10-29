@@ -52,6 +52,14 @@ export default function ImportDeckForMath({
   React.useEffect(() => {
     if (!deckId) { setDeckSize(0); setSuccessCards(0); return; }
     setLoading(true); setErr(null);
+    
+    // Update URL immediately when deck is selected
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("deckId", deckId);
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
+    
     (async () => {
       try {
         const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" });
@@ -66,6 +74,9 @@ export default function ImportDeckForMath({
         const k = !f ? 0 : cardsList.filter(c => String(c.name||"").toLowerCase().includes(f)).reduce((s,c)=> s + (c.qty||0), 0);
         if (selected.length === 0) setSuccessCards(k);
         try { localStorage.setItem(`${storageKey}:deck`, deckId); } catch {}
+        
+        // Auto-apply to parent immediately after loading
+        onApply({ deckId, deckSize: total, successCards: k, deckCards: cardsList });
 
         // Fetch deck_text then analyze for category counts (presets)
         try {
@@ -88,7 +99,7 @@ export default function ImportDeckForMath({
         setLoading(false);
       }
     })();
-  }, [deckId, filter, storageKey]);
+  }, [deckId, filter, storageKey, onApply]);
 
   const apply = () => {
     if (!deckId) return;
@@ -137,7 +148,9 @@ export default function ImportDeckForMath({
           placeholder="Count cards matching… (optional)"
           className="min-w-0 flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
         />
-        <button onClick={apply} disabled={!deckId || loading} className="px-3 py-1 rounded bg-emerald-600 text-white disabled:opacity-60 text-sm">Use</button>
+        <button onClick={apply} disabled={!deckId || loading} className="px-3 py-1 rounded bg-emerald-600 text-white disabled:opacity-60 text-sm">
+          {filter || selected.length > 0 ? 'Apply Filter' : 'Reload'}
+        </button>
       </div>
       <div className="text-xs opacity-80">
         {loading ? "Loading…" : deckId ? (
@@ -145,7 +158,7 @@ export default function ImportDeckForMath({
             <> • K (selected {selected.length}): <span className="font-mono">{successCards}</span></>
           ) : filter ? (
             <> • K (matches): <span className="font-mono">{successCards}</span></>
-          ) : null}</>
+          ) : <> • Auto-applied ✓</>}</>
         ) : "Pick a deck to auto-fill N. Add a match term or select cards to set K."}
       </div>
 

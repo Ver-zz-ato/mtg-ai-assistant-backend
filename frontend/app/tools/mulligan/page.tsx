@@ -43,7 +43,19 @@ export default function MulliganSimulatorPage() {
   const [srcW,setSrcW]=React.useState(10); const [srcU,setSrcU]=React.useState(10); const [srcB,setSrcB]=React.useState(10); const [srcR,setSrcR]=React.useState(10); const [srcG,setSrcG]=React.useState(10);
   const [reqW,setReqW]=React.useState(0); const [reqU,setReqU]=React.useState(0); const [reqB,setReqB]=React.useState(0); const [reqR,setReqR]=React.useState(0); const [reqG,setReqG]=React.useState(0); const [reqTurn,setReqTurn]=React.useState(0);
 
-  // Load from localStorage or query params
+  // Memoized callback for ImportDeckForMath to prevent infinite loops
+  const handleDeckImport = React.useCallback(({ deckId, deckSize: N, successCards: K, deckCards: cards }: any) => {
+    setDeckSize(N || deckSize);
+    if (K && Number.isFinite(K)) setSuccessCards(K);
+    if (cards && Array.isArray(cards)) setDeckCards(cards);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("deckId", deckId);
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
+  }, [deckSize]);
+
+  // Load from localStorage or query params, and auto-load deck cards if deckId present
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -284,16 +296,7 @@ export default function MulliganSimulatorPage() {
       {/* Import from My Decks */}
       <ImportDeckForMath
         storageKey="mull"
-        onApply={({ deckId, deckSize: N, successCards: K, deckCards: cards }: any) => {
-          setDeckSize(N || deckSize);
-          if (K && Number.isFinite(K)) setSuccessCards(K);
-          if (cards && Array.isArray(cards)) setDeckCards(cards);
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.set("deckId", deckId);
-            window.history.replaceState({}, "", url.toString());
-          } catch {}
-        }}
+        onApply={handleDeckImport}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-900 border border-neutral-800 rounded p-3">

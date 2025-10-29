@@ -123,8 +123,8 @@ export default async function RecentPublicDecks({ limit = 10 }: { limit?: number
   return (
     <div className="rounded-xl border border-gray-800 p-4">
       <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
-      <ul className="space-y-2">
-        {decks.map((d) => {
+      <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#6b7280 #1f2937' }}>
+        {decks.slice(0, 10).map((d) => {
           const clean = (s: string) => s.replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
           const candidates: string[] = [];
           if (d.commander) candidates.push(clean(String(d.commander)));

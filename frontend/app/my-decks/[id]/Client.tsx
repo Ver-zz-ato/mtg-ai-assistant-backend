@@ -9,7 +9,7 @@ import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
 
-export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boolean }) {
+export default function Client({ deckId, isPro, format }: { deckId?: string; isPro?: boolean; format?: string }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   
   // Track deck editor opened and fetch deck cards for hand testing
@@ -65,7 +65,7 @@ export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boo
         <section className="rounded-xl border border-neutral-800 p-2 space-y-2">
           <div className="text-sm font-medium">Assistant</div>
           <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
-            <DeckAssistant deckId={String(deckId)} />
+            <DeckAssistant deckId={String(deckId)} format={format} />
           </div>
           {deckId && (<div>
             {(() => { const QA = require('./QuickAdd').default; return <QA deckId={String(deckId)} />; })()}
@@ -114,10 +114,10 @@ export default function Client({ deckId, isPro }: { deckId?: string; isPro?: boo
         
         {/* Deck Analyzer */}
         <div className="rounded-xl border border-neutral-800 p-3">
-          {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={deckId} proAuto={!!isPro} />; })()}
+          {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={deckId} proAuto={!!isPro} format={format} />; })()}
         </div>
         
-        <LegalityTokensPanel deckId={deckId} />
+        <LegalityTokensPanel deckId={deckId} format={format} />
 {(() => { const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) }); return <Prob deckId={deckId} isPro={!!isPro} />; })()}
       </aside>
     </div>

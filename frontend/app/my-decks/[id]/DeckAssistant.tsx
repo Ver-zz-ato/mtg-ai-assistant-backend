@@ -31,14 +31,14 @@ async function appendAssistant(threadId: string, content: string) {
   return true;
 }
 
-export default function DeckAssistant({ deckId }: { deckId: string }) {
+export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [deckCI, setDeckCI] = React.useState<string[] | null>(null);
   const [commander, setCommander] = React.useState<string>("");
-  const [fmt, setFmt] = React.useState<string>("commander");
+  const [fmt, setFmt] = React.useState<string>(initialFormat || "commander");
   const [plan, setPlan] = React.useState<string>("optimized");
   const [teaching, setTeaching] = React.useState<boolean>(false);
   const [isListening, setIsListening] = React.useState(false);

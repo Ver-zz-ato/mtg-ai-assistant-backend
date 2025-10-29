@@ -27,6 +27,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
   const [ti,setTi] = React.useState(0);
   const [toast,setToast]=React.useState<string|null>(null);
   const [artOptions, setArtOptions] = React.useState<any[]>([]);
+  const [loadingArt, setLoadingArt] = React.useState(true);
   const [userEditedSub, setUserEditedSub] = React.useState(false);
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
 
@@ -221,6 +222,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
   React.useEffect(() => {
     (async () => {
       try {
+        setLoadingArt(true);
         const names: string[] = CURATED.flatMap(g => g.names);
         const identifiers = Array.from(new Set(names)).map(n => ({ name: n }));
         // Use our backend proxy to avoid CORS issues
@@ -250,6 +252,8 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         setArtOptions(out);
       } catch (e) {
         console.error('Failed to load art options:', e);
+      } finally {
+        setLoadingArt(false);
       }
     })();
   }, []);
@@ -310,8 +314,16 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         </div>
       </div>
 
+      {/* Loading indicator for art */}
+      {loadingArt && (
+        <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mt-2">
+          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400"></div>
+          <span>Loading art choices...</span>
+        </div>
+      )}
+
       {/* Disclaimer */}
-      <p className="mt-2 text-[10px] leading-tight opacity-70 text-center">
+      <p className="mt-2 text-xs leading-tight opacity-80 text-center text-neutral-300">
         This fan-made card is for personal, non‑commercial use. Artwork is credited to the listed artist and linked via Scryfall; all Magic: The Gathering trademarks and related properties are owned by Wizards of the Coast. No affiliation or endorsement is implied, and images are used under fair‑use/fan‑work principles.
       </p>
 

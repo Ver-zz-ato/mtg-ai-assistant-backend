@@ -12,6 +12,7 @@ import NextDynamic from "next/dynamic";
 import DeckProbabilityPanel from "./DeckProbabilityPanel";
 import HandTestingWidget from "@/components/HandTestingWidget";
 import Link from "next/link";
+import FormatSelector from "./FormatSelector";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -28,8 +29,9 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const supabase = await createClient();
   const { data: ures } = await supabase.auth.getUser();
   const isPro = Boolean((ures?.user as any)?.user_metadata?.pro);
-  const { data: deck } = await supabase.from("decks").select("title, is_public, commander, title").eq("id", id).maybeSingle();
+  const { data: deck } = await supabase.from("decks").select("title, is_public, commander, format").eq("id", id).maybeSingle();
   const title = deck?.title || "Untitled Deck";
+  const format = String(deck?.format || "commander").toLowerCase();
 
   // Fetch cards
   const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", id).limit(400);
@@ -342,17 +344,26 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               </h3>
             </div>
             <div className="space-y-2 text-[11px]">
-              {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
-                const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
-                const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
-                return (
-                  <div key={String(key)}>
-                    <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
-                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
-                    <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
-                  </div>
-                );
-              })}
+              {(() => {
+                // Format-specific targets
+                const targets = format === 'commander' 
+                  ? [['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const
+                  : format === 'standard'
+                  ? [['Lands','lands',23,26],['Ramp','ramp',0,2],['Draw','draw',4,6],['Removal','removal',6,8]] as const
+                  : [['Lands','lands',19,22],['Ramp','ramp',0,4],['Draw','draw',4,6],['Removal','removal',8,10]] as const; // modern
+                
+                return targets.map(([label,key,minT,maxT])=>{
+                  const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
+                  const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
+                  return (
+                    <div key={String(key)}>
+                      <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
+                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
+                      <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
 
@@ -367,6 +378,9 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             <div>
               <div className="text-xs opacity-70">Deck name:</div>
               <InlineDeckTitle deckId={id} initial={title} />
+              <div className="mt-2 mb-2">
+                <FormatSelector deckId={id} initialFormat={format} />
+              </div>
               <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
                 {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
                   <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':t==='Control'?'counter/board wipes, instants/sorceries':t==='Combo'?'tutors, search your library':t==='Midrange'?'creatures at 5+ cmc':t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
@@ -386,7 +400,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           {/* key forces remount when ?r= changes */}
           {/* Right column: functions panel, then editor */}
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
-          <Client deckId={id} isPro={isPro} key={r || "_"} />
+          <Client deckId={id} isPro={isPro} format={format} key={r || "_"} />
         </section>
         </div>
       </div>

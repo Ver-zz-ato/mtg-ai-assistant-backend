@@ -329,7 +329,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
 
           {/* Art Area with MTG-style border */}
           <div 
-            className="absolute top-12 left-2 right-2 rounded-sm overflow-hidden cursor-pointer relative"
+            className="absolute top-12 left-2 right-2 rounded-sm overflow-hidden cursor-pointer relative group"
             style={{ 
               height: '180px',
               border: '2px solid rgba(0,0,0,0.8)',
@@ -341,13 +341,24 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
             onClick={() => mode === 'edit' && setShowArtOverlay(true)}
           >
             {value.art?.url ? (
-              <img 
-                ref={artImgRef}
-                src={value.art.url} 
-                alt="Card art" 
-                className="w-full h-full object-cover"
-                onLoad={()=> extractFromUrl(value.art?.url)}
-              />
+              <>
+                <img 
+                  ref={artImgRef}
+                  src={value.art.url} 
+                  alt="Card art" 
+                  className="w-full h-full object-cover"
+                  onLoad={()=> extractFromUrl(value.art?.url)}
+                />
+                {/* Subtle hover overlay hint (edit mode only) */}
+                {mode === 'edit' && (
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <div className="text-white text-center">
+                      <div className="text-2xl mb-1">🎨</div>
+                      <div className="text-sm font-semibold">Change Art</div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-sm">
                 Click to add art
@@ -583,30 +594,47 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
         </div>
       </div>
 
-      {/* Art Selection Overlay */}
+      {/* Art Selection Overlay with Virtual Scrolling */}
       {mode === 'edit' && showArtOverlay && (
         <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 rounded-xl">
-          <div className="bg-white p-4 rounded-lg max-w-sm w-full mx-4">
+          <div className="bg-white p-4 rounded-lg max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-black">Select Artwork</h3>
+              <div>
+                <h3 className="font-semibold text-black">Select Artwork</h3>
+                <p className="text-xs text-gray-500">{artOptions.length} images available</p>
+              </div>
               <button 
                 onClick={() => setShowArtOverlay(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 text-xl"
               >
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-              {artOptions.slice(0, 12).map((art, i) => (
+            <div 
+              className="grid grid-cols-3 gap-2 overflow-y-auto pr-2"
+              style={{ 
+                maxHeight: 'calc(80vh - 120px)',
+                paddingBottom: '36px',
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#9ca3af #e5e7eb'
+              }}
+            >
+              {artOptions.map((art, i) => (
                 <button
                   key={i}
                   onClick={() => {
                     onChange?.({ art: { url: art.url, artist: art.artist, id: art.id } });
                     setShowArtOverlay(false);
                   }}
-                  className="aspect-square rounded overflow-hidden hover:ring-2 hover:ring-blue-500"
+                  className="aspect-square rounded overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all"
+                  title={art.name}
                 >
-                  <img src={art.url} alt={art.name} className="w-full h-full object-cover" />
+                  <img 
+                    src={art.url} 
+                    alt={art.name} 
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
                 </button>
               ))}
             </div>

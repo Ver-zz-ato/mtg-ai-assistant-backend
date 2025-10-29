@@ -9,6 +9,6 @@ const Analyzer = NextDynamic(() => import('./DeckAnalyzerPanel'), {
   ),
 });
 
-export default function AnalyzerLazy({ deckId, proAuto }: { deckId: string; proAuto: boolean }) {
-  return <Analyzer deckId={deckId} proAuto={proAuto} />;
+export default function AnalyzerLazy({ deckId, proAuto, format }: { deckId: string; proAuto: boolean; format?: string }) {
+  return <Analyzer deckId={deckId} proAuto={proAuto} format={format} />;
 }

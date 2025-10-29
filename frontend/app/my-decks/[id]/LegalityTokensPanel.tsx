@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 
-export default function LegalityTokensPanel({ deckId }: { deckId: string }) {
+export default function LegalityTokensPanel({ deckId, format }: { deckId: string; format?: string }) {
   const [open, setOpen] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -32,7 +32,8 @@ export default function LegalityTokensPanel({ deckId }: { deckId: string }) {
       setLoading(true);
       setError(null);
       const ensureText = deckText || await loadDeckText();
-      const body: any = { deckText: ensureText, format: 'Commander', useScryfall: true };
+      const deckFormat = format || 'commander'; // Use provided format or default to commander
+      const body: any = { deckText: ensureText, format: deckFormat.charAt(0).toUpperCase() + deckFormat.slice(1), useScryfall: true };
       if (colors.length) body.colors = colors;
       const r = await fetch('/api/deck/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));

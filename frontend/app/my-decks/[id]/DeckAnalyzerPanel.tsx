@@ -2,7 +2,7 @@
 import React from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
-export default function DeckAnalyzerPanel({ deckId, proAuto }: { deckId: string; proAuto: boolean }) {
+export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId: string; proAuto: boolean; format?: string }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [score, setScore] = React.useState<number | null>(null);
@@ -142,7 +142,19 @@ export default function DeckAnalyzerPanel({ deckId, proAuto }: { deckId: string;
               </div>
             );
           })}
-          <div className="text-[11px] opacity-70">Tips: aim 34–38 lands (EDH), ~8 <span title="Card advantage effects that draw extra cards">draw</span>, ~8 <span title="Mana acceleration: rocks or ramp">ramp</span>, at least 5 <span title="Spells to remove opposing threats">interaction</span> pieces.</div>
+          <div className="text-[11px] opacity-70">
+            {(() => {
+              const fmt = (format || 'commander').toLowerCase();
+              if (fmt === 'commander') {
+                return <>Tips: aim 34–38 lands (EDH), ~8 <span title="Card advantage effects that draw extra cards">draw</span>, ~8 <span title="Mana acceleration: rocks or ramp">ramp</span>, at least 5 <span title="Spells to remove opposing threats">interaction</span> pieces.</>;
+              } else if (fmt === 'standard') {
+                return <>Tips: aim 23–26 lands, 4–6 <span title="Card advantage effects that draw extra cards">draw</span>, 0–2 <span title="Mana acceleration: rocks or ramp">ramp</span>, 6–8 <span title="Spells to remove opposing threats">interaction</span> pieces.</>;
+              } else if (fmt === 'modern') {
+                return <>Tips: aim 19–22 lands, 4–6 <span title="Card advantage effects that draw extra cards">draw</span>, 0–4 <span title="Mana acceleration: rocks or ramp">ramp</span>, 8–10 <span title="Spells to remove opposing threats">interaction</span> pieces.</>;
+              }
+              return <>Tips: aim for a balanced mana base, card draw, and interaction.</>;
+            })()}
+          </div>
 
           {/* Commander-aware includes */}
           {Array.isArray((bands as any)) && null}

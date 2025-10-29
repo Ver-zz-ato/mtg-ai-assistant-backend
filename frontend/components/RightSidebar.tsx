@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import BadgeProgressWidget from "./BadgeProgressWidget";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -95,18 +96,16 @@ export default function RightSidebar() {
   }
 
   return (
-    <div className={`flex flex-col w-full relative z-0 text-[0px] leading-none [&>*]:m-0 [&>*]:p-0 [&_img]:block [&_img]:align-top [&_img]:m-0 [&_img]:p-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`} style={{ gap: 0, margin: 0, padding: 0 }}>
-
-
+    <div className={`flex flex-col w-full gap-4 relative z-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`}>
       {/* Deck Snapshot: clickable link to /my-decks - full width like shoutbox */}
-      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-4`}>
+      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4`}>
         <a href="/my-decks" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
           <img src="/Deck_Snapshot_Horizontal_cropped.png" alt="Deck Snapshot - View My Decks" className="w-full h-auto" />
         </a>
       </div>
 
       {/* Custom Card Creator promo panel with proper borders */}
-      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-4 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
+      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
         {debugSpace && (
           <>
             {require('react').createElement('div', { key:'top', className:'absolute -top-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
@@ -114,6 +113,11 @@ export default function RightSidebar() {
           </>
         )}
         {require('react').createElement(require('./CustomCardCreator').default, { compact: true })}
+      </div>
+
+      {/* Achievement Progress Widget - moved from left sidebar */}
+      <div>
+        <BadgeProgressWidget />
       </div>
 
       <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[16rem] flex flex-col">

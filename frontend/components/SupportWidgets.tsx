@@ -105,8 +105,8 @@ export default function SupportWidgets() {
 
   return (
     <>
-      {/* Collapsible Support button positioned next to feedback button (right-4) */}
-      <div ref={containerRef} className="fixed bottom-4 right-20 z-[50]">
+      {/* Collapsible Support button positioned on right side (opposite of feedback button) */}
+      <div ref={containerRef} className="fixed bottom-4 right-4 z-[50]">
         {!isExpanded ? (
           /* Compact button */
           <button
