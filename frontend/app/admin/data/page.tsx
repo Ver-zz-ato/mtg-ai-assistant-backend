@@ -156,9 +156,28 @@ export default function DataPage(){
           <div className="rounded border border-yellow-800 bg-yellow-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium text-lg">🎨 Job 1: Bulk Scryfall Import (LOCAL ONLY)</div>
-              <div className="text-xs text-yellow-400 border border-yellow-600 bg-yellow-900/20 px-2 py-1 rounded">
-                RUN LOCALLY
-              </div>
+              <button
+                onClick={async () => {
+                  const commands = `# Terminal 1 - Start the server:
+cd bulk-jobs-server
+npm start
+
+# Terminal 2 - Trigger the import:
+$headers = @{"x-cron-key" = "Boobies"; "Content-Type" = "application/json"}
+Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers`;
+                  
+                  try {
+                    await navigator.clipboard.writeText(commands);
+                    const { toast } = await import('@/lib/toast-client');
+                    toast('✅ Commands copied to clipboard! Paste into PowerShell.', 'success');
+                  } catch (e) {
+                    alert('Commands:\n\n' + commands);
+                  }
+                }}
+                className="text-xs text-yellow-400 border border-yellow-600 bg-yellow-900/20 px-3 py-1.5 rounded hover:bg-yellow-900/40 transition-colors cursor-pointer font-semibold"
+              >
+                📋 COPY COMMANDS
+              </button>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
               <div className="font-semibold text-yellow-300">⚠️ IMPORTANT:</div>
