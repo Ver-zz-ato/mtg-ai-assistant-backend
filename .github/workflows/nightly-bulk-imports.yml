@@ -175,7 +175,7 @@ jobs:
             -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
             -H "Content-Type: application/json" \
             -H "User-Agent: GitHub-Actions-Nightly-Import/1.0" \
-            -w "\n%{http_code}" \
+            -w "%{http_code}" \
             -s \
             --max-time 600 \
             --connect-timeout 30 \
@@ -240,7 +240,7 @@ jobs:
             -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
             -H "Content-Type: application/json" \
             -H "User-Agent: GitHub-Actions-Nightly-Import/1.0" \
-            -w "\n%{http_code}" \
+            -w "%{http_code}" \
             -s \
             --max-time 600 \
             --connect-timeout 30 \
