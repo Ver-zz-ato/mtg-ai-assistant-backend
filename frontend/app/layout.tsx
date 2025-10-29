@@ -31,6 +31,28 @@ export const metadata: Metadata = {
   authors: [{ name: "ManaTap AI" }],
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://manatap.ai",
+    siteName: "ManaTap AI",
+    title: "ManaTap AI - MTG Deck Builder & Assistant",
+    description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
+    images: [
+      {
+        url: "/manatap-og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "ManaTap AI - MTG Deck Builder",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ManaTap AI - MTG Deck Builder & Assistant",
+    description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
+    images: ["/manatap-og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

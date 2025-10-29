@@ -95,7 +95,12 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
 
   const formatDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString('en-US', {
+      const date = new Date(dateStr);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return dateStr; // Return original string if parsing fails
+      }
+      return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -124,7 +129,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
                 <span className="font-medium">Card Data:</span> {trustInfo.dataSource}
               </div>
               <div className="text-gray-400">
-                Updated {formatDate(trustInfo.lastUpdate)}
+                Updated {trustInfo.lastUpdate}
               </div>
             </div>
           </div>
@@ -157,7 +162,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
                   {trustInfo.dataSource}
                 </a>
                 <span className="text-gray-500 text-xs ml-2">
-                  (Updated {formatDate(trustInfo.lastUpdate)})
+                  (Updated {trustInfo.lastUpdate})
                 </span>
               </div>
             </div>

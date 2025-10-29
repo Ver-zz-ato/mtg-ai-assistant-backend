@@ -93,7 +93,10 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           }
         }
       } catch (err) {
-        console.warn('[DeckArtLoader] batch-images failed:', err);
+        // Suppress AbortError spam in console
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.warn('[DeckArtLoader] batch-images failed:', err);
+        }
       }
       return null;
     }
@@ -121,7 +124,10 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           }
         }
       } catch (err) {
-        console.warn('[DeckArtLoader] fuzzy match failed:', err);
+        // Suppress AbortError spam in console
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.warn('[DeckArtLoader] fuzzy match failed:', err);
+        }
       }
       return map;
     }
@@ -130,7 +136,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
       try {
         setLoading(true);
         setError(false);
-        console.log('[DeckArtLoader] Starting for deck:', deckId);
+        // Removed verbose logging to reduce console spam
 
         // STEP 1: Build candidate list from all sources
         const candidates: string[] = [];
@@ -139,7 +145,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         if (commander) {
           const cleaned = cleanName(commander);
           if (cleaned) candidates.push(cleaned);
-          console.log('[DeckArtLoader] Commander:', cleaned);
         }
         
         // Try parsing title for card name
@@ -148,7 +153,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           // Only add if it looks like a card name (not just "MODERN Green/Black")
           if (cleaned && !cleaned.match(/^(MODERN|COMMANDER|LEGACY|VINTAGE|STANDARD|PIONEER)/i)) {
             candidates.push(cleaned);
-            console.log('[DeckArtLoader] Title:', cleaned);
           }
         }
         
@@ -156,7 +160,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         if (deckText) {
           const extracted = extractNamesFromText(deckText);
           extracted.forEach(n => candidates.push(n));
-          console.log('[DeckArtLoader] Extracted from text:', extracted.length);
         }
 
         // STEP 2: Try deck_cards table as fallback
@@ -178,11 +181,13 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
                 sorted.forEach((c: any) => {
                   if (c.name) candidates.push(cleanName(c.name));
                 });
-                console.log('[DeckArtLoader] From deck_cards:', sorted.length);
               }
             }
           } catch (err) {
-            console.warn('[DeckArtLoader] deck_cards fetch failed:', err);
+            // Suppress AbortError spam in console
+            if (err instanceof Error && err.name !== 'AbortError') {
+              console.warn('[DeckArtLoader] deck_cards fetch failed:', err);
+            }
           }
         }
 
@@ -191,21 +196,16 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         // STEP 3: Prioritize and deduplicate
         const uniqueCandidates = Array.from(new Set(candidates));
         const prioritized = prioritizeCards(uniqueCandidates).slice(0, 25);
-        
-        console.log('[DeckArtLoader] Total candidates:', prioritized.length, prioritized.slice(0, 5));
 
         if (prioritized.length === 0) {
-          console.log('[DeckArtLoader] No candidates found');
           setLoading(false);
           return;
         }
 
         // STEP 4: Try batch-images with original names
-        console.log('[DeckArtLoader] Trying batch-images...');
         let img = await tryGetImage(prioritized);
         
         if (img && !cancelled) {
-          console.log('[DeckArtLoader] ✓ Found image from batch-images');
           setArt(img);
           setLoading(false);
           return;
@@ -214,7 +214,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         if (cancelled) return;
 
         // STEP 5: Try fuzzy matching for misspelled cards
-        console.log('[DeckArtLoader] Trying fuzzy match...');
         const fuzzyMap = await tryFuzzyMatch(prioritized);
         const correctedNames = prioritized.map(name => fuzzyMap.get(name) || name);
         
@@ -222,7 +221,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           img = await tryGetImage(correctedNames);
           
           if (img && !cancelled) {
-            console.log('[DeckArtLoader] ✓ Found image from fuzzy match');
             setArt(img);
             setLoading(false);
             return;
@@ -232,15 +230,11 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         if (cancelled) return;
 
         // STEP 6: Ultimate fallback - try basic lands
-        console.log('[DeckArtLoader] Trying basic lands fallback...');
         const basicLands = ['Forest', 'Island', 'Plains', 'Swamp', 'Mountain'];
         img = await tryGetImage(basicLands);
         
         if (img && !cancelled) {
-          console.log('[DeckArtLoader] ✓ Using basic land fallback');
           setArt(img);
-        } else {
-          console.log('[DeckArtLoader] ✗ All fallbacks exhausted');
         }
 
         if (!cancelled) {

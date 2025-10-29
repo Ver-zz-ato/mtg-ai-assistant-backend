@@ -1,10 +1,11 @@
 // app/sitemap.ts
 import type { MetadataRoute } from "next";
+import { createClient } from "@/lib/supabase/server";
 
 const BASE = "https://manatap.ai";
 const now = new Date();
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
     "", // homepage
     "my-decks", // user deck management
@@ -27,18 +28,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: p === "" ? 0.8 : p.startsWith("tools/") ? 0.5 : 0.6,
   }));
 
-  // TODO: fetch dynamic slugs from Supabase
-  // - Public deck pages: /decks/[id] for is_public=true decks
-  // - Public profile pages: /u/[slug] for public profiles  
-  // - Public collection binders: /binder/[slug] for shared collections
-  // Example implementation when ready:
-  // const dynamicRoutes = await Promise.all([
-  //   supabase.from('decks').select('id').eq('is_public', true),
-  //   supabase.from('profiles').select('slug').eq('is_public', true)
-  // ]).then(([decks, profiles]) => [
-  //   ...decks.data?.map(d => ({ url: `${BASE}/decks/${d.id}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.5 })) || [],
-  //   ...profiles.data?.map(p => ({ url: `${BASE}/u/${p.slug}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.4 })) || []
-  // ]);
+  // Fetch dynamic public decks
+  const supabase = await createClient();
+  let publicDeckRoutes: MetadataRoute.Sitemap = [];
+  
+  try {
+    const { data: publicDecks } = await supabase
+      .from('decks')
+      .select('id, updated_at')
+      .eq('is_public', true)
+      .order('updated_at', { ascending: false })
+      .limit(500); // Limit to avoid sitemap bloat
+    
+    if (publicDecks && publicDecks.length > 0) {
+      publicDeckRoutes = publicDecks.map(deck => ({
+        url: `${BASE}/decks/${deck.id}`,
+        lastModified: deck.updated_at ? new Date(deck.updated_at) : now,
+        changeFrequency: 'weekly' as const,
+        priority: 0.5,
+      }));
+    }
+  } catch (error) {
+    console.error('[Sitemap] Failed to fetch public decks:', error);
+  }
 
-  return [...staticRoutes /* , ...dynamicRoutes when implemented */];
+  return [...staticRoutes, ...publicDeckRoutes];
 }

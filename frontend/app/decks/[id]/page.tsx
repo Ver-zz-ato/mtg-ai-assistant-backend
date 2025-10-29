@@ -7,9 +7,54 @@ import DeckComments from "@/components/DeckComments";
 import ExportToMoxfield from "@/components/ExportToMoxfield";
 import ExportToTCGPlayer from "@/components/ExportToTCGPlayer";
 import CloneDeckButton from "@/components/CloneDeckButton";
+import type { Metadata } from "next";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
+
+// Generate dynamic metadata for public deck pages (SEO)
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  
+  const { data: deck } = await supabase
+    .from("decks")
+    .select("title, format, commander, is_public")
+    .eq("id", id)
+    .maybeSingle();
+  
+  if (!deck || !deck.is_public) {
+    return {
+      title: "Deck Not Found | ManaTap.ai",
+      description: "This deck is not available or is set to private.",
+    };
+  }
+  
+  const title = deck.title || "Untitled Deck";
+  const format = deck.format || "Commander";
+  const commander = deck.commander || "";
+  
+  const description = commander
+    ? `Explore this ${format} deck featuring ${commander} on ManaTap.ai. View the full decklist, card recommendations, and strategy insights.`
+    : `Explore this ${format} deck on ManaTap.ai. View the full decklist, card recommendations, and strategy insights.`;
+  
+  return {
+    title: `${title} | ManaTap.ai`,
+    description,
+    openGraph: {
+      title: `${title} | ManaTap.ai`,
+      description,
+      type: "website",
+      url: `https://www.manatap.ai/decks/${id}`,
+      siteName: "ManaTap.ai",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | ManaTap.ai`,
+      description,
+    },
+  };
+}
 
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
