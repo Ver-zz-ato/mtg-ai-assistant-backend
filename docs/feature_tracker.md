@@ -2,6 +2,69 @@
 
 Legend: ☑ done · ◪ partial · ☐ todo
 
+## UX Polish Pass (2025-10-29)
+
+☑ Color Pie Alignment Explanation <!-- id:ux.color_pie_explanation -->
+- Added helper text to profile page explaining color preference personalization
+- "Select your preferred MTG colors. This helps personalize your deck trends and recommendations."
+
+☑ Cost to Finish Autoscroll <!-- id:ux.cost_to_finish_autoscroll -->
+- Mobile-only autoscroll to results section after computation completes
+- Detects screen size (<768px) and smoothly scrolls to results panel
+- Desktop maintains dual-column view without scroll
+
+☑ Support Widgets Collapsible <!-- id:ux.support_collapsible -->
+- Converted fixed bottom-left panel to collapsible button next to feedback
+- Shows compact "Support me ❤️" button by default
+- Expands to show Stripe + Ko-fi options on click
+- Click-outside-to-close behavior
+
+☑ Mulligan Hand Testing Widget Relocated <!-- id:ux.mulligan_layout -->
+- Implemented dual-column layout (lg:grid-cols-12)
+- Left column (lg:col-span-8): All mulligan content
+- Right column (lg:col-span-4): Hand Testing Widget as sticky sidebar
+- Widget styled with neutral border instead of intrusive orange
+- Pro badge maintained but less prominent
+- Mobile stacks vertically with widget at bottom
+
+☑ Chatbox Height Increased <!-- id:ux.chatbox_height -->
+- Doubled chatbox height on desktop (min-h-[400px] → min-h-[800px])
+- Responsive sizing: 400px mobile, 800px desktop (md+)
+- Maintains existing scrolling and features
+
+☑ Budget Swaps Sticky Header Removed <!-- id:ux.budget_swaps_sticky -->
+- Removed `sticky top-2 z-20` from advanced options header
+- Changed to static positioning with bottom margin
+- Improves scrolling UX and reduces visual clutter
+
+☑ Mobile Tool Buttons Responsive <!-- id:ux.mobile_tools -->
+- Tool strip images now responsive: 120px mobile, 200px desktop
+- Grid layout: 2 columns mobile, 5 columns desktop
+- Reduced gap and padding on mobile for better fit
+- Autodetects screen size via Tailwind breakpoints (md:)
+
+☑ Email Verification Success Popup <!-- id:ux.email_verification_popup -->
+- New `EmailVerificationSuccessPopup` component on homepage
+- Detects Supabase verification redirect (access_token or email_verified params)
+- Celebration modal: "✅ Email Verified! You've earned the Early Adopter badge 🎉"
+- Auto-dismisses after 5 seconds or manual close
+- PostHog analytics tracking: `email_verified_success`
+- Styled similar to BadgeCelebrationToast
+
+☑ Tour System Removed <!-- id:ux.tour_removed -->
+- Deleted `MainFeaturesTour.tsx` component
+- Removed all `data-tour` attributes from:
+  - TopToolsStrip.tsx
+  - Header.tsx
+  - Homepage components
+- Removed HomepageTourWrapper and all tour-related imports
+- Clean slate for future onboarding approaches
+
+☑ Database Schema Fix <!-- id:bug.chat_threads_schema -->
+- Fixed `chat_threads.updated_at` column reference error
+- Changed to `created_at` in threads/get route
+- Eliminates PostgreSQL error 42703 on chat thread fetching
+
 ## Core Architecture / Standards
 
 ☑ All API inputs validated with Zod <!-- id:core.zod -->

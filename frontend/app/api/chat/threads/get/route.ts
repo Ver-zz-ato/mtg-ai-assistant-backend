@@ -11,7 +11,7 @@ export async function GET() {
     const { data, error } = await client
       .from("chat_threads")
       .select("*")
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("[threads/get] supabase error:", error);
