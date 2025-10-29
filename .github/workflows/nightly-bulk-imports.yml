@@ -193,8 +193,12 @@ jobs:
           cat response.json | jq '.' || cat response.json
           echo ""
           
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Job 2 completed successfully!"
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✅ Job 2 completed successfully! (HTTP $HTTP_CODE)"
+            
+            if [ "$HTTP_CODE" = "202" ]; then
+              echo "ℹ️ Job accepted and running in background (3-5 minutes)"
+            fi
             
             UPDATED=$(cat response.json | jq -r '.updated // "N/A"')
             COVERAGE=$(cat response.json | jq -r '.coverage // "N/A"')
@@ -254,8 +258,12 @@ jobs:
           cat response.json | jq '.' || cat response.json
           echo ""
           
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Job 3 completed successfully!"
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✅ Job 3 completed successfully! (HTTP $HTTP_CODE)"
+            
+            if [ "$HTTP_CODE" = "202" ]; then
+              echo "ℹ️ Job accepted and running in background (2-3 minutes)"
+            fi
             
             INSERTED=$(cat response.json | jq -r '.inserted // "N/A"')
             SNAPSHOT_DATE=$(cat response.json | jq -r '.snapshot_date // "N/A"')

@@ -161,7 +161,10 @@ export default function DataPage(){
                   const { toast } = await import('@/lib/toast-client');
                   
                   try {
-                    toast('🚀 Starting bulk Scryfall import... (this takes 3-5 minutes)', 'info');
+                    toast('🚀 Calling localhost:3001... (checking server)', 'info');
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
                     
                     const response = await fetch('http://localhost:3001/bulk-scryfall', {
                       method: 'POST',
@@ -169,27 +172,38 @@ export default function DataPage(){
                         'x-cron-key': 'Boobies',
                         'Content-Type': 'application/json',
                       },
+                      signal: controller.signal,
                     });
                     
+                    clearTimeout(timeoutId);
                     const data = await response.json();
                     
                     if (response.ok) {
-                      toast(`✅ Success! Processed ${data.processed || 'all'} cards, inserted ${data.inserted || 'N/A'}`, 'success');
-                      window.location.reload(); // Refresh to show new "last run" time
+                      toast(`✅ Job started! ${data.message || 'Processing in background'}. Refresh page in 5 mins to see results.`, 'success');
+                      
+                      // Refresh after 5 minutes to show new "last run" time
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 5 * 60 * 1000);
                     } else {
-                      toast(`❌ Failed: ${data.error || 'Unknown error'}`, 'error');
+                      toast(`❌ Server error: ${data.error || 'Unknown error'}`, 'error');
                     }
                   } catch (e: any) {
-                    if (e.message.includes('Failed to fetch')) {
-                      toast('❌ Cannot connect to localhost:3001. Make sure bulk-jobs-server is running!', 'error');
+                    console.error('Bulk Scryfall error:', e);
+                    
+                    if (e.name === 'AbortError') {
+                      toast('⏱️ Request timed out. Server might be processing, check back in 5 minutes.', 'error');
+                    } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                      toast('❌ Cannot reach localhost:3001 - Is the server running?', 'error');
                       
                       // Show how to start the server
                       setTimeout(() => {
-                        const commands = `# In your project directory:
-cd C:\\Users\\davy_\\mtg_ai_assistant\\backend
-cd bulk-jobs-server
-npm start`;
-                        alert('Server not running!\n\nTo start it, open PowerShell and run:\n\n' + commands);
+                        const commands = `# Open PowerShell in project root:
+cd C:\\Users\\davy_\\mtg_ai_assistant\\backend\\bulk-jobs-server
+npm start
+
+# Then try the button again!`;
+                        alert('Server not running!\n\nTo start it:\n\n' + commands);
                       }, 1000);
                     } else {
                       toast(`❌ Error: ${e.message}`, 'error');
