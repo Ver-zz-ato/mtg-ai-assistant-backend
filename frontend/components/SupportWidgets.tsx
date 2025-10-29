@@ -41,6 +41,8 @@ export default function SupportWidgets() {
   // This prevents SSR/client mismatch since computeShow() accesses window/localStorage
   const [showWidgets, setShowWidgets] = React.useState<boolean>(false);
   const [remoteAllow, setRemoteAllow] = React.useState<boolean | null>(null);
+  const [isExpanded, setIsExpanded] = React.useState<boolean>(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     // Compute actual value on client after hydration
@@ -84,33 +86,73 @@ export default function SupportWidgets() {
     } catch {}
   }, []);
 
+  // Click outside to close
+  React.useEffect(() => {
+    if (!isExpanded) return;
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExpanded]);
+
   if (remoteAllow === false) return null;
   if (!showWidgets) return null;
 
   return (
     <>
-      {/* Bottom-left dock with Stripe and Ko‑fi link, positioned above feedback button */}
-      <div className="fixed bottom-24 left-4 z-[60] flex flex-col items-start gap-2 pointer-events-none">
-        <div className="rounded border border-neutral-800 bg-black/70 backdrop-blur p-2 pointer-events-auto flex flex-col gap-2 shadow-lg">
-          {/* Stripe support link */}
-          <a
-            href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded bg-white text-black px-3 py-1.5 text-sm font-medium hover:opacity-90"
+      {/* Collapsible Support button positioned next to feedback button (right-4) */}
+      <div ref={containerRef} className="fixed bottom-4 right-20 z-[50]">
+        {!isExpanded ? (
+          /* Compact button */
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="rounded-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white px-4 py-2 text-sm font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+            title="Support ManaTap"
           >
-            Support via Stripe
-          </a>
-          {/* Ko‑fi fallback link (no script) */}
-          <a
-            href="https://ko-fi.com/Q5Q11LZQCA"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded bg-[#72a4f2] text-black px-3 py-1.5 text-sm font-medium hover:opacity-90"
-          >
-            Support me on Ko‑fi
-          </a>
-        </div>
+            ❤️ Support me
+          </button>
+        ) : (
+          /* Expanded panel */
+          <div className="rounded-lg border border-neutral-800 bg-black/90 backdrop-blur p-3 shadow-2xl flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-neutral-300">Support ManaTap</span>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-neutral-400 hover:text-white transition-colors"
+                title="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Stripe support link */}
+            <a
+              href="https://buy.stripe.com/14A4gAdle89v3XE61q4AU01"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded bg-white text-black px-3 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              💳 Support via Stripe
+            </a>
+            
+            {/* Ko‑fi fallback link (no script) */}
+            <a
+              href="https://ko-fi.com/Q5Q11LZQCA"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded bg-[#72a4f2] text-black px-3 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              ☕ Support me on Ko‑fi
+            </a>
+          </div>
+        )}
       </div>
     </>
   );

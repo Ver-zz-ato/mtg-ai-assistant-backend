@@ -708,6 +708,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 {/* Color pie alignment */}
                 <div className="text-sm">
                   <div className="opacity-70 mb-1">Color pie alignment</div>
+                  <div className="text-xs opacity-60 mb-2">
+                    Select your preferred MTG colors. This helps personalize your deck trends and recommendations.
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {COLOR_PIE.map(c => {
                       const active = colors.includes(c);

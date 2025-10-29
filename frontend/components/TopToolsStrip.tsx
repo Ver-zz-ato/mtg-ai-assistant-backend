@@ -18,15 +18,14 @@ export default function TopToolsStrip() {
 
   return (
     <div className="w-full">
-      <div className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 mb-0 overflow-x-auto md:overflow-visible">
+      <div className="w-full grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-0">
         {tools.map((tool, idx) => (
           <a
             key={idx}
             href={tool.href}
             className="block rounded-xl overflow-hidden"
-            data-tour={tool.tour}
           >
-            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto" priority />
+            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[200px] max-h-[120px] object-cover" priority />
           </a>
         ))}
       </div>

@@ -222,7 +222,10 @@ export default function MulliganSimulatorPage() {
 
   return (
     <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
-      <div className="max-w-[1400px] mx-auto space-y-4">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* LEFT COLUMN: Main content */}
+          <div className="lg:col-span-8 space-y-4">
       <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-amber-900/20 via-orange-900/10 to-red-900/20 p-6">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
@@ -292,28 +295,6 @@ export default function MulliganSimulatorPage() {
           } catch {}
         }}
       />
-      
-      {/* Interactive Hand Testing Widget */}
-      <HandTestingWidget 
-        deckCards={deckCards}
-        compact={false}
-        className="mb-4"
-      />
-      
-      {/* Note about per-deck availability */}
-      <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center text-black">
-            🃏
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-amber-200 text-sm">Also Available Per Deck!</h3>
-            <p className="text-xs opacity-80 mt-1">
-              This hand testing widget is also available on <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> with your specific deck's cards for more focused testing!
-            </p>
-          </div>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-900 border border-neutral-800 rounded p-3">
         <label className="text-sm">
@@ -436,6 +417,35 @@ export default function MulliganSimulatorPage() {
           {advanced && <AdviceBlock deckSize={deckSize} successCards={successCards} landsInDeck={landsInDeck} minKeep={minKeep} minLands={minLands} maxLands={maxLands} iterations={Math.min(4000, Math.max(500, Math.floor(iterations/5)))} />}
         </div>
       )}
+          </div>
+          
+          {/* RIGHT COLUMN: Hand Testing Widget sidebar */}
+          <aside className="lg:col-span-4">
+            <div className="sticky top-4 space-y-4">
+              {/* Interactive Hand Testing Widget */}
+              <HandTestingWidget 
+                deckCards={deckCards}
+                compact={false}
+                className=""
+              />
+              
+              {/* Note about per-deck availability */}
+              <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center text-black">
+                    🃏
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-amber-200 text-sm">Also Available Per Deck!</h3>
+                    <p className="text-xs opacity-80 mt-1">
+                      This hand testing widget is also available on <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> with your specific deck's cards for more focused testing!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );

@@ -146,6 +146,7 @@ export default function CostToFinishClient() {
   const [shopItemsLoading, setShopItemsLoading] = React.useState(false);
   const [shopItemsHasMore, setShopItemsHasMore] = React.useState(false);
   const shopListEndRef = React.useRef<HTMLDivElement>(null);
+  const resultsRef = React.useRef<HTMLDivElement>(null);
 
   // Build image map for missing rows when rows change
   React.useEffect(() => {
@@ -598,6 +599,13 @@ export default function CostToFinishClient() {
       setError(e?.message ?? String(e));
     } finally {
       setBusy(false);
+      
+      // Autoscroll to results on mobile after computation
+      if (typeof window !== 'undefined' && window.innerWidth < 768) { // md breakpoint
+        setTimeout(() => {
+          resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
     }
   }
 
@@ -826,7 +834,7 @@ export default function CostToFinishClient() {
 
         {/* MIDDLE COLUMN: Summary + Full Shopping List - only show when there are results */}
         {rowsToShow.length > 0 && (
-        <div className="flex-1 min-w-0 w-full space-y-3 relative z-20">
+        <div ref={resultsRef} className="flex-1 min-w-0 w-full space-y-3 relative z-20">
           {/* Summary card */}
           {rowsToShow.length>0 && (
             <div className="w-full max-w-none min-w-0 rounded-xl border border-emerald-700/60 bg-neutral-950 p-4 sm:p-5 lg:p-6">

@@ -322,7 +322,7 @@ export default function BudgetSwapsClient(){
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="sticky top-0 z-[5] relative overflow-hidden rounded-t-2xl border-b border-neutral-800 bg-gradient-to-br from-purple-900/20 via-pink-900/10 to-rose-900/20 backdrop-blur-sm p-6 -mx-4 sm:mx-0"
+        className="relative overflow-hidden rounded-t-2xl border-b border-neutral-800 bg-gradient-to-br from-purple-900/20 via-pink-900/10 to-rose-900/20 backdrop-blur-sm p-6 -mx-4 sm:mx-0 mb-4"
       >
         {/* Animated background blobs */}
         <motion.div

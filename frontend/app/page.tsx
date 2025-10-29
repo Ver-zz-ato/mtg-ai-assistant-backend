@@ -6,7 +6,7 @@ import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab";
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
-import HomepageTourWrapper from "../components/HomepageTourWrapper";
+import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
 const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
@@ -68,19 +68,19 @@ export default function Page() {
           </aside>
           
           {/* Main chat area - 1.5x wider */}
-          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3" data-tour="chat">
+          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3">
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
           
           {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop */}
-          <aside className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none" data-tour="custom-card">
+          <aside className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none">
             <RightSidebar />
           </aside>
         </div>
       </div>
       <FeedbackFab />
-      <HomepageTourWrapper />
+      <EmailVerificationSuccessPopup />
     </>
   );
 }
