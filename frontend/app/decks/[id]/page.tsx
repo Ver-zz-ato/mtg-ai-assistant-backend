@@ -110,8 +110,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
 
   // Fetch deck meta (public visibility enforced by RLS)
-  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, title, user_id").eq("id", id).maybeSingle();
+  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id").eq("id", id).maybeSingle();
   const title = deckRow?.title ?? "Deck";
+  const format = String(deckRow?.format || "Commander");
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
   const isOwner = user?.id && (deckRow as any)?.user_id === user.id;
 
@@ -351,7 +352,12 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           <header className="mb-6 p-6 rounded-xl border border-neutral-700 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 shadow-lg">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="flex-1">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-neutral-400 bg-clip-text text-transparent mb-3">{title}</h1>
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-neutral-400 bg-clip-text text-transparent">{title}</h1>
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30">
+                    {format}
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
                     <span 

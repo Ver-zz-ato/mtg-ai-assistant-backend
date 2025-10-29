@@ -133,9 +133,32 @@ export async function GET(
     });
 
     // Filter out cards already in deck
-    const filtered = candidates.filter(card => 
+    let filtered = candidates.filter(card => 
       !deckCards.has(card.name.toLowerCase())
     );
+
+    // Filter by format legality
+    const deckFormat = (deck.format || 'commander').toLowerCase();
+    if (deckFormat !== 'commander') {
+      // Check legality in scryfall_cache
+      const cardNames = filtered.map(c => c.name);
+      const { data: legalityData } = await supabase
+        .from('scryfall_cache')
+        .select('name, legalities')
+        .in('name', cardNames);
+
+      if (legalityData && legalityData.length > 0) {
+        const legalCards = new Set<string>();
+        legalityData.forEach((card: any) => {
+          const legalities = card.legalities || {};
+          const formatKey = deckFormat === 'standard' ? 'standard' : deckFormat === 'modern' ? 'modern' : 'commander';
+          if (legalities[formatKey] === 'legal' || legalities[formatKey] === 'restricted') {
+            legalCards.add(card.name.toLowerCase());
+          }
+        });
+        filtered = filtered.filter(card => legalCards.has(card.name.toLowerCase()));
+      }
+    }
 
     // Prioritize cards not in collection
     const notInCollection = filtered.filter(card => 
