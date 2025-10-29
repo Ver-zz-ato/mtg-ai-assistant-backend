@@ -324,7 +324,7 @@ export default function BrowseDecksPage() {
             {decks.map((deck) => (
               <PrefetchLink
                 key={deck.id}
-                href={`/decks/public/${deck.id}`}
+                href={`/decks/${deck.id}`}
                 prefetchData={[`/api/decks/${deck.id}`]}
                 onClick={() => capture('browse_deck_clicked', { deck_id: deck.id })}
                 className="group bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all transform hover:scale-[1.02]"
