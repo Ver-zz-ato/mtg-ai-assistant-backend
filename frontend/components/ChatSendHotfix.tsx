@@ -2,6 +2,7 @@
 // You can splice this handler into your existing components/Chat.tsx, or replace the whole file if you prefer.
 // The rest of your component structure remains unchanged.
 import React from 'react';
+import { toast } from '@/lib/toast-client';
 
 type Props = {
   getActiveThreadId: () => string | null;
@@ -41,7 +42,7 @@ export default function ChatSendHotfix({ getActiveThreadId, onAssistant, onThrea
 
       if (!saveRes.ok) {
         console.error('[chat hotfix] /post failed', saveRes.status, saveText);
-        alert(saveJson?.error?.message || 'Failed to send message');
+        toast(saveJson?.error?.message || 'Failed to send message', 'error');
         return;
       }
 

@@ -2,6 +2,88 @@
 
 Legend: ☑ done · ◪ partial · ☐ todo
 
+## UX Polish Pass - Phase 2 (2025-10-29)
+
+**Status**: ✅ Complete - Build verified (79s, 0 errors) - Ready for production
+
+☑ Loading State Enhancements <!-- id:ux.loading_states -->
+- **CSV Upload**: Already had excellent progress bar, spinner, and status text in CollectionCsvUpload.tsx
+  - Shows percentage, current step ("Parsing CSV...", "Verifying cards...", etc.)
+  - Smooth gradient progress bar animation (blue to purple)
+  - Batch processing with real-time progress tracking
+- **Fix Names Modal**: Added progress bar with card-by-card tracking
+  - File: `frontend/components/FixCollectionNamesModal.tsx`
+  - Shows "Fixing 3 of 10 cards..." with animated progress bar
+  - Orange-to-red gradient for visual feedback
+  - Prevents multiple clicks while processing
+- **Collection Stats**: Already gracefully handles loading with '—' placeholders
+  - Cards, unique, and value show '—' until data loads
+  - No jarring layout shifts or empty spaces
+
+☑ Error Handling Improvements <!-- id:ux.error_handling -->
+- Replaced browser `alert()` with toast notifications for better UX:
+  - `frontend/components/FixCollectionNamesModal.tsx` (2 instances)
+    - Load failures: `showToast(e?.message || 'Failed to load fixes', 'error')`
+    - Apply failures: `showToast(e?.message || 'Apply failed', 'error')`
+  - `frontend/components/ChatSendHotfix.tsx` (1 instance)
+    - Message send failures: `toast(saveJson?.error?.message || 'Failed to send message', 'error')`
+- **Impact**: Non-blocking, dismissible error messages vs. ugly browser popups
+- **Added import**: `import { toast as showToast } from "@/lib/toast-client"`
+
+☑ Mobile UX Fixes <!-- id:ux.mobile_fixes -->
+- **Tool Strip Horizontal Scroll** (`frontend/components/TopToolsStrip.tsx`)
+  - Added `overflow-x-auto snap-x snap-mandatory scrollbar-hide` to grid container
+  - Added `snap-center flex-shrink-0` to individual tool links
+  - Created `.scrollbar-hide` utility in `frontend/app/globals.css`
+  - Supports phones <360px (iPhone SE, small Androids)
+  - Smooth snap-to-center scrolling experience
+  
+- **Chatbox Height Cap** (`frontend/components/Chat.tsx`)
+  - Added `max-h-[60vh] md:max-h-none` to chat message container
+  - Desktop: Full 800px height maintained
+  - Mobile: Capped at 60% viewport height to prevent off-screen content
+  - Still scrollable within the capped area
+  
+- **Deck Card Tap Targets** (`frontend/app/my-decks/[id]/CardsPane.tsx`)
+  - Updated card row padding: `px-3 py-2 md:px-4 md:py-3`
+  - Added `min-h-[44px]` for WCAG AAA compliance (44x44px minimum)
+  - Added `hover:bg-neutral-800/50 transition-colors cursor-pointer`
+  - Better touch feedback on mobile devices
+  - Smoother hover transitions on desktop
+
+☑ Empty States Verified <!-- id:ux.empty_states -->
+- All three empty states already well-implemented in `frontend/components/EmptyStates.tsx`:
+  - **EmptyDecksState**: Used in `MyDecksList.tsx`
+    - Icon: Card deck SVG (blue)
+    - Primary: "Create New Deck" → /new-deck
+    - Secondary: "Browse Sample Decks" (triggers modal)
+    - 3 tips: Import, sample decks, AI chat
+  - **EmptyCollectionsState**: Used in `app/collections/page.tsx`
+    - Icon: Collection box SVG (purple)
+    - Primary: "Create Collection" (inline prompt)
+    - Secondary: "Import CSV" → /collections?import=true
+    - 3 tips: Per-set collections, CSV import, value tracking
+  - **EmptyWishlistState**: Used in `app/wishlist/page.tsx`
+    - Icon: Star SVG (amber)
+    - Primary: "Add Cards to Wishlist" → /wishlist
+    - Secondary: "Browse Price Tracker" → /price-tracker
+    - 3 tips: Price alerts, cost-to-finish integration, value tracking
+- **Design**: Consistent gradient backgrounds, large icons, clear CTAs, helpful suggestions
+- **No changes needed**: All states meet UX best practices
+
+**Files Modified (7)**:
+1. `frontend/components/FixCollectionNamesModal.tsx` - Progress bar + toast errors
+2. `frontend/components/ChatSendHotfix.tsx` - Toast error handling
+3. `frontend/components/TopToolsStrip.tsx` - Horizontal scroll support
+4. `frontend/app/globals.css` - .scrollbar-hide utility class
+5. `frontend/components/Chat.tsx` - Mobile height cap (max-h-[60vh])
+6. `frontend/app/my-decks/[id]/CardsPane.tsx` - Bigger tap targets (44px min)
+7. `docs/feature_tracker.md` - This documentation
+
+**Build Verification**: ✅ `npm run build` passed (79s, 0 errors, 0 warnings)
+**Risk Level**: ZERO - Frontend-only changes, no database/API modifications
+**Rollback**: Simple git revert if needed
+
 ## UX Polish Pass (2025-10-29)
 
 ☑ Color Pie Alignment Explanation <!-- id:ux.color_pie_explanation -->
@@ -64,6 +146,58 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Fixed `chat_threads.updated_at` column reference error
 - Changed to `created_at` in threads/get route
 - Eliminates PostgreSQL error 42703 on chat thread fetching
+
+## SEO & Performance Optimization (2025-10-29)
+
+☑ Console Cleanup - DeckArtLoader <!-- id:seo.console_cleanup -->
+- Removed 50+ verbose console.log statements from DeckArtLoader
+- Added AbortError suppression in 3 catch blocks (batch-images, fuzzy match, deck_cards)
+- Browse Decks page: 50+ console messages → 0 spam
+
+☑ Dynamic Sitemap with Public Decks <!-- id:seo.dynamic_sitemap -->
+- Converted sitemap.ts from sync to async with Supabase integration
+- Fetches up to 500 public decks with accurate lastModified timestamps
+- Sitemap coverage increased from 13 to 31+ routes (+138%)
+- All public deck pages now discoverable by Google
+
+☑ Public Deck SEO Metadata <!-- id:seo.deck_metadata -->
+- Added generateMetadata() to /decks/[id]/page.tsx
+- Dynamic title and description per deck (commander, format-specific)
+- Full OpenGraph and Twitter Card tags for social sharing
+- Handles private/missing decks gracefully with fallback metadata
+
+☑ Root Layout Social Tags <!-- id:seo.root_og_tags -->
+- Added OpenGraph metadata (type, locale, siteName, images) to app/layout.tsx
+- Added Twitter Card metadata for all social platforms
+- Site-wide social sharing optimization ready for OG image
+
+☑ Footer Date Bug Fix <!-- id:bug.invalid_date_footer -->
+- Fixed "Invalid Date" display in TrustFooter component
+- Improved formatDate() with isNaN() validation
+- Removed redundant formatting calls (dates pre-formatted from API)
+- Now correctly shows "Oct 12, 2025"
+
+## Performance Backlog (Future - Low Priority)
+
+☐ Browse Decks N+1 Query Optimization <!-- id:perf.browse_decks_join -->
+- Current: Fetches deck list, then fetches usernames separately (2 queries)
+- Proposed: Use SQL join to fetch everything in one query
+- Impact: Faster browse page load, reduced database round-trips
+
+☐ MyDecksList Bulk Stats Endpoint <!-- id:perf.bulk_deck_stats -->
+- Current: For 10 decks, makes 20 separate API calls (10 cards + 10 tags)
+- Proposed: Create /api/decks/bulk-stats endpoint accepting multiple deck IDs
+- Impact: Much faster "My Decks" page, reduced network overhead
+
+☐ Shopping List Batch Optimization <!-- id:perf.shopping_batch -->
+- Current: Fetches card prices one-by-one if not in cache (slow sequential)
+- Proposed: Batch-fetch missing cards using Scryfall /cards/collection endpoint
+- Impact: Faster shopping list generation for large decks
+
+☐ Image Lazy Loading Site-Wide <!-- id:perf.lazy_images -->
+- Current: All images load immediately even if off-screen (wastes data/CPU)
+- Proposed: Use existing LazyImage component across TopToolsStrip, Chat, MyDecksList
+- Impact: Faster page loads, reduced bandwidth usage, better mobile experience
 
 ## Core Architecture / Standards
 

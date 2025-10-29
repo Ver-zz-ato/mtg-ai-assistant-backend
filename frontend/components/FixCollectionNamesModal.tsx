@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { toast as showToast } from "@/lib/toast-client";
 
 export default function FixCollectionNamesModal({ 
   collectionId, 
@@ -13,6 +14,7 @@ export default function FixCollectionNamesModal({
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<Array<{ id: string; name: string; suggestions: string[]; choice?: string }>>([]);
   const [saving, setSaving] = React.useState(false);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
 
   React.useEffect(() => {
     if (!open) return;
@@ -24,7 +26,7 @@ export default function FixCollectionNamesModal({
         if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Load failed');
         const arr: any[] = Array.isArray(j.items) ? j.items : [];
         setItems(arr.map(it => ({ ...it, choice: (it.suggestions||[])[0] || '' })));
-      } catch (e:any) { alert(e?.message || 'Failed to load fixes'); onClose(); }
+      } catch (e:any) { showToast(e?.message || 'Failed to load fixes', 'error'); onClose(); }
       finally { setLoading(false); }
     })();
   }, [open, collectionId]);
@@ -32,7 +34,10 @@ export default function FixCollectionNamesModal({
   async function apply(){
     try {
       setSaving(true);
-      for (const it of items) {
+      setCurrentIndex(0);
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        setCurrentIndex(i);
         const c = (it.choice||'').trim(); if (!c) continue;
         const res = await fetch(`/api/collections/cards`, { 
           method:'PATCH', 
@@ -44,8 +49,8 @@ export default function FixCollectionNamesModal({
       }
       onClose();
       try { window.location.reload(); } catch {}
-    } catch (e:any) { alert(e?.message || 'Apply failed'); }
-    finally { setSaving(false); }
+    } catch (e:any) { showToast(e?.message || 'Apply failed', 'error'); }
+    finally { setSaving(false); setCurrentIndex(0); }
   }
 
   if (!open) return null;
@@ -90,6 +95,23 @@ export default function FixCollectionNamesModal({
                 </div>
               ))}
             </div>
+            {saving && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Fixing {currentIndex + 1} of {items.length} cards...
+                </div>
+                <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((currentIndex + 1) / items.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
         <div className="mt-5 flex items-center justify-end gap-3">

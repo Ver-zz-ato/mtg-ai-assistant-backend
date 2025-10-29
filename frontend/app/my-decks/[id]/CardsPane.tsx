@@ -434,7 +434,7 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
           <div
             key={c.id}
             data-row-index={idx}
-            className="flex items-center justify-between rounded border border-neutral-700 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            className="flex items-center justify-between rounded border border-neutral-700 px-3 py-2 md:px-4 md:py-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-emerald-600 hover:bg-neutral-800/50 transition-colors cursor-pointer"
             tabIndex={0}
             onKeyDown={(e)=>{
               if ((e.target as HTMLElement)?.tagName?.toLowerCase() === 'input') return;
