@@ -158,25 +158,47 @@ export default function DataPage(){
               <div className="font-medium text-lg">🎨 Job 1: Bulk Scryfall Import (LOCAL ONLY)</div>
               <button
                 onClick={async () => {
-                  const commands = `# Terminal 1 - Start the server:
-cd bulk-jobs-server
-npm start
-
-# Terminal 2 - Trigger the import:
-$headers = @{"x-cron-key" = "Boobies"; "Content-Type" = "application/json"}
-Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers`;
+                  const { toast } = await import('@/lib/toast-client');
                   
                   try {
-                    await navigator.clipboard.writeText(commands);
-                    const { toast } = await import('@/lib/toast-client');
-                    toast('✅ Commands copied to clipboard! Paste into PowerShell.', 'success');
-                  } catch (e) {
-                    alert('Commands:\n\n' + commands);
+                    toast('🚀 Starting bulk Scryfall import... (this takes 3-5 minutes)', 'info');
+                    
+                    const response = await fetch('http://localhost:3001/bulk-scryfall', {
+                      method: 'POST',
+                      headers: {
+                        'x-cron-key': 'Boobies',
+                        'Content-Type': 'application/json',
+                      },
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                      toast(`✅ Success! Processed ${data.processed || 'all'} cards, inserted ${data.inserted || 'N/A'}`, 'success');
+                      window.location.reload(); // Refresh to show new "last run" time
+                    } else {
+                      toast(`❌ Failed: ${data.error || 'Unknown error'}`, 'error');
+                    }
+                  } catch (e: any) {
+                    if (e.message.includes('Failed to fetch')) {
+                      toast('❌ Cannot connect to localhost:3001. Make sure bulk-jobs-server is running!', 'error');
+                      
+                      // Show how to start the server
+                      setTimeout(() => {
+                        const commands = `# In your project directory:
+cd C:\\Users\\davy_\\mtg_ai_assistant\\backend
+cd bulk-jobs-server
+npm start`;
+                        alert('Server not running!\n\nTo start it, open PowerShell and run:\n\n' + commands);
+                      }, 1000);
+                    } else {
+                      toast(`❌ Error: ${e.message}`, 'error');
+                    }
                   }
                 }}
                 className="text-xs text-yellow-400 border border-yellow-600 bg-yellow-900/20 px-3 py-1.5 rounded hover:bg-yellow-900/40 transition-colors cursor-pointer font-semibold"
               >
-                📋 COPY COMMANDS
+                🚀 RUN NOW (localhost:3001)
               </button>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
@@ -194,13 +216,13 @@ Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Heade
               <div>• Provides card images for all site features</div>
               <div>• Ensures card type/color data is accurate</div>
               
-              <div className="font-semibold text-purple-300 mt-2">How to run locally:</div>
+              <div className="font-semibold text-purple-300 mt-2">How to start the local server:</div>
               <div className="bg-black/40 p-2 rounded font-mono text-xs mt-1">
+                <div># Open PowerShell in your project folder:</div>
+                <div>cd C:\Users\davy_\mtg_ai_assistant\backend</div>
                 <div>cd bulk-jobs-server</div>
                 <div>npm start</div>
-                <div className="mt-1"># In another terminal:</div>
-                <div>{'$headers = @{"x-cron-key" = "Boobies"; "Content-Type" = "application/json"}'}</div>
-                <div>{'Invoke-WebRequest -Uri "http://localhost:3001/bulk-scryfall" -Method POST -Headers $headers'}</div>
+                <div className="mt-1"># Then click the button above! 👆</div>
               </div>
               
               <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
