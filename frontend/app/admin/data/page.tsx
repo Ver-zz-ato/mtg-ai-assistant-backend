@@ -217,18 +217,47 @@ export default function DataPage(){
 
           <div className="rounded border border-green-800 bg-green-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-lg">💰 Job 2: Bulk Price Import</div>
-              <button 
-                onClick={()=>runCron('https://mtg-bulk-jobs.onrender.com/bulk-price-import', true)} 
-                disabled={busy}
-                className="px-4 py-2 rounded border border-green-700 bg-green-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-800/50"
+              <div className="font-medium text-lg">💰 Job 2: Bulk Price Import (LOCAL)</div>
+              <button
+                onClick={async () => {
+                  const { toast } = await import('@/lib/toast-client');
+                  
+                  try {
+                    toast('💰 Starting bulk price import... (check console for progress)', 'info');
+                    
+                    const response = await fetch('/api/cron/bulk-price-import', {
+                      method: 'POST',
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.ok) {
+                      toast(`✅ Import complete! Updated ${data.updated || 0} prices (${data.unique_cards_with_prices || 0} unique cards, ${data.coverage_percent || 0}% coverage). Refreshing...`, 'success');
+                      
+                      // Refresh after 3 seconds to show new "last run" time
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 3000);
+                    } else {
+                      toast(`❌ Failed: ${data.error}`, 'error');
+                    }
+                    
+                  } catch (e: any) {
+                    console.error('Bulk price import error:', e);
+                    toast(`❌ Error: ${e.message}`, 'error');
+                  }
+                }}
+                className="text-xs text-green-400 border border-green-700 bg-green-900/50 px-3 py-1.5 rounded hover:bg-green-800/50 transition-colors cursor-pointer font-semibold"
               >
-                {busy && currentOperation === 'bulk-price-import' ? '🔄 Running...' : 'Manual Run'}
+                🚀 RUN NOW
               </button>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
-              <div className="font-semibold text-green-300">What it does:</div>
-              <div>🔄 LIGHTWEIGHT: Checks price_cache for stale prices (&gt;24hrs old), fetches fresh prices from Scryfall API (75 cards/batch), updates max 1000 cards per run. NO bulk download!</div>
+              <div className="font-semibold text-green-300">✅ How it works:</div>
+              <div className="text-green-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
+              
+              <div className="font-semibold text-green-300 mt-2">What it does:</div>
+              <div>🔄 Downloads bulk card data from Scryfall, extracts prices for all cards in your scryfall_cache, and updates the price_cache table with live USD, EUR, foil, and MTGO ticket prices.</div>
               
               <div className="font-semibold text-green-300 mt-2">Database table:</div>
               <div><code className="bg-black/40 px-1 rounded">price_cache</code> - Updates price fields (card_name, usd_price, eur_price, etc.)</div>
@@ -240,9 +269,9 @@ export default function DataPage(){
               <div>• Keeps price_cache up to date incrementally</div>
               
               <div className="font-semibold text-green-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~2-3 minutes (lightweight API calls only)</div>
+              <div>• Takes ~3-5 minutes (downloads ~100MB bulk data)</div>
               <div>• Runs nightly at 2:00 AM UTC via GitHub Actions</div>
-              <div>• 🆓 Hosted on Render FREE tier</div>
+              <div>• Also runs locally on demand via this button</div>
               
               <div className="font-semibold text-green-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_price_import'])}</div>
@@ -251,18 +280,47 @@ export default function DataPage(){
 
           <div className="rounded border border-blue-800 bg-blue-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots</div>
-              <button 
-                onClick={()=>runCron('https://mtg-bulk-jobs.onrender.com/price-snapshot', true)} 
-                disabled={busy}
-                className="px-4 py-2 rounded border border-blue-700 bg-blue-900/50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-800/50"
+              <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots (LOCAL)</div>
+              <button
+                onClick={async () => {
+                  const { toast } = await import('@/lib/toast-client');
+                  
+                  try {
+                    toast('📈 Starting price snapshot... (check console for progress)', 'info');
+                    
+                    const response = await fetch('/api/cron/price/snapshot', {
+                      method: 'POST',
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.ok) {
+                      toast(`✅ Snapshot complete! Inserted ${data.inserted || 0} historical price records for ${data.snapshot_date || 'today'}. Refreshing...`, 'success');
+                      
+                      // Refresh after 3 seconds to show new "last run" time
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 3000);
+                    } else {
+                      toast(`❌ Failed: ${data.error}`, 'error');
+                    }
+                    
+                  } catch (e: any) {
+                    console.error('Price snapshot error:', e);
+                    toast(`❌ Error: ${e.message}`, 'error');
+                  }
+                }}
+                className="text-xs text-blue-400 border border-blue-700 bg-blue-900/50 px-3 py-1.5 rounded hover:bg-blue-800/50 transition-colors cursor-pointer font-semibold"
               >
-                {busy && currentOperation === 'bulk' ? '🔄 Running...' : 'Manual Run'}
+                🚀 RUN NOW
               </button>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
-              <div className="font-semibold text-blue-300">What it does:</div>
-              <div>🔄 LIGHTWEIGHT: Reads existing prices from price_cache, creates snapshot rows in price_snapshots table (USD + EUR) with today's date. NO bulk download!</div>
+              <div className="font-semibold text-blue-300">✅ How it works:</div>
+              <div className="text-blue-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
+              
+              <div className="font-semibold text-blue-300 mt-2">What it does:</div>
+              <div>🔄 Fetches live prices from Scryfall for all cards in your decks, then creates snapshot rows in price_snapshots table with today's date (USD, EUR, and GBP).</div>
               
               <div className="font-semibold text-blue-300 mt-2">Database table:</div>
               <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data (snapshot_date, name_norm, currency, unit)</div>
@@ -274,12 +332,12 @@ export default function DataPage(){
               <div>• Supports price spike detection</div>
               
               <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~1-2 minutes (reads from price_cache, no API calls)</div>
+              <div>• Takes ~2-3 minutes (fetches live prices from Scryfall)</div>
               <div>• Runs nightly at 2:05 AM UTC via GitHub Actions (after price refresh)</div>
-              <div>• 🆓 Hosted on Render FREE tier</div>
+              <div>• Also runs locally on demand via this button</div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
-              <div>⚠️ Depends on price_cache being populated (Job 2 runs first)</div>
+              <div>⚠️ Requires deck_cards table to be populated with card names</div>
               
               <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>
