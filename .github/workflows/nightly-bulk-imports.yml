@@ -213,6 +213,64 @@ jobs:
           echo "job2_duration=$DURATION" >> $GITHUB_OUTPUT
           echo "job2_status=success" >> $GITHUB_OUTPUT
       
+      - name: Verify Job 2 Completion
+        id: verify_job2
+        continue-on-error: false
+        run: |
+          echo ""
+          echo "🔍 =========================================="
+          echo "🔍 VERIFYING JOB 2 COMPLETION"
+          echo "🔍 =========================================="
+          echo ""
+          echo "⏳ Waiting 6 minutes for background job to complete..."
+          echo "⏰ Start wait: $(date -u)"
+          sleep 360  # Wait 6 minutes for job to finish
+          echo "⏰ End wait: $(date -u)"
+          echo ""
+          
+          echo "📊 Checking database for completion..."
+          
+          # Query Supabase to check if job completed
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          SUPABASE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          
+          # Get the timestamp before job started (approximately)
+          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S")
+          
+          # Check app_config for last run timestamp
+          RESPONSE=$(curl -s \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price&select=value")
+          
+          echo "📄 Response: $RESPONSE"
+          
+          LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
+          
+          if [ -z "$LAST_RUN" ]; then
+            echo "❌ Could not find job:last:bulk_price in database"
+            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "📅 Last run timestamp: $LAST_RUN"
+          echo "📅 Job started after: $BEFORE_JOB"
+          
+          # Check if timestamp is recent (within last 10 minutes)
+          LAST_RUN_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || date -d "${LAST_RUN%.*}Z" +%s)
+          BEFORE_EPOCH=$(date -d "$BEFORE_JOB" +%s)
+          
+          if [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
+            echo "✅ Job 2 verified - timestamp updated successfully!"
+            echo "verify_job2_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Job 2 verification FAILED - timestamp not updated"
+            echo "❌ Expected timestamp after: $BEFORE_JOB"
+            echo "❌ Actual timestamp: $LAST_RUN"
+            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
       - name: Wait between jobs (5 seconds)
         run: |
           echo "⏸️ Waiting 5 seconds before next job..."
@@ -278,6 +336,93 @@ jobs:
           echo "job3_duration=$DURATION" >> $GITHUB_OUTPUT
           echo "job3_status=success" >> $GITHUB_OUTPUT
       
+      - name: Verify Job 3 Completion
+        id: verify_job3
+        continue-on-error: false
+        run: |
+          echo ""
+          echo "🔍 =========================================="
+          echo "🔍 VERIFYING JOB 3 COMPLETION"
+          echo "🔍 =========================================="
+          echo ""
+          echo "⏳ Waiting 6 minutes for background job to complete..."
+          echo "⏰ Start wait: $(date -u)"
+          sleep 360  # Wait 6 minutes for job to finish
+          echo "⏰ End wait: $(date -u)"
+          echo ""
+          
+          echo "📊 Checking database for completion..."
+          
+          # Query Supabase to check if job completed
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          SUPABASE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          
+          # Get the timestamp before job started (approximately)
+          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S")
+          
+          # Check app_config for last run timestamp
+          RESPONSE=$(curl -s \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot&select=value")
+          
+          echo "📄 Response: $RESPONSE"
+          
+          LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
+          
+          if [ -z "$LAST_RUN" ]; then
+            echo "❌ Could not find job:last:price_snapshot in database"
+            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "📅 Last run timestamp: $LAST_RUN"
+          echo "📅 Job started after: $BEFORE_JOB"
+          
+          # Check if timestamp is recent (within last 10 minutes)
+          LAST_RUN_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || date -d "${LAST_RUN%.*}Z" +%s)
+          BEFORE_EPOCH=$(date -d "$BEFORE_JOB" +%s)
+          
+          if [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
+            echo "✅ Job 3 verified - timestamp updated successfully!"
+            echo "verify_job3_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Job 3 verification FAILED - timestamp not updated"
+            echo "❌ Expected timestamp after: $BEFORE_JOB"
+            echo "❌ Actual timestamp: $LAST_RUN"
+            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Send Email on Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ MTG AI Assistant - Nightly Jobs FAILED"
+          to: ${{ secrets.ADMIN_EMAIL }}
+          from: "MTG AI Assistant <${{ secrets.EMAIL_USERNAME }}>"
+          body: |
+            🚨 NIGHTLY BULK DATA IMPORT FAILED 🚨
+            
+            Run Date: ${{ github.event.repository.updated_at }}
+            Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Job Results:
+            - Job 2 (Price Import): ${{ steps.job2.outputs.job2_status || 'FAILED' }}
+            - Job 2 Verification: ${{ steps.verify_job2.outputs.verify_job2_status || 'FAILED' }}
+            - Job 3 (Price Snapshots): ${{ steps.job3.outputs.job3_status || 'FAILED' }}
+            - Job 3 Verification: ${{ steps.verify_job3.outputs.verify_job3_status || 'FAILED' }}
+            
+            Please check the logs at the workflow link above.
+            
+            --- 
+            Automated message from GitHub Actions
+      
       - name: Summary
         if: always()
         run: |
@@ -289,9 +434,11 @@ jobs:
           echo "📅 Run completed: $(date -u)"
           echo ""
           echo "Job Results:"
-          echo "  🎨 Job 1 (Metadata):  ${{ steps.job1.outputs.job1_status || 'FAILED' }} - ${{ steps.job1.outputs.job1_duration || 'N/A' }}s"
+          echo "  🎨 Job 1 (Metadata):  ${{ steps.job1.outputs.job1_status || 'DISABLED' }} - ${{ steps.job1.outputs.job1_duration || 'N/A' }}s"
           echo "  💰 Job 2 (Prices):    ${{ steps.job2.outputs.job2_status || 'FAILED' }} - ${{ steps.job2.outputs.job2_duration || 'N/A' }}s"
+          echo "  🔍 Job 2 Verification: ${{ steps.verify_job2.outputs.verify_job2_status || 'FAILED' }}"
           echo "  📈 Job 3 (Snapshots): ${{ steps.job3.outputs.job3_status || 'FAILED' }} - ${{ steps.job3.outputs.job3_duration || 'N/A' }}s"
+          echo "  🔍 Job 3 Verification: ${{ steps.verify_job3.outputs.verify_job3_status || 'FAILED' }}"
           echo ""
           
           TOTAL_TIME=$((

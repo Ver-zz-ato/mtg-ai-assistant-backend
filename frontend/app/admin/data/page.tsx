@@ -161,52 +161,38 @@ export default function DataPage(){
                   const { toast } = await import('@/lib/toast-client');
                   
                   try {
-                    toast('🚀 Calling localhost:3001... (checking if server is running)', 'info');
+                    toast('🚀 Starting bulk Scryfall import... (check console for progress)', 'info');
                     
-                    const response = await fetch('http://localhost:3001/bulk-scryfall', {
+                    const response = await fetch('/api/cron/bulk-scryfall', {
                       method: 'POST',
-                      headers: {
-                        'x-cron-key': 'Boobies',
-                      },
                     });
                     
-                    if (!response.ok) {
-                      const error = await response.json();
-                      toast(`❌ Server error: ${error.error || 'Unknown error'}`, 'error');
-                      return;
-                    }
-                    
                     const data = await response.json();
-                    toast(`✅ Import started! Processing ${data.processed || 'all'} cards. This will take 3-5 minutes. Refreshing page...`, 'success');
                     
-                    // Refresh after 3 seconds to show new "last run" time
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 3000);
+                    if (data.ok) {
+                      toast(`✅ Import complete! Imported ${data.imported || 0} cards (${data.processed || 0} processed). Refreshing...`, 'success');
+                      
+                      // Refresh after 3 seconds to show new "last run" time
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 3000);
+                    } else {
+                      toast(`❌ Failed: ${data.error}`, 'error');
+                    }
                     
                   } catch (e: any) {
                     console.error('Bulk Scryfall error:', e);
-                    
-                    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                      toast('❌ Cannot reach localhost:3001. Is the bulk-jobs-server running?', 'error');
-                      
-                      // Show instructions
-                      setTimeout(() => {
-                        alert('Server not running!\n\nTo start it:\n\n1. Open PowerShell\n2. Run:\n   cd C:\\Users\\davy_\\mtg_ai_assistant\\backend\\bulk-jobs-server\n   npm install (first time only)\n   npm start\n\n3. Try the button again!');
-                      }, 1000);
-                    } else {
-                      toast(`❌ Error: ${e.message}`, 'error');
-                    }
+                    toast(`❌ Error: ${e.message}`, 'error');
                   }
                 }}
                 className="text-xs text-yellow-400 border border-yellow-600 bg-yellow-900/20 px-3 py-1.5 rounded hover:bg-yellow-900/40 transition-colors cursor-pointer font-semibold"
               >
-                🚀 RUN NOW (localhost:3001)
+                🚀 RUN NOW
               </button>
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
-              <div className="font-semibold text-yellow-300">⚠️ IMPORTANT:</div>
-              <div className="text-yellow-200">This job requires ~100MB RAM to process the bulk JSON. Runs on your local machine (localhost:3001).</div>
+              <div className="font-semibold text-yellow-300">✅ How it works:</div>
+              <div className="text-yellow-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
               
               <div className="font-semibold text-purple-300 mt-2">What it does:</div>
               <div>Downloads ALL 110,000+ Magic cards from Scryfall with complete metadata including card images, oracle text, card types, rarity, set information, and collector numbers.</div>
@@ -218,19 +204,6 @@ export default function DataPage(){
               <div>• Required for "Cost to Finish" rarity charts to work</div>
               <div>• Provides card images for all site features</div>
               <div>• Ensures card type/color data is accurate</div>
-              
-              <div className="font-semibold text-purple-300 mt-2">How to start the local server (first time):</div>
-              <div className="bg-black/40 p-2 rounded font-mono text-xs mt-1">
-                <div># 1. Open PowerShell:</div>
-                <div>cd C:\Users\davy_\mtg_ai_assistant\backend\bulk-jobs-server</div>
-                <div className="mt-1"># 2. Install dependencies (first time only):</div>
-                <div>npm install</div>
-                <div className="mt-1"># 3. Create .env file with your Supabase credentials</div>
-                <div># (see .env.example in that folder)</div>
-                <div className="mt-1"># 4. Start the server:</div>
-                <div>npm start</div>
-                <div className="mt-1"># 5. Click the button above! 👆</div>
-              </div>
               
               <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes ~3-5 minutes (downloads ~100MB)</div>
