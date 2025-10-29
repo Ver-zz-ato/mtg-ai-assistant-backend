@@ -13,18 +13,18 @@ export async function GET() {
   try {
     const supabase = await createClient();
     
-    // Get top commanders from public decks (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Get top commanders from public decks (last 6 months)
+    const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
     
     let { data: decks, error: decksError } = await supabase
       .from("decks")
       .select("commander, format, created_at")
       .eq("is_public", true)
-      .gte("created_at", thirtyDaysAgo);
+      .gte("created_at", sixMonthsAgo);
     
     // Fallback 1: If no recent public decks, get ALL public decks (no date filter)
     if (!decksError && (!decks || decks.length === 0)) {
-      console.log('[Meta] No public decks in last 30 days, trying all public decks');
+      console.log('[Meta] No public decks in last 6 months, trying all public decks');
       const { data: allPublicDecks } = await supabase
         .from("decks")
         .select("commander, format, created_at")
@@ -65,7 +65,9 @@ export async function GET() {
         commanderCounts[commander] = (commanderCounts[commander] || 0) + 1;
       }
       
-      const format = deck.format?.trim() || 'Unknown';
+      // Normalize format to title case (Commander, not commander)
+      const rawFormat = deck.format?.trim() || 'Unknown';
+      const format = rawFormat.charAt(0).toUpperCase() + rawFormat.slice(1).toLowerCase();
       formatCounts[format] = (formatCounts[format] || 0) + 1;
     });
 

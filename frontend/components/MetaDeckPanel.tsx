@@ -74,8 +74,8 @@ export default function MetaDeckPanel() {
         <>
           {/* Total decks stat */}
           <div className="bg-black/30 rounded-lg p-3 mb-4 border border-purple-700/20">
-            <div className="text-sm text-gray-400">Public Decks (Last 30 Days)</div>
-            <div className="text-2xl font-bold text-purple-400">{meta.totalDecks.toLocaleString()}</div>
+            <div className="text-sm text-gray-400">Public Decks</div>
+            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{meta.totalDecks.toLocaleString()}</div>
           </div>
 
           {/* Top Commanders */}

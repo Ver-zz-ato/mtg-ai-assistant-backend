@@ -680,3 +680,66 @@ Legend: ☑ done · ◪ partial · ☐ todo
 - Supports 1000+ card collections with smooth 60fps scrolling
 - Custom implementation (not library-based) perfectly tuned for ManaTap's use case
 - Confirmed working and performant
+
+## Guest Experience & UX Improvements (2025-10-28)
+
+☑ Profile Button Hidden in Guest Mode <!-- id:guest.profile_hidden -->
+- Profile button in header now only shows when user is logged in
+- Guest users see auth forms instead
+- Profile page already has proper guest protection with polite landing page
+- Shows feature benefits to encourage signup
+
+☑ Enhanced Create Account Modal <!-- id:auth.signup_enhanced -->
+- **Visual Improvements**:
+  * Gradient title (blue → purple → pink)
+  * Enhanced description highlighting Pro features with yellow accent
+  * Gradient CTA button (blue → purple) with shadow effects
+- **Social Proof & Live Presence**:
+  * Pulsing green dot with "X Planeswalkers brewing right now" (randomized 3-18)
+  * Activity ticker showing "New deck uploaded: Atraxa Reanimator"
+  * Price trends indicator "X+ builders • Price trends down 4.2% this week"
+  * Enhanced gradient background with glow effect
+- **Trust & Legal**:
+  * Privacy & Terms links at bottom of modal
+  * "By creating an account, you agree to our..." phrasing
+  * Links to /terms and /privacy with hover effects
+  * Opens in new tab with proper security attributes
+
+☑ Meta Panel Improvements <!-- id:meta.panel_improvements -->
+- **Public Decks Counter Updated**:
+  * Removed "(Last 30 Days)" text from display
+  * Backend now queries last 6 months (180 days) instead of 30 days
+  * Added gradient styling (purple → pink) to the count number
+  * More data for better trending analysis
+- **Format Case-Sensitivity Fixed**:
+  * Normalized format names to Title Case in trending API
+  * "Commander" and "commander" now count as same format
+  * Prevents duplicate format entries in statistics
+  * Applied normalization: charAt(0).toUpperCase() + slice(1).toLowerCase()
+
+☑ 15 Public Decks Import Script <!-- id:content.public_decks_import -->
+- **SQL Script Created**: import-15-public-decks.sql
+- **Diverse Commander Archetypes**:
+  1. Krenko - Goblin Tribal Aggro
+  2. Talrand - Control/Spellslinger
+  3. Kinnan - Infinite Mana Combo
+  4. Sram - Voltron Equipment
+  5. Edgar Markov - Vampire Tribal
+  6. Meren - Reanimator/Graveyard
+  7. Atraxa - Superfriends
+  8. Zada - Token Storm
+  9. Yuriko - Ninja Burn
+  10. Gisela - Angel Tribal
+  11. Urza - Artifact Combo
+  12. Omnath - Landfall
+  13. Korvold - Aristocrats/Sacrifice
+  14. Brago - Blink/ETB
+  15. Chulane - Bant Value
+- **Features**:
+  * Spread across 45-175 days ago for realistic timeline
+  * All set to is_public = true
+  * Archetype tags stored in meta jsonb column
+  * Uses PostgreSQL dollar-quoting ($$) to avoid escape issues
+  * Clear instructions for user_id replacement
+  * Includes verification query
+- **Schema Compliant**: Matches actual Supabase database schema
