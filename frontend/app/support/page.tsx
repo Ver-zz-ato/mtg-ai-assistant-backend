@@ -22,7 +22,7 @@ const SupportFormClient = dynamic(() => import('@/components/SupportForm'), {
 
 export default function SupportPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero Section */}
         <div className="text-center mb-12">

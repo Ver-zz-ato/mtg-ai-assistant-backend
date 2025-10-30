@@ -22,6 +22,7 @@ import GuestExitWarning from "@/components/GuestExitWarning";
 import IOSInstallPrompt from "@/components/iOSInstallPrompt";
 import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
+import GlobalBackground from "@/components/GlobalBackground";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://manatap.ai"),
@@ -93,6 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
       </head>
       <body className="min-h-screen flex flex-col">
+        <GlobalBackground />
         <Providers>
           <AuthProvider>
             <KeyboardShortcutsProvider>

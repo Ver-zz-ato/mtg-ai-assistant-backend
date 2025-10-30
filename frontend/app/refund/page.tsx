@@ -6,7 +6,7 @@ export const revalidate = 3600;
 
 export default function RefundPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-10">
