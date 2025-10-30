@@ -251,11 +251,21 @@ jobs:
           fi
           
           echo "🔍 Querying Supabase..."
-          echo "🔍 URL: ${SUPABASE_URL}/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value"
+          echo "🔍 URL prefix: ${SUPABASE_URL%%/*}..." # Show domain only for security
+          echo "🔍 URL length: ${#SUPABASE_URL} characters"
           echo "🔍 Key length: ${#SUPABASE_KEY} characters"
           
+          # Test basic connectivity first
+          echo "🔍 Testing basic connection..."
+          TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+            --max-time 5 \
+            --connect-timeout 3 \
+            "$SUPABASE_URL/rest/v1/" 2>&1 || echo "CURL_FAILED")
+          TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+          echo "🔍 Connection test HTTP: $TEST_HTTP"
+          
           # Check app_config for last run timestamp with better error handling
-          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+          RESPONSE=$(curl -v -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
             --max-time 30 \
@@ -430,11 +440,21 @@ jobs:
           fi
           
           echo "🔍 Querying Supabase..."
-          echo "🔍 URL: ${SUPABASE_URL}/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value"
+          echo "🔍 URL prefix: ${SUPABASE_URL%%/*}..." # Show domain only for security
+          echo "🔍 URL length: ${#SUPABASE_URL} characters"
           echo "🔍 Key length: ${#SUPABASE_KEY} characters"
           
+          # Test basic connectivity first
+          echo "🔍 Testing basic connection..."
+          TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+            --max-time 5 \
+            --connect-timeout 3 \
+            "$SUPABASE_URL/rest/v1/" 2>&1 || echo "CURL_FAILED")
+          TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+          echo "🔍 Connection test HTTP: $TEST_HTTP"
+          
           # Check app_config for last run timestamp with better error handling
-          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+          RESPONSE=$(curl -v -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
             --max-time 30 \
