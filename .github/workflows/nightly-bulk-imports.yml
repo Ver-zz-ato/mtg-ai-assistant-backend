@@ -234,21 +234,47 @@ jobs:
           SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
           SUPABASE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
           
-          # Get the timestamp before job started (approximately)
-          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S")
+          # Validate secrets are set
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "❌ Missing Supabase secrets (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)"
+            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Get the timestamp before job started (approximately) - use minutes subtraction for UTC
+          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
+          
+          if [ -z "$BEFORE_JOB" ]; then
+            # Fallback: calculate manually
+            BEFORE_JOB=$(date -u +"%Y-%m-%dT%H:%M:%S")
+            echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
+          fi
+          
+          echo "🔍 Querying: $SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value"
           
           # Check app_config for last run timestamp
-          RESPONSE=$(curl -s \
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value")
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" || echo "")
           
-          echo "📄 Response: $RESPONSE"
+          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+          RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
           
-          LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo "📄 Response: $RESPONSE_BODY"
           
-          if [ -z "$LAST_RUN" ]; then
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Supabase query failed with HTTP $HTTP_CODE"
+            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
             echo "❌ Could not find job:last:bulk_price_import in database"
+            echo "❌ Response was: $RESPONSE_BODY"
             echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -256,11 +282,28 @@ jobs:
           echo "📅 Last run timestamp: $LAST_RUN"
           echo "📅 Job started after: $BEFORE_JOB"
           
-          # Check if timestamp is recent (within last 10 minutes)
-          LAST_RUN_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || date -d "${LAST_RUN%.*}Z" +%s)
-          BEFORE_EPOCH=$(date -d "$BEFORE_JOB" +%s)
+          # Check if timestamp is recent (within last 15 minutes to account for job duration)
+          # Parse ISO timestamp (handle with or without timezone)
+          LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
+          BEFORE_JOB_CLEANED=$(echo "$BEFORE_JOB" | sed 's/Z$//')
           
-          if [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
+          LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
+          BEFORE_EPOCH=$(date -u -d "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || echo "0")
+          
+          echo "🔢 Last run epoch: $LAST_RUN_EPOCH"
+          echo "🔢 Before epoch: $BEFORE_EPOCH"
+          
+          if [ "$LAST_RUN_EPOCH" = "0" ] || [ "$BEFORE_EPOCH" = "0" ]; then
+            echo "⚠️ Date parsing failed, using simple string comparison"
+            if [[ "$LAST_RUN" > "$BEFORE_JOB" ]] || [[ "$LAST_RUN" == "$BEFORE_JOB" ]]; then
+              echo "✅ Job 2 verified - timestamp is recent!"
+              echo "verify_job2_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Job 2 verification FAILED - timestamp is too old"
+              echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          elif [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
             echo "✅ Job 2 verified - timestamp updated successfully!"
             echo "verify_job2_status=success" >> $GITHUB_OUTPUT
           else
@@ -357,21 +400,46 @@ jobs:
           SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
           SUPABASE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
           
+          # Validate secrets are set
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "❌ Missing Supabase secrets (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)"
+            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
           # Get the timestamp before job started (approximately)
-          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S")
+          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
+          
+          if [ -z "$BEFORE_JOB" ]; then
+            BEFORE_JOB=$(date -u +"%Y-%m-%dT%H:%M:%S")
+            echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
+          fi
+          
+          echo "🔍 Querying: $SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value"
           
           # Check app_config for last run timestamp
-          RESPONSE=$(curl -s \
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot&select=value")
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" || echo "")
           
-          echo "📄 Response: $RESPONSE"
+          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+          RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
           
-          LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo "📄 Response: $RESPONSE_BODY"
           
-          if [ -z "$LAST_RUN" ]; then
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Supabase query failed with HTTP $HTTP_CODE"
+            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
             echo "❌ Could not find job:last:price_snapshot_bulk in database"
+            echo "❌ Response was: $RESPONSE_BODY"
             echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -379,11 +447,27 @@ jobs:
           echo "📅 Last run timestamp: $LAST_RUN"
           echo "📅 Job started after: $BEFORE_JOB"
           
-          # Check if timestamp is recent (within last 10 minutes)
-          LAST_RUN_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || date -d "${LAST_RUN%.*}Z" +%s)
-          BEFORE_EPOCH=$(date -d "$BEFORE_JOB" +%s)
+          # Check if timestamp is recent (within last 15 minutes to account for job duration)
+          LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
+          BEFORE_JOB_CLEANED=$(echo "$BEFORE_JOB" | sed 's/Z$//')
           
-          if [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
+          LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
+          BEFORE_EPOCH=$(date -u -d "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || echo "0")
+          
+          echo "🔢 Last run epoch: $LAST_RUN_EPOCH"
+          echo "🔢 Before epoch: $BEFORE_EPOCH"
+          
+          if [ "$LAST_RUN_EPOCH" = "0" ] || [ "$BEFORE_EPOCH" = "0" ]; then
+            echo "⚠️ Date parsing failed, using simple string comparison"
+            if [[ "$LAST_RUN" > "$BEFORE_JOB" ]] || [[ "$LAST_RUN" == "$BEFORE_JOB" ]]; then
+              echo "✅ Job 3 verified - timestamp is recent!"
+              echo "verify_job3_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Job 3 verification FAILED - timestamp is too old"
+              echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          elif [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
             echo "✅ Job 3 verified - timestamp updated successfully!"
             echo "verify_job3_status=success" >> $GITHUB_OUTPUT
           else

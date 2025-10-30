@@ -52,11 +52,35 @@ function jsonLd() {
 }
 
 export default function Page() {
+  // 🎨 LIGHTNING BACKGROUND - START (easily revertable)
+  // To remove: Delete the fixed background div below and remove "relative" from wrapper div
+  // 🎨 LIGHTNING BACKGROUND - END
+  
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd() }} />
       <ModeOptions />
-      <div className="w-full">
+      
+      {/* 🎨 Fixed background layer for better quality control */}
+      <div 
+        className="fixed inset-0 -z-10"
+        style={{
+          backgroundImage: 'url(/manapool.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+          minHeight: '100vh',
+          // Force high-quality rendering (crisp-edges helps browsers avoid blur)
+          imageRendering: 'crisp-edges' as any,
+          WebkitBackfaceVisibility: 'hidden' as any,
+          backfaceVisibility: 'hidden' as any,
+          transform: 'translateZ(0)' as any,
+          willChange: 'transform',
+        }}
+      />
+      
+      <div className="w-full relative">
         <div className="max-w-[1600px] mx-auto px-4 pt-0">
           <TopToolsStrip />
         </div>
