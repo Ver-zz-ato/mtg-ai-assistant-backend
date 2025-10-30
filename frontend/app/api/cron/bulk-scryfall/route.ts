@@ -172,34 +172,21 @@ export async function POST(req: NextRequest) {
         throw new Error("Could not find default_cards bulk data URL");
       }
 
-      console.log("🌊 Streaming card data (processing without full download)...");
+      console.log("🌊 Downloading all card data from Scryfall...");
       
-      // Stream and process cards in smaller batches to avoid memory issues
       const streamResponse = await fetch(defaultCardsUrl);
       if (!streamResponse.ok) {
-        throw new Error(`Failed to stream cards: ${streamResponse.status} ${streamResponse.statusText}`);
+        throw new Error(`Failed to download cards: ${streamResponse.status} ${streamResponse.statusText}`);
       }
       
-      // Process the JSON stream in chunks
+      // Download all cards at once (Scryfall bulk data is optimized for this)
       const allCards: ScryfallCard[] = await streamResponse.json();
       allCardsLength = allCards.length;
       
-      // Process in larger batches (5000 cards at a time) for better coverage while staying within limits
-      const STREAM_BATCH_SIZE = 5000;
-      let processedCount = 0;
+      // Process ALL cards in one go
+      cards = allCards;
       
-      for (let i = 0; i < allCards.length; i += STREAM_BATCH_SIZE) {
-        const batch = allCards.slice(i, i + STREAM_BATCH_SIZE);
-        cards.push(...batch);
-        processedCount += batch.length;
-        
-        // Process this batch immediately to free memory
-        if (processedCount >= STREAM_BATCH_SIZE || i + STREAM_BATCH_SIZE >= allCards.length) {
-          break; // Process this batch and return (will be called again for next batch)
-        }
-      }
-      
-      console.log(`🌊 Streaming batch: processing ${cards.length} cards`);
+      console.log(`🌊 Downloaded ${cards.length} cards - processing all cards in one batch`);
     } else {
       // LEGACY: Chunked approach (fallback)
       console.log("🔄 Using legacy chunked mode");
@@ -374,19 +361,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Record completion (only on last chunk)
+    // 3. Record completion
     try {
+      // Always update last run timestamp for admin panel
+      const timestamp = new Date().toISOString();
+      console.log(`⏰ Updating last run timestamp: ${timestamp}`);
+      
+      const { error: timestampError } = await admin.from('app_config').upsert(
+        { key: 'job:last:bulk_scryfall', value: timestamp }, 
+        { onConflict: 'key' }
+      );
+      
+      if (timestampError) {
+        console.error('❌ Failed to update timestamp:', timestampError.message);
+      } else {
+        console.log('✅ Timestamp updated successfully');
+      }
+      
+      // Update completion status if this is the final chunk
       if (isLastChunk) {
-        await admin.from('app_config').upsert(
-          { key: 'job:last:bulk_scryfall', value: new Date().toISOString() }, 
-          { onConflict: 'key' }
-        );
         await admin.from('app_config').upsert(
           { key: 'bulk_import_status', value: 'completed' }, 
           { onConflict: 'key' }
         );
         console.log("✅ Bulk import session completed!");
       }
+      
+      // Audit log
       await admin.from('admin_audit').insert({ 
         actor_id: actor || 'cron', 
         action: 'bulk_scryfall_chunk', 

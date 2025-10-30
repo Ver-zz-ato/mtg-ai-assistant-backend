@@ -14,8 +14,7 @@ export default function DataPage(){
     // Fetch last-run timestamps from app_config keys (only the 3 essential jobs)
     async function load() {
       try {
-        const q = ['/api/admin/config?key=job:last:bulk_scryfall','key=job:last:bulk_price_import','key=job:last:price_snapshot_bulk'].join('&');
-        const r = await fetch(`/api/admin/config?${q}`, { cache: 'no-store' });
+        const r = await fetch('/api/admin/config?key=job:last:bulk_scryfall&key=job:last:bulk_price_import&key=job:last:price_snapshot_bulk', { cache: 'no-store' });
         const j = await r.json();
         if (j?.ok !== false) setLastRun(j?.config || {});
       } catch {}
