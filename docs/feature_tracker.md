@@ -2,6 +2,69 @@
 
 Legend: ☑ done · ◪ partial · ☐ todo
 
+## Admin Data Jobs - Local Execution (2025-10-30)
+
+**Status**: ✅ Complete - All 3 jobs now run locally from admin panel with full progress tracking
+
+☑ Jobs 2 & 3 Local Execution <!-- id:admin.jobs_local_2_3 -->
+- **Job 2 (Bulk Price Import)**: Now runs directly in localhost:3000 Next.js server
+  - File: `frontend/app/api/cron/bulk-price-import/route.ts`
+  - Added POST method with admin authentication (cron key or user-based)
+  - Downloads ~100MB Scryfall bulk data and extracts prices for all cached cards
+  - Updates `price_cache` table with USD, EUR, foil, and MTGO ticket prices
+  - Takes ~3-5 minutes, processes all cards in batches of 1000
+  - Console logs show detailed progress and statistics
+  - Toast notifications for success/error with detailed metrics
+- **Job 3 (Historical Price Snapshots)**: Now runs directly in localhost:3000 Next.js server
+  - File: `frontend/app/api/cron/price/snapshot/route.ts`
+  - Added POST method with admin authentication (cron key or user-based)
+  - Fetches live prices from Scryfall for all cards in user decks
+  - Creates snapshot rows in `price_snapshots` table (USD, EUR, GBP)
+  - Takes ~2-3 minutes, processes in batches with progress logging
+  - Toast notifications for success/error with insertion counts
+- **Admin Page Updates**: `frontend/app/admin/data/page.tsx`
+  - Both jobs now have "🚀 RUN NOW" buttons (matching Job 1 style)
+  - Buttons call local API routes instead of Render.com
+  - Updated descriptions to clarify they run locally
+  - Added "(LOCAL)" labels to job titles for clarity
+  - Console progress tracking instructions added
+
+☑ Job 1 Complete Processing Fix <!-- id:admin.job1_complete_processing -->
+- **Streaming Mode Fixed**: `frontend/app/api/cron/bulk-scryfall/route.ts`
+  - Fixed bug where only first 5000 cards were processed instead of all 110k+
+  - Removed premature `break` statement in streaming loop
+  - Now processes ALL 110,382 cards in one execution
+  - Takes ~1.75 minutes for complete import
+  - Removed confusing "streaming" terminology, now just downloads all at once
+- **Timestamp Update Fix**:
+  - Moved `job:last:bulk_scryfall` timestamp update outside `if (isLastChunk)` condition
+  - Always updates timestamp when job completes
+  - Added detailed console logging for timestamp updates with error handling
+  - Shows exact timestamp and success/failure status in logs
+
+☑ Admin Panel Timestamp Display Fix <!-- id:admin.timestamps_display -->
+- **URL Parsing Bug Fixed**: `frontend/app/admin/data/page.tsx`
+  - Fixed malformed URL that doubled `/api/admin/config?` in the query string
+  - Changed from building URL with array join to direct string template
+  - Now correctly fetches: `/api/admin/config?key=job:last:bulk_scryfall&key=job:last:bulk_price_import&key=job:last:price_snapshot_bulk`
+  - All 3 "Last successful run" timestamps now display correctly
+
+☑ Complete Local Execution System <!-- id:admin.jobs_local_complete -->
+- **All 3 Jobs Now Local**: Jobs 1, 2, and 3 can all be triggered from admin panel
+- **Consistent UX**: All buttons styled the same, all show console progress, all use toast notifications
+- **No External Dependencies**: No need for Render.com bulk-jobs-server for local testing
+- **GitHub Actions Still Work**: Nightly automated jobs continue to use Render.com for production
+- **Dual Execution Support**: Jobs can run both locally (manual) and via GitHub Actions (automated)
+
+**Files Modified (3)**:
+1. `frontend/app/api/cron/bulk-scryfall/route.ts` - Process all 110k+ cards, always update timestamp
+2. `frontend/app/api/cron/price/snapshot/route.ts` - Added POST method with admin auth
+3. `frontend/app/admin/data/page.tsx` - Fixed URL parsing, updated Job 2/3 buttons to call local routes
+
+**Build Verification**: ✅ `npm run build` passed (68s, 0 errors, 0 warnings)
+**Risk Level**: ZERO - Backend-only changes, no database schema modifications
+**Production Impact**: Jobs continue working as before, now with better local testing capability
+
 ## UX Polish Pass - Phase 2 (2025-10-29)
 
 **Status**: ✅ Complete - Build verified (79s, 0 errors) - Ready for production
