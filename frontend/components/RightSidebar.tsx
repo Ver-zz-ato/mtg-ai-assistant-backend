@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import BadgeProgressWidget from "./BadgeProgressWidget";
+import DeckAnalyzerExpandable from "./DeckAnalyzerExpandable";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -97,11 +98,9 @@ export default function RightSidebar() {
 
   return (
     <div className={`flex flex-col w-full gap-4 relative z-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`}>
-      {/* Deck Snapshot: clickable link to /my-decks - full width like shoutbox */}
-      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4`}>
-        <a href="/my-decks" className="block rounded-xl overflow-hidden transition hover:scale-[1.02]">
-          <img src="/Deck_Snapshot_Horizontal_cropped.png" alt="Deck Snapshot - View My Decks" className="w-full h-auto" />
-        </a>
+      {/* Deck Snapshot: Expandable analyzer panel */}
+      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20`}>
+        <DeckAnalyzerExpandable />
       </div>
 
       {/* Custom Card Creator promo panel with proper borders */}
