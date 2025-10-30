@@ -241,14 +241,14 @@ jobs:
           RESPONSE=$(curl -s \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price&select=value")
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value")
           
           echo "📄 Response: $RESPONSE"
           
           LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
           
           if [ -z "$LAST_RUN" ]; then
-            echo "❌ Could not find job:last:bulk_price in database"
+            echo "❌ Could not find job:last:bulk_price_import in database"
             echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -371,7 +371,7 @@ jobs:
           LAST_RUN=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
           
           if [ -z "$LAST_RUN" ]; then
-            echo "❌ Could not find job:last:price_snapshot in database"
+            echo "❌ Could not find job:last:price_snapshot_bulk in database"
             echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -397,6 +397,7 @@ jobs:
       - name: Send Email on Failure
         if: failure()
         uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
         with:
           server_address: smtp.gmail.com
           server_port: 465
