@@ -92,8 +92,9 @@ export async function deduplicatedFetch(
         );
       }
       
-      // Return the cached promise
-      return cached.promise;
+      // Clone the response so each caller gets their own readable body stream
+      // Response bodies can only be read once, so we must clone for multiple consumers
+      return cached.promise.then(res => res.clone());
     } else {
       // Expired, remove it
       requestCache.delete(cacheKey);
