@@ -250,22 +250,36 @@ jobs:
             echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
           fi
           
-          echo "🔍 Querying: $SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value"
+          echo "🔍 Querying Supabase..."
+          echo "🔍 URL: ${SUPABASE_URL}/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value"
+          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
           
-          # Check app_config for last run timestamp
+          # Check app_config for last run timestamp with better error handling
           RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" || echo "")
+            --max-time 30 \
+            --connect-timeout 10 \
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" 2>&1)
           
+          CURL_EXIT=$?
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
           RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
           
+          echo "📡 Curl exit code: $CURL_EXIT"
           echo "📡 HTTP Status: $HTTP_CODE"
-          echo "📄 Response: $RESPONSE_BODY"
+          echo "📄 Response length: ${#RESPONSE_BODY} characters"
+          
+          if [ "$CURL_EXIT" != "0" ]; then
+            echo "❌ Curl command failed with exit code $CURL_EXIT"
+            echo "❌ Response: $RESPONSE"
+            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
           
           if [ "$HTTP_CODE" != "200" ]; then
             echo "❌ Supabase query failed with HTTP $HTTP_CODE"
+            echo "❌ Full response: $RESPONSE"
             echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -415,22 +429,36 @@ jobs:
             echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
           fi
           
-          echo "🔍 Querying: $SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value"
+          echo "🔍 Querying Supabase..."
+          echo "🔍 URL: ${SUPABASE_URL}/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value"
+          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
           
-          # Check app_config for last run timestamp
+          # Check app_config for last run timestamp with better error handling
           RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" || echo "")
+            --max-time 30 \
+            --connect-timeout 10 \
+            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" 2>&1)
           
+          CURL_EXIT=$?
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
           RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
           
+          echo "📡 Curl exit code: $CURL_EXIT"
           echo "📡 HTTP Status: $HTTP_CODE"
-          echo "📄 Response: $RESPONSE_BODY"
+          echo "📄 Response length: ${#RESPONSE_BODY} characters"
+          
+          if [ "$CURL_EXIT" != "0" ]; then
+            echo "❌ Curl command failed with exit code $CURL_EXIT"
+            echo "❌ Response: $RESPONSE"
+            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
           
           if [ "$HTTP_CODE" != "200" ]; then
             echo "❌ Supabase query failed with HTTP $HTTP_CODE"
+            echo "❌ Full response: $RESPONSE"
             echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
