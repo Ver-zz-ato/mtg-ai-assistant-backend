@@ -8,6 +8,7 @@ import React, { useState, useRef } from "react";
  */
 export default function DeckAnalyzerExpandable() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState<"Commander" | "Modern" | "Pioneer">("Commander");
   const [busy, setBusy] = useState(false);
@@ -146,17 +147,37 @@ export default function DeckAnalyzerExpandable() {
     <div className="w-full">
       {/* Clickable button/header - always visible */}
       <div
-        className={`${isExpanded ? "rounded-t-xl border-b-0" : "rounded-xl"} bg-neutral-950 border border-neutral-800 cursor-pointer transition-all hover:border-neutral-700`}
+        className={`${isExpanded ? "rounded-t-xl border-b-0" : "rounded-xl"} bg-neutral-950 border border-neutral-800 cursor-pointer transition-all hover:border-neutral-700 relative group`}
         onClick={() => setIsExpanded(!isExpanded)}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
-        <div className="p-4">
+        <div className="p-4 relative">
           <img
             src="/Deck_Snapshot_Horizontal_cropped.png"
             alt="Deck Snapshot / Judger - Click to analyze a decklist"
             className="w-full h-auto"
           />
+          
+          {/* Hover overlay with "Click to try" */}
+          {isHovering && !isExpanded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl transition-opacity">
+              <div className="text-white font-semibold text-lg px-4 py-2 bg-violet-600/90 rounded-lg shadow-lg">
+                Click to try →
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* "Click to try" hint text below panel when collapsed */}
+      {!isExpanded && (
+        <div className="text-center mt-2">
+          <span className="text-xs text-neutral-500 hover:text-neutral-400 transition-colors">
+            💡 Click above to analyze any decklist
+          </span>
+        </div>
+      )}
 
       {/* Expandable panel */}
       {isExpanded && (

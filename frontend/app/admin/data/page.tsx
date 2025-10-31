@@ -287,8 +287,10 @@ export default function DataPage(){
                   try {
                     toast('📈 Starting price snapshot... (check console for progress)', 'info');
                     
-                    const response = await fetch('/api/cron/price/snapshot', {
+                    // Use bulk snapshot endpoint that processes ALL cards (not just deck cards)
+                    const response = await fetch('/api/bulk-jobs/price-snapshot', {
                       method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
                     });
                     
                     const data = await response.json();
@@ -319,7 +321,7 @@ export default function DataPage(){
               <div className="text-blue-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
               
               <div className="font-semibold text-blue-300 mt-2">What it does:</div>
-              <div>🔄 Fetches live prices from Scryfall for all cards in your decks, then creates snapshot rows in price_snapshots table with today's date (USD, EUR, and GBP).</div>
+              <div>🔄 Creates price snapshots for ALL 110,000+ cards from price_cache, then creates snapshot rows in price_snapshots table with today's date (USD, EUR, and GBP). This enables price history tracking for ANY card users search on the price tracker page.</div>
               
               <div className="font-semibold text-blue-300 mt-2">Database table:</div>
               <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data (snapshot_date, name_norm, currency, unit)</div>

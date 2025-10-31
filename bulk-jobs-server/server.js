@@ -274,9 +274,21 @@ async function runPriceSnapshot() {
     }
     
     console.log(`📊 Creating snapshots for ${cards.length} cards...`);
+    console.log(`💡 This will create price history for ALL ${cards.length} cards in price_cache`);
+    
+    // Fetch FX for GBP conversion
+    let usd_gbp = 0.78;
+    try {
+      const fxRes = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache: 'no-store' });
+      const fxData = await fxRes.json();
+      usd_gbp = Number(fxData?.rates?.GBP || 0.78);
+      console.log(`💱 USD to GBP rate: ${usd_gbp}`);
+    } catch (e) {
+      console.warn('⚠️ Could not fetch GBP exchange rate, using default 0.78');
+    }
     
     // Create snapshot rows in price_snapshots format:
-    // Each card gets 2 rows (USD, EUR) - no GBP in bulk schema
+    // Each card gets 3 rows (USD, EUR, GBP) for complete price history
     const snapshots = [];
     for (const card of cards) {
       if (card.usd_price) {
@@ -285,6 +297,14 @@ async function runPriceSnapshot() {
           name_norm: card.card_name,
           currency: 'USD',
           unit: parseFloat(card.usd_price),
+          source: 'PriceCache'
+        });
+        // Also create GBP snapshot from USD (converted)
+        snapshots.push({
+          snapshot_date: today,
+          name_norm: card.card_name,
+          currency: 'GBP',
+          unit: parseFloat((parseFloat(card.usd_price) * usd_gbp).toFixed(2)),
           source: 'PriceCache'
         });
       }
@@ -299,7 +319,7 @@ async function runPriceSnapshot() {
       }
     }
     
-    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR)`);
+    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR+GBP for all ${cards.length} cards)`);
     
     // Insert in batches
     const batchSize = 1000;
