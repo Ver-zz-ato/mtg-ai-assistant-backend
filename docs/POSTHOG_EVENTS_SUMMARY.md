@@ -101,3 +101,12 @@ Extracted from actual codebase grep search.
 - Some events tracked client-side with `capture()`, others server-side with `captureServer()`
 - Some events are planned but may not be implemented yet (workflow.*, performance.*, error.*)
 
+## ⚠️ Important: Cookie Consent Required
+
+**All custom PostHog events** (like `user_first_visit`, `signup_completed`, etc.) only fire **AFTER** users accept the cookie banner. This means:
+- Users who don't accept cookies won't trigger these events
+- Default PostHog events ($pageview, $web_vitals, app_open) still fire without consent
+- Your first-visit and signup alerts will only trigger for users who accepted cookies
+
+This is intentional for GDPR compliance, but may reduce your tracking coverage.
+
