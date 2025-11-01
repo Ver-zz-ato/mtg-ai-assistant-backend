@@ -133,7 +133,7 @@ export default function ChangelogPage() {
                     ? normalized.split(/\n\n+/).filter(s => s.trim())
                     : normalized.split(/\n/).filter(s => s.trim());
                   
-                  const elements: JSX.Element[] = [];
+                  const elements: React.ReactElement[] = [];
                   
                   sections.forEach((section, sIndex) => {
                     const trimmed = section.trim();
