@@ -241,6 +241,15 @@ jobs:
             exit 1
           fi
           
+          # Sanitize SUPABASE_URL to remove hidden control characters and trailing slashes
+          SUPABASE_URL_CLEAN=$(printf %s "$SUPABASE_URL" | tr -d '\r\n ' | sed -E 's#/*$##')
+          
+          echo "🔍 Querying Supabase..."
+          echo "🔍 Original URL length: ${#SUPABASE_URL} characters"
+          echo "🔍 Cleaned URL length: ${#SUPABASE_URL_CLEAN} characters"
+          echo "🔍 URL prefix: ${SUPABASE_URL_CLEAN%%/*}..." # Show domain only for security
+          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
+          
           # Get the timestamp before job started (approximately) - use minutes subtraction for UTC
           BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
           
@@ -250,17 +259,12 @@ jobs:
             echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
           fi
           
-          echo "🔍 Querying Supabase..."
-          echo "🔍 URL prefix: ${SUPABASE_URL%%/*}..." # Show domain only for security
-          echo "🔍 URL length: ${#SUPABASE_URL} characters"
-          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
-          
           # Test basic connectivity first
           echo "🔍 Testing basic connection..."
           TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             --max-time 5 \
             --connect-timeout 3 \
-            "$SUPABASE_URL/rest/v1/" 2>&1 || echo "CURL_FAILED")
+            "$SUPABASE_URL_CLEAN/rest/v1/" 2>&1 || echo "CURL_FAILED")
           TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
           echo "🔍 Connection test HTTP: $TEST_HTTP"
           
@@ -270,7 +274,7 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_KEY" \
             --max-time 30 \
             --connect-timeout 10 \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" 2>&1)
+            "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" 2>&1)
           
           CURL_EXIT=$?
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
@@ -431,6 +435,15 @@ jobs:
             exit 1
           fi
           
+          # Sanitize SUPABASE_URL to remove hidden control characters and trailing slashes
+          SUPABASE_URL_CLEAN=$(printf %s "$SUPABASE_URL" | tr -d '\r\n ' | sed -E 's#/*$##')
+          
+          echo "🔍 Querying Supabase..."
+          echo "🔍 Original URL length: ${#SUPABASE_URL} characters"
+          echo "🔍 Cleaned URL length: ${#SUPABASE_URL_CLEAN} characters"
+          echo "🔍 URL prefix: ${SUPABASE_URL_CLEAN%%/*}..." # Show domain only for security
+          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
+          
           # Get the timestamp before job started (approximately)
           BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
           
@@ -439,17 +452,12 @@ jobs:
             echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
           fi
           
-          echo "🔍 Querying Supabase..."
-          echo "🔍 URL prefix: ${SUPABASE_URL%%/*}..." # Show domain only for security
-          echo "🔍 URL length: ${#SUPABASE_URL} characters"
-          echo "🔍 Key length: ${#SUPABASE_KEY} characters"
-          
           # Test basic connectivity first
           echo "🔍 Testing basic connection..."
           TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             --max-time 5 \
             --connect-timeout 3 \
-            "$SUPABASE_URL/rest/v1/" 2>&1 || echo "CURL_FAILED")
+            "$SUPABASE_URL_CLEAN/rest/v1/" 2>&1 || echo "CURL_FAILED")
           TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
           echo "🔍 Connection test HTTP: $TEST_HTTP"
           
@@ -459,7 +467,7 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_KEY" \
             --max-time 30 \
             --connect-timeout 10 \
-            "$SUPABASE_URL/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" 2>&1)
+            "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" 2>&1)
           
           CURL_EXIT=$?
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
