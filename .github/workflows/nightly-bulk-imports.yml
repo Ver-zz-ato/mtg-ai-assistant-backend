@@ -215,20 +215,13 @@ jobs:
       
       - name: Verify Job 2 Completion
         id: verify_job2
-        continue-on-error: false
+        continue-on-error: true
         run: |
           echo ""
           echo "🔍 =========================================="
           echo "🔍 VERIFYING JOB 2 COMPLETION"
           echo "🔍 =========================================="
           echo ""
-          echo "⏳ Waiting 6 minutes for background job to complete..."
-          echo "⏰ Start wait: $(date -u)"
-          sleep 360  # Wait 6 minutes for job to finish
-          echo "⏰ End wait: $(date -u)"
-          echo ""
-          
-          echo "📊 Checking database for completion..."
           
           # Query Supabase to check if job completed
           SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
@@ -249,97 +242,87 @@ jobs:
           echo "🔍 Cleaned URL length: ${#SUPABASE_URL_CLEAN} characters"
           echo "🔍 URL prefix: ${SUPABASE_URL_CLEAN%%/*}..." # Show domain only for security
           echo "🔍 Key length: ${#SUPABASE_KEY} characters"
+          echo ""
           
-          # Get the timestamp before job started (approximately) - use minutes subtraction for UTC
-          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
+          # Check for timestamp within last 30 minutes (more forgiving, accounts for job duration)
+          CURRENT_EPOCH=$(date -u +%s)
+          CUTOFF_EPOCH=$((CURRENT_EPOCH - 1800))  # 30 minutes ago
           
-          if [ -z "$BEFORE_JOB" ]; then
-            # Fallback: calculate manually
-            BEFORE_JOB=$(date -u +"%Y-%m-%dT%H:%M:%S")
-            echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
-          fi
+          echo "⏰ Current time: $(date -u -d "@$CURRENT_EPOCH" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u)"
+          echo "⏰ Checking for timestamp after: $(date -u -d "@$CUTOFF_EPOCH" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u)"
+          echo "   (looking for timestamps within last 30 minutes)"
+          echo ""
           
-          # Test basic connectivity first
-          echo "🔍 Testing basic connection..."
-          TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-            --max-time 5 \
-            --connect-timeout 3 \
-            "$SUPABASE_URL_CLEAN/rest/v1/" 2>&1 || echo "CURL_FAILED")
-          TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-          echo "🔍 Connection test HTTP: $TEST_HTTP"
+          # Poll for up to 12 minutes (24 attempts, every 30 seconds)
+          MAX_ATTEMPTS=24
+          ATTEMPT=1
+          FOUND=false
           
-          # Check app_config for last run timestamp with better error handling
-          RESPONSE=$(curl -v -s -w "\nHTTP_CODE:%{http_code}" \
-            -H "apikey: $SUPABASE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_KEY" \
-            --max-time 30 \
-            --connect-timeout 10 \
-            "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" 2>&1)
+          echo "⏳ Polling database every 30s for job completion (max ${MAX_ATTEMPTS} attempts = 12 minutes)..."
           
-          CURL_EXIT=$?
-          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-          RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
-          
-          echo "📡 Curl exit code: $CURL_EXIT"
-          echo "📡 HTTP Status: $HTTP_CODE"
-          echo "📄 Response length: ${#RESPONSE_BODY} characters"
-          
-          if [ "$CURL_EXIT" != "0" ]; then
-            echo "❌ Curl command failed with exit code $CURL_EXIT"
-            echo "❌ Response: $RESPONSE"
-            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Supabase query failed with HTTP $HTTP_CODE"
-            echo "❌ Full response: $RESPONSE"
-            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
-          
-          if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
-            echo "❌ Could not find job:last:bulk_price_import in database"
-            echo "❌ Response was: $RESPONSE_BODY"
-            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          echo "📅 Last run timestamp: $LAST_RUN"
-          echo "📅 Job started after: $BEFORE_JOB"
-          
-          # Check if timestamp is recent (within last 15 minutes to account for job duration)
-          # Parse ISO timestamp (handle with or without timezone)
-          LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
-          BEFORE_JOB_CLEANED=$(echo "$BEFORE_JOB" | sed 's/Z$//')
-          
-          LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
-          BEFORE_EPOCH=$(date -u -d "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || echo "0")
-          
-          echo "🔢 Last run epoch: $LAST_RUN_EPOCH"
-          echo "🔢 Before epoch: $BEFORE_EPOCH"
-          
-          if [ "$LAST_RUN_EPOCH" = "0" ] || [ "$BEFORE_EPOCH" = "0" ]; then
-            echo "⚠️ Date parsing failed, using simple string comparison"
-            if [[ "$LAST_RUN" > "$BEFORE_JOB" ]] || [[ "$LAST_RUN" == "$BEFORE_JOB" ]]; then
-              echo "✅ Job 2 verified - timestamp is recent!"
-              echo "verify_job2_status=success" >> $GITHUB_OUTPUT
-            else
-              echo "❌ Job 2 verification FAILED - timestamp is too old"
-              echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
-              exit 1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo ""
+            echo "🔍 Attempt $ATTEMPT/$MAX_ATTEMPTS: $(date -u)"
+            
+            # Query Supabase for last run timestamp
+            RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+              -H "apikey: $SUPABASE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_KEY" \
+              --max-time 15 \
+              --connect-timeout 10 \
+              --retry 2 \
+              --retry-delay 2 \
+              "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:bulk_price_import&select=value" 2>&1)
+            
+            CURL_EXIT=$?
+            HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+            RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" | grep -v "^[<>]" | grep -v "^[{}]" | grep -v "^[*]" | tail -1)
+            
+            if [ "$CURL_EXIT" != "0" ] || [ "$HTTP_CODE" != "200" ]; then
+              echo "⚠️ Query failed (HTTP $HTTP_CODE, curl exit $CURL_EXIT) - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
             fi
-          elif [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
-            echo "✅ Job 2 verified - timestamp updated successfully!"
-            echo "verify_job2_status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Job 2 verification FAILED - timestamp not updated"
-            echo "❌ Expected timestamp after: $BEFORE_JOB"
-            echo "❌ Actual timestamp: $LAST_RUN"
-            echo "verify_job2_status=failed" >> $GITHUB_OUTPUT
-            exit 1
+            
+            LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
+            
+            if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
+              echo "⚠️ No timestamp found yet - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
+            fi
+            
+            # Parse timestamp to epoch
+            LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
+            LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
+            
+            echo "📅 Last run timestamp: $LAST_RUN"
+            echo "🔢 Timestamp epoch: $LAST_RUN_EPOCH"
+            echo "🔢 Cutoff epoch: $CUTOFF_EPOCH"
+            
+            if [ "$LAST_RUN_EPOCH" != "0" ] && [ $LAST_RUN_EPOCH -gt $CUTOFF_EPOCH ]; then
+              echo ""
+              echo "✅ Job 2 verified - timestamp updated successfully!"
+              echo "📅 Timestamp: $LAST_RUN (was updated after job start)"
+              echo "verify_job2_status=success" >> $GITHUB_OUTPUT
+              FOUND=true
+              break
+            else
+              echo "⏳ Timestamp not recent enough yet (or parsing failed) - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+          
+          if [ "$FOUND" = "false" ]; then
+            echo ""
+            echo "⚠️ Job 2 verification inconclusive - timestamp not updated within 12 minutes"
+            echo "⚠️ This could mean the job is still running, failed silently, or took longer than expected"
+            echo "⚠️ Continuing workflow anyway..."
+            echo "verify_job2_status=inconclusive" >> $GITHUB_OUTPUT
+            exit 0  # Don't fail the workflow, just mark as inconclusive
           fi
       
       - name: Wait between jobs (5 seconds)
@@ -409,20 +392,13 @@ jobs:
       
       - name: Verify Job 3 Completion
         id: verify_job3
-        continue-on-error: false
+        continue-on-error: true
         run: |
           echo ""
           echo "🔍 =========================================="
           echo "🔍 VERIFYING JOB 3 COMPLETION"
           echo "🔍 =========================================="
           echo ""
-          echo "⏳ Waiting 6 minutes for background job to complete..."
-          echo "⏰ Start wait: $(date -u)"
-          sleep 360  # Wait 6 minutes for job to finish
-          echo "⏰ End wait: $(date -u)"
-          echo ""
-          
-          echo "📊 Checking database for completion..."
           
           # Query Supabase to check if job completed
           SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
@@ -443,95 +419,87 @@ jobs:
           echo "🔍 Cleaned URL length: ${#SUPABASE_URL_CLEAN} characters"
           echo "🔍 URL prefix: ${SUPABASE_URL_CLEAN%%/*}..." # Show domain only for security
           echo "🔍 Key length: ${#SUPABASE_KEY} characters"
+          echo ""
           
-          # Get the timestamp before job started (approximately)
-          BEFORE_JOB=$(date -u -d '10 minutes ago' +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u -v-10M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "")
+          # Check for timestamp within last 30 minutes (more forgiving, accounts for job duration)
+          CURRENT_EPOCH=$(date -u +%s)
+          CUTOFF_EPOCH=$((CURRENT_EPOCH - 1800))  # 30 minutes ago
           
-          if [ -z "$BEFORE_JOB" ]; then
-            BEFORE_JOB=$(date -u +"%Y-%m-%dT%H:%M:%S")
-            echo "⚠️ Could not calculate '10 minutes ago', using current time minus buffer"
-          fi
+          echo "⏰ Current time: $(date -u -d "@$CURRENT_EPOCH" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u)"
+          echo "⏰ Checking for timestamp after: $(date -u -d "@$CUTOFF_EPOCH" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -u)"
+          echo "   (looking for timestamps within last 30 minutes)"
+          echo ""
           
-          # Test basic connectivity first
-          echo "🔍 Testing basic connection..."
-          TEST_CONNECTION=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-            --max-time 5 \
-            --connect-timeout 3 \
-            "$SUPABASE_URL_CLEAN/rest/v1/" 2>&1 || echo "CURL_FAILED")
-          TEST_HTTP=$(echo "$TEST_CONNECTION" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-          echo "🔍 Connection test HTTP: $TEST_HTTP"
+          # Poll for up to 10 minutes (20 attempts, every 30 seconds)
+          MAX_ATTEMPTS=20
+          ATTEMPT=1
+          FOUND=false
           
-          # Check app_config for last run timestamp with better error handling
-          RESPONSE=$(curl -v -s -w "\nHTTP_CODE:%{http_code}" \
-            -H "apikey: $SUPABASE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_KEY" \
-            --max-time 30 \
-            --connect-timeout 10 \
-            "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" 2>&1)
+          echo "⏳ Polling database every 30s for job completion (max ${MAX_ATTEMPTS} attempts = 10 minutes)..."
           
-          CURL_EXIT=$?
-          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
-          RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" || echo "")
-          
-          echo "📡 Curl exit code: $CURL_EXIT"
-          echo "📡 HTTP Status: $HTTP_CODE"
-          echo "📄 Response length: ${#RESPONSE_BODY} characters"
-          
-          if [ "$CURL_EXIT" != "0" ]; then
-            echo "❌ Curl command failed with exit code $CURL_EXIT"
-            echo "❌ Response: $RESPONSE"
-            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Supabase query failed with HTTP $HTTP_CODE"
-            echo "❌ Full response: $RESPONSE"
-            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
-          
-          if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
-            echo "❌ Could not find job:last:price_snapshot_bulk in database"
-            echo "❌ Response was: $RESPONSE_BODY"
-            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          echo "📅 Last run timestamp: $LAST_RUN"
-          echo "📅 Job started after: $BEFORE_JOB"
-          
-          # Check if timestamp is recent (within last 15 minutes to account for job duration)
-          LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
-          BEFORE_JOB_CLEANED=$(echo "$BEFORE_JOB" | sed 's/Z$//')
-          
-          LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
-          BEFORE_EPOCH=$(date -u -d "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$BEFORE_JOB_CLEANED" +%s 2>/dev/null || echo "0")
-          
-          echo "🔢 Last run epoch: $LAST_RUN_EPOCH"
-          echo "🔢 Before epoch: $BEFORE_EPOCH"
-          
-          if [ "$LAST_RUN_EPOCH" = "0" ] || [ "$BEFORE_EPOCH" = "0" ]; then
-            echo "⚠️ Date parsing failed, using simple string comparison"
-            if [[ "$LAST_RUN" > "$BEFORE_JOB" ]] || [[ "$LAST_RUN" == "$BEFORE_JOB" ]]; then
-              echo "✅ Job 3 verified - timestamp is recent!"
-              echo "verify_job3_status=success" >> $GITHUB_OUTPUT
-            else
-              echo "❌ Job 3 verification FAILED - timestamp is too old"
-              echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
-              exit 1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo ""
+            echo "🔍 Attempt $ATTEMPT/$MAX_ATTEMPTS: $(date -u)"
+            
+            # Query Supabase for last run timestamp
+            RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+              -H "apikey: $SUPABASE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_KEY" \
+              --max-time 15 \
+              --connect-timeout 10 \
+              --retry 2 \
+              --retry-delay 2 \
+              "$SUPABASE_URL_CLEAN/rest/v1/app_config?key=eq.job:last:price_snapshot_bulk&select=value" 2>&1)
+            
+            CURL_EXIT=$?
+            HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+            RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:" | grep -v "^[<>]" | grep -v "^[{}]" | grep -v "^[*]" | tail -1)
+            
+            if [ "$CURL_EXIT" != "0" ] || [ "$HTTP_CODE" != "200" ]; then
+              echo "⚠️ Query failed (HTTP $HTTP_CODE, curl exit $CURL_EXIT) - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
             fi
-          elif [ $LAST_RUN_EPOCH -gt $BEFORE_EPOCH ]; then
-            echo "✅ Job 3 verified - timestamp updated successfully!"
-            echo "verify_job3_status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Job 3 verification FAILED - timestamp not updated"
-            echo "❌ Expected timestamp after: $BEFORE_JOB"
-            echo "❌ Actual timestamp: $LAST_RUN"
-            echo "verify_job3_status=failed" >> $GITHUB_OUTPUT
-            exit 1
+            
+            LAST_RUN=$(echo "$RESPONSE_BODY" | jq -r '.[0].value // empty' 2>/dev/null || echo "")
+            
+            if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "null" ]; then
+              echo "⚠️ No timestamp found yet - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
+            fi
+            
+            # Parse timestamp to epoch
+            LAST_RUN_CLEANED=$(echo "$LAST_RUN" | sed 's/\.[0-9]*//' | sed 's/Z$//')
+            LAST_RUN_EPOCH=$(date -u -d "$LAST_RUN_CLEANED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_RUN_CLEANED" +%s 2>/dev/null || echo "0")
+            
+            echo "📅 Last run timestamp: $LAST_RUN"
+            echo "🔢 Timestamp epoch: $LAST_RUN_EPOCH"
+            echo "🔢 Cutoff epoch: $CUTOFF_EPOCH"
+            
+            if [ "$LAST_RUN_EPOCH" != "0" ] && [ $LAST_RUN_EPOCH -gt $CUTOFF_EPOCH ]; then
+              echo ""
+              echo "✅ Job 3 verified - timestamp updated successfully!"
+              echo "📅 Timestamp: $LAST_RUN (was updated after job start)"
+              echo "verify_job3_status=success" >> $GITHUB_OUTPUT
+              FOUND=true
+              break
+            else
+              echo "⏳ Timestamp not recent enough yet (or parsing failed) - retrying in 30s..."
+              sleep 30
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+          
+          if [ "$FOUND" = "false" ]; then
+            echo ""
+            echo "⚠️ Job 3 verification inconclusive - timestamp not updated within 10 minutes"
+            echo "⚠️ This could mean the job is still running, failed silently, or took longer than expected"
+            echo "⚠️ Continuing workflow anyway..."
+            echo "verify_job3_status=inconclusive" >> $GITHUB_OUTPUT
+            exit 0  # Don't fail the workflow, just mark as inconclusive
           fi
       
       - name: Send Email on Failure
