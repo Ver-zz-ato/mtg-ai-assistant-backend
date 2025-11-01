@@ -228,7 +228,7 @@ export default function ProbabilityHelpersPage() {
         />
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 justify-center md:justify-start">
             <motion.span
               className="text-4xl"
               animate={{ rotate: [0, 5, -5, 0] }}
@@ -240,10 +240,10 @@ export default function ProbabilityHelpersPage() {
               Probability Calculator
             </h1>
           </div>
-          <p className="text-base text-neutral-300 max-w-3xl leading-relaxed">
+          <p className="text-base text-neutral-300 max-w-3xl leading-relaxed text-center md:text-left">
             What are the odds you'll draw your combo by turn five? Let's do the math — and the magic. ✨
           </p>
-          <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+          <div className="flex items-center gap-4 mt-3 text-sm flex-wrap justify-center md:justify-start">
             {[
               { icon: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z", text: "Hypergeometric Math", color: "text-blue-400" },
               { icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", text: "Import from Decks", color: "text-purple-400" },
