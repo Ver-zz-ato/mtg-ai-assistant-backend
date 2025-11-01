@@ -50,7 +50,7 @@ Thanks for being part of this journey with us. Let''s build some amazing decks t
 ON CONFLICT (key) 
 DO UPDATE SET 
   value = jsonb_set(
-    value,
+    app_config.value,
     '{entries}',
     jsonb_build_array(
       jsonb_build_object(
@@ -85,7 +85,7 @@ Thanks for being part of this journey with us. Let''s build some amazing decks t
         ),
         'type', 'feature'
       )
-    ) || COALESCE(value->'entries', '[]'::jsonb)
+    ) || COALESCE(app_config.value->'entries', '[]'::jsonb)
   )
   || jsonb_build_object('last_updated', CURRENT_TIMESTAMP::text);
 

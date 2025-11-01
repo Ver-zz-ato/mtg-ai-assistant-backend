@@ -103,8 +103,8 @@ export default function ChangelogPage() {
       <div className="space-y-8">
         {entries.map((entry, index) => (
           <article key={index} className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-            <header className="mb-4">
-              <div className="flex items-center gap-3 mb-2">
+            <header className="mb-6">
+              <div className="flex items-center gap-3 mb-1">
                 <span className="font-mono text-lg font-semibold text-white">
                   {entry.version}
                 </span>
@@ -115,7 +115,7 @@ export default function ChangelogPage() {
                   </span>
                 )}
               </div>
-              <h2 className="text-xl font-semibold text-white mb-1">
+              <h2 className="text-xl font-semibold text-white mb-0.5">
                 {entry.title}
               </h2>
               <time className="text-sm text-neutral-400">
@@ -124,9 +124,69 @@ export default function ChangelogPage() {
             </header>
 
             <div className="prose prose-neutral max-w-none">
-              <p className="text-neutral-300 leading-relaxed mb-4">
-                {entry.description}
-              </p>
+              <div className="text-neutral-300 leading-relaxed space-y-4">
+                {(() => {
+                  // Normalize newlines and split by double newlines (or single if no doubles found)
+                  const normalized = entry.description.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                  const hasDoubleNewlines = normalized.includes('\n\n');
+                  const sections = hasDoubleNewlines 
+                    ? normalized.split(/\n\n+/).filter(s => s.trim())
+                    : normalized.split(/\n/).filter(s => s.trim());
+                  
+                  const elements: JSX.Element[] = [];
+                  
+                  sections.forEach((section, sIndex) => {
+                    const trimmed = section.trim();
+                    if (!trimmed) return;
+                    
+                    // Check if this looks like a section header (ends with colon and has bold)
+                    const isHeader = trimmed.match(/^\*\*.*:\*\*?$/);
+                    
+                    // Check if section contains a list
+                    const lines = trimmed.split(/\n/);
+                    const listStartIndex = lines.findIndex(line => line.trim().match(/^[-*]\s+/));
+                    
+                    if (listStartIndex > 0) {
+                      // Has content before the list (header or paragraph)
+                      const beforeList = lines.slice(0, listStartIndex).join(' ').trim();
+                      const listLines = lines.slice(listStartIndex).filter(line => line.trim().match(/^[-*]\s+/));
+                      
+                      if (beforeList) {
+                        elements.push(
+                          <p key={`header-${sIndex}`} className={`mb-2 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: beforeList.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                        );
+                      }
+                      
+                      if (listLines.length > 0) {
+                        elements.push(
+                          <ul key={`list-${sIndex}`} className="list-disc list-inside space-y-1 ml-4 mb-0">
+                            {listLines.map((item, itemIndex) => (
+                              <li key={itemIndex} dangerouslySetInnerHTML={{ __html: item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                            ))}
+                          </ul>
+                        );
+                      }
+                    } else if (listStartIndex === 0) {
+                      // Starts with a list
+                      const listLines = lines.filter(line => line.trim().match(/^[-*]\s+/));
+                      elements.push(
+                        <ul key={`list-${sIndex}`} className="list-disc list-inside space-y-1 ml-4 mb-0">
+                          {listLines.map((item, itemIndex) => (
+                            <li key={itemIndex} dangerouslySetInnerHTML={{ __html: item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                          ))}
+                        </ul>
+                      );
+                    } else {
+                      // Regular paragraph - check if it's a header
+                      elements.push(
+                        <p key={`para-${sIndex}`} className={`mb-0 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                      );
+                    }
+                  });
+                  
+                  return elements;
+                })()}
+              </div>
 
               {(entry.features && entry.features.length > 0) && (
                 <div className="mb-4">
