@@ -85,6 +85,30 @@ export async function POST(_req: NextRequest) {
       inserted += chunk.length;
     }
 
+    // Auto-delete data older than 60 days to maintain retention limit
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 60);
+      const cutoffDateStr = cutoffDate.toISOString().slice(0, 10);
+      
+      const { getAdmin } = await import("@/app/api/_lib/supa");
+      const admin = getAdmin();
+      if (admin) {
+        const { error: deleteError, count: deletedCount } = await admin
+          .from('price_snapshots')
+          .delete()
+          .lt('snapshot_date', cutoffDateStr);
+        
+        if (deleteError) {
+          console.warn('⚠️ Failed to delete old snapshots:', deleteError.message);
+        } else {
+          console.log(`🧹 Cleaned up old snapshots: deleted ${deletedCount || 0} rows older than ${cutoffDateStr}`);
+        }
+      }
+    } catch (cleanupError) {
+      console.warn('⚠️ Cleanup error (non-fatal):', cleanupError);
+    }
+
     // Record last run and audit
     try {
       const { getAdmin } = await import("@/app/api/_lib/supa");

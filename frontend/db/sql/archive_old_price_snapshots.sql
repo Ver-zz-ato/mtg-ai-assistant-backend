@@ -1,4 +1,4 @@
--- Archive old price snapshots (older than 30 days) to Supabase Storage
+-- Archive old price snapshots (older than 60 days) to Supabase Storage
 -- This reduces database size while preserving historical data
 
 -- Step 1: Create a function to export old snapshots to CSV
@@ -11,8 +11,8 @@ DECLARE
   row_count bigint;
   csv_data text;
 BEGIN
-  -- Calculate cutoff date (30 days ago)
-  archive_start_date := CURRENT_DATE - INTERVAL '30 days';
+  -- Calculate cutoff date (60 days ago)
+  archive_start_date := CURRENT_DATE - INTERVAL '60 days';
   
   -- Check how many rows will be archived
   SELECT COUNT(*) INTO row_count
@@ -66,7 +66,7 @@ DECLARE
   csv_data text;
   result jsonb;
 BEGIN
-  archive_start_date := CURRENT_DATE - INTERVAL '30 days';
+  archive_start_date := CURRENT_DATE - INTERVAL '60 days';
   archive_filename := 'price_snapshots_' || archive_start_date || '.csv';
   
   -- Get row count
@@ -127,5 +127,5 @@ $$;
 --   MIN(snapshot_date) as oldest_date,
 --   MAX(snapshot_date) as newest_date_to_delete
 -- FROM price_snapshots
--- WHERE snapshot_date < CURRENT_DATE - INTERVAL '30 days';
+-- WHERE snapshot_date < CURRENT_DATE - INTERVAL '60 days';
 
