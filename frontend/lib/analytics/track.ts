@@ -46,13 +46,13 @@ async function isClicksEnabled(): Promise<boolean> {
     const flags = data?.config?.flags || {};
     const enabled = flags['analytics_clicks_enabled'] === true;
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[track] 🚩 Feature flag check:', { 
-        enabled, 
-        flags, 
-        'analytics_clicks_enabled': flags['analytics_clicks_enabled'] 
-      });
-    }
+    // Always log in dev, but also log in prod for debugging (can remove later)
+    console.log('[track] 🚩 Feature flag check:', { 
+      enabled, 
+      flags, 
+      'analytics_clicks_enabled': flags['analytics_clicks_enabled'],
+      env: process.env.NODE_ENV
+    });
     
     featureFlagCache = enabled;
     return enabled;
@@ -89,23 +89,17 @@ export async function track(
   // Early return if not enabled
   const enabled = await isClicksEnabled();
   if (!enabled) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[track] ❌ Feature flag disabled or not enabled');
-    }
+    console.log('[track] ❌ Feature flag disabled or not enabled');
     return;
   }
 
   // Respect DNT
   if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[track] ❌ Do Not Track is enabled');
-    }
+    console.log('[track] ❌ Do Not Track is enabled');
     return;
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[track] ✅ Tracking event:', name, props);
-  }
+  console.log('[track] ✅ Tracking event:', name, props);
 
   // Validate props
   if (!props || typeof props !== 'object') {
@@ -149,9 +143,7 @@ export async function track(
         enrichedProps.source = 'client';
         (window as any).posthog?.capture?.(name, enrichedProps);
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[track] 📊 Sent to PostHog:', name, enrichedProps);
-        }
+        console.log('[track] 📊 Sent to PostHog:', name, enrichedProps);
         return; // Success, exit early
       } catch (posthogError) {
         // Fall through to server-side if PostHog fails
@@ -174,9 +166,7 @@ export async function track(
         }),
       });
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[track] 🌐 Sent to server-side:', name, enrichedProps);
-      }
+      console.log('[track] 🌐 Sent to server-side:', name, enrichedProps);
     } catch (serverError) {
       // Silent fail - tracking is best effort
       if (process.env.NODE_ENV === 'development') {
