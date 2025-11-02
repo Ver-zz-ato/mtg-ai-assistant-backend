@@ -2,6 +2,83 @@
 
 Legend: ☑ done · ◪ partial · ☐ todo
 
+Last Updated: 2025-11-02
+
+## Recent Additions (2025-11-02)
+
+☑ Server-Side Analytics Tracking <!-- id:analytics.server_side_nov02 -->
+- **Dual-Tracking System**: Client-side PostHog (requires cookie consent) + Server-side tracking (always works)
+- **Server-Side Endpoints Created**:
+  - `/api/analytics/track-signup` - Tracks signup_completed events bypassing cookie consent
+  - `/api/analytics/track-event` - Generic server-side event tracking for critical business events
+- **Events Tracked Server-Side**:
+  - `signup_completed` - New user registrations (always captured)
+  - `auth_login_success` - Successful logins (always captured)
+  - `email_verified_success` - Email verification completions (always captured)
+  - `pricing_upgrade_clicked` - Upgrade button clicks (always captured)
+- **Implementation**: Uses `captureServer()` from `lib/server/analytics.ts` with PostHog Node SDK
+- **Files Modified**:
+  - `frontend/lib/server/analytics.ts` - Server-side PostHog helper functions
+  - `frontend/app/api/analytics/track-signup/route.ts` (NEW)
+  - `frontend/app/api/analytics/track-event/route.ts` (NEW)
+  - `frontend/components/Header.tsx` - Added server-side tracking for signup/login
+  - `frontend/components/InlineSignUpForm.tsx` - Added server-side signup tracking
+  - `frontend/components/EmailVerificationSuccessPopup.tsx` - Added server-side email verification tracking
+  - `frontend/app/pricing/page.tsx` - Added server-side upgrade click tracking
+
+☑ Tech Stack Documentation <!-- id:docs.tech_stack_nov02 -->
+- **Comprehensive Documentation Suite**:
+  - `docs/tech-stack/integrations-overview.md` - High-level architecture and data flow patterns
+  - `docs/tech-stack/nextjs-configuration.md` - Next.js API routes, middleware, environment variables
+  - `docs/tech-stack/posthog-integration.md` - Dual-tracking system, client vs server-side, event taxonomy
+  - `docs/tech-stack/stripe-integration.md` - Webhooks, subscription management, API routes
+  - `docs/tech-stack/supabase-integration.md` - Client/admin setup, auth flows, RLS, database schema
+- **Purpose**: Enable future AI assistants to quickly understand system architecture and implementation patterns
+- **Coverage**: All major integrations, data flows, common patterns, troubleshooting guides
+
+☑ Admin Account Actions & GDPR <!-- id:admin.gdpr_nov02 -->
+- **Resend Verification Email**: `/api/admin/users/resend-verification`
+  - Uses Supabase Admin API `generateLink` with type 'magiclink'
+  - Works for both verified and unverified users
+  - Logs to admin_audit table
+- **GDPR Export**: `/api/admin/users/gdpr-export`
+  - Exports all user data: auth, profile, decks, collections, chat threads, wishlists, watchlist, price snapshots
+  - Returns comprehensive JSON with all user-related information
+- **GDPR Delete**: `/api/admin/users/gdpr-delete`
+  - Permanently deletes user account and all associated data
+  - Respects foreign key constraints with proper deletion order
+  - Multiple confirmation steps for safety
+- **UI Integration**: `frontend/app/admin/support/page.tsx`
+  - User selection from search results
+  - "Account Actions & GDPR" panel with three action buttons
+  - Clear labeling and confirmation flows
+
+☑ Pro Subscription Tracker <!-- id:admin.pro_stats_nov02 -->
+- **API Endpoint**: `/api/admin/monetize/subscription-stats`
+  - Returns total Pro users, breakdown by plan (monthly/yearly/manual)
+  - Recent signups (last 30 days)
+  - Historical data for growth charts (last 90 days)
+- **Admin Dashboard**: `frontend/app/admin/monetize/page.tsx`
+  - Summary cards showing key metrics
+  - Line chart (Recharts) displaying growth over time
+  - Plan breakdown table with percentages
+  - Auto-refresh every 30 seconds
+  - Real-time Pro subscription monitoring
+
+☑ Bulk Scryfall Import Automation <!-- id:automation.bulk_scryfall_nov02 -->
+- **PowerShell Script**: `frontend/scripts/run-bulk-scryfall-local.ps1`
+  - Automates dev server startup and bulk import execution
+  - Checks if server is running, starts if needed
+  - Waits for server readiness (max 120 seconds)
+  - Triggers bulk import with CRON_KEY or admin session auth
+  - Shows detailed progress and results
+  - Optional server keep-alive after completion
+- **Desktop Shortcut**: Created via PowerShell script
+  - "Bulk Scryfall Import.lnk" on desktop
+  - Double-click to run automation
+  - Proper working directory and execution policy
+- **File Association Fix**: Uses `cmd.exe` to execute npm (avoids file association issues)
+
 ## Admin Data Jobs - Local Execution (2025-10-30)
 
 **Status**: ✅ Complete - All 3 jobs now run locally from admin panel with full progress tracking
