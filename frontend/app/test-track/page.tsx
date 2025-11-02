@@ -3,10 +3,16 @@
 import { track } from '@/lib/analytics/track';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
+import { useState, useEffect } from 'react';
 
 export default function TestTrackPage() {
   const { user } = useAuth();
   const { isPro } = useProStatus();
+  const [timestamp, setTimestamp] = useState<string>('');
+
+  useEffect(() => {
+    setTimestamp(new Date().toISOString());
+  }, []);
 
   const testClick = async () => {
     console.log('🧪 TEST: Button clicked, calling track()...');
@@ -33,6 +39,11 @@ export default function TestTrackPage() {
         <h1 className="text-2xl font-bold text-white mb-4">Click Tracking Test</h1>
         <p className="text-gray-300 mb-6">
           Click the button below and check the console for tracking logs.
+          {typeof navigator !== 'undefined' && navigator.doNotTrack === '1' && (
+            <span className="block mt-2 text-orange-400">
+              ⚠️ Note: Do Not Track is enabled in your browser, so tracking will be skipped.
+            </span>
+          )}
         </p>
         
         <button
@@ -42,16 +53,18 @@ export default function TestTrackPage() {
           Test Track Event
         </button>
 
-        <div className="mt-8 p-4 bg-gray-800 rounded-lg">
-          <h2 className="text-lg font-semibold text-white mb-2">Debug Info:</h2>
-          <pre className="text-xs text-gray-300">
-            {JSON.stringify({
-              user: user?.id || 'no user',
-              isPro: isPro || false,
-              timestamp: new Date().toISOString(),
-            }, null, 2)}
-          </pre>
-        </div>
+        {timestamp && (
+          <div className="mt-8 p-4 bg-gray-800 rounded-lg">
+            <h2 className="text-lg font-semibold text-white mb-2">Debug Info:</h2>
+            <pre className="text-xs text-gray-300">
+              {JSON.stringify({
+                user: user?.id || 'no user',
+                isPro: isPro || false,
+                timestamp,
+              }, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

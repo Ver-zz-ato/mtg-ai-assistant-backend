@@ -11,7 +11,9 @@ export default function TopToolsStrip() {
   const { isPro } = useProStatus();
   
   React.useEffect(()=>{ (async()=>{ try{ const r=await fetch('/api/config?key=flags',{cache:'no-store'}); const j=await r.json(); if(j?.config?.flags) setFlags(j.config.flags);} catch{} })(); },[]);
-  const riskyOn = flags ? (flags.risky_betas !== false) : true;
+  // Price Tracker should always show (not behind risky_betas flag)
+  // Only use risky_betas for truly experimental features
+  const riskyOn = true; // Always show Price Tracker
 
   // Map href to tool identifier
   const getToolId = (href: string, tour: string): string => {

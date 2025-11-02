@@ -21,6 +21,13 @@ type TrackProps = {
 let featureFlagCache: boolean | null = null;
 let featureFlagCheckInProgress = false;
 
+// Clear cache when page loads (in case flag was just enabled)
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    featureFlagCache = null; // Re-check on window focus
+  });
+}
+
 async function isClicksEnabled(): Promise<boolean> {
   // Check cache first
   if (featureFlagCache !== null) {
