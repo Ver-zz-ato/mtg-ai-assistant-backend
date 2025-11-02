@@ -229,6 +229,23 @@ async function runBulkPriceImport() {
     
     console.log(`🎉 Price refresh completed! Updated ${updated}/${staleCards.length} prices`);
     
+    // Record last run timestamp for verification
+    try {
+      const { error: configError } = await supabase
+        .from('app_config')
+        .upsert(
+          { key: 'job:last:bulk_price_import', value: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (configError) {
+        console.warn('⚠️ Failed to update app_config timestamp:', configError.message);
+      } else {
+        console.log('✅ Updated verification timestamp in app_config');
+      }
+    } catch (configErr) {
+      console.warn('⚠️ Error updating app_config:', configErr.message);
+    }
+    
   } catch (error) {
     console.error('❌ Price refresh failed:', error);
     throw error;
@@ -342,6 +359,23 @@ async function runPriceSnapshot() {
     }
     
     console.log(`🎉 Price snapshot completed! Inserted ${processed} snapshots for ${today}`);
+    
+    // Record last run timestamp for verification
+    try {
+      const { error: configError } = await supabase
+        .from('app_config')
+        .upsert(
+          { key: 'job:last:price_snapshot_bulk', value: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (configError) {
+        console.warn('⚠️ Failed to update app_config timestamp:', configError.message);
+      } else {
+        console.log('✅ Updated verification timestamp in app_config');
+      }
+    } catch (configErr) {
+      console.warn('⚠️ Error updating app_config:', configErr.message);
+    }
     
   } catch (error) {
     console.error('❌ Price snapshot failed:', error);

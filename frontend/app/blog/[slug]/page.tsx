@@ -15,6 +15,116 @@ const blogContent: Record<string, {
   gradient: string;
   icon: string;
 }> = {
+  'welcome-to-manatap-ai-soft-launch': {
+    title: '🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!',
+    date: '2025-11-01',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '8 min read',
+    gradient: 'from-blue-600 via-purple-600 to-pink-600',
+    icon: '🎉',
+    content: `
+# ⚡ ManaTap.ai
+
+The AI Deck Builder That Thinks Like a Player
+
+Building a great Magic deck shouldn't feel like work. **ManaTap.ai** helps you design, analyze, and optimize decks with the power of AI — it understands your curve, your combos, and your budget. It doesn't just suggest random cards. **It explains why they fit.** This is a **soft launch** — early access for MTG players who want to shape the future of AI-powered deckbuilding. Break it, test it, and tell us what's missing. We'll fix fast and learn together.
+
+## 🧭 Why It Exists
+
+Magic has over 28,000 cards and infinite interactions.
+
+We've all had that moment staring at a decklist, thinking:
+
+*"There's got to be a better curve… or a cheaper combo piece."*
+
+**ManaTap.ai finds that answer — in seconds, not hours.**
+
+## 💎 Core Features
+
+### 💬 AI-Powered Deck Assistant
+
+Understands your format, playstyle, and budget to find synergistic swaps, curve fixes, and combo enablers.
+
+### 🎯 Interactive Mulligan Simulator
+
+Test hundreds of opening hands with real card art. Tune your curve, fix land counts, and learn how your deck flows from turn one.
+
+### 🎲 Probability Calculator
+
+See your draw odds by turn for any key piece, powered by hypergeometric math — no spreadsheets, no guesswork.
+
+### 💰 Budget Optimizer
+
+Find cheaper, smarter alternatives that keep your power level intact and your wallet intact-er.
+
+### 📦 Collection & Wishlist Manager
+
+Track owned cards, wishlist future upgrades, and calculate what it'll cost to finish your dream deck.
+
+### 📈 Price Tracker
+
+Monitor historical prices, set drop alerts, and see how your staples move over time.
+
+### 🎨 Deck Builder Interface
+
+Fast, beautiful, and responsive. Drag, drop, and tweak your decks with live price data and visual stats.
+
+### 🔍 Smart Search
+
+Type what you mean:
+
+*"Blue draw under £2"* or *"cheap token producers for Isshin."*
+
+ManaTap.ai understands intent, not just keywords.
+
+### 📋 Import & Export
+
+Move decks freely between Moxfield, MTGO, and text lists — your builds travel with you.
+
+## 💡 What Makes It Different
+
+### 🧠 AI-First, Not Add-On
+
+Built around AI from the start — every feature designed to work with intelligence, not just display data.
+
+### 🎯 Understands Context
+
+Format, synergy, budget, power level — all factored into its reasoning.
+
+### 📚 Learns From You
+
+Every deck you build sharpens its understanding of your playstyle.
+
+### 🤝 Built for the Community
+
+Made by MTG players to solve real problems — not to chase hype.
+
+## 🔮 Coming Soon
+
+- Tournament tracking tools
+- Mobile companion apps
+- Advanced tournament analytics
+
+## 🚀 Ready to Build Smarter Decks?
+
+Start free today — no signup required to explore.
+
+Paste your decklist, hit Analyze, and see what ManaTap.ai finds.
+
+Your feedback this week directly shapes how it evolves.
+
+**[👉 Launch the Deck Assistant →](/my-decks)**
+
+**[📝 Create Your Account](/#signup)** to save decks, track collections, and unlock Pro features.
+
+## 💬 Need Help?
+
+- Visit the [Support Page](/support)
+- Use the feedback button in-app
+- Or just yell at us on social — we'll hear you
+    `,
+  },
   'budget-edh-hidden-gems': {
     title: 'Building Budget EDH: 5 Hidden Gems Under $1',
     date: '2025-10-18',
@@ -320,6 +430,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
               post.category === 'Strategy' 
                 ? 'bg-purple-900/60 text-purple-100 backdrop-blur-sm'
+                : post.category === 'Announcement'
+                ? 'bg-blue-900/60 text-blue-100 backdrop-blur-sm'
                 : 'bg-green-900/60 text-green-100 backdrop-blur-sm'
             }`}>
               {post.category}
@@ -347,7 +459,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Back link */}
         <Link
           href="/blog"
@@ -357,26 +469,305 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </Link>
 
         {/* Article */}
-        <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl">
+        <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl max-w-[1400px] mx-auto">
           {/* Content with enhanced styling */}
-          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-4xl prose-h1:mb-6 prose-h1:mt-8 prose-h1:bg-gradient-to-r prose-h1:from-blue-600 prose-h1:to-purple-600 dark:prose-h1:from-blue-400 dark:prose-h1:to-purple-400 prose-h1:bg-clip-text prose-h1:text-transparent prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-4 prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-ul:my-6 prose-li:my-2">
-            <div dangerouslySetInnerHTML={{ __html: post.content.split('\n').map(line => {
-              if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`;
-              if (line.startsWith('### ')) return `<h3>${line.slice(4)}</h3>`;
-              if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
-              if (line.startsWith('**') && line.endsWith('**')) return `<p><strong>${line.slice(2, -2)}</strong></p>`;
-              if (line.startsWith('- ')) return `<li>${line.slice(2)}</li>`;
-              if (line.startsWith('---')) return `<hr class="my-8 border-gray-300 dark:border-gray-600" />`;
-              if (line.startsWith('*') && line.endsWith('*')) return `<p class="text-sm italic text-gray-500 dark:text-gray-400">${line.slice(1, -1)}</p>`;
-              if (line.trim() === '') return '';
-              if (line.includes('[') && line.includes('](')) {
-                const match = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
-                if (match) {
-                  return line.replace(match[0], `<a href="${match[2]}">${match[1]}</a>`);
+          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-5xl md:prose-h1:text-6xl lg:prose-h1:text-7xl prose-h1:mb-6 prose-h1:mt-8 prose-h1:bg-gradient-to-r prose-h1:from-blue-600 prose-h1:to-purple-600 dark:prose-h1:from-blue-400 dark:prose-h1:to-purple-400 prose-h1:bg-clip-text prose-h1:text-transparent prose-h1:leading-tight prose-h2:text-3xl prose-h2:mt-10 prose-h2:mb-6 prose-h2:text-gray-900 dark:prose-h2:text-white prose-h2:font-extrabold prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4 prose-h3:font-bold prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-6 prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-ul:my-6 prose-li:my-3 prose-ul:space-y-2 prose-img:rounded-xl prose-img:shadow-xl">
+            <div dangerouslySetInnerHTML={{ __html: (() => {
+              const lines = post.content.split('\n');
+              const elements: string[] = [];
+              let inList = false;
+              let currentParagraph: string[] = [];
+              let inFeaturesSection = false;
+              let currentFeature: { title: string; content: string[]; image?: string } | null = null;
+              const features: Array<{ title: string; content: string[]; image?: string }> = [];
+              
+              const flushParagraph = () => {
+                if (currentParagraph.length > 0) {
+                  const text = currentParagraph.join(' ');
+                  // Process markdown inline formatting
+                  let processed = text
+                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                  // Check if this is the opening paragraph after H1 - make it tighter
+                  const isOpeningPara = elements.length > 0 && elements[elements.length - 1]?.includes('<h1>');
+                  elements.push(`<p class="${isOpeningPara ? 'mb-3 text-lg' : 'mb-6'}">${processed}</p>`);
+                  currentParagraph = [];
+                }
+              };
+              
+              const flushFeature = () => {
+                if (currentFeature) {
+                  features.push(currentFeature);
+                  currentFeature = null;
+                }
+              };
+              
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+                
+                // Check if we're entering a paneled section (features or deep dive)
+                if (trimmed.startsWith('## ✨ What You Can Do Right Now') || trimmed.startsWith('## 🚀 Core Features Deep Dive')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  inFeaturesSection = true;
+                  elements.push(`<h2>${trimmed.slice(3)}</h2>`);
+                  continue;
+                }
+                
+                // Check if we're leaving the paneled section (next h2 that's not a paneled section)
+                if (inFeaturesSection && trimmed.startsWith('## ') && !trimmed.includes('What You Can Do') && !trimmed.includes('Core Features Deep Dive')) {
+                  flushFeature();
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  inFeaturesSection = false;
+                  
+                  // Render the features grid - wider grid for more space
+                  if (features.length > 0) {
+                    elements.push('<div class="my-12 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">');
+                    features.forEach((feature, idx) => {
+                      let content = feature.content.join(' ')
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                      
+                      // Extract list items
+                      const listItems = feature.content.filter(c => c.trim().startsWith('- '));
+                      const hasLists = listItems.length > 0;
+                      
+                      if (hasLists) {
+                        content = feature.content
+                          .map(c => {
+                            if (c.trim().startsWith('- ')) {
+                              const text = c.replace(/^-\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                              return `<li class="mb-2">${text}</li>`;
+                            }
+                            if (c.trim() === '') return '';
+                            return `<p class="mb-3">${c.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`;
+                          })
+                          .filter(c => c !== '')
+                          .join('');
+                      }
+                      
+                      // Extract emoji from title
+                      const emojiMatch = feature.title.match(/^([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])/u);
+                      const emoji = emojiMatch ? emojiMatch[1] : null;
+                      const titleWithoutEmoji = feature.title.replace(/^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]\s*/u, '').trim();
+                      
+                      elements.push(`
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col">
+                          ${feature.image ? `<div class="mb-4 rounded-lg overflow-hidden flex-shrink-0"><img src="${feature.image}" alt="${titleWithoutEmoji}" class="w-full h-auto" /></div>` : (emoji ? `<div class="text-6xl mb-4 text-center flex-shrink-0">${emoji}</div>` : '')}
+                          <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-white flex-shrink-0 text-center">${titleWithoutEmoji}</h3>
+                          <div class="flex-grow text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                            ${hasLists ? `<ul class="list-disc list-inside space-y-2 mb-4 ml-2">${content}</ul>` : `<div>${content}</div>`}
+                          </div>
+                        </div>
+                      `);
+                    });
+                    elements.push('</div>');
+                    features.length = 0;
+                  }
+                  
+                  elements.push(`<h2>${trimmed.slice(3)}</h2>`);
+                  continue;
+                }
+                
+                // Inside features section - collect features
+                if (inFeaturesSection) {
+                  if (trimmed.startsWith('### ')) {
+                    flushFeature();
+                    currentFeature = {
+                      title: trimmed.slice(4),
+                      content: []
+                    };
+                    continue;
+                  }
+                  
+                  if (trimmed.startsWith('![') && trimmed.includes('](')) {
+                    const match = trimmed.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+                    if (match && currentFeature) {
+                      currentFeature.image = match[2];
+                    }
+                    continue;
+                  }
+                  
+                  if (currentFeature && trimmed !== '') {
+                    currentFeature.content.push(trimmed);
+                  }
+                  continue;
+                }
+                
+                // Images (outside features section)
+                if (trimmed.startsWith('![') && trimmed.includes('](')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  const match = trimmed.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+                  if (match) {
+                    const alt = match[1] || '';
+                    const src = match[2];
+                    elements.push(`<div class="my-8 rounded-xl overflow-hidden shadow-xl"><img src="${src}" alt="${alt}" class="w-full h-auto" /></div>`);
+                  }
+                  continue;
+                }
+                
+                // Headings (outside features section)
+                if (trimmed.startsWith('# ')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  // Check if next non-empty line is the subtitle (skip blank lines)
+                  let nextLineIndex = i + 1;
+                  let nextLine = '';
+                  while (nextLineIndex < lines.length && !nextLine) {
+                    const candidate = lines[nextLineIndex].trim();
+                    if (candidate) {
+                      nextLine = candidate;
+                      break;
+                    }
+                    nextLineIndex++;
+                  }
+                  const hasSubtitle = nextLine && !nextLine.startsWith('#') && !nextLine.startsWith('##') && !nextLine.startsWith('###') && !nextLine.startsWith('-') && !nextLine.startsWith('*') && nextLine.length > 0 && !nextLine.startsWith('Building');
+                  
+                  if (hasSubtitle) {
+                    // Main title
+                    elements.push(`<h1 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-2 mt-8 leading-tight text-center bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h1>`);
+                    // Subtitle - use h2 with strong inline styles to override prose, different gradient
+                    elements.push(`<h2 class="mb-6 text-center" style="font-size: clamp(2rem, 5vw, 3.5rem) !important; font-weight: 600 !important; line-height: 1.3 !important; margin-top: 0.5rem !important; margin-bottom: 1.5rem !important; background: linear-gradient(to right, #06b6d4, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">${nextLine}</h2>`);
+                    i = nextLineIndex; // Skip to the subtitle line since we've processed it
+                  } else {
+                    elements.push(`<h1 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-6 mt-8 leading-tight bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h1>`);
+                  }
+                  continue;
+                }
+                if (trimmed.startsWith('### ')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  elements.push(`<h3>${trimmed.slice(4)}</h3>`);
+                  continue;
+                }
+                if (trimmed.startsWith('## ')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  elements.push(`<h2>${trimmed.slice(3)}</h2>`);
+                  continue;
+                }
+                
+                // Horizontal rule
+                if (trimmed.startsWith('---')) {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  elements.push('<hr class="my-8 border-gray-300 dark:border-gray-600" />');
+                  continue;
+                }
+                
+                // List items
+                if (trimmed.startsWith('- ') || trimmed.match(/^\d+\.\s/)) {
+                  flushParagraph();
+                  if (!inList) {
+                    elements.push('<ul class="list-disc list-inside space-y-2 mb-6 ml-4">');
+                    inList = true;
+                  }
+                  let itemText = trimmed.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
+                  itemText = itemText
+                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                  elements.push(`<li class="mb-2">${itemText}</li>`);
+                  continue;
+                }
+                
+                // Empty line - flush current paragraph
+                if (trimmed === '') {
+                  flushParagraph();
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  continue;
+                }
+                
+                // Regular text - accumulate into paragraph
+                if (inList) {
+                  elements.push('</ul>');
+                  inList = false;
+                }
+                currentParagraph.push(trimmed);
+              }
+              
+              // Flush any remaining content
+              if (inFeaturesSection) {
+                flushFeature();
+                if (features.length > 0) {
+                  elements.push('<div class="my-12 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">');
+                  features.forEach((feature) => {
+                    let content = feature.content.join(' ')
+                      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                    
+                    const listItems = feature.content.filter(c => c.trim().startsWith('- '));
+                    const hasLists = listItems.length > 0;
+                    
+                    if (hasLists) {
+                      content = feature.content
+                        .map(c => {
+                          if (c.trim().startsWith('- ')) {
+                            const text = c.replace(/^-\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                            return `<li class="mb-2">${text}</li>`;
+                          }
+                          if (c.trim() === '') return '';
+                          return `<p class="mb-3">${c.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</p>`;
+                        })
+                        .filter(c => c !== '')
+                        .join('');
+                    }
+                    
+                    // Extract emoji from title
+                    const emojiMatch = feature.title.match(/^([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])/u);
+                    const emoji = emojiMatch ? emojiMatch[1] : null;
+                    const titleWithoutEmoji = feature.title.replace(/^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]\s*/u, '').trim();
+                    
+                    elements.push(`
+                      <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col">
+                        ${feature.image ? `<div class="mb-4 rounded-lg overflow-hidden flex-shrink-0"><img src="${feature.image}" alt="${titleWithoutEmoji}" class="w-full h-auto" /></div>` : (emoji ? `<div class="text-6xl mb-4 text-center flex-shrink-0">${emoji}</div>` : '')}
+                        <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-white flex-shrink-0 text-center">${titleWithoutEmoji}</h3>
+                        <div class="flex-grow text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                          ${hasLists ? `<ul class="list-disc list-inside space-y-2 mb-4 ml-2">${content}</ul>` : `<div>${content}</div>`}
+                        </div>
+                      </div>
+                    `);
+                  });
+                  elements.push('</div>');
                 }
               }
-              return `<p>${line}</p>`;
-            }).filter(Boolean).join('')}} />
+              
+              flushParagraph();
+              if (inList) {
+                elements.push('</ul>');
+              }
+              
+              return elements.join('\n');
+            })()}} />
           </div>
         </article>
 

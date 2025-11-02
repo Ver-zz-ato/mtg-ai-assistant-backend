@@ -9,6 +9,17 @@ export const metadata: Metadata = {
 // Blog posts data - will move to MDX files later
 const blogPosts = [
   {
+    slug: 'welcome-to-manatap-ai-soft-launch',
+    title: '🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!',
+    excerpt: 'We\'re thrilled to officially launch ManaTap AI! After months of development and testing, we\'re opening the gates to help you build better Magic: The Gathering decks with the power of AI.',
+    date: '2025-11-01',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '8 min read',
+    gradient: 'from-blue-600 via-purple-600 to-pink-600',
+    icon: '🎉',
+  },
+  {
     slug: 'budget-commander-100',
     title: 'Building Competitive EDH on $100: The Complete Guide',
     excerpt: 'Build powerful Commander decks on a budget with smart card choices. Learn where to save, where to splurge, and which commanders offer the best value.',
@@ -71,6 +82,9 @@ export default function BlogPage() {
           <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
             Commander
           </span>
+          <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+            Announcement
+          </span>
         </div>
 
         {/* Blog Posts Grid */}
@@ -94,6 +108,8 @@ export default function BlogPage() {
                   <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
                     post.category === 'Strategy' 
                       ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                      : post.category === 'Announcement'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                       : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                   }`}>
                     {post.category}
