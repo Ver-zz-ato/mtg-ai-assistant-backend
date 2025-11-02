@@ -46,6 +46,14 @@ async function isClicksEnabled(): Promise<boolean> {
     const flags = data?.config?.flags || {};
     const enabled = flags['analytics_clicks_enabled'] === true;
     
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[track] 🚩 Feature flag check:', { 
+        enabled, 
+        flags, 
+        'analytics_clicks_enabled': flags['analytics_clicks_enabled'] 
+      });
+    }
+    
     featureFlagCache = enabled;
     return enabled;
   } catch (error) {
@@ -79,13 +87,24 @@ export async function track(
   context?: { userId?: string | null; isPro?: boolean }
 ): Promise<void> {
   // Early return if not enabled
-  if (!(await isClicksEnabled())) {
+  const enabled = await isClicksEnabled();
+  if (!enabled) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[track] ❌ Feature flag disabled or not enabled');
+    }
     return;
   }
 
   // Respect DNT
   if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[track] ❌ Do Not Track is enabled');
+    }
     return;
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[track] ✅ Tracking event:', name, props);
   }
 
   // Validate props
@@ -131,7 +150,7 @@ export async function track(
         (window as any).posthog?.capture?.(name, enrichedProps);
         
         if (process.env.NODE_ENV === 'development') {
-          console.debug('[track] PostHog:', name, enrichedProps);
+          console.log('[track] 📊 Sent to PostHog:', name, enrichedProps);
         }
         return; // Success, exit early
       } catch (posthogError) {
@@ -156,7 +175,7 @@ export async function track(
       });
       
       if (process.env.NODE_ENV === 'development') {
-        console.debug('[track] Server-side:', name, enrichedProps);
+        console.log('[track] 🌐 Sent to server-side:', name, enrichedProps);
       }
     } catch (serverError) {
       // Silent fail - tracking is best effort
