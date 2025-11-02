@@ -13,6 +13,7 @@ import DeckProbabilityPanel from "./DeckProbabilityPanel";
 import HandTestingWidget from "@/components/HandTestingWidget";
 import Link from "next/link";
 import FormatSelector from "./FormatSelector";
+import PanelWrapper from "./PanelWrapper";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -221,55 +222,125 @@ export default async function Page({ params, searchParams }: { params: Promise<P
       <div className="max-w-[1600px] mx-auto">
         <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-12 md:col-span-3 space-y-4">
-          <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
-              <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                Deck Trends
-              </h3>
+          {/* Deck Value - FIRST */}
+          <PanelWrapper title="Deck Value" colorFrom="green-400" colorTo="emerald-500">
+            {(() => { 
+              const PriceMini = require('@/components/DeckPriceMini').default;
+              // Render just the content part (price, currency selector) without the wrapper
+              return <PriceMini deckId={id} />;
+            })()}
+          </PanelWrapper>
+
+          {/* Deck Fundamentals - SECOND */}
+          <PanelWrapper title="Deck Fundamentals" colorFrom="amber-400" colorTo="orange-500">
+            <div className="space-y-2 text-[11px]">
+              {(() => {
+                // Format-specific targets
+                const targets = format === 'commander' 
+                  ? [['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const
+                  : format === 'standard'
+                  ? [['Lands','lands',23,26],['Ramp','ramp',0,2],['Draw','draw',4,6],['Removal','removal',6,8]] as const
+                  : [['Lands','lands',19,22],['Ramp','ramp',0,4],['Draw','draw',4,6],['Removal','removal',8,10]] as const; // modern
+                
+                return targets.map(([label,key,minT,maxT])=>{  
+                  const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
+                  const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
+                  return (
+                    <div key={String(key)}>
+                      <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
+                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
+                      <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
+          </PanelWrapper>
+
+          {/* Mana Curve - THIRD */}
+          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="green-500">
+            <div className="grid grid-cols-7 gap-1 items-end h-24">
+              {(['1','2','3','4','5','6','7+'] as const).map(k => {
+                const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
+                const h = Math.round(((curve[k]||0)/max)*100);
+                return (
+                  <div key={`curve-${k}`} className="flex flex-col items-center gap-1 h-full justify-end">
+                    <div className="relative w-6 bg-emerald-600/80" style={{ height: `${Math.max(6,h)}%` }}>
+                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{curve[k]||0}</span>
+                    </div>
+                    <div className="text-[10px] opacity-70">{k}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </PanelWrapper>
+
+          {/* Card Types - FOURTH */}
+          <PanelWrapper title="Card Types" colorFrom="sky-400" colorTo="blue-500">
+            <div className="space-y-1 text-[11px]">
+              {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
+                const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
+                const pct = Math.round(((types[k]||0)/total)*100);
+                return (
+                  <div key={`type-${k}`}> 
+                    <div className="flex items-center justify-between"><span>{k}</span><span className="font-mono">{pct}%</span></div>
+                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className="h-1.5 bg-sky-500" style={{ width: `${pct}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </PanelWrapper>
+
+          {/* Deck Trends (Color Balance) - FIFTH */}
+          <PanelWrapper title="Deck Trends" colorFrom="cyan-400" colorTo="blue-500" large>
             <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
-              <div className="text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-1">
-                <span>⚪</span>
-                <span title="Derived from commander and title; falls back to deck cards">Color Balance</span>
-              </div>
-              {hasPie ? (
-                <>
-                  {pieSvg(pieCounts)}
-                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-neutral-200">
-                    {(['W','U','B','R','G'] as const).map(k => {
-                      const count = (pieCounts as any)[k] || 0;
-                      const colorTotal = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
-                      const percentage = colorTotal > 0 ? Math.round((count / colorTotal) * 100) : 0;
-                      const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
-                      const colorBg = k==='W'?'bg-gray-200':k==='U'?'bg-blue-400':k==='B'?'bg-gray-600':k==='R'?'bg-red-500':'bg-green-500';
-                      return (
-                        <div key={`leg-${k}`} className="flex items-center gap-1.5">
-                          <div className={`w-2 h-2 rounded-full ${colorBg}`}></div>
-                          <span className="font-medium">{colorName}: {count} ({percentage}%)</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-2 text-[10px] text-neutral-400 text-center">
-                    Cards: <span className="font-mono font-semibold text-neutral-300">{totalCards}</span>
-                    {Object.values(pieCounts).reduce((a,b)=>a+b,0) !== totalCards && (
-                      <span className="ml-2" title="Multicolored cards contribute to multiple colors">
-                        • Color instances: <span className="font-mono font-semibold text-neutral-300">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="text-xs text-neutral-400 text-center py-4">Not enough data to calculate.</div>
-              )}
-            </div>
               <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
-              <div className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1">
-                <span>📊</span>
-                <span title="Heuristic based on types/keywords/curve">Playstyle Radar</span>
+                <div className="text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-1">
+                  <span>⚪</span>
+                  <span title="Derived from commander and title; falls back to deck cards">Color Balance</span>
+                </div>
+                {hasPie ? (
+                  <>
+                    {pieSvg(pieCounts)}
+                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-neutral-200">
+                      {(['W','U','B','R','G'] as const).map(k => {
+                        const count = (pieCounts as any)[k] || 0;
+                        const colorTotal = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
+                        const percentage = colorTotal > 0 ? Math.round((count / colorTotal) * 100) : 0;
+                        const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
+                        const colorBg = k==='W'?'bg-gray-200':k==='U'?'bg-blue-400':k==='B'?'bg-gray-600':k==='R'?'bg-red-500':'bg-green-500';
+                        return (
+                          <div key={`leg-${k}`} className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${colorBg}`}></div>
+                            <span className="font-medium">{colorName}: {count} ({percentage}%)</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 text-[10px] text-neutral-400 text-center">
+                      Cards: <span className="font-mono font-semibold text-neutral-300">{totalCards}</span>
+                      {Object.values(pieCounts).reduce((a,b)=>a+b,0) !== totalCards && (
+                        <span className="ml-2" title="Multicolored cards contribute to multiple colors">
+                          • Color instances: <span className="font-mono font-semibold text-neutral-300">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-neutral-400 text-center py-4">Not enough data to calculate.</div>
+                )}
               </div>
+            </div>
+          </PanelWrapper>
+
+          {/* Playstyle Radar - SIXTH */}
+          <PanelWrapper title="Playstyle Radar" colorFrom="purple-400" colorTo="purple-600" large>
+            <div className="flex flex-col items-center gap-6">
+              <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
+                <div className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1">
+                  <span>📊</span>
+                  <span title="Heuristic based on types/keywords/curve">Playstyle Analysis</span>
+                </div>
                 {Object.values(radar).some(v=>v>0) ? (
                   <>
                     {radarSvg(radar)}
@@ -287,90 +358,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
                 <span className="opacity-70">Derived from this decklist: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces).</span>
               </div>
             </div>
-          </div>
-
-          {/* Mana curve */}
-          <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50"></div>
-              <h3 className="text-sm font-bold bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
-                Mana Curve
-              </h3>
-            </div>
-            <div className="grid grid-cols-7 gap-1 items-end h-24">
-              {(['1','2','3','4','5','6','7+'] as const).map(k => {
-                const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
-                const h = Math.round(((curve[k]||0)/max)*100);
-                return (
-                  <div key={`curve-${k}`} className="flex flex-col items-center gap-1 h-full justify-end">
-                    <div className="relative w-6 bg-emerald-600/80" style={{ height: `${Math.max(6,h)}%` }}>
-                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{curve[k]||0}</span>
-                    </div>
-                    <div className="text-[10px] opacity-70">{k}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Type distribution */}
-          <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-1 w-1 rounded-full bg-sky-400 animate-pulse shadow-lg shadow-sky-400/50"></div>
-              <h3 className="text-sm font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">
-                Card Types
-              </h3>
-            </div>
-            <div className="space-y-1 text-[11px]">
-              {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
-                const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
-                const pct = Math.round(((types[k]||0)/total)*100);
-                return (
-                  <div key={`type-${k}`}> 
-                    <div className="flex items-center justify-between"><span>{k}</span><span className="font-mono">{pct}%</span></div>
-                    <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className="h-1.5 bg-sky-500" style={{ width: `${pct}%` }} /></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Core needs meters */}
-          <div className="rounded-xl border border-neutral-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
-              <h3 className="text-sm font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Deck Fundamentals
-              </h3>
-            </div>
-            <div className="space-y-2 text-[11px]">
-              {(() => {
-                // Format-specific targets
-                const targets = format === 'commander' 
-                  ? [['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const
-                  : format === 'standard'
-                  ? [['Lands','lands',23,26],['Ramp','ramp',0,2],['Draw','draw',4,6],['Removal','removal',6,8]] as const
-                  : [['Lands','lands',19,22],['Ramp','ramp',0,4],['Draw','draw',4,6],['Removal','removal',8,10]] as const; // modern
-                
-                return targets.map(([label,key,minT,maxT])=>{
-                  const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
-                  const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
-                  return (
-                    <div key={String(key)}>
-                      <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
-                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
-                      <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-
-          {/* Pricing mini */}
-          <div className="rounded-xl border border-neutral-800 p-3">
-            {(() => { const PriceMini = require('@/components/DeckPriceMini').default; return <PriceMini deckId={id} />; })()}
-          </div>
+          </PanelWrapper>
         </aside>
 
         <section className="col-span-12 md:col-span-9">

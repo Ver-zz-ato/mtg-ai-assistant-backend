@@ -9,6 +9,93 @@ import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
 
+// Helper components for hide/show functionality
+function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <section className="rounded-xl border border-neutral-800 p-2 space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium">Assistant</div>
+        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {open && (
+        <>
+          <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
+            <DeckAssistant deckId={deckId} format={format} />
+          </div>
+          {deckId && (<div>
+            {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
+          </div>)}
+        </>
+      )}
+    </section>
+  );
+}
+
+function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{name: string; qty: number}>; deckId: string }) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <section className="rounded-xl border border-neutral-800 min-w-0">
+      <div className="flex items-center justify-between mb-2 p-2">
+        <div className="text-sm font-medium">Hand Testing</div>
+        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {open && (
+        <HandTestingWidget 
+          deckCards={deckCards}
+          deckId={deckId}
+          compact={false}
+          className=""
+        />
+      )}
+    </section>
+  );
+}
+
+function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro: boolean; format?: string }) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <div className="rounded-xl border border-neutral-800 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium">Deck Analyzer</div>
+        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2">
+          {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={deckId} proAuto={!!isPro} format={format} />; })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boolean }) {
+  const [open, setOpen] = React.useState(true);
+  const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
+  
+  return (
+    <div className="rounded-xl border border-neutral-800 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium">Probability Calculator</div>
+        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2">
+          <Prob deckId={deckId} isPro={isPro} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Client({ deckId, isPro, format }: { deckId?: string; isPro?: boolean; format?: string }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   
@@ -62,15 +149,7 @@ export default function Client({ deckId, isPro, format }: { deckId?: string; isP
         <CardsPane deckId={deckId} />
       </div>
       <aside className="md:w-80 lg:w-96 xl:w-[30rem] 2xl:w-[36rem] flex-shrink-0 space-y-4">
-        <section className="rounded-xl border border-neutral-800 p-2 space-y-2">
-          <div className="text-sm font-medium">Assistant</div>
-          <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
-            <DeckAssistant deckId={String(deckId)} format={format} />
-          </div>
-          {deckId && (<div>
-            {(() => { const QA = require('./QuickAdd').default; return <QA deckId={String(deckId)} />; })()}
-          </div>)}
-        </section>
+        <AssistantSection deckId={String(deckId)} format={format} />
         
         {/* Card Recommendations */}
         {(() => { 
@@ -103,22 +182,20 @@ export default function Client({ deckId, isPro, format }: { deckId?: string; isP
         })()}
         
         {/* Hand Testing Widget */}
-        <section className="rounded-xl border border-neutral-800 min-w-0">
-          <HandTestingWidget 
-            deckCards={deckCards}
-            deckId={deckId}
-            compact={false}
-            className=""
-          />
-        </section>
+        <HandTestingWidgetWithHide 
+          deckCards={deckCards}
+          deckId={deckId}
+        />
         
         {/* Deck Analyzer */}
-        <div className="rounded-xl border border-neutral-800 p-3">
-          {(() => { const Lazy = require('./AnalyzerLazy').default; return <Lazy deckId={deckId} proAuto={!!isPro} format={format} />; })()}
-        </div>
+        <DeckAnalyzerWithHide 
+          deckId={deckId}
+          isPro={!!isPro}
+          format={format}
+        />
         
         <LegalityTokensPanel deckId={deckId} format={format} />
-{(() => { const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) }); return <Prob deckId={deckId} isPro={!!isPro} />; })()}
+        <DeckProbabilityWithHide deckId={deckId} isPro={!!isPro} />
       </aside>
     </div>
   );

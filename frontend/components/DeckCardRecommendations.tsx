@@ -19,6 +19,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true); // Auto-expand on load
+  const [hidePanel, setHidePanel] = useState(false);
 
   useEffect(() => {
     loadRecommendations();
@@ -78,22 +79,41 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
   return (
     <div className="rounded-xl border border-neutral-800 overflow-hidden">
       {/* Header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-neutral-800/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <div className="h-1 w-1 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></div>
-          <h3 className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-            Card Suggestions
-          </h3>
-          <span className="text-neutral-500 text-xs">({recommendations.length})</span>
-        </div>
-        <span className="text-gray-400 text-xs">{expanded ? '▼' : '▶'}</span>
-      </button>
+      <div className="flex items-center justify-between p-3">
+        {!hidePanel && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex-1 flex items-center justify-between hover:bg-neutral-800/50 transition-colors rounded"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></div>
+              <h3 className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                Card Suggestions
+              </h3>
+              <span className="text-neutral-500 text-xs">({recommendations.length})</span>
+            </div>
+            <span className="text-gray-400 text-xs">{expanded ? '▼' : '▶'}</span>
+          </button>
+        )}
+        {hidePanel && (
+          <div className="flex-1 flex items-center gap-2">
+            <div className="h-1 w-1 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></div>
+            <h3 className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+              Card Suggestions
+            </h3>
+            <span className="text-neutral-500 text-xs">({recommendations.length})</span>
+          </div>
+        )}
+        <button 
+          onClick={() => setHidePanel(v=>!v)} 
+          className="ml-2 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors"
+        >
+          {hidePanel ? 'Show' : 'Hide'}
+        </button>
+      </div>
 
       {/* Expanded Content */}
-      {expanded && (
+      {!hidePanel && expanded && (
         <div className="border-t border-neutral-800 p-3 space-y-3 max-h-96 overflow-y-auto bg-neutral-900/30">
           {recommendations.map((rec, index) => (
             <div
