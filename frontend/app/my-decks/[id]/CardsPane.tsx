@@ -332,21 +332,39 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
         const j1 = await r1.json().catch(()=>({ ok:false }));
         if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
         // Fallback: for missing names, fetch live from Scryfall collection
+        // Process in batches of 75 (Scryfall's limit per request)
         try {
           const base = (j1?.prices || {}) as Record<string, number>;
-          const need = Array.from(new Set(rows.map(r=>r.name.toLowerCase()))).filter(n => !(n in base)).slice(0, 20);
+          // Normalize card names the same way as snapshot API
+          const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+          const need = Array.from(new Set(rows.map(r => norm(r.name)))).filter(n => !(n in base));
+          
           if (need.length) {
-            const identifiers = need.map(n=>({ name: n }));
-            const r2 = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
-            const j2:any = await r2.json().catch(()=>({}));
-            const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
             const map:any = { ...(j1?.prices||{}) };
-            for (const c of arr) {
-              const nm = String((c?.name||'')).toLowerCase();
-              const prices = c?.prices || {};
-              const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
-              const v = prices?.[key];
-              if (v!=null) map[nm] = Number(v);
+            // Process in batches of 75
+            for (let i = 0; i < need.length; i += 75) {
+              const batch = need.slice(i, i + 75);
+              try {
+                // Try to get original card names back (from rows) - use exact names for Scryfall lookup
+                const originalNames = batch.map(normName => {
+                  const found = rows.find(r => norm(r.name) === normName);
+                  return found ? found.name : normName;
+                });
+                const identifiers = originalNames.map(n=>({ name: n }));
+                const r2 = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
+                const j2:any = await r2.json().catch(()=>({}));
+                const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
+                for (const c of arr) {
+                  const nm = norm(c?.name||'');
+                  const prices = c?.prices || {};
+                  const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
+                  const v = prices?.[key];
+                  if (v!=null && v > 0) map[nm] = Number(v);
+                }
+              } catch (batchError) {
+                // Continue with next batch if one fails
+                console.warn('Scryfall fallback batch failed:', batchError);
+              }
             }
             setPriceMap(map);
           }

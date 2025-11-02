@@ -32,18 +32,22 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
 
   return (
     <div className="text-sm">
-      <div className="flex items-center justify-end mb-2">
+      <div className="flex items-center justify-end mb-3">
         <select value={currency} onChange={e=> setCurrency(e.currentTarget.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs">
           <option>USD</option>
           <option>EUR</option>
           <option>GBP</option>
         </select>
       </div>
-      {error && (<div className="text-xs text-red-400 mt-1">{error}</div>)}
-      <div className="mt-2 text-lg font-mono">
-        {total==null? (busy? '…' : '—') : new Intl.NumberFormat(undefined, { style:'currency', currency }).format(total)}
-      </div>
-      <div className="text-[11px] opacity-60 mt-1">Uses snapshot prices per card in the selected currency.</div>
+      {error && (<div className="text-xs text-red-400 mb-2">{error}</div>)}
+      {!error && (
+        <>
+          <div className="text-2xl font-mono font-semibold mb-2">
+            {total==null? (busy? '…' : '—') : new Intl.NumberFormat(undefined, { style:'currency', currency }).format(total)}
+          </div>
+          <div className="text-[11px] opacity-60">Uses snapshot prices per card in the selected currency.</div>
+        </>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import HandTestingWidget from "@/components/HandTestingWidget";
 import Link from "next/link";
 import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
+import DeckPriceMini from "@/components/DeckPriceMini";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -224,11 +225,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         <aside className="col-span-12 md:col-span-3 space-y-4">
           {/* Deck Value - FIRST */}
           <PanelWrapper title="Deck Value" colorFrom="green-400" colorTo="emerald-500">
-            {(() => { 
-              const PriceMini = require('@/components/DeckPriceMini').default;
-              // Render just the content part (price, currency selector) without the wrapper
-              return <PriceMini deckId={id} />;
-            })()}
+            <DeckPriceMini deckId={id} />
           </PanelWrapper>
 
           {/* Deck Fundamentals - SECOND */}
