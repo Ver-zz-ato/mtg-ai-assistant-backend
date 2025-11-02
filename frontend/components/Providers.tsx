@@ -12,7 +12,10 @@ function hasConsent(): boolean {
 
 function initPosthogIfNeeded() {
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY || '';
-  if (!key) return; // no key configured -> do not init
+  if (!key) {
+    console.log('[PostHog] No key configured, skipping init');
+    return; // no key configured -> do not init
+  }
   if (typeof window === 'undefined') return;
   if ((navigator as any)?.onLine === false) return; // offline -> skip init to avoid failed fetch noise
 
@@ -25,8 +28,10 @@ function initPosthogIfNeeded() {
     return;
   }
   try {
+    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest';
+    console.log('[PostHog] Initializing with key:', key.substring(0, 10) + '...', 'host:', host);
     posthog.init(key, ({
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest',
+      api_host: host,
       capture_pageview: false,
       autocapture: false,
       capture_pageleave: true,
@@ -34,7 +39,10 @@ function initPosthogIfNeeded() {
       disable_toolbar: true,
       debug: false,
     }) as any);
-  } catch {}
+    console.log('[PostHog] Init completed, loaded:', posthog._loaded);
+  } catch (error) {
+    console.error('[PostHog] Init failed:', error);
+  }
 }
 
 /**
