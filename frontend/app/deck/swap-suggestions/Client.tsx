@@ -186,6 +186,8 @@ export default function BudgetSwapsClient(){
       return null;
     }
     if (!deckText.trim()) { setError('Please paste your decklist.'); return null; }
+    
+    // Track UI click (already done via track helper)
     setBusy(true); setError(undefined);
     try{
       const body: any = { deckText, currency, budget: threshold, ai: mode==='ai' };
@@ -200,6 +202,26 @@ export default function BudgetSwapsClient(){
       top.forEach(s => { names.push(s.from); names.push(s.to); });
       const m = await fetchCardMeta(names);
       setMeta(m);
+      
+      // Log activity if savings found
+      if (top.length > 0) {
+        const totalDelta = top.reduce((a,s)=> a + (Number(s.price_delta)||0), 0);
+        const calculatedSavings = -Math.min(0, totalDelta);
+        if (calculatedSavings > 0) {
+          try {
+            const fmt = (n:number)=> new Intl.NumberFormat(undefined, { style:'currency', currency }).format(Number(n||0));
+            await fetch('/api/stats/activity/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'budget_saved',
+                message: `Budget swaps saved ${fmt(calculatedSavings)}`,
+              }),
+            });
+          } catch {}
+        }
+      }
+      
       return top;
     } catch(e:any){ setError(e?.message||'Failed'); return null; } finally{ setBusy(false); }
   };

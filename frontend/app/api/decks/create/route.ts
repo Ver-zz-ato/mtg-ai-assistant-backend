@@ -143,6 +143,20 @@ async function _POST(req: NextRequest) {
     }
 
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_saved", { deck_id: data.id, inserted: cards.length || 0, user_id: user.id, ms: Date.now() - t0 }); } catch {}
+    
+    // Log activity for live presence banner
+    try {
+      const deckTitle = cleanTitle || "Untitled Deck";
+      await fetch('/api/stats/activity/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'deck_uploaded',
+          message: `New deck uploaded: ${deckTitle}`,
+        }),
+      });
+    } catch {}
+    
     return ok({ id: data.id, inserted: cards.length || 0 });
   } catch (e: any) {
     return err(e?.message || "server_error", "internal", 500);

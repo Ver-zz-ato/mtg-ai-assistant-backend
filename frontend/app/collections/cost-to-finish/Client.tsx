@@ -478,6 +478,18 @@ export default function CostToFinishClient() {
       setRows(nextRows);
       setTotal(typeof j.total === "number" ? j.total : null);
       setPricesAt(j.prices_updated_at || null);
+      
+      // Log activity
+      try {
+        await fetch('/api/stats/activity/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'cost_computed',
+            message: 'Cost to finish computed',
+          }),
+        });
+      } catch {}
 
       // Fetch rarity and lightweight categories for missing cards (style + filters) - using server-side API
       try {

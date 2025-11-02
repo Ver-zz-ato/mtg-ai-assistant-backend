@@ -195,7 +195,16 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         
         {/* Support & Payment Links */}
         <div className="mb-6 space-y-3">
-          {/* Row 1: Support me */}
+          {/* Row 1: Follow us */}
+          <div className="flex justify-center">
+            <div className="flex gap-3 items-center flex-wrap justify-center text-2xl">
+              <a className="text-orange-400 hover:text-orange-300 transition-colors font-bold" href="https://x.com/ManatapAI" target="_blank" rel="noreferrer">
+                Follow us: @ManaTapAI
+              </a>
+            </div>
+          </div>
+          
+          {/* Row 2: Support me */}
           <div className="flex justify-center">
             <div className="flex gap-3 items-center flex-wrap justify-center text-base">
               <span className="text-gray-300 font-medium">Support me:</span>
@@ -211,7 +220,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
             </div>
           </div>
           
-          {/* Row 2: Legal & Info */}
+          {/* Row 3: Legal & Info */}
           <div className="flex justify-center">
             <nav className="flex gap-4 items-center flex-wrap justify-center text-sm text-gray-400">
               <a className="hover:text-gray-200 transition-colors" href="/support">Support</a>

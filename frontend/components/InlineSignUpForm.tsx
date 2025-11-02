@@ -68,6 +68,18 @@ export default function InlineSignUpForm() {
         console.debug('Server-side signup tracking failed (non-fatal):', trackError);
       }
       
+      // Log activity for live presence banner
+      try {
+        await fetch('/api/stats/activity/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'user_joined',
+            message: 'New planeswalker joined!',
+          }),
+        });
+      } catch {}
+      
       setSuccess(true);
       
       // Reload page after a short delay to show success state

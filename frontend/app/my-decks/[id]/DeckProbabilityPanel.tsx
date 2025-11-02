@@ -28,6 +28,25 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
 
   React.useEffect(() => { try { const p = (key:string, s:(n:number)=>void) => { const v = localStorage.getItem('prob-inline:'+key); if (v!=null) { const n = parseInt(v,10); if (Number.isFinite(n)) s(n); } }; p('N',setN); p('K',setK); p('H',setH); p('T',setT); p('k',setk); } catch {} }, []);
   React.useEffect(() => { try { localStorage.setItem('prob-inline:N', String(N)); localStorage.setItem('prob-inline:K', String(K)); localStorage.setItem('prob-inline:H', String(H)); localStorage.setItem('prob-inline:T', String(T)); localStorage.setItem('prob-inline:k', String(k)); } catch {} }, [N,K,H,T,k]);
+  
+  // Track activity when probability is calculated (first time with Pro)
+  React.useEffect(() => {
+    if (!isPro) return;
+    const hasTracked = sessionStorage.getItem('prob_tracked');
+    if (hasTracked) return;
+    
+    try {
+      fetch('/api/stats/activity/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'probability_ran',
+          message: 'Probability calculator used',
+        }),
+      });
+      sessionStorage.setItem('prob_tracked', '1');
+    } catch {}
+  }, [isPro]);
 
   const draws = Math.max(0, H) + Math.max(0, Math.floor(T));
   const p = hypergeomCDFAtLeast(k, K, N, draws);

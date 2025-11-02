@@ -7,6 +7,7 @@ import FeedbackFab from "../components/FeedbackFab";
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
+import LivePresenceBanner from "../components/LivePresenceBanner";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
 const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
@@ -60,6 +61,9 @@ export default function Page() {
       <div className="w-full relative">
         <div className="max-w-[1600px] mx-auto px-4 pt-0">
           <TopToolsStrip />
+        </div>
+        <div className="max-w-[1600px] mx-auto px-4 pt-2">
+          <LivePresenceBanner />
         </div>
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left sidebar - hidden on mobile, shown on large screens */}

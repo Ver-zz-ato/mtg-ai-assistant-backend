@@ -232,6 +232,18 @@ export default function HandTestingWidget({
     setGameState('drawing');
     setMulliganCount(0);
     
+    // Log activity
+    try {
+      await fetch('/api/stats/activity/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'mulligan_ran',
+          message: 'Mulligan simulation run',
+        }),
+      });
+    } catch {}
+    
     // Create new test sequence
     const newSequence: TestSequence = {
       id: `test-${Date.now()}`,

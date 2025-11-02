@@ -39,6 +39,21 @@ export async function POST(req: NextRequest){
 
     const id = ins?.id;
     const slug = ins?.public_slug || id;
+    
+    // Log activity for live presence banner (server-side direct cache update)
+    try {
+      const { memoGet, memoSet } = await import('@/lib/utils/memoCache');
+      const cacheKey = 'activity_log';
+      const existing = memoGet<any[]>(cacheKey) || [];
+      const newActivity = {
+        type: 'custom_card',
+        message: 'Custom card created',
+        timestamp: new Date().toISOString(),
+      };
+      const updated = [newActivity, ...existing].slice(0, 50);
+      memoSet(cacheKey, updated, 24 * 60 * 60 * 1000); // 24 hours
+    } catch {}
+    
     // Prefer absolute base from env if valid; otherwise fall back to current origin
     const envBase = (process.env.NEXT_PUBLIC_BASE_URL || '').trim();
     const base = /^https?:\/\//i.test(envBase) ? envBase.replace(/\/$/, '') : (req.nextUrl?.origin || '');

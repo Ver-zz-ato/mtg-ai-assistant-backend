@@ -327,48 +327,141 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       try {
         const names = Array.from(new Set(rows.map(r => r.name)));
         if (!names.length) { setPriceMap({}); return; }
-        // Direct currency only; GBP requires snapshot rows (no FX fallback)
+        
+        // Normalize card names the same way as snapshot API
+        const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+        
+        // Step 1: Try snapshot prices first
+        console.log('[CardsPane] Fetching prices for', names.length, 'cards, currency:', currency);
         const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }) });
         const j1 = await r1.json().catch(()=>({ ok:false }));
-        if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
-        // Fallback: for missing names, fetch live from Scryfall collection
-        // Process in batches of 75 (Scryfall's limit per request)
-        try {
-          const base = (j1?.prices || {}) as Record<string, number>;
-          // Normalize card names the same way as snapshot API
-          const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-          const need = Array.from(new Set(rows.map(r => norm(r.name)))).filter(n => !(n in base));
-          
-          if (need.length) {
-            const map:any = { ...(j1?.prices||{}) };
-            // Process in batches of 75
-            for (let i = 0; i < need.length; i += 75) {
-              const batch = need.slice(i, i + 75);
+        let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
+        console.log('[CardsPane] Snapshot prices received:', Object.keys(prices).length, 'prices');
+        console.log('[CardsPane] Snapshot price keys:', Object.keys(prices).slice(0, 10));
+        
+        // Step 2: Find missing cards and fetch from Scryfall
+        const normalizedNames = Array.from(new Set(rows.map(r => norm(r.name))));
+        const missingNames = normalizedNames.filter(n => !prices[n] || prices[n] === 0);
+        console.log('[CardsPane] Missing prices for', missingNames.length, 'cards');
+        console.log('[CardsPane] Missing card names (normalized):', missingNames.slice(0, 10));
+        
+        if (missingNames.length > 0) {
+          try {
+            // Process in batches of 75 (Scryfall's limit)
+            for (let i = 0; i < missingNames.length; i += 75) {
+              const batch = missingNames.slice(i, i + 75);
               try {
-                // Try to get original card names back (from rows) - use exact names for Scryfall lookup
+                // Get original card names back (from rows) - use exact names for Scryfall lookup
                 const originalNames = batch.map(normName => {
                   const found = rows.find(r => norm(r.name) === normName);
                   return found ? found.name : normName;
                 });
+                console.log('[CardsPane] Scryfall batch', Math.floor(i/75) + 1, '- fetching:', originalNames.slice(0, 5));
                 const identifiers = originalNames.map(n=>({ name: n }));
-                const r2 = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
+                const r2 = await fetch('https://api.scryfall.com/cards/collection', {
+                  method:'POST',
+                  headers:{'content-type':'application/json'},
+                  body: JSON.stringify({ identifiers })
+                });
                 const j2:any = await r2.json().catch(()=>({}));
                 const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
+                console.log('[CardsPane] Scryfall returned', arr.length, 'cards for batch', Math.floor(i/75) + 1);
+                
+                let foundCount = 0;
                 for (const c of arr) {
                   const nm = norm(c?.name||'');
-                  const prices = c?.prices || {};
+                  const cardPrices = c?.prices || {};
                   const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
-                  const v = prices?.[key];
-                  if (v!=null && v > 0) map[nm] = Number(v);
+                  
+                  // Try primary price key first
+                  let v = cardPrices?.[key];
+                  
+                  // For USD, try fallback keys if primary is missing (reserved list cards often only have foil prices)
+                  if ((!v || v === null || v === 0) && currency === 'USD') {
+                    v = cardPrices?.usd_foil || cardPrices?.usd_etched || cardPrices?.usd;
+                  }
+                  
+                  // For EUR, try foil fallback
+                  if ((!v || v === null || v === 0) && currency === 'EUR') {
+                    v = cardPrices?.eur_foil || cardPrices?.eur;
+                  }
+                  
+                  // For GBP, try foil fallback
+                  if ((!v || v === null || v === 0) && currency === 'GBP') {
+                    v = cardPrices?.gbp_foil || cardPrices?.gbp;
+                  }
+                  
+                  if (v!=null && v > 0 && !isNaN(Number(v))) {
+                    prices[nm] = Number(v);
+                    foundCount++;
+                    const priceType = cardPrices?.[key] ? key : (cardPrices?.usd_foil || cardPrices?.eur_foil || cardPrices?.gbp_foil ? 'foil' : 'other');
+                    console.log('[CardsPane] ✓ Found price for', c.name, '->', nm, '=', v, currency, `(${priceType})`);
+                  } else {
+                    // Log the full price object structure for debugging
+                    const priceKeys = Object.keys(cardPrices || {}).filter(k => cardPrices[k] != null);
+                    console.log('[CardsPane] ✗ No price for', c.name, '->', nm);
+                    console.log('[CardsPane]   Available price keys:', priceKeys);
+                    console.log('[CardsPane]   Price values:', priceKeys.map(k => `${k}=${cardPrices[k]}`).join(', '));
+                    
+                    // Last resort: try to fetch cheapest printing if this card has prints_search_uri
+                    // Trigger this if: no price keys at all, OR only has TIX (reserved list cards)
+                    const onlyHasTix = priceKeys.length === 1 && priceKeys[0] === 'tix';
+                    if (c?.prints_search_uri && (!priceKeys.length || onlyHasTix)) {
+                      console.log('[CardsPane]   Attempting to fetch cheapest printing from', c.prints_search_uri, '(only TIX or no prices available)');
+                      try {
+                        const printsRes = await fetch(c.prints_search_uri, { cache: 'no-store' });
+                        const printsData = await printsRes.json().catch(() => ({}));
+                        const printCards = Array.isArray(printsData?.data) ? printsData.data : [];
+                        console.log('[CardsPane]   Found', printCards.length, 'printings');
+                        
+                        // Find cheapest non-foil price across all printings
+                        let cheapest: number | null = null;
+                        for (const print of printCards) {
+                          const printPrices = print?.prices || {};
+                          const priceKey = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
+                          
+                          // Try primary price first
+                          let pv = printPrices?.[priceKey];
+                          
+                          // Fallback to foil if needed (for USD)
+                          if ((!pv || pv === null || pv === 0) && currency === 'USD') {
+                            pv = printPrices?.usd_foil || printPrices?.usd_etched || printPrices?.usd;
+                          }
+                          
+                          if (pv != null && pv > 0 && !isNaN(Number(pv))) {
+                            const priceNum = Number(pv);
+                            cheapest = cheapest === null ? priceNum : Math.min(cheapest, priceNum);
+                          }
+                        }
+                        
+                        if (cheapest !== null && cheapest > 0) {
+                          prices[nm] = cheapest;
+                          foundCount++;
+                          console.log('[CardsPane]   ✓ Found cheapest printing price:', cheapest, currency, 'from', printCards.length, 'printings');
+                        } else {
+                          console.log('[CardsPane]   ✗ No prices found in any printing');
+                        }
+                      } catch (printError) {
+                        console.warn('[CardsPane]   Failed to fetch prints:', printError);
+                      }
+                    }
+                  }
                 }
+                console.log('[CardsPane] Batch', Math.floor(i/75) + 1, 'result: found', foundCount, 'prices');
               } catch (batchError) {
                 // Continue with next batch if one fails
-                console.warn('Scryfall fallback batch failed:', batchError);
+                console.warn('[CardsPane] Scryfall fallback batch failed:', batchError);
               }
             }
-            setPriceMap(map);
+          } catch (fallbackError) {
+            console.warn('[CardsPane] Scryfall fallback failed:', fallbackError);
           }
-        } catch {}
+        }
+        
+        console.log('[CardsPane] Final prices count:', Object.keys(prices).length);
+        console.log('[CardsPane] Final price keys:', Object.keys(prices).slice(0, 20));
+        // Update priceMap with combined snapshot + Scryfall prices
+        setPriceMap(prices);
       } catch { setPriceMap({}); }
     })();
   }, [rows.map(r=>r.name).join('|'), currency]);
@@ -531,6 +624,11 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
               {(() => { try { 
                 const key = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); 
                 let unit = priceMap[key];
+                
+                // Debug: Log missing prices
+                if (!unit && Object.keys(priceMap).length > 0) {
+                  console.log('[CardsPane] No price for card:', c.name, 'normalized key:', key, 'available keys:', Object.keys(priceMap).slice(0, 10));
+                }
                 let hasImg = !!imgMap[c.name.toLowerCase()]?.small;
                 
                 // For DFCs, try matching any DFC with the same front face
@@ -635,3 +733,4 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
     </div>
   );
 }
+

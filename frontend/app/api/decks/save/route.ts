@@ -164,6 +164,19 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    // Log activity for live presence banner
+    try {
+      const deckTitle = deckRow.title || "Untitled Deck";
+      await fetch('/api/stats/activity/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'deck_uploaded',
+          message: `New deck uploaded: ${deckTitle}`,
+        }),
+      });
+    } catch {}
+
     return NextResponse.json({ ok: true, id: deckId }, { status: 200 });
   } catch (e: any) {
     const msg = typeof e?.message === "string" ? e.message : "Unexpected error";
