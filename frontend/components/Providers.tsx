@@ -12,10 +12,7 @@ function hasConsent(): boolean {
 
 function initPosthogIfNeeded() {
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY || '';
-  if (!key) {
-    console.log('[PostHog] No key configured, skipping init');
-    return; // no key configured -> do not init
-  }
+  if (!key) return; // no key configured -> do not init
   if (typeof window === 'undefined') return;
   if ((navigator as any)?.onLine === false) return; // offline -> skip init to avoid failed fetch noise
 
@@ -28,24 +25,16 @@ function initPosthogIfNeeded() {
     return;
   }
   try {
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest';
-    console.log('[PostHog] Initializing with key:', key.substring(0, 10) + '...', 'host:', host);
     posthog.init(key, ({
-      api_host: host,
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest',
       capture_pageview: false,
       autocapture: false,
       capture_pageleave: true,
       disable_session_recording: true,
       disable_toolbar: true,
       debug: false,
-      loaded: (posthog: any) => {
-        console.log('[PostHog] Fully loaded callback fired!');
-      }
     }) as any);
-    console.log('[PostHog] Init call completed, loaded:', posthog._loaded, 'can capture:', !!posthog.capture);
-  } catch (error) {
-    console.error('[PostHog] Init failed:', error);
-  }
+  } catch {}
 }
 
 /**
@@ -60,7 +49,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
     // Initialize analytics only with consent; re-check when consent is granted
     const maybeInit = () => {
-      console.log('[PostHog] maybeInit called, consent:', hasConsent());
       if (!hasConsent()) return;
       initPosthogIfNeeded();
       try {
