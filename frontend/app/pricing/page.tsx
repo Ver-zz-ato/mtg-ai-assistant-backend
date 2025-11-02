@@ -46,6 +46,27 @@ export default function PricingPage() {
       source: 'pricing_page',
       plan,
     });
+    
+    // Also track server-side (always works, no cookie consent needed)
+    try {
+      await fetch('/api/analytics/track-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          event: 'pricing_upgrade_clicked',
+          properties: { 
+            is_authenticated: !!user,
+            source: 'pricing_page',
+            plan,
+            user_id: user?.id || null,
+            user_email: user?.email || null
+          }
+        })
+      });
+    } catch (trackError) {
+      // Silent fail - server-side tracking is best effort
+      console.debug('Server-side upgrade click tracking failed (non-fatal):', trackError);
+    }
 
     setUpgrading(true);
     

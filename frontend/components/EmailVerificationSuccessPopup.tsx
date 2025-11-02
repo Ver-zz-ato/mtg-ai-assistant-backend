@@ -30,6 +30,24 @@ export default function EmailVerificationSuccessPopup() {
             setShow(true);
             capture('email_verified_success', { user_id: user.id });
             
+            // Also track server-side (always works, no cookie consent needed)
+            try {
+              await fetch('/api/analytics/track-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  event: 'email_verified_success',
+                  properties: { 
+                    user_id: user.id,
+                    user_email: user.email
+                  }
+                })
+              });
+            } catch (trackError) {
+              // Silent fail - server-side tracking is best effort
+              console.debug('Server-side email verification tracking failed (non-fatal):', trackError);
+            }
+            
             // Auto-dismiss after 5 seconds
             setTimeout(() => setShow(false), 5000);
             

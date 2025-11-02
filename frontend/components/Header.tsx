@@ -106,6 +106,26 @@ export default function Header() {
       }
       
       capture('auth_login_success', { method: 'email_password' });
+      
+      // Also track server-side (always works, no cookie consent needed)
+      try {
+        await fetch('/api/analytics/track-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            event: 'auth_login_success',
+            properties: { 
+              method: 'email_password',
+              user_id: data?.user?.id,
+              user_email: data?.user?.email
+            }
+          })
+        });
+      } catch (trackError) {
+        // Silent fail - server-side tracking is best effort
+        console.debug('Server-side login tracking failed (non-fatal):', trackError);
+      }
+      
       trackSignupCompleted('email'); // This could be login or signup completion
       
       // Store signup time for tenure tracking
@@ -653,13 +673,31 @@ export default function Header() {
                   
                   try { 
                     trackSignupStarted('email');
-                    const { error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); 
+                    const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); 
                     if (error) {
                       setSignupPasswordError(error.message);
                       return;
                     }
                     
-                    trackSignupCompleted('email');
+                    // Track client-side (may fail if no cookie consent)
+                    trackSignupCompleted('email', data?.user?.id);
+                    
+                    // Also track server-side (always works, no cookie consent needed)
+                    try {
+                      await fetch('/api/analytics/track-signup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                          method: 'email', 
+                          userId: data?.user?.id,
+                          userEmail: signupEmail 
+                        })
+                      });
+                    } catch (trackError) {
+                      // Silent fail - server-side tracking is best effort
+                      console.debug('Server-side signup tracking failed (non-fatal):', trackError);
+                    }
+                    
                     setSignupSuccess(true);
                   } catch (e:any) { 
                     setSignupPasswordError(e?.message || 'Sign up failed');

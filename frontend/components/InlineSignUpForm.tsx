@@ -39,7 +39,7 @@ export default function InlineSignUpForm() {
     try {
       trackSignupStarted('email', 'inline_form');
       
-      const { error } = await supabase.auth.signUp({ 
+      const { data, error } = await supabase.auth.signUp({ 
         email, 
         password 
       });
@@ -49,7 +49,25 @@ export default function InlineSignUpForm() {
         return;
       }
       
-      trackSignupCompleted('email');
+      // Track client-side (may fail if no cookie consent)
+      trackSignupCompleted('email', data?.user?.id);
+      
+      // Also track server-side (always works, no cookie consent needed)
+      try {
+        await fetch('/api/analytics/track-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            method: 'email', 
+            userId: data?.user?.id,
+            userEmail: email 
+          })
+        });
+      } catch (trackError) {
+        // Silent fail - server-side tracking is best effort
+        console.debug('Server-side signup tracking failed (non-fatal):', trackError);
+      }
+      
       setSuccess(true);
       
       // Reload page after a short delay to show success state

@@ -255,6 +255,7 @@ export async function POST(req: NextRequest) {
     let processed = 0;
     let inserted = 0;
     let errors = 0;
+    let uniqueNamesInBatches = new Set<string>(); // Track all unique normalized names we're trying to upsert
 
     for (let i = 0; i < cards.length; i += BATCH_SIZE) {
       const batch = cards.slice(i, i + BATCH_SIZE);
@@ -298,6 +299,7 @@ export async function POST(req: NextRequest) {
         // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"
         if (!rowMap.has(normalizedName)) {
           rowMap.set(normalizedName, row);
+          uniqueNamesInBatches.add(normalizedName);
         }
       }
       
@@ -399,32 +401,56 @@ export async function POST(req: NextRequest) {
     }
 
     // Final verification - check actual database state
-    let finalCount = 0;
+    let finalCount: number | null = null;
+    let imageCount = 0;
     try {
-      // Use a simpler approach to count rows - count query might be unreliable
-      const { data: countData, error: countError } = await admin
+      // Get actual count of all entries
+      const { count, error: countError } = await admin
         .from('scryfall_cache')
-        .select('name')
-        .limit(1000); // Get a sample to verify data exists
+        .select('name', { count: 'exact', head: true });
         
       if (countError) {
         console.warn(`⚠️ Could not verify final cache state:`, countError.message);
-      } else if (countData && countData.length > 0) {
-        console.log(`📊 Final cache verification: Found ${countData.length}+ entries (sampled), cache appears to be populated`);
-        finalCount = countData.length; // At least this many
       } else {
-        console.warn(`⚠️ No cache entries found - data may not be persisting`);
+        finalCount = count || 0;
+        console.log(`📊 Final cache verification: ${finalCount.toLocaleString()} total entries in cache`);
+      }
+
+      // Also check how many entries have images
+      const { count: imageCountResult, error: imageCountError } = await admin
+        .from('scryfall_cache')
+        .select('name', { count: 'exact', head: true })
+        .not('normal', 'is', null);
+        
+      if (!imageCountError && imageCountResult) {
+        imageCount = imageCountResult;
+        const imagePercentage = finalCount ? Math.round((imageCount / finalCount) * 100) : 0;
+        console.log(`🖼️  Image verification: ${imageCount.toLocaleString()} entries have images (${imagePercentage}%)`);
       }
     } catch (verifyError: any) {
       console.warn(`⚠️ Could not verify final cache state:`, verifyError.message);
     }
 
-    console.log(`✅ Chunk ${chunkStart}-${chunkStart + chunkSize} complete: ${inserted} cards processed, ${finalCount} total in cache`);
+    const cardsWithImages = cards.filter(c => 
+      c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal
+    ).length;
+    const uniqueNormalizedNames = uniqueNamesInBatches.size;
+
+    console.log(`\n📊 Import Summary:`);
+    console.log(`   • Raw cards downloaded: ${cards.length.toLocaleString()}`);
+    console.log(`   • Cards processed: ${processed.toLocaleString()}`);
+    console.log(`   • Unique normalized names attempted: ${uniqueNormalizedNames.toLocaleString()}`);
+    console.log(`   • Rows upserted (batches): ${inserted.toLocaleString()}`);
+    console.log(`   • Final cache entries (actual): ${finalCount?.toLocaleString() || 'unknown'}`);
+    console.log(`\n💡 Note: Multiple printings of the same card normalize to the same name, so`);
+    console.log(`   upserts update existing rows. The final count represents unique card names.`);
+    console.log(`\n📈 Image coverage: ${cardsWithImages.toLocaleString()}/${cards.length.toLocaleString()} cards had images (${Math.round(cardsWithImages / cards.length * 100)}%)`);
 
     return NextResponse.json({ 
       ok: true, 
       imported: inserted, 
       processed: processed,
+      unique_normalized_names: uniqueNormalizedNames,
       streaming_mode: useStreaming,
       chunk_start: useStreaming ? 0 : chunkStart,
       chunk_size: useStreaming ? cards.length : chunkSize,
@@ -432,6 +458,7 @@ export async function POST(req: NextRequest) {
       total_cards: allCardsLength,
       is_last_chunk: isLastChunk,
       final_cache_count: finalCount,
+      cache_entries_with_images: imageCount,
       timestamp: new Date().toISOString()
     });
 
