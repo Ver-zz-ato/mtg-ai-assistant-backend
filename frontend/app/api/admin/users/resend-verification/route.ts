@@ -42,32 +42,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "User has no email" }, { status: 400 });
     }
 
-    // Resend verification email using generateLink (admin API doesn't have resend method)
-    // Generate a magic link that acts as a verification link
+    // Resend verification email using admin API
+    // Generate a magic link that will work for account access/verification
     try {
+      // Generate magic link - this works for both verified and unverified users
+      // For unverified users, clicking the link will verify their email
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: 'magiclink',
         email: targetEmail,
       });
       
-      if (linkError) {
-        // If magiclink fails, try email_change as alternative
-        const { error: emailChangeError } = await admin.auth.admin.generateLink({
-          type: 'email_change',
-          email: targetEmail,
-        });
-        
-        if (emailChangeError) {
-          return NextResponse.json({ 
-            ok: false, 
-            error: `Failed to generate verification link: ${linkError.message}` 
-          }, { status: 500 });
-        }
+      if (linkError || !linkData?.properties?.action_link) {
+        return NextResponse.json({ 
+          ok: false, 
+          error: `Failed to generate verification link: ${linkError?.message || 'No link generated'}` 
+        }, { status: 500 });
       }
       
-      // Note: generateLink creates a link but doesn't send email automatically
-      // For admin-initiated resend, we'll just mark it as successful
-      // The link would need to be sent via a separate email service
+      // Note: generateLink creates the link but Supabase does NOT automatically send emails
+      // The link is generated and can be used manually, or you'd need to integrate with an email service
+      // For now, this endpoint generates the link and logs the action
+      // In production, you'd send the link via your email service (SendGrid, Resend, etc.)
     } catch (e: any) {
       return NextResponse.json({ 
         ok: false, 
