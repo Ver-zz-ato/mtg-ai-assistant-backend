@@ -1,10 +1,26 @@
 "use client";
 import React from "react";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function PinDeckButton({ deckId, pinned, currentPinned }: { deckId: string; pinned: boolean; currentPinned: string[] }){
   const [busy, setBusy] = React.useState(false);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
+  
   async function toggle(){
     if (busy) return;
+    
+    // Track UI click
+    track('ui_click', {
+      area: 'deck',
+      action: 'pin',
+      deckId: deckId,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
     const next = new Set(currentPinned);
     if (pinned) { next.delete(deckId); }
     else {

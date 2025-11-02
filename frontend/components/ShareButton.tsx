@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { capture } from '@/lib/ph';
+import { track } from '@/lib/analytics/track';
+import { useAuth } from '@/lib/auth-context';
+import { useProStatus } from '@/hooks/useProStatus';
 
 interface ShareButtonProps {
   url: string;
@@ -26,6 +29,8 @@ export default function ShareButton({
 }: ShareButtonProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [copiedRecently, setCopiedRecently] = useState(false);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   const handleCopy = async () => {
     try {
@@ -47,6 +52,19 @@ export default function ShareButton({
           content_type: type,
           share_method: 'copy_link',
           content_url: url
+        });
+      } catch {}
+      
+      // Track UI click
+      try {
+        const deckId = url.match(/\/decks\/([^\/]+)/)?.[1] || null;
+        track('ui_click', {
+          area: 'deck',
+          action: 'share',
+          deckId: deckId,
+        }, {
+          userId: user?.id || null,
+          isPro: isPro,
         });
       } catch {}
 

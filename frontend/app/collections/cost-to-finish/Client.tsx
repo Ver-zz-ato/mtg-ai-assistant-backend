@@ -8,6 +8,8 @@ import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { usePrefs } from "@/components/PrefsContext";
 import { useProStatus } from "@/hooks/useProStatus";
+import { useAuth } from "@/lib/auth-context";
+import { track } from "@/lib/analytics/track";
 import { useToast } from "@/components/ToastProvider";
 
 type Deck = { id: string; title: string; deck_text?: string | null };
@@ -23,6 +25,7 @@ type ResultRow = {
 
 export default function CostToFinishClient() {
   const { showPanel: showToastPanel, removeToast } = useToast();
+  const { user } = useAuth();
   
   function DistributionCharts() {
     if (rowsToShow.length===0) return null;
@@ -803,7 +806,18 @@ export default function CostToFinishClient() {
           </div>
 
           <button
-            onClick={onCompute}
+            onClick={async () => {
+              // Track UI click
+              track('ui_click', {
+                area: 'functions',
+                action: 'run',
+                fn: 'cost-to-finish',
+              }, {
+                userId: user?.id || null,
+                isPro: isPro,
+              });
+              await onCompute();
+            }}
             disabled={busy}
             className={`w-full rounded-md px-4 py-2 ${busy ? "bg-sky-300/60" : "bg-sky-500 hover:bg-sky-400"} text-black font-semibold`}
           >

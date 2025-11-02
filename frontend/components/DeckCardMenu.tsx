@@ -1,16 +1,34 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function DeckCardMenu({ id, title, is_public }: { id:string; title:string|null; is_public:boolean|null }){
   const [open, setOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement|null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
+  
   React.useEffect(()=>{ function onDoc(e:any){ if(!ref.current?.contains(e.target)) setOpen(false); } document.addEventListener('mousedown', onDoc); return ()=> document.removeEventListener('mousedown', onDoc); },[]);
 
   async function togglePublic(){ await fetch('/api/decks/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id, is_public: !is_public }) }); router.refresh(); setOpen(false); }
-  async function copyLink(){ try{ const origin = location.origin; await navigator.clipboard.writeText(`${origin}/decks/${id}`); alert('Share link copied'); } catch{ alert('Copy failed'); } setOpen(false); }
+  async function copyLink(){ 
+    // Track UI click
+    track('ui_click', {
+      area: 'deck',
+      action: 'share',
+      deckId: id,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
+    
+    try{ const origin = location.origin; await navigator.clipboard.writeText(`${origin}/decks/${id}`); alert('Share link copied'); } catch{ alert('Copy failed'); } setOpen(false); 
+  }
   async function rename(){ const name = prompt('New deck title:', title||'Untitled Deck'); if(name==null) return; await fetch('/api/decks/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id, title: name }) }); router.refresh(); setOpen(false); }
 
   return (

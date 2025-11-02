@@ -1,13 +1,28 @@
 // components/ExportDeckCSV.tsx
 "use client";
 import { useState } from "react";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 type Props = { deckId: string; filename?: string; small?: boolean; className?: string };
 
 export default function ExportDeckCSV({ deckId, filename = "deck.csv", small, className }: Props) {
   const [busy, setBusy] = useState(false);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   async function onExport() {
+    // Track UI click
+    track('ui_click', {
+      area: 'deck',
+      action: 'export',
+      deckId: deckId,
+      export_type: 'csv',
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
     setBusy(true);
     try {
       const res = await fetch(`/api/decks/${deckId}`, { cache: "no-store" });

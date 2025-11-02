@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 import { useProStatus } from '@/hooks/useProStatus';
 import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
+import { track } from '@/lib/analytics/track';
 import Link from 'next/link';
 import ProValueTooltip from '@/components/ProValueTooltip';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
@@ -67,6 +68,16 @@ export default function PricingPage() {
       // Silent fail - server-side tracking is best effort
       console.debug('Server-side upgrade click tracking failed (non-fatal):', trackError);
     }
+
+    // Track UI click event
+    track('ui_click', {
+      area: 'pricing',
+      action: 'upgrade_click',
+      plan: plan === 'monthly' ? 'monthly' : 'yearly',
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
 
     setUpgrading(true);
     

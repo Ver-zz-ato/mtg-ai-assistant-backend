@@ -1,6 +1,9 @@
 'use client';
 import React from 'react';
 import { ELI5, HelpTip } from '@/components/AdminHelp';
+import { track } from '@/lib/analytics/track';
+import { useAuth } from '@/lib/auth-context';
+import { useProStatus } from '@/hooks/useProStatus';
 
 export default function DataPage(){
   const [name, setName] = React.useState('');
@@ -12,6 +15,8 @@ export default function DataPage(){
   const [diagnosticResult, setDiagnosticResult] = React.useState<any>(null);
   const [diagnosticLoading, setDiagnosticLoading] = React.useState(false);
   const [cleanupResult, setCleanupResult] = React.useState<any>(null);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   React.useEffect(() => {
     // Fetch last-run timestamps from app_config keys (only the 3 essential jobs)
@@ -163,6 +168,16 @@ export default function DataPage(){
                   const { toast } = await import('@/lib/toast-client');
                   
                   try {
+                    // Track UI click
+                    track('ui_click', {
+                      area: 'admin',
+                      action: 'run_job',
+                      job: 'bulk-scryfall',
+                    }, {
+                      userId: user?.id || null,
+                      isPro: isPro,
+                    });
+                    
                     toast('🚀 Starting bulk Scryfall import... (check console for progress)', 'info');
                     
                     const response = await fetch('/api/cron/bulk-scryfall', {
@@ -225,6 +240,16 @@ export default function DataPage(){
                   const { toast } = await import('@/lib/toast-client');
                   
                   try {
+                    // Track UI click
+                    track('ui_click', {
+                      area: 'admin',
+                      action: 'run_job',
+                      job: 'bulk-price-import',
+                    }, {
+                      userId: user?.id || null,
+                      isPro: isPro,
+                    });
+                    
                     toast('💰 Starting bulk price import... (check console for progress)', 'info');
                     
                     const response = await fetch('/api/cron/bulk-price-import', {

@@ -1,6 +1,9 @@
 'use client';
 import React from 'react';
 import { ELI5, HelpTip } from '@/components/AdminHelp';
+import { track } from '@/lib/analytics/track';
+import { useAuth } from '@/lib/auth-context';
+import { useProStatus } from '@/hooks/useProStatus';
 
 export default function SupportPage(){
   const [q, setQ] = React.useState('');
@@ -8,12 +11,25 @@ export default function SupportPage(){
   const [busy, setBusy] = React.useState(false);
   const [selectedUserId, setSelectedUserId] = React.useState<string | null>(null);
   const [actionBusy, setActionBusy] = React.useState<string | null>(null);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   async function search(){ setBusy(true); try { const r = await fetch(`/api/admin/users/search?q=${encodeURIComponent(q)}`); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'search_failed'); setRows(j.users||[]);} catch(e:any){ alert(e?.message||'failed'); setRows([]);} finally{ setBusy(false);} }
   async function setPro(userId: string, pro: boolean){ try { const r = await fetch('/api/admin/users/pro', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, pro }) }); const j = await r.json(); if(!r.ok||j?.ok===false) throw new Error(j?.error||'update_failed'); alert('Updated'); } catch(e:any){ alert(e?.message||'failed'); } }
   async function setBilling(userId: string, active: boolean){ try { const r = await fetch('/api/admin/users/billing', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, active }) }); const j = await r.json(); if(!r.ok||j?.ok===false) throw new Error(j?.error||'update_failed'); alert('Updated'); } catch(e:any){ alert(e?.message||'failed'); } }
 
   async function resendVerification(userId: string) {
+    // Track UI click
+    track('ui_click', {
+      area: 'admin',
+      action: 'resend_verification',
+      job: 'resend_verification',
+      target_user_id: userId,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
+    
     setActionBusy('resend');
     try {
       const r = await fetch('/api/admin/users/resend-verification', {
@@ -32,6 +48,17 @@ export default function SupportPage(){
   }
 
   async function exportGDPR(userId: string) {
+    // Track UI click
+    track('ui_click', {
+      area: 'admin',
+      action: 'gdpr_export',
+      job: 'gdpr_export',
+      target_user_id: userId,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
+    
     setActionBusy('export');
     try {
       const r = await fetch('/api/admin/users/gdpr-export', {
@@ -62,6 +89,17 @@ export default function SupportPage(){
   }
 
   async function deleteGDPR(userId: string) {
+    // Track UI click
+    track('ui_click', {
+      area: 'admin',
+      action: 'gdpr_delete',
+      job: 'gdpr_delete',
+      target_user_id: userId,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
+    
     const confirm1 = prompt('Type "DELETE" to confirm GDPR account deletion:');
     if (confirm1 !== 'DELETE') {
       if (confirm1 !== null) alert('Deletion cancelled');

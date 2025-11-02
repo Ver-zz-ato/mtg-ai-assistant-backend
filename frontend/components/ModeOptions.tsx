@@ -1,5 +1,8 @@
 "use client";
 import { usePrefs } from "./PrefsContext";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 type Color = "W" | "U" | "B" | "R" | "G";
 type Currency = "USD" | "EUR" | "GBP";
 const colorLabel: Record<Color, string> = { W: "W", U: "U", B: "B", R: "R", G: "G" };
@@ -12,6 +15,8 @@ export default function ModeOptions() {
     colors, toggleColor, clearColors,
     currency, setCurrency,
   } = usePrefs();
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   
   // Safe fallbacks for optional context fields
@@ -35,12 +40,34 @@ const pill = (active: boolean) =>
           <>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
             {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
-              <button key={f} className={pill(format === f)} onClick={() => safeSetFormat(f)}>{f}</button>
+              <button key={f} className={pill(format === f)} onClick={() => {
+                safeSetFormat(f);
+                track('ui_click', {
+                  area: 'chat',
+                  action: 'persona_select',
+                  persona: 'format',
+                  value: f.toLowerCase(),
+                }, {
+                  userId: user?.id || null,
+                  isPro: isPro,
+                });
+              }}>{f}</button>
             ))}
             <span className="mx-1 sm:mx-2 text-gray-600 hidden sm:inline">|</span>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Plan</span>
             {(["Budget", "Optimized"] as const).map((p) => (
-              <button key={p} className={pill(plan === p)} onClick={() => safeSetPlan(p)}>{p}</button>
+              <button key={p} className={pill(plan === p)} onClick={() => {
+                safeSetPlan(p);
+                track('ui_click', {
+                  area: 'chat',
+                  action: 'persona_select',
+                  persona: 'plan',
+                  value: p.toLowerCase(),
+                }, {
+                  userId: user?.id || null,
+                  isPro: isPro,
+                });
+              }}>{p}</button>
             ))}
             <span className="mx-1 sm:mx-2 text-gray-600 hidden sm:inline">|</span>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Colors</span>
@@ -71,7 +98,18 @@ const pill = (active: boolean) =>
           <>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
             {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
-              <button key={f} className={pill(format === f)} onClick={() => safeSetFormat(f)}>{f}</button>
+              <button key={f} className={pill(format === f)} onClick={() => {
+                safeSetFormat(f);
+                track('ui_click', {
+                  area: 'chat',
+                  action: 'persona_select',
+                  persona: 'format',
+                  value: f.toLowerCase(),
+                }, {
+                  userId: user?.id || null,
+                  isPro: isPro,
+                });
+              }}>{f}</button>
             ))}
           </>
         )}

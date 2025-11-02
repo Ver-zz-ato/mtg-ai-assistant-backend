@@ -3,6 +3,8 @@ import React from "react";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useProStatus } from "@/hooks/useProStatus";
+import { useAuth } from "@/lib/auth-context";
+import { track } from "@/lib/analytics/track";
 import { motion, AnimatePresence } from "framer-motion";
 import { getManaGlow } from "@/lib/mana-colors";
 
@@ -26,6 +28,7 @@ async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: 
 
 export default function BudgetSwapsClient(){
   const { isPro } = useProStatus();
+  const { user } = useAuth();
 
   const [deckId, setDeckId] = React.useState("");
   const [deckText, setDeckText] = React.useState("");
@@ -444,7 +447,18 @@ export default function BudgetSwapsClient(){
               </label>
             </div>
             <div className="pt-1">
-              <button onClick={compute} disabled={busy} className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black font-semibold disabled:opacity-60">{busy? 'Computing…' : 'Compute'}</button>
+              <button onClick={async () => {
+                // Track UI click
+                track('ui_click', {
+                  area: 'functions',
+                  action: 'run',
+                  fn: 'budget-swaps',
+                }, {
+                  userId: user?.id || null,
+                  isPro: isPro,
+                });
+                await compute();
+              }} disabled={busy} className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black font-semibold disabled:opacity-60">{busy? 'Computing…' : 'Compute'}</button>
             </div>
           </div>
         </aside>

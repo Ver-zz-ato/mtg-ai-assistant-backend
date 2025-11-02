@@ -1,9 +1,26 @@
 "use client";
 
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
+
 export default function RecomputeButton() {
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
+  
   return (
     <button
-      onClick={() => {
+      onClick={async () => {
+        // Track UI click
+        track('ui_click', {
+          area: 'functions',
+          action: 'run',
+          fn: 'cost-to-finish',
+        }, {
+          userId: user?.id || null,
+          isPro: isPro,
+        });
+        
         try {
           const url = new URL(window.location.href);
           url.searchParams.set('r', String(Date.now()));

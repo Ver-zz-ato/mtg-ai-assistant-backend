@@ -3,12 +3,17 @@ import React, { useEffect, useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function LikeButton({ deckId }: { deckId: string }) {
   const [count, setCount] = useState<number>(0);
   const [liked, setLiked] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   useEffect(() => {
     (async () => {
@@ -30,6 +35,16 @@ export default function LikeButton({ deckId }: { deckId: string }) {
   async function toggle(e: React.MouseEvent) {
     e.preventDefault();
     if (busy) return;
+    
+    // Track UI click
+    track('ui_click', {
+      area: 'deck',
+      action: 'like',
+      deckId: deckId,
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
     
     // Check if user is authenticated
     if (isAuthenticated === false) {

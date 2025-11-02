@@ -1,12 +1,27 @@
 // components/CopyDecklistButton.tsx
 "use client";
 import { useState } from "react";
+import { track } from "@/lib/analytics/track";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function CopyDecklistButton({ deckId, small, className }: { deckId: string; small?: boolean; className?: string }) {
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
 
   async function onCopy() {
+    // Track UI click
+    track('ui_click', {
+      area: 'deck',
+      action: 'export',
+      deckId: deckId,
+      export_type: 'copy_decklist',
+    }, {
+      userId: user?.id || null,
+      isPro: isPro,
+    });
     setBusy(true); setOk(false);
     try {
       const res = await fetch(`/api/decks/${deckId}`, { cache: "no-store" });
