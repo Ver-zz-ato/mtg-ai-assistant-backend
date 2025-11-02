@@ -38,8 +38,11 @@ function initPosthogIfNeeded() {
       disable_session_recording: true,
       disable_toolbar: true,
       debug: false,
+      loaded: (posthog: any) => {
+        console.log('[PostHog] Fully loaded callback fired!');
+      }
     }) as any);
-    console.log('[PostHog] Init completed, loaded:', posthog._loaded);
+    console.log('[PostHog] Init call completed, loaded:', posthog._loaded, 'can capture:', !!posthog.capture);
   } catch (error) {
     console.error('[PostHog] Init failed:', error);
   }
@@ -57,6 +60,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
     // Initialize analytics only with consent; re-check when consent is granted
     const maybeInit = () => {
+      console.log('[PostHog] maybeInit called, consent:', hasConsent());
       if (!hasConsent()) return;
       initPosthogIfNeeded();
       try {
