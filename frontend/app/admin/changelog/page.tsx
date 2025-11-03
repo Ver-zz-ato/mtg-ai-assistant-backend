@@ -47,15 +47,34 @@ export default function AdminChangelogPage() {
     setError('');
     
     try {
+      // Deduplicate entries by version+date+title to prevent accidental duplicates
+      const seen = new Set<string>();
+      const deduplicated = entries.filter(entry => {
+        const key = `${entry.version}|${entry.date}|${entry.title}`;
+        if (seen.has(key)) {
+          return false; // Duplicate found
+        }
+        seen.add(key);
+        return true;
+      });
+      
+      // If we filtered any duplicates, update state
+      if (deduplicated.length !== entries.length) {
+        setEntries(deduplicated);
+        setError(`Removed ${entries.length - deduplicated.length} duplicate entry/entries`);
+      }
+      
       const res = await fetch('/api/admin/changelog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries })
+        body: JSON.stringify({ entries: deduplicated })
       });
       
       const data = await res.json();
       
       if (data.ok) {
+        // Reload changelog from server to ensure UI matches saved state
+        await loadChangelog();
         alert('Changelog saved successfully!');
       } else {
         setError(data.error);
@@ -164,7 +183,7 @@ export default function AdminChangelogPage() {
 
         <div className="space-y-6">
           {entries.map((entry, index) => (
-            <div key={index} className="bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-sm">
+            <div key={`${entry.version}-${entry.date}-${index}`} className="bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex gap-4 items-center">
                   <input

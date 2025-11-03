@@ -100,15 +100,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const changelogData = { entries, last_updated: new Date().toISOString() };
+    // Deduplicate entries before saving (extra safety check)
+    const seen = new Set<string>();
+    const deduplicatedEntries = entries.filter(entry => {
+      const key = `${entry.version}|${entry.date}|${entry.title}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+    
+    // Sort by date (newest first) for consistent ordering
+    const sortedEntries = [...deduplicatedEntries].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA; // Descending (newest first)
+    });
 
-    // Upsert the changelog in app_config
+    const changelogData = { entries: sortedEntries, last_updated: new Date().toISOString() };
+
+    // Upsert the changelog in app_config - use unique constraint on key
     const { error } = await supabase
       .from('app_config')
       .upsert({
         key: 'changelog',
         value: changelogData,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'key' // Ensure we update, not insert duplicate
       });
 
     if (error) {
