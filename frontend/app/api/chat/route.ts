@@ -282,28 +282,32 @@ export async function POST(req: NextRequest) {
           const { isDecklist } = await import("@/lib/chat/decklistDetector");
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
           
-          // Find the most recent decklist in conversation history (excluding current message if it's not a decklist)
-          // Check all messages, but prioritize messages that aren't the current one
+          // Find the most recent decklist in conversation history
+          // Check all messages, but skip the current message if it's not a decklist
           let foundDecklist = false;
+          
           for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
-            // Skip the current message if it's not a decklist
-            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
+            // Skip the current message if it's not a decklist (to avoid analyzing the question "what's wrong")
+            const isCurrentMessage = msg.content === text || (i === messages.length - 1 && msg.role === 'user');
+            if (isCurrentMessage && !isDecklist(msg.content)) {
               continue;
             }
-            if (msg.role === 'user' && msg.content && isDecklist(msg.content)) {
-              // Found a decklist - analyze it
-              const problems = analyzeDecklistFromText(msg.content);
-              if (problems.length > 0) {
-                pastedDecklistContext = generateDeckContext(problems, 'Pasted Decklist');
-                foundDecklist = true;
-                console.log('[chat] Found decklist in history, analyzed problems:', problems.length);
-                break; // Use the most recent decklist
+            
+            if (msg.role === 'user' && msg.content) {
+              const isDeck = isDecklist(msg.content);
+              
+              if (isDeck) {
+                // Found a decklist - analyze it
+                const problems = analyzeDecklistFromText(msg.content);
+                // Always include decklist context, even if no problems found
+                pastedDecklistContext = generateDeckContext(problems, 'Pasted Decklist', msg.content);
+                if (pastedDecklistContext) {
+                  foundDecklist = true;
+                  break; // Use the most recent decklist
+                }
               }
             }
-          }
-          if (!foundDecklist && messages.length > 0) {
-            console.log('[chat] No decklist found in', messages.length, 'messages');
           }
           
           // Task 3: Basic RAG - Simple keyword matching for relevant context
@@ -349,19 +353,17 @@ export async function POST(req: NextRequest) {
     }
 
     // If this thread is linked to a deck, include a compact summary as context
-    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
+    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.";
     
     // Add pasted decklist context if found (Task 1)
     // IMPORTANT: Always include decklist context if found, even without RAG trigger
     if (pastedDecklistContext) {
       sys += "\n\n" + pastedDecklistContext;
-      console.log('[chat] Added decklist context to system prompt');
     }
     
     // Add RAG context if found (Task 3)
     if (ragContext) {
       sys += ragContext;
-      console.log('[chat] Added RAG context to system prompt');
     }
     // Persona seed (minimal/async)
     let persona_id = 'any:optimized:plain';

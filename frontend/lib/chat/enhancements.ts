@@ -69,11 +69,11 @@ export function analyzeDecklistFromText(decklistText: string): DeckProblemSpot[]
     return problems;
   }
   
-  // Check deck size issues
-  if (totalCards < 98 && totalCards > 60) {
+  // Check deck size issues - Commander decks should be ~100 cards
+  if (totalCards < 98) {
     problems.push({
       type: 'curve_hole',
-      severity: 'high',
+      severity: totalCards < 60 ? 'high' : 'medium',
       description: `Deck has ${totalCards} cards (need ~100 for Commander)`,
       suggestion: 'Add more cards to reach optimal deck size'
     });
@@ -187,14 +187,30 @@ export async function analyzeDeckProblems(deckId: string): Promise<DeckProblemSp
 
 /**
  * Generate deck-aware system context for AI
+ * Even if no problems found, includes deck info so AI knows about it
  */
-export function generateDeckContext(problems: DeckProblemSpot[], deckTitle?: string): string {
-  if (problems.length === 0) return '';
-
+export function generateDeckContext(problems: DeckProblemSpot[], deckTitle?: string, decklistText?: string): string {
   const contextLines = [
-    `== DECK CONTEXT: "${deckTitle || 'Current Deck'}" ==`,
-    'Key problem areas to address:',
+    `== DECK CONTEXT: "${deckTitle || 'Pasted Decklist'}" ==`,
   ];
+  
+  // If we have decklist text, include a summary
+  if (decklistText) {
+    const lines = decklistText.split('\n').filter(l => l.trim()).slice(0, 20); // First 20 lines
+    contextLines.push(`Decklist (${lines.length} cards shown):`);
+    contextLines.push(lines.join('; '));
+    if (decklistText.split('\n').length > 20) {
+      contextLines.push('... (truncated)');
+    }
+  }
+  
+  if (problems.length === 0) {
+    contextLines.push('No major issues detected. Deck appears well-constructed.');
+    return contextLines.join('\n');
+  }
+
+  // If we have problems, add them to the existing contextLines
+  contextLines.push('Key problem areas to address:');
 
   problems.slice(0, 10).forEach((problem, index) => {
     const severity = problem.severity === 'high' ? '🔴' : problem.severity === 'medium' ? '🟡' : '🟢';

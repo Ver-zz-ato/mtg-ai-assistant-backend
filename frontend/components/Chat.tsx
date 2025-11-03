@@ -333,10 +333,15 @@ function Chat() {
         if (allCards.length === 0) return;
         
         // Fetch images and prices in parallel
+        // getImagesForNames only returns cards that exist in scryfall_cache (acts as validation)
         const [imagesMap, pricesMap] = await Promise.all([
           getImagesForNames(allCards),
           getBulkPrices(allCards)
         ]);
+        
+        // Only keep cards that have images (validation against cache)
+        // This filters out false positives like "Good", "Great", etc.
+        const validCards = Array.from(imagesMap.keys());
         
         setCardImages(imagesMap);
         setCardPrices(pricesMap);
@@ -989,13 +994,17 @@ function Chat() {
       return renderMarkdown(content);
     }
     
-    // Extract cards from this message
+    // Extract cards from this message (handles [[Card Name]] format)
     const extractedCards = extractCardsForImages(content);
+    
+    // Remove [[Card Name]] markers from display text (they're extracted separately for images)
+    // The markers will be replaced with just the card name for natural reading
+    const displayContent = content.replace(/\[\[([^\]]+)\]\]/g, '$1');
     
     return (
       <div className="space-y-3">
         {/* Main message content */}
-        <div>{renderMarkdown(content)}</div>
+        <div>{renderMarkdown(displayContent)}</div>
         
         {/* Card images row at bottom with price badges */}
         {extractedCards.length > 0 && (
@@ -1268,8 +1277,8 @@ function Chat() {
             </div>
           )}
           
-          {/* Scroll anchor for auto-scroll */}
-          <div ref={messagesEndRef} className="h-px" />
+          {/* Scroll anchor for auto-scroll with extra padding */}
+          <div ref={messagesEndRef} className="h-px pb-8 md:pb-12" />
         </div>
       </div>
       

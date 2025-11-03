@@ -28,38 +28,25 @@ export async function POST(req: NextRequest) {
   let userId: string | null = null;
   let isGuest = false;
   
-  console.log("[stream] POST request received at", new Date().toISOString());
-  
   try {
-    console.log("[stream] Getting supabase client...");
     const supabase = await getServerSupabase();
-    
-    console.log("[stream] Getting user authentication...");
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.log("[stream] No user found, allowing guest access");
       isGuest = true;
     } else {
       userId = user.id;
-      console.log("[stream] Authenticated user:", userId);
     }
-    
-    console.log("[stream] Parsing request body...");
 
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
-    console.log("[stream] Request body:", raw);
-    
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
-    console.log("[stream] Input text:", inputText);
     
     const normalized = { text: inputText, threadId: raw?.threadId };
     const parse = ChatPostSchema.safeParse(normalized);
     
     if (!parse.success) { 
       status = 400;
-      console.log("[stream] Validation failed:", parse.error);
       return new Response(JSON.stringify({ 
         fallback: true, 
         reason: "validation_failed",
@@ -71,13 +58,10 @@ export async function POST(req: NextRequest) {
     }
     
     const { text, threadId } = parse.data;
-
-    console.log("[stream] Validation passed, text:", text.substring(0, 50) + '...');
     
     // Check if OpenAI API key exists
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.log("[stream] No OpenAI API key found");
       return new Response(JSON.stringify({ 
         fallback: true,
         reason: "missing_api_key",
@@ -87,17 +71,13 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" }
       });
     }
-    console.log("[stream] OpenAI API key found");
 
     // Guest user limit checking
     if (isGuest) {
       const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
       const GUEST_MESSAGE_LIMIT = 50;
       
-      console.log("[stream] Guest user, message count:", guestMessageCount);
-      
       if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
-        console.log("[stream] Guest user exceeded message limit");
         return new Response(JSON.stringify({
           fallback: true,
           reason: "guest_limit_exceeded",
@@ -128,14 +108,13 @@ export async function POST(req: NextRequest) {
       try {
         await supabase.from("chat_messages")
           .insert({ thread_id: tid, role: "user", content: text });
-        console.log("[stream] Saved user message to database");
       } catch (error) {
         console.warn("[stream] Failed to save user message:", error);
       }
     }
 
     // Build system prompt (simplified from main chat route)
-    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
+    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.";
     
     // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
     // Fetch messages AFTER saving current message so it's available
@@ -153,33 +132,26 @@ export async function POST(req: NextRequest) {
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
           
           // Find most recent decklist (excluding current message if it's not a decklist)
-          console.log("[stream] Searching", messages.length, "messages for decklist");
           let foundDecklist = false;
           for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             // Skip the current message if it's not a decklist
             if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
-              console.log("[stream] Skipping current message (not a decklist)");
               continue;
             }
             if (msg.role === 'user' && msg.content) {
               const isDeck = isDecklist(msg.content);
-              console.log("[stream] Message", i, "role:", msg.role, "isDecklist:", isDeck, "length:", msg.content.length);
               if (isDeck) {
                 const problems = analyzeDecklistFromText(msg.content);
-                console.log("[stream] Analyzed decklist, found", problems.length, "problems");
-                if (problems.length > 0) {
-                  const decklistContext = generateDeckContext(problems, 'Pasted Decklist');
+                // Always include decklist context, even if no problems found
+                const decklistContext = generateDeckContext(problems, 'Pasted Decklist', msg.content);
+                if (decklistContext) {
                   sys += "\n\n" + decklistContext;
-                  console.log("[stream] Added decklist context to system prompt");
                   foundDecklist = true;
                   break;
                 }
               }
             }
-          }
-          if (!foundDecklist) {
-            console.log("[stream] No decklist found in conversation history");
           }
         }
       } catch (error) {
@@ -243,7 +215,6 @@ export async function POST(req: NextRequest) {
             // Try fallback model if primary model fails
             const isGPT5Primary = MODEL.toLowerCase().includes('gpt-5');
             if (isGPT5Primary) {
-              console.log(`[stream] GPT-5 failed, trying GPT-4o-mini fallback`);
               const fallbackBody = {
                 model: "gpt-4o-mini",
                 messages,
@@ -252,7 +223,6 @@ export async function POST(req: NextRequest) {
                 stream: true
               };
               
-              console.log(`[stream] Fallback request:`, JSON.stringify(fallbackBody, null, 2));
               const fallbackResponse = await fetch(OPENAI_URL, {
                 method: "POST",
                 headers: {
@@ -263,11 +233,9 @@ export async function POST(req: NextRequest) {
               });
               
               if (fallbackResponse.ok) {
-                console.log(`[stream] Fallback to GPT-4o-mini succeeded`);
                 openAIResponse = fallbackResponse;
               } else {
                 const fallbackError = await fallbackResponse.text();
-                console.log(`[stream] Fallback also failed:`, fallbackError);
                 throw new Error(`Both models failed - GPT-5: ${errorText}, GPT-4o-mini: ${fallbackError}`);
               }
             } else {
