@@ -197,9 +197,13 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         <div className="mb-6 space-y-3">
           {/* Row 1: Follow us */}
           <div className="flex justify-center">
-            <div className="flex gap-3 items-center flex-wrap justify-center text-2xl">
-              <a className="text-orange-400 hover:text-orange-300 transition-colors font-bold" href="https://x.com/ManatapAI" target="_blank" rel="noreferrer">
-                Follow us: @ManaTapAI
+            <div className="flex gap-4 items-center flex-wrap justify-center text-base">
+              <a className="text-orange-400 hover:text-orange-300 transition-colors font-medium" href="https://x.com/ManatapAI" target="_blank" rel="noreferrer">
+                Follow us on X: <span className="underline">@ManaTapAI</span>
+              </a>
+              <span className="text-gray-600">•</span>
+              <a className="text-orange-400 hover:text-orange-300 transition-colors font-medium" href="https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1" target="_blank" rel="noreferrer">
+                Instagram: <span className="underline">@manatap.ai</span>
               </a>
             </div>
           </div>
