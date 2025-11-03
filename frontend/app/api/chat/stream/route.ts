@@ -74,6 +74,17 @@ export async function POST(req: NextRequest) {
 
     console.log("[stream] Validation passed, text:", text.substring(0, 50) + '...');
     
+    // Save user message to database (if thread exists and user is logged in)
+    let tid = threadId ?? null;
+    if (tid && !isGuest && userId) {
+      try {
+        await supabase.from("chat_messages")
+          .insert({ thread_id: tid, role: "user", content: text });
+      } catch (error) {
+        console.warn("[stream] Failed to save user message:", error);
+      }
+    }
+    
     // Check if OpenAI API key exists
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -123,6 +134,37 @@ export async function POST(req: NextRequest) {
 
     // Build system prompt (simplified from main chat route)
     let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
+    
+    // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
+    if (threadId && !isGuest) {
+      try {
+        const { data: messages } = await supabase
+          .from("chat_messages")
+          .select("role, content")
+          .eq("thread_id", threadId)
+          .order("created_at", { ascending: false })
+          .limit(20); // Smaller limit for streaming
+        
+        if (messages && Array.isArray(messages)) {
+          const { isDecklist } = await import("@/lib/chat/decklistDetector");
+          const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+          
+          // Find most recent decklist
+          for (const msg of messages) {
+            if (msg.role === 'user' && isDecklist(msg.content)) {
+              const problems = analyzeDecklistFromText(msg.content);
+              if (problems.length > 0) {
+                const decklistContext = generateDeckContext(problems, 'Pasted Decklist');
+                sys += "\n\n" + decklistContext;
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - optional enhancement
+      }
+    }
     
     // Create OpenAI streaming request
     const messages: any[] = [

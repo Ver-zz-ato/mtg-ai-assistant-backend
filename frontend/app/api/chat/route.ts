@@ -258,8 +258,111 @@ export async function POST(req: NextRequest) {
         .insert({ thread_id: tid, role: "user", content: text });
     }
 
+    // Task 1 & 3: Fetch conversation history for RAG and decklist extraction
+    let threadHistory: Array<{ role: string; content: string }> = [];
+    let pastedDecklistContext = '';
+    let ragContext = '';
+    
+    if (tid && !isGuest) {
+      try {
+        // Fetch last 30 messages from thread (for RAG and decklist detection)
+        // Include the current message we just inserted (it should be in DB now)
+        const { data: messages } = await supabase
+          .from("chat_messages")
+          .select("role, content")
+          .eq("thread_id", tid)
+          .order("created_at", { ascending: true })
+          .limit(30);
+        
+        if (messages && Array.isArray(messages)) {
+          threadHistory = messages;
+          
+          // Task 1: Extract and analyze pasted decklists from thread history
+          // ALWAYS check for decklists, not just when RAG is triggered
+          const { isDecklist } = await import("@/lib/chat/decklistDetector");
+          const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+          
+          // Find the most recent decklist in conversation history (excluding current message if it's not a decklist)
+          // Check all messages, but prioritize messages that aren't the current one
+          let foundDecklist = false;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            // Skip the current message if it's not a decklist
+            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
+              continue;
+            }
+            if (msg.role === 'user' && msg.content && isDecklist(msg.content)) {
+              // Found a decklist - analyze it
+              const problems = analyzeDecklistFromText(msg.content);
+              if (problems.length > 0) {
+                pastedDecklistContext = generateDeckContext(problems, 'Pasted Decklist');
+                foundDecklist = true;
+                console.log('[chat] Found decklist in history, analyzed problems:', problems.length);
+                break; // Use the most recent decklist
+              }
+            }
+          }
+          if (!foundDecklist && messages.length > 0) {
+            console.log('[chat] No decklist found in', messages.length, 'messages');
+          }
+          
+          // Task 3: Basic RAG - Simple keyword matching for relevant context
+          // Only include if query seems to reference past conversation
+          const queryLower = text.toLowerCase();
+          const needsContext = /\b(this|that|it|the deck|my deck|the list|above|previous|earlier|before|mentioned)\b/i.test(queryLower) ||
+                              /\b(what.*wrong|problem|issue|improve|suggest|recommend|swap|add|remove)\b/i.test(queryLower);
+          
+          if (needsContext && messages.length > 1) {
+            // Find relevant messages (simple keyword matching)
+            const relevantMessages: Array<{ role: string; content: string }> = [];
+            const queryWords = queryLower.split(/\s+/).filter(w => w.length > 3); // Words longer than 3 chars
+            
+            // Always include decklists in RAG context if found
+            for (const msg of messages) {
+              if (msg.role === 'user' && msg.content) {
+                const msgLower = msg.content.toLowerCase();
+                // Check if message contains query keywords or is a decklist
+                const hasKeywords = queryWords.some(word => msgLower.includes(word));
+                const isDecklistMsg = isDecklist(msg.content);
+                
+                if (hasKeywords || isDecklistMsg) {
+                  relevantMessages.push(msg);
+                  if (relevantMessages.length >= 10) break; // Limit to 10 relevant messages
+                }
+              }
+            }
+            
+            // Build RAG context from relevant messages (include decklist if found)
+            if (relevantMessages.length > 0) {
+              const ragSnippets = relevantMessages.map((msg, idx) => {
+                const preview = msg.content.length > 200 ? msg.content.substring(0, 200) + '...' : msg.content;
+                return `[Previous message ${idx + 1}]: ${preview}`;
+              });
+              ragContext = '\n\nConversation context:\n' + ragSnippets.join('\n');
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - RAG is optional enhancement
+        console.warn('Failed to fetch conversation history for RAG:', error);
+      }
+    }
+
     // If this thread is linked to a deck, include a compact summary as context
     let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
+    
+    // Add pasted decklist context if found (Task 1)
+    // IMPORTANT: Always include decklist context if found, even without RAG trigger
+    if (pastedDecklistContext) {
+      sys += "\n\n" + pastedDecklistContext;
+      console.log('[chat] Added decklist context to system prompt');
+    }
+    
+    // Add RAG context if found (Task 3)
+    if (ragContext) {
+      sys += ragContext;
+      console.log('[chat] Added RAG context to system prompt');
+    }
     // Persona seed (minimal/async)
     let persona_id = 'any:optimized:plain';
     const teachingFlag = !!(prefs && (prefs.teaching === true));
@@ -289,20 +392,31 @@ export async function POST(req: NextRequest) {
       const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid!).maybeSingle();
       const deckIdLinked = th?.deck_id as string | null;
       if (deckIdLinked) {
-        const { data: d } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdLinked).maybeSingle();
-        const deckText = String(d?.deck_text || "");
-        if (deckText) {
-          // Quick summary: up to 40 unique lines with quantities
-          const lines = deckText.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
-          const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
-          const map = new Map<string, number>();
-          for (const l of lines) {
-            const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2].toLowerCase();
-            map.set(n, (map.get(n)||0)+q);
-            if (map.size >= 40) break;
+        // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
+        const { data: d } = await supabase.from("decks").select("title").eq("id", deckIdLinked).maybeSingle();
+        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+        
+        if (allCards && Array.isArray(allCards) && allCards.length > 0) {
+          // Use deck_cards table (full database, proper structure)
+          const cardList = allCards.map((c: any) => `${c.qty}x ${c.name}`).join("; ");
+          sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${cardList}`;
+        } else {
+          // Fallback to deck_text field for backward compatibility
+          const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdLinked).maybeSingle();
+          const deckText = String(dFallback?.deck_text || "");
+          if (deckText) {
+            // Quick summary: up to 40 unique lines with quantities
+            const lines = deckText.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
+            const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
+            const map = new Map<string, number>();
+            for (const l of lines) {
+              const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2].toLowerCase();
+              map.set(n, (map.get(n)||0)+q);
+              if (map.size >= 40) break;
+            }
+            const summary = Array.from(map.entries()).map(([n,q]) => `${q} ${n}`).join(", ");
+            sys += `\n\nDeck context (title: ${dFallback?.title || "linked"}): ${summary}`;
           }
-          const summary = Array.from(map.entries()).map(([n,q]) => `${q} ${n}`).join(", ");
-          sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${summary}`;
         }
       }
     } catch {}

@@ -35,6 +35,7 @@ import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 import { getBulkPrices } from "@/lib/chat/actions/bulk-prices";
+import { isDecklist } from "@/lib/chat/decklistDetector";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -42,19 +43,6 @@ const DEV = process.env.NODE_ENV !== "production";
 let currentlyAddingTypingMessage = false;
 // Prevent React Strict Mode duplicate streaming registrations
 let activeStreamingRef: { current: string | null } = { current: null };
-
-function isDecklist(text: string): boolean {
-  if (!text) return false;
-  const lines = text.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
-  if (lines.length < 6) return false;
-  let hits = 0;
-  const rxQty = /^(?:SB:\s*)?\d+\s*[xX]?\s+.+$/;
-  const rxDash = /^-\s+.+$/;
-  for (const l of lines) {
-    if (rxQty.test(l) || rxDash.test(l)) hits++;
-  }
-  return hits >= Math.max(6, Math.floor(lines.length * 0.5));
-}
 
 type AnalysisPayload = {
   type: "analysis";

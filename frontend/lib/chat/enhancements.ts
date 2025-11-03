@@ -28,6 +28,87 @@ export type ActionChip = {
 };
 
 /**
+ * Analyze decklist from text (for pasted decklists in chat)
+ * Similar to analyzeDeckProblems but works with raw text instead of deckId
+ */
+export function analyzeDecklistFromText(decklistText: string): DeckProblemSpot[] {
+  const problems: DeckProblemSpot[] = [];
+  
+  if (!decklistText || !decklistText.trim()) {
+    return problems;
+  }
+  
+  // Parse decklist text
+  const lines = decklistText.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
+  const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
+  
+  const cards: Array<{ name: string; qty: number }> = [];
+  let totalCards = 0;
+  let landCount = 0;
+  
+  for (const line of lines) {
+    const match = line.match(rx);
+    if (!match) continue;
+    
+    const qty = Math.max(1, parseInt(match[1] || "1", 10));
+    const name = match[2].trim();
+    
+    cards.push({ name, qty });
+    totalCards += qty;
+    
+    // Simple land detection (basic lands and land keywords)
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('land') || 
+        ['island', 'mountain', 'forest', 'plains', 'swamp'].includes(lowerName) ||
+        lowerName.includes('shock') || lowerName.includes('fetch') || lowerName.includes('dual')) {
+      landCount += qty;
+    }
+  }
+  
+  if (totalCards === 0) {
+    return problems;
+  }
+  
+  // Check deck size issues
+  if (totalCards < 98 && totalCards > 60) {
+    problems.push({
+      type: 'curve_hole',
+      severity: 'high',
+      description: `Deck has ${totalCards} cards (need ~100 for Commander)`,
+      suggestion: 'Add more cards to reach optimal deck size'
+    });
+  }
+  
+  // Check for basic land ratio
+  const landRatio = landCount / totalCards;
+  if (landRatio < 0.30 && totalCards > 60) {
+    problems.push({
+      type: 'mana_base',
+      severity: 'medium',
+      description: `Only ${Math.round(landRatio * 100)}% lands detected (recommend 35-40%)`,
+      suggestion: 'Consider adding more lands or mana rocks'
+    });
+  }
+  
+  // Check for removal keywords (simplified - can't check oracle text from just names)
+  const removalKeywords = ['destroy', 'exile', 'counter', 'remove', 'kill', 'wrath', 'doom', 'terminate'];
+  const removalCount = cards.filter(c => 
+    removalKeywords.some(keyword => c.name.toLowerCase().includes(keyword))
+  ).length;
+  
+  if (removalCount < 5 && totalCards > 60) {
+    problems.push({
+      type: 'removal_gap',
+      severity: 'medium',
+      description: `Only ~${removalCount} removal spells detected (recommend 8-12)`,
+      suggestion: 'Add more targeted removal and board wipes'
+    });
+  }
+  
+  return problems.slice(0, 5); // Top 5 issues
+}
+
+/**
  * Analyze deck for problem spots to inject into AI context
  * Uses your existing deck analysis endpoints
  */

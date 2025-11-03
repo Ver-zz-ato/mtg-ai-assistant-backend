@@ -2,7 +2,32 @@
 
 Legend: ☑ done · ◪ partial · ☐ todo
 
-Last Updated: 2025-11-02
+Last Updated: 2025-01-27
+
+## Recent Additions (2025-01-27)
+
+☑ Chatbot Context & RAG Enhancements <!-- id:chatbot.context_rag_20250127 -->
+- **Task 1: Pasted Decklist Analysis from Thread History**
+  - Automatically extracts and analyzes pasted decklists from conversation history
+  - No deck creation required - analyzes text directly
+  - Thread-scoped only (no cross-thread analysis)
+  - Works in both `/api/chat` and `/api/chat/stream` routes
+- **Task 2: Full Deck Cards Table Support**
+  - Linked decks now use `deck_cards` table (up to 400 cards) instead of `deck_text` field (40 lines)
+  - Maintains backward compatibility with `deck_text` fallback
+  - Matches DeckAssistant behavior for consistency
+- **Task 3: Basic RAG (Retrieval-Augmented Generation)**
+  - Simple keyword matching for relevant conversation context
+  - Automatically includes relevant past messages when user asks questions about "this deck" or "the list"
+  - Limits to 10 most relevant messages to control token usage
+  - Thread-scoped only (no cross-thread search)
+- **Files Modified**:
+  - `frontend/app/api/chat/route.ts` - Full implementation (Tasks 1, 2, 3)
+  - `frontend/app/api/chat/stream/route.ts` - Task 1 (lightweight for streaming)
+  - `frontend/lib/chat/decklistDetector.ts` - NEW: Shared decklist detection utility
+  - `frontend/lib/chat/enhancements.ts` - Added `analyzeDecklistFromText()` function
+  - `frontend/components/Chat.tsx` - Updated to use shared `isDecklist` utility
+  - `docs/feature_tracker.md` - Added TODO for conversation history search
 
 ## Recent Additions (2025-11-02)
 
@@ -1008,6 +1033,17 @@ Last Updated: 2025-11-02
   * New `frontend/components/DualRange.tsx` for smooth min/max price selection
   * Two-handle slider with visual fill between handles
   * Integrated into Collection Editor price filter
+
+## Future Enhancements
+
+☐ Conversation History Search <!-- id:feature.conversation_history_search -->
+- **Cross-thread search**: Allow users to search across all their chat threads
+- **Keyword search**: Find specific cards, topics, or discussions from past conversations
+- **Implementation ideas**: 
+  - Full-text search on `chat_messages` table
+  - Vector embeddings for semantic search (advanced)
+  - Simple keyword indexing for fast queries
+- **UI**: Search bar in chat interface to filter/find relevant past discussions
 
 ## Virtual Scrolling Already Implemented
 
