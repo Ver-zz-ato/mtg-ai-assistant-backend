@@ -516,17 +516,7 @@ function Chat() {
 
     setText("");
     setBusy(true);
-    const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // For guest users, add message to UI immediately
-    // For logged-in users, message will be added later after thread creation to avoid duplicates
-    if (!isLoggedIn) {
-      setMessages((m: any) => [
-        ...m,
-        { id: userMsgId, thread_id: threadId || "", role: "user", content: val, created_at: new Date().toISOString() } as any,
-      ]);
-    }
-
     // Track analytics
     const streamStartTime = Date.now();
     streamStartTimeRef.current = streamStartTime;

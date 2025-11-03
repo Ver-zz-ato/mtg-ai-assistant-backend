@@ -153,21 +153,33 @@ export async function POST(req: NextRequest) {
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
           
           // Find most recent decklist (excluding current message if it's not a decklist)
+          console.log("[stream] Searching", messages.length, "messages for decklist");
+          let foundDecklist = false;
           for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             // Skip the current message if it's not a decklist
             if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
+              console.log("[stream] Skipping current message (not a decklist)");
               continue;
             }
-            if (msg.role === 'user' && msg.content && isDecklist(msg.content)) {
-              const problems = analyzeDecklistFromText(msg.content);
-              if (problems.length > 0) {
-                const decklistContext = generateDeckContext(problems, 'Pasted Decklist');
-                sys += "\n\n" + decklistContext;
-                console.log("[stream] Found and analyzed decklist in history");
-                break;
+            if (msg.role === 'user' && msg.content) {
+              const isDeck = isDecklist(msg.content);
+              console.log("[stream] Message", i, "role:", msg.role, "isDecklist:", isDeck, "length:", msg.content.length);
+              if (isDeck) {
+                const problems = analyzeDecklistFromText(msg.content);
+                console.log("[stream] Analyzed decklist, found", problems.length, "problems");
+                if (problems.length > 0) {
+                  const decklistContext = generateDeckContext(problems, 'Pasted Decklist');
+                  sys += "\n\n" + decklistContext;
+                  console.log("[stream] Added decklist context to system prompt");
+                  foundDecklist = true;
+                  break;
+                }
               }
             }
+          }
+          if (!foundDecklist) {
+            console.log("[stream] No decklist found in conversation history");
           }
         }
       } catch (error) {
