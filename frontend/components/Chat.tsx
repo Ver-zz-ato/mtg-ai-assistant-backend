@@ -593,43 +593,44 @@ function Chat() {
       }
     }
     
-    // Save user message to the thread (for logged-in users)
+    // ALWAYS add user message to UI immediately (for both logged-in and guests)
+    // This ensures messages are visible even if thread creation fails
+    const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    let userMessageAdded = false; // Closure variable to prevent React Strict Mode duplicates
+    
+    setMessages((prev: any) => {
+      // Check closure variable to prevent React Strict Mode double-execution
+      if (userMessageAdded) {
+        return prev;
+      }
+      
+      // Check if this exact message content already exists (safety check)
+      const hasUserMessage = prev.some((msg: any) => 
+        msg.role === 'user' && 
+        msg.content === val &&
+        (currentThreadId ? msg.thread_id === currentThreadId : true)
+      );
+      if (hasUserMessage) {
+        return prev;
+      }
+      
+      // Mark as added in closure
+      userMessageAdded = true;
+      
+      return [
+        ...prev,
+        {
+          id: userMsgId,
+          thread_id: currentThreadId || "",
+          role: "user",
+          content: val,
+          created_at: new Date().toISOString()
+        } as any
+      ];
+    });
+    
+    // Save user message to the thread (for logged-in users only)
     if (isLoggedIn && currentThreadId) {
-      // Add user message to UI immediately with deduplication
-      const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      let userMessageAdded = false; // Closure variable to prevent React Strict Mode duplicates
-      
-      setMessages((prev: any) => {
-        // Check closure variable to prevent React Strict Mode double-execution
-        if (userMessageAdded) {
-          return prev;
-        }
-        
-        // Check if this exact message content already exists (safety check)
-        const hasUserMessage = prev.some((msg: any) => 
-          msg.role === 'user' && 
-          msg.content === val && 
-          msg.thread_id === currentThreadId
-        );
-        if (hasUserMessage) {
-          return prev;
-        }
-        
-        // Mark as added in closure
-        userMessageAdded = true;
-        
-        return [
-          ...prev,
-          {
-            id: userMsgId,
-            thread_id: currentThreadId,
-            role: "user",
-            content: val,
-            created_at: new Date().toISOString()
-          } as any
-        ];
-      });
-      
       // Save to database (fire and forget)
       try {
         await fetch('/api/chat/messages', {
@@ -643,6 +644,8 @@ function Chat() {
       } catch (e) {
         // Silently fail - message is already in UI
       }
+    } else if (!isLoggedIn) {
+      // For guests, messages are only in UI state (not saved to DB)
     }
     
     // Try streaming

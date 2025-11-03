@@ -74,17 +74,6 @@ export async function POST(req: NextRequest) {
 
     console.log("[stream] Validation passed, text:", text.substring(0, 50) + '...');
     
-    // Save user message to database (if thread exists and user is logged in)
-    let tid = threadId ?? null;
-    if (tid && !isGuest && userId) {
-      try {
-        await supabase.from("chat_messages")
-          .insert({ thread_id: tid, role: "user", content: text });
-      } catch (error) {
-        console.warn("[stream] Failed to save user message:", error);
-      }
-    }
-    
     // Check if OpenAI API key exists
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -132,37 +121,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Save user message to database FIRST (if thread exists and user is logged in)
+    // This ensures it's in the DB when we fetch messages for RAG
+    let tid = threadId ?? null;
+    if (tid && !isGuest && userId) {
+      try {
+        await supabase.from("chat_messages")
+          .insert({ thread_id: tid, role: "user", content: text });
+        console.log("[stream] Saved user message to database");
+      } catch (error) {
+        console.warn("[stream] Failed to save user message:", error);
+      }
+    }
+
     // Build system prompt (simplified from main chat route)
     let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.";
     
     // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
-    if (threadId && !isGuest) {
+    // Fetch messages AFTER saving current message so it's available
+    if (tid && !isGuest) {
       try {
         const { data: messages } = await supabase
           .from("chat_messages")
           .select("role, content")
-          .eq("thread_id", threadId)
-          .order("created_at", { ascending: false })
-          .limit(20); // Smaller limit for streaming
+          .eq("thread_id", tid)
+          .order("created_at", { ascending: true })
+          .limit(30); // Increased limit for better decklist detection
         
-        if (messages && Array.isArray(messages)) {
+        if (messages && Array.isArray(messages) && messages.length > 0) {
           const { isDecklist } = await import("@/lib/chat/decklistDetector");
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
           
-          // Find most recent decklist
-          for (const msg of messages) {
-            if (msg.role === 'user' && isDecklist(msg.content)) {
+          // Find most recent decklist (excluding current message if it's not a decklist)
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            // Skip the current message if it's not a decklist
+            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
+              continue;
+            }
+            if (msg.role === 'user' && msg.content && isDecklist(msg.content)) {
               const problems = analyzeDecklistFromText(msg.content);
               if (problems.length > 0) {
                 const decklistContext = generateDeckContext(problems, 'Pasted Decklist');
                 sys += "\n\n" + decklistContext;
+                console.log("[stream] Found and analyzed decklist in history");
                 break;
               }
             }
           }
         }
       } catch (error) {
-        // Silently fail - optional enhancement
+        console.warn("[stream] Failed to fetch conversation history:", error);
       }
     }
     
