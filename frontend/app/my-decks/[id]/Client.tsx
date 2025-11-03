@@ -37,7 +37,7 @@ function AssistantSection({ deckId, format }: { deckId: string; format?: string 
 function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{name: string; qty: number}>; deckId: string }) {
   const [open, setOpen] = React.useState(true);
   return (
-    <section className="rounded-xl border border-neutral-800 min-w-0">
+    <section className="rounded-xl border border-neutral-800 min-w-0 w-full">
       <div className="flex items-center justify-between mb-2 p-2">
         <div className="text-sm font-medium">Hand Testing</div>
         <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
@@ -49,7 +49,7 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
           deckCards={deckCards}
           deckId={deckId}
           compact={false}
-          className=""
+          className="w-full"
         />
       )}
     </section>

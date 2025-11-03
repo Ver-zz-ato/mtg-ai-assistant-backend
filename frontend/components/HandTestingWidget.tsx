@@ -415,7 +415,7 @@ export default function HandTestingWidget({
   }
 
   return (
-    <div className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full ${className}`}>
+    <div className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
@@ -477,36 +477,39 @@ export default function HandTestingWidget({
             </h4>
           </div>
           
-          <div className={`grid gap-4 p-2 transition-all duration-500 ${
+          {/* Cards Display - Horizontal layout with proper grid */}
+          <div className={`grid gap-3 p-2 justify-items-center transition-all duration-500 ${
             isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
           } ${
-            compact ? 'grid-cols-5 lg:grid-cols-7' : 
-            currentHand.length <= 3 ? 'grid-cols-3' : 
-            currentHand.length <= 4 ? 'grid-cols-4' : 
-            currentHand.length <= 5 ? 'grid-cols-5' : 
-            currentHand.length <= 6 ? 'grid-cols-6' : 'grid-cols-7'
+            // Smart grid layout: max 4 columns for horizontal priority
+            currentHand.length === 1 ? 'grid-cols-1' :
+            currentHand.length === 2 ? 'grid-cols-2' :
+            currentHand.length === 3 ? 'grid-cols-3' :
+            currentHand.length === 4 ? 'grid-cols-4' :
+            currentHand.length === 5 ? 'grid-cols-4' : // 4+1
+            currentHand.length === 6 ? 'grid-cols-4' : // 4+2
+            'grid-cols-4' // 7 cards: 4+3
           }`}>
             {currentHand.map((card, index) => (
               <div
                 key={card.id}
                 className={`bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 group relative ${
-                  compact ? 'text-xs' : 'text-sm'
+                  compact ? 'w-20' : 'w-24 sm:w-28 md:w-32 lg:w-32'
                 }`}
                 style={{
+                  aspectRatio: '63/88', // Magic card aspect ratio (63mm x 88mm)
                   animationDelay: `${index * 100}ms`,
                   animation: gameState === 'viewing' && !isAnimating ? 'slideInUp 0.5s ease-out' : 'none'
                 }}
                 title={card.name}
               >
                 {card.image_url ? (
-                  <div className="relative">
+                  <div className="relative w-full h-full">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={card.image_url} 
                       alt={card.name}
-                      className={`w-full object-cover transition-transform duration-200 ${
-                        compact ? 'h-32' : 'h-40 md:h-48'
-                      }`}
+                      className="w-full h-full object-cover transition-transform duration-200"
                       onMouseEnter={(e) => {
                         const { x, y, below } = calcPos(e as any);
                         const normalizedName = card.name.toLowerCase()?.trim();
@@ -525,16 +528,16 @@ export default function HandTestingWidget({
                         target.nextElementSibling!.classList.remove('hidden');
                       }}
                     />
-                    <div className="hidden p-2">
-                      <div className="font-medium text-white truncate" title={card.name}>
+                    <div className="hidden p-2 h-full flex flex-col justify-center">
+                      <div className="font-medium text-white text-center truncate" title={card.name}>
                         {card.name}
                       </div>
                       {card.mana_cost && (
-                        <div className="text-xs text-neutral-400 mt-1">
+                        <div className="text-xs text-neutral-400 mt-1 text-center">
                           {card.mana_cost}
                         </div>
                       )}
-                      <div className="text-xs text-neutral-500 mt-1 truncate">
+                      <div className="text-xs text-neutral-500 mt-1 text-center truncate">
                         {card.type_line?.split('—')[0]?.trim() || 'Unknown'}
                       </div>
                     </div>
@@ -550,9 +553,7 @@ export default function HandTestingWidget({
                     </div>
                   </div>
                 ) : (
-                  <div className={`p-3 ${
-                    compact ? 'h-32' : 'h-40 md:h-48'
-                  } flex flex-col justify-center`}>
+                  <div className="h-full flex flex-col justify-center p-2">
                     <div className={`font-medium text-white text-center ${
                       compact ? 'text-xs' : 'text-sm'
                     }`} title={card.name}>

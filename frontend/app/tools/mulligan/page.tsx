@@ -197,6 +197,7 @@ export default function MulliganSimulatorPage() {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     let totalCards = 0;
     let landCount = 0;
+    const parsedCards: Array<{ name: string; qty: number }> = [];
     
     // Common land types and basic lands
     const landKeywords = /\bland\b|island|mountain|forest|plains|swamp|dual land|fetch|shock|triome|pathway/i;
@@ -213,6 +214,9 @@ export default function MulliganSimulatorPage() {
       
       totalCards += qty;
       
+      // Parse card name and quantity for HandTestingWidget
+      parsedCards.push({ name: cardName.trim(), qty });
+      
       // Detect lands
       if (landKeywords.test(cardName) || basicLands.test(cardName)) {
         landCount += qty;
@@ -227,6 +231,7 @@ export default function MulliganSimulatorPage() {
     // Auto-populate form
     setDeckSize(totalCards);
     setLandsInDeck(landCount);
+    setDeckCards(parsedCards); // Set deckCards for HandTestingWidget
     
     // Run simulation immediately
     setTimeout(() => run(), 100);
