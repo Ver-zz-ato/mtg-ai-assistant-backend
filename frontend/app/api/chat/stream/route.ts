@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
+import type { SfCard } from "@/lib/deck/inference";
 import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
 
 export const runtime = "nodejs";
@@ -116,23 +117,79 @@ export async function POST(req: NextRequest) {
     // Build system prompt (simplified from main chat route)
     let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.";
     
-    // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
-    // Fetch messages AFTER saving current message so it's available
+    // Add inference when deck is linked (lightweight for streaming)
     if (tid && !isGuest) {
       try {
+        // Check if thread is linked to a deck
+        const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
+        const deckIdLinked = th?.deck_id as string | null;
+        
+        if (deckIdLinked) {
+          try {
+            const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
+            const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+            
+            let entries: Array<{ count: number; name: string }> = [];
+            let deckText = "";
+            
+            if (allCards && Array.isArray(allCards) && allCards.length > 0) {
+              entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
+              deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
+            }
+            
+            // Run lightweight inference (skip expensive Scryfall lookups for streaming)
+            if (entries.length > 0) {
+              try {
+                const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
+                const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+                const commander = d?.commander || null;
+                
+                // Build minimal card map (only fetch first 50 cards for speed)
+                const byName = new Map<string, SfCard>();
+                const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 50);
+                const looked = await Promise.all(unique.map(name => fetchCard(name)));
+                for (const c of looked) {
+                  if (c) byName.set(c.name.toLowerCase(), c);
+                }
+                
+                // Infer deck context
+                const inferredContext = await inferDeckContext(deckText, text, entries, format, commander, [], byName);
+                
+                // Add key inferred context to system prompt
+                sys += `\n\nINFERRED DECK ANALYSIS:\n`;
+                sys += `- Format: ${inferredContext.format}\n`;
+                sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
+                if (inferredContext.commander) {
+                  sys += `- Commander: ${inferredContext.commander}\n`;
+                }
+                if (inferredContext.format !== "Commander") {
+                  sys += `- WARNING: Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
+                  sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
+                }
+                sys += `- Do NOT suggest cards already in the decklist.\n`;
+                sys += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
+              } catch (error) {
+                console.warn("[stream] Failed to infer deck context:", error);
+              }
+            }
+          } catch (error) {
+            console.warn("[stream] Failed to fetch deck for inference:", error);
+          }
+        }
+        
+        // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
         const { data: messages } = await supabase
           .from("chat_messages")
           .select("role, content")
           .eq("thread_id", tid)
           .order("created_at", { ascending: true })
-          .limit(30); // Increased limit for better decklist detection
+          .limit(30);
         
         if (messages && Array.isArray(messages) && messages.length > 0) {
           const { isDecklist } = await import("@/lib/chat/decklistDetector");
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
           
           // Find most recent decklist (excluding current message if it's not a decklist)
-          let foundDecklist = false;
           for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             // Skip the current message if it's not a decklist
@@ -147,7 +204,6 @@ export async function POST(req: NextRequest) {
                 const decklistContext = generateDeckContext(problems, 'Pasted Decklist', msg.content);
                 if (decklistContext) {
                   sys += "\n\n" + decklistContext;
-                  foundDecklist = true;
                   break;
                 }
               }

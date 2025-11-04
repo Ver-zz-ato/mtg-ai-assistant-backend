@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/app/api/_utils/envelope";
+import type { SfCard } from "@/lib/deck/inference";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -390,34 +391,96 @@ export async function POST(req: NextRequest) {
       // Add specific guidance for snapshot requests
       sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
     }
+    // Add inference when deck is linked
+    let inferredContext: any = null;
     try {
       const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid!).maybeSingle();
       const deckIdLinked = th?.deck_id as string | null;
       if (deckIdLinked) {
         // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
-        const { data: d } = await supabase.from("decks").select("title").eq("id", deckIdLinked).maybeSingle();
+        const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
         const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+        
+        let deckText = "";
+        let entries: Array<{ count: number; name: string }> = [];
         
         if (allCards && Array.isArray(allCards) && allCards.length > 0) {
           // Use deck_cards table (full database, proper structure)
+          entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
+          deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
           const cardList = allCards.map((c: any) => `${c.qty}x ${c.name}`).join("; ");
           sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${cardList}`;
         } else {
           // Fallback to deck_text field for backward compatibility
           const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdLinked).maybeSingle();
-          const deckText = String(dFallback?.deck_text || "");
+          deckText = String(dFallback?.deck_text || "");
           if (deckText) {
-            // Quick summary: up to 40 unique lines with quantities
+            // Parse into entries
             const lines = deckText.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
             const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
             const map = new Map<string, number>();
             for (const l of lines) {
-              const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2].toLowerCase();
+              const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2];
               map.set(n, (map.get(n)||0)+q);
-              if (map.size >= 40) break;
             }
-            const summary = Array.from(map.entries()).map(([n,q]) => `${q} ${n}`).join(", ");
+            entries = Array.from(map.entries()).map(([name, count]) => ({ count, name }));
+            const summary = entries.map(e => `${e.count} ${e.name}`).join(", ");
             sys += `\n\nDeck context (title: ${dFallback?.title || "linked"}): ${summary}`;
+          }
+        }
+        
+        // Run inference if we have deck entries
+        if (entries.length > 0) {
+          try {
+            const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
+            const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+            const commander = d?.commander || null;
+            const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
+            
+            // Build card name map for inference
+            const byName = new Map<string, SfCard>();
+            const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 160);
+            const looked = await Promise.all(unique.map(name => fetchCard(name)));
+            for (const c of looked) {
+              if (c) byName.set(c.name.toLowerCase(), c);
+            }
+            
+            // Infer deck context
+            inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName);
+            
+            // Add inferred context to system prompt
+            sys += `\n\nINFERRED DECK ANALYSIS:\n`;
+            sys += `- Format: ${inferredContext.format}\n`;
+            sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
+            if (inferredContext.commander) {
+              sys += `- Commander: ${inferredContext.commander}\n`;
+              if (inferredContext.commanderProvidesRamp) {
+                sys += `- Commander provides ramp - do NOT suggest generic ramp like Cultivate/Kodama's Reach unless for synergy.\n`;
+              }
+            }
+            if (inferredContext.powerLevel) {
+              sys += `- Power level: ${inferredContext.powerLevel}\n`;
+              if (inferredContext.powerLevel === 'casual' || inferredContext.powerLevel === 'battlecruiser') {
+                sys += `- This is a ${inferredContext.powerLevel} deck - respect the power level and don't optimize too aggressively.\n`;
+              }
+            }
+            if (inferredContext.format !== "Commander") {
+              sys += `- WARNING: This is NOT Commander format. Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
+              sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
+            } else {
+              sys += `- This is Commander format - do NOT suggest narrow 4-of-y cards. Suggest singleton-viable cards only.\n`;
+            }
+            sys += `- Do NOT suggest cards that are already in the decklist.\n`;
+            if (inferredContext.archetype && inferredContext.protectedRoles) {
+              sys += `- Archetype: ${inferredContext.archetype}\n`;
+              sys += `- Protected cards (do NOT suggest cutting): ${inferredContext.protectedRoles.slice(0, 5).join(', ')}\n`;
+            }
+            if (inferredContext.manabaseAnalysis?.isAcceptable) {
+              sys += `- Manabase is acceptable - only comment if colors are imbalanced by more than 15%.\n`;
+            }
+          } catch (error) {
+            console.warn('[chat] Failed to infer deck context:', error);
+            // Continue without inference - graceful degradation
           }
         }
       }
