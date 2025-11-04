@@ -465,9 +465,9 @@ async function postFilterSuggestions(
   byName: Map<string, SfCard>,
   currency: string = 'USD',
   deckEntries: Array<{ count: number; name: string }> = []
-): Promise<Array<{ card: string; reason: string; category?: string }>> {
+): Promise<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>> {
   const allowedColors = new Set(context.colors.map(c => c.toUpperCase()));
-  const filtered: Array<{ card: string; reason: string; category?: string }> = [];
+  const filtered: Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }> = [];
   
   // Normalize deck entry names for deduplication
   const normalizedDeckNames = new Set(
@@ -531,12 +531,20 @@ async function postFilterSuggestions(
         }
       }
       
-      // If still not found, this is likely a hallucinated card name - drop it
+      // If still not found, this is likely a hallucinated card name - mark for review but don't drop
+      // (we'll let it through but flag it so frontend can show a warning)
       if (!card) {
-        console.log(`[filter] Removed ${suggestion.card}: card not found in Scryfall/cache (likely hallucinated)`);
+        console.log(`[filter] Card ${suggestion.card} not found in Scryfall/cache (likely hallucinated) - marking for review`);
+        // Add suggestion with needs_review flag even if card not found
+        filtered.push({
+          ...suggestion,
+          id: crypto.randomUUID(),
+          needs_review: true,
+        });
         continue;
       }
 
+      // At this point, card is guaranteed to be defined (not null/undefined)
       // STRICT COLOR FILTERING: Remove any card with colors outside allowed colors
       // Even if partially shared (e.g., Lightning Helix in Mono-Red)
       const cardColors = (card.color_identity || []).map(c => c.toUpperCase());
@@ -670,7 +678,13 @@ async function postFilterSuggestions(
         }
       }
 
-      filtered.push(suggestion);
+      // Add unique ID and needs_review flag (card is guaranteed to exist here)
+      const suggestionWithMeta = {
+        ...suggestion,
+        id: crypto.randomUUID(),
+        needs_review: false,
+      };
+      filtered.push(suggestionWithMeta);
     } catch (error) {
       // Skip on error (fail gracefully)
       console.warn(`[filter] Error processing ${suggestion.card}:`, error);
@@ -684,7 +698,9 @@ async function postFilterSuggestions(
     return [{
       card: "N/A",
       reason: "Your deck already runs most of the good staples for this strategy. Consider meta-specific tech or power-level upgrades.",
-      category: "optional"
+      category: "optional",
+      id: crypto.randomUUID(),
+      needs_review: false,
     }];
   }
 

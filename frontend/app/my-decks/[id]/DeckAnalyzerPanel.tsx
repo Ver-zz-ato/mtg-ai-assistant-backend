@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { capture } from "@/lib/ph";
 
 export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId: string; proAuto: boolean; format?: string }) {
   const [busy, setBusy] = React.useState(false);
@@ -21,7 +22,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [rawCounts, setRawCounts] = React.useState<{ lands:number; ramp:number; draw:number; removal:number } | null>(null);
   const [illegal, setIllegal] = React.useState<{ banned?: string[]; ci?: string[] }>({});
   const [meta, setMeta] = React.useState<Array<{ card:string; inclusion_rate:string; commanders:string[] }> | null>(null);
-  const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason: string; category?: string }>>([]);
+  const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>>([]);
 
   async function run() {
     try {
@@ -164,7 +165,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
               <div className="font-medium opacity-80">AI Suggestions</div>
               {(() => {
                 // Group by category
-                const byCategory: Record<string, Array<{ card: string; reason: string }>> = {
+                const byCategory: Record<string, Array<{ card: string; reason: string; id?: string; needs_review?: boolean; category?: string }>> = {
                   'must-fix': [],
                   'synergy-upgrade': [],
                   'optional': [],
@@ -188,27 +189,40 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                         <div className="text-red-400 font-medium mb-1">Must-Fix Issues</div>
                         <ul className="space-y-1">
                           {byCategory['must-fix'].map((s, i) => (
-                            <li key={i} className="flex items-start justify-between gap-2">
+                            <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <span className="font-medium">{s.card}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-medium">{s.card}</span>
+                                  {s.needs_review && (
+                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  )}
+                                </div>
                                 {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                               </div>
                               {s.card !== 'N/A' && (
-                                <button onClick={async()=>{
-                                  try { 
-                                    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
-                                      method:'POST', 
-                                      headers:{'content-type':'application/json'}, 
-                                      body: JSON.stringify({ name: s.card, qty: 1 }) 
-                                    }); 
-                                    const j = await res.json().catch(()=>({})); 
-                                    if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
-                                    window.dispatchEvent(new Event('deck:changed')); 
-                                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
-                                  } catch(e:any){ 
-                                    alert(e?.message||'Add failed'); 
-                                  }
-                                }} className="px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 text-red-300 text-[10px] whitespace-nowrap">Add</button>
+                                <div className="flex items-center gap-1">
+                                  <button onClick={async()=>{
+                                    try { 
+                                      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
+                                        method:'POST', 
+                                        headers:{'content-type':'application/json'}, 
+                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+                                      }); 
+                                      const j = await res.json().catch(()=>({})); 
+                                      if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                                      window.dispatchEvent(new Event('deck:changed')); 
+                                      window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
+                                      // Track suggestion accepted
+                                      if (s.id) {
+                                        try {
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'must-fix', deck_id: deckId });
+                                        } catch {}
+                                      }
+                                    } catch(e:any){ 
+                                      alert(e?.message||'Add failed'); 
+                                    }
+                                  }} className="px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 text-red-300 text-[10px] whitespace-nowrap">Add</button>
+                                </div>
                               )}
                             </li>
                           ))}
@@ -220,27 +234,40 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                         <div className="text-emerald-400 font-medium mb-1">Synergy Upgrades</div>
                         <ul className="space-y-1">
                           {byCategory['synergy-upgrade'].map((s, i) => (
-                            <li key={i} className="flex items-start justify-between gap-2">
+                            <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <span className="font-medium">{s.card}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-medium">{s.card}</span>
+                                  {s.needs_review && (
+                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  )}
+                                </div>
                                 {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                               </div>
                               {s.card !== 'N/A' && (
-                                <button onClick={async()=>{
-                                  try { 
-                                    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
-                                      method:'POST', 
-                                      headers:{'content-type':'application/json'}, 
-                                      body: JSON.stringify({ name: s.card, qty: 1 }) 
-                                    }); 
-                                    const j = await res.json().catch(()=>({})); 
-                                    if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
-                                    window.dispatchEvent(new Event('deck:changed')); 
-                                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
-                                  } catch(e:any){ 
-                                    alert(e?.message||'Add failed'); 
-                                  }
-                                }} className="px-2 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-300 text-[10px] whitespace-nowrap">Add</button>
+                                <div className="flex items-center gap-1">
+                                  <button onClick={async()=>{
+                                    try { 
+                                      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
+                                        method:'POST', 
+                                        headers:{'content-type':'application/json'}, 
+                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+                                      }); 
+                                      const j = await res.json().catch(()=>({})); 
+                                      if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                                      window.dispatchEvent(new Event('deck:changed')); 
+                                      window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
+                                      // Track suggestion accepted
+                                      if (s.id) {
+                                        try {
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'synergy-upgrade', deck_id: deckId });
+                                        } catch {}
+                                      }
+                                    } catch(e:any){ 
+                                      alert(e?.message||'Add failed'); 
+                                    }
+                                  }} className="px-2 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-300 text-[10px] whitespace-nowrap">Add</button>
+                                </div>
                               )}
                             </li>
                           ))}
@@ -252,27 +279,40 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                         <div className="text-blue-400 font-medium mb-1">Optional / Stylistic</div>
                         <ul className="space-y-1">
                           {byCategory['optional'].map((s, i) => (
-                            <li key={i} className="flex items-start justify-between gap-2">
+                            <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <span className="font-medium">{s.card}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-medium">{s.card}</span>
+                                  {s.needs_review && (
+                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  )}
+                                </div>
                                 {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                               </div>
                               {s.card !== 'N/A' && (
-                                <button onClick={async()=>{
-                                  try { 
-                                    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
-                                      method:'POST', 
-                                      headers:{'content-type':'application/json'}, 
-                                      body: JSON.stringify({ name: s.card, qty: 1 }) 
-                                    }); 
-                                    const j = await res.json().catch(()=>({})); 
-                                    if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
-                                    window.dispatchEvent(new Event('deck:changed')); 
-                                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
-                                  } catch(e:any){ 
-                                    alert(e?.message||'Add failed'); 
-                                  }
-                                }} className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap">Add</button>
+                                <div className="flex items-center gap-1">
+                                  <button onClick={async()=>{
+                                    try { 
+                                      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
+                                        method:'POST', 
+                                        headers:{'content-type':'application/json'}, 
+                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+                                      }); 
+                                      const j = await res.json().catch(()=>({})); 
+                                      if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                                      window.dispatchEvent(new Event('deck:changed')); 
+                                      window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
+                                      // Track suggestion accepted
+                                      if (s.id) {
+                                        try {
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'optional', deck_id: deckId });
+                                        } catch {}
+                                      }
+                                    } catch(e:any){ 
+                                      alert(e?.message||'Add failed'); 
+                                    }
+                                  }} className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap">Add</button>
+                                </div>
                               )}
                             </li>
                           ))}
