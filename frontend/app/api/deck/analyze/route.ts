@@ -77,8 +77,14 @@ async function callGPTForSuggestions(
       systemPrompt += `- Commander oracle text: ${context.commanderOracleText}\n`;
       systemPrompt += `- When evaluating cards, first check: does this card directly advance the commander's text, trigger it more often, or enable the deck's main mechanic? If yes, increase its keep-score.\n`;
     }
-    if (context.commanderProvidesRamp) {
-      systemPrompt += `- WARNING: The commander already provides ramp. Do NOT suggest generic 2-3 mana ramp like Cultivate or Kodama's Reach unless there is a specific synergy reason (e.g., landfall, mana value fixing).\n`;
+    if (context.commanderProvidesRamp || context.existingRampCount >= 3) {
+      if (context.commanderProvidesRamp && context.existingRampCount >= 3) {
+        systemPrompt += `- WARNING: This deck already has sufficient ramp for its plan (commander provides ramp + ${context.existingRampCount} ramp pieces). Do not suggest common 2-3 mana green ramp spells unless there is a synergy reason.\n`;
+      } else if (context.commanderProvidesRamp) {
+        systemPrompt += `- WARNING: The commander already provides ramp. Do NOT suggest generic 2-3 mana ramp like Cultivate or Kodama's Reach unless there is a specific synergy reason (e.g., landfall, mana value fixing).\n`;
+      } else {
+        systemPrompt += `- WARNING: This deck already has ${context.existingRampCount} ramp pieces. Do not suggest common 2-3 mana green ramp spells unless there is a synergy reason.\n`;
+      }
     }
   }
 
@@ -173,6 +179,7 @@ async function callGPTForSuggestions(
   }
 
   systemPrompt += `\nCARD ANALYSIS ACCURACY:\n`;
+  systemPrompt += `- Only call a card 'draw' or 'filtering' if it actually draws, loots (draw then discard), rummages (discard then draw), or impulsively looks at cards. Do not label burn or removal spells as card advantage.\n`;
   systemPrompt += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
   
   systemPrompt += `\nOUTPUT FORMAT:\n`;
@@ -220,6 +227,170 @@ async function callGPTForSuggestions(
   } catch {
     return [];
   }
+}
+
+// Helper: Check if land produces colors outside allowed colors
+function checkLandColors(card: SfCard, allowedColors: Set<string>): boolean {
+  const typeLine = (card.type_line || '').toLowerCase();
+  const oracleText = (card.oracle_text || '').toLowerCase();
+  
+  // If not a land, skip this check
+  if (!/land/i.test(typeLine)) return true;
+  
+  // Check color_identity first
+  const cardColors = (card.color_identity || []).map(c => c.toUpperCase());
+  if (cardColors.length > 0) {
+    const hasOffColor = cardColors.some(c => !allowedColors.has(c));
+    if (hasOffColor) return false;
+  }
+  
+  // Check what colors the land produces from oracle text
+  const producedColors = new Set<string>();
+  
+  // Check for "add {W/U/B/R/G}" patterns
+  const addManaRe = /add\s+\{([WUBRG])\}/gi;
+  let match;
+  while ((match = addManaRe.exec(oracleText)) !== null) {
+    producedColors.add(match[1].toUpperCase());
+  }
+  
+  // Check for "tapped" lands that produce specific colors
+  if (/tapped/i.test(oracleText)) {
+    // Panoramas and fetch lands: check what they can fetch
+    if (/panorama/i.test(card.name)) {
+      // Extract color words from name (e.g., "Jund Panorama" -> B, R, G)
+      const nameLower = card.name.toLowerCase();
+      // Shards (3-color combinations)
+      if (nameLower.includes('jund')) {
+        producedColors.add('B');
+        producedColors.add('R');
+        producedColors.add('G');
+      }
+      if (nameLower.includes('naya')) {
+        producedColors.add('W');
+        producedColors.add('R');
+        producedColors.add('G');
+      }
+      if (nameLower.includes('bant')) {
+        producedColors.add('W');
+        producedColors.add('U');
+        producedColors.add('G');
+      }
+      if (nameLower.includes('esper')) {
+        producedColors.add('W');
+        producedColors.add('U');
+        producedColors.add('B');
+      }
+      if (nameLower.includes('grixis')) {
+        producedColors.add('U');
+        producedColors.add('B');
+        producedColors.add('R');
+      }
+      // Wedges (2+1 color combinations)
+      if (nameLower.includes('abzan')) {
+        producedColors.add('W');
+        producedColors.add('B');
+        producedColors.add('G');
+      }
+      if (nameLower.includes('jeskai')) {
+        producedColors.add('W');
+        producedColors.add('U');
+        producedColors.add('R');
+      }
+      if (nameLower.includes('sultai')) {
+        producedColors.add('U');
+        producedColors.add('B');
+        producedColors.add('G');
+      }
+      if (nameLower.includes('mardu')) {
+        producedColors.add('W');
+        producedColors.add('B');
+        producedColors.add('R');
+      }
+      if (nameLower.includes('temur')) {
+        producedColors.add('U');
+        producedColors.add('R');
+        producedColors.add('G');
+      }
+    }
+    
+    // Fetch lands: check oracle text for what they can fetch
+    if (/fetch|search.*library.*land/i.test(oracleText)) {
+      // Check for "Mountain or Forest", "Plains or Island", etc.
+      const landTypes = ['plains', 'island', 'swamp', 'mountain', 'forest'];
+      const colorMap: Record<string, string> = {
+        plains: 'W',
+        island: 'U',
+        swamp: 'B',
+        mountain: 'R',
+        forest: 'G',
+      };
+      for (const landType of landTypes) {
+        if (new RegExp(landType, 'i').test(oracleText)) {
+          producedColors.add(colorMap[landType]);
+        }
+      }
+    }
+  }
+  
+  // Check basic lands
+  if (/plains/i.test(card.name)) producedColors.add('W');
+  if (/island/i.test(card.name)) producedColors.add('U');
+  if (/swamp/i.test(card.name)) producedColors.add('B');
+  if (/mountain/i.test(card.name)) producedColors.add('R');
+  if (/forest/i.test(card.name)) producedColors.add('G');
+  
+  // If land produces colors, all must be in allowed colors
+  if (producedColors.size > 0) {
+    for (const color of producedColors) {
+      if (!allowedColors.has(color)) return false;
+    }
+  }
+  
+  return true;
+}
+
+// Helper: Check if card actually draws/loots/rummages/impulses
+function isRealDrawOrFilter(card: SfCard): boolean {
+  const oracleText = (card.oracle_text || '').toLowerCase();
+  
+  // Check for actual draw effects
+  if (/draw a card|draw.*cards|draw equal to/i.test(oracleText)) return true;
+  
+  // Check for looting (draw then discard)
+  if (/draw.*card.*discard|draw.*then discard/i.test(oracleText)) return true;
+  
+  // Check for rummaging (discard then draw)
+  if (/discard.*card.*draw|discard.*then draw/i.test(oracleText)) return true;
+  
+  // Check for impulse draw (exile and cast)
+  if (/exile.*cards.*cast|exile.*top.*cast|look at.*exile.*cast/i.test(oracleText)) return true;
+  
+  // Check for "look at" / "reveal" that lets you take cards
+  if (/look at.*top.*put.*into|reveal.*top.*put.*into|look at.*choose.*put/i.test(oracleText)) return true;
+  
+  // Check for scry (filtering, not draw, but counts as card quality improvement)
+  if (/scry [0-9]/i.test(oracleText)) return true;
+  
+  return false;
+}
+
+// Helper: Check if card is generic ramp
+function isGenericRamp(cardName: string): boolean {
+  const nameLower = cardName.toLowerCase();
+  const genericRamp = [
+    'cultivate',
+    "kodama's reach",
+    'rampant growth',
+    'farseek',
+    "nature's lore",
+    'three visits',
+    'sakura-tribe elder',
+    'wood elves',
+    'farhaven elf',
+    'solemn simulacrum',
+  ];
+  return genericRamp.some(ramp => nameLower.includes(ramp));
 }
 
 async function postFilterSuggestions(
@@ -279,13 +450,23 @@ async function postFilterSuggestions(
         continue;
       }
 
-      // Check color identity
+      // Check color identity (stricter for lands)
       const cardColors = (card.color_identity || []).map(c => c.toUpperCase());
       const isLegal = cardColors.length === 0 || cardColors.every(c => allowedColors.has(c));
       
       if (!isLegal) {
-        console.log(`[filter] Removed ${suggestion.card}: colors ${cardColors.join(',')} not in ${Array.from(allowedColors).join(',')}`);
+        console.log(`[filter] Removed ${suggestion.card}: off-color (${cardColors.join(',')} not in ${Array.from(allowedColors).join(',')})`);
         continue;
+      }
+      
+      // Special check for lands: verify they produce allowed colors
+      const typeLine = (card.type_line || '').toLowerCase();
+      if (/land/i.test(typeLine)) {
+        const landColorsOk = checkLandColors(card, allowedColors);
+        if (!landColorsOk) {
+          console.log(`[filter] Removed ${suggestion.card}: off-color land (produces colors outside deck)`);
+          continue;
+        }
       }
 
       // Check for duplicate cards (already in deck)
@@ -341,14 +522,25 @@ async function postFilterSuggestions(
         }
       }
 
-      // Filter out Cultivate/Kodama's Reach if commander provides ramp
+      // Check for incorrect draw/filter classification
+      const reasonLower = suggestion.reason.toLowerCase();
+      const claimsDraw = /\b(draw|filtering|hand full|card advantage|keeps.*hand|refills.*hand)\b/i.test(reasonLower);
+      if (claimsDraw && !isRealDrawOrFilter(card)) {
+        console.log(`[filter] Removed ${suggestion.card}: not real draw/filter (reason claimed draw but card doesn't)`);
+        continue;
+      }
+      
+      // Filter out generic ramp if commander provides ramp OR deck has sufficient ramp
       const cardNameLower = suggestion.card.toLowerCase();
-      if (context.commanderProvidesRamp && 
-          (cardNameLower.includes('cultivate') || cardNameLower.includes("kodama's reach"))) {
-        // Check if reason explicitly mentions landfall/mana fixing
-        const reasonLower = suggestion.reason.toLowerCase();
-        if (!reasonLower.includes('landfall') && !reasonLower.includes('mana value') && !reasonLower.includes('fixing')) {
-          console.log(`[filter] Removed ${suggestion.card}: generic ramp when commander already ramps`);
+      const isGenRamp = isGenericRamp(suggestion.card);
+      if (isGenRamp && (context.commanderProvidesRamp || context.existingRampCount >= 3)) {
+        // Check if reason explicitly mentions synergy (landfall, fixing, etc.)
+        const hasSynergy = reasonLower.includes('landfall') || 
+                          reasonLower.includes('mana value') || 
+                          reasonLower.includes('fixing') ||
+                          reasonLower.includes('synergy');
+        if (!hasSynergy) {
+          console.log(`[filter] Removed ${suggestion.card}: redundant ramp when commander/deck already ramps`);
           continue;
         }
       }

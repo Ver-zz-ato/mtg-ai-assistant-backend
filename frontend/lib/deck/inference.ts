@@ -88,6 +88,7 @@ export type InferredDeckContext = {
   format: "Commander" | "Modern" | "Pioneer";
   commanderProvidesRamp: boolean;
   landCount: number;
+  existingRampCount: number; // Count of ramp pieces already in deck
   commanderOracleText?: string | null;
   archetype?: 'token_sac' | 'aristocrats' | null;
   protectedRoles?: string[]; // Card names or roles that should not be cut
@@ -554,6 +555,7 @@ export async function inferDeckContext(
     format,
     commanderProvidesRamp: false,
     landCount: 0,
+    existingRampCount: 0,
   };
 
   // Count lands
@@ -702,6 +704,9 @@ export async function inferDeckContext(
     cardRoles,
     redundancy,
   };
+
+  // Count existing ramp pieces
+  context.existingRampCount = byRole.ramp_fixing || 0;
 
   // Detect archetype and protected roles (after role tagging)
   const { archetype, protectedRoles } = detectArchetype(entries, context.commanderOracleText, byName);
