@@ -379,6 +379,7 @@ function isRealDrawOrFilter(card: SfCard): boolean {
 function isGenericRamp(cardName: string): boolean {
   const nameLower = cardName.toLowerCase();
   const genericRamp = [
+    // Land ramp
     'cultivate',
     "kodama's reach",
     'rampant growth',
@@ -389,8 +390,73 @@ function isGenericRamp(cardName: string): boolean {
     'wood elves',
     'farhaven elf',
     'solemn simulacrum',
+    // Generic mana rocks
+    'arcane signet',
+    'sol ring',
+    'emerald medallion',
+    'sapphire medallion',
+    'jet medallion',
+    'ruby medallion',
+    'pearl medallion',
+    'thought vessel',
+    'mind stone',
+    'fellwar stone',
+    'prismatic lens',
+    'star compass',
+    'commander sphere',
+    'guardian idol',
+    'coldsteel heart',
+    'firemind vessel',
+    'honed edge',
   ];
   return genericRamp.some(ramp => nameLower.includes(ramp));
+}
+
+// Helper: Normalize card name for comparison (lowercase, trim, remove punctuation)
+function normalizeCardName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[.,;:'"!?()[\]{}]/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/\s+/g, ''); // Remove all spaces for comparison
+}
+
+// Helper: Check if card is a board wipe that might harm the deck's plan
+function isHarmfulBoardWipe(card: SfCard, context: InferredDeckContext): boolean {
+  const oracleText = (card.oracle_text || '').toLowerCase();
+  const typeLine = (card.type_line || '').toLowerCase();
+  const nameLower = card.name.toLowerCase();
+  
+  // Check if it's a board wipe
+  const isBoardWipe = 
+    /destroy all (creatures|permanents|nonland|artifacts|enchantments)/i.test(oracleText) ||
+    /exile all (creatures|permanents|nonland)/i.test(oracleText) ||
+    /all (creatures|permanents|nonland) get -[0-9]/i.test(oracleText) ||
+    /damage to each (creature|permanent|nonland)/i.test(oracleText) ||
+    /wrath|damnation|terminus|doomsday/i.test(nameLower) ||
+    /board wipe|sweeper/i.test(nameLower);
+  
+  if (!isBoardWipe) return false;
+  
+  // Check if deck is creature-heavy (token/sac/aristocrats archetype)
+  if (context.archetype === 'token_sac' || context.archetype === 'aristocrats') {
+    return true; // Harmful to creature-heavy decks
+  }
+  
+  // Check if deck has many creatures (from role distribution)
+  const creatureCount = context.roleDistribution?.byRole.engine_enabler || 0;
+  const tokenProducers = context.roleDistribution?.cardRoles.filter(c => 
+    c.roles.includes('engine_enabler') && 
+    /create|token|1\/1|2\/2/i.test((c.name || '').toLowerCase())
+  ).length || 0;
+  
+  // If deck has many creatures or token producers, board wipes are harmful
+  if (creatureCount > 10 || tokenProducers > 3) {
+    return true;
+  }
+  
+  return false;
 }
 
 async function postFilterSuggestions(
@@ -402,6 +468,11 @@ async function postFilterSuggestions(
 ): Promise<Array<{ card: string; reason: string; category?: string }>> {
   const allowedColors = new Set(context.colors.map(c => c.toUpperCase()));
   const filtered: Array<{ card: string; reason: string; category?: string }> = [];
+  
+  // Normalize deck entry names for deduplication
+  const normalizedDeckNames = new Set(
+    deckEntries.map(e => normalizeCardName(e.name))
+  );
 
   // Fetch prices if budget constraint
   let priceMap: Map<string, number> = new Map();
@@ -433,10 +504,25 @@ async function postFilterSuggestions(
     }
   }
 
-  for (const suggestion of suggestions) {
+  filterLoop: for (const suggestion of suggestions) {
     try {
-      // Fetch card data if not already cached
+      // VERIFY CARD EXISTS: Drop hallucinated card names
+      // First try exact match, then try normalized
       let card = byName.get(suggestion.card.toLowerCase());
+      
+      // If not found, try normalized name lookup
+      if (!card) {
+        const normalized = normalizeCardName(suggestion.card);
+        // Try to find by iterating through map keys
+        for (const [key, value] of byName.entries()) {
+          if (normalizeCardName(key) === normalized) {
+            card = value;
+            break;
+          }
+        }
+      }
+      
+      // If still not found, try fetching from Scryfall
       if (!card) {
         const fetchedCard = await fetchCard(suggestion.card);
         if (fetchedCard) {
@@ -444,19 +530,39 @@ async function postFilterSuggestions(
           byName.set(fetchedCard.name.toLowerCase(), fetchedCard);
         }
       }
-
+      
+      // If still not found, this is likely a hallucinated card name - drop it
       if (!card) {
-        // Skip if we can't fetch card data (fail gracefully)
+        console.log(`[filter] Removed ${suggestion.card}: card not found in Scryfall/cache (likely hallucinated)`);
         continue;
       }
 
-      // Check color identity (stricter for lands)
+      // STRICT COLOR FILTERING: Remove any card with colors outside allowed colors
+      // Even if partially shared (e.g., Lightning Helix in Mono-Red)
       const cardColors = (card.color_identity || []).map(c => c.toUpperCase());
-      const isLegal = cardColors.length === 0 || cardColors.every(c => allowedColors.has(c));
+      const hasOffColor = cardColors.length > 0 && cardColors.some(c => !allowedColors.has(c));
       
-      if (!isLegal) {
+      if (hasOffColor) {
         console.log(`[filter] Removed ${suggestion.card}: off-color (${cardColors.join(',')} not in ${Array.from(allowedColors).join(',')})`);
         continue;
+      }
+      
+      // For colorless cards, allow them (they don't have color identity)
+      // But if they have mana costs with colors, check those too
+      if (card.mana_cost) {
+        const manaCostColors = new Set<string>();
+        const manaCostRe = /\{([WUBRG])\}/g;
+        let match;
+        while ((match = manaCostRe.exec(card.mana_cost)) !== null) {
+          manaCostColors.add(match[1].toUpperCase());
+        }
+        // If card has colored mana costs outside allowed colors, filter it
+        for (const color of manaCostColors) {
+          if (!allowedColors.has(color)) {
+            console.log(`[filter] Removed ${suggestion.card}: mana cost includes off-color (${color})`);
+            continue filterLoop;
+          }
+        }
       }
       
       // Special check for lands: verify they produce allowed colors
@@ -469,20 +575,20 @@ async function postFilterSuggestions(
         }
       }
 
-      // Check for duplicate cards (already in deck)
-      const cardNameNormalized = suggestion.card.toLowerCase().trim();
-      const isDuplicate = deckEntries.some(entry => entry.name.toLowerCase().trim() === cardNameNormalized);
-      if (isDuplicate) {
-        console.log(`[filter] Removed ${suggestion.card}: already in deck`);
+      // Check for duplicate cards (already in deck) - using normalized names
+      const cardNameNormalized = normalizeCardName(suggestion.card);
+      if (normalizedDeckNames.has(cardNameNormalized)) {
+        console.log(`[filter] Removed ${suggestion.card}: already in deck (normalized match)`);
         continue;
       }
 
       // Check for Commander-only cards in non-Commander formats
       if (context.format !== "Commander") {
-        const isCommanderOnly = COMMANDER_ONLY_CARDS.some(cmdCard => 
-          cardNameNormalized === cmdCard.toLowerCase() || 
-          cardNameNormalized.includes(cmdCard.toLowerCase())
-        );
+        const normalizedCardName = normalizeCardName(suggestion.card);
+        const isCommanderOnly = COMMANDER_ONLY_CARDS.some(cmdCard => {
+          const normalizedCmdCard = normalizeCardName(cmdCard);
+          return normalizedCardName === normalizedCmdCard || normalizedCardName.includes(normalizedCmdCard);
+        });
         if (isCommanderOnly) {
           console.log(`[filter] Removed ${suggestion.card}: Commander-only card in ${context.format} format`);
           continue;
@@ -543,6 +649,12 @@ async function postFilterSuggestions(
           console.log(`[filter] Removed ${suggestion.card}: redundant ramp when commander/deck already ramps`);
           continue;
         }
+      }
+      
+      // Filter out board wipes that harm the deck's plan
+      if (isHarmfulBoardWipe(card, context)) {
+        console.log(`[filter] Removed ${suggestion.card}: harmful board wipe for creature-heavy deck`);
+        continue;
       }
 
       // Budget filtering
