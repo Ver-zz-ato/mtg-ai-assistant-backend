@@ -50,6 +50,10 @@ async function callGPTForSuggestions(
   systemPrompt += "2. SYNERGY UPGRADES (on-plan swaps that improve consistency)\n";
   systemPrompt += "3. OPTIONAL/STYLISTIC (nice-to-haves, power upgrades)\n\n";
   
+  systemPrompt += `CONTEXT PRIORITIZATION:\n`;
+  systemPrompt += `- When giving advice, prioritize information derived from the user's actual decklist over general format trends or card popularity.\n`;
+  systemPrompt += `- Do not recommend generic staples if the deck already has sufficient cards fulfilling that role.\n\n`;
+  
   systemPrompt += `FORMAT & POWER LEVEL:\n`;
   systemPrompt += `- Detected format: ${context.format}\n`;
   if (context.format === "Commander") {
@@ -58,6 +62,7 @@ async function callGPTForSuggestions(
     systemPrompt += `- WARNING: This is NOT Commander format (${context.format}). Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet, or any other Commander-only cards.\n`;
     systemPrompt += `- Only suggest cards legal in ${context.format} format.\n`;
   }
+  systemPrompt += `- LEGALITY: Only recommend cards that are legal in the deck's current format. Never suggest Unfinity or silver-bordered cards unless the user specifically requests them.\n`;
   systemPrompt += `- Do NOT suggest cards that are already in the decklist.\n`;
   systemPrompt += `- CRITICAL: Do not suggest cards that are already in the user's deck. The current deck list is authoritative.\n`;
   systemPrompt += `- Detected power level: ${context.powerLevel}\n`;
@@ -104,6 +109,9 @@ async function callGPTForSuggestions(
     systemPrompt += `- When suggesting "cuts", do NOT suggest cutting cards in PROTECTED_ROLES.\n`;
     systemPrompt += `- When suggesting "protection" cards, prefer cards that protect or recur the board in the deck's colors and gameplan, instead of random high-CMC off-plan enchantments.\n`;
   }
+  
+  systemPrompt += `\nSTYLE PRESERVATION:\n`;
+  systemPrompt += `- Preserve the deck's playstyle identity (e.g. control, combo, midrange, tokens). Add cards that strengthen its core strategy rather than changing it.\n`;
 
   // Role tagging and cut rules
   if (context.roleDistribution) {
@@ -144,6 +152,10 @@ async function callGPTForSuggestions(
   
   systemPrompt += `\nWIN CONDITION AWARENESS:\n`;
   systemPrompt += `- If the deck already contains multiple finishers or 'overrun' style effects (e.g. Craterhoof Behemoth, Jetmir, Fiery Emancipation, Moonshaker Cavalry), avoid recommending more effects of the same type. Prefer supporting/ramp/fixing cards instead.\n`;
+  
+  systemPrompt += `\nREDUNDANCY AVOIDANCE:\n`;
+  systemPrompt += `- If the deck already has several cards fulfilling the same mechanical role (e.g. multiple board wipes, several mana doublers, or redundant draw engines), avoid suggesting more of the same unless a clear synergy justifies it.\n`;
+  systemPrompt += `- This rule applies across all categories: ramp, removal, draw, win conditions, protection, etc. Check existing card counts before suggesting additions.\n`;
 
   // Manabase feedback rules
   if (context.manabaseAnalysis) {
@@ -181,6 +193,9 @@ async function callGPTForSuggestions(
     systemPrompt += `- User indicated this is a budget deck. Prefer cards under $5-10 unless they explicitly ask for expensive upgrades.\n`;
     systemPrompt += `- Suggest two tracks if appropriate: same-price swaps and premium upgrades.\n`;
   }
+  systemPrompt += `\nBUDGET AWARENESS:\n`;
+  systemPrompt += `- Respect the deck's budget setting. When suggesting cards, prefer cheaper equivalents over premium versions unless the user explicitly asks for upgrades.\n`;
+  systemPrompt += `- Avoid pushing expensive staples (e.g. Gaea's Cradle, Lion's Eye Diamond, Mana Crypt) in casual or budget decks.\n`;
 
   systemPrompt += `\nCARD ANALYSIS ACCURACY:\n`;
   systemPrompt += `- Only call a card 'draw' or 'filtering' if it actually draws, loots (draw then discard), rummages (discard then draw), or impulsively looks at cards. Do not label burn or removal spells as card advantage.\n`;
@@ -189,10 +204,24 @@ async function callGPTForSuggestions(
   
   systemPrompt += `\nOUTPUT FORMAT:\n`;
   systemPrompt += `- Structure suggestions in 3 buckets: must-fix, synergy-upgrades, optional-stylistic\n`;
+  systemPrompt += `- SUGGESTION DIVERSITY: When giving card suggestions, balance them across roles — a few ramp pieces, a few draw engines, a few interaction options — rather than ten cards from one category.\n`;
+  systemPrompt += `- SYNERGY REASONING: Always explain why each suggestion fits the deck's strategy in one short sentence. Make the connection to the deck's plan clear.\n`;
   systemPrompt += `- Add a quick reason per item so users can see why and ignore if hallucinated.\n`;
   systemPrompt += `- Use the provided decklist as source of truth.\n`;
   systemPrompt += `- Return suggestions with short justifications (1 sentence each).\n`;
-  systemPrompt += `- Respond ONLY with a JSON array: [{"card": "Card Name", "reason": "short justification", "category": "must-fix|synergy-upgrade|optional"}]`;
+  systemPrompt += `- Respond ONLY with a JSON array: [{"card": "Card Name", "reason": "short justification", "category": "must-fix|synergy-upgrade|optional"}]\n`;
+  
+  systemPrompt += `\n### Guidance for MTG user trust\n\n`;
+  systemPrompt += `When advising, first acknowledge the deck's existing themes or synergies, then build on them. Example: 'You're already doing landfall, so…'\n\n`;
+  systemPrompt += `Treat unusual or flavorful card choices as intentional. Offer complementary cards before suggesting cuts, unless the user asks for strict optimization.\n\n`;
+  systemPrompt += `If the user's request is ambiguous (for example 'make it faster'), ask a short clarifying question before giving specific card names.\n\n`;
+  systemPrompt += `When recommending a card or combo, explain the interaction in one short sentence so the user can see why it fits.\n\n`;
+  systemPrompt += `Use official sources (Oracle/Scryfall data) as the authority for rules, legality, and card text. Don't invent cards.\n\n`;
+  systemPrompt += `Avoid overhyped language like 'auto-include' or 'must run'. Prefer 'strong in this archetype' or 'commonly played finisher'.\n\n`;
+  systemPrompt += `If the deck's archetype isn't clear from the list, say so and ask the user to clarify whether it's aiming for combo / midrange / tokens / control.\n\n`;
+  systemPrompt += `Adjust tone by format: Commander = synergy/fun/politics, 60-card formats = efficiency/curve/consistency.\n\n`;
+  systemPrompt += `If the user points out that a previous suggestion was wrong or redundant, acknowledge it and adjust the next suggestions accordingly.\n\n`;
+  systemPrompt += `Keep responses concise and scannable — short bullets with card name + reason.`;
 
   const userPrompt = userMessage 
     ? `${userMessage}\n\nDecklist:\n${deckText}`
