@@ -35,6 +35,13 @@ const COMMANDER_ONLY_CARDS = [
   'Reflecting Pool',
 ];
 
+// Prompt Version: deck-ai-v4
+// v1: base inference
+// v2: legality + budget
+// v3: redundancy + tutor classification
+// v4: co-pilot behaviors + meta humility
+const PROMPT_VERSION = 'deck-ai-v4';
+
 async function callGPTForSuggestions(
   deckText: string,
   userMessage: string | undefined,
@@ -44,7 +51,7 @@ async function callGPTForSuggestions(
   const model = process.env.OPENAI_MODEL || "gpt-5";
   if (!apiKey) return [];
 
-  // Build system prompt with constraints
+  // Build system prompt with constraints (Prompt Version: deck-ai-v4)
   let systemPrompt = "You are an expert MTG deck builder. Analyze the provided decklist and provide suggestions in 3 categories:\n";
   systemPrompt += "1. MUST-FIX issues (curve problems, land count wildly off, missing removal)\n";
   systemPrompt += "2. SYNERGY UPGRADES (on-plan swaps that improve consistency)\n";
@@ -745,9 +752,21 @@ async function postFilterSuggestions(
   // If all suggestions were filtered out, return a helpful message
   if (filtered.length === 0 && suggestions.length > 0) {
     console.log(`[filter] Final suggestions: 0 (removed ${suggestions.length})`);
+    
+    // Evaluation Mode: Track when suggestions are exhausted
+    const deckSize = deckEntries.reduce((sum, e) => sum + e.count, 0);
+    console.log(`[evaluation] ai_suggestion_exhausted`, {
+      format: context.format,
+      colors: context.colors.join(','),
+      deck_size: deckSize,
+      archetype: context.archetype || 'none',
+      power_level: context.powerLevel || 'unknown',
+      raw_suggestions_count: suggestions.length,
+    });
+    
     return [{
       card: "N/A",
-      reason: "Your deck already runs most of the good staples for this strategy. Consider meta-specific tech or power-level upgrades.",
+      reason: "Your deck is already tight for this format. I can help in one of these ways: [1] fine-tune manabase, [2] add interaction, [3] budget passes, [4] polish theme text.",
       category: "optional",
       id: crypto.randomUUID(),
       needs_review: false,

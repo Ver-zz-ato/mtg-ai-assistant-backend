@@ -390,6 +390,57 @@ An intelligent MTG deck analysis system that uses GPT-5 to provide contextual, f
 
 ---
 
+## Evaluation Mode
+
+The system tracks when it cannot provide suggestions to identify improvement areas:
+
+**When suggestions are exhausted:**
+- If post-filtering removes all GPT suggestions (`filtered.length === 0 && suggestions.length > 0`)
+- The system logs `ai_suggestion_exhausted` with context:
+  - `format`: Deck format (Commander, Modern, Pioneer)
+  - `colors`: Deck colors (comma-separated)
+  - `deck_size`: Total card count
+  - `archetype`: Detected archetype (if any)
+  - `power_level`: Detected power level
+  - `raw_suggestions_count`: Number of suggestions before filtering
+
+This helps identify which archetypes or deck types the model struggles with, enabling targeted prompt improvements.
+
+**Implementation:** Logged via `console.log` in `postFilterSuggestions` function. Server-side PostHog integration can be added later if needed.
+
+---
+
+## Known Edge Cases
+
+The system handles most deck types well, but these edge cases require special attention:
+
+- **4-5 color commanders with greedy mana**: Decks with many colors may have complex manabase requirements that the AI struggles to optimize
+- **Token decks that look like "too many 3-drops"**: Token-heavy decks may appear inefficient but are actually well-tuned for their strategy
+- **Reanimator that looks like "too many 7-drops"**: Reanimator decks intentionally run high-CMC creatures; the AI may flag these incorrectly
+- **Partner commanders (needs both texts)**: Partner commanders require both commander texts to be analyzed together for proper synergy detection
+- **MDFCs / Battles / Modal cards naming**: Modal double-faced cards and battles may have naming inconsistencies that affect detection
+- **"Card not in Scryfall yet" previews**: Cards from unreleased sets won't be in Scryfall and will be marked as `needs_review: true`
+
+When modifying inference logic, ensure these edge cases are not regressed.
+
+---
+
+## Prompt Versioning
+
+The system prompt is versioned to track changes and enable debugging:
+
+**Current Version**: `deck-ai-v4`
+
+**Version History:**
+- **v1**: Base inference (format, colors, commander detection)
+- **v2**: Added legality checking and budget filtering
+- **v3**: Added redundancy awareness and tutor classification fixes
+- **v4**: Added co-pilot behaviors and meta humility (current)
+
+The version constant is defined at the top of `frontend/app/api/deck/analyze/route.ts`. When users report issues with suggestions, check the prompt version to understand what rules were active.
+
+---
+
 ## Future Enhancements (Already Prompted)
 
 - Metagame data integration (EDHRec sync)
