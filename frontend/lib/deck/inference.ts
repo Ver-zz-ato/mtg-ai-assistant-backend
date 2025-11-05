@@ -1,4 +1,6 @@
 // Shared deck inference functions for analyze and chat routes
+import { createClient } from "@/lib/supabase/server";
+import { isStale } from "@/lib/server/scryfallTtl";
 
 // --- Minimal typed Scryfall card for our needs ---
 export type SfCard = {
@@ -11,18 +13,83 @@ export type SfCard = {
   mana_cost?: string; // e.g. "{1}{R}{G}"
 };
 
+function norm(name: string): string {
+  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
 // Simple in-process cache (persists across hot reloads on server)
 declare global {
   // eslint-disable-next-line no-var
   var __sfCacheInference: Map<string, SfCard> | undefined;
+  // eslint-disable-next-line no-var
+  var __inferenceCache: Map<string, { context: InferredDeckContext; timestamp: number }> | undefined;
 }
 const sfCache: Map<string, SfCard> = globalThis.__sfCacheInference ?? new Map();
 globalThis.__sfCacheInference = sfCache;
 
+// Cache for inference results (1 hour TTL)
+const inferenceCache: Map<string, { context: InferredDeckContext; timestamp: number }> = 
+  globalThis.__inferenceCache ?? new Map();
+globalThis.__inferenceCache = inferenceCache;
+
+const INFERENCE_CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+
+function getInferenceCacheKey(
+  deckText: string,
+  commander: string | null,
+  format: "Commander" | "Modern" | "Pioneer",
+  userMessage: string | undefined
+): string {
+  // Simple hash: JSON.stringify the key components
+  // Normalize whitespace and sort for consistency
+  const normalized = {
+    deckText: deckText.trim().replace(/\s+/g, ' '),
+    commander: commander || '',
+    format,
+    userMessage: userMessage?.trim() || '',
+  };
+  return JSON.stringify(normalized);
+}
+
 export async function fetchCard(name: string): Promise<SfCard | null> {
-  const key = name.toLowerCase();
+  const key = norm(name);
+  
+  // L1: Check in-memory cache first (fastest)
   if (sfCache.has(key)) return sfCache.get(key)!;
 
+  // L2: Check database cache
+  try {
+    const supabase = await createClient();
+    const { data: rows } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, updated_at")
+      .eq("name", key)
+      .limit(1);
+    
+    if (rows && rows.length > 0) {
+      const row = rows[0];
+      // Check if cache is stale (30 days TTL)
+      if (!isStale(row.updated_at)) {
+        const card: SfCard = {
+          name: row.name,
+          type_line: row.type_line || undefined,
+          oracle_text: row.oracle_text || null,
+          color_identity: (row.color_identity || []) as string[],
+          cmc: typeof row.cmc === "number" ? row.cmc : undefined,
+          legalities: {}, // Not stored in cache, will be empty
+          mana_cost: row.mana_cost || undefined,
+        };
+        // Store in memory cache for next time
+        sfCache.set(key, card);
+        return card;
+      }
+    }
+  } catch (error) {
+    // If DB query fails, continue to API fetch
+    console.warn('[inference] DB cache lookup failed:', error);
+  }
+
+  // L3: Fetch from Scryfall API
   type ScryfallNamed = {
     name: string;
     type_line?: string;
@@ -34,23 +101,209 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     mana_cost?: string;
   };
 
-  const r = await fetch(
-    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
-  );
-  if (!r.ok) return null;
-  const j = (await r.json()) as ScryfallNamed;
+  try {
+    const r = await fetch(
+      `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
+    );
+    if (!r.ok) return null;
+    const j = (await r.json()) as ScryfallNamed;
 
-  const card: SfCard = {
-    name: j.name,
-    type_line: j.type_line,
-    oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
-    color_identity: j.color_identity ?? [],
-    cmc: typeof j.cmc === "number" ? j.cmc : undefined,
-    legalities: j.legalities ?? {},
-    mana_cost: j.mana_cost ?? undefined,
-  };
-  sfCache.set(key, card);
-  return card;
+    const card: SfCard = {
+      name: j.name,
+      type_line: j.type_line,
+      oracle_text: j.oracle_text ?? j.card_faces?.[0]?.oracle_text ?? null,
+      color_identity: j.color_identity ?? [],
+      cmc: typeof j.cmc === "number" ? j.cmc : undefined,
+      legalities: j.legalities ?? {},
+      mana_cost: j.mana_cost ?? undefined,
+    };
+    
+    // Store in memory cache
+    sfCache.set(key, card);
+    
+    // Upsert to database cache
+    try {
+      const supabase = await createClient();
+      await supabase.from("scryfall_cache").upsert({
+        name: key,
+        type_line: card.type_line || null,
+        oracle_text: card.oracle_text || null,
+        color_identity: card.color_identity || [],
+        cmc: card.cmc || 0,
+        mana_cost: card.mana_cost || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "name" });
+    } catch (error) {
+      // If DB upsert fails, continue anyway (card is still in memory cache)
+      console.warn('[inference] DB cache upsert failed:', error);
+    }
+    
+    return card;
+  } catch (error) {
+    console.warn('[inference] Scryfall API fetch failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Batch fetch cards from Scryfall using the collection endpoint (up to 75 cards per batch).
+ * Checks database cache first, then fetches missing cards from API.
+ * Returns a Map of normalized name -> SfCard.
+ */
+export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCard>> {
+  const result = new Map<string, SfCard>();
+  if (names.length === 0) return result;
+  
+  const unique = Array.from(new Set(names.filter(Boolean)));
+  const keys = unique.map(norm);
+  
+  // Check in-memory cache first
+  const fromMemory: string[] = [];
+  const toFetch: string[] = [];
+  
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const originalName = unique[i];
+    
+    if (sfCache.has(key)) {
+      result.set(key, sfCache.get(key)!);
+    } else {
+      toFetch.push(originalName);
+    }
+  }
+  
+  if (toFetch.length === 0) return result;
+  
+  // Check database cache for remaining cards
+  const dbKeys = toFetch.map(norm);
+  const fromDb: string[] = [];
+  const toApi: string[] = [];
+  
+  try {
+    const supabase = await createClient();
+    const { data: rows } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, updated_at")
+      .in("name", dbKeys);
+    
+    if (rows && rows.length > 0) {
+      const staleRows: string[] = [];
+      
+      for (const row of rows) {
+        const key = row.name;
+        if (!isStale(row.updated_at)) {
+          const card: SfCard = {
+            name: row.name,
+            type_line: row.type_line || undefined,
+            oracle_text: row.oracle_text || null,
+            color_identity: (row.color_identity || []) as string[],
+            cmc: typeof row.cmc === "number" ? row.cmc : undefined,
+            legalities: {},
+            mana_cost: row.mana_cost || undefined,
+          };
+          result.set(key, card);
+          sfCache.set(key, card); // Store in memory too
+          fromDb.push(key);
+        } else {
+          staleRows.push(key);
+        }
+      }
+      
+      // Add stale rows to API fetch list
+      for (const key of staleRows) {
+        const index = dbKeys.indexOf(key);
+        if (index >= 0) {
+          toApi.push(toFetch[index]);
+        }
+      }
+      
+      // Add cards not found in DB to API fetch list
+      const foundKeys = new Set(rows.map(r => r.name));
+      for (let i = 0; i < dbKeys.length; i++) {
+        if (!foundKeys.has(dbKeys[i])) {
+          toApi.push(toFetch[i]);
+        }
+      }
+    } else {
+      // No DB cache hits, fetch all from API
+      toApi.push(...toFetch);
+    }
+  } catch (error) {
+    // If DB query fails, fetch all from API
+    console.warn('[inference] DB batch cache lookup failed:', error);
+    toApi.push(...toFetch);
+  }
+  
+  // Fetch remaining cards from Scryfall API in batches of 75
+  if (toApi.length > 0) {
+    const BATCH_SIZE = 75;
+    for (let i = 0; i < toApi.length; i += BATCH_SIZE) {
+      const batch = toApi.slice(i, i + BATCH_SIZE);
+      const identifiers = batch.map(name => ({ name }));
+      
+      try {
+        const r = await fetch("https://api.scryfall.com/cards/collection", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ identifiers }),
+        });
+        
+        if (!r.ok) {
+          console.warn(`[inference] Scryfall batch fetch failed: ${r.status}`);
+          continue;
+        }
+        
+        const j = await r.json().catch(() => ({}));
+        const dataRows: any[] = Array.isArray(j?.data) ? j.data : [];
+        
+        // Process fetched cards
+        const upsertRows: any[] = [];
+        
+        for (const c of dataRows) {
+          const key = norm(c?.name || "");
+          if (!key) continue;
+          
+          const card: SfCard = {
+            name: c.name,
+            type_line: c.type_line,
+            oracle_text: c.oracle_text ?? c.card_faces?.[0]?.oracle_text ?? null,
+            color_identity: (c.color_identity || []) as string[],
+            cmc: typeof c.cmc === "number" ? c.cmc : undefined,
+            legalities: c.legalities || {},
+            mana_cost: c.mana_cost,
+          };
+          
+          result.set(key, card);
+          sfCache.set(key, card); // Store in memory
+          
+          // Prepare for DB upsert
+          upsertRows.push({
+            name: key,
+            type_line: card.type_line || null,
+            oracle_text: card.oracle_text || null,
+            color_identity: card.color_identity || [],
+            cmc: card.cmc || 0,
+            mana_cost: card.mana_cost || null,
+            updated_at: new Date().toISOString(),
+          });
+        }
+        
+        // Upsert to database cache
+        if (upsertRows.length > 0) {
+          try {
+            const supabase = await createClient();
+            await supabase.from("scryfall_cache").upsert(upsertRows, { onConflict: "name" });
+          } catch (error) {
+            console.warn('[inference] DB batch cache upsert failed:', error);
+          }
+        }
+      } catch (error) {
+        console.warn('[inference] Scryfall batch fetch error:', error);
+      }
+    }
+  }
+  
+  return result;
 }
 
 export async function checkIfCommander(cardName: string): Promise<boolean> {
@@ -90,6 +343,7 @@ export type InferredDeckContext = {
   landCount: number;
   existingRampCount: number; // Count of ramp pieces already in deck
   commanderOracleText?: string | null;
+  partnerCommanders?: string[]; // Array of partner commander names if detected
   archetype?: 'token_sac' | 'aristocrats' | null;
   protectedRoles?: string[]; // Card names or roles that should not be cut
   powerLevel?: 'casual' | 'battlecruiser' | 'mid' | 'high' | 'cedh';
@@ -348,6 +602,61 @@ export function analyzeCurve(
   };
 }
 
+export async function detectPartnerCommanders(
+  commanderName: string,
+  entries: Array<{ count: number; name: string }>,
+  byName: Map<string, SfCard>
+): Promise<string[] | null> {
+  // Fetch the commander card to check for Partner
+  let commanderCard: SfCard | undefined = byName.get(commanderName.toLowerCase());
+  if (!commanderCard) {
+    // If not in cache, try fetching
+    const fetched = await fetchCard(commanderName);
+    if (fetched) {
+      commanderCard = fetched;
+      byName.set(fetched.name.toLowerCase(), fetched);
+    }
+  }
+  
+  if (!commanderCard) return null;
+  
+  const oracleText = (commanderCard.oracle_text || '').toLowerCase();
+  
+  // Check for Partner keyword
+  const hasPartner = /partner\s+(?:with|—)/i.test(oracleText) || /partner\b/i.test(oracleText);
+  if (!hasPartner) return null;
+  
+  // Search decklist for other legendary creatures with Partner
+  const partners: string[] = [commanderCard.name];
+  for (const { name } of entries) {
+    if (name.toLowerCase() === commanderName.toLowerCase()) continue;
+    
+    let card: SfCard | undefined = byName.get(name.toLowerCase());
+    if (!card) {
+      const fetched = await fetchCard(name);
+      if (fetched) {
+        card = fetched;
+        byName.set(fetched.name.toLowerCase(), fetched);
+      }
+    }
+    if (!card) continue;
+    
+    const cardTypeLine = (card.type_line || '').toLowerCase();
+    const cardOracleText = (card.oracle_text || '').toLowerCase();
+    
+    // Check if it's a legendary creature with Partner
+    const isLegendary = /legendary.*creature/i.test(cardTypeLine);
+    const cardHasPartner = /partner\s+(?:with|—)/i.test(cardOracleText) || /partner\b/i.test(cardOracleText);
+    
+    if (isLegendary && cardHasPartner) {
+      partners.push(card.name);
+      if (partners.length >= 2) break; // Found both partners
+    }
+  }
+  
+  return partners.length >= 2 ? partners : null;
+}
+
 export function extractUserIntent(userMessage: string | undefined): string | undefined {
   if (!userMessage) return undefined;
   
@@ -549,6 +858,17 @@ export async function inferDeckContext(
   selectedColors: string[],
   byName: Map<string, SfCard>
 ): Promise<InferredDeckContext> {
+  // Check cache first
+  const cacheKey = getInferenceCacheKey(deckText, reqCommander, format, userMessage);
+  const cached = inferenceCache.get(cacheKey);
+  const now = Date.now();
+  
+  if (cached && (now - cached.timestamp) < INFERENCE_CACHE_TTL) {
+    // Cache hit - return cached result
+    return cached.context;
+  }
+  
+  // Cache miss or expired - compute new result
   const context: InferredDeckContext = {
     commander: null,
     colors: [],
@@ -603,6 +923,33 @@ export async function inferDeckContext(
         /add \{[wubrg]\}/i.test(oracleText)
       ) {
         context.commanderProvidesRamp = true;
+      }
+      
+      // Detect partner commanders
+      const partners = await detectPartnerCommanders(commanderCard.name, entries, byName);
+      if (partners && partners.length >= 2) {
+        context.partnerCommanders = partners;
+        // Combine colors from both partners
+        const allColors = new Set<string>(context.colors);
+        for (const partnerName of partners) {
+          if (partnerName === commanderCard.name) continue;
+          const partnerCard = byName.get(partnerName.toLowerCase()) || await fetchCard(partnerName);
+          if (partnerCard && partnerCard.color_identity) {
+            partnerCard.color_identity.forEach(c => allColors.add(c.toUpperCase()));
+          }
+        }
+        context.colors = Array.from(allColors);
+        
+        // Combine oracle texts for both partners
+        const partnerTexts: string[] = [commanderCard.oracle_text || ''];
+        for (const partnerName of partners) {
+          if (partnerName === commanderCard.name) continue;
+          const partnerCard = byName.get(partnerName.toLowerCase()) || await fetchCard(partnerName);
+          if (partnerCard && partnerCard.oracle_text) {
+            partnerTexts.push(partnerCard.oracle_text);
+          }
+        }
+        context.commanderOracleText = partnerTexts.join('\n\n');
       }
     }
   }
@@ -712,6 +1059,19 @@ export async function inferDeckContext(
   const { archetype, protectedRoles } = detectArchetype(entries, context.commanderOracleText, byName);
   context.archetype = archetype;
   context.protectedRoles = protectedRoles;
+
+  // Store in cache
+  inferenceCache.set(cacheKey, { context, timestamp: now });
+  
+  // Clean up old cache entries (keep only last 100 entries)
+  if (inferenceCache.size > 100) {
+    const entries = Array.from(inferenceCache.entries());
+    entries.sort((a, b) => b[1].timestamp - a[1].timestamp); // Sort by timestamp desc
+    inferenceCache.clear();
+    entries.slice(0, 100).forEach(([key, value]) => {
+      inferenceCache.set(key, value);
+    });
+  }
 
   return context;
 }

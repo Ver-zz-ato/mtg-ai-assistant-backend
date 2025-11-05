@@ -23,6 +23,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [illegal, setIllegal] = React.useState<{ banned?: string[]; ci?: string[] }>({});
   const [meta, setMeta] = React.useState<Array<{ card:string; inclusion_rate:string; commanders:string[] }> | null>(null);
   const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>>([]);
+  const [promptVersion, setPromptVersion] = React.useState<string | undefined>(undefined);
 
   async function run() {
     try {
@@ -42,6 +43,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0,12) : []);
       setSuggestions(Array.isArray(j?.suggestions) ? j.suggestions : []);
+      setPromptVersion(j?.prompt_version);
     } catch (e:any) { setError(e?.message || 'Analyze failed'); }
     finally { setBusy(false); }
   }
@@ -60,6 +62,21 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
     window.addEventListener('deck:changed', h);
     return ()=>{ window.removeEventListener('deck:changed', h); clearTimeout(t); };
   }, [proAuto]);
+
+  // Track when suggestions are shown
+  React.useEffect(() => {
+    if (suggestions.length > 0) {
+      try {
+        const categories = Array.from(new Set(suggestions.map(s => s.category || 'optional')));
+        capture('ai_suggestion_shown', {
+          suggestion_count: suggestions.length,
+          deck_id: deckId,
+          categories: categories,
+          prompt_version: promptVersion, // Include for A/B testing
+        });
+      } catch {}
+    }
+  }, [suggestions, deckId, promptVersion]);
 
   return (
     <section className="rounded-xl border border-neutral-800 p-3 space-y-2">
@@ -215,7 +232,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       // Track suggestion accepted
                                       if (s.id) {
                                         try {
-                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'must-fix', deck_id: deckId });
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'synergy-upgrade', deck_id: deckId, prompt_version: promptVersion });
                                         } catch {}
                                       }
                                     } catch(e:any){ 
@@ -260,7 +277,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       // Track suggestion accepted
                                       if (s.id) {
                                         try {
-                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'synergy-upgrade', deck_id: deckId });
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'synergy-upgrade', deck_id: deckId, prompt_version: promptVersion });
                                         } catch {}
                                       }
                                     } catch(e:any){ 
@@ -305,7 +322,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       // Track suggestion accepted
                                       if (s.id) {
                                         try {
-                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'optional', deck_id: deckId });
+                                          capture('ai_suggestion_accepted', { suggestion_id: s.id, card: s.card, category: s.category || 'optional', deck_id: deckId, prompt_version: promptVersion });
                                         } catch {}
                                       }
                                     } catch(e:any){ 

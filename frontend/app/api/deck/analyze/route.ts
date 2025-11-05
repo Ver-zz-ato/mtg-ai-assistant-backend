@@ -8,7 +8,9 @@ import {
   fetchCard,
   checkIfCommander,
   inferDeckContext,
+  fetchCardsBatch,
 } from "@/lib/deck/inference";
+import { getActivePromptVersion } from "@/lib/config/prompts";
 
 // Commander-only cards that should not be suggested for non-Commander formats
 const COMMANDER_ONLY_CARDS = [
@@ -35,21 +37,24 @@ const COMMANDER_ONLY_CARDS = [
   'Reflecting Pool',
 ];
 
-// Prompt Version: deck-ai-v4
-// v1: base inference
-// v2: legality + budget
-// v3: redundancy + tutor classification
-// v4: co-pilot behaviors + meta humility
-const PROMPT_VERSION = 'deck-ai-v4';
+// Prompt Version: Configurable for A/B testing (see getActivePromptVersion() usage below)
 
 async function callGPTForSuggestions(
   deckText: string,
   userMessage: string | undefined,
   context: InferredDeckContext
-): Promise<Array<{ card: string; reason: string }>> {
+): Promise<Array<{ card: string; reason: string; category?: string }>> {
+  // Get active prompt version for A/B testing
+  const PROMPT_VERSION = getActivePromptVersion();
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || "gpt-5";
-  if (!apiKey) return [];
+  if (!apiKey) {
+    return [{
+      card: "N/A",
+      reason: "AI service is not configured. Please contact support.",
+      category: "optional"
+    }];
+  }
 
   // Build system prompt with constraints (Prompt Version: deck-ai-v4)
   let systemPrompt = "You are an expert MTG deck builder. Analyze the provided decklist and provide suggestions in 3 categories:\n";
@@ -85,10 +90,18 @@ async function callGPTForSuggestions(
   
   if (context.commander) {
     systemPrompt += `\nCOMMANDER SYNERGY:\n`;
-    systemPrompt += `- Commander: ${context.commander}\n`;
+    if (context.partnerCommanders && context.partnerCommanders.length >= 2) {
+      systemPrompt += `- Partner Commanders: ${context.partnerCommanders.join(' + ')}\n`;
+    } else {
+      systemPrompt += `- Commander: ${context.commander}\n`;
+    }
     if (context.commanderOracleText) {
       systemPrompt += `- Commander oracle text: ${context.commanderOracleText}\n`;
-      systemPrompt += `- When evaluating cards, first check: does this card directly advance the commander's text, trigger it more often, or enable the deck's main mechanic? If yes, increase its keep-score.\n`;
+      if (context.partnerCommanders && context.partnerCommanders.length >= 2) {
+        systemPrompt += `- When evaluating cards, check if they synergize with BOTH partner commanders. Cards that advance either partner's strategy or enable both are highly valuable.\n`;
+      } else {
+        systemPrompt += `- When evaluating cards, first check: does this card directly advance the commander's text, trigger it more often, or enable the deck's main mechanic? If yes, increase its keep-score.\n`;
+      }
     }
     if (context.commanderProvidesRamp || context.existingRampCount >= 3) {
       if (context.commanderProvidesRamp && context.existingRampCount >= 3) {
@@ -209,6 +222,9 @@ async function callGPTForSuggestions(
   systemPrompt += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
   systemPrompt += `- Tutor cards like Vampiric Tutor, Demonic Tutor, Enlightened Tutor, Worldly Tutor are NOT removal. Classify them as tutors/utility, not removal.\n`;
   
+  systemPrompt += `\nCONTINUOUS IMPROVEMENT:\n`;
+  systemPrompt += `- Your suggestions are tracked and reviewed. Cards that are frequently shown but not accepted by users may indicate issues with the suggestion (wrong format, off-color, already in deck, etc.). Learn from rejection patterns to improve future suggestions.\n`;
+  
   systemPrompt += `\nOUTPUT FORMAT:\n`;
   systemPrompt += `- Structure suggestions in 3 buckets: must-fix, synergy-upgrades, optional-stylistic\n`;
   systemPrompt += `- SUGGESTION DIVERSITY: When giving card suggestions, balance them across roles — a few ramp pieces, a few draw engines, a few interaction options — rather than ten cards from one category.\n`;
@@ -265,9 +281,62 @@ async function callGPTForSuggestions(
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(body),
-    }).catch(() => null as any);
+    }).catch((error) => {
+      // Network/timeout error
+      return {
+        ok: false,
+        error: { message: error?.message || 'Network error', code: 'network_error' }
+      } as any;
+    });
 
-    if (!r || !r.ok) return [];
+    if (!r) {
+      // Network failure
+      return [{
+        card: "N/A",
+        reason: "AI service temporarily unavailable due to network issues. Please try again in a moment.",
+        category: "optional"
+      }];
+    }
+
+    if (!r.ok) {
+      const errorBody = await r.json().catch(() => ({}));
+      const errorMsg = String(errorBody?.error?.message || '').toLowerCase();
+      const status = r.status;
+      
+      // Rate limit error
+      if (status === 429 || /rate limit|too many requests/i.test(errorMsg)) {
+        return [{
+          card: "N/A",
+          reason: "AI service is currently rate-limited. Please wait a moment and try again.",
+          category: "optional"
+        }];
+      }
+      
+      // API key missing or invalid
+      if (status === 401 || /unauthorized|invalid.*key|api key/i.test(errorMsg)) {
+        return [{
+          card: "N/A",
+          reason: "AI service is not configured. Please contact support.",
+          category: "optional"
+        }];
+      }
+      
+      // Model not found or access denied
+      if (status === 404 || /model.*not found|access denied/i.test(errorMsg)) {
+        return [{
+          card: "N/A",
+          reason: "AI model unavailable. Please try again later.",
+          category: "optional"
+        }];
+      }
+      
+      // Generic error
+      return [{
+        card: "N/A",
+        reason: "AI service temporarily unavailable. Please try again in a moment.",
+        category: "optional"
+      }];
+    }
     
     const j: any = await r.json().catch(() => ({}));
     const text = (j?.output_text || "").trim();
@@ -276,13 +345,42 @@ async function callGPTForSuggestions(
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[0]);
-      } catch {}
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (parseError) {
+        // Parse error - return helpful message
+        return [{
+          card: "N/A",
+          reason: "AI response format error. Please try again.",
+          category: "optional"
+        }];
+      }
     }
     
-    return [];
-  } catch {
-    return [];
+    // Empty or invalid response
+    return [{
+      card: "N/A",
+      reason: "AI service returned an invalid response. Please try again.",
+      category: "optional"
+    }];
+  } catch (error: any) {
+    // Unexpected error
+    const errorMsg = String(error?.message || '').toLowerCase();
+    if (/timeout|timed out/i.test(errorMsg)) {
+      return [{
+        card: "N/A",
+        reason: "AI service request timed out. Please try again.",
+        category: "optional"
+      }];
+    }
+    
+    return [{
+      card: "N/A",
+      reason: "AI service temporarily unavailable. Please try again in a moment.",
+      category: "optional"
+    }];
   }
 }
 
@@ -521,7 +619,8 @@ async function postFilterSuggestions(
   context: InferredDeckContext,
   byName: Map<string, SfCard>,
   currency: string = 'USD',
-  deckEntries: Array<{ count: number; name: string }> = []
+  deckEntries: Array<{ count: number; name: string }> = [],
+  userId: string | null = null
 ): Promise<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>> {
   const allowedColors = new Set(context.colors.map(c => c.toUpperCase()));
   const filtered: Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }> = [];
@@ -755,14 +854,25 @@ async function postFilterSuggestions(
     
     // Evaluation Mode: Track when suggestions are exhausted
     const deckSize = deckEntries.reduce((sum, e) => sum + e.count, 0);
-    console.log(`[evaluation] ai_suggestion_exhausted`, {
+    const evalData = {
       format: context.format,
       colors: context.colors.join(','),
       deck_size: deckSize,
       archetype: context.archetype || 'none',
       power_level: context.powerLevel || 'unknown',
       raw_suggestions_count: suggestions.length,
-    });
+      prompt_version: getActivePromptVersion(),
+    };
+    
+    console.log(`[evaluation] ai_suggestion_exhausted`, evalData);
+    
+    // Server-side PostHog tracking
+    try {
+      const { captureServer } = await import("@/lib/server/analytics");
+      await captureServer('ai_suggestion_exhausted', evalData, userId || null);
+    } catch (error) {
+      console.warn('[evaluation] Failed to track ai_suggestion_exhausted:', error);
+    }
     
     return [{
       card: "N/A",
@@ -832,9 +942,12 @@ export async function POST(req: Request) {
 
   if (useScryfall) {
     const unique = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
-    const looked = await Promise.all(unique.map(fetchCard));
-    for (const c of looked) {
-      if (c) byName.set(c.name.toLowerCase(), c);
+    // Use batch fetching for better performance (checks DB cache first, then fetches missing cards in batches of 75)
+    const batchResults = await fetchCardsBatch(unique);
+    // Copy batch results to byName map
+    // fetchCardsBatch returns normalized keys, but we store using lowercase for compatibility with existing code
+    for (const [key, card] of batchResults.entries()) {
+      byName.set(card.name.toLowerCase(), card);
     }
 
     const landRe = /land/i;
@@ -1036,6 +1149,17 @@ export async function POST(req: Request) {
     combosMissing = (res.missing || []).map(m => ({ name: m.name, have: m.have, missing: m.missing, suggest: m.suggest }));
   } catch {}
 
+  // Get user ID for analytics (optional - doesn't block if auth fails)
+  let userId: string | null = null;
+  try {
+    const { getServerSupabase } = await import("@/lib/server-supabase");
+    const supabase = await getServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id || null;
+  } catch {
+    // User ID is optional for analytics
+  }
+
   // GPT-based suggestions with inference and filtering (enabled by default when useScryfall is true)
   let gptSuggestions: Array<{ card: string; reason: string }> = [];
   if (useScryfall) {
@@ -1080,7 +1204,7 @@ export async function POST(req: Request) {
 
       // Post-filter suggestions
       const currency = body.currency || 'USD';
-      gptSuggestions = await postFilterSuggestions(rawSuggestions, inferredContext, byName, currency, entries);
+      gptSuggestions = await postFilterSuggestions(rawSuggestions, inferredContext, byName, currency, entries, userId);
       console.log('[analyze] Filtered suggestions:', gptSuggestions.length, gptSuggestions.map(s => s.card));
     } catch (error) {
       console.error('[analyze] Error in GPT suggestions:', error);
@@ -1105,5 +1229,6 @@ export async function POST(req: Request) {
     combosPresent,
     combosMissing,
     suggestions: gptSuggestions, // GPT-filtered suggestions
+    prompt_version: useGPT && useScryfall ? getActivePromptVersion() : undefined, // Include for A/B testing analytics
   });
 }
