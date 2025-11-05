@@ -59,6 +59,7 @@ async function callGPTForSuggestions(
     systemPrompt += `- Only suggest cards legal in ${context.format} format.\n`;
   }
   systemPrompt += `- Do NOT suggest cards that are already in the decklist.\n`;
+  systemPrompt += `- CRITICAL: Do not suggest cards that are already in the user's deck. The current deck list is authoritative.\n`;
   systemPrompt += `- Detected power level: ${context.powerLevel}\n`;
   if (context.powerLevel === 'casual' || context.powerLevel === 'battlecruiser') {
     systemPrompt += `- This is a ${context.powerLevel} deck. Do NOT recommend trimming to razor-efficiency or cutting fun cards. Respect the deck's power level.\n`;
@@ -140,6 +141,9 @@ async function callGPTForSuggestions(
       systemPrompt += `- Manabase is tight (limited sources). Do NOT suggest double-pip splash cards.\n`;
     }
   }
+  
+  systemPrompt += `\nWIN CONDITION AWARENESS:\n`;
+  systemPrompt += `- If the deck already contains multiple finishers or 'overrun' style effects (e.g. Craterhoof Behemoth, Jetmir, Fiery Emancipation, Moonshaker Cavalry), avoid recommending more effects of the same type. Prefer supporting/ramp/fixing cards instead.\n`;
 
   // Manabase feedback rules
   if (context.manabaseAnalysis) {
@@ -181,6 +185,7 @@ async function callGPTForSuggestions(
   systemPrompt += `\nCARD ANALYSIS ACCURACY:\n`;
   systemPrompt += `- Only call a card 'draw' or 'filtering' if it actually draws, loots (draw then discard), rummages (discard then draw), or impulsively looks at cards. Do not label burn or removal spells as card advantage.\n`;
   systemPrompt += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
+  systemPrompt += `- Tutor cards like Vampiric Tutor, Demonic Tutor, Enlightened Tutor, Worldly Tutor are NOT removal. Classify them as tutors/utility, not removal.\n`;
   
   systemPrompt += `\nOUTPUT FORMAT:\n`;
   systemPrompt += `- Structure suggestions in 3 buckets: must-fix, synergy-upgrades, optional-stylistic\n`;
