@@ -505,6 +505,39 @@ function checkLandColors(card: SfCard, allowedColors: Set<string>): boolean {
   return true;
 }
 
+function extractManaColors(manaCost: string | undefined): Set<string> {
+  const colors = new Set<string>();
+  if (!manaCost) return colors;
+  const symbolRe = /\{([^}]+)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = symbolRe.exec(manaCost)) !== null) {
+    const symbol = match[1].toUpperCase();
+    const letters = symbol.match(/[WUBRG]/g);
+    if (letters) {
+      letters.forEach((letter) => colors.add(letter));
+    }
+  }
+  return colors;
+}
+
+function hasDoublePip(manaCost: string | undefined): boolean {
+  if (!manaCost) return false;
+  const counts: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  const symbolRe = /\{([^}]+)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = symbolRe.exec(manaCost)) !== null) {
+    const symbol = match[1].toUpperCase();
+    const letters = symbol.match(/[WUBRG]/g);
+    if (letters) {
+      for (const letter of letters) {
+        counts[letter] = (counts[letter] || 0) + 1;
+        if (counts[letter] >= 2) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Helper: Check if card actually draws/loots/rummages/impulses
 function isRealDrawOrFilter(card: SfCard): boolean {
   const oracleText = (card.oracle_text || '').toLowerCase();
@@ -622,43 +655,93 @@ async function postFilterSuggestions(
   deckEntries: Array<{ count: number; name: string }> = [],
   userId: string | null = null
 ): Promise<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>> {
-  const allowedColors = new Set(context.colors.map(c => c.toUpperCase()));
+  let allowedColors = new Set(context.colors.map(c => c.toUpperCase()));
+  if (allowedColors.size === 0) {
+    allowedColors = new Set(['C']);
+  }
   const filtered: Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }> = [];
+  const removalReasons = new Set<string>();
   
   // Normalize deck entry names for deduplication
   const normalizedDeckNames = new Set(
     deckEntries.map(e => normalizeCardName(e.name))
   );
 
-  // Fetch prices if budget constraint
-  let priceMap: Map<string, number> = new Map();
-  if (context.isBudget) {
+  const wantsBudgetChecks = context.isBudget || context.budgetCapPerCard !== undefined || context.budgetTotalCap !== undefined;
+  const priceMap: Map<string, number> = new Map();
+  let deckPriceTotal = 0;
+  let deckPricedCardCount = 0;
+  let deckAveragePrice = 0;
+
+  if (wantsBudgetChecks) {
     try {
       const { createClient } = await import('@/lib/supabase/server');
       const supabase = await createClient();
-      const cardNames = suggestions.map(s => s.card);
-      
-      // Normalize names (lowercase)
-      const normalizedNames = cardNames.map(n => n.toLowerCase().trim());
-      
-      // Fetch from price_cache
-      const { data: priceData } = await supabase
-        .from('price_cache')
-        .select('name, usd, eur, gbp')
-        .in('name', normalizedNames);
-      
-      if (priceData) {
-        for (const row of priceData) {
-          const price = currency === 'EUR' ? (row.eur || 0) : 
-                       currency === 'GBP' ? (row.gbp || 0) : 
-                       (row.usd || 0);
-          priceMap.set(row.name.toLowerCase(), price);
+
+      const suggestionNames = suggestions.map((s) => s.card.toLowerCase().trim()).filter(Boolean);
+      const deckNames = deckEntries.map((d) => d.name.toLowerCase().trim()).filter(Boolean);
+      const uniqueNames = Array.from(new Set([...suggestionNames, ...deckNames]));
+
+      if (uniqueNames.length > 0) {
+        const { data: priceRows } = await supabase
+          .from('price_cache')
+          .select('name, usd, eur, gbp')
+          .in('name', uniqueNames);
+
+        if (priceRows) {
+          const pickPrice = (row: { usd?: number | null; eur?: number | null; gbp?: number | null }): number | undefined => {
+            if (currency === 'EUR') return row.eur ?? undefined;
+            if (currency === 'GBP') return row.gbp ?? undefined;
+            return row.usd ?? undefined;
+          };
+
+          const normalizedPriceMap = new Map<string, number>();
+          for (const row of priceRows) {
+            const key = row.name?.toLowerCase?.() ?? '';
+            if (!key) continue;
+            const price = pickPrice(row);
+            if (price !== undefined && price >= 0) {
+              normalizedPriceMap.set(key, price);
+            }
+          }
+
+          // Populate suggestion price map
+          for (const name of suggestionNames) {
+            if (normalizedPriceMap.has(name)) {
+              priceMap.set(name, normalizedPriceMap.get(name)!);
+            }
+          }
+
+          // Compute deck price estimates
+          for (const entry of deckEntries) {
+            const norm = entry.name.toLowerCase().trim();
+            const price = normalizedPriceMap.get(norm);
+            if (price !== undefined && price > 0) {
+              deckPriceTotal += price * entry.count;
+              deckPricedCardCount += entry.count;
+            }
+          }
+
+          if (deckPricedCardCount > 0) {
+            deckAveragePrice = deckPriceTotal / deckPricedCardCount;
+          }
         }
       }
     } catch (error) {
       console.warn('[filter] Failed to fetch prices for budget filtering:', error);
     }
   }
+
+  if (wantsBudgetChecks && deckPriceTotal > 0) {
+    context.deckPriceEstimate = deckPriceTotal;
+    if (typeof context.budgetTotalCap === 'number') {
+      context.budgetHeadroom = context.budgetTotalCap - deckPriceTotal;
+    }
+  }
+
+  const budgetPerCardCap = context.budgetCapPerCard ?? (context.isBudget ? 10 : undefined);
+  const budgetTotalCap = typeof context.budgetTotalCap === 'number' ? context.budgetTotalCap : undefined;
+  const requiresPriceData = budgetPerCardCap !== undefined || budgetTotalCap !== undefined;
 
   filterLoop: for (const suggestion of suggestions) {
     try {
@@ -690,14 +773,27 @@ async function postFilterSuggestions(
       // If still not found, this is likely a hallucinated card name - mark for review but don't drop
       // (we'll let it through but flag it so frontend can show a warning)
       if (!card) {
-        console.log(`[filter] Card ${suggestion.card} not found in Scryfall/cache (likely hallucinated) - marking for review`);
-        // Add suggestion with needs_review flag even if card not found
-        filtered.push({
-          ...suggestion,
-          id: crypto.randomUUID(),
-          needs_review: true,
-        });
+        console.log(`[filter] Dropped ${suggestion.card}: card lookup failed (likely hallucinated)`);
+        removalReasons.add('card lookup failed');
         continue;
+      }
+
+      // Ensure we have up-to-date legality info for format checks
+      if (context.format !== "Commander") {
+        const legalityKey = context.format.toLowerCase();
+        const existingLegality = card.legalities ? card.legalities[legalityKey] : undefined;
+        if (typeof existingLegality !== 'string') {
+          const refreshed = await fetchCard(card.name);
+          const refreshedLegality = refreshed?.legalities ? refreshed.legalities[legalityKey] : undefined;
+          if (refreshed && typeof refreshedLegality === 'string') {
+            card = refreshed;
+            byName.set(refreshed.name.toLowerCase(), refreshed);
+          } else {
+            console.log(`[filter] Dropped ${suggestion.card}: legality data unavailable for ${context.format}`);
+            removalReasons.add('format data unavailable');
+            continue;
+          }
+        }
       }
 
       // At this point, card is guaranteed to be defined (not null/undefined)
@@ -707,25 +803,19 @@ async function postFilterSuggestions(
       const hasOffColor = cardColors.length > 0 && cardColors.some(c => !allowedColors.has(c));
       
       if (hasOffColor) {
+        removalReasons.add('off-color identity');
         console.log(`[filter] Removed ${suggestion.card}: off-color (${cardColors.join(',')} not in ${Array.from(allowedColors).join(',')})`);
         continue;
       }
       
       // For colorless cards, allow them (they don't have color identity)
       // But if they have mana costs with colors, check those too
-      if (card.mana_cost) {
-        const manaCostColors = new Set<string>();
-        const manaCostRe = /\{([WUBRG])\}/g;
-        let match;
-        while ((match = manaCostRe.exec(card.mana_cost)) !== null) {
-          manaCostColors.add(match[1].toUpperCase());
-        }
-        // If card has colored mana costs outside allowed colors, filter it
-        for (const color of manaCostColors) {
-          if (!allowedColors.has(color)) {
-            console.log(`[filter] Removed ${suggestion.card}: mana cost includes off-color (${color})`);
-            continue filterLoop;
-          }
+      const manaCostColors = extractManaColors(card.mana_cost);
+      for (const color of manaCostColors) {
+        if (!allowedColors.has(color)) {
+          removalReasons.add('off-color mana cost');
+          console.log(`[filter] Removed ${suggestion.card}: mana cost includes off-color (${color})`);
+          continue filterLoop;
         }
       }
       
@@ -734,6 +824,7 @@ async function postFilterSuggestions(
       if (/land/i.test(typeLine)) {
         const landColorsOk = checkLandColors(card, allowedColors);
         if (!landColorsOk) {
+          removalReasons.add('off-color land');
           console.log(`[filter] Removed ${suggestion.card}: off-color land (produces colors outside deck)`);
           continue;
         }
@@ -742,6 +833,7 @@ async function postFilterSuggestions(
       // Check for duplicate cards (already in deck) - using normalized names
       const cardNameNormalized = normalizeCardName(suggestion.card);
       if (normalizedDeckNames.has(cardNameNormalized)) {
+        removalReasons.add('duplicate');
         console.log(`[filter] Removed ${suggestion.card}: already in deck (normalized match)`);
         continue;
       }
@@ -754,6 +846,7 @@ async function postFilterSuggestions(
           return normalizedCardName === normalizedCmdCard || normalizedCardName.includes(normalizedCmdCard);
         });
         if (isCommanderOnly) {
+          removalReasons.add('format restriction');
           console.log(`[filter] Removed ${suggestion.card}: Commander-only card in ${context.format} format`);
           continue;
         }
@@ -765,6 +858,7 @@ async function postFilterSuggestions(
           ? (card.legalities?.modern || '').toLowerCase() === 'legal'
           : (card.legalities?.pioneer || '').toLowerCase() === 'legal';
         if (!formatLegal && card.legalities) {
+          removalReasons.add('format restriction');
           console.log(`[filter] Removed ${suggestion.card}: not legal in ${context.format}`);
           continue;
         }
@@ -777,18 +871,17 @@ async function postFilterSuggestions(
         if (context.curveAnalysis.lowCurve && cmc >= 6) {
           const reasonLower = suggestion.reason.toLowerCase();
           if (!reasonLower.includes('win') && !reasonLower.includes('finisher')) {
+            removalReasons.add('curve cap');
             console.log(`[filter] Removed ${suggestion.card}: 6+ CMC in low-curve deck`);
             continue;
           }
         }
         
         // Don't suggest double-pip cards if manabase is tight
-        if (context.curveAnalysis.tightManabase && card.mana_cost) {
-          const doublePipRe = /\{([WUBRG])\}\{([WUBRG])\}/;
-          if (doublePipRe.test(card.mana_cost)) {
-            console.log(`[filter] Removed ${suggestion.card}: double-pip card in tight manabase`);
-            continue;
-          }
+        if (context.curveAnalysis.tightManabase && hasDoublePip(card.mana_cost)) {
+          removalReasons.add('mana base constraint');
+          console.log(`[filter] Removed ${suggestion.card}: double-pip card in tight manabase`);
+          continue;
         }
       }
 
@@ -796,12 +889,12 @@ async function postFilterSuggestions(
       const reasonLower = suggestion.reason.toLowerCase();
       const claimsDraw = /\b(draw|filtering|hand full|card advantage|keeps.*hand|refills.*hand)\b/i.test(reasonLower);
       if (claimsDraw && !isRealDrawOrFilter(card)) {
+        removalReasons.add('misclassified draw');
         console.log(`[filter] Removed ${suggestion.card}: not real draw/filter (reason claimed draw but card doesn't)`);
         continue;
       }
       
       // Filter out generic ramp if commander provides ramp OR deck has sufficient ramp
-      const cardNameLower = suggestion.card.toLowerCase();
       const isGenRamp = isGenericRamp(suggestion.card);
       if (isGenRamp && (context.commanderProvidesRamp || context.existingRampCount >= 3)) {
         // Check if reason explicitly mentions synergy (landfall, fixing, etc.)
@@ -810,6 +903,7 @@ async function postFilterSuggestions(
                           reasonLower.includes('fixing') ||
                           reasonLower.includes('synergy');
         if (!hasSynergy) {
+          removalReasons.add('redundant ramp');
           console.log(`[filter] Removed ${suggestion.card}: redundant ramp when commander/deck already ramps`);
           continue;
         }
@@ -817,20 +911,43 @@ async function postFilterSuggestions(
       
       // Filter out board wipes that harm the deck's plan
       if (isHarmfulBoardWipe(card, context)) {
+        removalReasons.add('plan conflict');
         console.log(`[filter] Removed ${suggestion.card}: harmful board wipe for creature-heavy deck`);
         continue;
       }
 
       // Budget filtering
-      if (context.isBudget) {
-        const cardPrice = priceMap.get(suggestion.card.toLowerCase());
-        if (cardPrice !== undefined && cardPrice > 10) {
-          // Allow expensive cards only if explicitly mentioned as upgrade
-          const reasonLower = suggestion.reason.toLowerCase();
-          if (!reasonLower.includes('upgrade') && !reasonLower.includes('premium') && !reasonLower.includes('powerful')) {
-            console.log(`[filter] Removed ${suggestion.card}: too expensive (${cardPrice}) for budget deck`);
-            continue;
-          }
+      let cardPrice: number | undefined;
+      if (requiresPriceData) {
+        cardPrice = priceMap.get(suggestion.card.toLowerCase().trim());
+        if (cardPrice === undefined) {
+          removalReasons.add('price unavailable');
+          console.log(`[filter] Removed ${suggestion.card}: price unavailable for budget enforcement`);
+          continue;
+        }
+      }
+
+      if (budgetPerCardCap !== undefined && cardPrice !== undefined) {
+        const allowsPremium = reasonLower.includes('upgrade') || reasonLower.includes('premium') || reasonLower.includes('powerful');
+        if (cardPrice > budgetPerCardCap && !allowsPremium) {
+          removalReasons.add('budget cap');
+          console.log(`[filter] Removed ${suggestion.card}: ${currency} ${cardPrice.toFixed(2)} exceeds per-card cap ${budgetPerCardCap}`);
+          continue;
+        }
+      }
+
+      if (
+        budgetTotalCap !== undefined &&
+        cardPrice !== undefined &&
+        deckPriceTotal > 0 &&
+        deckAveragePrice > 0
+      ) {
+        const baselineReplace = deckAveragePrice;
+        const estimatedNewTotal = deckPriceTotal - baselineReplace + cardPrice;
+        if (estimatedNewTotal > budgetTotalCap + 0.01) {
+          removalReasons.add('budget total cap');
+          console.log(`[filter] Removed ${suggestion.card}: would exceed total budget (${estimatedNewTotal.toFixed(2)} > ${budgetTotalCap.toFixed(2)})`);
+          continue;
         }
       }
 
@@ -844,7 +961,7 @@ async function postFilterSuggestions(
     } catch (error) {
       // Skip on error (fail gracefully)
       console.warn(`[filter] Error processing ${suggestion.card}:`, error);
-      continue;
+      continue filterLoop;
     }
   }
 
@@ -874,9 +991,14 @@ async function postFilterSuggestions(
       console.warn('[evaluation] Failed to track ai_suggestion_exhausted:', error);
     }
     
+    const reasonList = Array.from(removalReasons);
+    const fallbackReason = reasonList.length
+      ? `No suggestions survived filtering (${reasonList.join(', ')}). Ask for a reroll with a different focus or adjust your request.`
+      : "Your deck is already tight for this format. I can help in one of these ways: [1] fine-tune manabase, [2] add interaction, [3] budget passes, [4] polish theme text.";
+
     return [{
       card: "N/A",
-      reason: "Your deck is already tight for this format. I can help in one of these ways: [1] fine-tune manabase, [2] add interaction, [3] budget passes, [4] polish theme text.",
+      reason: fallbackReason,
       category: "optional",
       id: crypto.randomUUID(),
       needs_review: false,
@@ -912,6 +1034,7 @@ export async function POST(req: Request) {
   const reqCommander: string | null = typeof body.commander === 'string' && body.commander.trim() ? String(body.commander).trim() : null;
   const userMessage: string | undefined = typeof body.userMessage === 'string' ? body.userMessage.trim() || undefined : undefined;
   const useGPT: boolean = Boolean(body.useGPT);
+  const currency: "USD" | "EUR" | "GBP" = (body.currency as "USD" | "EUR" | "GBP") ?? "USD";
 
   // Parse text into entries {count, name}
   const lines = deckText
@@ -1172,7 +1295,8 @@ export async function POST(req: Request) {
         format,
         reqCommander,
         selectedColors,
-        byName
+        byName,
+        { plan, currency }
       );
 
       // Log inferred values with enhanced logging
@@ -1203,7 +1327,6 @@ export async function POST(req: Request) {
       console.log('[analyze] Raw GPT suggestions:', rawSuggestions.length, rawSuggestions.map(s => s.card));
 
       // Post-filter suggestions
-      const currency = body.currency || 'USD';
       gptSuggestions = await postFilterSuggestions(rawSuggestions, inferredContext, byName, currency, entries, userId);
       console.log('[analyze] Filtered suggestions:', gptSuggestions.length, gptSuggestions.map(s => s.card));
     } catch (error) {

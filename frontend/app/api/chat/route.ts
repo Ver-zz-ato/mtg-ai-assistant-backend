@@ -446,7 +446,10 @@ export async function POST(req: NextRequest) {
             }
             
             // Infer deck context
-            inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName);
+            const planPref = typeof prefs?.budget === 'string' ? prefs.budget : (typeof prefs?.plan === 'string' ? prefs.plan : undefined);
+            const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
+            const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
+            inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName, { plan: planOption, currency: currencyPref });
             
             // Add inferred context to system prompt
             sys += `\n\nINFERRED DECK ANALYSIS:\n`;

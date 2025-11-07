@@ -2,11 +2,7 @@
 import React from "react";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
 import HandTestingWidget from "@/components/HandTestingWidget";
-
-// small hypergeometric helpers for heuristics
-function comb(n: number, k: number): number { if (k<0||k>n) return 0; if (k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
-function hypergeomPMF(k: number, K: number, N: number, n: number): number { const a=comb(K,k), b=comb(N-K, n-k), c=comb(N,n); return c===0?0:(a*b)/c; }
-function hypergeomCDFAtLeast(k: number, K: number, N: number, n: number): number { let p=0; for(let i=k;i<=Math.min(n,K);i++) p+=hypergeomPMF(i,K,N,n); return Math.max(0, Math.min(1, p)); }
+import { comb, hypergeomCDFAtLeast } from "@/lib/math/hypergeometric";
 
 function drawSample(deckSize: number, successCount: number, n: number): number {
   // Without replacement; simple count of successes in n cards

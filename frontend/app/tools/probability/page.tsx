@@ -4,32 +4,7 @@ import ImportDeckForMath from "@/components/ImportDeckForMath";
 import { motion, AnimatePresence } from "framer-motion";
 import { getManaGlow } from "@/lib/mana-colors";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-
-// Hypergeometric PMF/CDF helpers
-function comb(n: number, k: number): number {
-  if (k < 0 || k > n) return 0;
-  if (k === 0 || k === n) return 1;
-  k = Math.min(k, n - k);
-  let res = 1;
-  for (let i = 1; i <= k; i++) {
-    res = (res * (n - k + i)) / i;
-  }
-  return res;
-}
-
-function hypergeomPMF(k: number, K: number, N: number, n: number): number {
-  // K successes in population N, draw n, probability of k successes
-  const a = comb(K, k);
-  const b = comb(N - K, n - k);
-  const c = comb(N, n);
-  return c === 0 ? 0 : (a * b) / c;
-}
-
-function hypergeomCDFAtLeast(k: number, K: number, N: number, n: number): number {
-  let p = 0;
-  for (let i = k; i <= Math.min(n, K); i++) p += hypergeomPMF(i, K, N, n);
-  return Math.max(0, Math.min(1, p));
-}
+import { comb, hypergeomCDFAtLeast, buildProbabilityNarrative } from "@/lib/math/hypergeometric";
 
 export default function ProbabilityHelpersPage() {
   const [deckSize, setDeckSize] = React.useState(99);
@@ -163,6 +138,14 @@ export default function ProbabilityHelpersPage() {
 
   const draws = Math.max(0, openingHand) + Math.max(0, Math.floor(turns)) + (onDraw ? 1 : 0) + (Math.max(0, extraPerTurn) * Math.max(0, Math.floor(turns)));
   const p = hypergeomCDFAtLeast(atLeast, successCards, deckSize, draws);
+  const narrative = buildProbabilityNarrative({
+    deckSize,
+    successes: successCards,
+    draws,
+    atLeast,
+    openingHand,
+    turns,
+  });
 
   const pKminus = hypergeomCDFAtLeast(Math.max(0, atLeast), Math.max(0, successCards-1), deckSize, draws);
   const pKplus = hypergeomCDFAtLeast(Math.max(0, atLeast), successCards+1, deckSize, draws);
@@ -460,6 +443,12 @@ export default function ProbabilityHelpersPage() {
           </AnimatePresence>
         </div>
 
+        <div className="text-xs leading-relaxed space-y-1 bg-neutral-900/80 border border-neutral-800 rounded p-3">
+          {narrative.lines.map((line, idx) => (
+            <p key={idx}>{line}</p>
+          ))}
+        </div>
+
         {/* Comparison View */}
         {advanced && (
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -721,8 +710,6 @@ function ColorRequirementResult({ deckSize, openingHand, onDraw, extraPerTurn, s
   const sumCounts = counts.reduce((a,b)=>a+b,0);
   const others = Math.max(0, deckSize - sumCounts);
 
-  // Multivariate hypergeometric: sum over x_i >= req_i, sum x_i <= draws
-  function comb(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
   function probVector(xs:number[]){ const sx = xs.reduce((a,b)=>a+b,0); if (sx>draws) return 0; const rest = draws - sx; const top = xs.reduce((acc, x, i)=> acc * comb(counts[i], x), 1) * comb(others, rest); const bottom = comb(deckSize, draws); return bottom===0?0: top / bottom; }
 
   // Iterate feasible space with small bounds (draws typically <= 8-10)

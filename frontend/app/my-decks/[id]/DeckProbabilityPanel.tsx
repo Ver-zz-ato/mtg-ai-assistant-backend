@@ -1,9 +1,6 @@
 "use client";
 import React from "react";
-
-function comb(n: number, k: number): number { if (k < 0 || k > n) return 0; if (k === 0 || k === n) return 1; k = Math.min(k, n - k); let res = 1; for (let i=1;i<=k;i++) res = (res * (n - k + i)) / i; return res; }
-function hypergeomPMF(k: number, K: number, N: number, n: number): number { const a = comb(K, k); const b = comb(N - K, n - k); const c = comb(N, n); return c===0?0:(a*b)/c; }
-function hypergeomCDFAtLeast(k: number, K: number, N: number, n: number): number { let p=0; for (let i=k;i<=Math.min(n,K);i++) p+=hypergeomPMF(i,K,N,n); return Math.max(0, Math.min(1, p)); }
+import { hypergeomCDFAtLeast, buildProbabilityNarrative } from "@/lib/math/hypergeometric";
 
 export default function DeckProbabilityPanel({ deckId, isPro }: { deckId: string; isPro: boolean }) {
   const [N, setN] = React.useState(99);
@@ -50,6 +47,14 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
 
   const draws = Math.max(0, H) + Math.max(0, Math.floor(T));
   const p = hypergeomCDFAtLeast(k, K, N, draws);
+  const narrative = buildProbabilityNarrative({
+    deckSize: N,
+    successes: K,
+    draws,
+    atLeast: k,
+    openingHand: H,
+    turns: T,
+  });
 
   async function setKFromTag(tag: 'lands'|'ramp'|'draw'|'removal') {
     try {
@@ -110,6 +115,13 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
       </div>
       <div className="text-sm">Draws by end of turn: <span className="font-mono">{draws}</span></div>
       <div className="text-lg">Probability: <span className="font-semibold text-emerald-400">{(p*100).toFixed(2)}%</span></div>
+      {isPro && (
+        <div className="text-[11px] leading-relaxed space-y-1 bg-neutral-900 border border-neutral-800 rounded p-3">
+          {narrative.lines.map((line, idx) => (
+            <p key={idx}>{line}</p>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

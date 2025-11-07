@@ -38,7 +38,8 @@ function getInferenceCacheKey(
   deckText: string,
   commander: string | null,
   format: "Commander" | "Modern" | "Pioneer",
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  plan: "Budget" | "Optimized" | undefined
 ): string {
   // Simple hash: JSON.stringify the key components
   // Normalize whitespace and sort for consistency
@@ -47,8 +48,50 @@ function getInferenceCacheKey(
     commander: commander || '',
     format,
     userMessage: userMessage?.trim() || '',
+    plan: plan || 'Optimized',
   };
   return JSON.stringify(normalized);
+}
+
+function parseBudgetHints(userMessage: string | undefined): { perCard?: number; total?: number } {
+  if (!userMessage) return {};
+
+  const normalizeNumber = (value: string | undefined): number | undefined => {
+    if (!value) return undefined;
+    const clean = value.replace(/[,$]/g, '');
+    const parsed = parseFloat(clean);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const perCardPatterns = [
+    /\b(?:under|below|less than)\s*\$?\s*(\d+(?:\.\d+)?)\s*(?:per\s+card|each)\b/i,
+    /\$?\s*(\d+(?:\.\d+)?)\s*(?:per\s+card|each)\b/i,
+    /\bper[-\s]?card(?:\s+(?:cap|limit|budget))?\s*\$?\s*(\d+(?:\.\d+)?)/i,
+  ];
+
+  for (const pattern of perCardPatterns) {
+    const match = userMessage.match(pattern);
+    const num = normalizeNumber(match?.[1]);
+    if (num !== undefined) {
+      return { perCard: num };
+    }
+  }
+
+  const totalPatterns = [
+    /\b(?:under|below|less than)\s*\$?\s*(\d+(?:\.\d+)?)\s*(?:total|overall|deck|budget)\b/i,
+    /\b(?:budget|cap|limit)\s*(?:of|:)?\s*\$?\s*(\d+(?:\.\d+)?)/i,
+    /\$?\s*(\d+(?:\.\d+)?)\s*(?:total|overall|budget)\b/i,
+  ];
+
+  for (const pattern of totalPatterns) {
+    const match = userMessage.match(pattern);
+    const num = normalizeNumber(match?.[1]);
+    if (num !== undefined) {
+      return { total: num };
+    }
+  }
+
+  return {};
 }
 
 export async function fetchCard(name: string): Promise<SfCard | null> {
@@ -348,6 +391,12 @@ export type InferredDeckContext = {
   protectedRoles?: string[]; // Card names or roles that should not be cut
   powerLevel?: 'casual' | 'battlecruiser' | 'mid' | 'high' | 'cedh';
   isBudget?: boolean;
+  plan?: 'Budget' | 'Optimized';
+  budgetCapPerCard?: number;
+  budgetTotalCap?: number;
+  budgetCurrency?: 'USD' | 'EUR' | 'GBP';
+  deckPriceEstimate?: number;
+  budgetHeadroom?: number;
   userIntent?: string; // Extracted goal from user message
   curveAnalysis?: {
     averageCMC: number;
@@ -856,10 +905,12 @@ export async function inferDeckContext(
   format: "Commander" | "Modern" | "Pioneer",
   reqCommander: string | null,
   selectedColors: string[],
-  byName: Map<string, SfCard>
+  byName: Map<string, SfCard>,
+  options: { plan?: "Budget" | "Optimized"; currency?: "USD" | "EUR" | "GBP" } = {}
 ): Promise<InferredDeckContext> {
   // Check cache first
-  const cacheKey = getInferenceCacheKey(deckText, reqCommander, format, userMessage);
+  const planMode = options.plan ?? "Optimized";
+  const cacheKey = getInferenceCacheKey(deckText, reqCommander, format, userMessage, planMode);
   const cached = inferenceCache.get(cacheKey);
   const now = Date.now();
   
@@ -877,6 +928,8 @@ export async function inferDeckContext(
     landCount: 0,
     existingRampCount: 0,
   };
+  context.plan = planMode;
+  context.budgetCurrency = options.currency ?? 'USD';
 
   // Count lands
   const landRe = /land/i;
@@ -959,19 +1012,38 @@ export async function inferDeckContext(
     context.colors = selectedColors.map(c => c.toUpperCase());
   }
 
-  // If still no colors, infer from all non-basic cards
+  // If still no colors, infer from all non-basic cards (including Scryfall lookups as needed)
   if (context.colors.length === 0) {
     const colorSet = new Set<string>();
     for (const { name } of entries) {
-      const c = byName.get(name.toLowerCase());
+      const key = name.toLowerCase();
+      let c = byName.get(key);
+      if (!c) {
+        // Attempt to fetch missing card data so color identity isn't empty
+        try {
+          const fetched = await fetchCard(name);
+          if (fetched) {
+            c = fetched;
+            byName.set(fetched.name.toLowerCase(), fetched);
+          }
+        } catch {
+          // Ignore fetch errors; we'll fall back to colorless if everything fails
+        }
+      }
       if (!c) continue;
       const ci = c.color_identity || [];
-      // Skip colorless artifacts and basic lands
-      if (ci.length > 0 && !/^\s*(basic|land)\s*$/i.test(c.type_line || '')) {
-        ci.forEach(col => colorSet.add(col.toUpperCase()));
+      if (ci.length > 0) {
+        ci.forEach((col) => colorSet.add(col.toUpperCase()));
       }
     }
-    context.colors = Array.from(colorSet);
+    if (colorSet.size > 0) {
+      context.colors = Array.from(colorSet);
+    }
+  }
+
+  // Final safety net: treat completely unknown decks as colorless-only
+  if (context.colors.length === 0) {
+    context.colors = ['C'];
   }
 
   // Parse user message for color hints (overrides if found)
@@ -1017,7 +1089,18 @@ export async function inferDeckContext(
   );
 
   // Detect budget intent
-  context.isBudget = userMessage ? /\b(budget|cheap|affordable|low cost)\b/i.test(userMessage) : false;
+  const budgetHints = parseBudgetHints(userMessage);
+  const messageSignalsBudget = userMessage ? /\b(budget|cheap|affordable|low cost)\b/i.test(userMessage) : false;
+  context.isBudget = planMode === 'Budget' || messageSignalsBudget || Boolean(budgetHints.perCard || budgetHints.total);
+  if (budgetHints.perCard !== undefined) {
+    context.budgetCapPerCard = budgetHints.perCard;
+  }
+  if (budgetHints.total !== undefined) {
+    context.budgetTotalCap = budgetHints.total;
+  }
+  if (context.isBudget && context.budgetCapPerCard === undefined) {
+    context.budgetCapPerCard = planMode === 'Budget' ? 8 : 10;
+  }
 
   // Extract user intent/goal
   context.userIntent = extractUserIntent(userMessage);
