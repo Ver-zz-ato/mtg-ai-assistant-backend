@@ -1,0 +1,683 @@
+{
+  "generatedAt": "2025-11-08T00:48:32.162Z",
+  "endpoint": "https://www.manatap.ai/api/chat",
+  "summary": [
+    {
+      "suite": "format",
+      "title": "Format & Deck Structure Inference",
+      "pass": 8,
+      "fail": 2,
+      "error": 0
+    },
+    {
+      "suite": "pillars",
+      "title": "Commander Pillars (Ramp/Draw/Removal/Wincon)",
+      "pass": 10,
+      "fail": 0,
+      "error": 0
+    },
+    {
+      "suite": "budget",
+      "title": "Budget-Aware Suggestions",
+      "pass": 7,
+      "fail": 3,
+      "error": 0
+    },
+    {
+      "suite": "synergy",
+      "title": "Synergy-Aware Swaps",
+      "pass": 7,
+      "fail": 3,
+      "error": 0
+    },
+    {
+      "suite": "probability",
+      "title": "Probability & Hand Simulation",
+      "pass": 7,
+      "fail": 3,
+      "error": 0
+    },
+    {
+      "suite": "custom",
+      "title": "Custom Card Handling",
+      "pass": 5,
+      "fail": 5,
+      "error": 0
+    },
+    {
+      "suite": "fallbacks",
+      "title": "Out-of-Scope / Graceful Fallbacks",
+      "pass": 3,
+      "fail": 7,
+      "error": 0
+    },
+    {
+      "suite": "pro",
+      "title": "Pro Feature Surfacing",
+      "pass": 4,
+      "fail": 6,
+      "error": 0
+    }
+  ],
+  "suites": [
+    {
+      "suite": "format",
+      "title": "Format & Deck Structure Inference",
+      "results": [
+        {
+          "name": "Atraxa Commander",
+          "text": "Here’s my 100-card deck with Atraxa at the helm — tell me what it’s missing.",
+          "status": "fail",
+          "response": "### Essential Components for Your Atraxa, Praetors' Voice Deck\n\n1. **Ramp**\n   - Include cards like [[Cultivate]], [[Kodama's Reach]], or [[Fellwar Stone]].\n\n2. **Card Draw**\n   - Look for options like [[Rhystic Study]], [[Guardian Augmenter]], or [[Mystic Remora]].\n\n3. **Removal**\n   - Add versatile removal cards such as [[Swords to Plowshares]], [[Mortify]], or [[Path to Exile]].\n\n4. **Win Conditions**\n   - Consider finishers like [[Craterhoof Behemoth]], [[Walking Ballista]], or [[Heliod, Sun-Crowned]].\n\n5. **Synergy with Atraxa**\n   - Focus on cards that benefit from +1/+1 counters or proliferate, such as [[Hardened Scales]], [[Fathom Mage]], or [[The Ozolith]].\n\n6. **Protection and Recursion**\n   - Include options like [[Teferi's Protection]] or [[Eternal Witness]] to maintain board presence.\n\n### Steps to Improve Your Deck\n- **Assess Weaknesses**: Identify and address gaps in your deck strategy.",
+          "failures": [
+            "Missing pattern: /commander/i",
+            "Missing pattern: /(100|hundred)/i"
+          ]
+        },
+        {
+          "name": "Modern Burn Curve",
+          "text": "This is a 60-card mono-red burn list for Modern — what’s the curve like?",
+          "status": "pass",
+          "response": "To assess the curve of your 60-card mono-red burn deck in Modern, follow these steps:\n\n1. **Organize by Mana Cost**: List your spells from 1 to 4+ mana.\n\n2. **Count Cards**:\n   - **1 Mana**: Include cards like [[Lightning Bolt]], [[Goblin Guide]].\n   - **2 Mana**: Include cards like [[Skewer the Critics]], [[Koth of the Hammer]].\n   - **3 Mana**: Include cards like [[Chandra, Pyromaster]] and other direct damage spells.\n   - **4+ Mana**: List any larger finishers.\n\n3. **Calculate Distribution**:\n   - Example distribution:\n     - 1 Mana: 12\n     - 2 Mana: 10\n     - 3 Mana: 5\n     - 4+ Mana: 3\n\n4. **Evaluate the Curve**:\n   - A strong burn deck typically has more low-cost cards. Aim for:\n     - **1 Mana**: 10-15 cards\n     - **2 Mana**: 8-12 cards"
+        },
+        {
+          "name": "EDH Trim",
+          "text": "I have 102 cards in my EDH deck, what should I cut?",
+          "status": "pass",
+          "response": "To reduce your EDH deck from 102 to 100 cards, follow these steps:\n\n1. **Check Your Curve**: Assess your mana curve for balance across low, mid, and high-cost cards. Consider cutting high-cost spells that lack strong impact.\n\n2. **Evaluate Synergy**: Identify cards that don’t align with your commander or deck strategy. Remove redundant or less impactful choices.\n\n3. **Remove Underperformers**: Eliminate cards that consistently perform poorly or are rarely used, focusing on versatility.\n\n4. **Assess Mana Base**: Review your mana sources. Remove excess basic lands or non-synergistic sources to streamline your mana base.\n\n5. **Seek Input**: Consult friends or online forums for feedback on specific cards that might be unnecessary.\n\n6. **Test the Deck**: Playtest with potential cuts to determine which cards can be safely removed.\n\nBy applying these criteria, you can effectively trim your deck."
+        },
+        {
+          "name": "Standard Legality Check",
+          "text": "Is this legal in Standard right now? (Assume the list includes older cards)",
+          "status": "pass",
+          "response": "To determine if a card is legal in Standard, follow these steps:\n\n1. **Check Set Inclusion**: Ensure the card is from the last four Standard-legal sets.\n2. **Look for Banned Cards**: Refer to the official Magic: The Gathering Banned and Restricted list to see if the card is banned in Standard.\n3. **Use Gatherer**: Use Gatherer, the official card database, to verify the card's legal status.\n\nYou can also list specific cards for targeted assistance!"
+        },
+        {
+          "name": "Sol Ring Question",
+          "text": "Can I run Sol Ring in this?",
+          "status": "pass",
+          "response": "To determine if you can include [[Sol Ring]] in your deck, consider:\n\n- **Format:** Ensure your format allows [[Sol Ring]], as it's banned in specific formats like some Commander lists.\n- **Deck Type:** Verify that your deck can effectively utilize colorless mana from [[Sol Ring]].\n- **Mana Curve:** A lower average mana cost in your deck will benefit from the acceleration [[Sol Ring]] provides.\n\nIf these criteria align, you can confidently include [[Sol Ring]] in your deck!"
+        },
+        {
+          "name": "Brawl vs Commander",
+          "text": "This is Brawl, not Commander — what’s wrong with it?",
+          "status": "pass",
+          "response": "Brawl differs from Commander in several key ways:\n\n- **Deck Size**: Brawl decks consist of 60 cards; Commander decks have 100.\n- **Commanders**: Brawl commanders must be legendary creatures or planeswalkers from Standard sets, whereas Commander allows any legendary creature or planeswalker.\n- **Color Identity**: Brawl's color identity follows the same rules as Commander but is restricted to Standard cards.\n- **Card Pool**: Brawl includes only cards from current Standard sets, while Commander includes cards from all sets.\n\nIf you have specific questions or concerns about your Brawl deck, let me know!"
+        },
+        {
+          "name": "Pauper EDH Rarities",
+          "text": "My deck is Pauper EDH, can you flag non-common cards?",
+          "status": "pass",
+          "response": "In Pauper EDH, all cards must be commons. To identify non-common cards:\n\n1. **Check Rarity**: Each card displays its rarity on the card itself.\n2. **Use Online Databases**: Websites like Gatherer or Scryfall allow you to filter cards by rarity.\n3. **Check Print History**: Confirm that each card has been printed as a common in at least one set.\n\nIf you need assistance with specific cards, feel free to list them!"
+        },
+        {
+          "name": "Modern with Mana Crypt",
+          "text": "I want this to be Modern but I have Mana Crypt.",
+          "status": "pass",
+          "response": "Great choice! While **Mana Crypt** is powerful, it's not legal in Modern. Here are some alternatives:\n\n### Alternatives\n- **Budget Mana Rocks:** \n  - **Arcane Signet**\n  - **Sol Ring** (for casual play)\n  - **Talisman of Dominance** or **Talisman of Hierarchy**\n  - **Fellwar Stone**\n\n- **Competitive Mana Sources:**\n  - **Mox Amber**\n  - **Mox Opal** (for artifact decks)\n\n### Building a Modern Deck:\n1. **Choose Your Archetype:** Decide on aggro, control, or combo.\n2. **Synergize:** Select cards that fit your strategy.\n3. **Balance Your Mana Base:**\n   - Basic lands\n   - Fetch lands (e.g., **Misty Rainforest**)\n   - Shock lands (e.g., **Hallowed Fountain**)\n\n4. **Playtest and Refine:** Test your deck and make adjustments based on performance.\n\nLet me know if you need specific recommendations!"
+        },
+        {
+          "name": "Historic Singletons",
+          "text": "This is Historic on Arena — do I have too many 1-ofs?",
+          "status": "fail",
+          "response": "In a Historic deck, too many 1-ofs can dilute your strategy. Here are key points to consider:\n\n- **Consistency**: Include 8-12 cards you want to draw frequently, ideally as 2-4 copies each.\n- **Synergy**: Ensure cards work well together to support your overall game plan.\n- **Flexibility**: Limit 1-ofs to about 3-5 for tech cards that address specific needs.\n- **Testing**: Playtest your deck to evaluate if you're drawing the right cards at the right times.\n\nIf some 1-ofs aren't making an impact, consider replacing them with cards that strengthen your main strategy.",
+          "failures": [
+            "Missing pattern: /(arena|best of one|bo1)/i"
+          ]
+        },
+        {
+          "name": "Format Guess",
+          "text": "Can you tell if this is Commander or just a pile?",
+          "status": "pass",
+          "response": "To determine if your deck is a Commander deck, consider the following:\n\n1. **Commander Card**: Is there a designated [[Commander]]? It must be legendary and match your deck's color identity.\n\n2. **Color Identity**: Ensure all cards align with your commander's color identity, including mana costs and rules text.\n\n3. **Card Count**: Your deck should have at least 100 cards, including the commander.\n\n4. **Singleton Rule**: All cards, except basic lands, must be unique; no duplicates allowed.\n\n5. **Theme or Strategy**: Does your deck have a central strategy or theme, or is it just a random assortment of cards?\n\nReview these criteria to assess your deck's legitimacy as a Commander deck!"
+        }
+      ]
+    },
+    {
+      "suite": "pillars",
+      "title": "Commander Pillars (Ramp/Draw/Removal/Wincon)",
+      "results": [
+        {
+          "name": "Audit Pillars",
+          "text": "Can you audit this Commander deck for ramp / draw / removal?",
+          "status": "pass",
+          "response": "Sure! Please share your Commander deck list, and I'll help you evaluate its ramp, draw, and removal options."
+        },
+        {
+          "name": "Land Count",
+          "text": "Does this deck have enough lands for EDH or am I being greedy?",
+          "status": "pass",
+          "response": "To assess if your EDH deck has enough lands:\n\n1. **Lands Count**: Aim for 36-40 lands in a 100-card deck. With many ramp spells, you can reduce this slightly, but don't go below 34.\n\n2. **Mana Curve**: If most spells cost 4+ mana, target 38-40 lands. For decks with many low-cost spells, 36 can suffice.\n\n3. **Color Distribution**: More colors typically require more lands for effective fixing.\n\n4. **Ramp & Draw**: Include ramp spells like [[Cultivate]] or mana rocks such as [[Arcane Signet]], and ensure you have card draw to maintain resource flow.\n\nEvaluate your land count based on these guidelines to avoid being too greedy! If necessary, increase your basic or dual lands."
+        },
+        {
+          "name": "Close the Game",
+          "text": "Tell me if I have ways to actually close the game, not just value.",
+          "status": "pass",
+          "response": "### Evaluating Your Deck's Win Conditions\n\n**1. Check for Win Conditions:**\n- **Creatures**: Do you have strong creatures that can deal significant damage? Examples include:\n  - [[Tarmogoyf]]\n  - [[Serra Angel]]\n\n- **Spells**: Look for damaging or game-ending spells, such as:\n  - [[Fireball]]\n  - [[Doomsday]]\n\n- **Combos**: Identify potential win combos, like:\n  - [[Thassa's Oracle]] with a draw engine.\n  - [[Weaver of Currents]] for mana ramping.\n\n- **Alternate Win Conditions**: Consider cards like:\n  - [[Millstone]] for milling opponents.\n  - [[Helm of Obedience]] for a non-combat win.\n\n**2. Tips to Enhance Your Win Potential:**\n- **Synergy**: Ensure win conditions align with your deck’s strategy.\n- **Balance**: Combine power with utility; don’t sacrifice too many win conditions.\n- **Playtest**: Test your deck frequently to identify effective game closers.\n\nUse this checklist to strengthen your ability to win games."
+        },
+        {
+          "name": "Dead Cards",
+          "text": "Can you point out dead cards in multiplayer?",
+          "status": "pass",
+          "response": "### Identifying Dead Cards in Multiplayer \n\n**Signs of Dead Cards:**\n- **Non-Synergistic**: Cards that don’t align with your strategy.\n- **High Cost, Low Impact**: Expensive cards that lack significant game influence.\n- **Narrow Effects**: Cards with limited targets or conditions that rarely apply.\n- **Redundancy**: Multiple cards serving the same purpose.\n- **Outdated**: Cards that don’t match the power level of the current metagame.\n\n**Steps to Identify Dead Cards:**\n1. **Review Your Mana Curve**: Ensure a balanced mix of card costs; high-cost cards should provide substantial value.\n2. **Analyze Card Interactions**: Remove cards that don’t contribute to your game plan.\n3. **Assess Board State**: Evaluate the current game situation; eliminate cards that don’t impact it meaningfully."
+        },
+        {
+          "name": "Card Advantage Adds",
+          "text": "What are 3 cards I can add to improve card advantage?",
+          "status": "pass",
+          "response": "Consider adding these cards for card advantage:\n\n- **[[Boy of Mould]]**: Draws multiple cards based on your game state.\n- **[[Guardian Project]]**: Draws a card whenever a non-token creature enters the battlefield under your control.\n- **[[Rhystic Study]]**: Offers card draw while pressuring opponents to pay mana.\n\nThese cards will help keep your hand filled and improve your gameplay!"
+        },
+        {
+          "name": "Cut Off-plan",
+          "text": "What would you cut that doesn’t match the commander’s plan?",
+          "status": "pass",
+          "response": "To cut cards from your deck, follow these steps:\n\n1. **Evaluate Your Commander**: Understand your commander's core strategy (aggro, control, combo).\n\n2. **Assess Cards**:\n   - **Synergy**: Does the card align with your commander's strategy?\n   - **Color Identity**: Is it within your commander's color identity?\n   - **Cost Effectiveness**: Does its mana cost fit your strategy?\n\n3. **Identify Candidates for Removal**:\n   - **Low Synergy Cards**: Those that don't enhance your game plan.\n   - **High-Cost Cards**: Expensive cards with minimal impact.\n   - **Color Mismatches**: Cards outside your commander's color identity.\n\n4. **Meta Consideration**: Cut cards that underperform against your playgroup's common strategies.\n\n5. **Test and Refine**: Playtest and adjust based on what works.\n\nShare your deck list or commander for tailored suggestions!"
+        },
+        {
+          "name": "Enough Interaction",
+          "text": "Does this list have enough interaction for a casual pod?",
+          "status": "pass",
+          "response": "When evaluating your interaction options for a casual pod, keep these key points in mind:\n\n1. **Types of Interaction**:\n   - **Removal**: Include cards that destroy or exile threats (e.g., [[Murder]], [[Swords to Plowshares]]).\n   - **Counterspells**: Use spells to disrupt opponents' plays (e.g., [[Counterspell]], [[Disallow]]).\n   - **Board Control**: Consider board wipes (e.g., [[Wrath of God]], [[Damnation]]).\n   - **Disruption**: Incorporate effects that hinder opponents' strategies (e.g., [[Thoughtseize]]).\n\n2. **Amount of Interaction**:\n   - Include 5-10 pieces of targeted removal.\n   - Add 2-3 counterspells.\n   - Include 1-2 board wipes depending on your meta.\n\n3. **Synergistic Interaction**: Choose interaction that aligns with your overall strategy.\n\n4. **Playtesting**: Test your deck and adjust based on your experiences.\n\nIf you share your specific list, I can provide more tailored feedback!"
+        },
+        {
+          "name": "Board Wipe Adjustments",
+          "text": "If this pod runs board wipes a lot, what should I adjust?",
+          "status": "pass",
+          "response": "To mitigate frequent board wipes in your pod, try these deck adjustments:\n\n- **Lower Your Curve**: Add inexpensive spells (costing 3 or less) to play after a wipe.\n\n- **Recursive Creatures**: Include creatures like [[Phoenix of Ash]] or [[Archaeomancer]] that can recur from the graveyard.\n\n- **Protection Spells**: Use cards like [[Teferi's Protection]] or [[Heroic Intervention]] to safeguard your board.\n\n- **Card Advantage**: Implement value-generating cards, such as [[The Great Henge]] or [[Tireless Tracker]], for quick recovery.\n\n- **Lands Matter**: Incorporate lands like [[Scavenger Grounds]] that can return creatures or those that draw cards like [[Castle Ardenvale]].\n\n- **Token Generation**: Add token creators like [[Secure the Wastes]] or [[Lingering Souls]] to help rebuild after wipes.\n\nAdjust these suggestions based on your deck's strategy and color identity!"
+        },
+        {
+          "name": "Six Drop Density",
+          "text": "Am I too high on 6-drops for EDH?",
+          "status": "pass",
+          "response": "Having too many 6-drops in your EDH deck can create inconsistency. Here are key considerations:\n\n- **Mana Curve**: Ensure you have a balanced distribution of card costs.\n- **Game Plan**: Evaluate if your strategy supports high-cost cards through effective ramping and card draw.\n- **Playtesting**: Test your deck to see if you often draw uncastable high-cost cards.\n- **Balance**: Include a variety of early (1-3 drops) and late-game cards (5+ drops).\n\n**Recommendation**: Limit 6-drops to about 5-7 in a 100-card deck for better balance. Consider cutting some if you exceed this range."
+        },
+        {
+          "name": "Plan Summary",
+          "text": "Explain what this deck is trying to do, in one paragraph.",
+          "status": "pass",
+          "response": "Please share the deck list or key cards you'd like me to analyze, and I'll summarize its strategy for you."
+        }
+      ]
+    },
+    {
+      "suite": "budget",
+      "title": "Budget-Aware Suggestions",
+      "results": [
+        {
+          "name": "Selesnya Budget Cap",
+          "text": "Make this Selesnya tokens deck under $80 without ruining it.",
+          "status": "pass",
+          "response": "Here's a budget-friendly Selesnya Tokens decklist under $80 that emphasizes token generation and synergy without losing effectiveness.\n\n### Budget Selesnya Tokens Deck (Approx. $80)\n\n**Creatures (24)**  \n- 4x [[Adanto Vanguard]]  \n- 4x [[Trostani Discordant]]  \n- 4x [[Venerated Loxodon]]  \n- 4x [[Llanowar Elves]]  \n- 4x [[Golias, Hard to Please]]  \n- 4x [[Troglodyte Sentinel]]  \n\n**Enchantments (6)**  \n- 4x [[Parallel Lives]]  \n- 2x [[Lifecrafter’s Bestiary]]  \n\n**Instants/Sorceries (6)**  \n- 4x [[Selesnya Charm]]  \n- 2x [[Cultivate]]  \n\n**Lands (20)**  \n- 4x [[Selesnya Guildgate]]  \n- 4x [[Sunpetal Grove]]  \n- 4x [[Scattered Groves]]  \n- 8x Forest/Plains (mix per preference)  \n\n### Deck Building Tips\n- Prioritize ramp and effective token generators.  \n- Leverage synergies for enhanced token value."
+        },
+        {
+          "name": "Precon GBP Upgrades",
+          "text": "This precon is £35 — upgrades under £10 total?",
+          "status": "pass",
+          "response": "Here are some budget-friendly upgrades you can make to a preconstructed deck for under £10:\n\n### Card Suggestions\n\n1. **Replace Weaker Creatures**:\n   - Swap out less efficient creatures for:\n      - [[Kavu Predator]]\n      - [[Glistener Elf]]\n\n2. **Upgrade Removal Spells**:\n   - Choose more effective removal options, such as:\n      - [[Abrade]]\n      - [[Murder]]\n\n3. **Mana Fixing**:\n   - Enhance mana reliability with:\n      - [[Evolving Wilds]]\n      - [[Terramorphic Expanse]]\n\n4. **Add Draw Power**:\n   - Improve card draw with:\n      - [[Mulldrifter]]\n      - [[Ponder]]\n\n### General Steps\n\n1. **Identify Weak Cards**: Review your precon and find the least effective cards.\n2. **Check Prices Online**: Look for deals at card shops or marketplaces.\n3. **Make a Purchase List**: Aim to keep your total under £10.\n4. **Test the Upgrades**: Playtest your deck and adjust as needed."
+        },
+        {
+          "name": "Smothering Tithe Alt",
+          "text": "Suggest a cheaper version of Smothering Tithe for casual Commander.",
+          "status": "fail",
+          "response": "For a budget-friendly alternative to **Smothering Tithe**, consider:\n\n- **Tithe**: A low-cost card that helps search for basic lands and fix your mana.\n- **Bounty of the Hunt**: Generates tokens, offering good value despite being different from Tithe.\n- **Revel in Riches**: Creates treasure tokens and can win you the game if you collect ten.\n\nThese options provide mana or similar benefits without the high cost of Smothering Tithe.",
+          "failures": [
+            "Missing pattern: /cheaper/i"
+          ]
+        },
+        {
+          "name": "Shockland Alternatives",
+          "text": "I can’t afford shocklands — what’s the next tier?",
+          "status": "fail",
+          "response": "If shock lands are beyond your budget, consider these affordable mana-fixing alternatives:\n\n### Budget-Friendly Land Options:\n- **Check Lands**: Examples include [[Lavaclaw Rebirth]] and [[Port Town]], which rely on basic land types.\n- **Filter Lands**: Cards like [[Rugged Prairie]] or [[Tropical Island]] help filter colors.\n- **Pain Lands**: Lands like [[Caves of Koilos]] and [[Adakar Wastes]] provide two colors at the cost of life.\n- **Fast Lands**: Use lands such as [[Seachrome Coast]] and [[Blackcleave Cliffs]] in aggressive decks.\n- **Guildgates**: Dual lands like [[Selesnya Guildgate]] ensure consistent color access.\n\n### Additional Considerations:\n- **Basic Lands**: Leverage basic lands with cards that benefit from them or serve ramp strategies.\n- **Mana Rocks**: Include mana rocks like [[Arcane Signet]] and [[Fellwar Stone]] for added mana flexibility.\n\nCombining these options offers effective mana fixing without overspending!",
+          "failures": [
+            "Missing pattern: /shockland/i"
+          ]
+        },
+        {
+          "name": "Draw Under 150",
+          "text": "Keep this list under $150 but improve card draw.",
+          "status": "pass",
+          "response": "To boost card draw under $150, consider these budget-friendly options:\n\n### Card Suggestions:\n\n1. **Creatures with Draw Effects**:\n   - **Guardian Project**\n   - **Moldervine Reclamation**\n   - **Glen Elendra Archmage** \n   - **Brainstorm** (for blue decks)\n\n2. **Instants and Sorceries**:\n   - **Read the Bones**\n   - **Consider**\n   - **Night's Whisper**\n   - **Goblin Instigator** (generates tokens)\n\n3. **Enchantments**:\n   - **Rhystic Study** (look for used options)\n   - **Mystic Remora**\n\n4. **Artifacts**:\n   - **The Great Henge**\n   - **Arcane Signet** (provides mana and card draw)\n\n5. **Other Options**:\n   - **Fecundity** (for token-heavy decks)\n   - **Toski, Bearer of Secrets**\n\n### Implementation Steps:\n- **Set Your Budget**: Choose 4-6 cards from the list.\n- **Balance Your Selections**: Combine creatures and spells effectively.\n- **Play and Assess**: Adjust based on gameplay performance."
+        },
+        {
+          "name": "Budget Graveyard Hate",
+          "text": "Give me budget graveyard hate options for EDH.",
+          "status": "pass",
+          "response": "Here are some budget-friendly graveyard hate options for EDH:\n\n- **Tormod's Crypt**: An artifact that exiles all cards from a graveyard for just one mana.\n- **Nihil Spellbomb**: Sacrifice to exile a graveyard and draw a card for added value.\n- **Rest in Peace**: Exiles all graveyard cards and prevents new ones from entering.\n- **Scavenging Ooze**: Exiles cards from any graveyard and gains you life.\n- **Cemetery Gatekeeper**: Exiles a card from a graveyard and deals damage when it enters.\n- **Soul-Guide Lantern**: Exile a graveyard card or draw a card.\n\nThese options effectively disrupt graveyards without straining your budget."
+        },
+        {
+          "name": "Budget Glow-up",
+          "text": "I want this to look upgraded but still be budget.",
+          "status": "pass",
+          "response": "To upgrade your Magic: The Gathering deck on a budget, follow these steps:\n\n1. **Identify Weak Cards**: Review your deck and pinpoint underperforming or overly expensive cards.\n\n2. **Find Budget Alternatives**: Use resources like EDHREC or Scryfall to discover more affordable cards with similar effects.\n\n3. **Target Key Upgrades**: Focus on low-cost spells to replace pricier cards. For instance, use [[Cultivate]] or [[Llanowar Elves]] for ramp, and [[Terminate]] or [[Murder]] for removal.\n\n4. **Enhance Synergies**: Select cards that complement your deck’s theme to improve performance without significantly raising costs.\n\n5. **Test and Adjust**: Playtest the updated deck and refine it based on your experiences.\n\n6. **Stay Informed**: Keep track of new budget-friendly cards released in sets and reprints for future upgrades.\n\nFeel free to ask for specific card recommendations!"
+        },
+        {
+          "name": "Swap Expensive Trio",
+          "text": "Swap out the 3 most expensive cards in this list for budget equivalents.",
+          "status": "pass",
+          "response": "Please provide a list of cards you'd like to analyze, and I'll recommend budget alternatives for the three most expensive ones."
+        },
+        {
+          "name": "Mono-Black Cheap Removal",
+          "text": "I’m in mono-black — cheap removal package?",
+          "status": "pass",
+          "response": "Here's a budget-friendly removal package for your mono-black deck:\n\n**Creature Removal:**\n- **Terror** - Kills non-black creatures.\n- **Destroy Evil** - Destroys attacking or blocking creatures and enchantments.\n- **Murder** - Instant removal for any creature.\n- **Bone Splinters** - Sacrifice a creature to remove another.\n- **Grasp of Darkness** - Provides -4/-4 to target creatures.\n\n**Non-Creature Removal:**\n- **Doom Blade** - Destroys non-black creatures.\n- **Liliana's Caress** - Punishes opponents for casting spells.\n\n**Other Options:**\n- **Pestilence** - Deals recurring damage to all creatures.\n- **Shriekmaw** - Can be evoked for quick removal.\n\nThese cards effectively handle threats while staying budget-friendly!"
+        },
+        {
+          "name": "Kid Friendly Budget",
+          "text": "I’m building for a kid, so please avoid pricey staples.",
+          "status": "fail",
+          "response": "### Tips for Building a Kid-Friendly Deck:\n- **Keep It Simple:** Opt for straightforward mechanics to reduce complexity.\n- **Choose a Theme:** Focus on a fun theme, like creatures or a specific color.\n- **Limit Complicated Cards:** Avoid cards with intricate abilities or rules.\n\n### Suggested Budget Cards:\n- **Creatures:**\n  - **Grizzly Bears** – solid 2/2 for 2 mana.\n  - **Hill Giant** – reliable 3/3 for 3 mana.\n  - **Akrasan Squire** – good early drop with decent stats.\n\n- **Removal:**\n  - **Shock** – effective for removing small creatures.\n  - **Giant Growth** – temporarily boosts a creature’s power.\n\n- **Mana Fixing:**\n  - **Evolving Wilds** – budget-friendly color-fixing option.\n  - **Terramorphic Expanse** – works similarly to Evolving Wilds.\n\n- **Utility:**\n  - **Slinging Shield** – offers creature protection.",
+          "failures": [
+            "Missing pattern: /avoid pricey/i"
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "synergy",
+      "title": "Synergy-Aware Swaps",
+      "results": [
+        {
+          "name": "Counters Cleanup",
+          "text": "This is Selesnya +1/+1 counters, what 3 cards don’t belong?",
+          "status": "fail",
+          "response": "To identify cards that don't fit in a Selesnya +1/+1 counters theme, consider those that:\n\n- Lack +1/+1 counter interactions.\n- Are not green or white.\n- Have abilities unrelated to counters.\n\nHere are three cards to consider removing:\n\n1. [[Counterspell]] - Blue and doesn't align with the theme.\n2. [[Dark Confidant]] - Focuses on card advantage, not +1/+1 counters.\n3. [[Craterhoof Behemoth]] - While powerful, it doesn’t support the counter strategy directly.\n\nTailor your choices to your deck and play style!",
+          "failures": [
+            "Missing pattern: /(cut|remove)/i"
+          ]
+        },
+        {
+          "name": "Orzhov Lifegain Adds",
+          "text": "I’m in Orzhov lifegain — give me 3 synergy pieces, not just removal.",
+          "status": "pass",
+          "response": "Here are three excellent synergy pieces for your Orzhov lifegain deck:\n\n- **Gavony Dawnguard**: Boosts your lifegain triggers with its day/night cycling.\n- **Soul Warden**: Grants lifegain whenever a creature enters the battlefield.\n- **Ajani's Pridemate**: Grows stronger each time you gain life, turning into a significant threat.\n\nThese cards will enhance your lifegain strategy and strengthen your board presence!"
+        },
+        {
+          "name": "Izzet Draw Swap",
+          "text": "This is Izzet spellslinger, what draw spell would you swap in?",
+          "status": "pass",
+          "response": "For an Izzet spellslinger deck, consider these draw spell swaps:\n\n- **Low Impact Replacement**: Swap in [[Light Up the Stage]] for card advantage and the ability to exile and cast from exile.\n  \n- **Budget Option**: Use [[Preordain]] for efficient filtering and drawing at a low cost.\n\n- **High Synergy Choice**: Consider [[Faithless Looting]] for card selection and graveyard synergy.\n\nEvaluate your current card selections to determine the best fit!"
+        },
+        {
+          "name": "Elves vs Beasts",
+          "text": "This is Elves, but I accidentally added some random beasts — find and cut them.",
+          "status": "pass",
+          "response": "To streamline your Elves deck by removing non-synergistic beasts, follow these steps:\n\n1. **Identify Beasts**: Look for cards labeled as \"Beast\" (e.g., [[Bear Cub]], [[Garruk's Companion]]).\n\n2. **Review Your List**: Assess creatures that aren't Elves or don't support Elf strategies (like ramping or mana generation).\n\n3. **Cut the Beasts**: Remove the non-Elf creatures to maintain synergy.\n\n4. **Consider Replacements**: Replace them with Elf-centric cards such as:\n   - [[Llanowar Elves]]\n   - [[Elvish Mystic]]\n   - [[Elvish Promenade]]\n\n5. **Balance Your Mana Curve**: Ensure a suitable mix of mana costs for consistent gameplay.\n\nShare your creature list for targeted advice!"
+        },
+        {
+          "name": "Aristocrats Outlets",
+          "text": "This is aristocrats, give me more sac outlets.",
+          "status": "fail",
+          "response": "Here are some budget-friendly sacrifice outlets for your Aristocrats deck:\n\n- **Carrion Feeder**: Grows stronger as you sacrifice creatures.\n- **Yawgmoth's Will**: Exile a card from your graveyard to enable additional sacrifices.\n- **Witch's Cauldron**: Pay 1 mana to sacrifice a creature and draw a card.\n- **Altar of Dementia**: Sacrifice creatures to mill your opponent's library.\n- **Goblin Bombardment**: Deal damage to any target by sacrificing creatures.\n- **Viscera Seer**: Sacrifice a creature to scry 1.\n\nThese cards will enhance your Aristocrats strategy effectively!",
+          "failures": [
+            "Missing pattern: /sac outlet/i"
+          ]
+        },
+        {
+          "name": "Voltron Package",
+          "text": "This is equipment/voltron — what am I missing?",
+          "status": "pass",
+          "response": "### Recommended Cards for Your Equipment/Voltron Deck\n\n#### Critical Equipment\n- **High-Impact Gear**  \n  - [[Sword of Fire and Ice]]  \n  - [[Batterskull]]  \n  - [[Colossus Hammer]]  \n\n#### Utility Creatures\n- **Support Creatures**  \n  - [[Stoneforge Mystic]]  \n  - [[Kor Outfitter]]  \n  - [[Puresteel Paladin]]  \n\n#### Control Elements\n- **For Protection and Removal**  \n  - [[Swiftfoot Boots]]  \n  - [[Lightning Greaves]]  \n  - [[Staff of Domination]]  \n\n#### Card Draw and Mana Fixing\n- **Resource Management**  \n  - [[Skullclamp]]  \n  - [[Trail of Evidence]]  \n  - [[One with the Machine]]  \n\n#### Win Conditions\n- **Alternate Victory Options**  \n  - [[Aurelia, the Warleader]]  \n  - [[Teysa, Envoy of Ghosts]]  \n  - [[Sigarda, Host of Herons]]  \n\n### General Strategy Tips\n- **Include:**  \n  - A balance of low-cost and impactful equipment  \n  - Reliable card draw sources"
+        },
+        {
+          "name": "Tokens Need Payoffs",
+          "text": "I’m playing tokens but I don’t have many payoff anthems — fix that.",
+          "status": "pass",
+          "response": "Here are some budget-friendly anthem options to enhance your token strategy:\n\n### Token Payoff Anthems\n- **Intangible Virtue**: Grants tokens +1/+1 and vigilance.\n- **Gather the Townsfolk**: Creates two 1/1 tokens and can lead to further boosts.\n- **Glorious Anthem**: A classic creature-wide boost.\n- **Raft of the Titan**: Accelerates your board state with tokens and bonuses.\n- **Heroic Reinforcements**: Enhances your team and adds creatures for combat.\n- **Benefaction of Rhonas**: Increases your creature count with extra benefits.\n\n### Additional Tips\n- Pair your anthems with card draw or ramp to maintain pressure.\n- Explore creatures with \"creature token\" synergies, like **Aura Shards** or **Populate** abilities.\n\nIncorporate these into your deck to fortify your token strategy!"
+        },
+        {
+          "name": "Graveyard Misfits",
+          "text": "This is graveyard recursion, identify cards that don’t care about graveyard.",
+          "status": "fail",
+          "response": "Here are some Magic: The Gathering cards that can recur creatures or permanents without relying on the graveyard:\n\n1. **Cards with Flashback or Similar Effects:**\n   - **Archaeomancer**: Recurs instant or sorcery spells and can help protect your graveyard.\n\n2. **Token Generators:**\n   - **Murmuring Mystic**: Creates tokens without involving the graveyard.\n   - **Captain Venerated Loxodon**: Buffs existing creatures on the battlefield.\n\n3. **Self-Returning Creatures:**\n   - **Eternal Witness**: Recurs a card but also maintains board presence.\n   - **Mirrormade**: Copies a nonland permanent, adding versatility.\n\n4. **Exile and Return Effects:**\n   - **Teferi, Master of Time**: Manipulates your board state without graveyard reliance.\n\n5. **Life Gain or Draw Effects:**\n   - **Daxos, Blessed by the Sun**: Provides value through devotion, maintaining board presence without tapping.",
+          "failures": [
+            "Missing pattern: /(off-plan|doesn’t care)/i"
+          ]
+        },
+        {
+          "name": "ETB Commander Adds",
+          "text": "This commander wants ETB value — what should I add?",
+          "status": "pass",
+          "response": "To boost your Commander deck with ETB (Enter the Battlefield) value on a budget, consider these options:\n\n### Creatures with Strong ETB Effects\n- **Mulldrifter**: Draw two cards.\n- **Sea Gate Stormcaller**: Copy your next instant or sorcery.\n- **Acidic Slime**: Destroy an artifact, enchantment, or land.\n- **Flickerwisp**: Exile and return a target creature.\n\n### Utility Creatures\n- **Sakura-Tribe Elder**: Ramp by sacrificing for land.\n- **Guardian Project**: Draw a card when a non-token creature enters.\n- **Panharmonicon**: Double your ETB triggers (if including artifacts).\n\n### Support Spells\n- **Ephemerate**: Flicker your creatures for more ETB effects.\n- **Conjurer's Closet**: Trigger ETB abilities at your end step.\n- **Ghostly Flicker**: Exile two nonland permanents and return them.\n\n### Tips\n- **Synergy**: Select cards that work well together.\n- **Budget**: Focus on cards under $5 each."
+        },
+        {
+          "name": "Human Tribal Flag",
+          "text": "This is a human-tribal shell, flag off-tribe creatures.",
+          "status": "pass",
+          "response": "For a human tribal deck that counters off-tribe creatures, consider the following:\n\n### Core Cards\n- **Humans**: \n  - [[Thalia, Guardian of Thraben]]\n  - [[Champion of the Parish]]\n  - [[Hanweir Garrison]]\n- **Utility Humans**: \n  - [[Tobias, Doomed Conqueror]] (if colors allow)\n  - [[Militia Bugler]]\n\n### Support Cards\n- **Synergy Spells**: \n  - [[Intangible Virtue]] (boosts)\n  - [[Collected Company]] (finds more humans)\n\n### Off-Tribe Control\n- **Removal Options**: \n  - [[SPF - 5]] (targeted removal or board wipe)\n  - [[Swords to Plowshares]] (versatile creature removal)\n\n### Mana Base\n- **Lands**: \n  - [[Fabled Passage]]\n  - [[Evolving Wilds]]\n\n### Sideboard Options\n- **Specific Counters**: \n  - [[Rest in Peace]] (graveyard hate)\n  - [[Mystical Dispute]] (for control matchups)\n\n### Playstyle Tips\n- Aim for early aggression with your human army."
+        }
+      ]
+    },
+    {
+      "suite": "probability",
+      "title": "Probability & Hand Simulation",
+      "results": [
+        {
+          "name": "Sol Ring Turn 3",
+          "text": "What are the chances I see Sol Ring by turn 3 in EDH?",
+          "status": "pass",
+          "response": "To estimate your chances of drawing **[[Sol Ring]]** by turn 3 in EDH (Commander):\n\n1. **Starting Hand**: 7 cards.\n2. **Card Draws**:\n   - Turn 1: 1 card (total 8 cards).\n   - Turn 2: 1 card (total 9 cards).\n   - Turn 3: 1 card (total 10 cards).\n\n3. **Deck Size**: 99 cards in total.\n\n### Probability Calculation\nThe chance of drawing **[[Sol Ring]]** after drawing 10 cards is about **10%** (10 cards seen out of 99 total).\n\n### Improve Your Chances\n- Add cards that enhance drawing (e.g., **[[Rhystic Study]]**, **[[Mystic Remora]]**).\n- Mulligan if you don't have the ring in your hand.\n\nFeel free to ask for specific strategies or card recommendations!"
+        },
+        {
+          "name": "Ramp in Opener",
+          "text": "If I have 10 ramp spells in 99 cards, how often do I see one in my opener?",
+          "status": "fail",
+          "response": "To find the probability of drawing at least one ramp spell in your opening hand of 7 cards from a 99-card deck with 10 ramp spells, follow these steps:\n\n1. **Determine Non-Ramp Spells**:  \n   - Total cards: 99  \n   - Ramp spells: 10  \n   - Non-ramp spells: 89\n\n2. **Calculate Probability of No Ramp Spells**:  \n   The probability of drawing only non-ramp spells in 7 draws is:  \n   \\[\n   P(\\text{no ramp}) = \\frac{89}{99} \\times \\frac{88}{98} \\times \\frac{87}{97} \\times \\frac{86}{96} \\times \\frac{85}{95} \\times \\frac{84}{94} \\times \\frac{83}{93}\n   \\]\n\n3. **Calculate Probability of At Least One Ramp Spell**:  \n   \\[\n   P(\\text{at least 1 ramp}) = 1 - P(\\text{no ramp})\n   \\]\n\nUsing a calculator, you'll find the probability of not drawing any ramp spells, and subtract this from 1 to get the probability of drawing at least one.",
+          "failures": [
+            "Missing pattern: /percent|chance|odds/i"
+          ]
+        },
+        {
+          "name": "Two Lands in 60",
+          "text": "In a 60-card deck, what’s the chance to have 2 lands in opening 7?",
+          "status": "pass",
+          "response": "To calculate the probability of drawing 2 lands in your opening 7-card hand from a 60-card deck with 24 lands, follow these steps:\n\n1. **Total cards**: 60\n2. **Lands**: 24\n3. **Non-lands**: 36\n\n**Calculations**:\n- Total ways to choose 7 cards: \\( C(60, 7) \\)\n- Ways to choose 2 lands: \\( C(24, 2) \\)\n- Ways to choose 5 non-lands: \\( C(36, 5) \\)\n- Successful combinations for 2 lands: \\( C(24, 2) \\times C(36, 5) \\)\n\n**Probability**: \n\\[\n\\text{Probability} = \\frac{C(24, 2) \\times C(36, 5)}{C(60, 7)}\n\\]\n\nUse combinatorial calculators for ease. Adjust your land count in the deck based on desired probabilities."
+        },
+        {
+          "name": "Mulligan to Combo",
+          "text": "Explain mulliganing to a 2-card combo in Commander.",
+          "status": "pass",
+          "response": "### Mulliganing for a 2-Card Combo in Commander\n\n1. **Identify Your Combo**: Know the two pieces you need and ensure your deck has synergistic support.\n  \n2. **Analyze Your Hand**: \n   - Look for at least one combo piece.\n   - Ensure you have draw/search capabilities.\n\n3. **Assess Support**: \n   - Check for sufficient mana sources (lands/ramp).\n   - Include protection for your combo (counterspells, flicker effects).\n\n4. **Mulligan Decision**: \n   - Mulligan if you lack combo pieces or adequate mana.\n   - Keep hands with both combo pieces and supporting mana.\n\n5. **Mulligan Strategy**: \n   - Aim for hands with one combo piece and reliable draw/ramp on your first mulligan.\n   - Gradually keep better hands until you reach a solid starting point.\n\n6. **Final Check**: \n   - Be aware of Commander-specific mulligan rules, like draw options after a mulligan.\n\n### Key Tips:\n- Stay focused on achieving your combo quickly and efficiently."
+        },
+        {
+          "name": "Improve Wincon Odds",
+          "text": "How do I increase the odds of drawing my 1 wincon?",
+          "status": "pass",
+          "response": "To improve your chances of drawing your win condition, consider these strategies:\n\n- **Increase Card Draw**: Incorporate cards like [[Divination]], [[Ponder]], or [[Dark Confidant]] for more drawing power.\n\n- **Use Tutors**: Include search cards like [[Demonic Tutor]] or [[Mystical Tutor]] to find your win condition.\n\n- **Reduce Deck Size**: A smaller deck increases the likelihood of drawing key cards.\n\n- **Add Filtering**: Utilize scry effects (e.g., [[Preordain]]) or card selection options (e.g., [[Gitaxian Probe]]) to refine your draws.\n\n- **Ensure Mana Consistency**: Make sure you can reliably cast your draw and tutor spells.\n\n- **Include Recursion**: Use cards like [[Archaeomancer]] or [[Sun Titan]] to retrieve your win condition from the graveyard.\n\nCombining these methods will enhance your odds of drawing your crucial card."
+        },
+        {
+          "name": "Draw Increases Odds",
+          "text": "Does adding more draw actually affect the odds?",
+          "status": "pass",
+          "response": "Yes, adding more draw spells can enhance your Magic: The Gathering gameplay. Here’s how:\n\n- **Increased Consistency**: More draw means you see additional cards, helping you find key pieces.\n- **More Options**: Drawing more cards allows you to choose from a wider range of possibilities.\n- **Deck Thinning**: Drawing reduces non-essential cards, increasing the chances of drawing impactful ones.\n\n### Tips:\n- Consider budget draw spells like [[Divination]], [[Careful Consideration]], or [[Preordain]].\n- Balance draw with card filtering for greater effectiveness.\n\nIncorporating consistent draw can significantly strengthen your strategy!"
+        },
+        {
+          "name": "Risk of 1-land Keep",
+          "text": "What’s the risk of keeping a 1-land hand in EDH?",
+          "status": "pass",
+          "response": "Keeping a 1-land hand in EDH is risky due to:\n\n- **Mana Issues**: Difficulty casting spells, especially high-cost ones.\n- **Slow Start**: Limited early game impact can lead to being outpaced.\n- **Lack of Ramp**: Few options to accelerate mana without lands.\n- **Dependence on Topdecking**: Without drawing more lands, you may fall behind.\n- **Mulligan Consideration**: Weigh the effectiveness of your spells; a mulligan might yield a better hand.\n\n**Recommendation**: It's generally safer to start with at least 2 lands in hand."
+        },
+        {
+          "name": "Adding Lands Effect",
+          "text": "If I add 3 more lands, what happens to my hands?",
+          "status": "fail",
+          "response": "Adding 3 more lands to your deck can enhance your gameplay:\n\n- **Increased Mana Availability**: More lands allow you to cast larger spells or multiple spells each turn.\n- **Opening Hand Impact**: A higher land count may result in drawing more lands in your opening hand or during mid-game.\n- **Maintain Balance**: Aim for a 40% land ratio in a 60-card deck for optimal performance.\n\nAssess your current land count to determine your deck's balance.",
+          "failures": [
+            "Missing pattern: /(odds|hands|consistency)/i"
+          ]
+        },
+        {
+          "name": "Is 34 Lands Enough",
+          "text": "Is 34 lands too low for my curve?",
+          "status": "pass",
+          "response": "To assess if 34 lands suit your deck’s curve, follow these guidelines:\n\n1. **Deck Size**: Standard decks have 60 cards.\n2. **Mana Curve**: Evaluate your mana curve by counting spells at each cost; target 2-3 lands for the initial turns.\n3. **Mana Requirements**: \n   - Multicolor decks typically need 35-38 lands. \n   - Mono-color decks can manage with 34 if they have a low curve.\n4. **Playtesting**: Test your deck to identify issues with land quantity.\n5. **Adjustments**: If you frequently lack lands, consider adding 1-3.\n\nFor tailored advice, share your deck list or mana curve!"
+        },
+        {
+          "name": "Explain Odds Method",
+          "text": "Tell me in plain English how you calculate these odds.",
+          "status": "fail",
+          "response": "To calculate odds in Magic: The Gathering, follow these steps:\n\n1. **Identify Outcomes**: Determine what outcome you're counting (e.g., drawing a specific card).\n\n2. **Total Outcomes**: Count the total possible outcomes (e.g., total cards in the deck).\n\n3. **Favorable Outcomes**: Count how many outcomes are favorable to your situation (e.g., copies of a specific card).\n\n4. **Formula**: Use the formula:\n   **Odds = Favorable Outcomes : (Total Outcomes - Favorable Outcomes)**.\n\n5. **Example**: If you have 3 copies of a card in a 60-card deck:\n   - Favorable Outcomes = 3\n   - Total Outcomes = 60\n   - Odds = 3 : (60 - 3) = 3 : 57.\n\n6. **Convert to Percentages (Optional)**: To find the probability percentage, use:\n   **Probability (%) = (Favorable Outcomes / Total Outcomes) x 100**.\n\nFor specific scenarios, feel free to ask!",
+          "failures": [
+            "Missing pattern: /(plain english)/i"
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "custom",
+      "title": "Custom Card Handling",
+      "results": [
+        {
+          "name": "Elf Lord Balance",
+          "text": "Here’s a custom 2-mana elf lord that gives all elves +1/+1 and draw — is it too strong?",
+          "status": "pass",
+          "response": "To evaluate your custom 2-mana elf lord, consider the following:\n\n### Strength Evaluation\n- **Cost:** 2 mana is low for a lord.\n- **Effect:** It grants **+1/+1** to all elves and offers a **draw** ability, which can be activated multiple times in a turn.\n\n### Comparison\n- **Existing Cards:** Compare it to lords like [[Elvish Promenade]], which provide boosts without extra effects.\n- **Power Level:** \n  - Multiple draws could make it powerful in elf decks.\n  - A one-time draw per turn may balance its strength.\n\n### Suggestions\n- **Balance Adjustments:** \n  - Consider raising the cost to 3 mana.\n  - Limit draws (e.g., \"draw a card when it enters\").\n  - Make it a once-per-turn ability based on elf count.\n\n### Conclusion\nEnsure the card fits existing Magic design principles and test it with friends to check for balance!"
+        },
+        {
+          "name": "Planeswalker Power",
+          "text": "This is a made-up planeswalker — does it fit Commander power level?",
+          "status": "pass",
+          "response": "To assess if your custom planeswalker fits Commander power levels, consider these criteria:\n\n1. **Mana Cost**: Aim for a cost of 3-5 mana, aligning with the average power level of existing planeswalkers.\n\n2. **Abilities**: Incorporate a balanced mix of +1, -X, and ultimate abilities without over- or under-powering them.\n\n3. **Color Identity**: Ensure it fits seamlessly within your chosen color identity and supports relevant synergies.\n\n4. **Impact**: Analyze its potential to create board advantage, provide card draw, or offer removal options.\n\n5. **Playtest**: Test the card in casual games to see how it performs against different decks.\n\nShare your planeswalker’s specific abilities and mana cost for more focused feedback!"
+        },
+        {
+          "name": "Token Generator Cost",
+          "text": "Balance this custom token generator for 4 mana.",
+          "status": "pass",
+          "response": "### Custom Token Generator for Magic: The Gathering\n\n**Card Name**: Token Crafter  \n**Mana Cost**: {3}{1}   \n**Type**: Sorcery  \n**Effect**:  \n- Create three 1/1 white Human creature tokens.  \n- If you control a creature with power 4 or greater, create an additional token.  \n\n### Rationale:\n- **Efficiency**: At 4 mana, generating three tokens is strong but balanced by the condition of having a powerful creature.  \n- **Flexibility**: The additional token incentivizes maintaining board presence, providing strategic depth.\n\n### Testing:\nEnsure to playtest in various scenarios to verify the card's balance!"
+        },
+        {
+          "name": "Dragon ETB Doubler",
+          "text": "I made a dragon that doubles ETBs — how do I cost it?",
+          "status": "fail",
+          "response": "To estimate a fair cost for a dragon that doubles Enter the Battlefield (ETB) effects, consider these factors:\n\n1. **Power/Toughness**: Aim for stats around 5/5 or 6/6.\n2. **Mana Cost**: Base dragons generally cost 3-4 generic mana plus 1-2 colored mana. Add 2-3 mana for the doubling effect.\n3. **Ability Cost**: A fair cost for the doubling ability is around 3-4 mana.\n\n### Final Estimate:\n- **Total Cost**: Approximately 5-6 mana, such as 4 generic plus 1 colored mana (e.g., red or blue).\n\n### Example Card Idea:\n- **6/6 Flying Dragon, 5 mana cost, doubles ETBs**.\n\nThis proposed cost keeps the effect balanced while reflecting its power.",
+          "failures": [
+            "Missing pattern: /custom/i"
+          ]
+        },
+        {
+          "name": "Multiplayer Strength",
+          "text": "Would this be broken in multiplayer?",
+          "status": "fail",
+          "response": "To evaluate if a card or strategy is overpowered in multiplayer, consider these factors:\n\n- **Card Effects:** Are its effects game-changing (e.g., board wipes, decisive combos)?\n- **Interaction:** How easily can opponents counter or respond to it?\n- **Synergy:** Does it create infinite combos or strong value with other cards?\n- **Meta Context:** How do your playgroup's strategies stack up against this card?\n- **Win Conditions:** Does it enable only one player's consistent victory?\n\nFor a tailored assessment, please share a specific card or strategy!",
+          "failures": [
+            "Missing pattern: /(custom|homebrew)/i"
+          ]
+        },
+        {
+          "name": "Compare Aura",
+          "text": "Compare this custom aura to real auras, power-wise.",
+          "status": "fail",
+          "response": "To provide an accurate comparison of your custom aura, please share its mana cost, abilities, and any relevant mechanics. This information will help evaluate its power level against existing auras in Magic: The Gathering.",
+          "failures": [
+            "Missing pattern: /(compare)/i"
+          ]
+        },
+        {
+          "name": "Effect on Elfball",
+          "text": "How would this affect my existing Elfball deck?",
+          "status": "fail",
+          "response": "To enhance your Elfball deck, consider the following tips:\n\n1. **Mana Ramp**:\n   - Include cards like [[Elvish Mystic]] and [[Llanowar Elves]] for early-game acceleration and mana generation.\n\n2. **Synergy Cards**:\n   - Use [[Elvish Promenade]] to generate more elves and incorporate buff cards like [[Alloro, Senses' Embrace]] to boost creature power.\n\n3. **Win Conditions**:\n   - Add cards such as [[Craterhoof Behemoth]] and [[Imperious Perfect]] to leverage your elf swarm; [[Nettle Sentinel]] and [[Dwynen, Gilt-Leaf Daen]] also enhance synergy.\n\n4. **Control and Protection**:\n   - Utilize [[Beast Within]] and [[Nature's Claim]] to manage threats, and consider including some counterspells or removal options.",
+          "failures": [
+            "Missing pattern: /custom/i"
+          ]
+        },
+        {
+          "name": "cEDH Worthiness",
+          "text": "Would you recommend this for cEDH? (it’s custom)",
+          "status": "pass",
+          "response": "Sure! Please provide the following details about your custom deck:\n\n- Commander \n- Key cards or themes \n- Budget \n\nThis will help me give you tailored feedback on its cEDH viability!"
+        },
+        {
+          "name": "Rules Text Help",
+          "text": "How do I write better rules text for this custom?",
+          "status": "pass",
+          "response": "To improve the rules text for your custom Magic: The Gathering card, follow these steps:\n\n1. **Be Clear and Concise**: Use straightforward language and limit jargon.\n\n2. **Use a Standard Template**: Start with the card type (Creature, Sorcery, etc.), include keywords, and clearly describe effects.\n\n3. **List Trigger Conditions**: Specify what triggers effects and their timing (e.g., \"Whenever\" or \"At the beginning of...\").\n\n4. **Define Costs**: Clearly outline any costs, including mana or card sacrifices.\n\n5. **Consider Interactions**: Ensure your card’s text aligns with existing game mechanics and interactions.\n\n6. **Test for Clarity**: Read the text aloud and seek feedback from others.\n\n7. **Use Examples**: If necessary, provide a brief example to illustrate complex effects.\n\nShare your draft for tailored feedback!"
+        },
+        {
+          "name": "Confirm Not Real",
+          "text": "This is not a real card, don’t search it — just tell me if it’s fair.",
+          "status": "fail",
+          "response": "To determine if a card is fair, evaluate these aspects:\n\n- **Mana Cost**: Is it appropriate for its power level?\n- **Abilities**: Are they balanced compared to similar cards?\n- **Game Impact**: Will it be overpowered in competitive play or enjoyable in casual settings?\n- **Synergies**: Does it create unfair combos with other cards?\n\nDescribe your hypothetical card for a fairness assessment!",
+          "failures": [
+            "Missing pattern: /not a real card/i"
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "fallbacks",
+      "title": "Out-of-Scope / Graceful Fallbacks",
+      "results": [
+        {
+          "name": "Moxfield Crawl",
+          "text": "Can you crawl my Moxfield and auto-sync it right now?",
+          "status": "fail",
+          "response": "I can't access external sites like Moxfield to sync decks directly. However, I can provide tips on managing your deck or answer any questions about cards and strategies. Just let me know what you need!",
+          "failures": [
+            "Missing pattern: /(can’t|cannot|don't) (crawl|sync)/i",
+            "Missing pattern: /(paste|import)/i"
+          ]
+        },
+        {
+          "name": "Upload from Camera",
+          "text": "Upload my paper deck from my camera.",
+          "status": "fail",
+          "response": "I can't upload or process images directly, but if you list your deck's card names here, I can help with suggestions and improvements!",
+          "failures": [
+            "Missing pattern: /(can’t|cannot)/i",
+            "Missing pattern: /(photo|camera)/i"
+          ]
+        },
+        {
+          "name": "TCGplayer Prices",
+          "text": "Pull current MTG prices from TCGplayer right now.",
+          "status": "fail",
+          "response": "I can't access real-time data or external websites like TCGplayer. To check current card prices, please visit the TCGplayer website directly. If you need help evaluating prices or selecting cards, let me know!",
+          "failures": [
+            "Missing pattern: /can’t|cannot/i"
+          ]
+        },
+        {
+          "name": "Delete Deck",
+          "text": "Delete this deck from your database.",
+          "status": "fail",
+          "response": "I can't delete decks or access personal data, but I'm here to help you build or adjust your deck. Just let me know what you need!",
+          "failures": [
+            "Missing pattern: /(settings|dashboard)/i"
+          ]
+        },
+        {
+          "name": "Invite via Discord",
+          "text": "Invite my friend to this deck via Discord.",
+          "status": "fail",
+          "response": "To invite your friend to view your deck, follow these steps:\n\n1. **Copy Your Deck Link**: Use the 'share' or 'link' option on your deck-building site.\n2. **Open Discord**: Launch the Discord app or web client.\n3. **Select Chat**: Choose the direct message or channel for sharing.\n4. **Paste the Link**: Right-click and select 'Paste.'\n5. **Add a Message**: Optionally, include a note like, \"Check out my new MTG deck!\"\n6. **Send**: Press Enter to share.\n\nYour friend will now have access to your deck!",
+          "failures": [
+            "Missing pattern: /(cannot|not directly)/i",
+            "Missing pattern: /(share link|export)/i"
+          ]
+        },
+        {
+          "name": "Auto export to Arena",
+          "text": "Auto-fix all illegal cards and export to Arena file.",
+          "status": "pass",
+          "response": "I can't modify files or interact with MTG Arena, but I can help you fix illegal cards in your deck:\n\n1. **Identify Illegal Cards**:\n   - Check for banned or restricted cards in your format.\n   - Look for cards that aren’t available in MTG Arena.\n\n2. **Replace Illegal Cards**:\n   - Find alternatives that match the mana cost, color, and role (creature, spell, etc.).\n   - Consider cards from the same set or that are format-legal.\n\n3. **Edit Your Deck**:\n   - Open your deck in the Arena client, remove illegal cards, and add replacements.\n\n4. **Export the Deck**:\n   - Once your deck is legal, use the export feature in Arena to save your updated list.\n\nFeel free to share your decklist for specific replacement suggestions!"
+        },
+        {
+          "name": "Show Card Images",
+          "text": "Show me images of all cards in this list right now.",
+          "status": "pass",
+          "response": "I can't display images, but I can help format your card names for easy searching. Just share your list!"
+        },
+        {
+          "name": "Combo Search",
+          "text": "Run a full combo search across EDHREC for me.",
+          "status": "pass",
+          "response": "I can't perform searches directly, but I can guide you on finding combos on EDHREC:\n\n1. **Visit EDHREC**: Go to [edhrec.com](https://edhrec.com).\n2. **Select a Commander**: Choose a specific commander or archetype.\n3. **Explore Synergies**: Check the \"Synergies\" or \"Combos\" sections.\n4. **Apply Filters**: Use filters for colors, sets, or strategies like \"Combo.\"\n5. **Compile Combos**: List notable combos or cards to try.\n\nIf you need help with specific combos for a commander, just ask!"
+        },
+        {
+          "name": "cEDH Benchmark",
+          "text": "Benchmark this against cEDH database.",
+          "status": "fail",
+          "response": "To benchmark your deck against competitive EDH (cEDH) standards, follow these steps:\n\n1. **Identify Your Strategy**: Determine if your deck focuses on combo, control, or aggro.\n\n2. **Incorporate Key Staples**: Make sure to include cEDH staples like [[Demonic Consultation]], [[Ad Nauseam]], [[Cyclonic Rift]], and [[Underworld Breach]].\n\n3. **Optimize Your Mana Base**: Utilize efficient mana sources, including fast mana like [[Sol Ring]], [[Mana Crypt]], and dual/fetch lands such as [[Polluted Delta]] and [[Scrubland]].\n\n4. **Ensure Interaction**: Include counterspells and removal options like [[Force of Will]], [[Swords to Plowshares]], and [[Mental Misstep]].\n\n5. **Utilize cEDH Databases**: Compare your deck on sites like EDHREC, MTGGoldfish, and TappedOut.\n\n6. **Verify Win Conditions**: Confirm you have multiple win conditions, such as combos.",
+          "failures": [
+            "Missing pattern: /(can't|cannot)/i"
+          ]
+        },
+        {
+          "name": "Host on Scryfall",
+          "text": "Host this deck publicly on Scryfall.",
+          "status": "fail",
+          "response": "To host your Magic: The Gathering deck publicly on Scryfall, follow these steps:\n\n1. **Prepare Your Decklist**: Write your deck in plain text, with each card on a new line.\n\n2. **Visit Scryfall**: Go to the Scryfall website.\n\n3. **Access Deck Builder**:\n   - Click \"Decks\" in the main menu, then select \"Create a Deck.\"\n\n4. **Paste Your Decklist**: Enter your decklist in the deck editor's text area.\n\n5. **Fill in Deck Information**: Add a title and any relevant details (format, description).\n\n6. **Public Settings**: Select the option to make your deck public.\n\n7. **Save and Share**: Save your deck and share the link with others.\n\nYour deck is now publicly hosted on Scryfall! Let me know if you need further assistance.",
+          "failures": [
+            "Missing pattern: /(can't|cannot)/i"
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "pro",
+      "title": "Pro Feature Surfacing",
+      "results": [
+        {
+          "name": "Hand Tester Access",
+          "text": "Is the hand tester part free or Pro?",
+          "status": "pass",
+          "response": "The hand tester feature on popular deck-building websites is usually part of the Pro subscription. To verify this:\n\n1. Review the website's pricing page for a breakdown of free and Pro features.\n2. Check the FAQs for specific information on the hand tester.\n3. If available, sign up for a trial to explore the features before committing.\n\nAlternatively, you can manually test with friends or use free online simulators."
+        },
+        {
+          "name": "Collection Tracking",
+          "text": "Can I track my collection and see price changes?",
+          "status": "fail",
+          "response": "Here are popular ways to track your Magic: The Gathering collection and monitor price changes:\n\n1. **Apps**:\n   - **MTG Familiar**: Manages decks and tracks card prices.\n   - **Decked Builder**: Offers collection tracking and pricing info.\n\n2. **Websites**:\n   - **Tcgplayer.com**: Search and track individual card prices.\n   - **Cardmarket**: Great for European users tracking prices.\n   - **MTGGoldfish**: Features price tracking and collection management.\n\n3. **Spreadsheets**:\n   - Use Google Sheets or Excel to manually log card details and prices.\n\n4. **Mobile Scanners**:\n   - Use apps like **Scan the QR Code** or **MTG Scanner** to quickly add cards to your collection.\n\nChoose the method that works best for you!",
+          "failures": [
+            "Missing pattern: /(coming soon|not yet|limited)/i"
+          ]
+        },
+        {
+          "name": "Pioneer Support",
+          "text": "Does this support Pioneer yet or is it coming?",
+          "status": "fail",
+          "response": "Currently, I don't have real-time updates. For the latest on Pioneer format support, check the official Magic: The Gathering site or your local gaming platform.",
+          "failures": [
+            "Missing pattern: /(coming|roadmap)/i"
+          ]
+        },
+        {
+          "name": "Profile Badge",
+          "text": "Can I share my deck and get a profile badge?",
+          "status": "pass",
+          "response": "To earn a profile badge by sharing your deck, follow these steps:\n\n1. **Create a Deck**: Use a deck builder tool or platform.\n2. **Share the Deck**: Utilize the sharing options available (links, social media).\n3. **Participate in Events**: Engage in events hosted by platforms or local game shops that offer badges.\n4. **Check Criteria**: Review the specific badge requirements for your platform, as they can differ.\n\nAlways verify the platform's rules for badge eligibility!"
+        },
+        {
+          "name": "Combo Finder Tool",
+          "text": "Do you have a separate combo finder tool?",
+          "status": "fail",
+          "response": "I don't have a combo finder tool, but I can help you find effective combinations. Just share the cards or themes you're focusing on!",
+          "failures": [
+            "Missing pattern: /(retired|removed|coming back)/i"
+          ]
+        },
+        {
+          "name": "Custom Card Testing",
+          "text": "Can I test custom cards inside the deck right now?",
+          "status": "fail",
+          "response": "You can test custom cards in your deck using the following methods:\n\n1. **Playtesting**: Gather a group of friends to shuffle your custom cards into existing decks.\n  \n2. **Digital Platforms**: Utilize platforms like MTG Arena or MTGO (if user-created formats are permitted) and consider Tabletop Simulator or SpellTable for virtual playtesting.\n\n3. **Proxy Cards**: Print proxies of your custom cards for in-person games.\n\n4. **Feedback**: Solicit feedback from players to evaluate balance and mechanics.\n\nKeep the power level in check for an enjoyable experience!",
+          "failures": [
+            "Missing pattern: /(not yet|coming)/i"
+          ]
+        },
+        {
+          "name": "Budget Mode Lock",
+          "text": "Is there a budget mode I can lock on?",
+          "status": "fail",
+          "response": "Magic: The Gathering doesn't have a specific \"budget mode,\" but you can create budget decks. Here's how:\n\n1. **Set a Budget**: Choose a maximum spending limit (e.g., $50, $100).\n\n2. **Choose a Format**: Pick a format that fits your budget:\n   - Standard\n   - Pioneer\n   - Budget Commander\n\n3. **Use Budget Resources**: Consult websites like MTGGoldfish and EDHREC for budget deck lists, or join forums focused on budget builds.\n\n4. **Select Budget Cards**: Include affordable staples, such as:\n   - [[Lightning Bolt]]\n   - [[Giant Growth]]\n   - [[Counterspell]]\n   Focus on alternatives to expensive cards that fit your strategy.\n\n5. **Playtest**: Use platforms like Magic Online or Arena to test your deck before making purchases.\n\n6. **Make Adjustments**: Be flexible and swap out cards based on performance.\n\nBy following these steps, you can enjoy Magic: The Gathering without overspending!",
+          "failures": [
+            "Missing pattern: /(pro|available)/i"
+          ]
+        },
+        {
+          "name": "Format Personas",
+          "text": "Are there format-specific personas?",
+          "status": "pass",
+          "response": "Magic: The Gathering features format-specific personas that encourage different playstyles. Here are some key formats:\n\n- **Standard**: Fast-paced meta using new cards; favors streamlined, efficient decks.\n- **Modern**: Includes older sets; emphasizes combo and synergy with powerful staples.\n- **Commander**: Focuses on multiplayer; highlights unique commanders and custom strategies.\n- **Pioneer**: Similar to Modern but limited to more recent sets; encourages creativity.\n- **Limited**: Involves drafting or sealed play; requires adaptability and smart card evaluation.\n\nEach persona reflects distinct deckbuilding and gameplay approaches based on the format's rules and card availability. If you need advice for a specific format, just let me know!"
+        },
+        {
+          "name": "Export to PDF",
+          "text": "Can I export this analysis as a PDF?",
+          "status": "fail",
+          "response": "I can't export text directly as a PDF, but you can copy the information and paste it into a document editor like Google Docs or Microsoft Word, then export it as a PDF from there. If you need help with specific content, let me know!",
+          "failures": [
+            "Missing pattern: /(pro|limited|coming)/i"
+          ]
+        },
+        {
+          "name": "Rough Edges",
+          "text": "What’s still ‘rough around the edges’ right now?",
+          "status": "pass",
+          "response": "\"Rough around the edges\" in the game can refer to:\n\n- **Deck Meta**: New sets can disrupt the current meta, leaving some strategies less effective.\n- **Card Synergies**: Certain cards may still be searching for their optimal combinations.\n- **New Mechanics**: Recent mechanics might feel unpolished in practice.\n- **Unpopular Archetypes**: Some strategies are still evolving and require refinement.\n- **Limited Formats**: New sets may introduce interactions that take time to fully realize.\n\nAssessing your deck or local meta can help pinpoint areas for improvement!"
+        }
+      ]
+    }
+  ]
+}

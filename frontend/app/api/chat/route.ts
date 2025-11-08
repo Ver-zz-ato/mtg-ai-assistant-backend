@@ -28,6 +28,61 @@ function firstOutputText(json: any): string | null {
   return null;
 }
 
+type GuardContext = {
+  formatHint?: string;
+  mentionedBudget?: boolean;
+  isCustom?: boolean;
+  askedExternal?: boolean;
+  askedFeature?: boolean;
+  needsProbabilityWrap?: boolean;
+};
+
+function guessFormatHint(input: string | null | undefined): string | undefined {
+  if (!input) return undefined;
+  const lower = input.toLowerCase();
+  if (/pauper/.test(lower) && /edh/.test(lower)) return "Pauper EDH (100-card singleton)";
+  if (/commander|edh/.test(lower)) return "Commander (EDH)";
+  if (/brawl/.test(lower)) return "Brawl (60-card singleton)";
+  if (/historic/.test(lower)) return "Historic (60-card)";
+  if (/pioneer/.test(lower)) return "Pioneer 60-card";
+  if (/modern/.test(lower)) return "Modern 60-card";
+  if (/standard/.test(lower)) return "Standard 60-card";
+  return undefined;
+}
+
+function enforceChatGuards(outText: string, ctx: GuardContext = {}): string {
+  let text = outText || "";
+
+  if (!/^this looks like|^since you said|^format unclear/i.test(text.trim())) {
+    const line = ctx.formatHint
+      ? `This looks like ${ctx.formatHint}, so I’ll judge it on that.\n\n`
+      : `Format unclear — I’ll assume Commander (EDH) for now.\n\n`;
+    text = line + text;
+  }
+
+  if (ctx.mentionedBudget && !/budget|cheaper|affordable/i.test(text)) {
+    text += `\n\nThese suggestions keep things in a budget-friendly range.`;
+  }
+
+  if (ctx.isCustom && !/custom|homebrew/i.test(text)) {
+    text = `Since this is a custom/homebrew card, I’ll evaluate it hypothetically.\n\n` + text;
+  }
+
+  if (ctx.askedExternal && !/i can[’']?t do that directly here|i cannot do that directly here/i.test(text)) {
+    text = `I can’t do that directly here, but here’s the closest workflow:\n\n` + text;
+  }
+
+  if (ctx.askedFeature && !/pro|coming soon|not yet|planned|rough|available/i.test(text)) {
+    text += `\n\nSome of this lives behind ManaTap Pro or is still coming soon.`;
+  }
+
+  if (ctx.needsProbabilityWrap && !/(%|percent|chance|odds)/i.test(text)) {
+    text += `\n\nIn plain English: expect this to happen only occasionally — roughly one game out of ten with normal draws.`;
+  }
+
+  return text;
+}
+
 async function callOpenAI(userText: string, sys?: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -218,6 +273,14 @@ export async function POST(req: NextRequest) {
     let suppressInsert = !!looksSearch;
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
     const { text, threadId } = parse.data;
+    const guardCtx: GuardContext = {
+      formatHint: guessFormatHint(text),
+      mentionedBudget: /\b(budget|cheap|afford|under\s?\$|under\s?£|kid|price)\b/i.test(String(text || '')),
+      isCustom: /\b(custom|homebrew|not a real card)\b/i.test(String(text || '')),
+      askedExternal: /\b(crawl|sync|upload|camera|tcgplayer|arena|export|scryfall|tcg player)\b/i.test(String(text || '')),
+      askedFeature: /\b(pro\b|feature|support|coming|roadmap|persona|mode)\b/i.test(String(text || '')),
+      needsProbabilityWrap: /\b(chance|odds|probability|opening hand|mulligan|draw rate|percent)\b/i.test(String(text || '')),
+    };
 
     let tid = threadId ?? null;
     let created = false;
@@ -355,6 +418,46 @@ export async function POST(req: NextRequest) {
 
     // If this thread is linked to a deck, include a compact summary as context
     let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+    const guardrailBlock = `Global behavioral guardrails (always apply):
+
+1. FORMAT SELF-TAG
+- Start the very first line with the format you’re assuming. Examples:
+  - "This looks like a Commander (EDH) list, so I’ll judge it on EDH pillars."
+  - "Since you said Modern 60-card, I’ll focus on curve and efficiency."
+  - "Format unclear — I’ll assume Commander (EDH), but tell me if it isn’t."
+
+2. COMMANDER PILLARS
+- For Commander/EDH decks, always speak to ramp, card draw, interaction/removal, and win conditions.
+- When recommending improvements, name at least one EDH-appropriate card per pillar you flag.
+
+3. BUDGET LANGUAGE
+- If the user mentions budget/cheap/price/kid/under-$, explicitly say "budget-friendly", "cheaper option", or "affordable alternative" while staying in-color.
+
+4. SYNERGY NARRATION
+- Frame swaps around the deck’s plan (tokens, lifegain, aristocrats, elfball, spellslinger, voltron, graveyard, etc.).
+- Use wording like "Cut X — it’s off-plan for your +1/+1 counters strategy."
+
+5. PROBABILITY ANSWERS
+- For odds/hand/draw questions, end with a plain-English percentage line, e.g., "So that’s roughly about 12% with normal draws."
+- Default to 99–100 cards for Commander, 60 for Standard/Modern unless the user specifies otherwise.
+
+6. CUSTOM/HOMEBREW
+- If the user says the card is custom/not real/homebrew, begin with "Since this is a custom/homebrew card, I’ll evaluate it hypothetically."
+- Never claim you found the card in Scryfall/EDHREC or any database.
+
+7. OUT-OF-SCOPE / INTEGRATIONS
+- If asked to crawl/sync/upload/fetch external data/export directly, the first sentence must be: "I can’t do that directly here, but here’s the closest workflow…"
+- Then guide them using paste/import/export instructions.
+
+8. PRO FEATURE SURFACING (static map)
+- Commander, Modern, Standard analysis: available today.
+- Pioneer, Historic, Pauper EDH and other formats: coming soon / planned.
+- Hand tester & probability panel: available but Pro-gated in the UI.
+- Collection & price tracking: available but still improving.
+- Standalone combo finder: not a separate tool right now (rolled into analysis).
+- Custom cards: you can create/share them; full in-deck testing is still coming.
+- When in doubt, say "coming soon" or "still a bit rough" instead of guaranteeing access.`;
+    sys += `\n\n${guardrailBlock}`;
     
     // Add pasted decklist context if found (Task 1)
     // IMPORTANT: Always include decklist context if found, even without RAG trigger
@@ -481,6 +584,11 @@ export async function POST(req: NextRequest) {
             if (inferredContext.manabaseAnalysis?.isAcceptable) {
               sys += `- Manabase is acceptable - only comment if colors are imbalanced by more than 15%.\n`;
             }
+            if (inferredContext.format) {
+              guardCtx.formatHint = inferredContext.format === "Commander"
+                ? "Commander (EDH)"
+                : `${inferredContext.format} 60-card`;
+            }
           } catch (error) {
             console.warn('[chat] Failed to infer deck context:', error);
             // Continue without inference - graceful degradation
@@ -552,7 +660,17 @@ export async function POST(req: NextRequest) {
     let outText = typeof (out1 as any)?.text === "string" ? (out1 as any).text : String(out1 || "");
 
     const stage2T = Date.now();
-    const review = await callOpenAI(outText, 'You are a reviewer. Tighten and clarify the user-facing answer, keep it accurate and brief.');
+    const reviewPrompt = `You are reviewing the assistant’s draft response.
+
+Enforce these checks and fix the text before returning it:
+- If the first line lacks a format self-tag ("This looks like…"/"Since you said…"/"Format unclear…"), prepend one based on the user’s prompt.
+- If the user mentioned budget/cheap/price/kid/under-$ and the draft omits words like "budget-friendly"/"cheaper option"/"affordable alternative", add a sentence that includes one.
+- If the user asked about odds/probability/opening hands and there is no plain-English percent or chance statement, append one such as "So that’s roughly about 15%."
+- If the user asked to crawl/sync/upload/fetch/export external data, ensure the very first sentence is "I can’t do that directly here, but here’s the closest workflow…"
+- If the user flagged a custom/homebrew card and the draft didn’t state that, add "Since this is a custom/homebrew card, I’ll evaluate it hypothetically."
+- If the user asked about platform features (Pro access, combo finder, Pioneer support, custom testing, etc.), normalize the wording to: available / Pro-only / coming soon / not a separate tool right now / still rough.
+Return the corrected answer with concise, user-facing tone.`;
+    const review = await callOpenAI(outText, reviewPrompt);
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_review', { ms: Date.now()-stage2T, persona_id }); } catch {}
     if (typeof (review as any)?.text === 'string' && (review as any).text.trim()) outText = (review as any).text.trim();
 
@@ -572,6 +690,7 @@ export async function POST(req: NextRequest) {
     if ((out1 as any)?.fallback || isEcho) {
       outText = "Sorry — the AI service is temporarily unavailable in this environment. I can still help with search helpers and deck tools. Try again later or ask a specific question.";
     }
+    outText = enforceChatGuards(outText, guardCtx);
     try {
       if (!suppressInsert) {
         const { data: last } = await supabase

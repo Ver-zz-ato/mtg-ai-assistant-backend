@@ -1,0 +1,437 @@
+{
+  "generatedAt": "2025-11-08T00:00:04.120Z",
+  "summary": {
+    "pass": 45,
+    "fail": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "name": "Mono-White Lifegain (W)",
+      "colors": [
+        "W"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Mono-Blue Control (U)",
+      "colors": [
+        "U"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Mono-Black Aristocrats (B)",
+      "colors": [
+        "B"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Mono-Red Aggro (R)",
+      "colors": [
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Mono-Green Ramp (G)",
+      "colors": [
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Azorius Flyers (W/U)",
+      "colors": [
+        "W",
+        "U"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Dimir Rogues (U/B)",
+      "colors": [
+        "U",
+        "B"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Rakdos Sacrifice (B/R)",
+      "colors": [
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Gruul Stompy (R/G)",
+      "colors": [
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Selesnya Tokens (G/W)",
+      "colors": [
+        "G",
+        "W"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Izzet Spells (U/R)",
+      "colors": [
+        "U",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Orzhov Lifedrain (W/B)",
+      "colors": [
+        "W",
+        "B"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Golgari Graveyard (B/G)",
+      "colors": [
+        "B",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Boros Equipment (R/W)",
+      "colors": [
+        "R",
+        "W"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Simic Ramp (G/U)",
+      "colors": [
+        "G",
+        "U"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Bant Enchantments (G/W/U)",
+      "colors": [
+        "G",
+        "W",
+        "U"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Esper Control (W/U/B)",
+      "colors": [
+        "W",
+        "U",
+        "B"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Grixis Wheels (U/B/R)",
+      "colors": [
+        "U",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Jund Sacrifice (B/R/G)",
+      "colors": [
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Naya Tokens (R/G/W)",
+      "colors": [
+        "R",
+        "G",
+        "W"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Abzan Counters (W/B/G)",
+      "colors": [
+        "W",
+        "B",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Jeskai Spellslinger (U/R/W)",
+      "colors": [
+        "U",
+        "R",
+        "W"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Mardu Aristocrats (W/B/R)",
+      "colors": [
+        "W",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Sultai Graveyard (U/B/G)",
+      "colors": [
+        "U",
+        "B",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Temur Creatures (U/R/G)",
+      "colors": [
+        "U",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Breya Artifacts (W/U/B/R)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Atraxa Superfriends (W/U/B/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Saskia Aggro (W/B/R/G)",
+      "colors": [
+        "W",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Kynaios Group Hug (W/U/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Yidris Cascade (U/B/R/G)",
+      "colors": [
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Jodah Legends (W/U/B/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Kenrith Toolbox (W/U/B/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Ur-Dragon Tribal (W/U/B/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Najeela Warriors (W/U/B/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Ramos Storm (W/U/B/R/G)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Partners Thrasios & Vial Smasher (G/U/B/R)",
+      "colors": [
+        "G",
+        "U",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Partners Tymna & Kraum (W/U/B/R)",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Partners Ishai & Jeska (W/U/R)",
+      "colors": [
+        "W",
+        "U",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Partners Ikra & Silas (U/B/G)",
+      "colors": [
+        "U",
+        "B",
+        "G"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Partners Rograkh & Silas (U/B/R)",
+      "colors": [
+        "U",
+        "B",
+        "R"
+      ],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Colorless Eldrazi Ramp",
+      "colors": [],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Colorless Artifacts",
+      "colors": [],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Colorless Aggro",
+      "colors": [],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Colorless Tempo",
+      "colors": [],
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "name": "Colorless Control",
+      "colors": [],
+      "status": "pass",
+      "failures": []
+    }
+  ]
+}
