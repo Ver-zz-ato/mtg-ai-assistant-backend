@@ -21,6 +21,8 @@ import {
   normalizeCardName,
 } from "@/lib/deck/mtgValidators";
 
+export const runtime = "nodejs";
+
 // Commander-only cards that should not be suggested for non-Commander formats
 const COMMANDER_ONLY_CARDS = [
   'Sol Ring',
