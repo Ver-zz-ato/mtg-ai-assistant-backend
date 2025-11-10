@@ -14,6 +14,10 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fixModalCard, setFixModalCard] = useState<{ id: string; name: string } | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteStatus, setPasteStatus] = useState<string | null>(null);
   const addBarRef = React.useRef<HTMLDivElement|null>(null);
   const listRef = React.useRef<HTMLDivElement|null>(null);
 
@@ -94,6 +98,38 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       if (retry) {
         add(name, qty);
       }
+    }
+  }
+
+  async function importDecklist() {
+    if (!deckId) return;
+    const text = pasteText.trim();
+    if (!text) {
+      setPasteStatus("Paste a decklist first.");
+      return;
+    }
+    setPasteBusy(true);
+    setPasteStatus("Importing decklist…");
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckText: text }),
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "Failed to parse server response" }));
+      if (!json?.ok) {
+        setPasteStatus(json?.error || "Import failed.");
+        return;
+      }
+      setPasteStatus("Decklist imported successfully.");
+      setPasteText("");
+      await load();
+      try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+      window.dispatchEvent(new CustomEvent("toast", { detail: "Decklist imported" }));
+    } catch (e: any) {
+      setPasteStatus(e?.message || "Import failed.");
+    } finally {
+      setPasteBusy(false);
     }
   }
 
@@ -504,7 +540,40 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       }
     }}>
       {/* Search + quick add */}
-      <div className="max-w-xl" ref={addBarRef}><EditorAddBar onAdd={add} /></div>
+      <div className="max-w-xl space-y-3" ref={addBarRef}>
+        <EditorAddBar onAdd={add} />
+        <button
+          type="button"
+          onClick={() => setPasteOpen((v) => !v)}
+          className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+        >
+          {pasteOpen ? "Hide decklist paste" : "Paste a full decklist"}
+        </button>
+        {pasteOpen && (
+          <div className="space-y-2">
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder={"4 Lightning Bolt\n3 Fable of the Mirror-Breaker\nCommander decks: use \"1 Card Name\" per line"}
+              className="w-full h-36 rounded border border-neutral-700 bg-black/40 px-3 py-2 text-sm"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-neutral-500">
+                Card names auto-correct to official Oracle names.
+              </span>
+              <button
+                type="button"
+                onClick={importDecklist}
+                disabled={pasteBusy}
+                className="rounded bg-blue-500 px-3 py-1 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-50"
+              >
+                {pasteBusy ? "Importing…" : "Import Decklist"}
+              </button>
+            </div>
+            {pasteStatus && <p className="text-xs text-neutral-300">{pasteStatus}</p>}
+          </div>
+        )}
+      </div>
 
       {status && <p className="text-red-400 text-sm mt-2">{status}</p>}
 

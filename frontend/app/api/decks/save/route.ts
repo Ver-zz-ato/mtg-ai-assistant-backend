@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 type SaveBody = {
   title?: string;
@@ -12,26 +13,6 @@ type SaveBody = {
   currency?: string;
   is_public?: boolean;
 };
-
-function parseDeckText(raw?: string): { name: string; qty: number }[] {
-  if (!raw) return [];
-  const out: Record<string, number> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || t.startsWith("//")) continue;
-    // formats: "2 Arcane Signet", "2x Arcane Signet", or "Arcane Signet" (qty=1)
-    const m = t.match(/^\s*(\d+)x?\s+(.+?)\s*$/i);
-    if (m) {
-      const qty = Math.max(0, parseInt(m[1], 10) || 0);
-      const name = m[2].trim();
-      if (qty > 0 && name) out[name] = (out[name] ?? 0) + qty;
-      continue;
-    }
-    // fallback: treat whole line as name, qty=1
-    out[t] = (out[t] ?? 0) + 1;
-  }
-  return Object.entries(out).map(([name, qty]) => ({ name, qty }));
-}
 
 async function scryfallBatch(names: string[]): Promise<Record<string, any>> {
   const identifiers = Array.from(new Set(names.filter(Boolean))).slice(0, 300).map((n) => ({ name: n }));
