@@ -1,5 +1,3 @@
-"use server";
-
 import { type SfCard } from "@/lib/deck/inference";
 
 export type CardSuggestion = {

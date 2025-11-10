@@ -39,6 +39,7 @@
                     "node_modules",
                     "_autofix_backup_*",
                     "_backup_legacy",
-                    "legacy_*_backup"
+                    "legacy_*_backup",
+                    "app/api/deck/analyze/route.ts"
                 ]
 }

@@ -1,5 +1,3 @@
-"use server";
-
 export type CommanderProfile = {
   mustBePermanent?: boolean;
   bannedCards?: string[];
