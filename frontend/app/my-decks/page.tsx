@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
@@ -22,6 +22,20 @@ type DeckRow = {
 };
 
 export default function MyDecksPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Loading decks…</div>
+        </div>
+      }
+    >
+      <MyDecksPageContent />
+    </Suspense>
+  );
+}
+
+function MyDecksPageContent() {
   const supabase = createBrowserSupabaseClient();
   const { user, loading: authLoading } = useAuth(); // NEW: Get auth state from context
   const [decks, setDecks] = useState<DeckRow[]>([]);
