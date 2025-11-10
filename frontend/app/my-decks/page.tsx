@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import MyDecksList from "@/components/MyDecksList";
@@ -8,6 +9,8 @@ import GuestLandingPage from "@/components/GuestLandingPage";
 import { NoDecksEmptyState } from "@/components/EmptyState";
 import DeckPageCoachBubbles from "./ClientWithCoach";
 import CompareDecksWidget from "@/components/CompareDecksWidget";
+import ImportDeckModal from "@/components/ImportDeckModal";
+import { capture } from "@/lib/ph";
 
 type DeckRow = {
   id: string;
@@ -24,6 +27,48 @@ export default function MyDecksPage() {
   const [decks, setDecks] = useState<DeckRow[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showImport, setShowImport] = useState(false);
+
+  const clearImportQuery = useMemo(() => {
+    return () => {
+      if (!searchParams) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (!params.has("action")) return;
+      params.delete("action");
+      const query = params.toString();
+      router.replace(query ? `/my-decks?${query}` : "/my-decks", { scroll: false });
+    };
+  }, [router, searchParams]);
+
+  const openImportModal = () => {
+    try {
+      capture("deck_import_modal_opened", { source: "my-decks-header" });
+    } catch {}
+    setShowImport(true);
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.set("action", "import");
+    const query = params.toString();
+    router.replace(query ? `/my-decks?${query}` : "/my-decks?action=import", { scroll: false });
+  };
+
+  const handleImportClose = () => {
+    setShowImport(false);
+    clearImportQuery();
+  };
+
+  const handleImported = (deckId: string) => {
+    clearImportQuery();
+    setShowImport(false);
+    router.push(`/my-decks/${deckId}?imported=1`);
+  };
+
+  useEffect(() => {
+    if (searchParams?.get("action") === "import") {
+      setShowImport(true);
+    }
+  }, [searchParams]);
 
   // Load decks
   useEffect(() => {
@@ -166,10 +211,16 @@ export default function MyDecksPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-semibold">My Decks</h1>
-        <div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
           {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
+          <button
+            onClick={openImportModal}
+            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          >
+            Import Deck
+          </button>
         </div>
       </div>
 
@@ -213,6 +264,8 @@ export default function MyDecksPage() {
       })()}
       
       <DeckPageCoachBubbles deckCount={decks.length} />
+
+      <ImportDeckModal open={showImport} onClose={handleImportClose} onImported={handleImported} />
     </div>
   );
 }

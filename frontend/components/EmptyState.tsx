@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface EmptyStateProps {
   icon?: string;
   title: string;
@@ -35,9 +37,9 @@ export default function EmptyState({
 
     if (href) {
       return (
-        <a href={href} className={className}>
+        <Link href={href} className={className}>
           {text}
-        </a>
+        </Link>
       );
     }
 
@@ -83,12 +85,12 @@ export function NoDecksEmptyState() {
       </p>
       <div className="flex gap-4 flex-wrap justify-center">
         {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
-        <a href="/new-deck" className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl">
+        <Link href="/new-deck" className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl">
           Create Deck
-        </a>
-        <a href="/my-decks?action=import" className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        </Link>
+        <Link href="/my-decks?action=import" className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
           Import Deck
-        </a>
+        </Link>
       </div>
     </div>
   );
