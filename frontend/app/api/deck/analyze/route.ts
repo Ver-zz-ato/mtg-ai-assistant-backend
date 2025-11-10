@@ -11,6 +11,15 @@ import {
   fetchCardsBatch,
 } from "@/lib/deck/inference";
 import { getActivePromptVersion } from "@/lib/config/prompts";
+import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
+import {
+  CardSuggestion,
+  isWithinColorIdentity,
+  matchesRequestedType,
+  isLegalForFormat,
+  isDuplicate,
+  normalizeCardName,
+} from "@/lib/deck/mtgValidators";
 
 // Commander-only cards that should not be suggested for non-Commander formats
 const COMMANDER_ONLY_CARDS = [
@@ -39,350 +48,453 @@ const COMMANDER_ONLY_CARDS = [
 
 // Prompt Version: Configurable for A/B testing (see getActivePromptVersion() usage below)
 
-async function callGPTForSuggestions(
-  deckText: string,
-  userMessage: string | undefined,
-  context: InferredDeckContext
-): Promise<Array<{ card: string; reason: string; category?: string }>> {
-  // Get active prompt version for A/B testing
-  const PROMPT_VERSION = getActivePromptVersion();
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || "gpt-5";
-  if (!apiKey) {
-    return [{
-      card: "N/A",
-      reason: "AI service is not configured. Please contact support.",
-      category: "optional"
-    }];
+type SuggestionSlotPlan = {
+  role: string;
+  requestedType?: string;
+  colors?: string[];
+  notes?: string;
+  quantity?: number;
+};
+
+type SlotCandidate = {
+  name: string;
+  reason?: string;
+};
+
+type FilledSlot = SuggestionSlotPlan & {
+  candidates: SlotCandidate[];
+};
+
+type ValidatedSuggestion = CardSuggestion & {
+  slotRole: string;
+  requestedType?: string;
+};
+
+type FilteredCandidate = {
+  slotRole: string;
+  name: string;
+  reason: string;
+  source: "gpt" | "retry";
+};
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+async function callOpenAI(
+  systemPrompt: string,
+  userPrompt: string,
+  {
+    temperature = 0.3,
+    maxTokens = 600,
+  }: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    throw Object.assign(new Error("OpenAI API key not configured"), { code: "missing_api_key" });
   }
 
-  // Build system prompt with constraints (Prompt Version: deck-ai-v4)
-  let systemPrompt = "You are an expert MTG deck builder. Analyze the provided decklist and provide suggestions in 3 categories:\n";
-  systemPrompt += "1. MUST-FIX issues (curve problems, land count wildly off, missing removal)\n";
-  systemPrompt += "2. SYNERGY UPGRADES (on-plan swaps that improve consistency)\n";
-  systemPrompt += "3. OPTIONAL/STYLISTIC (nice-to-haves, power upgrades)\n\n";
-  
-  systemPrompt += `CONTEXT PRIORITIZATION:\n`;
-  systemPrompt += `- When giving advice, prioritize information derived from the user's actual decklist over general format trends or card popularity.\n`;
-  systemPrompt += `- Do not recommend generic staples if the deck already has sufficient cards fulfilling that role.\n\n`;
-  
-  systemPrompt += `FORMAT & POWER LEVEL:\n`;
-  systemPrompt += `- Detected format: ${context.format}\n`;
-  if (context.format === "Commander") {
-    systemPrompt += `- WARNING: This is Commander format. Do NOT suggest narrow 4-of-y cards or cards that rely on multiples. Suggest singleton-viable cards only.\n`;
-  } else {
-    systemPrompt += `- WARNING: This is NOT Commander format (${context.format}). Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet, or any other Commander-only cards.\n`;
-    systemPrompt += `- Only suggest cards legal in ${context.format} format.\n`;
-  }
-  systemPrompt += `- LEGALITY: Only recommend cards that are legal in the deck's current format. Never suggest Unfinity or silver-bordered cards unless the user specifically requests them.\n`;
-  systemPrompt += `- Do NOT suggest cards that are already in the decklist.\n`;
-  systemPrompt += `- CRITICAL: Do not suggest cards that are already in the user's deck. The current deck list is authoritative.\n`;
-  systemPrompt += `- Detected power level: ${context.powerLevel}\n`;
-  if (context.powerLevel === 'casual' || context.powerLevel === 'battlecruiser') {
-    systemPrompt += `- This is a ${context.powerLevel} deck. Do NOT recommend trimming to razor-efficiency or cutting fun cards. Respect the deck's power level.\n`;
-    if (context.curveAnalysis && context.curveAnalysis.highEndCount >= 8) {
-      systemPrompt += `- The deck has many 6-7 drops (${context.curveAnalysis.highEndCount}). This is intentional for battlecruiser. Do NOT suggest cutting them.\n`;
-    }
-  }
-  
-  systemPrompt += `\nCOLOR IDENTITY:\n`;
-  systemPrompt += `- Only suggest cards that are within this color identity: ${context.colors.join(', ') || 'No restrictions'}. Reject or replace anything outside those colors.\n`;
-  
-  if (context.commander) {
-    systemPrompt += `\nCOMMANDER SYNERGY:\n`;
-    if (context.partnerCommanders && context.partnerCommanders.length >= 2) {
-      systemPrompt += `- Partner Commanders: ${context.partnerCommanders.join(' + ')}\n`;
-    } else {
-      systemPrompt += `- Commander: ${context.commander}\n`;
-    }
-    if (context.commanderOracleText) {
-      systemPrompt += `- Commander oracle text: ${context.commanderOracleText}\n`;
-      if (context.partnerCommanders && context.partnerCommanders.length >= 2) {
-        systemPrompt += `- When evaluating cards, check if they synergize with BOTH partner commanders. Cards that advance either partner's strategy or enable both are highly valuable.\n`;
-      } else {
-        systemPrompt += `- When evaluating cards, first check: does this card directly advance the commander's text, trigger it more often, or enable the deck's main mechanic? If yes, increase its keep-score.\n`;
-      }
-    }
-    if (context.commanderProvidesRamp || context.existingRampCount >= 3) {
-      if (context.commanderProvidesRamp && context.existingRampCount >= 3) {
-        systemPrompt += `- WARNING: This deck already has sufficient ramp for its plan (commander provides ramp + ${context.existingRampCount} ramp pieces). Do not suggest common 2-3 mana green ramp spells unless there is a synergy reason.\n`;
-      } else if (context.commanderProvidesRamp) {
-        systemPrompt += `- WARNING: The commander already provides ramp. Do NOT suggest generic 2-3 mana ramp like Cultivate or Kodama's Reach unless there is a specific synergy reason (e.g., landfall, mana value fixing).\n`;
-      } else {
-        systemPrompt += `- WARNING: This deck already has ${context.existingRampCount} ramp pieces. Do not suggest common 2-3 mana green ramp spells unless there is a synergy reason.\n`;
-      }
-    }
-  }
-
-  if (context.landCount > 38) {
-    systemPrompt += `- The deck has ${context.landCount} lands (already above the recommended 35-38). Recommend cutting lands instead of adding them.\n`;
-  }
-
-  // Archetype protection rules
-  if (context.archetype && context.protectedRoles && context.protectedRoles.length > 0) {
-    systemPrompt += `\nARCHETYPE PROTECTION RULES:\n`;
-    systemPrompt += `- This deck is a ${context.archetype === 'aristocrats' ? 'aristocrats' : 'token/sacrifice'} deck.\n`;
-    systemPrompt += `- PROTECTED_ROLES (do NOT suggest cutting these unless there are strictly better functional duplicates in the deck):\n`;
-    context.protectedRoles.forEach(role => {
-      systemPrompt += `  * ${role}\n`;
-    });
-    systemPrompt += `- When suggesting "cuts", do NOT suggest cutting cards in PROTECTED_ROLES.\n`;
-    systemPrompt += `- When suggesting "protection" cards, prefer cards that protect or recur the board in the deck's colors and gameplan, instead of random high-CMC off-plan enchantments.\n`;
-  }
-  
-  systemPrompt += `\nSTYLE PRESERVATION:\n`;
-  systemPrompt += `- Preserve the deck's playstyle identity (e.g. control, combo, midrange, tokens). Add cards that strengthen its core strategy rather than changing it.\n`;
-
-  // Role tagging and cut rules
-  if (context.roleDistribution) {
-    systemPrompt += `\nROLE DISTRIBUTION:\n`;
-    const rd = context.roleDistribution;
-    systemPrompt += `- Role counts: ${Object.entries(rd.byRole).filter(([_, count]) => count > 0).map(([role, count]) => `${role}: ${count}`).join(', ')}\n`;
-    systemPrompt += `- CRITICAL RULE: Never cut the last remaining card in a needed role. Check role distribution before suggesting cuts.\n`;
-    systemPrompt += `- If a role has only 1-2 cards, those cards are PROTECTED and should not be cut unless there's a strictly better functional duplicate.\n`;
-    
-    // Redundancy rules
-    const redundant = Object.entries(rd.redundancy).filter(([_, count]) => count >= 5);
-    if (redundant.length > 0) {
-      systemPrompt += `- REDUNDANT CARDS (valid cut candidates): ${redundant.map(([name]) => name).join(', ')}\n`;
-      systemPrompt += `- If there are 5+ almost-identical cards in the same role, those are valid cut candidates.\n`;
-      systemPrompt += `- Prefer to cut "highest CMC in the most overcrowded role" for more human-like cuts.\n`;
-    }
-    
-    const unique = Object.entries(rd.redundancy).filter(([_, count]) => count <= 2);
-    if (unique.length > 0) {
-      systemPrompt += `- UNIQUE ENGINE PIECES (do NOT cut): ${unique.slice(0, 10).map(([name]) => name).join(', ')}\n`;
-      systemPrompt += `- If there are only 2 nearly-unique engine pieces, do NOT cut those.\n`;
-    }
-  }
-
-  // Curve awareness
-  if (context.curveAnalysis) {
-    systemPrompt += `\nCURVE ANALYSIS:\n`;
-    const curve = context.curveAnalysis;
-    systemPrompt += `- Average CMC: ${curve.averageCMC.toFixed(2)}\n`;
-    systemPrompt += `- High-end cards (6+ CMC): ${curve.highEndCount}\n`;
-    if (curve.lowCurve) {
-      systemPrompt += `- This is a low-curve deck (avg ≤ 3). Do NOT suggest 6-drops unless they're wincons.\n`;
-    }
-    if (curve.tightManabase) {
-      systemPrompt += `- Manabase is tight (limited sources). Do NOT suggest double-pip splash cards.\n`;
-    }
-  }
-  
-  systemPrompt += `\nWIN CONDITION AWARENESS:\n`;
-  systemPrompt += `- If the deck already contains multiple finishers or 'overrun' style effects (e.g. Craterhoof Behemoth, Jetmir, Fiery Emancipation, Moonshaker Cavalry), avoid recommending more effects of the same type. Prefer supporting/ramp/fixing cards instead.\n`;
-  
-  systemPrompt += `\nREDUNDANCY AVOIDANCE:\n`;
-  systemPrompt += `- If the deck already has several cards fulfilling the same mechanical role (e.g. multiple board wipes, several mana doublers, or redundant draw engines), avoid suggesting more of the same unless a clear synergy justifies it.\n`;
-  systemPrompt += `- This rule applies across all categories: ramp, removal, draw, win conditions, protection, etc. Check existing card counts before suggesting additions.\n`;
-
-  // Manabase feedback rules
-  if (context.manabaseAnalysis) {
-    systemPrompt += `\nMANABASE ANALYSIS:\n`;
-    const mb = context.manabaseAnalysis;
-    const activeColors = context.colors.filter(c => mb.coloredPips[c] > 0);
-    
-    if (activeColors.length > 0) {
-      systemPrompt += `- Colored pips per color: ${activeColors.map(c => `${c}: ${mb.coloredPips[c].toFixed(1)}`).join(', ')}\n`;
-      systemPrompt += `- Colored sources per color: ${activeColors.map(c => `${c}: ${mb.coloredSources[c]}`).join(', ')}\n`;
-      systemPrompt += `- Source-to-pip ratios: ${activeColors.map(c => `${c}: ${mb.ratio[c].toFixed(2)}`).join(', ')}\n`;
-      systemPrompt += `- Variance from ideal: ${activeColors.map(c => `${c}: ${mb.variance[c].toFixed(1)}%`).join(', ')}\n`;
-      
-      systemPrompt += `- When commenting on the manabase, compare lands to actual color requirements in the spell list. Only comment on manabase if colors are imbalanced by more than 15%. Do not give generic "balance your manabase" advice if the current distribution already matches spell requirements within 10-15%.\n`;
-      
-      if (mb.isAcceptable) {
-        systemPrompt += `- MANABASE FEEDBACK: The manabase is acceptable for this deck. The ratio of sources to pips is balanced (within 10-15% variance). Return "manabase is acceptable for this deck" instead of generic "make it balanced".\n`;
-      } else {
-        systemPrompt += `- MANABASE FEEDBACK: The manabase needs adjustment. Some colors have imbalanced source-to-pip ratios (variance > 15%). Provide specific feedback on which colors need more or fewer sources.\n`;
-      }
-    }
-  }
-
-  // User intent protection
-  if (context.userIntent) {
-    systemPrompt += `\nUSER INTENT:\n`;
-    systemPrompt += `- Detected user goal: "${context.userIntent}"\n`;
-    systemPrompt += `- CRITICAL: Do NOT suggest cuts that undermine this goal. Instead, improve consistency of that goal.\n`;
-    systemPrompt += `- If the user prompt contains a goal, do NOT contradict it. Enhance it instead.\n`;
-  }
-
-  // Budget awareness
-  if (context.isBudget) {
-    systemPrompt += `\nBUDGET CONSTRAINT:\n`;
-    systemPrompt += `- User indicated this is a budget deck. Prefer cards under $5-10 unless they explicitly ask for expensive upgrades.\n`;
-    systemPrompt += `- Suggest two tracks if appropriate: same-price swaps and premium upgrades.\n`;
-  }
-  systemPrompt += `\nBUDGET AWARENESS:\n`;
-  systemPrompt += `- Respect the deck's budget setting. When suggesting cards, prefer cheaper equivalents over premium versions unless the user explicitly asks for upgrades.\n`;
-  systemPrompt += `- Avoid pushing expensive staples (e.g. Gaea's Cradle, Lion's Eye Diamond, Mana Crypt) in casual or budget decks.\n`;
-
-  systemPrompt += `\nCARD ANALYSIS ACCURACY:\n`;
-  systemPrompt += `- Only call a card 'draw' or 'filtering' if it actually draws, loots (draw then discard), rummages (discard then draw), or impulsively looks at cards. Do not label burn or removal spells as card advantage.\n`;
-  systemPrompt += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
-  systemPrompt += `- Tutor cards like Vampiric Tutor, Demonic Tutor, Enlightened Tutor, Worldly Tutor are NOT removal. Classify them as tutors/utility, not removal.\n`;
-  
-  systemPrompt += `\nCONTINUOUS IMPROVEMENT:\n`;
-  systemPrompt += `- Your suggestions are tracked and reviewed. Cards that are frequently shown but not accepted by users may indicate issues with the suggestion (wrong format, off-color, already in deck, etc.). Learn from rejection patterns to improve future suggestions.\n`;
-  
-  systemPrompt += `\nOUTPUT FORMAT:\n`;
-  systemPrompt += `- Structure suggestions in 3 buckets: must-fix, synergy-upgrades, optional-stylistic\n`;
-  systemPrompt += `- SUGGESTION DIVERSITY: When giving card suggestions, balance them across roles — a few ramp pieces, a few draw engines, a few interaction options — rather than ten cards from one category.\n`;
-  systemPrompt += `- SYNERGY REASONING: Always explain why each suggestion fits the deck's strategy in one short sentence. Make the connection to the deck's plan clear.\n`;
-  systemPrompt += `- Add a quick reason per item so users can see why and ignore if hallucinated.\n`;
-  systemPrompt += `- Use the provided decklist as source of truth.\n`;
-  systemPrompt += `- Return suggestions with short justifications (1 sentence each).\n`;
-  systemPrompt += `- Respond ONLY with a JSON array: [{"card": "Card Name", "reason": "short justification", "category": "must-fix|synergy-upgrade|optional"}]\n`;
-  
-  systemPrompt += `\n### Guidance for MTG user trust\n\n`;
-  systemPrompt += `When advising, first acknowledge the deck's existing themes or synergies, then build on them. Example: 'You're already doing landfall, so…'\n\n`;
-  systemPrompt += `Treat unusual or flavorful card choices as intentional. Offer complementary cards before suggesting cuts, unless the user asks for strict optimization.\n\n`;
-  systemPrompt += `If the user's request is ambiguous (for example 'make it faster'), ask a short clarifying question before giving specific card names.\n\n`;
-  systemPrompt += `When recommending a card or combo, explain the interaction in one short sentence so the user can see why it fits.\n\n`;
-  systemPrompt += `Use official sources (Oracle/Scryfall data) as the authority for rules, legality, and card text. Don't invent cards.\n\n`;
-  systemPrompt += `Avoid overhyped language like 'auto-include' or 'must run'. Prefer 'strong in this archetype' or 'commonly played finisher'.\n\n`;
-  systemPrompt += `If the deck's archetype isn't clear from the list, say so and ask the user to clarify whether it's aiming for combo / midrange / tokens / control.\n\n`;
-  systemPrompt += `Adjust tone by format: Commander = synergy/fun/politics, 60-card formats = efficiency/curve/consistency.\n\n`;
-  systemPrompt += `If the user points out that a previous suggestion was wrong or redundant, acknowledge it and adjust the next suggestions accordingly.\n\n`;
-  systemPrompt += `Keep responses concise and scannable — short bullets with card name + reason.\n\n`;
-  
-  systemPrompt += `### Advanced Co-Pilot Behaviors\n\n`;
-  systemPrompt += `1. METAGAME REFERENCE: When mentioning metagame trends, describe them as current tendencies, not absolutes. Example: 'In recent Commander data, this combo is common,' instead of 'This is the best combo.' If no data is available, focus on reasoning from card interactions rather than popularity.\n\n`;
-  systemPrompt += `2. ENCOURAGE ITERATION: End deck improvement responses with one line suggesting a next step the user can try, e.g. 'Would you like me to balance the mana curve next?' or 'Want to see alternatives for your ramp package?'\n\n`;
-  systemPrompt += `3. FORMAT-LEGAL FALLBACK: If a suggested card is not legal in the current format, automatically offer the closest legal alternative or flag it as 'illegal but similar idea.'\n\n`;
-  systemPrompt += `4. MEMORY OF PREVIOUS ANALYSIS: If the user has already analyzed this deck before, summarize what was fixed last time ('You already added ramp last session') before giving new advice.\n\n`;
-  systemPrompt += `5. EXPLAIN TRADE-OFFS: For each improvement suggestion, explain one potential drawback. Example: 'This adds consistency but makes you weaker to artifact hate.'\n\n`;
-  systemPrompt += `6. AESTHETIC AWARENESS: If the deck clearly has a theme or aesthetic (tribal, color motif, story flavor), mention how new cards fit that identity.\n\n`;
-  systemPrompt += `7. FUTURE-PROOFING: If a user asks about a card or mechanic from a set that hasn't released yet, clarify that release info can change and reference previews cautiously.\n\n`;
-  systemPrompt += `8. PRE-EMPT SIDEBOARD / META MATCHUPS: When suggesting cards, briefly mention what matchups or archetypes the card helps against (e.g., 'Great vs graveyard decks,' 'Helps against blue control'). This makes advice feel tactical, not theoretical.\n\n`;
-  systemPrompt += `9. MENTION PLAY PATTERNS: When recommending a card, describe how it changes actual turns ('lets you keep mana up for removal,' 'smooths early draws'). MTG players think in sequencing — this turns the AI's output from abstract theory into lived experience.\n\n`;
-  systemPrompt += `10. TIE RECOMMENDATIONS TO DECK GOALS: When suggesting a change, connect it back to the deck's win condition or philosophy ('helps you reach your combo faster,' 'makes your token swarm lethal sooner'). Every suggestion should feel purpose-linked, not random.\n\n`;
-  systemPrompt += `11. NEVER ASSUME SINGLETON: If the format allows multiples (Standard, Modern, etc.), clarify how many copies to consider and why. Most AIs forget that Commander is singleton but others aren't.\n\n`;
-  systemPrompt += `12. MIND THE CURVE VISUALLY: When commenting on mana curve, phrase it in plain gameplay terms: 'You might struggle on turns two to three,' instead of 'Your curve distribution is skewed low.' Better UX = wider audience.\n\n`;
-  systemPrompt += `13. ACKNOWLEDGE SOCIAL DYNAMICS IN MULTIPLAYER: In Commander advice, mention table perception ('This might draw aggro early,' 'Keeps a low profile until the win turn'). The Commander community loves when the AI respects politics.\n\n`;
-  systemPrompt += `14. ENCOURAGE SELF-TESTING: When suggesting changes, remind the user to goldfish or simulate a few opening hands to test curve or ramp consistency. This cross-promotes your own Mulligan Simulator and Probability Panel features naturally.`;
-
-  const userPrompt = userMessage 
-    ? `${userMessage}\n\nDecklist:\n${deckText}`
-    : `Analyze this deck and suggest improvements:\n\n${deckText}`;
-
-  try {
-    const body: any = {
-      model,
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
       input: [
         { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
         { role: "user", content: [{ type: "input_text", text: userPrompt }] },
       ],
-      max_output_tokens: 512,
-      temperature: 0.7,
-    };
+      temperature,
+      max_output_tokens: maxTokens,
+    }),
+  });
 
-    const r = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(body),
-    }).catch((error) => {
-      // Network/timeout error
-      return {
-        ok: false,
-        error: { message: error?.message || 'Network error', code: 'network_error' }
-      } as any;
-    });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    const message = errorBody?.error?.message || `HTTP ${response.status}`;
+    throw Object.assign(new Error(message), { status: response.status });
+  }
 
-    if (!r) {
-      // Network failure
-      return [{
-        card: "N/A",
-        reason: "AI service temporarily unavailable due to network issues. Please try again in a moment.",
-        category: "optional"
-      }];
-    }
+  const body = await response.json().catch(() => ({}));
+  return String(body?.output_text ?? "").trim();
+}
 
-    if (!r.ok) {
-      const errorBody = await r.json().catch(() => ({}));
-      const errorMsg = String(errorBody?.error?.message || '').toLowerCase();
-      const status = r.status;
-      
-      // Rate limit error
-      if (status === 429 || /rate limit|too many requests/i.test(errorMsg)) {
-        return [{
-          card: "N/A",
-          reason: "AI service is currently rate-limited. Please wait a moment and try again.",
-          category: "optional"
-        }];
-      }
-      
-      // API key missing or invalid
-      if (status === 401 || /unauthorized|invalid.*key|api key/i.test(errorMsg)) {
-        return [{
-          card: "N/A",
-          reason: "AI service is not configured. Please contact support.",
-          category: "optional"
-        }];
-      }
-      
-      // Model not found or access denied
-      if (status === 404 || /model.*not found|access denied/i.test(errorMsg)) {
-        return [{
-          card: "N/A",
-          reason: "AI model unavailable. Please try again later.",
-          category: "optional"
-        }];
-      }
-      
-      // Generic error
-      return [{
-        card: "N/A",
-        reason: "AI service temporarily unavailable. Please try again in a moment.",
-        category: "optional"
-      }];
-    }
-    
-    const j: any = await r.json().catch(() => ({}));
-    const text = (j?.output_text || "").trim();
-    
-    // Try to extract JSON from response
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (parseError) {
-        // Parse error - return helpful message
-        return [{
-          card: "N/A",
-          reason: "AI response format error. Please try again.",
-          category: "optional"
-        }];
-      }
-    }
-    
-    // Empty or invalid response
-    return [{
-      card: "N/A",
-      reason: "AI service returned an invalid response. Please try again.",
-      category: "optional"
-    }];
-  } catch (error: any) {
-    // Unexpected error
-    const errorMsg = String(error?.message || '').toLowerCase();
-    if (/timeout|timed out/i.test(errorMsg)) {
-      return [{
-        card: "N/A",
-        reason: "AI service request timed out. Please try again.",
-        category: "optional"
-      }];
-    }
-    
-    return [{
-      card: "N/A",
-      reason: "AI service temporarily unavailable. Please try again in a moment.",
-      category: "optional"
-    }];
+function extractJsonObject(raw: string): any | null {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return null;
   }
 }
+
+async function planSuggestionSlots(
+  deckText: string,
+  userMessage: string | undefined,
+  context: InferredDeckContext
+): Promise<SuggestionSlotPlan[]> {
+  const promptVersion = getActivePromptVersion();
+  const profile = context.commander ? COMMANDER_PROFILES[context.commander] ?? null : null;
+
+  const systemPrompt = [
+    "You are ManaTap's planning assistant. Before naming cards, decide what kinds of improvements the deck needs.",
+    "Always respond with STRICT JSON. No narration.",
+    `Prompt version: ${promptVersion}-planner`,
+  ].join("\n");
+
+  const profileNotes = profile
+    ? [
+        profile.mustBePermanent ? "- Recommended cards should be permanents for this commander." : "",
+        profile.preferTags && profile.preferTags.length
+          ? `- Consider cards with these patterns: ${profile.preferTags.join(", ")}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
+  const userPrompt = [
+    `Deck format: ${context.format}`,
+    `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
+    context.commander ? `Commander: ${context.commander}` : "Commander: none provided",
+    profileNotes ? `Commander profile notes:\n${profileNotes}` : "",
+    context.userIntent ? `User goal: ${context.userIntent}` : "",
+    context.archetype ? `Detected archetype: ${context.archetype}` : "",
+    context.powerLevel ? `Power level: ${context.powerLevel}` : "",
+    userMessage ? `User message:\n${userMessage}` : "User message: (none)",
+    "Decklist:",
+    deckText,
+    "",
+    "Plan 3-6 suggestion slots. Each slot describes the job to be done (ramp, interaction, recursion, finishers, meta tech, etc.) and preferred card type.",
+    "Return JSON exactly: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any|...\",\"colors\":[\"R\",\"G\"],\"notes\":\"short justification\",\"quantity\":1}]}",
+    "requestedType and colors are optional; omit when flexible. Notes should be concise.",
+  ].join("\n");
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 400 });
+      const parsed = extractJsonObject(raw);
+      const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
+      if (slots.length > 0) {
+        return slots.slice(0, 8).map((slot: any) => ({
+          role: String(slot?.role || "").trim() || "optional",
+          requestedType: slot?.requestedType ? String(slot.requestedType) : undefined,
+          colors: Array.isArray(slot?.colors)
+            ? slot.colors.map((c: string) => String(c).toUpperCase())
+            : undefined,
+          notes: slot?.notes ? String(slot.notes) : undefined,
+          quantity: Number.isFinite(slot?.quantity) ? Number(slot.quantity) : undefined,
+        }));
+      }
+    } catch (error: any) {
+      if (error?.code === "missing_api_key") {
+        return [];
+      }
+      if (attempt === 1) throw error;
+    }
+  }
+
+  return [];
+}
+
+async function fetchSlotCandidates(
+  slot: SuggestionSlotPlan,
+  context: InferredDeckContext,
+  deckText: string,
+  userMessage: string | undefined
+): Promise<SlotCandidate[]> {
+  const promptVersion = getActivePromptVersion();
+
+  const systemPrompt = [
+    "You are ManaTap's slot-filling assistant. Suggest specific Magic: The Gathering cards for the given role.",
+    "Always return STRICT JSON. Include short synergy reasons.",
+    `Prompt version: ${promptVersion}-slot`,
+  ].join("\n");
+
+  const userPrompt = [
+    `Deck format: ${context.format}`,
+    `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
+    context.commander ? `Commander: ${context.commander}` : "Commander: none provided",
+    slot.requestedType ? `Requested type: ${slot.requestedType}` : "Requested type: any",
+    slot.colors ? `Slot colors: ${slot.colors.join(", ")}` : "Slot colors: use deck colors",
+    slot.role ? `Slot role: ${slot.role}` : "",
+    slot.notes ? `Slot notes: ${slot.notes}` : "",
+    context.userIntent ? `User intent: ${context.userIntent}` : "",
+    userMessage ? `User message:\n${userMessage}` : "User message: (none)",
+    "Decklist:",
+    deckText,
+    "",
+    "Return JSON exactly: {\"candidates\":[{\"name\":\"Card Name\",\"reason\":\"short phrase\"}, ...]}",
+    "All cards must be legal in the deck's format, within the color identity, and synergistic with the plan/commander.",
+    "Prefer on-plan permanents if requested. Avoid cards already in the decklist.",
+  ].join("\n");
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.4, maxTokens: 450 });
+      const parsed = extractJsonObject(raw);
+      const candidates = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+      if (candidates.length > 0) {
+        return candidates
+          .slice(0, 3)
+          .map((candidate: any) => ({
+            name: String(candidate?.name || "").trim(),
+            reason: candidate?.reason ? String(candidate.reason) : undefined,
+          }))
+          .filter((c) => c.name);
+      }
+    } catch (error: any) {
+      if (error?.code === "missing_api_key") {
+        return [];
+      }
+      if (attempt === 1) throw error;
+    }
+  }
+
+  return [];
+}
+
+async function fillSuggestionSlots(
+  slots: SuggestionSlotPlan[],
+  context: InferredDeckContext,
+  deckText: string,
+  userMessage: string | undefined
+): Promise<FilledSlot[]> {
+  const filled: FilledSlot[] = [];
+  for (const slot of slots) {
+    const candidates = await fetchSlotCandidates(slot, context, deckText, userMessage);
+    filled.push({ ...slot, candidates });
+  }
+  return filled;
+}
+
+async function retrySlotCandidates(
+  slot: SuggestionSlotPlan,
+  context: InferredDeckContext,
+  deckText: string,
+  userMessage: string | undefined
+): Promise<SlotCandidate[]> {
+  const promptVersion = getActivePromptVersion();
+  const systemPrompt = [
+    "You are ManaTap's strict deck assistant.",
+    "Previous ideas were filtered for being off-color, illegal, or wrong card type.",
+    "Return STRICT JSON with replacements only.",
+    `Prompt version: ${promptVersion}-retry`,
+  ].join("\n");
+
+  const colorLine =
+    slot.colors && slot.colors.length > 0
+      ? `exactly within colors ${slot.colors.join(", ")}`
+      : `exactly within deck colors (${context.colors.join(", ") || "colorless"})`;
+
+  const typeLine = slot.requestedType ? ` and card type ${slot.requestedType}` : "";
+
+  const userPrompt = [
+    `Deck format: ${context.format}`,
+    `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
+    context.commander ? `Commander: ${context.commander}` : "Commander: none provided",
+    `Slot role: ${slot.role}`,
+    `Strict requirement: cards must be ${colorLine}${typeLine}.`,
+    "Provide up to 5 legal, on-plan replacements with short synergy reasons.",
+    userMessage ? `User message:\n${userMessage}` : "User message: (none)",
+    "Decklist:",
+    deckText,
+    "",
+    "Return JSON exactly: {\"candidates\":[{\"name\":\"Card Name\",\"reason\":\"short phrase\"}, ...]}",
+  ].join("\n");
+
+  try {
+    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.25, maxTokens: 450 });
+    const parsed = extractJsonObject(raw);
+    const candidates = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+    return candidates
+      .slice(0, 5)
+      .map((candidate: any) => ({
+        name: String(candidate?.name || "").trim(),
+        reason: candidate?.reason ? String(candidate.reason) : undefined,
+      }))
+      .filter((c) => c.name);
+  } catch (error: any) {
+    if (error?.code === "missing_api_key") {
+      return [];
+    }
+    return [];
+  }
+}
+
+async function validateFilledSlots(
+  filledSlots: FilledSlot[],
+  context: InferredDeckContext,
+  deckEntries: Array<{ count: number; name: string }>,
+  byName: Map<string, SfCard>,
+  deckText: string,
+  userMessage: string | undefined
+): Promise<{ suggestions: ValidatedSuggestion[]; filtered: FilteredCandidate[]; requiredCount: number; filledCount: number }> {
+  const suggestions: ValidatedSuggestion[] = [];
+  const filtered: FilteredCandidate[] = [];
+  const deckNormalized = new Set(deckEntries.map((entry) => normalizeCardName(entry.name)));
+  const selectedNormalized = new Set<string>();
+  const profile = context.commander ? COMMANDER_PROFILES[context.commander] ?? null : null;
+  const isCommanderFormat = context.format === "Commander";
+
+  const evaluateCandidates = async (
+    slot: SuggestionSlotPlan,
+    candidates: SlotCandidate[],
+    source: "gpt" | "retry",
+    needOverride?: number
+  ): Promise<number> => {
+    const required = Math.max(1, needOverride ?? slot.quantity ?? 1);
+    let picked = 0;
+    const slotAllowedColors =
+      slot.colors && slot.colors.length > 0 ? slot.colors : context.colors;
+    const normalizedAllowed =
+      slotAllowedColors && slotAllowedColors.length > 0
+        ? slotAllowedColors.map((c) => c.toUpperCase())
+        : context.colors.length > 0
+        ? context.colors.map((c) => c.toUpperCase())
+        : ["C"];
+
+    for (const candidate of candidates) {
+      if (picked >= required) break;
+      const normalizedName = normalizeCardName(candidate.name);
+      if (!candidate.name || !normalizedName) {
+        filtered.push({
+          slotRole: slot.role,
+          name: candidate.name || "(empty)",
+          reason: "missing name",
+          source,
+        });
+        continue;
+      }
+
+      if (selectedNormalized.has(normalizedName)) {
+        filtered.push({
+          slotRole: slot.role,
+          name: candidate.name,
+          reason: "already selected for another slot",
+          source,
+        });
+        continue;
+      }
+
+      if (isDuplicate(candidate.name, deckNormalized)) {
+        filtered.push({
+          slotRole: slot.role,
+          name: candidate.name,
+          reason: "already in deck",
+          source,
+        });
+        continue;
+      }
+
+      const lookupKey = candidate.name.toLowerCase();
+      let card = byName.get(lookupKey);
+      if (!card) {
+        card = await fetchCard(candidate.name);
+        if (card) {
+          byName.set(card.name.toLowerCase(), card);
+        }
+      }
+      if (!card) {
+        filtered.push({
+          slotRole: slot.role,
+          name: candidate.name,
+          reason: "card lookup failed",
+          source,
+        });
+        continue;
+      }
+
+      if (!isCommanderFormat && COMMANDER_ONLY_CARDS.includes(card.name)) {
+        filtered.push({
+          slotRole: slot.role,
+          name: card.name,
+          reason: "commander-only card in non-Commander format",
+          source,
+        });
+        continue;
+      }
+
+      if (!isWithinColorIdentity(card, normalizedAllowed)) {
+        filtered.push({
+          slotRole: slot.role,
+          name: card.name,
+          reason: "off-color identity",
+          source,
+        });
+        continue;
+      }
+
+      if (!isLegalForFormat(card, context.format)) {
+        filtered.push({
+          slotRole: slot.role,
+          name: card.name,
+          reason: `illegal in ${context.format}`,
+          source,
+        });
+        continue;
+      }
+
+      if (profile?.mustBePermanent && !matchesRequestedType(card, "permanent")) {
+        filtered.push({
+          slotRole: slot.role,
+          name: card.name,
+          reason: "commander requires permanents",
+          source,
+        });
+        continue;
+      }
+
+      if (slot.requestedType && slot.requestedType.toLowerCase() !== "any") {
+        if (!matchesRequestedType(card, slot.requestedType)) {
+          filtered.push({
+            slotRole: slot.role,
+            name: card.name,
+            reason: `expected type ${slot.requestedType}`,
+            source,
+          });
+          continue;
+        }
+      }
+
+      suggestions.push({
+        name: card.name,
+        reason: candidate.reason,
+        source,
+        requestedType: slot.requestedType,
+        slotRole: slot.role,
+      });
+      selectedNormalized.add(normalizedName);
+      deckNormalized.add(normalizedName);
+      picked += 1;
+    }
+
+    return picked;
+  };
+
+  const missingSlots: Array<{ slot: SuggestionSlotPlan; needed: number }> = [];
+  let totalRequired = 0;
+
+  for (const slot of filledSlots) {
+    const required = Math.max(1, slot.quantity ?? 1);
+    totalRequired += required;
+    const picked = await evaluateCandidates(slot, slot.candidates, "gpt");
+    if (picked < required) {
+      missingSlots.push({ slot, needed: required - picked });
+    }
+  }
+
+  const filledCount = suggestions.length;
+  const threshold = Math.ceil(totalRequired * 0.4);
+
+  if (filledCount < threshold && missingSlots.length > 0) {
+    for (const { slot, needed } of missingSlots) {
+      const retryCandidates = await retrySlotCandidates(slot, context, deckText, userMessage);
+      if (retryCandidates.length === 0) continue;
+      await evaluateCandidates(slot, retryCandidates, "retry", needed);
+    }
+  }
 
 // Helper: Check if land produces colors outside allowed colors
 function checkLandColors(card: SfCard, allowedColors: Set<string>): boolean {
@@ -598,16 +710,6 @@ function isGenericRamp(cardName: string): boolean {
     'honed edge',
   ];
   return genericRamp.some(ramp => nameLower.includes(ramp));
-}
-
-// Helper: Normalize card name for comparison (lowercase, trim, remove punctuation)
-function normalizeCardName(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[.,;:'"!?()[\]{}]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .replace(/\s+/g, ''); // Remove all spaces for comparison
 }
 
 // Helper: Check if card is a board wipe that might harm the deck's plan
@@ -1284,7 +1386,14 @@ export async function POST(req: Request) {
   }
 
   // GPT-based suggestions with inference and filtering (enabled by default when useScryfall is true)
-  let gptSuggestions: Array<{ card: string; reason: string }> = [];
+  let gptSuggestions: Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }> = [];
+  let suggestionPartial = false;
+  let suggestionDebug: { filtered: FilteredCandidate[]; planned: number; filled: number; required: number } = {
+    filtered: [],
+    planned: 0,
+    filled: 0,
+    required: 0,
+  };
   if (useScryfall) {
     try {
       // Infer deck context
@@ -1323,11 +1432,78 @@ export async function POST(req: Request) {
       });
 
       // Call GPT for suggestions
-      const rawSuggestions = await callGPTForSuggestions(deckText, userMessage, inferredContext);
-      console.log('[analyze] Raw GPT suggestions:', rawSuggestions.length, rawSuggestions.map(s => s.card));
+      const plannedSlots = await planSuggestionSlots(deckText, userMessage, inferredContext);
+      const filledSlots =
+        plannedSlots.length > 0
+          ? await fillSuggestionSlots(plannedSlots, inferredContext, deckText, userMessage)
+          : [];
 
-      // Post-filter suggestions
-      gptSuggestions = await postFilterSuggestions(rawSuggestions, inferredContext, byName, currency, entries, userId);
+      const validation = await validateFilledSlots(
+        filledSlots,
+        inferredContext,
+        entries,
+        byName,
+        deckText,
+        userMessage
+      );
+
+      suggestionDebug = {
+        filtered: validation.filtered,
+        planned: plannedSlots.length,
+        filled: validation.filledCount,
+        required: validation.requiredCount,
+      };
+      suggestionPartial = validation.filledCount < validation.requiredCount;
+
+      const rawSuggestions = validation.suggestions.map((suggestion) => {
+        const normalizedRole = suggestion.slotRole?.toLowerCase() ?? "";
+        let category: "must-fix" | "synergy-upgrade" | "optional" = "optional";
+        if (normalizedRole.includes("must") || normalizedRole.includes("fix")) category = "must-fix";
+        else if (normalizedRole.includes("upgrade") || normalizedRole.includes("synergy")) category = "synergy-upgrade";
+
+        return {
+          card: suggestion.name,
+          reason:
+            suggestion.reason ||
+            `Supports ${suggestion.slotRole || "the deck plan"}.`,
+          category,
+          source: suggestion.source,
+        };
+      });
+
+      let usePlaceholder = false;
+      if (rawSuggestions.length === 0) {
+        usePlaceholder = true;
+        suggestionPartial = true;
+        rawSuggestions.push({
+          card: "N/A",
+          reason:
+            plannedSlots.length === 0
+              ? "AI planner returned no actionable slots. Please try again."
+              : "All GPT suggestions failed validation. Please try again.",
+          category: "optional",
+        });
+      }
+
+      console.log(
+        '[analyze] Planned slots:',
+        plannedSlots.length,
+        'Filled slots:',
+        filledSlots.length,
+        'Validated:',
+        validation.suggestions.length,
+      );
+      console.log('[analyze] Validation filtered:', validation.filtered);
+
+      if (usePlaceholder) {
+        gptSuggestions = rawSuggestions;
+      } else {
+        // Post-filter suggestions (budget, legality double-check)
+        gptSuggestions = await postFilterSuggestions(rawSuggestions, inferredContext, byName, currency, entries, userId);
+        if (gptSuggestions.length < validation.requiredCount) {
+          suggestionPartial = true;
+        }
+      }
       console.log('[analyze] Filtered suggestions:', gptSuggestions.length, gptSuggestions.map(s => s.card));
     } catch (error) {
       console.error('[analyze] Error in GPT suggestions:', error);
@@ -1352,6 +1528,13 @@ export async function POST(req: Request) {
     combosPresent,
     combosMissing,
     suggestions: gptSuggestions, // GPT-filtered suggestions
+    partial: suggestionPartial,
+    debug: {
+      filteredCandidates: suggestionDebug.filtered,
+      plannedSlots: suggestionDebug.planned,
+      requiredSuggestions: suggestionDebug.required,
+      filledSuggestions: suggestionDebug.filled,
+    },
     prompt_version: useGPT && useScryfall ? getActivePromptVersion() : undefined, // Include for A/B testing analytics
   });
 }
