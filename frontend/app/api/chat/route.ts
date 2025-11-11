@@ -3,10 +3,53 @@ import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/app/api/_utils/envelope";
 import type { SfCard } from "@/lib/deck/inference";
+import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
+
+const COMMANDER_BANNED: Record<string, true> = {
+  "Ancestral Recall": true,
+  "Balance": true,
+  "Biorhythm": true,
+  "Black Lotus": true,
+  "Channel": true,
+  "Emrakul, the Aeons Torn": true,
+  "Falling Star": true,
+  "Fastbond": true,
+  "Flash": true,
+  "Gifts Ungiven": true,
+  "Golos, Tireless Pilgrim": true,
+  "Griselbrand": true,
+  "Hullbreacher": true,
+  "Iona, Shield of Emeria": true,
+  "Kokusho, the Evening Star": true,
+  "Leovold, Emissary of Trest": true,
+  "Library of Alexandria": true,
+  "Limited Resources": true,
+  "Mox Emerald": true,
+  "Mox Jet": true,
+  "Mox Pearl": true,
+  "Mox Ruby": true,
+  "Mox Sapphire": true,
+  "Painter's Servant": true,
+  "Panoptic Mirror": true,
+  "Paradox Engine": true,
+  "Primeval Titan": true,
+  "Prophet of Kruphix": true,
+  "Recurring Nightmare": true,
+  "Sundering Titan": true,
+  "Sway of the Stars": true,
+  "Sylvan Primordial": true,
+  "Time Vault": true,
+  "Time Walk": true,
+  "Tinker": true,
+  "Tolarian Academy": true,
+  "Trade Secrets": true,
+  "Upheaval": true,
+  "Yawgmoth's Bargain": true,
+};
 
 // simple 10-min cache for rules hints
 // eslint-disable-next-line no-var
@@ -417,7 +460,7 @@ export async function POST(req: NextRequest) {
     }
 
     // If this thread is linked to a deck, include a compact summary as context
-    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: Format every Magic card name in bold markdown like **Sol Ring** so the UI can auto-link it. Do not bold other text. Wrap the name in double brackets elsewhere is no longer required.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.\n\nMaintain a friendly mentor tone. Avoid overconfident words like 'auto-include' or 'must-run'; prefer 'commonly used', 'strong option', or 'fits well if…'.";
     const guardrailBlock = `Global behavioral guardrails (always apply):
 
 1. FORMAT SELF-TAG
@@ -456,7 +499,27 @@ export async function POST(req: NextRequest) {
 - Collection & price tracking: available but still improving.
 - Standalone combo finder: not a separate tool right now (rolled into analysis).
 - Custom cards: you can create/share them; full in-deck testing is still coming.
-- When in doubt, say "coming soon" or "still a bit rough" instead of guaranteeing access.`;
+- When in doubt, say "coming soon" or "still a bit rough" instead of guaranteeing access.\n\n9. INTERNAL CONSISTENCY
+- If you mention a number or guideline, keep it consistent across your explanation and lists. Example: if you say 8–12 ramp cards, do not list 4 or 20 in the same answer.
+
+10. NO DUPLICATE CATEGORIES
+- If a card appears in one category, do not repeat it elsewhere.\n\nFormat-specific guidance:
+- Commander: emphasize synergy, politics, and fun factor.
+- Modern / Pioneer: emphasize efficiency and curve.
+- Standard: emphasize current meta awareness and rotation safety.\n\nWhen the user asks about 'how much ramp' or 'what ramp to run', use this structure:
+Default Commander ramp range: 8–12 ramp sources.
+Categories:
+- Land-based ramp (Cultivate, Kodama's Reach, Nature's Lore, Three Visits)
+- Mana rocks (Sol Ring, Arcane Signet, Talismans, Commander's Sphere)
+- Mana dorks (Llanowar Elves, Elvish Mystic, Birds of Paradise) — only if green is in the deck.
+Do NOT call sorceries 'creature ramp'.
+Do NOT list the same category twice.
+Only suggest high-power fast mana (Mana Crypt, etc.) if the user asks for cEDH/high power.
+Do NOT present lands like Command Tower or Fabled Passage as ramp.
+
+If a card is banned or restricted in the user’s chosen format, explicitly mention that it’s banned and suggest a legal alternative.
+
+If the commander profile indicates a specific archetype, preserve the deck’s flavour and mechanical identity; never recommend cards that contradict its theme unless the user explicitly asks for variety.`;
     sys += `\n\n${guardrailBlock}`;
     
     // Add pasted decklist context if found (Task 1)
@@ -493,6 +556,9 @@ export async function POST(req: NextRequest) {
       
       // Add specific guidance for snapshot requests
       sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
+    }
+    if (teachingFlag) {
+      sys += `\n\nTeaching mode formatting:\nIn teaching mode, always answer in 3 parts:\n1. Concept/explanation (what this thing is in MTG terms).\n2. Categorised examples (grouped: land-based ramp, mana rocks, mana dorks, spells, etc.).\n3. Application to this user's deck (how many they should run given colors/curve/commander).\nDo not make the teaching answer shorter than the normal answer.\nWhen teaching beginners, define any MTG jargon the first time it appears ("mana dork" = one-mana creature that taps for mana, "ETB" = enters the battlefield, etc.) and include examples in parentheses.`;
     }
     // Add inference when deck is linked
     let inferredContext: any = null;
@@ -553,6 +619,11 @@ export async function POST(req: NextRequest) {
             const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
             const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
             inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName, { plan: planOption, currency: currencyPref });
+            
+            const commanderProfile = inferredContext.commander ? COMMANDER_PROFILES[inferredContext.commander] : undefined;
+            if (commanderProfile?.archetypeHint) {
+              sys += `\n\nCommander plan: ${commanderProfile.archetypeHint}`;
+            }
             
             // Add inferred context to system prompt
             sys += `\n\nINFERRED DECK ANALYSIS:\n`;

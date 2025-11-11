@@ -1,0 +1,72 @@
+﻿{
+  "W": {
+    "strengths": ["prevention", "lifegain", "tax effects", "artifact/enchantment removal", "mass destruction"],
+    "weaknesses": ["card draw", "ramp", "closing speed"]
+  },
+  "U": {
+    "strengths": ["card draw", "tempo", "counterspells", "bounce", "copy effects"],
+    "weaknesses": ["hard removal", "permanent destruction", "board presence"]
+  },
+  "B": {
+    "strengths": ["tutors", "removal", "discard", "recursion"],
+    "weaknesses": ["artifact/enchantment answers", "life total pressure", "wide boards"]
+  },
+  "R": {
+    "strengths": ["direct damage", "fast aggression", "impulsive draw", "extra combats", "artifact destruction"],
+    "weaknesses": ["long-game card advantage", "enchantment removal", "staying power"]
+  },
+  "G": {
+    "strengths": ["land ramp", "mana dorks", "large creatures", "land recursion", "combat buffs"],
+    "weaknesses": ["spot removal", "flying defense", "countermagic"]
+  },
+  "Azorius": {
+    "colors": ["W", "U"],
+    "strengths": ["flying and evasion", "blink/flicker", "tempo control", "taxing"],
+    "weaknesses": ["explosive finishes", "ramp", "speed"]
+  },
+  "Dimir": {
+    "colors": ["U", "B"],
+    "strengths": ["surveil/mill", "deathtouch blockers", "hand disruption", "countermagic"],
+    "weaknesses": ["artifact/enchantment removal", "consistent ramp", "closing games"]
+  },
+  "Rakdos": {
+    "colors": ["B", "R"],
+    "strengths": ["sacrifice synergy", "menace aggression", "impulsive draw", "removal"],
+    "weaknesses": ["card advantage over long games", "enchantment interaction", "late-game staying power"]
+  },
+  "Gruul": {
+    "colors": ["R", "G"],
+    "strengths": ["riot/trample pressure", "land ramp into big creatures", "fight effects"],
+    "weaknesses": ["card draw", "noncreature answers", "board wipes"]
+  },
+  "Selesnya": {
+    "colors": ["G", "W"],
+    "strengths": ["token swarms", "convoke", "enchantments", "pump effects"],
+    "weaknesses": ["vulnerability to sweepers", "instant-speed interaction", "speed without ramp"]
+  },
+  "Orzhov": {
+    "colors": ["W", "B"],
+    "strengths": ["lifegain and drain", "death triggers", "taxation"],
+    "weaknesses": ["early-game ramp", "burst damage", "closing quickly"]
+  },
+  "Izzet": {
+    "colors": ["U", "R"],
+    "strengths": ["spellslinger velocity", "copying spells", "prowess", "tempo"],
+    "weaknesses": ["lifegain", "hard removal", "resilience if engines removed"]
+  },
+  "Golgari": {
+    "colors": ["B", "G"],
+    "strengths": ["graveyard recursion", "sacrifice value", "big creatures", "flexible removal"],
+    "weaknesses": ["graveyard hate", "flying threats", "enchantment answers"]
+  },
+  "Boros": {
+    "colors": ["R", "W"],
+    "strengths": ["combat-focused tokens", "equipment synergies", "haste"],
+    "weaknesses": ["card draw", "ramp", "resilience to attrition"]
+  },
+  "Simic": {
+    "colors": ["G", "U"],
+    "strengths": ["ramp plus draw", "growth via evolve/adapt", "value creatures"],
+    "weaknesses": ["hard removal", "wide boards", "artifact/enchantment answers without help"]
+  }
+}

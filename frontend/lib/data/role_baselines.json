@@ -1,0 +1,21 @@
+﻿{
+  "commander": {
+    "lands": { "min": 36, "recommended": 38, "max": 42, "notes": "Start at 36-38 lands; Karsten recommends 42 plus Sol Ring, trimming one per 2-3 cheap rocks or 3-4 cantrips, never drop below 37." },
+    "ramp": { "min": 8, "recommended": 11, "max": 14, "notes": "EDHRec suggests 8-12 ramp sources; recent surveys average 12.7. Mix land-based ramp, cheap rocks, and mana dorks." },
+    "card_draw": { "min": 8, "recommended": 9, "max": 12, "notes": "Aim for 8-10 card advantage pieces combining burst, engines, and filtering. Average decks run 7.6 so nudge upward." },
+    "removal": { "min": 8, "recommended": 9, "max": 11, "notes": "Blend single-target interaction and flexible answers; averages show ~8.5 spot removal plus protection." },
+    "board_wipes": { "min": 2, "recommended": 3, "max": 4, "notes": "Keep at least two sweepers; average lists include ~2.7." },
+    "tutors": { "min": 1, "recommended": 2, "max": 3, "notes": "Use selective tutors sparingly to find win conditions or engine pieces." },
+    "recursion": { "min": 1, "recommended": 2, "max": 3, "notes": "Include reliable recursion like Eternal Witness or Regrowth for resiliency." },
+    "protection": { "recommended": 2, "notes": "Slot versatile protection or meta hate such as Teferi's Protection or Heroic Intervention." }
+  },
+  "modern": {
+    "lands": { "recommended": 20, "notes": "Baseline for low-curve archetypes; adjust per deck speed." },
+    "removal": { "recommended": 4, "notes": "Keep a playset of efficient interaction." }
+  },
+  "forbid_mislabels": [
+    "Do not label Cultivate, Kodama's Reach, or similar sorceries as creature ramp.",
+    "Do not present Fabled Passage or other fetch lands as ramp; they are color fixing only.",
+    "Only suggest Mana Crypt, Jeweled Lotus, or other fast mana if the deck's power level is high or cEDH." 
+  ]
+}

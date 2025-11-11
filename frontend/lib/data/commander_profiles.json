@@ -1,0 +1,122 @@
+﻿{
+  "The Ur-Dragon": {
+    "plan": "Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects.",
+    "preferTags": ["dragons", "treasure", "flying", "anthem"],
+    "avoid": ["off-tribe creatures", "lifegain packages without synergy"],
+    "notes": "Prioritise dragon cost reducers, tutors like Sarkhan's Triumph, and board-wide haste enablers." 
+  },
+  "Edgar Markov": {
+    "plan": "Low-curve vampire aggro with token multipliers and +1/+1 counters.",
+    "preferTags": ["vampires", "tokens", "aggro", "anthem"],
+    "avoid": ["non-vampire tribal cards", "slow control spells"],
+    "notes": "Maximise vampire ETB token makers and haste support." 
+  },
+  "Atraxa, Praetors' Voice": {
+    "plan": "Choose a focused proliferate shell (infect, superfriends, or +1/+1 counters) and double down.",
+    "preferTags": ["proliferate", "infect", "planeswalkers", "+1/+1 counters"],
+    "avoid": ["mixing incompatible primary plans", "low-impact vanillas"],
+    "notes": "Support with protective spells and repeatable proliferate engines." 
+  },
+  "Krenko, Mob Boss": {
+    "plan": "Explosive goblin token swarm leveraging extra damage on ETB/attack.",
+    "preferTags": ["goblins", "tokens", "haste", "sacrifice"],
+    "avoid": ["high-CMC spells", "non-goblin filler"],
+    "notes": "Include Impact Tremors effects and haste enablers to snowball." 
+  },
+  "Kaalia of the Vast": {
+    "plan": "Cheat massive angels, demons, and dragons into play while protecting Kaalia.",
+    "preferTags": ["angels", "demons", "big threats", "protection"],
+    "avoid": ["low-impact creatures", "sorcery-speed filler without ETB value"],
+    "notes": "Emphasise protective equipment/auras and game-ending bombs." 
+  },
+  "Pantlaza, Sun-Favored": {
+    "plan": "Dinosaur tribal ramp with discover and blink synergies.",
+    "preferTags": ["dinosaurs", "discover", "blink", "enrage"],
+    "avoid": ["off-tribe creatures", "sorceries without dinosaur payoff"],
+    "notes": "Lean on cost reducers and ramp to chain discover triggers." 
+  },
+  "Sauron, the Dark Lord": {
+    "plan": "Amass-oriented zombie tokens with wheels and reanimation loops.",
+    "preferTags": ["amass", "zombies", "wheels", "reanimation"],
+    "avoid": ["generic control shells", "lifegain packages"],
+    "notes": "Support with discard draw sevens and large payoff enchantments." 
+  },
+  "Yuriko, the Tiger's Shadow": {
+    "plan": "Tempo ninjutsu deck leveraging evasive one-drops and top-deck manipulation.",
+    "preferTags": ["ninjas", "ninjutsu", "evasion", "topdeck"],
+    "avoid": ["high mana costs", "non-ninja creatures lacking synergy"],
+    "notes": "Include bounce/flicker to reuse triggers and keep curve extremely low." 
+  },
+  "Lathril, Blade of the Elves": {
+    "plan": "Elf tribal tokens into overrun finishers with mana engine support.",
+    "preferTags": ["elves", "tokens", "ramp", "overrun"],
+    "avoid": ["off-tribe creatures", "slow non-synergistic spells"],
+    "notes": "Ensure sufficient anthem effects and elf-based card draw." 
+  },
+  "Kenrith, the Returned King": {
+    "plan": "Flexible political toolbox leveraging activated abilities and combo lines.",
+    "preferTags": ["politics", "combo", "reanimation", "toolbox"],
+    "avoid": ["narrow tribal packages without support", "color-locked strategies"],
+    "notes": "Support with mana sinks and tutors that fetch specific ability combos." 
+  },
+  "Giada, Font of Hope": {
+    "plan": "Mono-white angel ramp with +1/+1 counters and lifegain support.",
+    "preferTags": ["angels", "lifegain", "+1/+1 counters", "ramp"],
+    "avoid": ["non-angel beaters", "low-impact utility creatures"],
+    "notes": "Add artifact ramp to cast expensive angels on curve." 
+  },
+  "Jodah, the Unifier": {
+    "plan": "Five-color legendary tribal with cascade-style value.",
+    "preferTags": ["legends", "cascade", "historic", "anthem"],
+    "avoid": ["non-legendary filler", "narrow tribal plans"],
+    "notes": "Prioritise mana fixing and legendary payoff permanents." 
+  },
+  "Miirym, Sentinel Wyrm": {
+    "plan": "Temur dragon tribal doubling key ETB effects via clones.",
+    "preferTags": ["dragons", "clones", "treasure", "tokens"],
+    "avoid": ["non-dragon threats", "low-value enchantments"],
+    "notes": "Include token-friendly payoff like Parallel Lives and treasure ramp." 
+  },
+  "The Wise Mothman": {
+    "plan": "Mutant-themed mill with proliferate and +1/+1 counter synergies.",
+    "preferTags": ["mill", "+1/+1 counters", "proliferate", "mutants"],
+    "avoid": ["tribes unrelated to mutants", "subthemes without counter support"],
+    "notes": "Use self-mill for value and rad counter payoffs." 
+  },
+  "Nekusar, the Mindrazer": {
+    "plan": "Wheel-based group slug that punishes opposing card draw.",
+    "preferTags": ["wheels", "group slug", "card draw punishment", "discard"],
+    "avoid": ["lifegain packages", "board-focused wincons"],
+    "notes": "Ensure redundancy in wheel effects and damage doublers." 
+  },
+  "Y'shtola, Night's Blessed": {
+    "plan": "Spellslinger control leveraging noncreature spells for damage and lifegain.",
+    "preferTags": ["spellslinger", "control", "lifegain", "burn"],
+    "avoid": ["creature-heavy builds", "overreliance on combat"],
+    "notes": "Keep curve low with instant-speed interaction and storm-style payoffs." 
+  },
+  "Isshin, Two Heavens as One": {
+    "plan": "Attack-trigger doubling with token makers, equipment, and extra combats.",
+    "preferTags": ["attack triggers", "tokens", "equipment", "extra combat"],
+    "avoid": ["slow control pieces", "board wipes that reset your own army"],
+    "notes": "Prioritise creatures with impactful attack triggers and mass haste." 
+  },
+  "Hakbal of the Surging Soul": {
+    "plan": "Merfolk tribal with +1/+1 counters, explore, and evasion.",
+    "preferTags": ["merfolk", "+1/+1 counters", "explore", "unblockable"],
+    "avoid": ["generic green ramp without synergy", "non-merfolk threats"],
+    "notes": "Include islandwalk enablers and tempo plays." 
+  },
+  "Ulalek, Fused Atrocity": {
+    "plan": "Colorless Eldrazi ramp with sacrifice loops and ping payoffs.",
+    "preferTags": ["eldrazi", "big mana", "sacrifice", "pinger"],
+    "avoid": ["colored spells unless fixing", "small value creatures"],
+    "notes": "Stack mana rocks and token producers to fuel annihilator threats." 
+  },
+  "Ms. Bumbleflower": {
+    "plan": "Wheel-centric group hug with +1/+1 counters and token production.",
+    "preferTags": ["wheels", "+1/+1 counters", "group hug", "cantrips"],
+    "avoid": ["hard control locks", "tribal-only subthemes"],
+    "notes": "Support with pillow-fort pieces and payoff creatures that scale with draw." 
+  }
+}

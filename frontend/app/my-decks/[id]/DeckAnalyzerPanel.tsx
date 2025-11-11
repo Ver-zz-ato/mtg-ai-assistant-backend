@@ -22,7 +22,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [rawCounts, setRawCounts] = React.useState<{ lands:number; ramp:number; draw:number; removal:number } | null>(null);
   const [illegal, setIllegal] = React.useState<{ banned?: string[]; ci?: string[] }>({});
   const [meta, setMeta] = React.useState<Array<{ card:string; inclusion_rate:string; commanders:string[] }> | null>(null);
-  const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason: string; category?: string; id?: string; needs_review?: boolean }>>([]);
+  const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason?: string; category?: string; id?: string; needs_review?: boolean; reviewNotes?: string[] }>>([]);
   const [promptVersion, setPromptVersion] = React.useState<string | undefined>(undefined);
 
   async function run() {
@@ -182,7 +182,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
               <div className="font-medium opacity-80">AI Suggestions</div>
               {(() => {
                 // Group by category
-                const byCategory: Record<string, Array<{ card: string; reason: string; id?: string; needs_review?: boolean; category?: string }>> = {
+                const byCategory: Record<string, Array<{ card: string; reason?: string; id?: string; needs_review?: boolean; category?: string; reviewNotes?: string[] }>> = {
                   'must-fix': [],
                   'synergy-upgrade': [],
                   'optional': [],
@@ -210,11 +210,21 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                               <div className="flex-1">
                                 <div className="flex items-center gap-1">
                                   <span className="font-medium">{s.card}</span>
-                                  {s.needs_review && (
-                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
+                                    <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
+                                  <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
+                                    {s.reviewNotes.map((note, idx) => (
+                                      <div key={idx} className="flex items-start gap-1">
+                                        <span aria-hidden="true">•</span>
+                                        <span>{note}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">
@@ -255,11 +265,21 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                               <div className="flex-1">
                                 <div className="flex items-center gap-1">
                                   <span className="font-medium">{s.card}</span>
-                                  {s.needs_review && (
-                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
+                                    <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
+                                  <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
+                                    {s.reviewNotes.map((note, idx) => (
+                                      <div key={idx} className="flex items-start gap-1">
+                                        <span aria-hidden="true">•</span>
+                                        <span>{note}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">
@@ -300,11 +320,21 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                               <div className="flex-1">
                                 <div className="flex items-center gap-1">
                                   <span className="font-medium">{s.card}</span>
-                                  {s.needs_review && (
-                                    <span className="text-xs text-amber-400" title="Card name not found in database - may be incorrect">⚠️</span>
+                                  {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
+                                    <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
+                                  <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
+                                    {s.reviewNotes.map((note, idx) => (
+                                      <div key={idx} className="flex items-start gap-1">
+                                        <span aria-hidden="true">•</span>
+                                        <span>{note}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">

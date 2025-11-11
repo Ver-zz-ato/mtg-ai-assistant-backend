@@ -72,11 +72,11 @@ async function appendAssistant(threadId: string, content: string) {
 function Chat() {
   // Rotating example prompts
   const examplePrompts = [
-    "Build a token deck under £50",
-    "What's the best vampire draw engine?",
-    "Find budget alternatives for Sol Ring",
-    "How can I improve my mana curve?",
-    "Suggest cards for a sacrifice theme"
+    "Analyze this Commander deck and tell me what it's missing.",
+    "Fix the mana base for this 3-colour deck.",
+    "Suggest 5 on-colour upgrades for this commander.",
+    "Explain the right ramp mix for my deck.",
+    "(Experimental) Build a token deck under £50"
   ];
   
   // State management
@@ -1287,10 +1287,10 @@ function Chat() {
         {/* Suggested prompt chips */}
         <div className="mb-3 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] opacity-90">
           {[
-            { label: '"Build me a Commander deck"', text: 'Build me a Commander deck' },
-            { label: '"Find budget swaps"', text: 'Find budget swaps' },
-            { label: '"Upgrade a precon"', text: 'Upgrade a precon' },
-            { label: '"Snapshot my deck"', text: 'Snapshot my deck' },
+            { label: '“Analyze my Commander deck”', text: "Analyze this Commander deck and tell me what it's missing." },
+            { label: '“Fix my 3-colour mana base”', text: "Fix the mana base for this 3-colour deck." },
+            { label: '“Suggest five upgrades”', text: "Suggest 5 on-colour upgrades for this commander." },
+            { label: '“(Experimental) Build token deck under £50”', text: "(Experimental) Build a token deck under £50" },
           ].map((p, i) => (
             <button 
               key={i} 

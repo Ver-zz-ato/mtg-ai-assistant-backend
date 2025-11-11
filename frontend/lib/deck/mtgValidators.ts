@@ -1,10 +1,12 @@
 import { type SfCard } from "@/lib/deck/inference";
 
 export type CardSuggestion = {
-  name: string;
+  card: string;
   reason?: string;
   source?: "gpt" | "retry";
   requestedType?: string;
+  needs_review?: boolean;
+  reviewNotes?: string[];
 };
 
 const PERMANENT_TYPES = ["artifact", "creature", "enchantment", "planeswalker", "battle", "land"];

@@ -14,13 +14,132 @@ import {
   isWithinColorIdentity,
   matchesRequestedType,
   isLegalForFormat,
-  isDuplicate,
   normalizeCardName,
 } from "@/lib/deck/mtgValidators";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import roleBaselines from "@/lib/data/role_baselines.json";
+import colorIdentityMap from "@/lib/data/color_identity_map.json";
+import commanderProfiles from "@/lib/data/commander_profiles.json";
+
+type RoleBaselineEntry = {
+  min?: number;
+  recommended?: number;
+  max?: number;
+  notes?: string;
+};
+
+type RoleBaselines = {
+  commander?: Record<string, RoleBaselineEntry>;
+  modern?: Record<string, RoleBaselineEntry>;
+  forbid_mislabels?: string[];
+};
+
+type ColorIdentityInfo = {
+  colors?: string[];
+  strengths?: string[];
+  weaknesses?: string[];
+};
+
+type ColorIdentityDictionary = Record<string, ColorIdentityInfo>;
+
+type CommanderProfileJson = {
+  plan?: string;
+  preferTags?: string[];
+  avoid?: string[];
+  mustBePermanent?: boolean;
+  notes?: string;
+};
+
+type CommanderProfilesDictionary = Record<string, CommanderProfileJson>;
+
+type CommanderProfileEnriched = {
+  mustBePermanent?: boolean;
+  preferTags?: string[];
+  plan?: string;
+  avoid?: string[];
+  notes?: string;
+  archetypeHint?: string;
+};
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+const roleBaselineData = roleBaselines as RoleBaselines;
+const colorIdentityData = colorIdentityMap as ColorIdentityDictionary;
+const commanderProfilesData = commanderProfiles as CommanderProfilesDictionary;
+
+const COLOR_PAIR_LABELS: Record<string, string> = {
+  WU: "Azorius",
+  UW: "Azorius",
+  UB: "Dimir",
+  BU: "Dimir",
+  BR: "Rakdos",
+  RB: "Rakdos",
+  RG: "Gruul",
+  GR: "Gruul",
+  GW: "Selesnya",
+  WG: "Selesnya",
+  WB: "Orzhov",
+  BW: "Orzhov",
+  UR: "Izzet",
+  RU: "Izzet",
+  BG: "Golgari",
+  GB: "Golgari",
+  RW: "Boros",
+  WR: "Boros",
+  GU: "Simic",
+  UG: "Simic",
+};
+
+const FAST_MANA = new Set([
+  "Mana Crypt",
+  "Jeweled Lotus",
+  "Mana Vault",
+  "Mox Diamond",
+  "Chrome Mox",
+]);
+
+const COMMANDER_BANNED: Record<string, true> = {
+  "Ancestral Recall": true,
+  "Balance": true,
+  "Biorhythm": true,
+  "Black Lotus": true,
+  "Channel": true,
+  "Emrakul, the Aeons Torn": true,
+  "Falling Star": true,
+  "Fastbond": true,
+  "Flash": true,
+  "Gifts Ungiven": true,
+  "Golos, Tireless Pilgrim": true,
+  "Griselbrand": true,
+  "Hullbreacher": true,
+  "Iona, Shield of Emeria": true,
+  "Kokusho, the Evening Star": true,
+  "Leovold, Emissary of Trest": true,
+  "Library of Alexandria": true,
+  "Limited Resources": true,
+  "Mox Emerald": true,
+  "Mox Jet": true,
+  "Mox Pearl": true,
+  "Mox Ruby": true,
+  "Mox Sapphire": true,
+  "Painter's Servant": true,
+  "Panoptic Mirror": true,
+  "Paradox Engine": true,
+  "Primeval Titan": true,
+  "Prophet of Kruphix": true,
+  "Recurring Nightmare": true,
+  "Sundering Titan": true,
+  "Sway of the Stars": true,
+  "Sylvan Primordial": true,
+  "Time Vault": true,
+  "Time Walk": true,
+  "Tinker": true,
+  "Tolarian Academy": true,
+  "Trade Secrets": true,
+  "Upheaval": true,
+  "Yawgmoth's Bargain": true,
+};
 
 const COMMANDER_ONLY_CARDS = new Set([
   "Sol Ring",
@@ -123,7 +242,7 @@ async function planSuggestionSlots(
   userMessage: string | undefined,
   context: InferredDeckContext
 ): Promise<SuggestionSlotPlan[]> {
-  const profile = context.commander ? COMMANDER_PROFILES[context.commander] ?? null : null;
+  const profile = getCommanderProfileData(context.commander);
   const promptVersion = getActivePromptVersion();
 
   const systemPrompt = [
@@ -131,18 +250,17 @@ async function planSuggestionSlots(
     "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short\",\"quantity\":1}]}"
   ].join("\n");
 
-  const profileNotes = profile
-    ? [
-        profile.mustBePermanent ? "- Commander prefers permanents." : "",
-        profile.preferTags?.length ? `- Synergy tags: ${profile.preferTags.join(", ")}.` : "",
-      ].filter(Boolean).join("\n")
-    : "";
+  const profileNoteLines = buildCommanderProfileNotes(profile);
+  const baselineSummary = buildCommanderBaselineSummary(context.format);
+  const colorSummary = buildColorIdentitySummary(context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
     `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
     context.commander ? `Commander: ${context.commander}` : "Commander: (none)",
-    profileNotes,
+    profileNoteLines.length ? profileNoteLines.join("\n") : "",
+    baselineSummary || "",
+    colorSummary || "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
     context.archetype ? `Detected archetype: ${context.archetype}` : "",
     context.powerLevel ? `Power level: ${context.powerLevel}` : "",
@@ -177,16 +295,22 @@ async function fetchSlotCandidates(
   slot: SuggestionSlotPlan,
   context: InferredDeckContext,
   deckText: string,
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  mode: "normal" | "strict" = "normal"
 ): Promise<SlotCandidate[]> {
-  const profile = context.commander ? COMMANDER_PROFILES[context.commander] ?? null : null;
+  const profile = getCommanderProfileData(context.commander);
 
   const systemPrompt = [
-    "You suggest Magic cards for one specific slot.",
+    mode === "strict"
+      ? "You must provide legal, on-color Magic card options for one specific slot."
+      : "You suggest Magic cards for one specific slot.",
     "Always respond with STRICT JSON: {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
   ].join("\n");
 
   const slotColors = slot.colors?.length ? slot.colors.join(", ") : context.colors.join(", ");
+  const profileNoteLines = buildCommanderProfileNotes(profile);
+  const baselineSummary = buildCommanderBaselineSummary(context.format);
+  const colorSummary = buildColorIdentitySummary(context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
@@ -194,21 +318,24 @@ async function fetchSlotCandidates(
     slotColors ? `Allowed colors for this slot: ${slotColors}` : "",
     slot.requestedType ? `Requested type: ${slot.requestedType}` : "Requested type: flexible",
     context.commander ? `Commander: ${context.commander}` : "",
-    profile?.mustBePermanent ? "Commander profile: prefer permanents." : "",
-    profile?.preferTags?.length ? `Synergy tags: ${profile.preferTags.join(", ")}` : "",
+    profileNoteLines.length ? profileNoteLines.join(" | ") : "",
+    baselineSummary || "",
+    colorSummary || "",
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
     deckText.slice(0, 1800),
     "",
-    "Return the 3 best candidates with short reasons.",
+    mode === "strict"
+      ? "Return 5 legal, on-color replacements that obey the requested type."
+      : "Return the 3 best candidates with short reasons.",
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.35, maxTokens: 320 });
+    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: mode === "strict" ? 0.15 : 0.35, maxTokens: 320 });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
-    return items.slice(0, 5).map((item: any) => ({
+    return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
       name: String(item?.name || "").trim(),
       reason: item?.reason ? String(item.reason) : undefined,
     }));
@@ -221,32 +348,44 @@ async function retrySlotCandidates(
   slot: SuggestionSlotPlan,
   context: InferredDeckContext,
   deckText: string,
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  mode: "normal" | "strict" = "normal"
 ): Promise<SlotCandidate[]> {
   const systemPrompt = [
-    "Previous suggestions failed validation (off-color, wrong type, illegal). Provide stricter replacements.",
-    "Return STRICT JSON {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
+    mode === "strict"
+      ? "Previous suggestions failed validation. Provide 5 legal, on-color replacements that obey the requested type."
+      : "Previous suggestions failed validation (off-color, wrong type, illegal). Provide stricter replacements.",
+    "Return STRICT JSON: {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
   ].join("\n");
 
   const slotColors = slot.colors?.length ? slot.colors.join(", ") : context.colors.join(", ");
+  const profile = getCommanderProfileData(context.commander);
+  const profileNoteLines = buildCommanderProfileNotes(profile);
+  const baselineSummary = buildCommanderBaselineSummary(context.format);
+  const colorSummary = buildColorIdentitySummary(context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
     slotColors ? `Colors EXACT: ${slotColors}` : "",
     slot.requestedType ? `Required type: ${slot.requestedType}` : "",
     context.commander ? `Commander: ${context.commander}` : "",
+    profileNoteLines.length ? profileNoteLines.join(" | ") : "",
+    baselineSummary || "",
+    colorSummary || "",
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",
     "",
-    "Return 3 replacements that obey color identity AND requested type strictly.",
+    mode === "strict"
+      ? "Return 5 legal, on-color replacements that obey the requested type."
+      : "Return 3 replacements that obey color identity AND requested type strictly.",
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 260 });
+    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: mode === "strict" ? 0.1 : 0.2, maxTokens: 260 });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
-    return items.slice(0, 5).map((item: any) => ({
+    return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
       name: String(item?.name || "").trim(),
       reason: item?.reason ? String(item.reason) : undefined,
     }));
@@ -261,22 +400,23 @@ async function validateSlots(
   deckEntries: Array<{ count: number; name: string }>,
   byName: Map<string, SfCard>,
   deckText: string,
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  strict = false
 ): Promise<{
-  suggestions: ValidatedSuggestion[];
+  suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
   required: number;
   filled: number;
 }> {
-  const suggestions: ValidatedSuggestion[] = [];
+  const suggestions: CardSuggestion[] = [];
   const filtered: FilteredCandidate[] = [];
   const deckNormalized = new Set(deckEntries.map((entry) => normalizeCardName(entry.name)));
-  const profile = context.commander ? COMMANDER_PROFILES[context.commander] ?? null : null;
+  const profile = getCommanderProfileData(context.commander);
   const isCommander = context.format === "Commander";
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal");
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -304,6 +444,7 @@ async function validateSlots(
           filtered.push({ slotRole: slot.role, name: candidate.name, reason: "card lookup failed", source });
           continue;
         }
+
         if (!isCommander && COMMANDER_ONLY_CARDS.has(card.name)) {
           filtered.push({ slotRole: slot.role, name: card.name, reason: "commander-only outside EDH", source });
           continue;
@@ -330,7 +471,12 @@ async function validateSlots(
           }
         }
 
-        suggestions.push({ name: card.name, reason: candidate.reason, source, slotRole: slot.role });
+        suggestions.push({
+          card: card.name,
+          reason: candidate.reason,
+          source,
+          requestedType: slot.requestedType,
+        });
         deckNormalized.add(normalizedName);
         picked += 1;
       }
@@ -338,7 +484,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal");
       await attempt(retry, "retry");
     }
   }
@@ -348,22 +494,29 @@ async function validateSlots(
 }
 
 async function postFilterSuggestions(
-  candidates: ValidatedSuggestion[],
+  candidates: CardSuggestion[],
   context: InferredDeckContext,
   byName: Map<string, SfCard>,
   normalizedDeck: Set<string>,
-  currency: string,
-  deckEntries: Array<{ count: number; name: string }>,
-  userId: string | null
+  _currency: string,
+  _deckEntries: Array<{ count: number; name: string }>,
+  _userId: string | null,
+  profile: CommanderProfileEnriched | null
 ): Promise<{ final: CardSuggestion[]; debug: Set<string> }> {
   const removalReasons = new Set<string>();
   const allowedColors = new Set((context.colors.length ? context.colors : ["C"]).map((c) => c.toUpperCase()));
-  const final: CardSuggestion[] = [];
+  const merged = new Map<string, CardSuggestion>();
+  const forbidRules = Array.isArray(roleBaselineData?.forbid_mislabels)
+    ? roleBaselineData.forbid_mislabels
+    : [];
+  const creatureRampRule = forbidRules.find((rule) => /cultivate/i.test(rule));
+  const fabledPassageRule = forbidRules.find((rule) => /fabled passage/i.test(rule));
+  const fastManaRule = forbidRules.find((rule) => /mana crypt/i.test(rule) || /fast mana/i.test(rule));
 
   for (const suggestion of candidates) {
-    let card = byName.get(suggestion.name.toLowerCase());
+    let card = byName.get(suggestion.card.toLowerCase());
     if (!card) {
-      const fetched = await fetchCard(suggestion.name);
+      const fetched = await fetchCard(suggestion.card);
       if (fetched) {
         card = fetched;
         byName.set(fetched.name.toLowerCase(), fetched);
@@ -371,6 +524,27 @@ async function postFilterSuggestions(
     }
     if (!card) {
       removalReasons.add("card lookup failed");
+      continue;
+    }
+
+    if (context.format === "Commander" && COMMANDER_BANNED[card.name]) {
+      const message = suggestion.reason
+        ? `${suggestion.reason} (banned in Commander, suggest a legal alternative)`
+        : "Banned in Commander, suggest a legal alternative.";
+      const existing = merged.get(card.name);
+      if (existing) {
+        existing.reason = [existing.reason, message].filter(Boolean).join(" | ") || message;
+        existing.needs_review = true;
+      } else {
+        merged.set(card.name, {
+          card: card.name,
+          reason: message,
+          source: suggestion.source,
+          requestedType: suggestion.requestedType,
+          needs_review: true,
+        });
+      }
+      removalReasons.add("banned");
       continue;
     }
 
@@ -389,19 +563,9 @@ async function postFilterSuggestions(
       continue;
     }
 
-    if (context.commander) {
-      const profile = COMMANDER_PROFILES[context.commander];
-      if (profile?.mustBePermanent && !matchesRequestedType(card, "permanent")) {
-        removalReasons.add("commander requires permanents");
-        continue;
-      }
-    }
-
-    if (suggestion.requestedType && suggestion.requestedType.toLowerCase() !== "any") {
-      if (!matchesRequestedType(card, suggestion.requestedType)) {
-        removalReasons.add(`expected ${suggestion.requestedType}`);
-        continue;
-      }
+    if (profile?.mustBePermanent && !matchesRequestedType(card, "permanent")) {
+      removalReasons.add("commander requires permanents");
+      continue;
     }
 
     const norm = normalizeCardName(card.name);
@@ -410,14 +574,59 @@ async function postFilterSuggestions(
       continue;
     }
 
-    normalizedDeck.add(norm);
-    final.push({ name: card.name, reason: suggestion.reason, source: suggestion.source });
+    let needsReview = Boolean(suggestion.needs_review);
+    let reasonText = suggestion.reason || "";
+    const reviewNotes: string[] = [];
+    const lowerReason = reasonText.toLowerCase();
+
+    if (/cultivate|kodama's reach/i.test(card.name) && lowerReason.includes("creature ramp")) {
+      reviewNotes.push(creatureRampRule || "Cultivate-style sorceries are spell-based ramp, not creature ramp.");
+    }
+
+    if (/fabled passage/i.test(card.name) && /ramp/.test(lowerReason)) {
+      reviewNotes.push(fabledPassageRule || "Fabled Passage fixes colors but does not generate extra mana.");
+    }
+
+    if (FAST_MANA.has(card.name) && shouldFlagFastMana(context.powerLevel)) {
+      reviewNotes.push(fastManaRule || "Fast mana is typically reserved for high-power or cEDH tables.");
+    }
+
+    if (reviewNotes.length) {
+      needsReview = true;
+      const noteText = reviewNotes.join(" ");
+      reasonText = reasonText ? `${reasonText} (${noteText})` : noteText;
+    }
+
+    if (merged.has(card.name)) {
+      const existing = merged.get(card.name)!;
+      const combinedReason = [existing.reason, reasonText]
+        .filter(Boolean)
+        .map((r) => r!.trim())
+        .filter(Boolean)
+        .join(" | ");
+      existing.reason = combinedReason || existing.reason;
+      existing.needs_review = existing.needs_review || needsReview;
+      if (reviewNotes.length) {
+        const mergedNotes = new Set<string>(existing.reviewNotes || []);
+        reviewNotes.forEach((note) => mergedNotes.add(note));
+        existing.reviewNotes = Array.from(mergedNotes);
+      }
+      merged.set(card.name, existing);
+      removalReasons.add("duplicate suggestion");
+      continue;
+    }
+
+    merged.set(card.name, {
+      card: card.name,
+      reason: reasonText || undefined,
+      source: suggestion.source,
+      requestedType: suggestion.requestedType,
+      needs_review: needsReview || undefined,
+      reviewNotes: reviewNotes.length ? reviewNotes : undefined,
+    });
   }
 
-  if (final.length === 0 && candidates.length > 0) {
-    removalReasons.add("all filtered");
-  }
-
+  const final = Array.from(merged.values());
   return { final, debug: removalReasons };
 }
 
@@ -478,6 +687,100 @@ function deckTally(
   return { lands, ramp, draw, removal, curve };
 }
 
+function getCommanderProfileData(name: string | null | undefined): CommanderProfileEnriched | null {
+  if (!name) return null;
+  const jsonProfile = commanderProfilesData[name] ?? null;
+  const legacyProfile = COMMANDER_PROFILES[name] ?? null;
+  if (!jsonProfile && !legacyProfile) return null;
+  const preferTags = new Set<string>();
+  legacyProfile?.preferTags?.forEach((tag) => preferTags.add(tag));
+  jsonProfile?.preferTags?.forEach((tag) => preferTags.add(tag));
+
+  return {
+    mustBePermanent: jsonProfile?.mustBePermanent ?? legacyProfile?.mustBePermanent ?? undefined,
+    preferTags: preferTags.size ? Array.from(preferTags) : undefined,
+    plan: jsonProfile?.plan ?? legacyProfile?.archetypeHint ?? undefined,
+    avoid: jsonProfile?.avoid ?? undefined,
+    notes: jsonProfile?.notes ?? legacyProfile?.archetypeHint ?? undefined,
+    archetypeHint: legacyProfile?.archetypeHint ?? undefined,
+  };
+}
+
+function formatBaselineLine(key: string, entry: RoleBaselineEntry | undefined): string | null {
+  if (!entry) return null;
+  const label = key.replace(/_/g, " ");
+  const segments: string[] = [];
+  if (entry.min != null && entry.max != null) {
+    segments.push(`${entry.min}-${entry.max}`);
+  } else {
+    if (entry.min != null) segments.push(`min ${entry.min}`);
+    if (entry.max != null) segments.push(`max ${entry.max}`);
+  }
+  if (entry.recommended != null) segments.push(`rec ${entry.recommended}`);
+  let text = `${label} ${segments.join(", ")}`.trim();
+  const note = entry.notes?.split(/(?<=\.)\s+/)?.[0];
+  if (note) {
+    text += ` (${note.replace(/\s+/g, " ")})`;
+  }
+  return text;
+}
+
+function buildCommanderBaselineSummary(format: string): string | null {
+  if (format !== "Commander") return null;
+  const commanderBaselines = roleBaselineData?.commander;
+  if (!commanderBaselines) return null;
+  const orderedKeys = ["lands", "ramp", "card_draw", "removal", "board_wipes"];
+  const pieces = orderedKeys
+    .map((key) => formatBaselineLine(key, commanderBaselines[key]))
+    .filter((chunk): chunk is string => Boolean(chunk));
+  if (!pieces.length) return null;
+  return `Commander baselines: ${pieces.join("; ")}. Use these ranges when evaluating the deck.`;
+}
+
+function buildColorIdentitySummary(colors: string[]): string | null {
+  if (!colors?.length) return null;
+  const unique = Array.from(new Set(colors.map((c) => c.toUpperCase()).filter(Boolean)));
+  if (!unique.length) return null;
+  const sortedKey = unique.slice().sort().join("");
+  const guildLabel = COLOR_PAIR_LABELS[sortedKey];
+
+  if (guildLabel && colorIdentityData[guildLabel]) {
+    const info = colorIdentityData[guildLabel];
+    const strengths = info.strengths?.join(", ") || "n/a";
+    const weaknesses = info.weaknesses?.join(", ") || "n/a";
+    return `Color identity: ${guildLabel} (${unique.join("/")}). Strengths: ${strengths}. Weaknesses: ${weaknesses}. Aim suggestions at shoring up the weaknesses.`;
+  }
+
+  const strengthSet = new Set<string>();
+  const weaknessSet = new Set<string>();
+  unique.forEach((symbol) => {
+    const info = colorIdentityData[symbol];
+    info?.strengths?.forEach((value) => strengthSet.add(value));
+    info?.weaknesses?.forEach((value) => weaknessSet.add(value));
+  });
+
+  if (!strengthSet.size && !weaknessSet.size) return null;
+  const strengths = strengthSet.size ? Array.from(strengthSet).join(", ") : "n/a";
+  const weaknesses = weaknessSet.size ? Array.from(weaknessSet).join(", ") : "n/a";
+  return `Color identity: ${unique.join("/")}. Strengths: ${strengths}. Weaknesses: ${weaknesses}. Use card choices to cover the gaps.`;
+}
+
+function buildCommanderProfileNotes(profile: CommanderProfileEnriched | null): string[] {
+  if (!profile) return [];
+  const notes: string[] = [];
+  if (profile.plan) notes.push(`Commander plan: ${profile.plan}`);
+  if (profile.preferTags?.length) notes.push(`Prefer tags: ${profile.preferTags.join(", ")}`);
+  if (profile.avoid?.length) notes.push(`Avoid: ${profile.avoid.join(", ")}`);
+  if (profile.notes && profile.notes !== profile.plan) notes.push(`Notes: ${profile.notes}`);
+  if (profile.mustBePermanent) notes.push("Commander prefers permanent-based support.");
+  return notes;
+}
+
+function shouldFlagFastMana(powerLevel: string | undefined | null): boolean {
+  if (!powerLevel) return true;
+  return !/^(?:high(?: power)?|c(?:ed)?h)$/i.test(powerLevel.trim());
+}
+
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     deckText?: string;
@@ -530,35 +833,91 @@ export async function POST(req: Request) {
   );
 
   const totals = deckTally(entries, byName);
-  const bands = computeBands(format, entries.reduce((sum, e) => sum + e.count, 0), totals.lands, totals.ramp, totals.draw, totals.removal);
+  const totalCardCount = entries.reduce((sum, e) => sum + e.count, 0);
+  const bands = computeBands(format, totalCardCount, totals.lands, totals.ramp, totals.draw, totals.removal);
   const score = Math.round((bands.curve + bands.ramp + bands.draw + bands.removal + bands.mana) * 20);
+
+  const whatsGood: string[] = [];
+  const quickFixes: string[] = [];
+
+  if (totals.lands >= (format === "Commander" ? 34 : format === "Modern" || format === "Pioneer" ? 22 : 23)) {
+    whatsGood.push("Mana base looks stable for this format.");
+  } else {
+    quickFixes.push("Add a few more lands to smooth your opening hands.");
+  }
+  if (totals.draw >= 8) {
+    whatsGood.push("Card draw density is healthy.");
+  } else {
+    quickFixes.push("Consider a couple more draw spells to keep gas flowing.");
+  }
+  if (totals.removal >= 5) {
+    whatsGood.push("Interaction package covers common threats.");
+  } else {
+    quickFixes.push("Add targeted removal so you can answer opposing threats on time.");
+  }
+
+  if (format === "Commander" && totals.ramp < 4) {
+    quickFixes.push("Most Commander decks use at least 8 ramp sources; look at land-based ramp, mana rocks, or dorks to hit that baseline.");
+  }
 
   let suggestions: CardSuggestion[] = [];
   let filtered: FilteredCandidate[] = [];
   let required = 0;
   let filled = 0;
+  let suggestionDebugReasons: Set<string> | null = null;
 
   if (useGPT) {
     const slots = await planSuggestionSlots(deckText, body.userMessage, context);
-    const validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage);
-    const normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
-    const post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, false);
+    let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
+    let profile = getCommanderProfileData(context.commander);
+    let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile);
     suggestions = post.final;
     filtered = validation.filtered;
     required = validation.required;
     filled = validation.filled;
+    suggestionDebugReasons = post.debug;
+
+    if (suggestions.length === 0 && validation.suggestions.length > 0) {
+      // Retry with stricter instructions
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, true);
+      normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
+      profile = getCommanderProfileData(context.commander);
+      post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile);
+      suggestions = post.final;
+      filtered = filtered.concat(validation.filtered);
+      suggestionDebugReasons = post.debug;
+
+      if (suggestions.length === 0) {
+        suggestions.push({
+          card: "N/A",
+          reason: "All suggested cards were off-color or banned. The model will retry with stricter rules.",
+          needs_review: true,
+        });
+      }
+    }
   }
+
+  const note = totals.draw < 6 ? "needs a touch more draw" : totals.lands < (format === "Commander" ? 32 : 21) ? "mana base is light" : "solid, room to tune";
 
   return new Response(
     JSON.stringify({
       score,
+      note,
       bands,
       counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
+      whatsGood,
+      quickFixes,
       curveBuckets: totals.curve,
       suggestions,
       partial: required > 0 && filled < required,
+      tokenNeeds: [],
+      metaHints: [],
+      combosPresent: [],
+      combosMissing: [],
       debug: {
         filteredCandidates: filtered,
+        filterReasons: suggestionDebugReasons ? Array.from(suggestionDebugReasons) : [],
       },
       prompt_version: useGPT ? getActivePromptVersion() : undefined,
     }),
