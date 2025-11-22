@@ -24,6 +24,8 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [meta, setMeta] = React.useState<Array<{ card:string; inclusion_rate:string; commanders:string[] }> | null>(null);
   const [suggestions, setSuggestions] = React.useState<Array<{ card: string; reason?: string; category?: string; id?: string; needs_review?: boolean; reviewNotes?: string[] }>>([]);
   const [promptVersion, setPromptVersion] = React.useState<string | undefined>(undefined);
+  const [filteredSummary, setFilteredSummary] = React.useState<string | null>(null);
+  const [filteredReasons, setFilteredReasons] = React.useState<string[]>([]);
 
   async function run() {
     try {
@@ -44,6 +46,8 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0,12) : []);
       setSuggestions(Array.isArray(j?.suggestions) ? j.suggestions : []);
       setPromptVersion(j?.prompt_version);
+      setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
+      setFilteredReasons(Array.isArray(j?.filteredReasons) ? j.filteredReasons.filter((r:string)=>typeof r === 'string' && r.trim()).map((r:string)=>r.trim()) : []);
     } catch (e:any) { setError(e?.message || 'Analyze failed'); }
     finally { setBusy(false); }
   }
@@ -176,6 +180,21 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
             })()}
           </div>
 
+          {filteredSummary && (
+            <div className="text-[10px] bg-neutral-900/60 border border-amber-300/30 text-amber-200/90 rounded p-2">
+              <div className="font-semibold tracking-wide uppercase text-amber-100/90 text-[9.5px]">Why some suggestions are hidden</div>
+              <div className="mt-0.5 leading-relaxed">{filteredSummary}</div>
+              {filteredReasons.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {filteredReasons.map((reason, i) => (
+                    <span key={`${reason}-${i}`} className="px-1.5 py-0.5 rounded-full border border-amber-300/40 bg-amber-900/20 text-[9px] text-amber-100/90">
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* GPT Suggestions */}
           {suggestions.length > 0 && (
             <div className="text-[11px] space-y-2 border-t border-neutral-700 pt-2 mt-2">

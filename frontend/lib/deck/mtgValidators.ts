@@ -7,6 +7,8 @@ export type CardSuggestion = {
   requestedType?: string;
   needs_review?: boolean;
   reviewNotes?: string[];
+  slotRole?: string;
+  category?: string;
 };
 
 const PERMANENT_TYPES = ["artifact", "creature", "enchantment", "planeswalker", "battle", "land"];

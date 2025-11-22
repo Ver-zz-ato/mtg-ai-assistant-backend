@@ -1,0 +1,251 @@
+{
+  "testCases": [
+    {
+      "id": "ramp-mislabel-cultivate",
+      "name": "Ramp mislabeling: Cultivate should not be called creature ramp",
+      "type": "chat",
+      "input": {
+        "userMessage": "What ramp should I run in my Commander deck?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": ["ramp", "Cultivate"],
+        "shouldNotContain": ["creature ramp", "Cultivate.*creature", "Cultivate.*dork"],
+        "shouldMentionCard": ["Cultivate", "Kodama's Reach"],
+        "formatSpecific": true
+      },
+      "tags": ["ramp", "mislabeling", "commander"],
+      "source": "curated"
+    },
+    {
+      "id": "ramp-fabled-passage-not-ramp",
+      "name": "Fabled Passage should not be presented as ramp",
+      "type": "chat",
+      "input": {
+        "userMessage": "Is Fabled Passage ramp?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldNotContain": ["Fabled Passage.*ramp", "ramp.*Fabled Passage"],
+        "shouldContain": ["color fixing", "fetch", "land"]
+      },
+      "tags": ["ramp", "mislabeling", "lands"],
+      "source": "curated"
+    },
+    {
+      "id": "color-identity-violation",
+      "name": "Should not suggest off-color cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Lightning Bolt\n1 Counterspell\n1 Swamp\n1 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Counterspell", "Swamp"],
+        "shouldContain": ["red", "color identity"]
+      },
+      "tags": ["color-identity", "commander", "validation"],
+      "source": "curated"
+    },
+    {
+      "id": "fast-mana-casual-deck",
+      "name": "Should not suggest fast mana for casual decks",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What ramp should I add?",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"],
+        "context": { "powerLevel": "casual" }
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus", "Mox Diamond"],
+        "shouldMentionCard": ["Arcane Signet", "Fellwar Stone", "Mind Stone"]
+      },
+      "tags": ["ramp", "power-level", "budget"],
+      "source": "curated"
+    },
+    {
+      "id": "commander-land-floor",
+      "name": "Should warn about low land count in Commander",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck",
+        "deckText": "1 Sol Ring\n30 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldContain": ["land", "34", "mana"],
+        "minLength": 50
+      },
+      "tags": ["lands", "commander", "fundamentals"],
+      "source": "curated"
+    },
+    {
+      "id": "teaching-mode-depth",
+      "name": "Teaching mode should provide 3-part answer",
+      "type": "chat",
+      "input": {
+        "userMessage": "What is ramp?",
+        "format": "Commander",
+        "context": { "teaching": true }
+      },
+      "expectedChecks": {
+        "shouldContain": ["concept", "examples", "application"],
+        "minLength": 200
+      },
+      "tags": ["teaching", "format", "depth"],
+      "source": "curated"
+    },
+    {
+      "id": "banned-card-suggestion",
+      "name": "Should not suggest banned cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest removal for my Commander deck",
+        "deckText": "1 Sol Ring\n38 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Primeval Titan", "Prophet of Kruphix", "Sundering Titan"]
+      },
+      "tags": ["banned", "commander", "validation"],
+      "source": "curated"
+    },
+    {
+      "id": "format-specific-vocabulary",
+      "name": "Should use format-appropriate examples",
+      "type": "chat",
+      "input": {
+        "userMessage": "What are good removal spells?",
+        "format": "Modern"
+      },
+      "expectedChecks": {
+        "shouldMentionCard": ["Lightning Bolt", "Path to Exile", "Fatal Push"],
+        "shouldNotMentionCard": ["Sol Ring", "Command Tower"]
+      },
+      "tags": ["format", "vocabulary", "modern"],
+      "source": "curated"
+    },
+    {
+      "id": "budget-awareness",
+      "name": "Should acknowledge budget constraints",
+      "type": "chat",
+      "input": {
+        "userMessage": "Suggest budget upgrades under $50",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": ["budget", "affordable", "cheap"],
+        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus"]
+      },
+      "tags": ["budget", "price", "accessibility"],
+      "source": "curated"
+    },
+    {
+      "id": "commander-archetype-respect",
+      "name": "Should respect commander archetype",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest cards for my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Forest\n1 Llanowar Elves",
+        "format": "Commander",
+        "commander": "Henzie 'Toolbox' Torre",
+        "colors": ["B", "R", "G"]
+      },
+      "expectedChecks": {
+        "shouldContain": ["permanent", "ETB", "dies"],
+        "shouldNotMentionCard": ["Lightning Bolt", "Counterspell"]
+      },
+      "tags": ["commander", "archetype", "synergy"],
+      "source": "curated"
+    },
+    {
+      "id": "ramp-categorization",
+      "name": "Should correctly categorize ramp types",
+      "type": "chat",
+      "input": {
+        "userMessage": "What types of ramp are there?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": ["land-based", "mana rocks", "mana dorks"],
+        "shouldMentionCard": ["Cultivate", "Sol Ring", "Llanowar Elves"]
+      },
+      "tags": ["ramp", "categorization", "education"],
+      "source": "curated"
+    },
+    {
+      "id": "color-strengths-weaknesses",
+      "name": "Should mention color strengths and weaknesses",
+      "type": "chat",
+      "input": {
+        "userMessage": "What are the strengths of red in Commander?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": ["damage", "aggression", "artifact"],
+        "shouldNotContain": ["card draw", "long-game"]
+      },
+      "tags": ["color-identity", "education"],
+      "source": "curated"
+    },
+    {
+      "id": "deck-analysis-structure",
+      "name": "Deck analysis should mention fundamentals",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldContain": ["ramp", "draw", "removal", "lands"],
+        "minLength": 100
+      },
+      "tags": ["deck-analysis", "fundamentals", "structure"],
+      "source": "curated"
+    },
+    {
+      "id": "no-overpromising",
+      "name": "Should avoid overconfident language",
+      "type": "chat",
+      "input": {
+        "userMessage": "Is Sol Ring an auto-include?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldNotContain": ["auto-include", "must-run", "always"],
+        "shouldContain": ["commonly", "strong", "option"]
+      },
+      "tags": ["tone", "overpromising", "language"],
+      "source": "curated"
+    },
+    {
+      "id": "opinionated-ranges",
+      "name": "Should present ranges when communities disagree",
+      "type": "chat",
+      "input": {
+        "userMessage": "How many lands should I run?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": ["range", "36", "38", "42", "tuned"],
+        "minLength": 50
+      },
+      "tags": ["lands", "opinionated", "ranges"],
+      "source": "curated"
+    }
+  ]
+}
+

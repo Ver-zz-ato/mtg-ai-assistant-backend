@@ -20,6 +20,7 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import roleBaselines from "@/lib/data/role_baselines.json";
 import colorIdentityMap from "@/lib/data/color_identity_map.json";
 import commanderProfiles from "@/lib/data/commander_profiles.json";
+import knownBad from "@/lib/data/known_bad.json";
 
 type RoleBaselineEntry = {
   min?: number;
@@ -61,12 +62,36 @@ type CommanderProfileEnriched = {
   archetypeHint?: string;
 };
 
+type KnownBadConfig = {
+  global?: string[];
+  colorCombos?: Record<string, string[]>;
+};
+
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const roleBaselineData = roleBaselines as RoleBaselines;
 const colorIdentityData = colorIdentityMap as ColorIdentityDictionary;
 const commanderProfilesData = commanderProfiles as CommanderProfilesDictionary;
+const knownBadConfig = knownBad as KnownBadConfig;
+const knownBadGlobal = new Set((knownBadConfig.global ?? []).map((name) => normalizeCardName(name)));
+const knownBadByCombo = new Map<string, Set<string>>();
+for (const [comboKey, cardList] of Object.entries(knownBadConfig.colorCombos ?? {})) {
+  const normalizedKey = comboKey
+    .toUpperCase()
+    .replace(/[^WUBRG]/g, "")
+    .split("")
+    .sort()
+    .join("");
+  if (!normalizedKey) continue;
+  const existing = knownBadByCombo.get(normalizedKey) ?? new Set<string>();
+  for (const cardName of cardList ?? []) {
+    if (typeof cardName === "string" && cardName.trim()) {
+      existing.add(normalizeCardName(cardName));
+    }
+  }
+  knownBadByCombo.set(normalizedKey, existing);
+}
 
 const COLOR_PAIR_LABELS: Record<string, string> = {
   WU: "Azorius",
@@ -98,6 +123,16 @@ const FAST_MANA = new Set([
   "Mox Diamond",
   "Chrome Mox",
 ]);
+
+const FAST_MANA_REPLACEMENT_NOTE = "This deck looks casual; here are casual ramp alternatives.";
+const FAST_MANA_REPLACEMENT_PRIORITY: Record<string, string[]> = {
+  "Mana Crypt": ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Guardian Idol", "Commander's Sphere"],
+  "Jeweled Lotus": ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Guardian Idol", "Coalition Relic"],
+  "Mana Vault": ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Commander's Sphere", "Talisman of Creativity"],
+  "Mox Diamond": ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Coldsteel Heart"],
+  "Chrome Mox": ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Guardian Idol"],
+};
+const FAST_MANA_REPLACEMENT_POOL = ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Guardian Idol", "Commander's Sphere", "Coalition Relic", "Coldsteel Heart"];
 
 const COMMANDER_BANNED: Record<string, true> = {
   "Ancestral Recall": true,
@@ -165,6 +200,42 @@ const COMMANDER_ONLY_CARDS = new Set([
   "Reflecting Pool",
 ]);
 
+const GENERIC_COMMANDER_PROFILES: Record<string, CommanderProfileEnriched> = {
+  tokens: {
+    plan: "Token swarm strategy: produce repeatable bodies, pump the team, and protect the army.",
+    preferTags: ["tokens", "anthem", "card draw", "protection"],
+    avoid: ["single big threats without token payoff", "overloaded tutors"],
+    notes: "Lean on engines like Parallel Lives, mentor draw like Skullclamp, and shield pieces with protection instants.",
+    archetypeHint: "Fallback tokens profile — prioritise go-wide payoff, support draw, and instant-speed protection.",
+  },
+  aristocrats: {
+    plan: "Sacrifice-based value engine with death triggers and recursion loops.",
+    preferTags: ["sacrifice", "death triggers", "token fodder", "recursion"],
+    avoid: ["expensive creatures without ETB value", "lifegain-only packages"],
+    notes: "Maintain cheap sac outlets (Viscera Seer), payoff drains (Blood Artist), and recursion (Sir Conrad, the Grim).",
+    archetypeHint: "Fallback aristocrats profile — keep fodder flowing, protect engines, and leverage mass drain effects.",
+  },
+};
+
+type CommanderFallbackRule = {
+  colors: string[];
+  archetypePattern: RegExp;
+  profileKey: keyof typeof GENERIC_COMMANDER_PROFILES;
+};
+
+const COMMANDER_FALLBACK_RULES: CommanderFallbackRule[] = [
+  {
+    colors: ["G", "W"],
+    archetypePattern: /(token|go[-\s]?wide|army)/i,
+    profileKey: "tokens",
+  },
+  {
+    colors: ["R", "B"],
+    archetypePattern: /(sac|aristocrat|sacrifice|blood)/i,
+    profileKey: "aristocrats",
+  },
+];
+
 type SuggestionSlotPlan = {
   role: string;
   requestedType?: string;
@@ -187,6 +258,12 @@ type FilteredCandidate = {
   name: string;
   reason: string;
   source: "gpt" | "retry";
+};
+
+type FilterSummary = {
+  count: number;
+  reasons: string[];
+  summaryText: string | null;
 };
 
 async function callOpenAI(
@@ -242,12 +319,13 @@ async function planSuggestionSlots(
   userMessage: string | undefined,
   context: InferredDeckContext
 ): Promise<SuggestionSlotPlan[]> {
-  const profile = getCommanderProfileData(context.commander);
+  const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
 
   const systemPrompt = [
     "You are ManaTap's planning assistant. Decide what slots need card suggestions before naming any cards.",
-    "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short\",\"quantity\":1}]}"
+    "Each slot's notes must state the specific problem it fixes (example: 'low early mana', 'no graveyard hate', 'struggles vs flyers').",
+    "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short\",\"quantity\":1}]}",
   ].join("\n");
 
   const profileNoteLines = buildCommanderProfileNotes(profile);
@@ -269,6 +347,7 @@ async function planSuggestionSlots(
     deckText,
     "",
     "Plan 3-6 slots that cover ramp, interaction, recursion, win conditions, or meta tech as needed.",
+    "For each slot, include a 'notes' field that names the deck problem you're solving.",
     "Be concise and respect commander colors/type requirements.",
     `Prompt version: ${promptVersion}-planner`,
   ].filter(Boolean).join("\n");
@@ -298,7 +377,7 @@ async function fetchSlotCandidates(
   userMessage: string | undefined,
   mode: "normal" | "strict" = "normal"
 ): Promise<SlotCandidate[]> {
-  const profile = getCommanderProfileData(context.commander);
+  const profile = getCommanderProfileData(context.commander, context);
 
   const systemPrompt = [
     mode === "strict"
@@ -359,7 +438,7 @@ async function retrySlotCandidates(
   ].join("\n");
 
   const slotColors = slot.colors?.length ? slot.colors.join(", ") : context.colors.join(", ");
-  const profile = getCommanderProfileData(context.commander);
+  const profile = getCommanderProfileData(context.commander, context);
   const profileNoteLines = buildCommanderProfileNotes(profile);
   const baselineSummary = buildCommanderBaselineSummary(context.format);
   const colorSummary = buildColorIdentitySummary(context.colors);
@@ -401,7 +480,8 @@ async function validateSlots(
   byName: Map<string, SfCard>,
   deckText: string,
   userMessage: string | undefined,
-  strict = false
+  locked: Set<string>,
+  strict: boolean
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -411,7 +491,7 @@ async function validateSlots(
   const suggestions: CardSuggestion[] = [];
   const filtered: FilteredCandidate[] = [];
   const deckNormalized = new Set(deckEntries.map((entry) => normalizeCardName(entry.name)));
-  const profile = getCommanderProfileData(context.commander);
+  const profile = getCommanderProfileData(context.commander, context);
   const isCommander = context.format === "Commander";
 
   for (const slot of slots) {
@@ -429,6 +509,16 @@ async function validateSlots(
         }
         if (deckNormalized.has(normalizedName)) {
           filtered.push({ slotRole: slot.role, name: candidate.name, reason: "already in deck", source });
+          continue;
+        }
+
+        if (locked.has(normalizedName)) {
+          filtered.push({ slotRole: slot.role, name: candidate.name, reason: "user locked", source });
+          continue;
+        }
+
+        if (isKnownBadCard(candidate.name, context.colors)) {
+          filtered.push({ slotRole: slot.role, name: candidate.name, reason: "community flagged", source });
           continue;
         }
 
@@ -476,6 +566,7 @@ async function validateSlots(
           reason: candidate.reason,
           source,
           requestedType: slot.requestedType,
+          slotRole: slot.role,
         });
         deckNormalized.add(normalizedName);
         picked += 1;
@@ -501,9 +592,11 @@ async function postFilterSuggestions(
   _currency: string,
   _deckEntries: Array<{ count: number; name: string }>,
   _userId: string | null,
-  profile: CommanderProfileEnriched | null
-): Promise<{ final: CardSuggestion[]; debug: Set<string> }> {
+  profile: CommanderProfileEnriched | null,
+  locked: Set<string>
+): Promise<{ final: CardSuggestion[]; debug: Set<string>; removedCount: number }> {
   const removalReasons = new Set<string>();
+  let removedCount = 0;
   const allowedColors = new Set((context.colors.length ? context.colors : ["C"]).map((c) => c.toUpperCase()));
   const merged = new Map<string, CardSuggestion>();
   const forbidRules = Array.isArray(roleBaselineData?.forbid_mislabels)
@@ -524,8 +617,13 @@ async function postFilterSuggestions(
     }
     if (!card) {
       removalReasons.add("card lookup failed");
+      removedCount += 1;
       continue;
     }
+
+    let needsReview = Boolean(suggestion.needs_review);
+    let reasonText = suggestion.reason || "";
+    const reviewNotes: string[] = [];
 
     if (context.format === "Commander" && COMMANDER_BANNED[card.name]) {
       const message = suggestion.reason
@@ -542,41 +640,81 @@ async function postFilterSuggestions(
           source: suggestion.source,
           requestedType: suggestion.requestedType,
           needs_review: true,
+          slotRole: suggestion.slotRole,
+          category: suggestion.category,
         });
       }
       removalReasons.add("banned");
       continue;
     }
 
+    if (FAST_MANA.has(card.name) && shouldFlagFastMana(context.powerLevel)) {
+      const replacement = await findFastManaReplacement(
+        card,
+        context,
+        byName,
+        normalizedDeck,
+        allowedColors,
+        suggestion.requestedType
+      );
+      removalReasons.add("fast mana gated");
+      removedCount += 1;
+      if (!replacement) {
+        reviewNotes.push(FAST_MANA_REPLACEMENT_NOTE);
+        needsReview = true;
+        continue;
+      }
+      const swapReason = suggestion.reason
+        ? `${suggestion.reason} | Replacing ${card.name} with ${replacement.name} for casual tables.`
+        : `Replacing ${card.name} with ${replacement.name} to stay casual.`;
+      reasonText = swapReason;
+      reviewNotes.push(FAST_MANA_REPLACEMENT_NOTE);
+      card = replacement;
+    }
+
     if (COMMANDER_ONLY_CARDS.has(card.name) && context.format !== "Commander") {
       removalReasons.add("commander-only outside format");
+      removedCount += 1;
       continue;
     }
 
     if (!isWithinColorIdentity(card, Array.from(allowedColors))) {
       removalReasons.add("off-color identity");
+      removedCount += 1;
       continue;
     }
 
     if (!isLegalForFormat(card, context.format)) {
       removalReasons.add("illegal in format");
+      removedCount += 1;
+      continue;
+    }
+
+    if (locked.has(normalizeCardName(card.name))) {
+      removalReasons.add("locked by user");
+      removedCount += 1;
+      continue;
+    }
+
+    if (isKnownBadCard(card.name, context.colors)) {
+      removalReasons.add("community flagged");
+      removedCount += 1;
       continue;
     }
 
     if (profile?.mustBePermanent && !matchesRequestedType(card, "permanent")) {
       removalReasons.add("commander requires permanents");
+      removedCount += 1;
       continue;
     }
 
     const norm = normalizeCardName(card.name);
     if (normalizedDeck.has(norm)) {
       removalReasons.add("duplicate");
+      removedCount += 1;
       continue;
     }
 
-    let needsReview = Boolean(suggestion.needs_review);
-    let reasonText = suggestion.reason || "";
-    const reviewNotes: string[] = [];
     const lowerReason = reasonText.toLowerCase();
 
     if (/cultivate|kodama's reach/i.test(card.name) && lowerReason.includes("creature ramp")) {
@@ -613,6 +751,7 @@ async function postFilterSuggestions(
       }
       merged.set(card.name, existing);
       removalReasons.add("duplicate suggestion");
+      removedCount += 1;
       continue;
     }
 
@@ -623,11 +762,43 @@ async function postFilterSuggestions(
       requestedType: suggestion.requestedType,
       needs_review: needsReview || undefined,
       reviewNotes: reviewNotes.length ? reviewNotes : undefined,
+      slotRole: suggestion.slotRole,
+      category: suggestion.category,
     });
   }
 
   const final = Array.from(merged.values());
-  return { final, debug: removalReasons };
+  return { final, debug: removalReasons, removedCount };
+}
+
+async function findFastManaReplacement(
+  originalCard: SfCard,
+  context: InferredDeckContext,
+  byName: Map<string, SfCard>,
+  normalizedDeck: Set<string>,
+  allowedColors: Set<string>,
+  requestedType?: string
+): Promise<SfCard | undefined> {
+  const priorityList = FAST_MANA_REPLACEMENT_PRIORITY[originalCard.name] ?? [];
+  const candidates = [...priorityList, ...FAST_MANA_REPLACEMENT_POOL];
+  const allowedList = Array.from(allowedColors);
+  for (const candidateName of candidates) {
+    const norm = normalizeCardName(candidateName);
+    if (normalizedDeck.has(norm)) continue;
+    let candidate: SfCard | null | undefined = byName.get(candidateName.toLowerCase());
+    if (!candidate) {
+      candidate = await fetchCard(candidateName);
+      if (candidate) {
+        byName.set(candidate.name.toLowerCase(), candidate);
+      }
+    }
+    if (!candidate) continue;
+    if (!isWithinColorIdentity(candidate, allowedList)) continue;
+    if (requestedType && requestedType.toLowerCase() !== "any" && !matchesRequestedType(candidate, requestedType)) continue;
+    if (!isLegalForFormat(candidate, context.format)) continue;
+    return candidate;
+  }
+  return undefined;
 }
 
 function computeBands(
@@ -687,22 +858,58 @@ function deckTally(
   return { lands, ramp, draw, removal, curve };
 }
 
-function getCommanderProfileData(name: string | null | undefined): CommanderProfileEnriched | null {
-  if (!name) return null;
+function matchCommanderFallback(context: InferredDeckContext | null | undefined): CommanderProfileEnriched | null {
+  if (!context) return null;
+  const colors = Array.isArray(context.colors) ? context.colors.map((c) => c.toUpperCase()) : [];
+  if (!colors.length) return null;
+  const colorSet = new Set(colors);
+  const archetype = String(context.archetype || "");
+  for (const rule of COMMANDER_FALLBACK_RULES) {
+    const matchesColors = rule.colors.every((c) => colorSet.has(c));
+    if (!matchesColors) continue;
+    if (!rule.archetypePattern.test(archetype)) continue;
+    const template = GENERIC_COMMANDER_PROFILES[rule.profileKey];
+    if (!template) continue;
+    return { ...template };
+  }
+  return null;
+}
+
+function isKnownBadCard(cardName: string, colors: string[]): boolean {
+  const normalized = normalizeCardName(cardName);
+  if (knownBadGlobal.has(normalized)) {
+    return true;
+  }
+  const key = (colors || [])
+    .map((c) => String(c || "").toUpperCase())
+    .filter(Boolean)
+    .sort()
+    .join("");
+  if (!key) return false;
+  const bucket = knownBadByCombo.get(key);
+  return bucket ? bucket.has(normalized) : false;
+}
+
+function getCommanderProfileData(name: string | null | undefined, context?: InferredDeckContext): CommanderProfileEnriched | null {
+  if (!name) {
+    return matchCommanderFallback(context);
+  }
   const jsonProfile = commanderProfilesData[name] ?? null;
   const legacyProfile = COMMANDER_PROFILES[name] ?? null;
-  if (!jsonProfile && !legacyProfile) return null;
+  if (!jsonProfile && !legacyProfile) {
+    return matchCommanderFallback(context);
+  }
   const preferTags = new Set<string>();
   legacyProfile?.preferTags?.forEach((tag) => preferTags.add(tag));
   jsonProfile?.preferTags?.forEach((tag) => preferTags.add(tag));
 
   return {
-    mustBePermanent: jsonProfile?.mustBePermanent ?? legacyProfile?.mustBePermanent ?? undefined,
+    mustBePermanent: legacyProfile?.mustBePermanent ?? jsonProfile?.mustBePermanent,
     preferTags: preferTags.size ? Array.from(preferTags) : undefined,
-    plan: jsonProfile?.plan ?? legacyProfile?.archetypeHint ?? undefined,
-    avoid: jsonProfile?.avoid ?? undefined,
-    notes: jsonProfile?.notes ?? legacyProfile?.archetypeHint ?? undefined,
-    archetypeHint: legacyProfile?.archetypeHint ?? undefined,
+    plan: jsonProfile?.plan ?? legacyProfile?.archetypeHint,
+    avoid: jsonProfile?.avoid,
+    notes: jsonProfile?.notes,
+    archetypeHint: legacyProfile?.archetypeHint ?? jsonProfile?.notes,
   };
 }
 
@@ -781,6 +988,88 @@ function shouldFlagFastMana(powerLevel: string | undefined | null): boolean {
   return !/^(?:high(?: power)?|c(?:ed)?h)$/i.test(powerLevel.trim());
 }
 
+function simplifyFilterReason(raw: string): string {
+  const cleaned = String(raw || "").trim();
+  if (!cleaned) return "other";
+  const lower = cleaned.toLowerCase();
+  if (lower.includes("expected")) return "wrong type";
+  if (lower.includes("type")) return "wrong type";
+  if (lower.includes("off-color")) return "off-color";
+  if (lower.includes("color identity")) return "off-color";
+  if (lower.includes("illegal")) return cleaned;
+  if (lower.includes("banned")) return "banned";
+  if (lower.includes("lookup")) return "card not found";
+  if (lower.includes("commander requires permanents")) return "commander requires permanents";
+  if (lower.includes("commander-only")) return "format-locked";
+  if (lower.includes("locked")) return "user-locked card";
+  if (lower.includes("community")) return "community flagged";
+  if (lower.includes("duplicate suggestion")) return "duplicate suggestions";
+  if (lower.includes("duplicate")) return "duplicate";
+  if (lower.includes("fast mana")) return "fast mana gated";
+  return cleaned;
+}
+
+function buildFilterSummary(
+  filtered: FilteredCandidate[],
+  postRemovalCount: number,
+  debugReasons: Set<string>
+): FilterSummary {
+  const reasons = new Set<string>();
+  for (const entry of filtered) {
+    reasons.add(simplifyFilterReason(entry.reason));
+  }
+  for (const reason of debugReasons) {
+    reasons.add(simplifyFilterReason(reason));
+  }
+  const count = filtered.length + postRemovalCount;
+  const reasonList = Array.from(reasons).filter(Boolean);
+  const summaryText = count > 0
+    ? `${count} suggestion${count === 1 ? "" : "s"} were filtered${reasonList.length ? `: ${reasonList.join(", ")}.` : "."}`
+    : null;
+  return { count, reasons: reasonList, summaryText };
+}
+
+const DIVERSITY_ORDER = ["ramp", "draw", "interaction", "theme", "protection", "tutor", "other"];
+
+function deriveSuggestionBucket(s: CardSuggestion): string {
+  const source = (s.slotRole || "") + " " + (s.reason || "");
+  const lowered = source.toLowerCase();
+  if (/ramp|accelerat|mana rock|fast mana|curve/.test(lowered)) return "ramp";
+  if (/draw|card advantage|cantrip|wheel/.test(lowered)) return "draw";
+  if (/removal|interaction|answer|kill|counter/.test(lowered)) return "interaction";
+  if (/token|synergy|theme|tribal|flavor|archetype/.test(lowered)) return "theme";
+  if (/protect|shield|hexproof|indestructible|heroic intervention/.test(lowered)) return "protection";
+  if (/tutor|search|fetch/.test(lowered)) return "tutor";
+  return "other";
+}
+
+function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[] {
+  if (list.length <= 1) return list;
+  const buckets = new Map<string, CardSuggestion[]>();
+  for (const suggestion of list) {
+    const bucket = deriveSuggestionBucket(suggestion);
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket)!.push(suggestion);
+  }
+  const order = DIVERSITY_ORDER.filter((key) => (buckets.get(key) || []).length > 0);
+  if (order.length <= 1) return list;
+  const working = new Map<string, CardSuggestion[]>(order.map((key) => [key, buckets.get(key)!.slice()]));
+  const total = list.length;
+  const result: CardSuggestion[] = [];
+  while (result.length < total) {
+    let added = false;
+    for (const key of order) {
+      const bucket = working.get(key);
+      if (bucket && bucket.length) {
+        result.push(bucket.shift()!);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return result;
+}
+
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     deckText?: string;
@@ -792,6 +1081,7 @@ export async function POST(req: Request) {
     userMessage?: string;
     useScryfall?: boolean;
     useGPT?: boolean;
+    lockCards?: string[];
   };
 
   const deckText = String(body.deckText || "").trim();
@@ -810,6 +1100,14 @@ export async function POST(req: Request) {
   const entries = parsed.map(({ name, qty }) => ({ name, count: qty }));
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
   const byName = new Map<string, SfCard>();
+  const lockedNormalized = new Set<string>();
+  if (Array.isArray(body.lockCards)) {
+    for (const item of body.lockCards) {
+      if (typeof item === "string" && item.trim()) {
+        lockedNormalized.add(normalizeCardName(item));
+      }
+    }
+  }
 
   if (useScryfall && uniqueNames.length) {
     const batch = await fetchCardsBatch(uniqueNames);
@@ -832,6 +1130,8 @@ export async function POST(req: Request) {
     { plan: body.plan ?? "Optimized", currency: (body.currency as any) ?? "USD" }
   );
 
+  const commanderProfile = getCommanderProfileData(context.commander, context);
+
   const totals = deckTally(entries, byName);
   const totalCardCount = entries.reduce((sum, e) => sum + e.count, 0);
   const bands = computeBands(format, totalCardCount, totals.lands, totals.ramp, totals.draw, totals.removal);
@@ -840,10 +1140,37 @@ export async function POST(req: Request) {
   const whatsGood: string[] = [];
   const quickFixes: string[] = [];
 
-  if (totals.lands >= (format === "Commander" ? 34 : format === "Modern" || format === "Pioneer" ? 22 : 23)) {
-    whatsGood.push("Mana base looks stable for this format.");
-  } else {
-    quickFixes.push("Add a few more lands to smooth your opening hands.");
+  const landThreshold =
+    format === "Commander"
+      ? 34
+      : format === "Modern" || format === "Pioneer"
+      ? 22
+      : 23;
+  const landProfileSignature = [
+    context.archetype || "",
+    commanderProfile?.plan || "",
+    commanderProfile?.notes || "",
+    (commanderProfile?.preferTags || []).join(" "),
+    String((context as any)?.commanderProvidesRamp || ""),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const commanderIsLandMatters = /landfall|lands?-matter|extra lands|land recursion|play additional lands|land engine|land ramp|lands strategy/.test(
+    landProfileSignature
+  );
+  if (totals.lands >= landThreshold) {
+     whatsGood.push("Mana base looks stable for this format.");
+   } else {
+    if (
+      format === "Commander" &&
+      totals.lands < 34 &&
+      !commanderIsLandMatters
+    ) {
+      quickFixes.push("Commander decks stumble with fewer than 34 lands; raise the count unless your commander is a dedicated land engine.");
+    } else {
+      quickFixes.push("Add a few more lands to smooth your opening hands.");
+    }
   }
   if (totals.draw >= 8) {
     whatsGood.push("Card draw density is healthy.");
@@ -864,29 +1191,32 @@ export async function POST(req: Request) {
   let filtered: FilteredCandidate[] = [];
   let required = 0;
   let filled = 0;
-  let suggestionDebugReasons: Set<string> | null = null;
+  const suggestionDebugReasons = new Set<string>();
+  let postFilteredCount = 0;
 
   if (useGPT) {
     const slots = await planSuggestionSlots(deckText, body.userMessage, context);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, false);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
-    let profile = getCommanderProfileData(context.commander);
-    let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile);
+    let profile = commanderProfile;
+    let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
     suggestions = post.final;
     filtered = validation.filtered;
     required = validation.required;
     filled = validation.filled;
-    suggestionDebugReasons = post.debug;
+    post.debug.forEach((reason) => suggestionDebugReasons.add(reason));
+    postFilteredCount += post.removedCount;
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, true);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
-      profile = getCommanderProfileData(context.commander);
-      post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile);
+      profile = getCommanderProfileData(context.commander, context);
+      post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
       suggestions = post.final;
       filtered = filtered.concat(validation.filtered);
-      suggestionDebugReasons = post.debug;
+      post.debug.forEach((reason) => suggestionDebugReasons.add(reason));
+      postFilteredCount += post.removedCount;
 
       if (suggestions.length === 0) {
         suggestions.push({
@@ -898,7 +1228,12 @@ export async function POST(req: Request) {
     }
   }
 
+  if (suggestions.length > 1) {
+    suggestions = rebalanceSuggestionsByCategory(suggestions);
+  }
+
   const note = totals.draw < 6 ? "needs a touch more draw" : totals.lands < (format === "Commander" ? 32 : 21) ? "mana base is light" : "solid, room to tune";
+  const filterSummary = buildFilterSummary(filtered, postFilteredCount, suggestionDebugReasons);
 
   return new Response(
     JSON.stringify({
@@ -915,9 +1250,12 @@ export async function POST(req: Request) {
       metaHints: [],
       combosPresent: [],
       combosMissing: [],
+      filteredSummary: filterSummary.summaryText,
+      filteredReasons: filterSummary.reasons,
+      filteredCount: filterSummary.count,
       debug: {
         filteredCandidates: filtered,
-        filterReasons: suggestionDebugReasons ? Array.from(suggestionDebugReasons) : [],
+        filterReasons: Array.from(suggestionDebugReasons),
       },
       prompt_version: useGPT ? getActivePromptVersion() : undefined,
     }),
