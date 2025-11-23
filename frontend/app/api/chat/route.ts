@@ -460,8 +460,35 @@ export async function POST(req: NextRequest) {
     }
 
     // If this thread is linked to a deck, include a compact summary as context
-    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: Format every Magic card name in bold markdown like **Sol Ring** so the UI can auto-link it. Do not bold other text. Wrap the name in double brackets elsewhere is no longer required.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.\n\nMaintain a friendly mentor tone. Avoid overconfident words like 'auto-include' or 'must-run'; prefer 'commonly used', 'strong option', or 'fits well if…'.\n\nWhen MTG communities disagree on guidelines (land counts, ramp density, etc.), share the common range and note that it can be tuned to taste.";
-    const guardrailBlock = `Global behavioral guardrails (always apply):
+    // Load custom system prompt from app_config if available
+    const defaultBasePrompt = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: Format every Magic card name in bold markdown like **Sol Ring** so the UI can auto-link it. Do not bold other text. Wrap the name in double brackets elsewhere is no longer required.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.\n\nMaintain a friendly mentor tone. Avoid overconfident words like 'auto-include' or 'must-run'; prefer 'commonly used', 'strong option', or 'fits well if…'.\n\nWhen MTG communities disagree on guidelines (land counts, ramp density, etc.), share the common range and note that it can be tuned to taste.";
+    
+    let baseSys = defaultBasePrompt;
+    
+    try {
+      const { data: promptsConfig } = await supabase
+        .from("app_config")
+        .select("value")
+        .eq("key", "prompts")
+        .maybeSingle();
+      
+      if (promptsConfig?.value?.templates?.system && promptsConfig.value.templates.system.trim()) {
+        // Use custom prompt from app_config (should include base + guardrails + improvements)
+        baseSys = promptsConfig.value.templates.system;
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[chat] Using custom prompt (${baseSys.length} chars) from version ${promptsConfig.value.version || "unknown"}`);
+        }
+      }
+    } catch (e) {
+      // Fallback to default if loading fails
+      console.warn("[chat] Failed to load custom prompt, using default:", e);
+    }
+    
+    let sys = baseSys;
+    
+    // Only add guardrails if using default prompt (custom prompts should already include them)
+    if (sys === defaultBasePrompt) {
+      const guardrailBlock = `Global behavioral guardrails (always apply):
 
 1. FORMAT SELF-TAG
 - Start the very first line with the format you’re assuming. Examples:
@@ -519,8 +546,9 @@ Do NOT present lands like Command Tower or Fabled Passage as ramp.
 
 If a card is banned or restricted in the user’s chosen format, explicitly mention that it’s banned and suggest a legal alternative.
 
-If the commander profile indicates a specific archetype, preserve the deck’s flavour and mechanical identity; never recommend cards that contradict its theme unless the user explicitly asks for variety.`;
-    sys += `\n\n${guardrailBlock}`;
+If the commander profile indicates a specific archetype, preserve the deck's flavour and mechanical identity; never recommend cards that contradict its theme unless the user explicitly asks for variety.`;
+      sys += `\n\n${guardrailBlock}`;
+    }
     
     // Add pasted decklist context if found (Task 1)
     // IMPORTANT: Always include decklist context if found, even without RAG trigger

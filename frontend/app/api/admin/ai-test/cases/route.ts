@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import testCasesJson from "@/lib/data/ai_test_cases.json";
 
 export const runtime = "nodejs";
 
@@ -24,8 +25,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Load from JSON file
-    const testCasesJson = await import("@/lib/data/ai_test_cases.json");
     const jsonCases = (testCasesJson as any).testCases || [];
+    console.log(`[ai-test/cases] Loaded ${jsonCases.length} test cases from JSON`);
 
     // Load from database
     const { data: dbCases, error } = await supabase.from("ai_test_cases").select("*").order("created_at", { ascending: false });
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
       })),
     ];
 
+    console.log(`[ai-test/cases] Returning ${allCases.length} total test cases (${jsonCases.length} from JSON, ${dbCases?.length || 0} from DB)`);
     return NextResponse.json({ ok: true, testCases: allCases });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });

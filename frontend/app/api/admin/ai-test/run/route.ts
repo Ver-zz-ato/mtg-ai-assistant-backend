@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import testCasesJson from "@/lib/data/ai_test_cases.json";
 
 export const runtime = "nodejs";
 
@@ -53,8 +54,8 @@ export async function POST(req: NextRequest) {
         };
       } else {
         // Try JSON file
-        const testCases = await import("@/lib/data/ai_test_cases.json");
-        const found = testCases.testCases.find((tc: any) => tc.id === testCaseId);
+        const testCases = (testCasesJson as any).testCases || [];
+        const found = testCases.find((tc: any) => tc.id === testCaseId);
         if (found) {
           finalTestCase = found;
         }
