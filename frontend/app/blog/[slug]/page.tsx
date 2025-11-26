@@ -15,6 +15,109 @@ const blogContent: Record<string, {
   gradient: string;
   icon: string;
 }> = {
+  'devlog-23-days-soft-launch': {
+    title: '🚀 Devlog: 23 Days Into Soft Launch',
+    date: '2025-11-26',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '6 min read',
+    gradient: 'from-orange-600 via-red-600 to-pink-600',
+    icon: '🚀',
+    content: `
+# 🚀 Devlog: 23 Days Into Soft Launch
+
+We're now 23 days into the soft launch of ManaTap.ai, and the project has already grown faster than we expected. What began as an early-access experiment is turning into a genuinely smarter, sharper deck-building assistant — thanks entirely to the players who've been testing, breaking, and refining the tool with us.
+
+## 🔧 What's Changed Since Launch
+
+A soft launch is where all the real learning happens. Here's what the last few weeks have brought:
+
+### 🪲 Dozens of Bugs Fixed from Live Users
+
+Everything from subtle UI quirks to deeper logic issues inside the analyzer has been ironed out.
+
+If someone has reported it, chances are it's fixed or already in the patch queue.
+
+Real users hit corners of the rules, formats, and card interactions no dataset ever catches — and that feedback loop has been gold.
+
+### 🤖 The AI Has Levelled Up — Massively
+
+The biggest leap forward this month has been in the intelligence of the deck analysis engine itself.
+
+Across 23 days, we've improved:
+
+- **Archetype recognition** — the AI is far better at identifying your deck's true plan.
+- **Synergy awareness** — token, aristocrats, landfall, lifegain, enchantress, spell-slinger… each now gets more precise, on-plan suggestions.
+- **Format accuracy** — fewer off-color, off-format, or banned recommendations.
+- **Ramp categorization** — land ramp vs mana rocks vs dorks is now clean and consistent.
+- **Budget-friendly reasoning** — clearer explanations about cost, upgrades, and affordable swaps.
+- **Teaching mode** — responses have structure, clarity, and real, actionable examples.
+
+Behind the scenes, hundreds of micro-updates to the system prompt mean the AI behaves far more like a real MTG player — not a card database.
+
+**The difference between Day 1 AI and Day 23 AI is night and day.**
+
+And we're not slowing down.
+
+### ⚡ Faster Combo & Synergy Detection
+
+Combo detection and synergy scanning now run significantly faster, with fewer false positives and better explanations of why something works.
+
+This is still evolving, and you'll see more improvements in December.
+
+### 💬 Better Reasoning Behind Card Suggestions
+
+One of the biggest requests from early testers was:
+
+*"Explain your thinking."*
+
+So we've done exactly that.
+
+Card suggestions now come with much clearer logic:
+
+- Why a card fits your plan
+- Why it pushes curve or budget too far
+- Why something might be slow in your format
+- What alternatives exist
+
+**The assistant doesn't just suggest cards anymore — it teaches.**
+
+## 💙 A Huge Thank You to Everyone Testing
+
+Every deck you upload teaches the model something.
+
+Every bug you report removes friction.
+
+Every message shapes how ManaTap.ai evolves.
+
+You're not just early users — you're co-builders.
+
+Your fingerprints are already all over this project.
+
+## 🧭 What's Coming Next
+
+Based on feedback from the last 23 days, here's what we're focusing on next:
+
+- Even deeper archetype tests (recursion, blink, voltron, treasure engines)
+- Stronger format detection and legality checks
+- More accurate land-base advice
+- Tighter synergy detection and curve analysis
+- UI polish and better onboarding
+- Continued AI refinement through daily test evaluations
+
+**December is shaping up to be a huge month.**
+
+## Ready to See How Much Smarter It's Become?
+
+Try a deck you tested on Day 1 — the difference will be obvious.
+
+**[🔗 Launch the Deck Assistant →](/my-decks)**
+
+Feedback buttons are built into every analysis. Use them. We read everything.
+
+Thanks again for being here during the messy, magic-making early stage of ManaTap.ai. The adventure's just getting started.
+    `,
+  },
   'welcome-to-manatap-ai-soft-launch': {
     title: '🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!',
     date: '2025-11-01',

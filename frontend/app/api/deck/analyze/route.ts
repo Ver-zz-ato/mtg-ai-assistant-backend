@@ -7,7 +7,7 @@ import {
   fetchCardsBatch,
   inferDeckContext,
 } from "@/lib/deck/inference";
-import { getActivePromptVersion } from "@/lib/config/prompts";
+import { getActivePromptVersion, getPromptVersion } from "@/lib/config/prompts";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import {
   CardSuggestion,
@@ -633,7 +633,7 @@ async function postFilterSuggestions(
       if (existing) {
         existing.reason = [existing.reason, message].filter(Boolean).join(" | ") || message;
         existing.needs_review = true;
-      } else {
+  } else {
         merged.set(card.name, {
           card: card.name,
           reason: message,
@@ -1084,6 +1084,20 @@ export async function POST(req: Request) {
     lockCards?: string[];
   };
 
+  // Load prompt version for deck analysis
+  let promptVersionId: string | null = null;
+  try {
+    const promptVersion = await getPromptVersion("deck_analysis");
+    if (promptVersion) {
+      promptVersionId = promptVersion.id;
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[deck/analyze] Using prompt version ${promptVersion.version} (${promptVersion.id})`);
+      }
+    }
+  } catch (e) {
+    console.warn("[deck/analyze] Failed to load prompt version:", e);
+  }
+
   const deckText = String(body.deckText || "").trim();
   const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
   const useScryfall = Boolean(body.useScryfall ?? true);
@@ -1237,9 +1251,9 @@ export async function POST(req: Request) {
 
   return new Response(
     JSON.stringify({
-      score,
-      note,
-      bands,
+    score,
+    note,
+    bands,
       counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
       whatsGood,
       quickFixes,
@@ -1257,7 +1271,8 @@ export async function POST(req: Request) {
         filteredCandidates: filtered,
         filterReasons: Array.from(suggestionDebugReasons),
       },
-      prompt_version: useGPT ? getActivePromptVersion() : undefined,
+      prompt_version: useGPT ? (promptVersionId || getActivePromptVersion()) : undefined,
+      prompt_version_id: promptVersionId || undefined,
     }),
     { status: 200, headers: { "content-type": "application/json" } }
   );

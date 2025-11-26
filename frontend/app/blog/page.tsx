@@ -9,6 +9,17 @@ export const metadata: Metadata = {
 // Blog posts data - will move to MDX files later
 const blogPosts = [
   {
+    slug: 'devlog-23-days-soft-launch',
+    title: '🚀 Devlog: 23 Days Into Soft Launch',
+    excerpt: 'We\'re now 23 days into the soft launch of ManaTap.ai, and the project has already grown faster than we expected. What began as an early-access experiment is turning into a genuinely smarter, sharper deck-building assistant.',
+    date: '2025-11-26',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '6 min read',
+    gradient: 'from-orange-600 via-red-600 to-pink-600',
+    icon: '🚀',
+  },
+  {
     slug: 'welcome-to-manatap-ai-soft-launch',
     title: '🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!',
     excerpt: 'We\'re thrilled to officially launch ManaTap AI! After months of development and testing, we\'re opening the gates to help you build better Magic: The Gathering decks with the power of AI.',

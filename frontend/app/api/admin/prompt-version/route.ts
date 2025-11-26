@@ -1,7 +1,7 @@
 // Admin endpoint to manage prompt versions for A/B testing
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getActivePromptVersion, PROMPT_VERSIONS, type PromptVersion } from "@/lib/config/prompts";
+import { getActivePromptVersion } from "@/lib/config/prompts";
 
 export const runtime = "nodejs";
 
@@ -28,16 +28,19 @@ export async function GET(req: NextRequest) {
     }
 
     const activeVersion = getActivePromptVersion();
-    const versions = Object.keys(PROMPT_VERSIONS).map(key => ({
-      ...PROMPT_VERSIONS[key as PromptVersion],
-      isActive: key === activeVersion
-    }));
+    
+    // Load versions from database
+    const { data: versions } = await supabase
+      .from("prompt_versions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     return NextResponse.json({
       ok: true,
       active_version: activeVersion,
-      versions,
-      note: "To change active version, set ACTIVE_PROMPT_VERSION environment variable or use POST endpoint to update database config"
+      versions: versions || [],
+      note: "Prompt versions are now managed through the prompt_versions table. Use /api/admin/ai-test/apply-improvements to create new versions."
     });
   } catch (error: any) {
     console.error('[admin/prompt-version] Error:', error);
@@ -73,11 +76,17 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate version exists
-    if (!(version in PROMPT_VERSIONS)) {
+    // Validate version exists in database
+    const { data: versionData } = await supabase
+      .from("prompt_versions")
+      .select("id")
+      .eq("version", version)
+      .maybeSingle();
+
+    if (!versionData) {
       return NextResponse.json({ 
         ok: false, 
-        error: `Invalid version: ${version}. Available versions: ${Object.keys(PROMPT_VERSIONS).join(', ')}` 
+        error: `Version ${version} not found in prompt_versions table` 
       }, { status: 400 });
     }
 

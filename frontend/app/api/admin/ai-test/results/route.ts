@@ -25,12 +25,16 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const testCaseId = url.searchParams.get("testCaseId");
+    const evalRunId = url.searchParams.get("evalRunId");
     const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get("limit") || "50", 10)));
 
     let query = supabase.from("ai_test_results").select("*").order("created_at", { ascending: false }).limit(limit);
 
     if (testCaseId) {
       query = query.eq("test_case_id", testCaseId);
+    }
+    if (evalRunId) {
+      query = query.eq("eval_run_id", evalRunId);
     }
 
     const { data, error } = await query;
@@ -61,16 +65,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "testCaseId and responseText required" }, { status: 400 });
     }
 
+    const bodyData: any = {
+      test_case_id: testCaseId,
+      response_text: responseText,
+      prompt_used: promptUsed || null,
+      validation_results: validationResults || null,
+      manual_review_status: manualReviewStatus || "pending",
+      manual_review_notes: manualReviewNotes || null,
+    };
+
+    // Add optional fields if provided
+    if (body.prompt_version_id) bodyData.prompt_version_id = body.prompt_version_id;
+    if (body.eval_run_id) bodyData.eval_run_id = body.eval_run_id;
+
     const { data, error } = await supabase
       .from("ai_test_results")
-      .insert({
-        test_case_id: testCaseId,
-        response_text: responseText,
-        prompt_used: promptUsed || null,
-        validation_results: validationResults || null,
-        manual_review_status: manualReviewStatus || "pending",
-        manual_review_notes: manualReviewNotes || null,
-      })
+      .insert(bodyData)
       .select()
       .single();
 

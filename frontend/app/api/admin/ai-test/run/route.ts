@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     const { type, input } = finalTestCase;
     let responseText = "";
-    let promptUsed: { system?: string; user?: string } = {};
+    let promptUsed: { system?: string; user?: string; prompt_version_id?: string | null } = {};
     let error: string | null = null;
 
     try {
@@ -96,11 +96,12 @@ export async function POST(req: NextRequest) {
           error = chatData.error || chatData.reason || "Chat API returned fallback";
         } else {
           responseText = chatData.text || "";
-          // Note: We can't easily capture the exact prompt used without modifying the chat route
+          // Note: Prompt version ID would be available if chat route logged it
           // For now, we'll note that prompts are built dynamically
           promptUsed = {
             system: "[Built dynamically in /api/chat]",
             user: input.userMessage,
+            prompt_version_id: chatData.prompt_version_id || null,
           };
         }
       } else if (type === "deck_analysis") {
@@ -141,6 +142,7 @@ export async function POST(req: NextRequest) {
           promptUsed = {
             system: "[Built dynamically in /api/deck/analyze]",
             user: input.userMessage || "Analyze this deck",
+            prompt_version_id: analysisData.prompt_version_id || null,
           };
         }
       } else {

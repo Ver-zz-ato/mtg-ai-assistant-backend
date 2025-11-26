@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       runLLMFactCheck: options?.runLLMFactCheck === true,
       runReferenceCompare: options?.runReferenceCompare === true,
       apiKey: options?.runLLMFactCheck ? apiKey : undefined,
+      supabase: supabase,
     };
 
     const results = await validateResponse(response, testCase, validationOptions);

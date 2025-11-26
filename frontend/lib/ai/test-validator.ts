@@ -23,6 +23,25 @@ export type ExpectedChecks = {
   formatSpecific?: boolean;
 };
 
+export type DeckAnalysisExpectedChecks = ExpectedChecks & {
+  minRampMention?: number;
+  minDrawMention?: number;
+  mustFlagLowLands?: boolean;
+  shouldNotSuggestCard?: string[];
+  minSynergyScore?: number;
+};
+
+export type JudgeResult = {
+  overall_score: number;
+  factual_score: number;
+  legality_score: number;
+  synergy_score: number;
+  pedagogy_score: number;
+  issues: string[];
+  improved_answer?: string;
+  suggested_prompt_patch?: string;
+};
+
 /**
  * Validate response against keyword checks
  */
@@ -164,25 +183,30 @@ export function validateKeywords(
 }
 
 /**
- * Use LLM to fact-check the response
+ * Use LLM to fact-check the response with structured scoring
  */
 export async function validateLLMFactCheck(
   response: string,
   testCase: { name: string; input: any; expectedChecks?: ExpectedChecks },
   apiKey: string
-): Promise<ValidationResult> {
-  const systemPrompt = `You are a Magic: The Gathering expert fact-checker. Review the AI assistant's response and verify its accuracy.
+): Promise<{ validation: ValidationResult; judge: JudgeResult }> {
+  const systemPrompt = `You are a Magic: The Gathering expert fact-checker. Review the AI assistant's response and provide structured evaluation.
 
 Test case: ${testCase.name}
 User question: ${JSON.stringify(testCase.input.userMessage || "")}
+Format: ${testCase.input.format || "Unknown"}
 
-Evaluate the response for:
-1. Factual accuracy (card names, rules, format legality)
-2. Consistency with MTG best practices
-3. Appropriate tone (not overpromising)
-4. Correct categorization (e.g., ramp types)
-
-Return JSON: {"accurate": true/false, "score": 0-100, "issues": ["issue1", "issue2"], "strengths": ["strength1"]}`;
+Evaluate the response and return JSON with these exact fields:
+{
+  "overall_score": 0-100,
+  "factual_score": 0-100,  // Card names, rules, format legality accuracy
+  "legality_score": 0-100,  // Color identity, format legality, banlist compliance
+  "synergy_score": 0-100,   // How well suggestions fit the deck plan/commander
+  "pedagogy_score": 0-100,  // Clarity for teaching mode, explanation quality
+  "issues": ["issue1", "issue2"],
+  "improved_answer": "optional better version",
+  "suggested_prompt_patch": "optional prompt improvement"
+}`;
 
   const userPrompt = `AI Response to fact-check:\n\n${response}`;
 
@@ -200,7 +224,7 @@ Return JSON: {"accurate": true/false, "score": 0-100, "issues": ["issue1", "issu
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 500,
+        max_tokens: 800,
         response_format: { type: "json_object" },
       }),
     });
@@ -215,71 +239,340 @@ Return JSON: {"accurate": true/false, "score": 0-100, "issues": ["issue1", "issu
       throw new Error("No content from LLM fact-check");
     }
 
-    const result = JSON.parse(content);
-    const passed = result.accurate === true && result.score >= 70;
+    const result = JSON.parse(content) as Partial<JudgeResult>;
+    
+    // Ensure all required fields exist
+    const judge: JudgeResult = {
+      overall_score: result.overall_score ?? 0,
+      factual_score: result.factual_score ?? 0,
+      legality_score: result.legality_score ?? 0,
+      synergy_score: result.synergy_score ?? 0,
+      pedagogy_score: result.pedagogy_score ?? 0,
+      issues: result.issues || [],
+      improved_answer: result.improved_answer,
+      suggested_prompt_patch: result.suggested_prompt_patch,
+    };
 
-    return {
+    const passed = judge.overall_score >= 70;
+
+    const validation: ValidationResult = {
       passed,
-      score: result.score || 0,
+      score: judge.overall_score,
       checks: [
         {
           type: "llm_fact_check",
           passed,
           message: passed
-            ? `LLM fact-check passed (score: ${result.score})`
-            : `LLM fact-check found issues: ${result.issues?.join(", ") || "unknown"}`,
+            ? `LLM fact-check passed (overall: ${judge.overall_score}%)`
+            : `LLM fact-check found issues: ${judge.issues.join(", ") || "unknown"}`,
         },
       ],
-      warnings: result.issues || [],
+      warnings: judge.issues,
     };
+
+    return { validation, judge };
   } catch (error: any) {
+    const judge: JudgeResult = {
+      overall_score: 0,
+      factual_score: 0,
+      legality_score: 0,
+      synergy_score: 0,
+      pedagogy_score: 0,
+      issues: [error.message],
+    };
+
     return {
-      passed: false,
-      score: 0,
-      checks: [
-        {
-          type: "llm_fact_check",
-          passed: false,
-          message: `LLM fact-check error: ${error.message}`,
-        },
-      ],
-      warnings: [error.message],
+      validation: {
+        passed: false,
+        score: 0,
+        checks: [
+          {
+            type: "llm_fact_check",
+            passed: false,
+            message: `LLM fact-check error: ${error.message}`,
+          },
+        ],
+        warnings: [error.message],
+      },
+      judge,
     };
   }
 }
 
 /**
- * Compare response against reference sources (Scryfall, EDHREC)
- * This is a placeholder - full implementation would call those APIs
+ * Extract card names from response text (handles markdown formatting)
+ */
+function extractCardNames(response: string): string[] {
+  const cardNames: string[] = [];
+  // Match **Card Name** or [[Card Name]] patterns
+  const patterns = [
+    /\*\*([^*]+)\*\*/g,  // **Card Name**
+    /\[\[([^\]]+)\]\]/g,  // [[Card Name]]
+  ];
+  
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(response)) !== null) {
+      const name = match[1].trim();
+      if (name && name.length > 0) {
+        cardNames.push(name);
+      }
+    }
+  }
+  
+  return Array.from(new Set(cardNames)); // Remove duplicates
+}
+
+/**
+ * Check color identity compatibility
+ */
+async function checkColorIdentity(
+  cardName: string,
+  allowedColors: string[],
+  supabase: any
+): Promise<{ passed: boolean; message: string }> {
+  try {
+    const normalizedName = cardName.toLowerCase().trim();
+    const { data } = await supabase
+      .from("scryfall_cache")
+      .select("color_identity, name")
+      .ilike("name", normalizedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (!data || !data.color_identity) {
+      return { passed: true, message: `Card "${cardName}" not found in cache (skipping color check)` };
+    }
+
+    const cardColors = Array.isArray(data.color_identity) ? data.color_identity : [];
+    const allowedSet = new Set(allowedColors.map((c) => c.toUpperCase()));
+    
+    // Check if all card colors are in allowed colors
+    const allAllowed = cardColors.every((c: string) => allowedSet.has(c.toUpperCase()));
+    
+    if (!allAllowed) {
+      return {
+        passed: false,
+        message: `Card "${cardName}" has color identity ${cardColors.join(", ")} but deck only allows ${allowedColors.join(", ")}`,
+      };
+    }
+
+    return { passed: true, message: `Card "${cardName}" color identity OK` };
+  } catch (error: any) {
+    return { passed: true, message: `Color check error for "${cardName}": ${error.message}` };
+  }
+}
+
+/**
+ * Check format legality (banned list)
+ */
+async function checkFormatLegality(
+  cardName: string,
+  format: string,
+  supabase: any
+): Promise<{ passed: boolean; message: string }> {
+  try {
+    // Load banned cards list
+    const bannedCardsModule = await import("@/lib/data/banned_cards.json");
+    const bannedCards = (bannedCardsModule as any).default || bannedCardsModule;
+    const formatBanned = bannedCards[format] || [];
+    
+    const normalizedName = cardName.toLowerCase().trim();
+    const isBanned = formatBanned.some((banned: string) => 
+      banned.toLowerCase().trim() === normalizedName
+    );
+
+    if (isBanned) {
+      return {
+        passed: false,
+        message: `Card "${cardName}" is banned in ${format}`,
+      };
+    }
+
+    return { passed: true, message: `Card "${cardName}" is legal in ${format}` };
+  } catch (error: any) {
+    return { passed: true, message: `Legality check error for "${cardName}": ${error.message}` };
+  }
+}
+
+/**
+ * Compare response against reference sources using scryfall_cache
  */
 export async function validateReferenceCompare(
   response: string,
-  testCase: { input: any; expectedChecks?: ExpectedChecks }
+  testCase: { input: any; expectedChecks?: ExpectedChecks },
+  supabase?: any
 ): Promise<ValidationResult> {
-  // Placeholder: In full implementation, would:
-  // 1. Extract card names from response
-  // 2. Check Scryfall for legality/format
-  // 3. Check EDHREC for popularity/usage stats
-  // 4. Compare against expected values
-
   const checks: Array<{ type: string; passed: boolean; message: string }> = [];
   const warnings: string[] = [];
+  let passedCount = 0;
+  let totalChecks = 0;
 
-  // Basic check: if format is specified, ensure mentioned cards are legal
-  if (testCase.input.format) {
-    // This would be expanded with actual Scryfall API calls
+  if (!supabase) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "reference_compare",
+        passed: true,
+        message: "Reference comparison skipped (no supabase client)",
+      }],
+      warnings: ["Supabase client not provided"],
+    };
+  }
+
+  // Extract card names from response
+  const cardNames = extractCardNames(response);
+  
+  if (cardNames.length === 0) {
     checks.push({
       type: "reference_compare",
       passed: true,
-      message: "Reference comparison not yet implemented (would check Scryfall/EDHREC)",
+      message: "No card names found in response",
     });
+    return {
+      passed: true,
+      score: 100,
+      checks,
+      warnings,
+    };
   }
 
+  const format = testCase.input.format;
+  const allowedColors = testCase.input.colors || [];
+  const commander = testCase.input.commander;
+
+  // Check each card
+  for (const cardName of cardNames.slice(0, 20)) { // Limit to 20 cards to avoid too many checks
+    // Color identity check
+    if (allowedColors.length > 0 || commander) {
+      totalChecks++;
+      const colorCheck = await checkColorIdentity(cardName, allowedColors, supabase);
+      checks.push({
+        type: "color_identity",
+        passed: colorCheck.passed,
+        message: colorCheck.message,
+      });
+      if (colorCheck.passed) passedCount++;
+      if (!colorCheck.passed) warnings.push(colorCheck.message);
+    }
+
+    // Format legality check
+    if (format) {
+      totalChecks++;
+      const legalityCheck = await checkFormatLegality(cardName, format, supabase);
+      checks.push({
+        type: "format_legality",
+        passed: legalityCheck.passed,
+        message: legalityCheck.message,
+      });
+      if (legalityCheck.passed) passedCount++;
+      if (!legalityCheck.passed) warnings.push(legalityCheck.message);
+    }
+  }
+
+  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  const passed = score >= 80;
+
   return {
-    passed: true,
-    score: 100,
+    passed,
+    score,
     checks,
     warnings,
+  };
+}
+
+/**
+ * Validate deck analysis response with pillar checks
+ */
+export function validateDeckAnalysisResponse(
+  response: string,
+  expectedChecks: DeckAnalysisExpectedChecks
+): ValidationResult {
+  const responseLower = response.toLowerCase();
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  let passedCount = 0;
+  let totalChecks = 0;
+
+  // Check for ramp mentions
+  if (expectedChecks.minRampMention !== undefined) {
+    totalChecks++;
+    const rampKeywords = ["ramp", "mana", "cultivate", "signet", "sol ring"];
+    const rampCount = rampKeywords.filter((kw) => responseLower.includes(kw)).length;
+    const passed = rampCount >= expectedChecks.minRampMention;
+    checks.push({
+      type: "minRampMention",
+      passed,
+      message: passed
+        ? `Mentions ramp ${rampCount} times (required: ${expectedChecks.minRampMention})`
+        : `Only mentions ramp ${rampCount} times, need at least ${expectedChecks.minRampMention}`,
+    });
+    if (passed) passedCount++;
+  }
+
+  // Check for draw mentions
+  if (expectedChecks.minDrawMention !== undefined) {
+    totalChecks++;
+    const drawKeywords = ["draw", "card advantage", "card draw", "filter", "cantrip"];
+    const drawCount = drawKeywords.filter((kw) => responseLower.includes(kw)).length;
+    const passed = drawCount >= expectedChecks.minDrawMention;
+    checks.push({
+      type: "minDrawMention",
+      passed,
+      message: passed
+        ? `Mentions draw ${drawCount} times (required: ${expectedChecks.minDrawMention})`
+        : `Only mentions draw ${drawCount} times, need at least ${expectedChecks.minDrawMention}`,
+    });
+    if (passed) passedCount++;
+  }
+
+  // Check for low lands flag
+  if (expectedChecks.mustFlagLowLands) {
+    totalChecks++;
+    const landWarningKeywords = ["land", "lands", "mana base", "too few lands", "add lands"];
+    const hasLandWarning = landWarningKeywords.some((kw) => responseLower.includes(kw));
+    checks.push({
+      type: "mustFlagLowLands",
+      passed: hasLandWarning,
+      message: hasLandWarning
+        ? "Flags low land count"
+        : "Should flag low land count but doesn't",
+    });
+    if (hasLandWarning) passedCount++;
+  }
+
+  // Check for cards that shouldn't be suggested
+  if (expectedChecks.shouldNotSuggestCard && expectedChecks.shouldNotSuggestCard.length > 0) {
+    for (const cardName of expectedChecks.shouldNotSuggestCard) {
+      totalChecks++;
+      const cardLower = cardName.toLowerCase();
+      const passed = !responseLower.includes(cardLower);
+      checks.push({
+        type: "shouldNotSuggestCard",
+        passed,
+        message: passed
+          ? `Correctly avoids "${cardName}"`
+          : `Should not suggest "${cardName}" but does`,
+      });
+      if (passed) passedCount++;
+    }
+  }
+
+  // Run standard keyword checks too
+  const keywordResults = validateKeywords(response, expectedChecks);
+  checks.push(...keywordResults.checks);
+  passedCount += keywordResults.checks.filter((c) => c.passed).length;
+  totalChecks += keywordResults.checks.length;
+
+  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  const passed = score >= 80;
+
+  return {
+    passed,
+    score,
+    checks,
+    warnings: [...warnings, ...keywordResults.warnings],
   };
 }
 
@@ -298,10 +591,12 @@ export async function validateResponse(
     runLLMFactCheck?: boolean;
     runReferenceCompare?: boolean;
     apiKey?: string;
+    supabase?: any;
   } = {}
 ): Promise<{
   keywordResults?: ValidationResult;
   llmResults?: ValidationResult;
+  llmJudge?: JudgeResult;
   referenceResults?: ValidationResult;
   overall: {
     passed: boolean;
@@ -312,6 +607,7 @@ export async function validateResponse(
   const results: {
     keywordResults?: ValidationResult;
     llmResults?: ValidationResult;
+    llmJudge?: JudgeResult;
     referenceResults?: ValidationResult;
   } = {};
 
@@ -320,20 +616,27 @@ export async function validateResponse(
     results.keywordResults = validateKeywords(response, testCase.expectedChecks);
   }
 
-  // LLM fact-check
+  // LLM fact-check (returns both validation and judge result)
   if (options.runLLMFactCheck && options.apiKey) {
-    results.llmResults = await validateLLMFactCheck(response, testCase, options.apiKey);
+    const llmResult = await validateLLMFactCheck(response, testCase, options.apiKey);
+    results.llmResults = llmResult.validation;
+    results.llmJudge = llmResult.judge;
   }
 
-  // Reference comparison
+  // Reference comparison (now uses supabase for real checks)
   if (options.runReferenceCompare) {
-    results.referenceResults = await validateReferenceCompare(response, testCase);
+    results.referenceResults = await validateReferenceCompare(
+      response,
+      testCase,
+      options.supabase
+    );
   }
 
   // Calculate overall score
   const allScores: number[] = [];
   if (results.keywordResults) allScores.push(results.keywordResults.score);
   if (results.llmResults) allScores.push(results.llmResults.score);
+  if (results.llmJudge) allScores.push(results.llmJudge.overall_score);
   if (results.referenceResults) allScores.push(results.referenceResults.score);
 
   const overallScore =

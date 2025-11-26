@@ -24,9 +24,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { description, count = 5, type = "chat" } = body;
+    const { description, count = 5, type = "chat", random = false } = body;
 
-    if (!description) {
+    // If random, generate a random description
+    const finalDescription = random 
+      ? `Generate diverse test cases covering various MTG scenarios: ramp questions, color identity issues, format legality, budget constraints, archetype suggestions, card recommendations, and common player questions. Mix of chat and deck_analysis types.`
+      : description;
+
+    if (!finalDescription) {
       return NextResponse.json({ ok: false, error: "description required" }, { status: 400 });
     }
 
@@ -47,7 +52,9 @@ Return a JSON array of test cases. Each test case should have:
 
 Generate ${count} test cases.`;
 
-    const userPrompt = `Generate test cases for: ${description}\n\nType: ${type}`;
+    const userPrompt = random
+      ? `Generate ${count} diverse test cases covering various MTG scenarios. Mix chat and deck_analysis types. Cover: ramp questions, color identity, format legality, budget constraints, archetype suggestions, card recommendations, and common player questions.`
+      : `Generate test cases for: ${finalDescription}\n\nType: ${type}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -61,8 +68,8 @@ Generate ${count} test cases.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: random ? 0.9 : 0.7, // Higher temperature for more diverse random tests
+        max_tokens: 3000,
         response_format: { type: "json_object" },
       }),
     });
