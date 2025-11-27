@@ -63,6 +63,50 @@ const blogPosts = [
     gradient: 'from-amber-600 via-orange-600 to-rose-600',
     icon: '💎',
   },
+  {
+    slug: 'how-to-build-your-first-commander-deck',
+    title: 'How to Build Your First Commander Deck (Beginner Friendly)',
+    excerpt: 'A complete beginner-friendly guide to building your first Magic: The Gathering Commander deck. Learn deck structure, card selection, and essential strategies.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Commander',
+    readTime: '8 min read',
+    gradient: 'from-green-600 via-emerald-600 to-teal-600',
+    icon: '🎯',
+  },
+  {
+    slug: 'the-7-most-common-deckbuilding-mistakes',
+    title: 'The 7 Most Common Deckbuilding Mistakes in MTG',
+    excerpt: 'Avoid these 7 common mistakes when building Magic: The Gathering decks. Learn how to fix mana curves, ramp issues, and card selection problems.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '6 min read',
+    gradient: 'from-red-600 via-rose-600 to-pink-600',
+    icon: '⚠️',
+  },
+  {
+    slug: 'edh-land-count-what-the-community-actually-runs',
+    title: 'EDH Land Count: What the Community Actually Runs',
+    excerpt: 'Data-driven analysis of optimal land counts in Commander decks. Learn how many lands to run based on your deck\'s strategy, ramp, and curve.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '7 min read',
+    gradient: 'from-blue-600 via-cyan-600 to-teal-600',
+    icon: '🌍',
+  },
+  {
+    slug: 'top-budget-staples-every-mtg-player-should-know-2025',
+    title: 'Top Budget Staples Every MTG Player Should Know in 2025',
+    excerpt: 'Discover the best budget Magic: The Gathering staples under $5 that every Commander player should own. Build competitive decks without breaking the bank.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Budget Building',
+    readTime: '9 min read',
+    gradient: 'from-yellow-600 via-amber-600 to-orange-600',
+    icon: '💎',
+  },
 ];
 
 export default function BlogPage() {
@@ -176,8 +220,14 @@ export default function BlogPage() {
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link
-              href="/my-decks"
+              href="/mtg-commander-ai-deck-builder"
               className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-gray-100 transition-colors"
+            >
+              Free Deck Builder →
+            </Link>
+            <Link
+              href="/my-decks"
+              className="px-6 py-3 bg-white/20 backdrop-blur text-white rounded-lg font-bold hover:bg-white/30 transition-colors"
             >
               Start Building
             </Link>

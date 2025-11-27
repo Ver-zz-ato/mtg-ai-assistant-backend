@@ -269,6 +269,13 @@ export default function Header() {
             Browse Decks
           </Link>
           <Link 
+            href="/mtg-commander-ai-deck-builder" 
+            className="text-sm hover:underline text-blue-400 font-medium"
+            onClick={() => capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'header' })}
+          >
+            Deck Builder
+          </Link>
+          <Link 
             href="/blog" 
             className="text-sm hover:underline text-blue-400 font-medium"
             onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
@@ -480,6 +487,16 @@ export default function Header() {
               }}
             >
               Browse Decks
+            </Link>
+            <Link 
+              href="/mtg-commander-ai-deck-builder" 
+              className="block py-2 text-sm text-blue-400 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Deck Builder
             </Link>
             <Link 
               href="/blog" 

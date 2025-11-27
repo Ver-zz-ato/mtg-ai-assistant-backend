@@ -180,8 +180,10 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
             <h3 className="text-lg font-semibold text-gray-300">Explore ManaTap</h3>
           </div>
           <nav className="flex gap-3 items-center flex-wrap justify-center text-sm">
+            <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-blue-600/20 to-blue-500/10 border border-blue-500/30 hover:from-blue-500/30 hover:to-blue-400/20 hover:border-blue-400/40 transition-all" href="/mtg-commander-ai-deck-builder">Deck Builder</a>
             <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-600/20 to-purple-500/10 border border-purple-500/30 hover:from-purple-500/30 hover:to-purple-400/20 hover:border-purple-400/40 transition-all" href="/changelog">What's New</a>
             <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 hover:from-emerald-500/30 hover:to-emerald-400/20 hover:border-emerald-400/40 transition-all" href="/collections/cost-to-finish">Cost to Finish</a>
+            <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-indigo-600/20 to-indigo-500/10 border border-indigo-500/30 hover:from-indigo-500/30 hover:to-indigo-400/20 hover:border-indigo-400/40 transition-all" href="/blog">Blog</a>
             <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-cyan-600/20 to-cyan-500/10 border border-cyan-500/30 hover:from-cyan-500/30 hover:to-cyan-400/20 hover:border-cyan-400/40 transition-all" href="/budget-swaps">Budget Swaps</a>
             <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-blue-600/20 to-blue-500/10 border border-blue-500/30 hover:from-blue-500/30 hover:to-blue-400/20 hover:border-blue-400/40 transition-all" href="/price-tracker">Price Tracker</a>
             <a className="px-3 py-1.5 rounded-md bg-gradient-to-r from-amber-600/20 to-amber-500/10 border border-amber-500/30 hover:from-amber-500/30 hover:to-amber-400/20 hover:border-amber-400/40 transition-all" href="/tools/probability">Probability</a>

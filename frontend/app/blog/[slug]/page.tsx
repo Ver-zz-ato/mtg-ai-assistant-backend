@@ -1,8 +1,52 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
 
 // Cache for 24 hours (blog content changes infrequently)
 export const revalidate = 86400;
+
+// Generate metadata for each blog post
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = blogContent[slug];
+  
+  if (!post) {
+    return {
+      title: 'Post Not Found | ManaTap AI Blog',
+    };
+  }
+
+  // Create SEO-friendly title and description
+  const title = post.title.replace(/[🚀🎉💰📊💎]/g, '').trim() + ' | ManaTap AI';
+  const description = post.content
+    .split('\n')
+    .find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##')) 
+    ?.trim()
+    .slice(0, 160) || `Learn about ${post.title.toLowerCase()} in this comprehensive MTG deck building guide.`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `/blog/${slug}`,
+    },
+    openGraph: {
+      title: post.title,
+      description,
+      url: `https://manatap.ai/blog/${slug}`,
+      siteName: 'ManaTap AI',
+      type: 'article',
+      publishedTime: post.date,
+      authors: [post.author],
+      tags: [post.category],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description,
+    },
+  };
+}
 
 // This will be replaced with actual MDX content later
 const blogContent: Record<string, {
@@ -511,6 +555,34 @@ Building a $100 Commander deck doesn't mean building a weak one. Smart card choi
   },
 };
 
+function articleJsonLd(post: typeof blogContent[string], slug: string) {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.content.split('\n').find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##'))?.trim().slice(0, 160) || `Learn about ${post.title.toLowerCase()}`,
+    "image": `https://manatap.ai/manatap-og-image.png`,
+    "datePublished": post.date,
+    "dateModified": post.date,
+    "author": {
+      "@type": "Organization",
+      "name": post.author
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "ManaTap AI",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://manatap.ai/manatap-og-image.png"
+      }
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://manatap.ai/blog/${slug}`
+    }
+  });
+}
+
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = blogContent[slug];
@@ -520,6 +592,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   }
 
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleJsonLd(post, slug) }} />
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section */}
       <div className={`relative h-[40vh] min-h-[300px] bg-gradient-to-br ${post.gradient} overflow-hidden`}>
@@ -907,6 +981,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </div>
       </div>
     </div>
+    </>
   );
 }
 
