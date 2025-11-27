@@ -577,6 +577,96 @@ export function validateDeckAnalysisResponse(
 }
 
 /**
+ * Validate semantic similarity using OpenAI embeddings
+ */
+export async function validateSemanticSimilarity(
+  response: string,
+  expectedAnswer?: string,
+  apiKey?: string
+): Promise<ValidationResult> {
+  if (!apiKey || !expectedAnswer) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "semantic_similarity",
+        passed: true,
+        message: "Semantic similarity check skipped (no expected answer or API key)",
+      }],
+      warnings: [],
+    };
+  }
+
+  try {
+    // Get embeddings for both texts
+    const embeddingsRes = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: [response, expectedAnswer],
+      }),
+    });
+
+    if (!embeddingsRes.ok) {
+      throw new Error(`Embeddings API failed: ${embeddingsRes.status}`);
+    }
+
+    const embeddingsData = await embeddingsRes.json();
+    const embeddings = embeddingsData.data;
+
+    if (embeddings.length !== 2) {
+      throw new Error("Expected 2 embeddings, got " + embeddings.length);
+    }
+
+    // Calculate cosine similarity
+    const a = embeddings[0].embedding;
+    const b = embeddings[1].embedding;
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    const score = Math.round(similarity * 100);
+    const passed = similarity >= 0.7; // 70% similarity threshold
+
+    return {
+      passed,
+      score,
+      checks: [{
+        type: "semantic_similarity",
+        passed,
+        message: passed
+          ? `Semantic similarity: ${score}% (threshold: 70%)`
+          : `Semantic similarity too low: ${score}% (threshold: 70%)`,
+      }],
+      warnings: passed ? [] : [`Response semantic similarity is ${score}%, expected >= 70%`],
+    };
+  } catch (error: any) {
+    return {
+      passed: false,
+      score: 0,
+      checks: [{
+        type: "semantic_similarity",
+        passed: false,
+        message: `Semantic similarity check error: ${error.message}`,
+      }],
+      warnings: [error.message],
+    };
+  }
+}
+
+/**
  * Run all validation checks
  */
 export async function validateResponse(
@@ -585,11 +675,13 @@ export async function validateResponse(
     name: string;
     input: any;
     expectedChecks?: ExpectedChecks;
+    expectedAnswer?: string; // For semantic similarity
   },
   options: {
     runKeywordChecks?: boolean;
     runLLMFactCheck?: boolean;
     runReferenceCompare?: boolean;
+    runSemanticCheck?: boolean;
     apiKey?: string;
     supabase?: any;
   } = {}
@@ -598,6 +690,7 @@ export async function validateResponse(
   llmResults?: ValidationResult;
   llmJudge?: JudgeResult;
   referenceResults?: ValidationResult;
+  semanticResults?: ValidationResult;
   overall: {
     passed: boolean;
     score: number;
@@ -609,6 +702,7 @@ export async function validateResponse(
     llmResults?: ValidationResult;
     llmJudge?: JudgeResult;
     referenceResults?: ValidationResult;
+    semanticResults?: ValidationResult;
   } = {};
 
   // Keyword checks (always run if expectedChecks exist)
@@ -632,12 +726,22 @@ export async function validateResponse(
     );
   }
 
+  // Semantic similarity check
+  if (options.runSemanticCheck && options.apiKey && testCase.expectedAnswer) {
+    results.semanticResults = await validateSemanticSimilarity(
+      response,
+      testCase.expectedAnswer,
+      options.apiKey
+    );
+  }
+
   // Calculate overall score
   const allScores: number[] = [];
   if (results.keywordResults) allScores.push(results.keywordResults.score);
   if (results.llmResults) allScores.push(results.llmResults.score);
   if (results.llmJudge) allScores.push(results.llmJudge.overall_score);
   if (results.referenceResults) allScores.push(results.referenceResults.score);
+  if (results.semanticResults) allScores.push(results.semanticResults.score);
 
   const overallScore =
     allScores.length > 0

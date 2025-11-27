@@ -114,8 +114,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build system prompt (simplified from main chat route)
-    let sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+    // Load prompt version from prompt_versions table (same as main chat route)
+    // This ensures streaming uses the same patched prompt as regular chat
+    // When you apply patches via /admin/ai-test, they update the active prompt version,
+    // and this code loads that same version for all streaming chat requests.
+    let sys = "";
+    let promptVersionId: string | null = null;
+    try {
+      const { getPromptVersion } = await import("@/lib/config/prompts");
+      const promptVersion = await getPromptVersion("chat");
+      if (promptVersion) {
+        sys = promptVersion.system_prompt;
+        promptVersionId = promptVersion.id;
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[chat/stream] ✅ Using prompt version ${promptVersion.version} (${promptVersion.id}) - Length: ${sys.length} chars`);
+        }
+      } else {
+        // Fallback to default if no version found
+        sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+        console.warn(`[chat/stream] ⚠️ No prompt version found, using default prompt`);
+      }
+    } catch (e) {
+      console.warn("[chat/stream] Failed to load prompt version, using default:", e);
+      // Fallback to default
+      sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+    }
     
     // Add inference when deck is linked (lightweight for streaming)
     if (tid && !isGuest) {

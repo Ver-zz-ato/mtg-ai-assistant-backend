@@ -1,4 +1,0 @@
-// Optional: in your PosthogInit.tsx (dev only), after posthog.init(...):
-// try { localStorage.setItem('ph_disable_toolbar', 'true'); } catch {}
-// try { localStorage.setItem('ph_hide_toolbar', 'true'); } catch {}
-// This prevents the toolbar bookmarklet overlay from attaching.

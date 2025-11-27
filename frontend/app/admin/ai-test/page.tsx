@@ -11,6 +11,13 @@ type TestCase = {
   tags?: string[];
   source?: string;
   createdAt?: string;
+  quality_score?: number;
+  catch_count?: number;
+  consistency_score?: number;
+  failure_rate?: number;
+  run_count?: number;
+  pass_count?: number;
+  last_passed_at?: string;
 };
 
 type TestResult = {
@@ -32,12 +39,19 @@ export default function AiTestPage() {
   const [runningBatch, setRunningBatch] = React.useState(false);
   const [batchResults, setBatchResults] = React.useState<any[]>([]);
   const [filterTag, setFilterTag] = React.useState<string>("");
+  const [filterType, setFilterType] = React.useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [testHistory, setTestHistory] = React.useState<any[]>([]);
+  const [coverageData, setCoverageData] = React.useState<any>(null);
+  const [trendsData, setTrendsData] = React.useState<any>(null);
+  const [testSchedules, setTestSchedules] = React.useState<any[]>([]);
   const [showPromptInspector, setShowPromptInspector] = React.useState(false);
   const [validationOptions, setValidationOptions] = React.useState({
     runKeywordChecks: true,
     runLLMFactCheck: true, // Default ON for judge
     runReferenceCompare: true, // Default ON for reference checks
+    runSemanticCheck: false, // Semantic similarity (off by default, requires expectedAnswer)
   });
   const [generating, setGenerating] = React.useState(false);
   const [generateDescription, setGenerateDescription] = React.useState("");
@@ -73,6 +87,10 @@ export default function AiTestPage() {
   React.useEffect(() => {
     loadTestCases();
     loadPromptVersions();
+    loadTestHistory();
+    loadCoverageData();
+    loadTrendsData();
+    loadTestSchedules();
   }, []);
 
   async function loadTestCases() {
@@ -80,7 +98,13 @@ export default function AiTestPage() {
       const r = await fetch("/api/admin/ai-test/cases?includeFailures=true", { cache: "no-store" });
       const j = await r.json();
       if (j?.ok) {
-        setTestCases(j.testCases || []);
+        // Sort by quality score if available
+        const cases = (j.testCases || []).sort((a: any, b: any) => {
+          const scoreA = a.quality_score || 0;
+          const scoreB = b.quality_score || 0;
+          return scoreB - scoreA;
+        });
+        setTestCases(cases);
         if (j.knowledgeGaps || j.lowRatings) {
           setUserFailures({
             knowledgeGaps: j.knowledgeGaps || [],
@@ -90,6 +114,15 @@ export default function AiTestPage() {
       }
     } catch (e) {
       console.error("Failed to load test cases:", e);
+    }
+  }
+
+  async function updateQualityScores() {
+    try {
+      await fetch("/api/admin/ai-test/quality?update=true");
+      loadTestCases(); // Reload to show updated scores
+    } catch (e) {
+      console.error("Failed to update quality scores:", e);
     }
   }
 
@@ -114,6 +147,54 @@ export default function AiTestPage() {
       }
     } catch (e) {
       console.error("Failed to load eval runs:", e);
+    }
+  }
+
+  async function loadTestHistory() {
+    try {
+      const r = await fetch("/api/admin/ai-test/history?limit=20");
+      const j = await r.json();
+      if (j?.ok) {
+        setTestHistory(j.history || []);
+      }
+    } catch (e) {
+      console.error("Failed to load test history:", e);
+    }
+  }
+
+  async function loadCoverageData() {
+    try {
+      const r = await fetch("/api/admin/ai-test/coverage");
+      const j = await r.json();
+      if (j?.ok) {
+        setCoverageData(j.coverage || null);
+      }
+    } catch (e) {
+      console.error("Failed to load coverage data:", e);
+    }
+  }
+
+  async function loadTrendsData() {
+    try {
+      const r = await fetch("/api/admin/ai-test/trends?days=30");
+      const j = await r.json();
+      if (j?.ok) {
+        setTrendsData(j.trends || null);
+      }
+    } catch (e) {
+      console.error("Failed to load trends data:", e);
+    }
+  }
+
+  async function loadTestSchedules() {
+    try {
+      const r = await fetch("/api/admin/ai-test/schedule");
+      const j = await r.json();
+      if (j?.ok) {
+        setTestSchedules(j.schedules || []);
+      }
+    } catch (e) {
+      console.error("Failed to load test schedules:", e);
     }
   }
 
@@ -328,6 +409,24 @@ export default function AiTestPage() {
       if (batchData.ok) {
         setBatchResults(batchData.results || []);
         
+        // Save test results to history
+        try {
+          await fetch("/api/admin/ai-test/save-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              evalRunId: batchData.evalRunId,
+              results: batchData.results || [],
+              summary: batchData.summary,
+            }),
+          });
+          // Reload history and coverage
+          loadTestHistory();
+          loadCoverageData();
+        } catch (e) {
+          console.error("Failed to save test history:", e);
+        }
+        
         // Auto-merge passing patches if enabled
         if (autoMergeEnabled && batchData.results) {
           const passingResults = batchData.results.filter((r: any) => r.validation?.overall?.passed === true);
@@ -385,9 +484,34 @@ export default function AiTestPage() {
 
   function getFilteredTestCases(): TestCase[] {
     let filtered = testCases;
+    
+    if (filterType) {
+      filtered = filtered.filter((tc) => tc.type === filterType);
+    }
+    
     if (filterTag) {
       filtered = filtered.filter((tc) => tc.tags?.includes(filterTag));
     }
+    
+    if (filterStatus) {
+      if (filterStatus === "passed") {
+        filtered = filtered.filter((tc) => {
+          const result = batchResults.find((r: any) => r.testCase?.id === tc.id);
+          return result?.validation?.overall?.passed === true;
+        });
+      } else if (filterStatus === "failed") {
+        filtered = filtered.filter((tc) => {
+          const result = batchResults.find((r: any) => r.testCase?.id === tc.id);
+          return result?.validation?.overall?.passed === false;
+        });
+      } else if (filterStatus === "untested") {
+        filtered = filtered.filter((tc) => {
+          const result = batchResults.find((r: any) => r.testCase?.id === tc.id);
+          return !result;
+        });
+      }
+    }
+    
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -396,6 +520,7 @@ export default function AiTestPage() {
           tc.input?.userMessage?.toLowerCase().includes(query)
       );
     }
+    
     return filtered;
   }
 
@@ -512,6 +637,19 @@ export default function AiTestPage() {
           <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
+              checked={validationOptions.runSemanticCheck}
+              onChange={(e) =>
+                setValidationOptions({
+                  ...validationOptions,
+                  runSemanticCheck: e.target.checked,
+                })
+              }
+            />
+            Semantic Similarity (requires expectedAnswer)
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
               checked={autoMergeEnabled}
               onChange={(e) => setAutoMergeEnabled(e.target.checked)}
             />
@@ -523,7 +661,7 @@ export default function AiTestPage() {
       {/* Filters and Search */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="font-medium">Filters</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <div>
             <label className="text-xs opacity-70">Search</label>
             <input
@@ -533,6 +671,18 @@ export default function AiTestPage() {
               placeholder="Search test cases..."
               className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
             />
+          </div>
+          <div>
+            <label className="text-xs opacity-70">Filter by Type</label>
+            <select
+              value={filterType || ""}
+              onChange={(e) => setFilterType(e.target.value || null)}
+              className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
+            >
+              <option value="">All types</option>
+              <option value="chat">Chat</option>
+              <option value="deck_analysis">Deck Analysis</option>
+            </select>
           </div>
           <div>
             <label className="text-xs opacity-70">Filter by Tag</label>
@@ -549,9 +699,37 @@ export default function AiTestPage() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="text-xs opacity-70">Filter by Status</label>
+            <select
+              value={filterStatus || ""}
+              onChange={(e) => setFilterStatus(e.target.value || null)}
+              className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
+            >
+              <option value="">All statuses</option>
+              <option value="passed">✅ Passed</option>
+              <option value="failed">❌ Failed</option>
+              <option value="untested">⚪ Untested</option>
+            </select>
+          </div>
         </div>
-        <div className="text-xs opacity-70">
-          Showing {filteredCases.length} of {testCases.length} test cases
+        <div className="flex items-center justify-between">
+          <div className="text-xs opacity-70">
+            Showing {filteredCases.length} of {testCases.length} test cases
+          </div>
+          {(filterType || filterTag || filterStatus || searchQuery) && (
+            <button
+              onClick={() => {
+                setFilterType(null);
+                setFilterTag("");
+                setFilterStatus(null);
+                setSearchQuery("");
+              }}
+              className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </section>
 
@@ -604,11 +782,27 @@ export default function AiTestPage() {
         <div className="flex items-center justify-between">
           <div className="font-medium">Batch Testing</div>
           {batchResults.length > 0 && (
-            <div className="text-sm">
-              Results:{" "}
-              <span className="text-green-400">{passCount} passed</span> /{" "}
-              <span className="text-red-400">{failCount} failed</span> /{" "}
-              {batchResults.length - passCount - failCount} errors
+            <div className="flex items-center gap-2">
+              <div className="text-sm">
+                Results:{" "}
+                <span className="text-green-400">{passCount} passed</span> /{" "}
+                <span className="text-red-400">{failCount} failed</span> /{" "}
+                {batchResults.length - passCount - failCount} errors
+              </div>
+              <button
+                onClick={() => {
+                  if (confirm("Clear all test results? This will remove all batch test data from the current session.")) {
+                    setBatchResults([]);
+                    setExpandedResults(new Set());
+                    setResultSuggestions(new Map());
+                    setFilterStatus(null); // Reset status filter when clearing
+                  }
+                }}
+                className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded"
+                title="Clear all test results"
+              >
+                🗑️ Clear Results
+              </button>
             </div>
           )}
         </div>
@@ -658,33 +852,82 @@ export default function AiTestPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="font-medium text-sm">{testCase.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium text-sm">{testCase.name}</div>
+                      {testCase.quality_score !== undefined && testCase.quality_score > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          testCase.quality_score >= 200 ? "bg-green-900/50 text-green-300" :
+                          testCase.quality_score >= 100 ? "bg-yellow-900/50 text-yellow-300" :
+                          "bg-gray-800 text-gray-400"
+                        }`}>
+                          Q:{Math.round(testCase.quality_score)}
+                        </span>
+                      )}
+                      {(testCase.catch_count || 0) > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-300">
+                          🐛{testCase.catch_count}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs opacity-70 mt-1">
                       {testCase.type} • {testCase.source || "curated"}
+                      {testCase.consistency_score !== undefined && testCase.consistency_score < 80 && (
+                        <span className="ml-2 text-yellow-400">⚠️ Flaky</span>
+                      )}
                     </div>
-                    {testCase.tags && testCase.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {testCase.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-1.5 py-0.5 rounded-full bg-neutral-800 text-[10px]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {testCase.tags && testCase.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {testCase.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-1.5 py-0.5 rounded-full bg-neutral-800 text-[10px]"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!confirm(`Run consistency test for "${testCase.name}"? This will run the test 5 times.`)) return;
+                          try {
+                            const r = await fetch("/api/admin/ai-test/consistency", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ testCaseId: testCase.id, runs: 5 }),
+                            });
+                            const j = await r.json();
+                            if (j.ok) {
+                              alert(`Consistency Score: ${j.consistencyScore}%\nPass Rate: ${j.passRate}%\n${j.isFlaky ? "⚠️ This test is flaky!" : "✅ Test is consistent"}`);
+                              loadTestCases(); // Reload to show updated consistency score
+                            } else {
+                              alert(`Failed: ${j.error}`);
+                            }
+                          } catch (e) {
+                            alert("Failed to run consistency test");
+                          }
+                        }}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-blue-800 hover:bg-blue-700 text-blue-200"
+                        title="Test consistency (run 5 times)"
+                      >
+                        🔄 Consistency
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      runTest(testCase);
-                    }}
-                    disabled={loading}
-                    className="ml-2 px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60"
-                  >
-                    Run
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runTest(testCase);
+                      }}
+                      disabled={loading}
+                      className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60"
+                    >
+                      Run
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -1148,8 +1391,15 @@ export default function AiTestPage() {
                         setRecentAdditions(appliedPatchTexts);
                       }
                       // Refresh prompt versions to show new active version with highlights
-                      setTimeout(() => {
-                        loadPromptVersions();
+                      // Force reload by clearing cache and reloading
+                      setTimeout(async () => {
+                        // Clear any cached prompt data
+                        setCurrentPromptText("");
+                        setLastPromptVersion("");
+                        // Reload with no-cache to ensure we get the latest
+                        await loadPromptVersions();
+                        // Also force a page refresh of the prompt section to ensure UI updates
+                        window.location.hash = 'prompt-updated';
                         // Scroll to prompt section to show the update
                         const promptSection = document.querySelector('[data-prompt-section]');
                         if (promptSection) {
@@ -1191,6 +1441,126 @@ export default function AiTestPage() {
             </div>
           )}
           </section>
+          )}
+
+          {/* Test Coverage Dashboard */}
+          {coverageData && (
+            <section className="rounded border border-neutral-800 p-3 space-y-2">
+              <div className="font-medium">Test Coverage Dashboard</div>
+              <div className="space-y-3">
+                {/* Overall Stats */}
+                <div className="p-2 bg-neutral-900 rounded border border-neutral-700">
+                  <div className="text-xs font-medium mb-2">Overall Coverage</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="opacity-70">Total Tests</div>
+                      <div className="font-semibold">{coverageData.overall.total}</div>
+                    </div>
+                    <div>
+                      <div className="opacity-70">Pass Rate</div>
+                      <div className={`font-semibold ${coverageData.overall.passRate >= 80 ? "text-green-400" : coverageData.overall.passRate >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+                        {coverageData.overall.passRate}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="opacity-70">✅ Passed</div>
+                      <div className="font-semibold text-green-400">{coverageData.overall.passed}</div>
+                    </div>
+                    <div>
+                      <div className="opacity-70">❌ Failed</div>
+                      <div className="font-semibold text-red-400">{coverageData.overall.failed}</div>
+                    </div>
+                    <div>
+                      <div className="opacity-70">⚪ Untested</div>
+                      <div className="font-semibold text-gray-400">{coverageData.overall.untested}</div>
+                    </div>
+                    <div>
+                      <div className="opacity-70">Tested</div>
+                      <div className="font-semibold">{coverageData.overall.tested}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coverage by Type */}
+                {coverageData.byType && Object.keys(coverageData.byType).length > 0 && (
+                  <div className="p-2 bg-neutral-900 rounded border border-neutral-700">
+                    <div className="text-xs font-medium mb-2">By Type</div>
+                    <div className="space-y-1">
+                      {Object.entries(coverageData.byType).map(([type, stats]: [string, any]) => {
+                        const passRate = stats.total > 0 ? Math.round((stats.passed / stats.total) * 100) : 0;
+                        return (
+                          <div key={type} className="text-[10px] flex justify-between items-center">
+                            <span className="capitalize">{type}</span>
+                            <div className="flex gap-2">
+                              <span className="text-green-400">{stats.passed}</span>
+                              <span className="text-red-400">{stats.failed}</span>
+                              <span className="text-gray-400">{stats.untested}</span>
+                              <span className={`font-semibold ${passRate >= 80 ? "text-green-400" : passRate >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+                                {passRate}%
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Coverage by Tag */}
+                {coverageData.byTag && Object.keys(coverageData.byTag).length > 0 && (
+                  <div className="p-2 bg-neutral-900 rounded border border-neutral-700 max-h-48 overflow-y-auto">
+                    <div className="text-xs font-medium mb-2">By Category</div>
+                    <div className="space-y-1">
+                      {Object.entries(coverageData.byTag)
+                        .sort(([, a]: [string, any], [, b]: [string, any]) => b.total - a.total)
+                        .slice(0, 10)
+                        .map(([tag, stats]: [string, any]) => {
+                          const passRate = stats.total > 0 ? Math.round((stats.passed / stats.total) * 100) : 0;
+                          return (
+                            <div key={tag} className="text-[10px] flex justify-between items-center">
+                              <span className="capitalize">{tag}</span>
+                              <div className="flex gap-2">
+                                <span className="text-green-400">{stats.passed}</span>
+                                <span className="text-red-400">{stats.failed}</span>
+                                <span className={`font-semibold ${passRate >= 80 ? "text-green-400" : passRate >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+                                  {passRate}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Test History */}
+          {testHistory.length > 0 && (
+            <section className="rounded border border-neutral-800 p-3 space-y-2">
+              <div className="font-medium">Test History</div>
+              <div className="space-y-1 max-h-64 overflow-y-auto text-xs">
+                {testHistory.slice(0, 10).map((entry: any) => (
+                  <div key={entry.id} className="p-2 rounded border border-neutral-700 bg-neutral-950/40">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium">{entry.suite}</div>
+                        <div className="text-[10px] opacity-70">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className={`text-sm font-semibold ${entry.passRate >= 80 ? "text-green-400" : entry.passRate >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+                        {entry.passRate}%
+                      </div>
+                    </div>
+                    <div className="text-[10px] opacity-70 mt-1">
+                      {entry.passCount}/{entry.testCount} passed | {entry.promptVersion}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Eval Runs History */}
@@ -1433,12 +1803,33 @@ export default function AiTestPage() {
                   <div className="font-medium text-sm">
                     {selectedPromptVersion.version.version} ({selectedPromptVersion.kind})
                   </div>
-                  <button
-                    onClick={() => setSelectedPromptVersion(null)}
-                    className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
-                  >
-                    Close
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const r = await fetch(`/api/admin/ai-test/prompt-impact?promptVersionId=${selectedPromptVersion.version.id}`);
+                          const j = await r.json();
+                          if (j.ok) {
+                            alert(`Prompt Impact Analysis:\n\n✅ Improved: ${j.impact.improved} tests\n❌ Regressed: ${j.impact.regressed} tests\n➖ Unchanged: ${j.impact.unchanged} tests\n📈 Pass Rate Change: ${j.impact.passRateChange >= 0 ? "+" : ""}${j.impact.passRateChange.toFixed(1)}%\n\nBefore: ${j.impact.beforePassRate}% → After: ${j.impact.afterPassRate}%`);
+                          } else {
+                            alert(`Failed: ${j.error}`);
+                          }
+                        } catch (e) {
+                          alert("Failed to load impact analysis");
+                        }
+                      }}
+                      className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded"
+                      title="Show impact of this prompt version"
+                    >
+                      📊 Impact
+                    </button>
+                    <button
+                      onClick={() => setSelectedPromptVersion(null)}
+                      className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div>

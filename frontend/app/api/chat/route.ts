@@ -726,20 +726,10 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       return `Okay — using your preferences (Format: ${fmt || 'unspecified'}, Value: ${plan || 'optimized'}, Colors: ${colors}).`;
     };
 
-    // Skip preference acknowledgement if this is a streaming request (identified by complex queries)
-    // This prevents duplicate messages when both streaming and fallback API create responses
-    const isComplexQuery = /\b(build|create|find|suggest|swap|deck|commander|budget|help.*with)\b/i.test(String(text || ''));
-    const shouldUseStreaming = isComplexQuery || (text && text.length > 50);
-    
-    if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length)) && !shouldUseStreaming) {
-      const outText = ackFromPrefs();
-      await supabase.from("chat_messages").insert({ thread_id: tid!, role: "assistant", content: outText });
-      try { const { captureServer } = await import("@/lib/server/analytics");
-        if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
-        await captureServer("chat_sent", { provider: "ack", ms: Date.now() - t0, thread_id: tid, user_id: userId, persona_id });
-      } catch {}
-      return ok({ text: outText, threadId: tid, provider: "ack" });
-    }
+    // REMOVED: Preference acknowledgement fallback that returned short generic messages
+    // This was causing tests to fail because it bypassed the full AI prompt.
+    // Users will now get full AI responses even for simple preference queries.
+    // The AI prompt should handle format/budget/color context appropriately.
 
     // Very light moderation pass (profanity guard)
     try {

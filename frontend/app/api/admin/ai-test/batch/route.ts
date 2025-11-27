@@ -201,7 +201,8 @@ export async function POST(req: NextRequest) {
             runKeywordChecks: validationOptions?.runKeywordChecks !== false,
             runLLMFactCheck: validationOptions?.runLLMFactCheck === true, // Respect toggle
             runReferenceCompare: validationOptions?.runReferenceCompare === true, // Respect toggle
-            apiKey: validationOptions?.runLLMFactCheck ? apiKey : undefined,
+            runSemanticCheck: validationOptions?.runSemanticCheck === true, // Semantic similarity
+            apiKey: (validationOptions?.runLLMFactCheck || validationOptions?.runSemanticCheck) ? apiKey : undefined,
             supabase: supabase,
           };
 
@@ -219,6 +220,28 @@ export async function POST(req: NextRequest) {
             prompt_used: promptUsed,
             validation_results: validation,
           });
+
+          // Update test case quality metrics
+          const passed = validation?.overall?.passed === true;
+          const catchCount = passed ? 0 : 1; // Increment catch_count if test failed
+          
+          try {
+            await fetch(`${req.url.split("/api/admin")[0]}/api/admin/ai-test/quality`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Cookie: req.headers.get("cookie") || "",
+              },
+              body: JSON.stringify({
+                testCaseId,
+                passed,
+                catchCount: passed ? undefined : catchCount,
+              }),
+            });
+          } catch (e) {
+            console.warn("[batch] Failed to update quality metrics:", e);
+            // Don't fail the test if quality update fails
+          }
         }
 
         return {

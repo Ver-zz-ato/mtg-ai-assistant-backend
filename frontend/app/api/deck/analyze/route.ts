@@ -1085,13 +1085,21 @@ export async function POST(req: Request) {
   };
 
   // Load prompt version for deck analysis
+  // NOTE: This prompt version is tracked for logging/analytics, but deck analysis uses
+  // internal helper prompts (planSuggestionSlots, fetchSlotCandidates, etc.) rather than
+  // a single main system prompt like chat does. The helper prompts are specialized for
+  // the multi-stage deck analysis pipeline (planning -> candidate fetching -> validation).
+  // If you want to apply prompt patches to deck analysis, you would need to modify
+  // the system prompts in those helper functions (planSuggestionSlots, fetchSlotCandidates, etc.)
+  // to incorporate the deck_analysis prompt version's system_prompt.
   let promptVersionId: string | null = null;
   try {
     const promptVersion = await getPromptVersion("deck_analysis");
     if (promptVersion) {
       promptVersionId = promptVersion.id;
       if (process.env.NODE_ENV === "development") {
-        console.log(`[deck/analyze] Using prompt version ${promptVersion.version} (${promptVersion.id})`);
+        console.log(`[deck/analyze] ✅ Loaded prompt version ${promptVersion.version} (${promptVersion.id}) for tracking`);
+        console.log(`[deck/analyze] ⚠️ NOTE: Deck analysis uses internal helper prompts, not the main system_prompt from this version`);
       }
     }
   } catch (e) {
