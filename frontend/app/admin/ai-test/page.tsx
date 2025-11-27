@@ -1741,9 +1741,21 @@ export default function AiTestPage() {
           <div className="space-y-4">
             {(["chat", "deck_analysis"] as const).map((kind) => (
               <div key={kind}>
-                <div className="text-sm font-medium mb-2 capitalize">{kind} Prompts</div>
+                <div className="text-sm font-medium mb-2 capitalize">
+                  {kind === "deck_analysis" ? "Deck Analysis" : "Chat"} Prompts
+                  {activePromptVersions[kind] && (
+                    <span className="ml-2 text-xs text-green-400">
+                      (Active: {promptVersions[kind].find((v: any) => v.id === activePromptVersions[kind])?.version || "unknown"})
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {promptVersions[kind].map((version: any) => (
+                  {promptVersions[kind].length === 0 ? (
+                    <div className="p-2 text-xs text-neutral-400 italic">
+                      No {kind === "deck_analysis" ? "deck analysis" : "chat"} prompt versions found. Run the SQL migration to create them.
+                    </div>
+                  ) : (
+                    promptVersions[kind].map((version: any) => (
                     <div
                       key={version.id}
                       className={`p-2 rounded border ${
@@ -1793,7 +1805,8 @@ export default function AiTestPage() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             ))}

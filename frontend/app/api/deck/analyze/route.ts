@@ -317,15 +317,26 @@ function extractJsonObject(raw: string): any | null {
 async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
-  context: InferredDeckContext
+  context: InferredDeckContext,
+  deckAnalysisSystemPrompt: string | null
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
 
+  // Enhanced planning prompt with problems-first approach and mental simulation
   const systemPrompt = [
-    "You are ManaTap's planning assistant. Decide what slots need card suggestions before naming any cards.",
-    "Each slot's notes must state the specific problem it fixes (example: 'low early mana', 'no graveyard hate', 'struggles vs flyers').",
-    "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short\",\"quantity\":1}]}",
+    "You are ManaTap's planning assistant. Your job is to identify deck problems and plan suggestion slots that fix them.",
+    "",
+    "WORKFLOW:",
+    "1. Identify the deck's style (tokens, aristocrats, control, combo, etc.)",
+    "2. Identify the top 3-6 problems (low ramp, weak draw, lack of removal, too few wincons, curve issues, fragile manabase, lack of synergy, missing redundancy)",
+    "3. Plan slots that directly address each problem",
+    "",
+    "Each slot's 'notes' field MUST state the specific problem it fixes (example: 'low early mana', 'no graveyard hate', 'struggles vs flyers', 'runs out of cards', 'can't close games').",
+    "",
+    "Prioritize slots by: (1) synergy with deck plan, (2) fixing critical problems, (3) curve fit, (4) budget if mentioned.",
+    "",
+    "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short problem description\",\"quantity\":1}]}",
   ].join("\n");
 
   const profileNoteLines = buildCommanderProfileNotes(profile);
@@ -375,14 +386,32 @@ async function fetchSlotCandidates(
   context: InferredDeckContext,
   deckText: string,
   userMessage: string | undefined,
-  mode: "normal" | "strict" = "normal"
+  mode: "normal" | "strict" = "normal",
+  deckAnalysisSystemPrompt: string | null
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
+  // Enhanced candidate fetching with synergy-first ranking and error-catching
   const systemPrompt = [
     mode === "strict"
       ? "You must provide legal, on-color Magic card options for one specific slot."
-      : "You suggest Magic cards for one specific slot.",
+      : "You suggest Magic cards for one specific slot that fix the identified problem.",
+    "",
+    "RANKING PRIORITY:",
+    "1. Synergy with deck plan (highest - prefer on-theme cards)",
+    "2. Curve fit (right mana cost for the slot)",
+    "3. Budget awareness (if user mentioned budget)",
+    "4. Power level (efficiency and impact)",
+    "5. Generic staples (lowest - only when clearly needed)",
+    "",
+    "ERROR-CATCHING:",
+    "- Avoid mana dorks in non-green decks",
+    "- Avoid 7+ mana bombs in low-curve aggro (unless clearly justified)",
+    "- Avoid off-theme suggestions that don't support the deck's plan",
+    "- Prefer synergistic picks over generic 'goodstuff'",
+    "",
+    "Each candidate's 'reason' should explain: (1) how it fixes the slot's problem, (2) why it synergizes with the deck plan.",
+    "",
     "Always respond with STRICT JSON: {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
   ].join("\n");
 
@@ -428,12 +457,22 @@ async function retrySlotCandidates(
   context: InferredDeckContext,
   deckText: string,
   userMessage: string | undefined,
-  mode: "normal" | "strict" = "normal"
+  mode: "normal" | "strict" = "normal",
+  deckAnalysisSystemPrompt: string | null
 ): Promise<SlotCandidate[]> {
+  // Enhanced retry prompt with strict validation and synergy focus
   const systemPrompt = [
     mode === "strict"
       ? "Previous suggestions failed validation. Provide 5 legal, on-color replacements that obey the requested type."
       : "Previous suggestions failed validation (off-color, wrong type, illegal). Provide stricter replacements.",
+    "",
+    "CRITICAL: All suggestions must:",
+    "- Match deck colors exactly",
+    "- Be legal in the format",
+    "- Match the requested type (if specified)",
+    "- Fix the slot's identified problem",
+    "- Synergize with the deck's plan",
+    "",
     "Return STRICT JSON: {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
   ].join("\n");
 
@@ -481,7 +520,8 @@ async function validateSlots(
   deckText: string,
   userMessage: string | undefined,
   locked: Set<string>,
-  strict: boolean
+  strict: boolean,
+  deckAnalysisSystemPrompt: string | null
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -496,7 +536,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal");
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -575,7 +615,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal");
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt);
       await attempt(retry, "retry");
     }
   }
@@ -1216,9 +1256,20 @@ export async function POST(req: Request) {
   const suggestionDebugReasons = new Set<string>();
   let postFilteredCount = 0;
 
+  // Load deck analysis system prompt for potential future use in internal functions
+  let deckAnalysisSystemPrompt: string | null = null;
+  try {
+    const promptVersion = await getPromptVersion("deck_analysis");
+    if (promptVersion) {
+      deckAnalysisSystemPrompt = promptVersion.system_prompt;
+    }
+  } catch (e) {
+    console.warn("[deck/analyze] Failed to load deck analysis prompt:", e);
+  }
+
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1231,7 +1282,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);

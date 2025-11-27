@@ -28,3 +28,5 @@ CREATE INDEX IF NOT EXISTS idx_ai_test_cases_quality_score ON ai_test_cases(qual
 -- Create index for catch_count (high-value tests)
 CREATE INDEX IF NOT EXISTS idx_ai_test_cases_catch_count ON ai_test_cases(catch_count DESC);
 
+
+
