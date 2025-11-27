@@ -21,6 +21,14 @@ export type ExpectedChecks = {
   maxLength?: number;
   minLength?: number;
   formatSpecific?: boolean;
+  // New advanced checks
+  requireDeckStyle?: boolean; // Should identify deck style and restate plan
+  requireProblemsFirst?: boolean; // Should list problems before solutions
+  requireSynergy?: boolean; // Should explain card synergies
+  requireConsistency?: boolean; // Should have consistent numbers/guidelines
+  requireBudgetAwareness?: boolean; // Should acknowledge budget if mentioned
+  requireToneMatch?: boolean; // Should match casual/competitive tone
+  requireSpecificity?: boolean; // Should include concrete card names
 };
 
 export type DeckAnalysisExpectedChecks = ExpectedChecks & {
@@ -667,6 +675,496 @@ export async function validateSemanticSimilarity(
 }
 
 /**
+ * Deck Style & Plan Judge: Checks that the first 1-2 sentences identify deck style and restate plan
+ */
+export function validateDeckStyleAndPlan(
+  response: string,
+  testCase: { input: any; type?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  // Only check deck_analysis type responses
+  if (testCase.type !== "deck_analysis") {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "deck_style_plan",
+        passed: true,
+        message: "Skipped (not a deck analysis test)",
+      }],
+      warnings: [],
+    };
+  }
+
+  const responseLower = response.toLowerCase();
+  const firstTwoSentences = response.split(/[.!?]+/).slice(0, 2).join(" ").toLowerCase();
+  
+  // Common archetype keywords
+  const archetypeKeywords = [
+    "token", "tokens", "aristocrat", "aristocrats", "sacrifice", "sac outlet",
+    "landfall", "lifegain", "enchantress", "enchantment", "spellslinger", "spell",
+    "graveyard", "recursion", "reanimator", "blink", "flicker", "voltron",
+    "control", "midrange", "combo", "stax", "ramp", "treasure", "artifact",
+    "tribal", "tribes", "go-wide", "tall", "aggro", "burn", "mill", "group hug"
+  ];
+  
+  // Plan restatement keywords
+  const planKeywords = [
+    "your deck", "this deck", "this list", "your list", "your plan", "this plan",
+    "aims to", "wants to", "tries to", "seeks to", "focuses on", "strategy",
+    "game plan", "win condition", "wincon", "archetype", "style"
+  ];
+  
+  const hasArchetype = archetypeKeywords.some(kw => firstTwoSentences.includes(kw));
+  const hasPlanRestatement = planKeywords.some(kw => firstTwoSentences.includes(kw));
+  
+  const passed = hasArchetype || hasPlanRestatement;
+  
+  checks.push({
+    type: "deck_style_plan",
+    passed,
+    message: passed
+      ? "Identifies deck style or restates plan in opening"
+      : "Opening is generic - should identify deck style (tokens, aristocrats, etc.) and restate plan",
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : 0,
+    checks,
+    warnings: passed ? [] : ["Response should identify deck archetype and restate plan in first 1-2 sentences"],
+  };
+}
+
+/**
+ * Structure Judge: Checks that problems are listed before solutions
+ */
+export function validateProblemsFirstStructure(
+  response: string,
+  testCase: { input: any; type?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  // Only check deck_analysis type responses
+  if (testCase.type !== "deck_analysis") {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "problems_first",
+        passed: true,
+        message: "Skipped (not a deck analysis test)",
+      }],
+      warnings: [],
+    };
+  }
+
+  const responseLower = response.toLowerCase();
+  
+  // Problem keywords (should appear early)
+  const problemKeywords = [
+    "problem", "problems", "issue", "issues", "weakness", "weaknesses",
+    "lacks", "missing", "struggles", "weak", "low", "too few", "too many",
+    "biggest issue", "main problem", "key problem", "concern", "concerns"
+  ];
+  
+  // Solution keywords (should appear after problems)
+  const solutionKeywords = [
+    "consider adding", "you can fix", "recommend", "suggest", "try adding",
+    "add", "include", "swap", "replace", "solution", "fix", "improve"
+  ];
+  
+  // Find positions of first problem and first solution mention
+  let firstProblemPos = -1;
+  let firstSolutionPos = -1;
+  
+  for (const keyword of problemKeywords) {
+    const pos = responseLower.indexOf(keyword);
+    if (pos !== -1 && (firstProblemPos === -1 || pos < firstProblemPos)) {
+      firstProblemPos = pos;
+    }
+  }
+  
+  for (const keyword of solutionKeywords) {
+    const pos = responseLower.indexOf(keyword);
+    if (pos !== -1 && (firstSolutionPos === -1 || pos < firstSolutionPos)) {
+      firstSolutionPos = pos;
+    }
+  }
+  
+  // Pass if: problems appear before solutions, OR no solutions mentioned (just analysis), OR no problems mentioned (might be a good deck)
+  const passed = firstProblemPos === -1 || firstSolutionPos === -1 || firstProblemPos < firstSolutionPos;
+  
+  checks.push({
+    type: "problems_first",
+    passed,
+    message: passed
+      ? "Problems mentioned before solutions (or structure appropriate)"
+      : "Solutions appear before problems are clearly stated",
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : 0,
+    checks,
+    warnings: passed ? [] : ["Should list problems/weaknesses before proposing solutions"],
+  };
+}
+
+/**
+ * Synergy Judge: Checks that at least one sentence connects multiple cards with synergy language
+ */
+export function validateSynergy(
+  response: string,
+  testCase: { input: any; type?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  // Only check deck_analysis type responses
+  if (testCase.type !== "deck_analysis") {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "synergy",
+        passed: true,
+        message: "Skipped (not a deck analysis test)",
+      }],
+      warnings: [],
+    };
+  }
+
+  const responseLower = response.toLowerCase();
+  
+  // Synergy language patterns
+  const synergyPhrases = [
+    "works well with", "combos with", "pairs with", "synergizes with",
+    "supports", "triggers", "fuels", "payoff for", "engine", "sac outlet",
+    "token maker", "enables", "works together", "combines with", "interacts with",
+    "when you", "whenever you", "each time you", "when X enters", "when X dies"
+  ];
+  
+  // Extract card names (simple pattern - **Card Name** or [[Card Name]])
+  const cardNamePattern = /\*\*([^*]+)\*\*/g;
+  const cardNames: string[] = [];
+  let match;
+  while ((match = cardNamePattern.exec(response)) !== null) {
+    cardNames.push(match[1].toLowerCase().trim());
+  }
+  
+  // Check if any sentence contains both synergy language and multiple card names
+  const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  let hasSynergySentence = false;
+  
+  for (const sentence of sentences) {
+    const sentenceLower = sentence.toLowerCase();
+    const hasSynergyPhrase = synergyPhrases.some(phrase => sentenceLower.includes(phrase));
+    
+    // Count card names in this sentence
+    const cardsInSentence = cardNames.filter(card => sentenceLower.includes(card));
+    
+    if (hasSynergyPhrase && cardsInSentence.length >= 2) {
+      hasSynergySentence = true;
+      break;
+    }
+  }
+  
+  // Also check if response mentions at least 2 cards together in a meaningful way
+  // (even without explicit synergy phrases, if cards are mentioned together it might be synergy)
+  const hasMultipleCards = cardNames.length >= 2;
+  const passed = hasSynergySentence || (hasMultipleCards && responseLower.includes(" and ") && responseLower.length > 100);
+  
+  checks.push({
+    type: "synergy",
+    passed,
+    message: passed
+      ? "Contains synergy language connecting multiple cards"
+      : "Missing synergy explanations - should connect multiple cards with phrases like 'works well with', 'combos with', etc.",
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : 0,
+    checks,
+    warnings: passed ? [] : ["Response should explain how cards work together, not just list isolated suggestions"],
+  };
+}
+
+/**
+ * Consistency Judge: Checks that numeric guidelines match concrete suggestions
+ */
+export function validateConsistency(
+  response: string,
+  testCase: { input: any; type?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  
+  const responseLower = response.toLowerCase();
+  
+  // Extract numeric ranges mentioned (e.g., "8-12", "33-37", "8 to 12")
+  const rangePattern = /(\d+)[\s-]+(?:to|–|-)[\s-]+(\d+)/g;
+  const ranges: Array<{ min: number; max: number; context: string }> = [];
+  let match;
+  
+  while ((match = rangePattern.exec(response)) !== null) {
+    const min = parseInt(match[1]);
+    const max = parseInt(match[2]);
+    const context = response.substring(Math.max(0, match.index - 50), match.index + match[0].length + 50).toLowerCase();
+    ranges.push({ min, max, context });
+  }
+  
+  // Check for ramp/land count consistency
+  for (const range of ranges) {
+    if (range.context.includes("ramp") || range.context.includes("mana source")) {
+      // Count ramp-related card mentions
+      const rampKeywords = ["cultivate", "kodama", "nature's lore", "three visits", "sol ring", "arcane signet", "signet", "talisman", "llanowar", "elvish mystic", "birds of paradise", "ramp"];
+      const rampMentions = rampKeywords.filter(kw => responseLower.includes(kw)).length;
+      
+      // If range says 8-12 but only 1-3 examples, that's inconsistent
+      if (rampMentions < range.min * 0.3) {
+        checks.push({
+          type: "consistency_ramp",
+          passed: false,
+          message: `States ${range.min}-${range.max} ramp pieces but only provides ${rampMentions} examples`,
+        });
+        warnings.push(`Ramp guideline (${range.min}-${range.max}) doesn't match examples provided`);
+      } else {
+        checks.push({
+          type: "consistency_ramp",
+          passed: true,
+          message: `Ramp guideline (${range.min}-${range.max}) roughly matches examples`,
+        });
+      }
+    }
+    
+    if (range.context.includes("land") && !range.context.includes("ramp")) {
+      // Land count consistency - check if suggestions align with range
+      const landKeywords = ["land", "lands", "mana base"];
+      const landMentions = landKeywords.filter(kw => responseLower.includes(kw)).length;
+      
+      // This is a softer check - just warn if range is mentioned but no land discussion
+      if (landMentions === 0) {
+        warnings.push(`Land count range (${range.min}-${range.max}) mentioned but no land discussion follows`);
+      }
+    }
+  }
+  
+  const passed = checks.length === 0 || checks.every(c => c.passed);
+  
+  return {
+    passed,
+    score: passed ? 100 : 50,
+    checks: checks.length > 0 ? checks : [{
+      type: "consistency",
+      passed: true,
+      message: "No numeric guidelines found to check",
+    }],
+    warnings,
+  };
+}
+
+/**
+ * Budget Awareness Judge: Checks that budget language is used when user mentions budget
+ */
+export function validateBudgetAwareness(
+  response: string,
+  testCase: { input: any }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  const userMessage = String(testCase.input.userMessage || "").toLowerCase();
+  const context = String(testCase.input.context || "").toLowerCase();
+  const combinedInput = userMessage + " " + context;
+  
+  // Check if user mentioned budget
+  const budgetKeywords = ["budget", "cheap", "affordable", "under $", "under £", "saving money", "low cost", "inexpensive", "price", "cost"];
+  const userMentionsBudget = budgetKeywords.some(kw => combinedInput.includes(kw));
+  
+  if (!userMentionsBudget) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "budget_awareness",
+        passed: true,
+        message: "Skipped (user didn't mention budget)",
+      }],
+      warnings: [],
+    };
+  }
+  
+  const responseLower = response.toLowerCase();
+  
+  // Budget language that should appear in response
+  const budgetResponseKeywords = [
+    "budget", "budget-friendly", "cheaper", "affordable", "low-cost", "inexpensive",
+    "under $", "under £", "won't break the bank", "cost-effective", "price"
+  ];
+  
+  const hasBudgetLanguage = budgetResponseKeywords.some(kw => responseLower.includes(kw));
+  
+  // Check for expensive staples mentioned without budget context
+  const expensiveStaples = ["mana crypt", "jeweled lotus", "mox diamond", "chrome mox", "grim monolith", "rhystic study", "smothering tithe"];
+  const mentionsExpensive = expensiveStaples.some(staple => responseLower.includes(staple));
+  
+  const passed = hasBudgetLanguage && (!mentionsExpensive || responseLower.includes("budget") || responseLower.includes("alternative"));
+  
+  checks.push({
+    type: "budget_awareness",
+    passed,
+    message: passed
+      ? "Acknowledges budget constraints appropriately"
+      : "User mentioned budget but response doesn't use budget language or suggests expensive cards without alternatives",
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : 0,
+    checks,
+    warnings: passed ? [] : ["Response should acknowledge budget constraints when user mentions them"],
+  };
+}
+
+/**
+ * Casual vs Competitive Tone Judge: Checks that tone matches user intent
+ */
+export function validateTone(
+  response: string,
+  testCase: { input: any }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  const userMessage = String(testCase.input.userMessage || "").toLowerCase();
+  const context = String(testCase.input.context || JSON.stringify(testCase.input.context || {})).toLowerCase();
+  const combinedInput = userMessage + " " + context;
+  
+  const responseLower = response.toLowerCase();
+  
+  // Casual keywords
+  const casualKeywords = ["casual", "janky", "fun", "kitchen table", "precon", "precon-ish", "budget", "beginner", "new player"];
+  const userSignalsCasual = casualKeywords.some(kw => combinedInput.includes(kw));
+  
+  // Competitive keywords
+  const competitiveKeywords = ["tuned", "competitive", "cedh", "high-power", "tournament", "optimized", "spike", "meta"];
+  const userSignalsCompetitive = competitiveKeywords.some(kw => combinedInput.includes(kw));
+  
+  if (!userSignalsCasual && !userSignalsCompetitive) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "tone",
+        passed: true,
+        message: "Skipped (no clear casual/competitive signal)",
+      }],
+      warnings: [],
+    };
+  }
+  
+  // Competitive language (should appear for competitive, not for casual)
+  const competitiveLanguage = ["cedh", "hyper-efficient", "stax", "infinite combo", "tier", "meta", "optimized", "low curve", "resilient"];
+  const hasCompetitiveLanguage = competitiveLanguage.some(kw => responseLower.includes(kw));
+  
+  // Casual-friendly language
+  const casualLanguage = ["fun", "flavorful", "thematic", "casual", "kitchen table", "budget-friendly"];
+  const hasCasualLanguage = casualLanguage.some(kw => responseLower.includes(kw));
+  
+  let passed = true;
+  let message = "";
+  
+  if (userSignalsCasual && hasCompetitiveLanguage && !hasCasualLanguage) {
+    passed = false;
+    message = "User signaled casual but response uses competitive language (cedh, stax, etc.)";
+  } else if (userSignalsCompetitive && !hasCompetitiveLanguage && responseLower.length > 200) {
+    // For competitive, should have some efficiency/resilience language
+    const efficiencyKeywords = ["efficient", "interaction", "resilient", "refine", "optimize"];
+    const hasEfficiency = efficiencyKeywords.some(kw => responseLower.includes(kw));
+    if (!hasEfficiency) {
+      passed = false;
+      message = "User signaled competitive but response lacks efficiency/resilience language";
+    } else {
+      message = "Tone matches competitive intent";
+    }
+  } else {
+    message = "Tone appropriately matches user intent";
+  }
+  
+  checks.push({
+    type: "tone",
+    passed,
+    message,
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : 0,
+    checks,
+    warnings: passed ? [] : ["Response tone should match user's casual/competitive intent"],
+  };
+}
+
+/**
+ * Specificity Judge: Requires concrete card suggestions in deck analysis
+ */
+export function validateSpecificity(
+  response: string,
+  testCase: { input: any; type?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  
+  // Only check deck_analysis type responses
+  if (testCase.type !== "deck_analysis") {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "specificity",
+        passed: true,
+        message: "Skipped (not a deck analysis test)",
+      }],
+      warnings: [],
+    };
+  }
+  
+  // Extract card names (simple pattern - **Card Name** or [[Card Name]])
+  const cardNamePattern = /\*\*([^*]+)\*\*/g;
+  const cardNames: Set<string> = new Set();
+  let match;
+  
+  while ((match = cardNamePattern.exec(response)) !== null) {
+    const name = match[1].trim().toLowerCase();
+    // Filter out common false positives
+    if (name.length > 2 && !["the", "and", "or", "for", "with", "this", "that"].includes(name)) {
+      cardNames.add(name);
+    }
+  }
+  
+  const uniqueCardCount = cardNames.size;
+  const responseLength = response.length;
+  
+  // Require at least 5-8 unique card names for longer responses
+  const minCards = responseLength > 500 ? 8 : responseLength > 200 ? 5 : 3;
+  const passed = uniqueCardCount >= minCards;
+  
+  checks.push({
+    type: "specificity",
+    passed,
+    message: passed
+      ? `Contains ${uniqueCardCount} unique card names (required: ${minCards})`
+      : `Only ${uniqueCardCount} unique card names mentioned, need at least ${minCards} for deck analysis`,
+  });
+  
+  return {
+    passed,
+    score: passed ? 100 : Math.max(0, Math.round((uniqueCardCount / minCards) * 100)),
+    checks,
+    warnings: passed ? [] : ["Deck analysis should include concrete card suggestions, not just generic advice"],
+  };
+}
+
+/**
  * Run all validation checks
  */
 export async function validateResponse(
@@ -682,6 +1180,7 @@ export async function validateResponse(
     runLLMFactCheck?: boolean;
     runReferenceCompare?: boolean;
     runSemanticCheck?: boolean;
+    runAdvancedJudges?: boolean; // New: run advanced behavior judges
     apiKey?: string;
     supabase?: any;
   } = {}
@@ -691,6 +1190,13 @@ export async function validateResponse(
   llmJudge?: JudgeResult;
   referenceResults?: ValidationResult;
   semanticResults?: ValidationResult;
+  deckStyleResults?: ValidationResult;
+  problemsFirstResults?: ValidationResult;
+  synergyResults?: ValidationResult;
+  consistencyResults?: ValidationResult;
+  budgetResults?: ValidationResult;
+  toneResults?: ValidationResult;
+  specificityResults?: ValidationResult;
   overall: {
     passed: boolean;
     score: number;
@@ -703,6 +1209,13 @@ export async function validateResponse(
     llmJudge?: JudgeResult;
     referenceResults?: ValidationResult;
     semanticResults?: ValidationResult;
+    deckStyleResults?: ValidationResult;
+    problemsFirstResults?: ValidationResult;
+    synergyResults?: ValidationResult;
+    consistencyResults?: ValidationResult;
+    budgetResults?: ValidationResult;
+    toneResults?: ValidationResult;
+    specificityResults?: ValidationResult;
   } = {};
 
   // Keyword checks (always run if expectedChecks exist)
@@ -735,13 +1248,61 @@ export async function validateResponse(
     );
   }
 
-  // Calculate overall score
+  // Advanced behavior judges (run if enabled or if expectedChecks require them)
+  const runAdvanced = options.runAdvancedJudges !== false; // Default to true
+  const checks = testCase.expectedChecks || {};
+  
+  if (runAdvanced) {
+    // Deck Style & Plan Judge
+    if (checks.requireDeckStyle !== false) { // Default to true for deck_analysis
+      results.deckStyleResults = validateDeckStyleAndPlan(response, testCase);
+    }
+    
+    // Problems-First Structure Judge
+    if (checks.requireProblemsFirst !== false) { // Default to true for deck_analysis
+      results.problemsFirstResults = validateProblemsFirstStructure(response, testCase);
+    }
+    
+    // Synergy Judge
+    if (checks.requireSynergy !== false) { // Default to true for deck_analysis
+      results.synergyResults = validateSynergy(response, testCase);
+    }
+    
+    // Consistency Judge
+    if (checks.requireConsistency !== false) {
+      results.consistencyResults = validateConsistency(response, testCase);
+    }
+    
+    // Budget Awareness Judge
+    if (checks.requireBudgetAwareness !== false) {
+      results.budgetResults = validateBudgetAwareness(response, testCase);
+    }
+    
+    // Tone Judge
+    if (checks.requireToneMatch !== false) {
+      results.toneResults = validateTone(response, testCase);
+    }
+    
+    // Specificity Judge
+    if (checks.requireSpecificity !== false) { // Default to true for deck_analysis
+      results.specificityResults = validateSpecificity(response, testCase);
+    }
+  }
+
+  // Calculate overall score (include all judge results)
   const allScores: number[] = [];
   if (results.keywordResults) allScores.push(results.keywordResults.score);
   if (results.llmResults) allScores.push(results.llmResults.score);
   if (results.llmJudge) allScores.push(results.llmJudge.overall_score);
   if (results.referenceResults) allScores.push(results.referenceResults.score);
   if (results.semanticResults) allScores.push(results.semanticResults.score);
+  if (results.deckStyleResults) allScores.push(results.deckStyleResults.score);
+  if (results.problemsFirstResults) allScores.push(results.problemsFirstResults.score);
+  if (results.synergyResults) allScores.push(results.synergyResults.score);
+  if (results.consistencyResults) allScores.push(results.consistencyResults.score);
+  if (results.budgetResults) allScores.push(results.budgetResults.score);
+  if (results.toneResults) allScores.push(results.toneResults.score);
+  if (results.specificityResults) allScores.push(results.specificityResults.score);
 
   const overallScore =
     allScores.length > 0

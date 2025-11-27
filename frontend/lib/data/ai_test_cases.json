@@ -245,6 +245,429 @@
       },
       "tags": ["lands", "opinionated", "ranges"],
       "source": "curated"
+    },
+    {
+      "id": "tokens-archetype-recognition",
+      "name": "Tokens deck: Should identify go-wide token strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Parallel Lives\n1 Anointed Procession\n1 Secure the Wastes\n1 Raise the Alarm\n35 Plains\n1 Trostani, Selesnya's Voice",
+        "format": "Commander",
+        "commander": "Trostani, Selesnya's Voice",
+        "colors": ["G", "W"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "requireSynergy": true,
+        "shouldContain": ["token", "go-wide"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "tokens", "selesnya", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "tokens-synergy-chain",
+      "name": "Tokens deck: Should explain synergy chains",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards work well together?",
+        "deckText": "1 Parallel Lives\n1 Anointed Procession\n1 Doubling Season\n1 Secure the Wastes\n1 March of the Multitudes\n35 Forest\n1 Rhys the Redeemed",
+        "format": "Commander",
+        "commander": "Rhys the Redeemed",
+        "colors": ["G", "W"]
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "shouldContain": ["doubles", "works well", "together"],
+        "minLength": 100
+      },
+      "tags": ["archetype", "tokens", "synergy"],
+      "source": "curated"
+    },
+    {
+      "id": "aristocrats-plan-recognition",
+      "name": "Aristocrats deck: Should identify sacrifice strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Zulaport Cutthroat\n1 Blood Artist\n1 Carrion Feeder\n35 Swamp\n1 Teysa, Orzhov Scion",
+        "format": "Commander",
+        "commander": "Teysa, Orzhov Scion",
+        "colors": ["B", "W"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "requireProblemsFirst": true,
+        "shouldContain": ["aristocrat", "sacrifice", "sac outlet"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "aristocrats", "orzhov", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "aristocrats-synergy",
+      "name": "Aristocrats deck: Should connect sac outlets and payoffs",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest improvements",
+        "deckText": "1 Viscera Seer\n1 Zulaport Cutthroat\n1 Blood Artist\n35 Swamp\n1 Ayara, First of Locthwain",
+        "format": "Commander",
+        "commander": "Ayara, First of Locthwain",
+        "colors": ["B"]
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "shouldContain": ["triggers", "when", "dies", "sacrifice"],
+        "minLength": 100
+      },
+      "tags": ["archetype", "aristocrats", "synergy"],
+      "source": "curated"
+    },
+    {
+      "id": "landfall-archetype",
+      "name": "Landfall deck: Should identify landfall strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Rampaging Baloths\n1 Avenger of Zendikar\n1 Tireless Tracker\n1 Lotus Cobra\n35 Forest\n1 Omnath, Locus of Rage",
+        "format": "Commander",
+        "commander": "Omnath, Locus of Rage",
+        "colors": ["G", "R"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["landfall", "land enters"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "landfall", "gruul", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "lifegain-archetype",
+      "name": "Lifegain deck: Should identify lifegain strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Soul Warden\n1 Ajani's Pridemate\n1 Heliod, Sun-Crowned\n1 Authority of the Consuls\n35 Plains\n1 Oloro, Ageless Ascetic",
+        "format": "Commander",
+        "commander": "Oloro, Ageless Ascetic",
+        "colors": ["W", "U", "B"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["lifegain", "life"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "lifegain", "orzhov", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "enchantress-archetype",
+      "name": "Enchantress deck: Should identify enchantment strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Enchantress's Presence\n1 Argothian Enchantress\n1 Sythis, Harvest's Hand\n1 Sterling Grove\n35 Forest\n1 Sythis, Harvest's Hand",
+        "format": "Commander",
+        "commander": "Sythis, Harvest's Hand",
+        "colors": ["G", "W"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["enchantress", "enchantment"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "enchantress", "selesnya", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "spellslinger-archetype",
+      "name": "Spellslinger deck: Should identify spell-based strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Guttersnipe\n1 Young Pyromancer\n1 Talrand, Sky Summoner\n1 Baral, Chief of Compliance\n35 Island\n1 Niv-Mizzet, Parun",
+        "format": "Commander",
+        "commander": "Niv-Mizzet, Parun",
+        "colors": ["U", "R"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["spellslinger", "spell", "instant", "sorcery"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "spellslinger", "izzet", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "graveyard-reanimator-archetype",
+      "name": "Graveyard deck: Should identify reanimator strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Entomb\n1 Reanimate\n1 Animate Dead\n1 Meren of Clan Nel Toth\n35 Swamp\n1 Meren of Clan Nel Toth",
+        "format": "Commander",
+        "commander": "Meren of Clan Nel Toth",
+        "colors": ["B", "G"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["graveyard", "reanimator", "recursion"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "graveyard", "golgari", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "blink-flicker-archetype",
+      "name": "Blink deck: Should identify ETB/flicker strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Cloudshift\n1 Ephemerate\n1 Restoration Angel\n1 Mulldrifter\n35 Plains\n1 Brago, King Eternal",
+        "format": "Commander",
+        "commander": "Brago, King Eternal",
+        "colors": ["W", "U"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["blink", "flicker", "ETB", "enters the battlefield"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "blink", "azorius", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "voltron-archetype",
+      "name": "Voltron deck: Should identify tall/equipment strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Sword of Fire and Ice\n1 Colossus Hammer\n35 Mountain\n1 Zurgo Helmsmasher",
+        "format": "Commander",
+        "commander": "Zurgo Helmsmasher",
+        "colors": ["R", "W", "B"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["voltron", "equipment", "tall"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "voltron", "boros", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "control-archetype",
+      "name": "Control deck: Should identify control strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Counterspell\n1 Swords to Plowshares\n1 Wrath of God\n1 Teferi, Hero of Dominaria\n35 Island\n1 Grand Arbiter Augustin IV",
+        "format": "Commander",
+        "commander": "Grand Arbiter Augustin IV",
+        "colors": ["W", "U"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["control", "interaction", "removal"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "control", "azorius", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "midrange-archetype",
+      "name": "Midrange deck: Should identify midrange strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Bloodbraid Elf\n1 Tarmogoyf\n1 Lightning Bolt\n1 Thoughtseize\n35 Forest\n1 Prossh, Skyraider of Kher",
+        "format": "Commander",
+        "commander": "Prossh, Skyraider of Kher",
+        "colors": ["B", "R", "G"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["midrange", "value"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "midrange", "jund", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "combo-archetype",
+      "name": "Combo deck: Should identify combo strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Kiki-Jiki, Mirror Breaker\n1 Zealous Conscripts\n1 Pestermite\n1 Deceiver Exarch\n35 Mountain\n1 Kiki-Jiki, Mirror Breaker",
+        "format": "Commander",
+        "commander": "Kiki-Jiki, Mirror Breaker",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["combo", "infinite"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "combo", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "problems-first-structure",
+      "name": "Should list problems before solutions",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What's wrong with my deck?",
+        "deckText": "1 Sol Ring\n25 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireProblemsFirst": true,
+        "shouldContain": ["problem", "issue", "lacks", "missing"],
+        "minLength": 100
+      },
+      "tags": ["structure", "problems-first"],
+      "source": "curated"
+    },
+    {
+      "id": "low-ramp-problems",
+      "name": "Should flag low ramp as a problem",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireProblemsFirst": true,
+        "shouldContain": ["ramp", "mana", "problem", "issue"],
+        "minLength": 100
+      },
+      "tags": ["ramp", "problems-first"],
+      "source": "curated"
+    },
+    {
+      "id": "consistency-ramp-count",
+      "name": "Should be consistent with ramp count guidelines",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "How much ramp should I run?",
+        "deckText": "1 Sol Ring\n38 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireConsistency": true,
+        "shouldContain": ["8", "12", "ramp"],
+        "minLength": 100
+      },
+      "tags": ["consistency", "ramp"],
+      "source": "curated"
+    },
+    {
+      "id": "budget-casual-tone",
+      "name": "Should match casual/budget tone",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "I'm building a casual budget deck, what should I add?",
+        "deckText": "1 Sol Ring\n38 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"],
+        "context": { "powerLevel": "casual", "budget": true }
+      },
+      "expectedChecks": {
+        "requireBudgetAwareness": true,
+        "requireToneMatch": true,
+        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus"],
+        "shouldContain": ["budget", "casual", "affordable"],
+        "minLength": 100
+      },
+      "tags": ["budget", "tone", "casual"],
+      "source": "curated"
+    },
+    {
+      "id": "competitive-tone",
+      "name": "Should match competitive/tuned tone",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "I want to tune this for competitive play",
+        "deckText": "1 Sol Ring\n38 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"],
+        "context": { "powerLevel": "competitive" }
+      },
+      "expectedChecks": {
+        "requireToneMatch": true,
+        "shouldContain": ["efficient", "interaction", "resilient", "optimize"],
+        "minLength": 100
+      },
+      "tags": ["tone", "competitive"],
+      "source": "curated"
+    },
+    {
+      "id": "specificity-concrete-cards",
+      "name": "Should include concrete card suggestions",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest improvements",
+        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireSpecificity": true,
+        "minLength": 200
+      },
+      "tags": ["specificity", "concrete-cards"],
+      "source": "curated"
+    },
+    {
+      "id": "stax-archetype",
+      "name": "Stax deck: Should identify stax strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Winter Orb\n1 Static Orb\n1 Smokestack\n1 Tangle Wire\n35 Plains\n1 Grand Arbiter Augustin IV",
+        "format": "Commander",
+        "commander": "Grand Arbiter Augustin IV",
+        "colors": ["W", "U"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["stax", "resource denial"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "stax", "plan-recognition"],
+      "source": "curated"
+    },
+    {
+      "id": "treasure-artifact-archetype",
+      "name": "Treasure/Artifact deck: Should identify artifact strategy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Smothering Tithe\n1 Dockside Extortionist\n1 Revel in Riches\n1 Brass's Bounty\n35 Island\n1 Prosper, Tome-Bound",
+        "format": "Commander",
+        "commander": "Prosper, Tome-Bound",
+        "colors": ["B", "R"]
+      },
+      "expectedChecks": {
+        "requireDeckStyle": true,
+        "shouldContain": ["treasure", "artifact"],
+        "minLength": 150
+      },
+      "tags": ["archetype", "treasure", "artifact", "plan-recognition"],
+      "source": "curated"
     }
   ]
 }

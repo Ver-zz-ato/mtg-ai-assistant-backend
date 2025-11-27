@@ -202,6 +202,7 @@ export async function POST(req: NextRequest) {
             runLLMFactCheck: validationOptions?.runLLMFactCheck === true, // Respect toggle
             runReferenceCompare: validationOptions?.runReferenceCompare === true, // Respect toggle
             runSemanticCheck: validationOptions?.runSemanticCheck === true, // Semantic similarity
+            runAdvancedJudges: validationOptions?.runAdvancedJudges !== false, // Default to true - new behavior judges
             apiKey: (validationOptions?.runLLMFactCheck || validationOptions?.runSemanticCheck) ? apiKey : undefined,
             supabase: supabase,
           };
