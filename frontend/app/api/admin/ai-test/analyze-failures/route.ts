@@ -155,10 +155,23 @@ Return JSON with:
         "concrete", "specific", "card names", "card suggestions"
       ];
 
+      // Track filtered suggestions for observability
+      const filteredSuggestionsSample: Array<{ issue: string; reason: string; text: string }> = [];
+      const maxSampleSize = 5;
+      
       const filteredSuggestions = Array.isArray(analysis.suggestions) 
         ? analysis.suggestions.filter((s: any) => {
             // Skip if marked as already in prompt
-            if (s.alreadyInPrompt === true) return false;
+            if (s.alreadyInPrompt === true) {
+              if (filteredSuggestionsSample.length < maxSampleSize) {
+                filteredSuggestionsSample.push({
+                  issue: s.issue || "Unknown",
+                  reason: "alreadyInPrompt",
+                  text: (s.suggestedPromptAddition || "").slice(0, 200), // Trim for safety
+                });
+              }
+              return false;
+            }
             
             // Check if the suggestion category is already covered
             const suggestionText = (s.suggestedPromptAddition || "").toLowerCase();
@@ -172,15 +185,27 @@ Return JSON with:
             });
             
             // Also check if the exact suggestion text is similar to existing prompt
+            let hasHighOverlap = false;
             if (suggestionText.length > 20) {
               const words = suggestionText.split(/\s+/).filter((w: string) => w.length > 4);
               const matchingWords = words.filter((w: string) => promptLower.includes(w));
               if (matchingWords.length > words.length * 0.5) {
-                return false; // Too much overlap, likely already covered
+                hasHighOverlap = true;
               }
             }
             
-            return !hasOverlap;
+            if (hasOverlap || hasHighOverlap) {
+              if (filteredSuggestionsSample.length < maxSampleSize) {
+                filteredSuggestionsSample.push({
+                  issue: s.issue || "Unknown",
+                  reason: hasHighOverlap ? "highOverlap" : "keywordOverlap",
+                  text: (s.suggestedPromptAddition || "").slice(0, 200), // Trim for safety
+                });
+              }
+              return false;
+            }
+            
+            return true;
           })
         : [];
 
@@ -220,6 +245,7 @@ Return JSON with:
                     originalSuggestionCount: originalCount,
                     filteredSuggestionCount: filteredCount,
                     skippedCount: skippedCount,
+                    filteredSuggestionsSample: filteredSuggestionsSample.length > 0 ? filteredSuggestionsSample : undefined,
                   },
                   patches: [],
                   message: `Analysis complete but prompt_patches table not found. ${filteredCount} suggestions generated (${skippedCount} skipped - already in prompt).`,
@@ -248,6 +274,7 @@ Return JSON with:
           filteredSuggestionCount: filteredCount,
           skippedCount: skippedCount,
           skippedReason: skippedCount > 0 ? "Some suggestions were already covered in the current prompt" : undefined,
+          filteredSuggestionsSample: filteredSuggestionsSample.length > 0 ? filteredSuggestionsSample : undefined, // Debug: sample of filtered suggestions
         },
         patches: patchIds,
         message: `Created ${patchIds.length} prompt patches${skippedCount > 0 ? ` (${skippedCount} skipped - already in prompt)` : ""}`,
@@ -262,3 +289,4 @@ Return JSON with:
     return NextResponse.json({ ok: false, error: error.message || "server_error" }, { status: 500 });
   }
 }
+

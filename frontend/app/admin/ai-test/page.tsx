@@ -82,6 +82,11 @@ export default function AiTestPage() {
   const [recentAdditions, setRecentAdditions] = React.useState<string[]>([]);
   const [lastPromptVersion, setLastPromptVersion] = React.useState<string | null>(null);
   const [autoMergeEnabled, setAutoMergeEnabled] = React.useState(false);
+  const [showManualPromptReplacement, setShowManualPromptReplacement] = React.useState(false);
+  const [manualPromptText, setManualPromptText] = React.useState("");
+  const [manualPromptKind, setManualPromptKind] = React.useState<"chat" | "deck_analysis">("chat");
+  const [manualPromptDescription, setManualPromptDescription] = React.useState("");
+  const [creatingPrompt, setCreatingPrompt] = React.useState(false);
 
   // Load test cases
   React.useEffect(() => {
@@ -195,6 +200,19 @@ export default function AiTestPage() {
       }
     } catch (e) {
       console.error("Failed to load test schedules:", e);
+    }
+  }
+
+  async function loadCurrentPromptText() {
+    try {
+      const kind = manualPromptKind;
+      const r = await fetch(`/api/admin/prompt-versions?kind=${kind}`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok && j.activePromptText) {
+        setManualPromptText(j.activePromptText);
+      }
+    } catch (e) {
+      console.error("Failed to load current prompt:", e);
     }
   }
 
@@ -1720,6 +1738,119 @@ export default function AiTestPage() {
           </div>
           </section>
           )}
+
+          {/* Manual Prompt Replacement */}
+          <section className="rounded border border-neutral-800 p-3 space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="font-medium">Manual Prompt Replacement</div>
+              <button
+                onClick={async () => {
+                  setShowManualPromptReplacement(!showManualPromptReplacement);
+                  if (!showManualPromptReplacement) {
+                    // Load current prompt text when opening
+                    await loadCurrentPromptText();
+                  }
+                }}
+                className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
+              >
+                {showManualPromptReplacement ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showManualPromptReplacement && (
+              <div className="space-y-3">
+                <div className="text-xs text-neutral-400">
+                  Paste a refactored prompt from your LLM to create a new version and set it as active.
+                </div>
+                <div>
+                  <label className="text-xs opacity-70 mb-1 block">Prompt Type</label>
+                  <select
+                    value={manualPromptKind}
+                    onChange={async (e) => {
+                      setManualPromptKind(e.target.value as "chat" | "deck_analysis");
+                      // Reload prompt text when switching kind
+                      const newKind = e.target.value as "chat" | "deck_analysis";
+                      try {
+                        const r = await fetch(`/api/admin/prompt-versions?kind=${newKind}`, { cache: "no-store" });
+                        const j = await r.json();
+                        if (j?.ok && j.activePromptText) {
+                          setManualPromptText(j.activePromptText);
+                        }
+                      } catch (err) {
+                        console.error("Failed to load prompt:", err);
+                      }
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
+                  >
+                    <option value="chat">Chat</option>
+                    <option value="deck_analysis">Deck Analysis</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs opacity-70 mb-1 block">Description (optional)</label>
+                  <input
+                    type="text"
+                    value={manualPromptDescription}
+                    onChange={(e) => setManualPromptDescription(e.target.value)}
+                    placeholder="e.g., 'Refactored by LLM for better structure'"
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs opacity-70 mb-1 block">Paste Prompt Text</label>
+                  <textarea
+                    value={manualPromptText}
+                    onChange={(e) => setManualPromptText(e.target.value)}
+                    placeholder="Paste your refactored prompt here..."
+                    className="w-full h-64 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm font-mono"
+                    style={{ fontFamily: "monospace", fontSize: "11px", lineHeight: "1.4" }}
+                  />
+                  <div className="text-xs text-neutral-500 mt-1">
+                    {manualPromptText.length} characters
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!manualPromptText.trim()) {
+                      alert("Please paste a prompt");
+                      return;
+                    }
+                    if (!confirm(`Create new ${manualPromptKind} prompt version and set as active?`)) {
+                      return;
+                    }
+                    setCreatingPrompt(true);
+                    try {
+                      const r = await fetch("/api/admin/prompt-versions/create", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          promptText: manualPromptText,
+                          kind: manualPromptKind,
+                          description: manualPromptDescription || "Manually pasted prompt replacement",
+                        }),
+                      });
+                      const j = await r.json();
+                      if (j.ok) {
+                        alert(`✅ Created ${j.newVersion} and set as active!\nPrevious: ${j.previousVersion}\nLength: ${j.promptLength} chars`);
+                        setManualPromptText("");
+                        setManualPromptDescription("");
+                        loadPromptVersions();
+                      } else {
+                        alert(`Failed: ${j.error}`);
+                      }
+                    } catch (e: any) {
+                      alert(`Error: ${e.message}`);
+                    } finally {
+                      setCreatingPrompt(false);
+                    }
+                  }}
+                  disabled={creatingPrompt || !manualPromptText.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-700 disabled:opacity-50 rounded text-sm font-medium"
+                >
+                  {creatingPrompt ? "Creating..." : "Create New Version & Set Active"}
+                </button>
+              </div>
+            )}
+          </section>
 
           {/* Prompt Versions */}
           <section className="rounded border border-neutral-800 p-3 space-y-2">

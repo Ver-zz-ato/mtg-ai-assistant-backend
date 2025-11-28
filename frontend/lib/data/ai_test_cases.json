@@ -44,10 +44,47 @@
         "colors": ["R"]
       },
       "expectedChecks": {
+        "requireLegalIdentity": true,
         "shouldNotMentionCard": ["Counterspell", "Swamp"],
         "shouldContain": ["red", "color identity"]
       },
       "tags": ["color-identity", "commander", "validation"],
+      "source": "curated"
+    },
+    {
+      "id": "banned-card-without-warning",
+      "name": "Should call out banned cards with alternatives",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest ramp for my Commander deck",
+        "deckText": "1 Sol Ring\n38 Mountain",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireLegalIdentity": true,
+        "shouldNotMentionCard": ["Golos, Tireless Pilgrim", "Primeval Titan", "Prophet of Kruphix"]
+      },
+      "tags": ["banned", "commander", "legality"],
+      "source": "curated"
+    },
+    {
+      "id": "banned-card-with-alternative",
+      "name": "Should mention banned card is banned and suggest alternative",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What's a good land tutor for Commander?",
+        "deckText": "1 Sol Ring\n38 Forest",
+        "format": "Commander",
+        "commander": "Omnath, Locus of Rage",
+        "colors": ["G", "R"]
+      },
+      "expectedChecks": {
+        "requireLegalIdentity": true,
+        "shouldContain": ["banned", "alternative", "instead"]
+      },
+      "tags": ["banned", "commander", "legality"],
       "source": "curated"
     },
     {

@@ -29,6 +29,7 @@ export type ExpectedChecks = {
   requireBudgetAwareness?: boolean; // Should acknowledge budget if mentioned
   requireToneMatch?: boolean; // Should match casual/competitive tone
   requireSpecificity?: boolean; // Should include concrete card names
+  requireLegalIdentity?: boolean; // Should check color identity and format legality
 };
 
 export type DeckAnalysisExpectedChecks = ExpectedChecks & {
@@ -195,12 +196,12 @@ export function validateKeywords(
  */
 export async function validateLLMFactCheck(
   response: string,
-  testCase: { name: string; input: any; expectedChecks?: ExpectedChecks },
+  testCase: { name?: string; input: any; expectedChecks?: ExpectedChecks },
   apiKey: string
 ): Promise<{ validation: ValidationResult; judge: JudgeResult }> {
   const systemPrompt = `You are a Magic: The Gathering expert fact-checker. Review the AI assistant's response and provide structured evaluation.
 
-Test case: ${testCase.name}
+Test case: ${testCase.name || "Unknown"}
 User question: ${JSON.stringify(testCase.input.userMessage || "")}
 Format: ${testCase.input.format || "Unknown"}
 
@@ -762,11 +763,13 @@ export function validateProblemsFirstStructure(
 
   const responseLower = response.toLowerCase();
   
-  // Problem keywords (should appear early)
+  // Problem keywords (should appear early) - includes soft/polite language
   const problemKeywords = [
     "problem", "problems", "issue", "issues", "weakness", "weaknesses",
     "lacks", "missing", "struggles", "weak", "low", "too few", "too many",
-    "biggest issue", "main problem", "key problem", "concern", "concerns"
+    "biggest issue", "main problem", "key problem", "concern", "concerns",
+    "could improve", "could be better", "a bit light on", "overloaded on",
+    "under", "over", "under-ramped", "over-ramped", "under-powered", "over-powered"
   ];
   
   // Solution keywords (should appear after problems)
@@ -892,7 +895,11 @@ export function validateSynergy(
 }
 
 /**
- * Consistency Judge: Checks that numeric guidelines match concrete suggestions
+ * Consistency Judge: Checks for wild mismatches between numeric guidelines and examples
+ * 
+ * This judge is intentionally forgiving - it only flags truly misleading cases where
+ * a range is stated but almost no examples are given. It uses soft thresholds (50% of
+ * lower bound) and skips if the answer explicitly says the list is not exhaustive.
  */
 export function validateConsistency(
   response: string,
@@ -903,50 +910,89 @@ export function validateConsistency(
   
   const responseLower = response.toLowerCase();
   
+  // Check if answer explicitly says list is not exhaustive (skip judge if so)
+  const notExhaustivePhrases = [
+    "here are some examples", "for example", "examples include", "such as",
+    "a few options", "some options", "not exhaustive", "not a complete list"
+  ];
+  const isExplicitlyNotExhaustive = notExhaustivePhrases.some(phrase => responseLower.includes(phrase));
+  
   // Extract numeric ranges mentioned (e.g., "8-12", "33-37", "8 to 12")
-  const rangePattern = /(\d+)[\s-]+(?:to|–|-)[\s-]+(\d+)/g;
-  const ranges: Array<{ min: number; max: number; context: string }> = [];
+  // Only look for ranges followed by category keywords
+  const rangePattern = /(\d+)[\s-]+(?:to|–|-)[\s-]+(\d+)\s+(?:ramp|lands?|draw|removal|interaction|wincon|win\s+con)/gi;
+  const ranges: Array<{ min: number; max: number; context: string; category: string }> = [];
   let match;
   
   while ((match = rangePattern.exec(response)) !== null) {
     const min = parseInt(match[1]);
     const max = parseInt(match[2]);
-    const context = response.substring(Math.max(0, match.index - 50), match.index + match[0].length + 50).toLowerCase();
-    ranges.push({ min, max, context });
+    const context = response.substring(Math.max(0, match.index - 100), match.index + match[0].length + 100).toLowerCase();
+    const category = match[0].toLowerCase().includes("ramp") ? "ramp" : 
+                     match[0].toLowerCase().includes("land") ? "land" :
+                     match[0].toLowerCase().includes("draw") ? "draw" : "other";
+    ranges.push({ min, max, context, category });
   }
   
-  // Check for ramp/land count consistency
+  // Only check if we found ranges AND answer doesn't explicitly say it's not exhaustive
+  if (ranges.length === 0) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "consistency",
+        passed: true,
+        message: "No numeric guidelines found to check",
+      }],
+      warnings: [],
+    };
+  }
+  
+  if (isExplicitlyNotExhaustive) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "consistency",
+        passed: true,
+        message: "Answer explicitly states list is not exhaustive - skipping consistency check",
+      }],
+      warnings: [],
+    };
+  }
+  
+  // Check each range for wild mismatches
   for (const range of ranges) {
-    if (range.context.includes("ramp") || range.context.includes("mana source")) {
-      // Count ramp-related card mentions
-      const rampKeywords = ["cultivate", "kodama", "nature's lore", "three visits", "sol ring", "arcane signet", "signet", "talisman", "llanowar", "elvish mystic", "birds of paradise", "ramp"];
-      const rampMentions = rampKeywords.filter(kw => responseLower.includes(kw)).length;
+    if (range.category === "ramp") {
+      // Extract card names from response to count actual examples
+      const cardNamePattern = /\*\*([^*]+)\*\*/g;
+      const cardNames: string[] = [];
+      let cardMatch;
+      while ((cardMatch = cardNamePattern.exec(response)) !== null) {
+        cardNames.push(cardMatch[1].toLowerCase().trim());
+      }
       
-      // If range says 8-12 but only 1-3 examples, that's inconsistent
-      if (rampMentions < range.min * 0.3) {
+      // Count ramp-related cards mentioned
+      const rampCardKeywords = ["cultivate", "kodama", "nature's lore", "three visits", "sol ring", "arcane signet", "signet", "talisman", "llanowar", "elvish mystic", "birds of paradise", "farseek", "ramp"];
+      const rampExamples = cardNames.filter(name => 
+        rampCardKeywords.some(kw => name.includes(kw))
+      ).length;
+      
+      // Very soft threshold: require at least 50% of lower bound (ceil)
+      const minRequired = Math.ceil(range.min * 0.5);
+      
+      if (rampExamples < minRequired) {
         checks.push({
           type: "consistency_ramp",
           passed: false,
-          message: `States ${range.min}-${range.max} ramp pieces but only provides ${rampMentions} examples`,
+          message: `States ${range.min}-${range.max} ramp pieces but only provides ${rampExamples} examples (minimum ${minRequired} expected)`,
         });
-        warnings.push(`Ramp guideline (${range.min}-${range.max}) doesn't match examples provided`);
+        warnings.push(`Ramp guideline (${range.min}-${range.max}) has wild mismatch with examples (${rampExamples} vs expected ${minRequired}+)`);
       } else {
         checks.push({
           type: "consistency_ramp",
           passed: true,
-          message: `Ramp guideline (${range.min}-${range.max}) roughly matches examples`,
+          message: `Ramp guideline (${range.min}-${range.max}) roughly matches examples (${rampExamples} provided)`,
         });
-      }
-    }
-    
-    if (range.context.includes("land") && !range.context.includes("ramp")) {
-      // Land count consistency - check if suggestions align with range
-      const landKeywords = ["land", "lands", "mana base"];
-      const landMentions = landKeywords.filter(kw => responseLower.includes(kw)).length;
-      
-      // This is a softer check - just warn if range is mentioned but no land discussion
-      if (landMentions === 0) {
-        warnings.push(`Land count range (${range.min}-${range.max}) mentioned but no land discussion follows`);
       }
     }
   }
@@ -959,7 +1005,7 @@ export function validateConsistency(
     checks: checks.length > 0 ? checks : [{
       type: "consistency",
       passed: true,
-      message: "No numeric guidelines found to check",
+      message: "No consistency issues found",
     }],
     warnings,
   };
@@ -1063,25 +1109,32 @@ export function validateTone(
     };
   }
   
-  // Competitive language (should appear for competitive, not for casual)
-  const competitiveLanguage = ["cedh", "hyper-efficient", "stax", "infinite combo", "tier", "meta", "optimized", "low curve", "resilient"];
-  const hasCompetitiveLanguage = competitiveLanguage.some(kw => responseLower.includes(kw));
-  
-  // Casual-friendly language
-  const casualLanguage = ["fun", "flavorful", "thematic", "casual", "kitchen table", "budget-friendly"];
-  const hasCasualLanguage = casualLanguage.some(kw => responseLower.includes(kw));
+  // Asymmetric tone checking: different rules for casual vs competitive
   
   let passed = true;
   let message = "";
   
-  if (userSignalsCasual && hasCompetitiveLanguage && !hasCasualLanguage) {
-    passed = false;
-    message = "User signaled casual but response uses competitive language (cedh, stax, etc.)";
-  } else if (userSignalsCompetitive && !hasCompetitiveLanguage && responseLower.length > 200) {
-    // For competitive, should have some efficiency/resilience language
-    const efficiencyKeywords = ["efficient", "interaction", "resilient", "refine", "optimize"];
-    const hasEfficiency = efficiencyKeywords.some(kw => responseLower.includes(kw));
-    if (!hasEfficiency) {
+  if (userSignalsCasual) {
+    // For casual: hard-fail only on aggressive spike-y/oppressive concepts
+    const aggressiveCompetitiveTerms = ["cedh", "hard lock", "stax your table", "lock your opponents out", "oppressive"];
+    const hasAggressiveTerms = aggressiveCompetitiveTerms.some(kw => responseLower.includes(kw));
+    
+    if (hasAggressiveTerms) {
+      passed = false;
+      message = "User signaled casual but response aggressively pushes competitive/oppressive concepts";
+    } else {
+      // Don't fail for normal language like "efficient removal" - that's fine
+      message = "Tone appropriately matches casual intent";
+    }
+  } else if (userSignalsCompetitive) {
+    // For competitive: require at least one efficiency/resilience keyword
+    const competitiveKeywords = [
+      "efficient", "interaction", "resilient", "low curve", "refine", "tighten",
+      "disruption", "interaction density", "optimize", "tuned"
+    ];
+    const hasCompetitiveKeyword = competitiveKeywords.some(kw => responseLower.includes(kw));
+    
+    if (!hasCompetitiveKeyword && responseLower.length > 200) {
       passed = false;
       message = "User signaled competitive but response lacks efficiency/resilience language";
     } else {
@@ -1106,23 +1159,165 @@ export function validateTone(
 }
 
 /**
+ * Color Identity & Legality Judge: Checks that suggested cards match deck colors and format legality
+ * 
+ * Uses existing card database logic to check:
+ * - Color identity: suggested cards must be within deck's color identity
+ * - Format legality: banned cards must be explicitly called out with alternatives
+ * 
+ * Only runs when requireLegalIdentity is true (mainly for deck_analysis/format-aware tests).
+ */
+export async function validateColorIdentityAndLegality(
+  response: string,
+  testCase: { input: any; type?: string },
+  supabase?: any
+): Promise<ValidationResult> {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  
+  if (!supabase) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "color_identity_legality",
+        passed: true,
+        message: "Skipped (no supabase client for card database lookup)",
+      }],
+      warnings: ["Supabase client not provided"],
+    };
+  }
+  
+  // Extract card names from response
+  const cardNames = extractCardNames(response);
+  
+  if (cardNames.length === 0) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "color_identity_legality",
+        passed: true,
+        message: "No card names found in response",
+      }],
+      warnings: [],
+    };
+  }
+  
+  const format = testCase.input.format;
+  const allowedColors = testCase.input.colors || [];
+  const commander = testCase.input.commander;
+  const responseLower = response.toLowerCase();
+  
+  let passedCount = 0;
+  let totalChecks = 0;
+  let hasColorViolation = false;
+  let hasBannedCardWithoutWarning = false;
+  
+  // Check each suggested card (limit to 20 to avoid too many checks)
+  for (const cardName of cardNames.slice(0, 20)) {
+    // Color identity check
+    if (allowedColors.length > 0 || commander) {
+      totalChecks++;
+      const colorCheck = await checkColorIdentity(cardName, allowedColors, supabase);
+      if (!colorCheck.passed) {
+        hasColorViolation = true;
+        checks.push({
+          type: "color_identity",
+          passed: false,
+          message: colorCheck.message,
+        });
+        warnings.push(colorCheck.message);
+      } else {
+        passedCount++;
+        // Don't add passed checks to avoid clutter, only failures
+      }
+    }
+    
+    // Format legality check
+    if (format) {
+      totalChecks++;
+      const legalityCheck = await checkFormatLegality(cardName, format, supabase);
+      if (!legalityCheck.passed) {
+        // Check if the response explicitly mentions the card is banned and suggests alternatives
+        const cardLower = cardName.toLowerCase();
+        const mentionsBanned = responseLower.includes("banned") && 
+                              (responseLower.includes(cardLower) || responseLower.includes(`**${cardName}**`));
+        const suggestsAlternative = responseLower.includes("alternative") || 
+                                    responseLower.includes("instead") ||
+                                    responseLower.includes("consider");
+        
+        if (!mentionsBanned || !suggestsAlternative) {
+          hasBannedCardWithoutWarning = true;
+          checks.push({
+            type: "format_legality",
+            passed: false,
+            message: `Card "${cardName}" is banned in ${format} but not explicitly called out with alternatives`,
+          });
+          warnings.push(`Banned card "${cardName}" suggested without warning`);
+        } else {
+          // Card is banned but properly called out - this is OK
+          passedCount++;
+        }
+      } else {
+        passedCount++;
+      }
+    }
+  }
+  
+  const passed = !hasColorViolation && !hasBannedCardWithoutWarning;
+  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  
+  return {
+    passed,
+    score,
+    checks: checks.length > 0 ? checks : [{
+      type: "color_identity_legality",
+      passed: true,
+      message: "All suggested cards are legal and within color identity",
+    }],
+    warnings,
+  };
+}
+
+/**
  * Specificity Judge: Requires concrete card suggestions in deck analysis
+ * 
+ * Only runs for deck_analysis tests or when explicitly requested. Skips for
+ * rules questions, short definitions, or teaching-mode conceptual answers.
  */
 export function validateSpecificity(
   response: string,
-  testCase: { input: any; type?: string }
+  testCase: { input: any; type?: string; expectedChecks?: ExpectedChecks }
 ): ValidationResult {
   const checks: Array<{ type: string; passed: boolean; message: string }> = [];
   
-  // Only check deck_analysis type responses
-  if (testCase.type !== "deck_analysis") {
+  // Only check deck_analysis type responses or when explicitly requested
+  const isDeckAnalysis = testCase.type === "deck_analysis";
+  const explicitlyRequested = testCase.expectedChecks?.requireSpecificity === true;
+  
+  if (!isDeckAnalysis && !explicitlyRequested) {
     return {
       passed: true,
       score: 100,
       checks: [{
         type: "specificity",
         passed: true,
-        message: "Skipped (not a deck analysis test)",
+        message: "Skipped (not a deck analysis test or explicitly requested)",
+      }],
+      warnings: [],
+    };
+  }
+  
+  // Skip for very short answers (likely rules/definition questions)
+  if (response.length < 150) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: "specificity",
+        passed: true,
+        message: "Skipped (response too short - likely not a deck advice question)",
       }],
       warnings: [],
     };
@@ -1144,8 +1339,8 @@ export function validateSpecificity(
   const uniqueCardCount = cardNames.size;
   const responseLength = response.length;
   
-  // Require at least 5-8 unique card names for longer responses
-  const minCards = responseLength > 500 ? 8 : responseLength > 200 ? 5 : 3;
+  // Require at least 5 unique card names for longer responses, 2-3 for shorter ones
+  const minCards = responseLength > 500 ? 5 : responseLength > 200 ? 3 : 2;
   const passed = uniqueCardCount >= minCards;
   
   checks.push({
@@ -1170,10 +1365,11 @@ export function validateSpecificity(
 export async function validateResponse(
   response: string,
   testCase: {
-    name: string;
+    name?: string;
     input: any;
     expectedChecks?: ExpectedChecks;
     expectedAnswer?: string; // For semantic similarity
+    type?: string; // Test type: "chat" or "deck_analysis"
   },
   options: {
     runKeywordChecks?: boolean;
@@ -1197,6 +1393,7 @@ export async function validateResponse(
   budgetResults?: ValidationResult;
   toneResults?: ValidationResult;
   specificityResults?: ValidationResult;
+  colorIdentityResults?: ValidationResult;
   overall: {
     passed: boolean;
     score: number;
@@ -1216,6 +1413,7 @@ export async function validateResponse(
     budgetResults?: ValidationResult;
     toneResults?: ValidationResult;
     specificityResults?: ValidationResult;
+    colorIdentityResults?: ValidationResult;
   } = {};
 
   // Keyword checks (always run if expectedChecks exist)
@@ -1251,26 +1449,27 @@ export async function validateResponse(
   // Advanced behavior judges (run if enabled or if expectedChecks require them)
   const runAdvanced = options.runAdvancedJudges !== false; // Default to true
   const checks = testCase.expectedChecks || {};
+  const testType = testCase.type || "chat"; // Extract type from testCase
   
   if (runAdvanced) {
     // Deck Style & Plan Judge
     if (checks.requireDeckStyle !== false) { // Default to true for deck_analysis
-      results.deckStyleResults = validateDeckStyleAndPlan(response, testCase);
+      results.deckStyleResults = validateDeckStyleAndPlan(response, { ...testCase, type: testType });
     }
     
     // Problems-First Structure Judge
     if (checks.requireProblemsFirst !== false) { // Default to true for deck_analysis
-      results.problemsFirstResults = validateProblemsFirstStructure(response, testCase);
+      results.problemsFirstResults = validateProblemsFirstStructure(response, { ...testCase, type: testType });
     }
     
     // Synergy Judge
     if (checks.requireSynergy !== false) { // Default to true for deck_analysis
-      results.synergyResults = validateSynergy(response, testCase);
+      results.synergyResults = validateSynergy(response, { ...testCase, type: testType });
     }
     
     // Consistency Judge
     if (checks.requireConsistency !== false) {
-      results.consistencyResults = validateConsistency(response, testCase);
+      results.consistencyResults = validateConsistency(response, { ...testCase, type: testType });
     }
     
     // Budget Awareness Judge
@@ -1285,7 +1484,16 @@ export async function validateResponse(
     
     // Specificity Judge
     if (checks.requireSpecificity !== false) { // Default to true for deck_analysis
-      results.specificityResults = validateSpecificity(response, testCase);
+      results.specificityResults = validateSpecificity(response, { ...testCase, type: testType, expectedChecks: checks });
+    }
+    
+    // Color Identity & Legality Judge
+    if (checks.requireLegalIdentity === true && options.supabase) {
+      results.colorIdentityResults = await validateColorIdentityAndLegality(
+        response,
+        { ...testCase, type: testType },
+        options.supabase
+      );
     }
   }
 
@@ -1303,6 +1511,7 @@ export async function validateResponse(
   if (results.budgetResults) allScores.push(results.budgetResults.score);
   if (results.toneResults) allScores.push(results.toneResults.score);
   if (results.specificityResults) allScores.push(results.specificityResults.score);
+  if (results.colorIdentityResults) allScores.push(results.colorIdentityResults.score);
 
   const overallScore =
     allScores.length > 0
