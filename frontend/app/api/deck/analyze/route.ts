@@ -323,9 +323,14 @@ async function planSuggestionSlots(
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
 
-  // Enhanced planning prompt with problems-first approach and mental simulation
+  // Use the main deck analysis prompt as the base, then add planning-specific instructions
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  
   const systemPrompt = [
-    "You are ManaTap's planning assistant. Your job is to identify deck problems and plan suggestion slots that fix them.",
+    basePrompt,
+    "",
+    "=== PLANNING MODE ===",
+    "Your job is to identify deck problems and plan suggestion slots that fix them.",
     "",
     "WORKFLOW:",
     "1. Identify the deck's style (tokens, aristocrats, control, combo, etc.)",
@@ -391,8 +396,13 @@ async function fetchSlotCandidates(
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
-  // Enhanced candidate fetching with synergy-first ranking and error-catching
+  // Use the main deck analysis prompt as the base, then add candidate-fetching instructions
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  
   const systemPrompt = [
+    basePrompt,
+    "",
+    "=== CANDIDATE FETCHING MODE ===",
     mode === "strict"
       ? "You must provide legal, on-color Magic card options for one specific slot."
       : "You suggest Magic cards for one specific slot that fix the identified problem.",
@@ -403,12 +413,6 @@ async function fetchSlotCandidates(
     "3. Budget awareness (if user mentioned budget)",
     "4. Power level (efficiency and impact)",
     "5. Generic staples (lowest - only when clearly needed)",
-    "",
-    "ERROR-CATCHING:",
-    "- Avoid mana dorks in non-green decks",
-    "- Avoid 7+ mana bombs in low-curve aggro (unless clearly justified)",
-    "- Avoid off-theme suggestions that don't support the deck's plan",
-    "- Prefer synergistic picks over generic 'goodstuff'",
     "",
     "Each candidate's 'reason' should explain: (1) how it fixes the slot's problem, (2) why it synergizes with the deck plan.",
     "",
@@ -460,8 +464,13 @@ async function retrySlotCandidates(
   mode: "normal" | "strict" = "normal",
   deckAnalysisSystemPrompt: string | null
 ): Promise<SlotCandidate[]> {
-  // Enhanced retry prompt with strict validation and synergy focus
+  // Use the main deck analysis prompt as the base, then add retry-specific instructions
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  
   const systemPrompt = [
+    basePrompt,
+    "",
+    "=== RETRY MODE ===",
     mode === "strict"
       ? "Previous suggestions failed validation. Provide 5 legal, on-color replacements that obey the requested type."
       : "Previous suggestions failed validation (off-color, wrong type, illegal). Provide stricter replacements.",

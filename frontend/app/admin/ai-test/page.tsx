@@ -93,10 +93,16 @@ export default function AiTestPage() {
     loadTestCases();
     loadPromptVersions();
     loadTestHistory();
-    loadCoverageData();
     loadTrendsData();
     loadTestSchedules();
   }, []);
+
+  // Load coverage when test cases are loaded or batch results change
+  React.useEffect(() => {
+    if (testCases.length > 0 || batchResults.length > 0) {
+      loadCoverageData();
+    }
+  }, [testCases.length, batchResults.length]);
 
   async function loadTestCases() {
     try {
@@ -169,10 +175,73 @@ export default function AiTestPage() {
 
   async function loadCoverageData() {
     try {
-      const r = await fetch("/api/admin/ai-test/coverage");
-      const j = await r.json();
-      if (j?.ok) {
-        setCoverageData(j.coverage || null);
+      // If we have current batch results, use those for coverage
+      if (batchResults.length > 0 && testCases.length > 0) {
+        // Calculate coverage from current batch results
+        const totalTests = testCases.length;
+        const testedTests = batchResults.length;
+        const passedTests = batchResults.filter((r: any) => r.validation?.overall?.passed === true).length;
+        const failedTests = batchResults.filter((r: any) => r.validation?.overall?.passed === false).length;
+        const untestedTests = totalTests - testedTests;
+        const passRate = testedTests > 0 ? Math.round((passedTests / testedTests) * 100) : 0;
+
+        // Group by type
+        const byType: Record<string, { total: number; passed: number; failed: number; untested: number }> = {};
+        testCases.forEach((tc: any) => {
+          if (!tc.type) return;
+          if (!byType[tc.type]) {
+            byType[tc.type] = { total: 0, passed: 0, failed: 0, untested: 0 };
+          }
+          byType[tc.type].total++;
+          const result = batchResults.find((r: any) => r.testCase?.id === tc.id);
+          if (result?.validation?.overall?.passed === true) {
+            byType[tc.type].passed++;
+          } else if (result?.validation?.overall?.passed === false) {
+            byType[tc.type].failed++;
+          } else {
+            byType[tc.type].untested++;
+          }
+        });
+
+        // Group by tag
+        const byTag: Record<string, { total: number; passed: number; failed: number; untested: number }> = {};
+        testCases.forEach((tc: any) => {
+          (tc.tags || []).forEach((tag: string) => {
+            if (!byTag[tag]) {
+              byTag[tag] = { total: 0, passed: 0, failed: 0, untested: 0 };
+            }
+            byTag[tag].total++;
+            const result = batchResults.find((r: any) => r.testCase?.id === tc.id);
+            if (result?.validation?.overall?.passed === true) {
+              byTag[tag].passed++;
+            } else if (result?.validation?.overall?.passed === false) {
+              byTag[tag].failed++;
+            } else {
+              byTag[tag].untested++;
+            }
+          });
+        });
+
+        setCoverageData({
+          overall: {
+            total: totalTests,
+            tested: testedTests,
+            passed: passedTests,
+            failed: failedTests,
+            untested: untestedTests,
+            passRate,
+          },
+          byType,
+          byTag,
+          source: "current_batch",
+        });
+      } else {
+        // Fall back to API for historical data
+        const r = await fetch("/api/admin/ai-test/coverage");
+        const j = await r.json();
+        if (j?.ok) {
+          setCoverageData(j.coverage || null);
+        }
       }
     } catch (e) {
       console.error("Failed to load coverage data:", e);
@@ -1073,13 +1142,14 @@ export default function AiTestPage() {
             {batchResults.map((result, idx) => (
               <div
                 key={idx}
-                className={`p-2 rounded border ${
+                className={`p-2 rounded border cursor-pointer transition-colors ${
                   result.validation?.overall?.passed
-                    ? "border-green-800 bg-green-950/20"
+                    ? "border-green-800 bg-green-950/20 hover:bg-green-950/30"
                     : result.validation?.overall?.passed === false
-                    ? "border-red-800 bg-red-950/20"
-                    : "border-neutral-700 bg-neutral-950/40"
+                    ? "border-red-800 bg-red-950/20 hover:bg-red-950/30"
+                    : "border-neutral-700 bg-neutral-950/40 hover:bg-neutral-900/60"
                 }`}
+                onClick={() => toggleResultExpansion(idx, result)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -1100,17 +1170,36 @@ export default function AiTestPage() {
                       <div className="text-xs text-red-400 mt-1">Error: {result.error}</div>
                     )}
                   </div>
-                  <button
-                    onClick={() => toggleResultExpansion(idx, result)}
-                    className="ml-2 px-2 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 rounded"
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-2 flex items-center gap-1"
                   >
-                    {expandedResults.has(idx) ? "▼" : "▶"}
-                  </button>
+                    <span className="text-xs opacity-70">
+                      {expandedResults.has(idx) ? "▼ Collapse" : "▶ Expand"}
+                    </span>
+                  </div>
                 </div>
                 
                 {/* Expanded Content */}
                 {expandedResults.has(idx) && (
                   <div className="mt-3 pt-3 border-t border-neutral-700 space-y-3">
+                    {/* Test Input/Question */}
+                    <div>
+                      <div className="text-xs font-medium mb-1">Test Input:</div>
+                      <div className="p-2 bg-neutral-950 rounded text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">
+                        {result.testCase?.input?.userMessage || 
+                         result.testCase?.input?.text || 
+                         (typeof result.testCase?.input === 'string' ? result.testCase.input : JSON.stringify(result.testCase?.input || {}, null, 2))}
+                      </div>
+                      {result.testCase?.input?.deckText && (
+                        <div className="mt-2 p-2 bg-neutral-900 rounded text-[10px] font-mono max-h-24 overflow-y-auto opacity-80">
+                          <div className="font-medium mb-1">Deck:</div>
+                          {result.testCase.input.deckText.slice(0, 500)}
+                          {result.testCase.input.deckText.length > 500 && '...'}
+                        </div>
+                      )}
+                    </div>
+
                     {/* AI Response */}
                     <div>
                       <div className="text-xs font-medium mb-1">AI Response:</div>
@@ -1118,6 +1207,96 @@ export default function AiTestPage() {
                         {result.result?.response?.text || result.response?.text || "No response"}
                       </div>
                     </div>
+
+                    {/* Validation Details */}
+                    {result.validation && (
+                      <div>
+                        <div className="text-xs font-medium mb-1">Validation Details:</div>
+                        <div className="p-2 bg-neutral-950 rounded text-xs space-y-2">
+                          {result.validation.overall && (
+                            <div>
+                              <div className="font-medium">
+                                Overall: {result.validation.overall.passed ? "✅ PASSED" : "❌ FAILED"} ({result.validation.overall.score}%)
+                              </div>
+                              <div className="text-[10px] opacity-70 mt-1">{result.validation.overall.summary}</div>
+                            </div>
+                          )}
+                          
+                          {/* Individual Judge Results */}
+                          <div className="mt-2 space-y-1">
+                            {result.validation.keywordResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Keywords:</span> {result.validation.keywordResults.passed ? "✅" : "❌"} {result.validation.keywordResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.lengthResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Length:</span> {result.validation.lengthResults.passed ? "✅" : "❌"} {result.validation.lengthResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.deckStyleResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Deck Style:</span> {result.validation.deckStyleResults.passed ? "✅" : "❌"} {result.validation.deckStyleResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.problemsFirstResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Problems-First:</span> {result.validation.problemsFirstResults.passed ? "✅" : "❌"} {result.validation.problemsFirstResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.synergyResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Synergy:</span> {result.validation.synergyResults.passed ? "✅" : "❌"} {result.validation.synergyResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.consistencyResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Consistency:</span> {result.validation.consistencyResults.passed ? "✅" : "❌"} {result.validation.consistencyResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.budgetResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Budget:</span> {result.validation.budgetResults.passed ? "✅" : "❌"} {result.validation.budgetResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.toneResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Tone:</span> {result.validation.toneResults.passed ? "✅" : "❌"} {result.validation.toneResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.specificityResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Specificity:</span> {result.validation.specificityResults.passed ? "✅" : "❌"} {result.validation.specificityResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.colorIdentityResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Color Identity & Legality:</span> {result.validation.colorIdentityResults.passed ? "✅" : "❌"} {result.validation.colorIdentityResults.message || ""}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* LLM Judge Scores */}
+                          {result.validation.llmJudge && (
+                            <div className="mt-2 pt-2 border-t border-neutral-800">
+                              <div className="text-[10px] font-medium mb-1">LLM Judge Scores:</div>
+                              <div className="text-[10px] space-y-0.5">
+                                <div>Overall: {result.validation.llmJudge.overall_score}%</div>
+                                <div>Factual: {result.validation.llmJudge.factual_score}%</div>
+                                <div>Legality: {result.validation.llmJudge.legality_score}%</div>
+                                <div>Synergy: {result.validation.llmJudge.synergy_score}%</div>
+                                <div>Pedagogy: {result.validation.llmJudge.pedagogy_score}%</div>
+                                {result.validation.llmJudge.reasoning && (
+                                  <div className="mt-1 pt-1 border-t border-neutral-800 opacity-70 italic">
+                                    {result.validation.llmJudge.reasoning}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Suggestions for this result */}
                     {result.validation?.overall?.passed === false && resultSuggestions.has(idx) && (
@@ -1573,8 +1752,13 @@ export default function AiTestPage() {
                       </div>
                     </div>
                     <div className="text-[10px] opacity-70 mt-1">
-                      {entry.passCount}/{entry.testCount} passed | {entry.promptVersion}
+                      {entry.passCount || 0}/{entry.testCount || 0} passed | Prompt: {entry.promptVersion || "unknown"}
                     </div>
+                    {entry.failCount !== undefined && (
+                      <div className="text-[10px] opacity-60 mt-0.5">
+                        ❌ {entry.failCount} failed
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1629,7 +1813,15 @@ export default function AiTestPage() {
                   </div>
                   {run.meta && (
                     <div className="text-[10px] opacity-70 mt-1 ml-12">
-                      {run.meta.pass_count}/{run.meta.test_count} passed | Prompt: {run.meta.prompt_version || "unknown"}
+                      {run.meta.pass_count || 0}/{run.meta.test_count || 0} passed
+                      {run.meta.fail_count !== undefined && ` | ❌ ${run.meta.fail_count} failed`}
+                      {run.meta.prompt_version && ` | Prompt: ${run.meta.prompt_version}`}
+                      {!run.meta.prompt_version && " | Prompt: unknown"}
+                    </div>
+                  )}
+                  {!run.meta && (
+                    <div className="text-[10px] opacity-70 mt-1 ml-12">
+                      No test data available
                     </div>
                   )}
                 </div>

@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
+import { getPromptVersion } from '@/lib/config/prompts';
 
 export async function POST(req: Request){
   try{
@@ -19,7 +20,25 @@ export async function POST(req: Request){
       return NextResponse.json({ ok:true, text: fallback });
     }
 
-    const system = 'You are an MTG budget coach. Explain clearly and concisely why a cheaper swap preserves deck function.';
+    // Load the deck_analysis prompt as the base, then add swap explanation instructions
+    let basePrompt = 'You are ManaTap AI, an expert Magic: The Gathering assistant.';
+    try {
+      const promptVersion = await getPromptVersion('deck_analysis');
+      if (promptVersion) {
+        basePrompt = promptVersion.system_prompt;
+      }
+    } catch (e) {
+      console.warn('[swap-why] Failed to load prompt version:', e);
+    }
+    
+    const system = [
+      basePrompt,
+      '',
+      '=== BUDGET SWAP EXPLANATION MODE ===',
+      'Explain clearly and concisely why a cheaper swap preserves deck function.',
+      'Focus on role/function overlap and synergy preservation.'
+    ].join('\n');
+    
     const user = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
 
     const r = await fetch('https://api.openai.com/v1/responses', {

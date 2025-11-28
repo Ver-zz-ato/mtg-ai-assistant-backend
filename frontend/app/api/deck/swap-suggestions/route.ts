@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
+import { getPromptVersion } from "@/lib/config/prompts";
 
 // Very light-weight, research-aware swap suggester.
 // It tries to load optional budget swap hints from the research folders via canonicalize()
@@ -130,7 +131,27 @@ async function aiSuggest(deckText: string, currency: string, budget: number): Pr
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || "gpt-5";
   if (!apiKey) return [];
-  const system = "You are an MTG budget coach. Given a decklist and price threshold, suggest cheaper near-equivalents. Respond ONLY with JSON array of objects: [{\"from\":\"Card A\",\"to\":\"Card B\",\"reason\":\"short reason\"}]";
+  
+  // Load the deck_analysis prompt as the base, then add budget swap instructions
+  let basePrompt = "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  try {
+    const promptVersion = await getPromptVersion("deck_analysis");
+    if (promptVersion) {
+      basePrompt = promptVersion.system_prompt;
+    }
+  } catch (e) {
+    console.warn("[swap-suggestions] Failed to load prompt version:", e);
+  }
+  
+  const system = [
+    basePrompt,
+    "",
+    "=== BUDGET SWAP MODE ===",
+    "Given a decklist and price threshold, suggest cheaper near-equivalents that preserve deck function.",
+    "Focus on role/function overlap and synergy preservation.",
+    "Respond ONLY with JSON array of objects: [{\"from\":\"Card A\",\"to\":\"Card B\",\"reason\":\"short reason\"}]"
+  ].join("\n");
+  
   const input = `Currency: ${currency}\nThreshold: ${budget}\nDeck:\n${deckText}`;
   const body: any = {
     model,
