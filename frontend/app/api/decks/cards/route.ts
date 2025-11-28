@@ -20,14 +20,56 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "deckId required" }, { status: 400 });
     }
     const supabase = await createClient();
-    const { data, error } = await supabase
+    
+    // First check if deck is public - if so, use service role to bypass RLS
+    const { data: deck, error: deckCheckError } = await supabase
+      .from("decks")
+      .select("is_public, public, user_id")
+      .eq("id", deckId)
+      .maybeSingle();
+    
+    console.log(`[DeckCards API] Deck ${deckId}:`, {
+      found: !!deck,
+      is_public: deck?.is_public,
+      public: deck?.public,
+      error: deckCheckError?.message,
+    });
+    
+    // If deck is public, use service role client to bypass RLS
+    let client = supabase;
+    let usingServiceRole = false;
+    if (deck && (deck.is_public || deck.public)) {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+      if (serviceKey) {
+        client = createServiceClient(url, serviceKey, { auth: { persistSession: false } }) as any;
+        usingServiceRole = true;
+        console.log(`[DeckCards API] Using service role client for public deck ${deckId}`);
+      } else {
+        console.warn(`[DeckCards API] Public deck ${deckId} but no service role key available`);
+      }
+    } else {
+      console.log(`[DeckCards API] Deck ${deckId} is not public, using regular client`);
+    }
+    
+    const { data, error } = await client
       .from("deck_cards")
       .select("id, deck_id, name, qty, created_at")
       .eq("deck_id", deckId)
       .order("name", { ascending: true });
+    
+    console.log(`[DeckCards API] Fetched cards for deck ${deckId}:`, {
+      count: data?.length || 0,
+      error: error?.message,
+      usingServiceRole,
+      sampleCards: data?.slice(0, 3).map((c: any) => ({ name: c.name, qty: c.qty })),
+    });
+    
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, cards: data ?? [] });
   } catch (e: any) {
+    console.error(`[DeckCards API] Exception for deck ${getDeckId(req.url)}:`, e);
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }
 }

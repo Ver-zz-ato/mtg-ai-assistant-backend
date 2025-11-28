@@ -15,13 +15,35 @@ export const dynamic = "force-dynamic";
 // Helper to count cards in deck_text
 function countCards(deckText: string | null | undefined): number {
   if (!deckText) return 0;
-  const lines = String(deckText).split(/\r?\n/).filter(l => l.trim());
+  // Handle both actual newlines and escaped \n characters
+  let text = String(deckText);
+  // Replace escaped newlines with actual newlines (handle both \n and \\n)
+  text = text.replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
+  // Also handle if it's stored as literal backslash-n characters
+  if (text.includes('\\n') && !text.includes('\n')) {
+    // If we have \n but no actual newlines, try to split on \n
+    const lines = text.split(/\\n/).filter(l => l.trim());
+    let total = 0;
+    for (const line of lines) {
+      const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      if (m) {
+        total += parseInt(m[1], 10) || 1;
+      } else if (line.trim() && !line.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
+        total += 1;
+      }
+    }
+    return total;
+  }
+  // Normal path: split on actual newlines
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
   let total = 0;
   for (const line of lines) {
+    // Match patterns like "1 Card Name" or "2x Card Name"
     const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
     if (m) {
       total += parseInt(m[1], 10) || 1;
     } else if (line.trim() && !line.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
+      // If no quantity found but line has content, count as 1
       total += 1;
     }
   }
@@ -41,11 +63,12 @@ export async function GET(req: Request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 100);
     const offset = (page - 1) * limit;
     
-    // Build query - use cookie-free client for public data
+    // Build query - use service role to bypass RLS for public deck browsing
+    // Check both is_public and public columns to be safe (some decks might only have one set)
     let query = supabase
       .from('decks')
-      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text', { count: 'exact' })
-      .eq('is_public', true);
+      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text, is_public, public', { count: 'exact' })
+      .or('is_public.eq.true,public.eq.true');
 
     // Apply filters
     if (search) {
@@ -92,13 +115,44 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    // Debug logging (can be removed later)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Browse Decks] Found ${data?.length || 0} decks (total count: ${count})`);
+    // Debug logging
+    console.log(`[Browse Decks] Query returned ${data?.length || 0} decks (total count: ${count})`);
+    console.log(`[Browse Decks] Using service role: ${!!serviceKey}`);
+    if (data && data.length > 0) {
+      const sampleDeck = data[0];
+      const cardCount = countCards(sampleDeck.deck_text);
+      console.log(`[Browse Decks] Sample deck: "${sampleDeck.title}"`);
+      console.log(`[Browse Decks]   - Card count: ${cardCount}`);
+      console.log(`[Browse Decks]   - is_public: ${sampleDeck.is_public}, public: ${(sampleDeck as any).public}`);
+      console.log(`[Browse Decks]   - deck_text length: ${(sampleDeck.deck_text || '').length}`);
+      console.log(`[Browse Decks]   - deck_text preview: ${(sampleDeck.deck_text || '').substring(0, 300)}`);
+    } else {
+      console.log(`[Browse Decks] No decks found! Checking if any public decks exist...`);
+      // Debug query to see if ANY public decks exist
+      const { data: debugData, error: debugError } = await supabase
+        .from('decks')
+        .select('id, title, is_public, public', { count: 'exact' })
+        .limit(5);
+      console.log(`[Browse Decks] Debug query: ${debugData?.length || 0} total decks found, error: ${debugError?.message || 'none'}`);
+      if (debugData && debugData.length > 0) {
+        console.log(`[Browse Decks] Sample decks from debug query:`, debugData.map((d: any) => ({
+          title: d.title,
+          is_public: d.is_public,
+          public: d.public
+        })));
+      }
     }
 
     // Filter decks with at least 10 cards
-    const filteredDecks = (data || []).filter(d => countCards(d.deck_text) >= 10);
+    const filteredDecks = (data || []).filter(d => {
+      const cardCount = countCards(d.deck_text);
+      if (cardCount < 10) {
+        console.log(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
+      }
+      return cardCount >= 10;
+    });
+    
+    console.log(`[Browse Decks] After card count filter: ${filteredDecks.length} decks`);
 
     // Get owner usernames
     const ownerIds = [...new Set(filteredDecks.map(d => d.user_id).filter(Boolean))];
@@ -114,6 +168,7 @@ export async function GET(req: Request) {
       ...deck,
       owner_username: userMap.get(deck.user_id) || 'Anonymous',
       card_count: countCards(deck.deck_text),
+      deck_text: deck.deck_text, // Include deck_text for art loading
     }));
 
     return NextResponse.json({

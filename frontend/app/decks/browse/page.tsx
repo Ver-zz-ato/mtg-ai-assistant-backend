@@ -21,6 +21,7 @@ interface Deck {
   created_at: string;
   owner_username: string;
   card_count: number;
+  deck_text?: string; // For art loading
 }
 
 const FORMATS = [
@@ -333,9 +334,8 @@ export default function BrowseDecksPage() {
                 <div className="relative h-48 bg-neutral-950 overflow-hidden">
                   <DeckArtLoader
                     deckId={deck.id}
-                    commander={deck.commander || ''}
-                    title={deck.title}
-                    deckText={''}
+                    commander={deck.commander || undefined}
+                    title={deck.title || undefined}
                   >
                     {(art, loading) => (
                       art ? (
