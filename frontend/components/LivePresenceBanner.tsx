@@ -20,7 +20,6 @@ export default function LivePresenceBanner() {
   const [expanded, setExpanded] = React.useState(true);
   const [dismissed, setDismissed] = React.useState(false);
   const [currentTickerIndex, setCurrentTickerIndex] = React.useState(0);
-  const autoCollapseTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const tickerTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Check localStorage for dismissed preference on mount
@@ -32,17 +31,7 @@ export default function LivePresenceBanner() {
         return;
       }
     } catch {}
-
-    // Auto-collapse after 5 seconds
-    autoCollapseTimerRef.current = setTimeout(() => {
-      setExpanded(false);
-    }, 5000);
-
-    return () => {
-      if (autoCollapseTimerRef.current) {
-        clearTimeout(autoCollapseTimerRef.current);
-      }
-    };
+    // Auto-show (expanded by default, no auto-collapse)
   }, []);
 
   // Fetch activity data
@@ -103,12 +92,6 @@ export default function LivePresenceBanner() {
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
-    // If expanding, don't auto-collapse again
-    if (expanded === false) {
-      if (autoCollapseTimerRef.current) {
-        clearTimeout(autoCollapseTimerRef.current);
-      }
-    }
   };
 
   if (dismissed) return null;
