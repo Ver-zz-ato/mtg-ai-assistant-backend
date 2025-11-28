@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Use cookie-free client for public data (same as homepage)
+// Use service role client to bypass RLS for public deck browsing
+// This is safe because we only query decks with is_public = true
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(url, anon, { auth: { persistSession: false } });
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+const supabase = serviceKey 
+  ? createClient(url, serviceKey, { auth: { persistSession: false } })
+  : createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
 
 export const revalidate = 60; // Cache for 1 minute
 export const dynamic = "force-dynamic";
@@ -87,6 +90,11 @@ export async function GET(req: Request) {
     if (error) {
       console.error('[Browse Decks] Error:', error);
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+
+    // Debug logging (can be removed later)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Browse Decks] Found ${data?.length || 0} decks (total count: ${count})`);
     }
 
     // Filter decks with at least 10 cards
