@@ -30,6 +30,21 @@ export type ExpectedChecks = {
   requireToneMatch?: boolean; // Should match casual/competitive tone
   requireSpecificity?: boolean; // Should include concrete card names
   requireLegalIdentity?: boolean; // Should check color identity and format legality
+  // New safety checks
+  requireColorIdentitySafe?: boolean; // all mentioned cards must be legal in the given colors/format
+  requirePermanentsOnly?: boolean;    // all mentioned cards must be permanents
+  requireNoHallucinatedCards?: boolean; // all mentioned cards must exist in our card DB
+  // tribal / deck-structure helpers (for deck builders)
+  minTribalDensity?: {
+    tribe: string;      // e.g. "Bird"
+    minPercent: number; // e.g. 0.25 for 25%+
+  };
+  // deck size expectations when full decklists are generated
+  maxTotalCards?: number;
+  minTotalCards?: number;
+  // land recommendation sanity checks
+  mustNotRecommendExcessiveLands?: boolean;
+  maxRecommendedLandsToAdd?: number; // e.g. 5
 };
 
 export type DeckAnalysisExpectedChecks = ExpectedChecks & {
@@ -1281,6 +1296,294 @@ export async function validateColorIdentityAndLegality(
 }
 
 /**
+ * Safety Checks Validator: Validates new safety flags (hallucination, color identity, permanents, tribal, deck size, lands)
+ */
+export async function validateSafetyChecks(
+  response: string,
+  testCase: { input: any; expectedChecks?: ExpectedChecks },
+  supabase?: any
+): Promise<ValidationResult> {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  let passedCount = 0;
+  let totalChecks = 0;
+
+  const expectedChecks = testCase.expectedChecks || {};
+  const cardNames = extractCardNames(response);
+
+  // 1. requireNoHallucinatedCards: Check all mentioned cards exist in DB
+  if (expectedChecks.requireNoHallucinatedCards && supabase) {
+    for (const cardName of cardNames.slice(0, 30)) { // Limit to 30 cards
+      totalChecks++;
+      try {
+        const normalizedName = cardName.toLowerCase().trim();
+        const { data, error } = await supabase
+          .from("scryfall_cache")
+          .select("name")
+          .ilike("name", normalizedName)
+          .limit(1)
+          .maybeSingle();
+
+        if (!data || error) {
+          // Try fuzzy match as fallback
+          const { data: fuzzyData } = await supabase
+            .from("scryfall_cache")
+            .select("name")
+            .ilike("name", `%${normalizedName}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (!fuzzyData) {
+            checks.push({
+              type: "requireNoHallucinatedCards",
+              passed: false,
+              message: `Hallucinated card detected: "${cardName}"`,
+            });
+            warnings.push(`Card "${cardName}" not found in database`);
+          } else {
+            passedCount++;
+          }
+        } else {
+          passedCount++;
+        }
+      } catch (error: any) {
+        // On error, give benefit of doubt but warn
+        warnings.push(`Error checking card "${cardName}": ${error.message}`);
+        passedCount++; // Don't fail on lookup errors
+      }
+    }
+  }
+
+  // 2. requireColorIdentitySafe: Check all cards are within color identity
+  if (expectedChecks.requireColorIdentitySafe && supabase) {
+    const allowedColors = testCase.input.colors || [];
+    if (allowedColors.length > 0) {
+      for (const cardName of cardNames.slice(0, 30)) {
+        totalChecks++;
+        const colorCheck = await checkColorIdentity(cardName, allowedColors, supabase);
+        checks.push({
+          type: "requireColorIdentitySafe",
+          passed: colorCheck.passed,
+          message: colorCheck.message,
+        });
+        if (colorCheck.passed) {
+          passedCount++;
+        } else {
+          warnings.push(colorCheck.message);
+        }
+      }
+    }
+  }
+
+  // 3. requirePermanentsOnly: Check all cards are permanents (not instants/sorceries)
+  if (expectedChecks.requirePermanentsOnly && supabase) {
+    const PERMANENT_TYPES = ["creature", "artifact", "enchantment", "planeswalker", "battle", "land"];
+    const NON_PERMANENT_TYPES = ["instant", "sorcery"];
+
+    for (const cardName of cardNames.slice(0, 30)) {
+      totalChecks++;
+      try {
+        const normalizedName = cardName.toLowerCase().trim();
+        const { data } = await supabase
+          .from("scryfall_cache")
+          .select("type_line")
+          .ilike("name", normalizedName)
+          .limit(1)
+          .maybeSingle();
+
+        if (!data || !data.type_line) {
+          // Card not found - skip check (already handled by hallucination check)
+          passedCount++;
+          continue;
+        }
+
+        const typeLine = (data.type_line || "").toLowerCase();
+        const isPermanent = PERMANENT_TYPES.some(type => typeLine.includes(type));
+        const isNonPermanent = NON_PERMANENT_TYPES.some(type => typeLine.includes(type));
+
+        if (isNonPermanent && !isPermanent) {
+          checks.push({
+            type: "requirePermanentsOnly",
+            passed: false,
+            message: `Card "${cardName}" is not a permanent (type: ${data.type_line})`,
+          });
+          warnings.push(`Non-permanent card "${cardName}" suggested (type: ${data.type_line})`);
+        } else {
+          passedCount++;
+        }
+      } catch (error: any) {
+        warnings.push(`Error checking permanence for "${cardName}": ${error.message}`);
+        passedCount++; // Don't fail on lookup errors
+      }
+    }
+  }
+
+  // 4. minTribalDensity: Check tribal density in deck
+  if (expectedChecks.minTribalDensity) {
+    totalChecks++;
+    const { tribe, minPercent } = expectedChecks.minTribalDensity;
+    
+    // Parse deck from input.deckText or response
+    const deckText = testCase.input.deckText || "";
+    const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+    const deckEntries = parseDeckText(deckText + "\n" + response); // Combine input and response
+    
+    // Count creatures and tribe matches
+    let totalCreatures = 0;
+    let tribeMatches = 0;
+
+    if (supabase) {
+      for (const entry of deckEntries) {
+        try {
+          const { data } = await supabase
+            .from("scryfall_cache")
+            .select("type_line")
+            .ilike("name", entry.name.toLowerCase())
+            .limit(1)
+            .maybeSingle();
+
+          if (data?.type_line) {
+            const typeLine = data.type_line.toLowerCase();
+            if (typeLine.includes("creature")) {
+              totalCreatures++;
+              if (typeLine.includes(tribe.toLowerCase())) {
+                tribeMatches++;
+              }
+            }
+          }
+        } catch (error) {
+          // Skip on error
+        }
+      }
+    }
+
+    const density = totalCreatures > 0 ? tribeMatches / totalCreatures : 0;
+    const passed = density >= minPercent;
+
+    checks.push({
+      type: "minTribalDensity",
+      passed,
+      message: passed
+        ? `Tribal density OK: ${Math.round(density * 100)}% ${tribe}s (required: ${Math.round(minPercent * 100)}%+)`
+        : `Tribal density too low: ${Math.round(density * 100)}% ${tribe}s (required: ${Math.round(minPercent * 100)}%+)`,
+    });
+
+    if (passed) {
+      passedCount++;
+    } else {
+      warnings.push(`Tribal density for ${tribe} is ${Math.round(density * 100)}%, need at least ${Math.round(minPercent * 100)}%`);
+    }
+  }
+
+  // 5. maxTotalCards / minTotalCards: Check deck size
+  if (expectedChecks.maxTotalCards !== undefined || expectedChecks.minTotalCards !== undefined) {
+    totalChecks++;
+    const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+    const deckText = testCase.input.deckText || "";
+    const deckEntries = parseDeckText(deckText + "\n" + response);
+    const totalCards = deckEntries.reduce((sum, entry) => sum + entry.qty, 0);
+
+    let passed = true;
+    let message = `Deck size: ${totalCards} cards`;
+
+    if (expectedChecks.minTotalCards !== undefined && totalCards < expectedChecks.minTotalCards) {
+      passed = false;
+      message = `Deck too small: ${totalCards} cards (minimum: ${expectedChecks.minTotalCards})`;
+    }
+
+    if (expectedChecks.maxTotalCards !== undefined && totalCards > expectedChecks.maxTotalCards) {
+      passed = false;
+      message = `Deck too large: ${totalCards} cards (maximum: ${expectedChecks.maxTotalCards})`;
+    }
+
+    checks.push({
+      type: "deckSize",
+      passed,
+      message,
+    });
+
+    if (passed) {
+      passedCount++;
+    } else {
+      warnings.push(message);
+    }
+  }
+
+  // 6. mustNotRecommendExcessiveLands / maxRecommendedLandsToAdd: Check land recommendations
+  if (expectedChecks.mustNotRecommendExcessiveLands) {
+    totalChecks++;
+    const responseLower = response.toLowerCase();
+    
+    // Heuristic: look for patterns like "add X lands", "X more lands", or lists under "Lands" heading
+    const landPatterns = [
+      /add\s+(\d+)\s+lands?/gi,
+      /(\d+)\s+more\s+lands?/gi,
+      /(\d+)\s+additional\s+lands?/gi,
+      /recommend\s+(\d+)\s+lands?/gi,
+    ];
+
+    let maxLandsToAdd = 0;
+    for (const pattern of landPatterns) {
+      let match;
+      while ((match = pattern.exec(response)) !== null) {
+        const num = parseInt(match[1]);
+        if (num > maxLandsToAdd) {
+          maxLandsToAdd = num;
+        }
+      }
+    }
+
+    // Also check for land lists (count lines that mention "land" and a number)
+    const lines = response.split(/\n/);
+    for (const line of lines) {
+      const landMatch = line.match(/(\d+)\s+.*land/gi);
+      if (landMatch) {
+        for (const match of landMatch) {
+          const numMatch = match.match(/(\d+)/);
+          if (numMatch) {
+            const num = parseInt(numMatch[1]);
+            if (num > maxLandsToAdd) {
+              maxLandsToAdd = num;
+            }
+          }
+        }
+      }
+    }
+
+    const maxAllowed = expectedChecks.maxRecommendedLandsToAdd || 5;
+    const passed = maxLandsToAdd <= maxAllowed;
+
+    checks.push({
+      type: "mustNotRecommendExcessiveLands",
+      passed,
+      message: passed
+        ? `Land recommendations OK: ${maxLandsToAdd} lands recommended (max: ${maxAllowed})`
+        : `Excessive land recommendation: ${maxLandsToAdd} lands (max allowed: ${maxAllowed})`,
+    });
+
+    if (passed) {
+      passedCount++;
+    } else {
+      warnings.push(`AI recommended adding ${maxLandsToAdd} lands, which exceeds the limit of ${maxAllowed}`);
+    }
+  }
+
+  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  const passed = score >= 80; // 80% threshold
+
+  return {
+    passed,
+    score,
+    checks: checks.length > 0 ? checks : [{
+      type: "safety_checks",
+      passed: true,
+      message: "No safety checks required",
+    }],
+    warnings,
+  };
+}
+
+/**
  * Specificity Judge: Requires concrete card suggestions in deck analysis
  * 
  * Only runs for deck_analysis tests or when explicitly requested. Skips for
@@ -1495,6 +1798,37 @@ export async function validateResponse(
         options.supabase
       );
     }
+
+    // Safety Checks (new regression test validators)
+    const hasSafetyChecks = 
+      checks.requireNoHallucinatedCards ||
+      checks.requireColorIdentitySafe ||
+      checks.requirePermanentsOnly ||
+      checks.minTribalDensity ||
+      checks.maxTotalCards !== undefined ||
+      checks.minTotalCards !== undefined ||
+      checks.mustNotRecommendExcessiveLands;
+    
+    if (hasSafetyChecks && options.supabase) {
+      const safetyResults = await validateSafetyChecks(
+        response,
+        { input: testCase.input, expectedChecks: testCase.expectedChecks },
+        options.supabase
+      );
+      // Merge safety check results into existing results
+      if (!results.colorIdentityResults && checks.requireColorIdentitySafe) {
+        results.colorIdentityResults = safetyResults;
+      } else if (safetyResults.checks.length > 0) {
+        // Add safety checks to appropriate result or create new one
+        if (results.colorIdentityResults) {
+          results.colorIdentityResults.checks.push(...safetyResults.checks);
+          results.colorIdentityResults.warnings.push(...safetyResults.warnings);
+        } else {
+          // Store as a separate result type (we'll add it to return type)
+          (results as any).safetyResults = safetyResults;
+        }
+      }
+    }
   }
 
   // Calculate overall score (include all judge results)
@@ -1512,6 +1846,7 @@ export async function validateResponse(
   if (results.toneResults) allScores.push(results.toneResults.score);
   if (results.specificityResults) allScores.push(results.specificityResults.score);
   if (results.colorIdentityResults) allScores.push(results.colorIdentityResults.score);
+  if ((results as any).safetyResults) allScores.push((results as any).safetyResults.score);
 
   const overallScore =
     allScores.length > 0

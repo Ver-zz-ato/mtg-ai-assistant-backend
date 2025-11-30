@@ -3,6 +3,8 @@
 // Lightweight PostHog helpers with consent guard.
 // Safe to import from any client component.
 
+import { getConsentStatus } from '@/lib/consent';
+
 type Props = Record<string, any> | undefined;
 
 function hasWindow(): boolean {
@@ -12,9 +14,15 @@ function hasWindow(): boolean {
 export function hasConsent(): boolean {
   if (!hasWindow()) return false;
   try {
-    return window.localStorage.getItem('analytics:consent') === 'granted';
+    // Use new consent helper for consistency
+    return getConsentStatus() === 'accepted';
   } catch {
-    return false;
+    // Fallback to legacy check
+    try {
+      return window.localStorage.getItem('analytics:consent') === 'granted';
+    } catch {
+      return false;
+    }
   }
 }
 

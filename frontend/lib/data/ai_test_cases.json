@@ -1082,6 +1082,85 @@
       },
       "tags": ["edge-case", "empty", "hallucination"],
       "source": "curated"
+    },
+    {
+      "id": "henzie-permanents-jund",
+      "name": "Henzie: suggest Jund-legal permanents only",
+      "type": "deck_analysis",
+      "input": {
+        "format": "Commander",
+        "commander": "Henzie \"Toolbox\" Torre",
+        "colors": ["B", "R", "G"],
+        "userMessage": "I'm in Jund with Henzie. What permanent cards would you add to improve the deck?",
+        "deckText": "1 Henzie \"Toolbox\" Torre\n1 Sakura-Tribe Elder\n1 Wood Elves\n1 Beast Within\n1 Putrefy\n1 Swamp\n1 Forest\n1 Mountain"
+      },
+      "expectedChecks": {
+        "requireColorIdentitySafe": true,
+        "requirePermanentsOnly": true,
+        "requireNoHallucinatedCards": true,
+        "shouldNotMentionCard": [
+          "Cultivate",
+          "Farseek",
+          "Skyshroud Claim",
+          "Treasure Cruise",
+          "Swords to Plowshares"
+        ]
+      },
+      "tags": ["commander", "color_identity", "permanents", "reddit_regression"],
+      "source": "regression"
+    },
+    {
+      "id": "kastral-bird-tribal-builder",
+      "name": "Kastral: bird tribal deck should be legal and mostly birds",
+      "type": "deck_analysis",
+      "input": {
+        "format": "Commander",
+        "commander": "Kastral, the Windcrested",
+        "colors": ["W", "U"],
+        "userMessage": "Build me a Kastral, the Windcrested bird tribal Commander deck list.",
+        "deckText": ""
+      },
+      "expectedChecks": {
+        "requireColorIdentitySafe": true,
+        "requireNoHallucinatedCards": true,
+        "minTribalDensity": {
+          "tribe": "Bird",
+          "minPercent": 0.25
+        },
+        "minTotalCards": 90,
+        "maxTotalCards": 100,
+        "shouldNotMentionCard": [
+          "Angrath's Marauders",
+          "Flock of Rats",
+          "Ascendancy of the Ancients",
+          "Birds of Paradise"
+        ]
+      },
+      "tags": ["commander", "deck_building", "tribal", "legality", "reddit_regression"],
+      "source": "regression"
+    },
+    {
+      "id": "windgrace-lands-and-colors",
+      "name": "Lord Windgrace: sane land recommendations and Jund-legal suggestions",
+      "type": "deck_analysis",
+      "input": {
+        "format": "Commander",
+        "commander": "Lord Windgrace",
+        "colors": ["B", "R", "G"],
+        "userMessage": "Analyze this Lord Windgrace landfall deck and tell me what changes you'd make.",
+        "deckText": "1 Lord Windgrace\n1 Sol Ring\n1 Arcane Signet\n1 Farseek\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Wood Elves\n1 Tireless Tracker\n1 Ramunap Excavator\n1 Crucible of Worlds\n1 The Gitrog Monster\n1 Omnath, Locus of Rage\n1 Avenger of Zendikar\n1 Scute Swarm\n1 Rampaging Baloths\n1 Valakut, the Molten Pinnacle\n1 Field of the Dead\n1 Command Tower\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Fabled Passage\n10 Forest\n10 Mountain\n10 Swamp\n1 Blood Crypt\n1 Stomping Ground\n1 Overgrown Tomb\n1 Wooded Foothills\n1 Bloodstained Mire\n1 Windswept Heath"
+      },
+      "expectedChecks": {
+        "requireColorIdentitySafe": true,
+        "mustNotRecommendExcessiveLands": true,
+        "maxRecommendedLandsToAdd": 5,
+        "requireNoHallucinatedCards": true,
+        "shouldNotMentionCard": [
+          "Swords to Plowshares"
+        ]
+      },
+      "tags": ["commander", "lands", "manabase", "color_identity", "reddit_regression"],
+      "source": "regression"
     }
   ]
 }

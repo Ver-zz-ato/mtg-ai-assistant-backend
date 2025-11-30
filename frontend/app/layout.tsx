@@ -6,7 +6,7 @@ import Providers from "@/components/Providers";
 import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 import SupportWidgets from "@/components/SupportWidgets";
-import CookieBanner from "@/components/CookieBanner";
+import CookieConsentModal from "@/components/CookieConsentModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import PromoBar from "@/components/PromoBar";
@@ -107,7 +107,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Header />
                 <main className="flex-1">{children}</main>
               </ErrorBoundary>
-              <CookieBanner />
+              <CookieConsentModal />
               <FeedbackFab />
               {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
               <TrustFooter />

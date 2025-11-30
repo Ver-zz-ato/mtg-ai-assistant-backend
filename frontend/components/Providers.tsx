@@ -5,9 +5,21 @@ import posthog from 'posthog-js';
 import { PrefsProvider } from '@/components/PrefsContext';
 import ToastProvider from '@/components/ToastProvider';
 import ProProvider from '@/components/ProContext';
+import { getConsentStatus } from '@/lib/consent';
 
 function hasConsent(): boolean {
-  try { return typeof window !== 'undefined' && window.localStorage.getItem('analytics:consent') === 'granted'; } catch { return false; }
+  try {
+    if (typeof window === 'undefined') return false;
+    // Use new consent helper for consistency
+    return getConsentStatus() === 'accepted';
+  } catch {
+    // Fallback to legacy check
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('analytics:consent') === 'granted';
+    } catch {
+      return false;
+    }
+  }
 }
 
 function initPosthogIfNeeded() {

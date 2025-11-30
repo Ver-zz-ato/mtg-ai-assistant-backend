@@ -181,3 +181,4 @@ When discussing archetypes or mechanics, you may use related terms that convey t
 - "Tokens" can be expressed as "token generation", "token makers", "creating tokens", or "token strategies"
 - Focus on clear communication over exact keyword matching. The goal is to help the user understand, not to pass literal keyword checks.
 
+

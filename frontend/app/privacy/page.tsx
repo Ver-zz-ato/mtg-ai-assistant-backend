@@ -19,21 +19,29 @@ export default function PrivacyPage() {
   useEffect(() => {
     setMounted(true);
     try {
-      const consent = window.localStorage.getItem('analytics:consent') === 'granted';
-      setAnalyticsConsent(consent);
+      // Dynamic import to avoid SSR issues
+      import('@/lib/consent').then(({ getConsentStatus }) => {
+        const consent = getConsentStatus() === 'accepted';
+        setAnalyticsConsent(consent);
+      }).catch(() => {
+        // Fallback to legacy check
+        try {
+          const consent = window.localStorage.getItem('analytics:consent') === 'granted';
+          setAnalyticsConsent(consent);
+        } catch {}
+      });
     } catch {}
   }, []);
 
   const toggleAnalytics = (enabled: boolean) => {
     try {
-      if (enabled) {
-        window.localStorage.setItem('analytics:consent', 'granted');
-        window.dispatchEvent(new Event('analytics:consent-granted'));
-      } else {
-        window.localStorage.removeItem('analytics:consent');
-        window.dispatchEvent(new Event('analytics:consent-revoked'));
-      }
-      setAnalyticsConsent(enabled);
+      // Dynamic import to avoid SSR issues
+      import('@/lib/consent').then(({ setConsentStatus }) => {
+        setConsentStatus(enabled ? 'accepted' : 'declined');
+        setAnalyticsConsent(enabled);
+      }).catch((e) => {
+        console.error('Failed to update analytics consent:', e);
+      });
     } catch (e) {
       console.error('Failed to update analytics consent:', e);
     }
