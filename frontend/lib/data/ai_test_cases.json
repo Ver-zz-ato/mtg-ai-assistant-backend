@@ -1,1134 +1,551 @@
 {
   "testCases": [
     {
-      "id": "ramp-mislabel-cultivate",
-      "name": "Ramp mislabeling: Cultivate should not be called creature ramp",
+      "id": "chat-commander-ramp-basics",
+      "name": "Commander ramp guidelines",
       "type": "chat",
       "input": {
-        "userMessage": "What ramp should I run in my Commander deck?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldContain": ["ramp", "Cultivate"],
-        "shouldNotContain": ["creature ramp", "Cultivate.*creature", "Cultivate.*dork"],
-        "shouldMentionCard": ["Cultivate", "Kodama's Reach"],
-        "formatSpecific": true
-      },
-      "tags": ["ramp", "mislabeling", "commander"],
-      "source": "curated"
-    },
-    {
-      "id": "ramp-fabled-passage-not-ramp",
-      "name": "Fabled Passage should not be presented as ramp",
-      "type": "chat",
-      "input": {
-        "userMessage": "Is Fabled Passage ramp?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldNotContain": ["Fabled Passage.*ramp", "ramp.*Fabled Passage"],
-        "shouldContain": ["color fixing", "fetch", "land"]
-      },
-      "tags": ["ramp", "mislabeling", "lands"],
-      "source": "curated"
-    },
-    {
-      "id": "color-identity-violation",
-      "name": "Should not suggest off-color cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze this deck and suggest improvements",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Lightning Bolt\n1 Counterspell\n1 Swamp\n1 Mountain",
+        "userMessage": "In a typical 4-player Commander deck, how many ramp cards should I run and what kinds?",
         "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
+        "teaching": true
       },
       "expectedChecks": {
-        "requireLegalIdentity": true,
-        "shouldNotMentionCard": ["Counterspell", "Swamp"],
-        "shouldContain": ["red", "color identity"]
-      },
-      "tags": ["color-identity", "commander", "validation"],
-      "source": "curated"
-    },
-    {
-      "id": "banned-card-without-warning",
-      "name": "Should call out banned cards with alternatives",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest ramp for my Commander deck",
-        "deckText": "1 Sol Ring\n38 Mountain",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireLegalIdentity": true,
-        "shouldNotMentionCard": ["Golos, Tireless Pilgrim", "Primeval Titan", "Prophet of Kruphix"]
-      },
-      "tags": ["banned", "commander", "legality"],
-      "source": "curated"
-    },
-    {
-      "id": "banned-card-with-alternative",
-      "name": "Should mention banned card is banned and suggest alternative",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "What's a good land tutor for Commander?",
-        "deckText": "1 Sol Ring\n38 Forest",
-        "format": "Commander",
-        "commander": "Omnath, Locus of Rage",
-        "colors": ["G", "R"]
-      },
-      "expectedChecks": {
-        "requireLegalIdentity": true,
-        "shouldContain": ["banned", "alternative", "instead"]
-      },
-      "tags": ["banned", "commander", "legality"],
-      "source": "curated"
-    },
-    {
-      "id": "fast-mana-casual-deck",
-      "name": "Should not suggest fast mana for casual decks",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "What ramp should I add?",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"],
-        "context": { "powerLevel": "casual" }
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus", "Mox Diamond"],
-        "shouldMentionCard": ["Arcane Signet", "Fellwar Stone", "Mind Stone"]
-      },
-      "tags": ["ramp", "power-level", "budget"],
-      "source": "curated"
-    },
-    {
-      "id": "commander-land-floor",
-      "name": "Should warn about low land count in Commander",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze this deck",
-        "deckText": "1 Sol Ring\n30 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "shouldContain": ["land", "34", "mana"],
-        "minLength": 50
-      },
-      "tags": ["lands", "commander", "fundamentals"],
-      "source": "curated"
-    },
-    {
-      "id": "teaching-mode-depth",
-      "name": "Teaching mode should provide 3-part answer",
-      "type": "chat",
-      "input": {
-        "userMessage": "What is ramp?",
-        "format": "Commander",
-        "context": { "teaching": true }
-      },
-      "expectedChecks": {
-        "shouldContain": ["concept", "examples", "application"],
+        "shouldContain": [
+          "about 8–12 ramp",
+          "mana rocks",
+          "land-based ramp",
+          "creature ramp"
+        ],
+        "shouldNotContain": [
+          "2–3 ramp cards is enough"
+        ],
         "minLength": 200
       },
-      "tags": ["teaching", "format", "depth"],
-      "source": "curated"
+      "tags": ["commander", "ramp", "teaching"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "banned-card-suggestion",
-      "name": "Should not suggest banned cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest removal for my Commander deck",
-        "deckText": "1 Sol Ring\n38 Mountain",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Primeval Titan", "Prophet of Kruphix", "Sundering Titan"]
-      },
-      "tags": ["banned", "commander", "validation"],
-      "source": "curated"
-    },
-    {
-      "id": "format-specific-vocabulary",
-      "name": "Should use format-appropriate examples",
+      "id": "chat-commander-lands-basics",
+      "name": "Commander land count heuristic",
       "type": "chat",
       "input": {
-        "userMessage": "What are good removal spells?",
+        "userMessage": "How many lands should I play in a normal Commander deck?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "around 36–38 lands",
+          "more lands if your curve is high",
+          "fewer lands if you have lots of ramp"
+        ],
+        "shouldNotContain": [
+          "50 or more lands",
+          "20 lands is enough"
+        ]
+      },
+      "tags": ["commander", "lands", "heuristics"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-60card-lands-basics",
+      "name": "60-card land count heuristic",
+      "type": "chat",
+      "input": {
+        "userMessage": "How many lands do I run in a 60 card midrange deck?",
         "format": "Modern"
       },
       "expectedChecks": {
-        "shouldMentionCard": ["Lightning Bolt", "Path to Exile", "Fatal Push"],
-        "shouldNotMentionCard": ["Sol Ring", "Command Tower"]
+        "shouldContain": [
+          "around 24 lands",
+          "23–25 lands is typical",
+          "depends on curve"
+        ],
+        "shouldNotContain": [
+          "36–38 lands",
+          "16 lands is enough"
+        ]
       },
-      "tags": ["format", "vocabulary", "modern"],
-      "source": "curated"
+      "tags": ["modern", "lands", "heuristics"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "budget-awareness",
-      "name": "Should acknowledge budget constraints",
+      "id": "chat-budget-vs-luxury",
+      "name": "Budget vs luxury explanation",
       "type": "chat",
       "input": {
-        "userMessage": "Suggest budget upgrades under $50",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldContain": ["budget", "affordable", "cheap"],
-        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus"]
-      },
-      "tags": ["budget", "price", "accessibility"],
-      "source": "curated"
-    },
-    {
-      "id": "commander-archetype-respect",
-      "name": "Should respect commander archetype",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest cards for my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Forest\n1 Llanowar Elves",
+        "userMessage": "What's the difference between a budget and luxury Commander manabase?",
         "format": "Commander",
-        "commander": "Henzie 'Toolbox' Torre",
-        "colors": ["B", "R", "G"]
+        "plan": "budget"
       },
       "expectedChecks": {
-        "shouldContain": ["permanent", "ETB", "dies"],
-        "shouldNotMentionCard": ["Lightning Bolt", "Counterspell"]
-      },
-      "tags": ["commander", "archetype", "synergy"],
-      "source": "curated"
-    },
-    {
-      "id": "ramp-categorization",
-      "name": "Should correctly categorize ramp types",
-      "type": "chat",
-      "input": {
-        "userMessage": "What types of ramp are there?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldContain": ["land-based", "mana rocks", "mana dorks"],
-        "shouldMentionCard": ["Cultivate", "Sol Ring", "Llanowar Elves"]
-      },
-      "tags": ["ramp", "categorization", "education"],
-      "source": "curated"
-    },
-    {
-      "id": "color-strengths-weaknesses",
-      "name": "Should mention color strengths and weaknesses",
-      "type": "chat",
-      "input": {
-        "userMessage": "What are the strengths of red in Commander?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldContain": ["damage", "aggression", "artifact"],
-        "shouldNotContain": ["card draw", "long-game"]
-      },
-      "tags": ["color-identity", "education"],
-      "source": "curated"
-    },
-    {
-      "id": "deck-analysis-structure",
-      "name": "Deck analysis should mention fundamentals",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "shouldContain": ["ramp", "draw", "removal", "lands"],
-        "minLength": 100
-      },
-      "tags": ["deck-analysis", "fundamentals", "structure"],
-      "source": "curated"
-    },
-    {
-      "id": "no-overpromising",
-      "name": "Should avoid overconfident language",
-      "type": "chat",
-      "input": {
-        "userMessage": "Is Sol Ring an auto-include?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldNotContain": ["auto-include", "must-run", "always"],
-        "shouldContain": ["commonly", "strong", "option"]
-      },
-      "tags": ["tone", "overpromising", "language"],
-      "source": "curated"
-    },
-    {
-      "id": "opinionated-ranges",
-      "name": "Should present ranges when communities disagree",
-      "type": "chat",
-      "input": {
-        "userMessage": "How many lands should I run?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldContain": ["range", "36", "38", "42", "tuned"],
-        "minLength": 50
-      },
-      "tags": ["lands", "opinionated", "ranges"],
-      "source": "curated"
-    },
-    {
-      "id": "tokens-archetype-recognition",
-      "name": "Tokens deck: Should identify go-wide token strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Parallel Lives\n1 Anointed Procession\n1 Secure the Wastes\n1 Raise the Alarm\n35 Plains\n1 Trostani, Selesnya's Voice",
-        "format": "Commander",
-        "commander": "Trostani, Selesnya's Voice",
-        "colors": ["G", "W"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "requireSynergy": true,
-        "shouldContain": ["token", "go-wide"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "tokens", "selesnya", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "tokens-synergy-chain",
-      "name": "Tokens deck: Should explain synergy chains",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "What cards work well together?",
-        "deckText": "1 Parallel Lives\n1 Anointed Procession\n1 Doubling Season\n1 Secure the Wastes\n1 March of the Multitudes\n35 Forest\n1 Rhys the Redeemed",
-        "format": "Commander",
-        "commander": "Rhys the Redeemed",
-        "colors": ["G", "W"]
-      },
-      "expectedChecks": {
-        "requireSynergy": true,
-        "shouldContain": ["doubles", "works well", "together"],
-        "minLength": 100
-      },
-      "tags": ["archetype", "tokens", "synergy"],
-      "source": "curated"
-    },
-    {
-      "id": "aristocrats-plan-recognition",
-      "name": "Aristocrats deck: Should identify sacrifice strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Zulaport Cutthroat\n1 Blood Artist\n1 Carrion Feeder\n35 Swamp\n1 Teysa, Orzhov Scion",
-        "format": "Commander",
-        "commander": "Teysa, Orzhov Scion",
-        "colors": ["B", "W"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "requireProblemsFirst": true,
-        "shouldContain": ["aristocrat", "sacrifice", "sac outlet"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "aristocrats", "orzhov", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "aristocrats-synergy",
-      "name": "Aristocrats deck: Should connect sac outlets and payoffs",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest improvements",
-        "deckText": "1 Viscera Seer\n1 Zulaport Cutthroat\n1 Blood Artist\n35 Swamp\n1 Ayara, First of Locthwain",
-        "format": "Commander",
-        "commander": "Ayara, First of Locthwain",
-        "colors": ["B"]
-      },
-      "expectedChecks": {
-        "requireSynergy": true,
-        "shouldContain": ["triggers", "when", "dies", "sacrifice"],
-        "minLength": 100
-      },
-      "tags": ["archetype", "aristocrats", "synergy"],
-      "source": "curated"
-    },
-    {
-      "id": "landfall-archetype",
-      "name": "Landfall deck: Should identify landfall strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Rampaging Baloths\n1 Avenger of Zendikar\n1 Tireless Tracker\n1 Lotus Cobra\n35 Forest\n1 Omnath, Locus of Rage",
-        "format": "Commander",
-        "commander": "Omnath, Locus of Rage",
-        "colors": ["G", "R"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["landfall", "land enters"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "landfall", "gruul", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "lifegain-archetype",
-      "name": "Lifegain deck: Should identify lifegain strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Soul Warden\n1 Ajani's Pridemate\n1 Heliod, Sun-Crowned\n1 Authority of the Consuls\n35 Plains\n1 Oloro, Ageless Ascetic",
-        "format": "Commander",
-        "commander": "Oloro, Ageless Ascetic",
-        "colors": ["W", "U", "B"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["lifegain", "life"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "lifegain", "orzhov", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "enchantress-archetype",
-      "name": "Enchantress deck: Should identify enchantment strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Enchantress's Presence\n1 Argothian Enchantress\n1 Sythis, Harvest's Hand\n1 Sterling Grove\n35 Forest\n1 Sythis, Harvest's Hand",
-        "format": "Commander",
-        "commander": "Sythis, Harvest's Hand",
-        "colors": ["G", "W"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["enchantress", "enchantment"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "enchantress", "selesnya", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "spellslinger-archetype",
-      "name": "Spellslinger deck: Should identify spell-based strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Guttersnipe\n1 Young Pyromancer\n1 Talrand, Sky Summoner\n1 Baral, Chief of Compliance\n35 Island\n1 Niv-Mizzet, Parun",
-        "format": "Commander",
-        "commander": "Niv-Mizzet, Parun",
-        "colors": ["U", "R"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["spellslinger", "spell", "instant", "sorcery"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "spellslinger", "izzet", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "graveyard-reanimator-archetype",
-      "name": "Graveyard deck: Should identify reanimator strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Entomb\n1 Reanimate\n1 Animate Dead\n1 Meren of Clan Nel Toth\n35 Swamp\n1 Meren of Clan Nel Toth",
-        "format": "Commander",
-        "commander": "Meren of Clan Nel Toth",
-        "colors": ["B", "G"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["graveyard", "reanimator", "recursion"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "graveyard", "golgari", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "blink-flicker-archetype",
-      "name": "Blink deck: Should identify ETB/flicker strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Cloudshift\n1 Ephemerate\n1 Restoration Angel\n1 Mulldrifter\n35 Plains\n1 Brago, King Eternal",
-        "format": "Commander",
-        "commander": "Brago, King Eternal",
-        "colors": ["W", "U"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["blink", "flicker", "ETB", "enters the battlefield"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "blink", "azorius", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "voltron-archetype",
-      "name": "Voltron deck: Should identify tall/equipment strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Sword of Fire and Ice\n1 Colossus Hammer\n35 Mountain\n1 Zurgo Helmsmasher",
-        "format": "Commander",
-        "commander": "Zurgo Helmsmasher",
-        "colors": ["R", "W", "B"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["voltron", "equipment", "tall"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "voltron", "boros", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "control-archetype",
-      "name": "Control deck: Should identify control strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Counterspell\n1 Swords to Plowshares\n1 Wrath of God\n1 Teferi, Hero of Dominaria\n35 Island\n1 Grand Arbiter Augustin IV",
-        "format": "Commander",
-        "commander": "Grand Arbiter Augustin IV",
-        "colors": ["W", "U"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["control", "interaction", "removal"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "control", "azorius", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "midrange-archetype",
-      "name": "Midrange deck: Should identify midrange strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Bloodbraid Elf\n1 Tarmogoyf\n1 Lightning Bolt\n1 Thoughtseize\n35 Forest\n1 Prossh, Skyraider of Kher",
-        "format": "Commander",
-        "commander": "Prossh, Skyraider of Kher",
-        "colors": ["B", "R", "G"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["midrange", "value"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "midrange", "jund", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "combo-archetype",
-      "name": "Combo deck: Should identify combo strategy",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Kiki-Jiki, Mirror Breaker\n1 Zealous Conscripts\n1 Pestermite\n1 Deceiver Exarch\n35 Mountain\n1 Kiki-Jiki, Mirror Breaker",
-        "format": "Commander",
-        "commander": "Kiki-Jiki, Mirror Breaker",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["combo", "infinite"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "combo", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "problems-first-structure",
-      "name": "Should list problems before solutions",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "What's wrong with my deck?",
-        "deckText": "1 Sol Ring\n25 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireProblemsFirst": true,
-        "shouldContain": ["problem", "issue", "lacks", "missing"],
-        "minLength": 100
-      },
-      "tags": ["structure", "problems-first"],
-      "source": "curated"
-    },
-    {
-      "id": "low-ramp-problems",
-      "name": "Should flag low ramp as a problem",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireProblemsFirst": true,
-        "shouldContain": ["ramp", "mana", "problem", "issue"],
-        "minLength": 100
-      },
-      "tags": ["ramp", "problems-first"],
-      "source": "curated"
-    },
-    {
-      "id": "consistency-ramp-count",
-      "name": "Should be consistent with ramp count guidelines",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "How much ramp should I run?",
-        "deckText": "1 Sol Ring\n38 Mountain",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireConsistency": true,
-        "shouldContain": ["8", "12", "ramp"],
-        "minLength": 100
-      },
-      "tags": ["consistency", "ramp"],
-      "source": "curated"
-    },
-    {
-      "id": "budget-casual-tone",
-      "name": "Should match casual/budget tone",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "I'm building a casual budget deck, what should I add?",
-        "deckText": "1 Sol Ring\n38 Mountain",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"],
-        "context": { "powerLevel": "casual", "budget": true }
-      },
-      "expectedChecks": {
-        "requireBudgetAwareness": true,
-        "requireToneMatch": true,
-        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus"],
-        "shouldContain": ["budget", "casual", "affordable"],
-        "minLength": 100
-      },
-      "tags": ["budget", "tone", "casual"],
-      "source": "curated"
-    },
-    {
-      "id": "competitive-tone",
-      "name": "Should match competitive/tuned tone",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "I want to tune this for competitive play",
-        "deckText": "1 Sol Ring\n38 Mountain",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"],
-        "context": { "powerLevel": "competitive" }
-      },
-      "expectedChecks": {
-        "requireToneMatch": true,
-        "shouldContain": ["efficient", "interaction", "resilient", "optimize"],
-        "minLength": 100
-      },
-      "tags": ["tone", "competitive"],
-      "source": "curated"
-    },
-    {
-      "id": "specificity-concrete-cards",
-      "name": "Should include concrete card suggestions",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest improvements",
-        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireSpecificity": true,
+        "shouldContain": [
+          "basic lands",
+          "Evolving Wilds",
+          "tap lands",
+          "shock lands",
+          "fetch lands"
+        ],
         "minLength": 200
       },
-      "tags": ["specificity", "concrete-cards"],
-      "source": "curated"
+      "tags": ["commander", "manabase", "budget"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "stax-archetype",
-      "name": "Stax deck: Should identify stax strategy",
-      "type": "deck_analysis",
+      "id": "chat-explain-pillars",
+      "name": "Explain Commander pillars",
+      "type": "chat",
       "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Winter Orb\n1 Static Orb\n1 Smokestack\n1 Tangle Wire\n35 Plains\n1 Grand Arbiter Augustin IV",
+        "userMessage": "Explain the main pillars of a good Commander deck.",
         "format": "Commander",
-        "commander": "Grand Arbiter Augustin IV",
-        "colors": ["W", "U"]
+        "teaching": true
       },
       "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["stax", "resource denial"],
-        "minLength": 150
+        "shouldContain": [
+          "ramp",
+          "card draw",
+          "removal",
+          "win conditions",
+          "protection"
+        ],
+        "minLength": 200
       },
-      "tags": ["archetype", "stax", "plan-recognition"],
-      "source": "curated"
+      "tags": ["commander", "pillars", "teaching"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "treasure-artifact-archetype",
-      "name": "Treasure/Artifact deck: Should identify artifact strategy",
-      "type": "deck_analysis",
+      "id": "chat-color-identity-offcolor",
+      "name": "Reject off-colour suggestion",
+      "type": "chat",
       "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Smothering Tithe\n1 Dockside Extortionist\n1 Revel in Riches\n1 Brass's Bounty\n35 Island\n1 Prosper, Tome-Bound",
+        "userMessage": "Suggest some good white removal spells for my mono-green Commander deck.",
         "format": "Commander",
-        "commander": "Prosper, Tome-Bound",
-        "colors": ["B", "R"]
-      },
-      "expectedChecks": {
-        "requireDeckStyle": true,
-        "shouldContain": ["treasure", "artifact"],
-        "minLength": 150
-      },
-      "tags": ["archetype", "treasure", "artifact", "plan-recognition"],
-      "source": "curated"
-    },
-    {
-      "id": "legality-001",
-      "name": "Prosper should not suggest white cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest improvements for my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Dockside Extortionist\n35 Mountain\n1 Prosper, Tome-Bound",
-        "format": "Commander",
-        "commander": "Prosper, Tome-Bound",
-        "colors": ["B", "R"]
-      },
-      "expectedChecks": {
-        "requireLegalIdentity": true,
-        "shouldNotMentionCard": ["Swords to Plowshares", "Path to Exile", "Smothering Tithe", "Teferi's Protection"],
-        "shouldContain": ["color identity", "black", "red"]
-      },
-      "tags": ["legality", "color-identity", "commander"],
-      "source": "curated"
-    },
-    {
-      "id": "legality-002",
-      "name": "Should not suggest banned cards like Hullbreacher",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest card draw for my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Island\n1 Talrand, Sky Summoner",
-        "format": "Commander",
-        "commander": "Talrand, Sky Summoner",
-        "colors": ["U"]
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Hullbreacher", "Lutri, the Spellchaser"],
-        "shouldContain": ["banned", "alternative"]
-      },
-      "tags": ["legality", "banned", "commander"],
-      "source": "curated"
-    },
-    {
-      "id": "legality-003",
-      "name": "Standard deck should not suggest non-Standard cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest removal for my Standard deck",
-        "deckText": "1 Lightning Bolt\n1 Counterspell\n22 Mountain\n1 Ragavan, Nimble Pilferer",
-        "format": "Standard"
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Lightning Bolt", "Counterspell", "Sol Ring", "Command Tower"],
-        "shouldMentionCard": ["Cut Down", "Go for the Throat", "Play with Fire"]
-      },
-      "tags": ["legality", "format", "standard"],
-      "source": "curated"
-    },
-    {
-      "id": "legality-004",
-      "name": "Should avoid silver-border and acorn cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest cards for my deck",
-        "deckText": "1 Sol Ring\n38 Forest\n1 Omnath, Locus of Rage",
-        "format": "Commander",
-        "commander": "Omnath, Locus of Rage",
-        "colors": ["G", "R"]
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Gleemax", "Richard Garfield, Ph.D.", "Booster Tutor"],
-        "shouldNotContain": ["silver border", "acorn", "un-set"]
-      },
-      "tags": ["legality", "silver-border", "acorn"],
-      "source": "curated"
-    },
-    {
-      "id": "duplicate-001",
-      "name": "Should not recommend same card twice",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest 5 ramp cards",
-        "deckText": "1 Sol Ring\n38 Mountain\n1 Chandra, Fire of Kaladesh",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireSpecificity": true,
-        "minLength": 100
-      },
-      "tags": ["duplicate", "suggestions"],
-      "source": "curated"
-    },
-    {
-      "id": "duplicate-002",
-      "name": "Should not suggest cards already in decklist",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest improvements",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Lightning Bolt\n1 Counterspell\n35 Mountain\n1 Chandra, Fire of Kaladesh",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "shouldNotMentionCard": ["Sol Ring", "Arcane Signet", "Lightning Bolt"],
-        "minLength": 100
-      },
-      "tags": ["duplicate", "decklist"],
-      "source": "curated"
-    },
-    {
-      "id": "pillars-001",
-      "name": "Should correctly count ramp/draw/removal",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Read the Bones\n1 Swords to Plowshares\n1 Path to Exile\n35 Plains\n1 Giada, Font of Hope",
-        "format": "Commander",
-        "commander": "Giada, Font of Hope",
-        "colors": ["W"]
-      },
-      "expectedChecks": {
-        "shouldContain": ["ramp", "draw", "removal"],
-        "minLength": 150
-      },
-      "tags": ["pillars", "counting", "fundamentals"],
-      "source": "curated"
-    },
-    {
-      "id": "pillars-002",
-      "name": "Should flag deck with only 1 ramp as insufficient",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt\n1 Chandra, Fire of Kaladesh",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireProblemsFirst": true,
-        "shouldContain": ["ramp", "problem", "insufficient", "low"],
-        "shouldNotContain": ["enough ramp", "sufficient ramp", "adequate ramp"],
-        "minLength": 100
-      },
-      "tags": ["pillars", "ramp", "problems"],
-      "source": "curated"
-    },
-    {
-      "id": "pillars-003",
-      "name": "Should not ignore missing draw or removal",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Kodama's Reach\n38 Forest\n1 Omnath, Locus of Rage",
-        "format": "Commander",
-        "commander": "Omnath, Locus of Rage",
-        "colors": ["G", "R"]
-      },
-      "expectedChecks": {
-        "requireProblemsFirst": true,
-        "shouldContain": ["draw", "removal", "problem", "missing"],
-        "minLength": 100
-      },
-      "tags": ["pillars", "draw", "removal", "problems"],
-      "source": "curated"
-    },
-    {
-      "id": "synergy-commander-001",
-      "name": "Suggestions must tie to commander abilities",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest cards for my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Forest\n1 Yisan, the Wanderer Bard",
-        "format": "Commander",
-        "commander": "Yisan, the Wanderer Bard",
         "colors": ["G"]
       },
       "expectedChecks": {
-        "requireSynergy": true,
-        "shouldContain": ["Yisan", "creature", "verse counter", "tutor"],
-        "shouldNotContain": ["supports your plan", "works well", "good card"],
-        "minLength": 150
+        "shouldContain": [
+          "Green cannot play white cards",
+          "stick to mono-green",
+          "Beast Within"
+        ],
+        "shouldNotMentionCard": [
+          "Swords to Plowshares",
+          "Path to Exile"
+        ]
       },
-      "tags": ["synergy", "commander", "specificity"],
-      "source": "curated"
+      "tags": ["commander", "color-identity", "legality"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "synergy-commander-002",
-      "name": "Fail if synergy explanation is generic",
-      "type": "deck_analysis",
+      "id": "chat-banned-card-commander",
+      "name": "Mention Commander banned card",
+      "type": "chat",
       "input": {
-        "userMessage": "What cards work with my commander?",
-        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Blood Artist\n35 Swamp\n1 Teysa Karlov",
-        "format": "Commander",
-        "commander": "Teysa Karlov",
-        "colors": ["B", "W"]
+        "userMessage": "Should I play Paradox Engine in my Commander deck?",
+        "format": "Commander"
       },
       "expectedChecks": {
-        "requireSynergy": true,
-        "shouldNotContain": ["supports your plan", "works well together", "good synergy", "fits the theme"],
-        "shouldContain": ["triggers", "dies", "death", "doubles"],
-        "minLength": 100
+        "shouldContain": [
+          "banned in Commander",
+          "cannot be played",
+          "consider alternatives"
+        ]
       },
-      "tags": ["synergy", "generic", "explanation"],
-      "source": "curated"
+      "tags": ["commander", "legality", "banned-list"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "synergy-commander-003",
-      "name": "Require trigger chain explanation",
-      "type": "deck_analysis",
+      "id": "chat-format-legality-standard",
+      "name": "Standard legality check",
+      "type": "chat",
       "input": {
-        "userMessage": "Explain how these cards work together",
-        "deckText": "1 Sol Ring\n1 Parallel Lives\n1 Secure the Wastes\n35 Forest\n1 Rhys the Redeemed",
+        "userMessage": "Can I play Sol Ring in Standard?",
+        "format": "Standard"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "not legal in Standard"
+        ],
+        "shouldNotContain": [
+          "staple in Standard"
+        ]
+      },
+      "tags": ["standard", "legality"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-explain-scryfall-price",
+      "name": "Explain price snapshot meaning",
+      "type": "chat",
+      "input": {
+        "userMessage": "What does the Cost to Finish number on my deck mean?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "total price of missing cards",
+          "based on current market prices",
+          "doesn't include cards you already own"
+        ],
+        "minLength": 150
+      },
+      "tags": ["pricing", "explanation"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-budget-swap-explanation",
+      "name": "Explain budget swaps concept",
+      "type": "chat",
+      "input": {
+        "userMessage": "What are budget swaps and how does ManaTap suggest them?",
         "format": "Commander",
-        "commander": "Rhys the Redeemed",
+        "plan": "budget"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "replace expensive cards with cheaper alternatives",
+          "keep the same role or effect",
+          "may be slightly weaker"
+        ],
+        "minLength": 150
+      },
+      "tags": ["budget", "swaps", "teaching"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-aristocrats-explain",
+      "name": "Explain aristocrats archetype",
+      "type": "chat",
+      "input": {
+        "userMessage": "What does an aristocrats deck try to do in Commander?",
+        "format": "Commander",
+        "colors": ["B"]
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "sacrifice creatures",
+          "drain life",
+          "Blood Artist",
+          "Zulaport Cutthroat"
+        ]
+      },
+      "tags": ["aristocrats", "archetype", "teaching"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-token-go-wide-explain",
+      "name": "Explain token go-wide gameplan",
+      "type": "chat",
+      "input": {
+        "userMessage": "Explain what a go-wide tokens deck is trying to do.",
+        "format": "Commander",
         "colors": ["G", "W"]
       },
       "expectedChecks": {
-        "requireSynergy": true,
-        "shouldContain": ["doubles", "creates", "when", "enters", "trigger"],
+        "shouldContain": [
+          "create lots of small creatures",
+          "anthem effects",
+          "overwhelm the table"
+        ]
+      },
+      "tags": ["tokens", "archetype"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-trample-vs-flying-teach",
+      "name": "Newer player keyword explanation",
+      "type": "chat",
+      "input": {
+        "userMessage": "I'm new to Magic, can you explain trample vs flying in simple terms?",
+        "teaching": true
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "trample lets damage go over blockers",
+          "flying can only be blocked by flyers or reach",
+          "simple language"
+        ],
         "minLength": 150
       },
-      "tags": ["synergy", "trigger-chain", "explanation"],
-      "source": "curated"
+      "tags": ["teaching", "keywords"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "intent-001",
-      "name": "User asks for cheap removal under £1",
+      "id": "chat-legality-color-identity-lands",
+      "name": "Color identity of lands explanation",
       "type": "chat",
       "input": {
-        "userMessage": "Suggest removal spells under £1 for my Commander deck",
+        "userMessage": "Does Command Tower have a color identity? Can I play it in a mono-red Commander deck?",
         "format": "Commander"
       },
       "expectedChecks": {
-        "requireBudgetAwareness": true,
-        "shouldMentionCard": ["Swords to Plowshares", "Path to Exile", "Go for the Throat"],
-        "shouldNotMentionCard": ["Force of Will", "Cyclonic Rift", "Fierce Guardianship"],
-        "shouldContain": ["budget", "cheap", "affordable"],
-        "minLength": 100
+        "shouldContain": [
+          "colorless",
+          "can be played in any color identity",
+          "produces any color in your commander's identity"
+        ]
       },
-      "tags": ["intent", "budget", "removal"],
-      "source": "curated"
+      "tags": ["commander", "color-identity"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "intent-002",
-      "name": "User asks for fast-meta early interaction",
+      "id": "chat-hallucination-avoid",
+      "name": "Avoid obviously fake card names",
       "type": "chat",
       "input": {
-        "userMessage": "I need fast early interaction for a competitive meta",
+        "userMessage": "Suggest three blue draw spells for Commander.",
         "format": "Commander",
-        "context": { "powerLevel": "competitive" }
-      },
-      "expectedChecks": {
-        "shouldMentionCard": ["Mental Misstep", "Force of Will", "Fierce Guardianship", "Daze"],
-        "shouldContain": ["early", "interaction", "fast", "competitive"],
-        "shouldNotContain": ["casual", "budget"],
-        "minLength": 100
-      },
-      "tags": ["intent", "competitive", "interaction"],
-      "source": "curated"
-    },
-    {
-      "id": "intent-003",
-      "name": "User asks for exactly 3 cards",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest exactly 3 ramp cards for my deck",
-        "deckText": "1 Sol Ring\n38 Mountain\n1 Chandra, Fire of Kaladesh",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "requireSpecificity": true,
-        "shouldMentionCard": ["Arcane Signet", "Fellwar Stone", "Mind Stone"],
-        "minLength": 100,
-        "maxLength": 500
-      },
-      "tags": ["intent", "specificity", "count"],
-      "source": "curated"
-    },
-    {
-      "id": "combo-001",
-      "name": "Detect nonsense combos",
-      "type": "chat",
-      "input": {
-        "userMessage": "Does Lightning Bolt and Counterspell create an infinite combo?",
-        "format": "Commander"
-      },
-      "expectedChecks": {
-        "shouldNotContain": ["infinite", "combo", "loop", "win"],
-        "shouldContain": ["no", "not", "don't work"],
-        "minLength": 50
-      },
-      "tags": ["combo", "nonsense", "validation"],
-      "source": "curated"
-    },
-    {
-      "id": "combo-002",
-      "name": "Fail if bot suggests impossible loops",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest combos for my deck",
-        "deckText": "1 Sol Ring\n1 Lightning Bolt\n1 Counterspell\n35 Island\n1 Talrand, Sky Summoner",
-        "format": "Commander",
-        "commander": "Talrand, Sky Summoner",
         "colors": ["U"]
       },
       "expectedChecks": {
-        "shouldNotContain": ["Lightning Bolt.*Counterspell.*infinite", "infinite.*Lightning Bolt.*Counterspell"],
-        "minLength": 100
-      },
-      "tags": ["combo", "impossible", "validation"],
-      "source": "curated"
-    },
-    {
-      "id": "budget-bundle-001",
-      "name": "User asks for £30 upgrade bundle",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest a £30 upgrade bundle for my deck",
-        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Forest\n1 Omnath, Locus of Rage",
-        "format": "Commander",
-        "commander": "Omnath, Locus of Rage",
-        "colors": ["G", "R"],
-        "context": { "budget": 30 }
-      },
-      "expectedChecks": {
-        "requireBudgetAwareness": true,
-        "requireSpecificity": true,
-        "shouldMentionCard": ["Cultivate", "Kodama's Reach", "Rampaging Baloths", "Avenger of Zendikar"],
-        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus", "Gaea's Cradle"],
-        "shouldContain": ["budget", "upgrade", "bundle"],
-        "minLength": 150
-      },
-      "tags": ["budget", "bundle", "upgrade"],
-      "source": "curated"
-    },
-    {
-      "id": "budget-bundle-002",
-      "name": "Must include 3-5 budget pieces that synergize",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Suggest budget upgrades that work together",
-        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Blood Artist\n35 Swamp\n1 Teysa Karlov",
-        "format": "Commander",
-        "commander": "Teysa Karlov",
-        "colors": ["B", "W"],
-        "context": { "budget": true }
-      },
-      "expectedChecks": {
-        "requireSynergy": true,
-        "requireBudgetAwareness": true,
-        "shouldMentionCard": ["Zulaport Cutthroat", "Carrion Feeder", "Falkenrath Noble", "Pawn of Ulamog"],
-        "shouldContain": ["synergy", "work together", "triggers"],
-        "minLength": 150
-      },
-      "tags": ["budget", "bundle", "synergy"],
-      "source": "curated"
-    },
-    {
-      "id": "edge-case-001",
-      "name": "Empty decklist should not hallucinate archetype",
-      "type": "deck_analysis",
-      "input": {
-        "userMessage": "Analyze my deck",
-        "deckText": "1 Sol Ring",
-        "format": "Commander",
-        "commander": "Chandra, Fire of Kaladesh",
-        "colors": ["R"]
-      },
-      "expectedChecks": {
-        "shouldContain": ["land", "ramp", "draw", "removal"],
-        "shouldNotContain": ["tokens", "aristocrats", "combo", "control"],
-        "minLength": 100
-      },
-      "tags": ["edge-case", "empty", "hallucination"],
-      "source": "curated"
-    },
-    {
-      "id": "henzie-permanents-jund",
-      "name": "Henzie: suggest Jund-legal permanents only",
-      "type": "deck_analysis",
-      "input": {
-        "format": "Commander",
-        "commander": "Henzie \"Toolbox\" Torre",
-        "colors": ["B", "R", "G"],
-        "userMessage": "I'm in Jund with Henzie. What permanent cards would you add to improve the deck?",
-        "deckText": "1 Henzie \"Toolbox\" Torre\n1 Sakura-Tribe Elder\n1 Wood Elves\n1 Beast Within\n1 Putrefy\n1 Swamp\n1 Forest\n1 Mountain"
-      },
-      "expectedChecks": {
-        "requireColorIdentitySafe": true,
-        "requirePermanentsOnly": true,
-        "requireNoHallucinatedCards": true,
+        "shouldMentionCard": [
+          "Rhystic Study",
+          "Mulldrifter"
+        ],
         "shouldNotMentionCard": [
-          "Cultivate",
-          "Farseek",
-          "Skyshroud Claim",
-          "Treasure Cruise",
-          "Swords to Plowshares"
+          "Flock of Rats",
+          "Ascendancy of the Ancients"
         ]
       },
-      "tags": ["commander", "color_identity", "permanents", "reddit_regression"],
-      "source": "regression"
+      "tags": ["draw", "hallucinations"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "kastral-bird-tribal-builder",
-      "name": "Kastral: bird tribal deck should be legal and mostly birds",
-      "type": "deck_analysis",
+      "id": "chat-synergy-sac-outlets",
+      "name": "Explain sacrifice outlet + payoff interaction",
+      "type": "chat",
       "input": {
+        "userMessage": "Explain how sacrifice outlets and cards like Blood Artist work together.",
         "format": "Commander",
-        "commander": "Kastral, the Windcrested",
-        "colors": ["W", "U"],
-        "userMessage": "Build me a Kastral, the Windcrested bird tribal Commander deck list.",
-        "deckText": ""
+        "colors": ["B"]
       },
       "expectedChecks": {
-        "requireColorIdentitySafe": true,
-        "requireNoHallucinatedCards": true,
-        "minTribalDensity": {
-          "tribe": "Bird",
-          "minPercent": 0.25
-        },
-        "minTotalCards": 90,
-        "maxTotalCards": 100,
+        "shouldContain": [
+          "sacrifice outlet",
+          "creature dies",
+          "triggers Blood Artist",
+          "drain each opponent"
+        ],
+        "minLength": 150
+      },
+      "tags": ["synergy", "aristocrats"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-landfall-explain",
+      "name": "Explain landfall archetype",
+      "type": "chat",
+      "input": {
+        "userMessage": "What is a landfall deck trying to do?",
+        "format": "Commander",
+        "colors": ["G"]
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "trigger abilities when lands enter the battlefield",
+          "extra land drops",
+          "cards like Avenger of Zendikar or Rampaging Baloths"
+        ]
+      },
+      "tags": ["landfall", "archetype"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-voltron-explain",
+      "name": "Explain Voltron strategy",
+      "type": "chat",
+      "input": {
+        "userMessage": "What does Voltron mean in Commander and how do I build for it?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "one big creature",
+          "auras and equipment",
+          "protect your commander"
+        ],
+        "minLength": 150
+      },
+      "tags": ["voltron", "archetype"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-explain-mulligan-commander",
+      "name": "Explain London mulligan in Commander",
+      "type": "chat",
+      "input": {
+        "userMessage": "Explain how the mulligan works in Commander with the London mulligan rule.",
+        "format": "Commander",
+        "teaching": true
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "draw seven cards",
+          "put cards on the bottom",
+          "one fewer per mulligan"
+        ]
+      },
+      "tags": ["rules", "mulligan"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-ramp-vs-lands-modern-burn",
+      "name": "Modern Burn land and curve talk",
+      "type": "chat",
+      "input": {
+        "userMessage": "For Modern Burn, how many lands should I run and do I play any ramp?",
+        "format": "Modern"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "around 19–20 lands",
+          "no traditional ramp",
+          "low curve"
+        ],
+        "shouldNotContain": [
+          "8–12 ramp cards"
+        ]
+      },
+      "tags": ["modern", "burn", "heuristics"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-tribal-density-advice",
+      "name": "Tribal deck creature density advice",
+      "type": "chat",
+      "input": {
+        "userMessage": "How many creatures of the tribe should I run in a tribal Commander deck?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "at least 25–30 creatures",
+          "majority should share the tribe",
+          "support cards around them"
+        ]
+      },
+      "tags": ["tribal", "commander"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-mana-curve-explain",
+      "name": "Explain mana curve concept",
+      "type": "chat",
+      "input": {
+        "userMessage": "Explain what a mana curve is and why it matters when building a deck.",
+        "teaching": true
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "distribution of card costs",
+          "want more cheap spells than expensive",
+          "smooth early plays"
+        ],
+        "minLength": 150
+      },
+      "tags": ["curve", "teaching"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-scryfall-vs-edhrec-explain",
+      "name": "Explain data sources used",
+      "type": "chat",
+      "input": {
+        "userMessage": "Where does ManaTap get its card and price data from?"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Scryfall",
+          "price snapshots",
+          "EDHREC or similar sites for popularity"
+        ],
+        "minLength": 120
+      },
+      "tags": ["meta", "data-sources"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "chat-sample-hand-explain",
+      "name": "Explain hand testing feature",
+      "type": "chat",
+      "input": {
+        "userMessage": "What does the hand testing feature show me and how should I use it?"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "simulate opening hands",
+          "see if your curve and manabase feel right",
+          "not a guarantee but a tool"
+        ],
+        "minLength": 150
+      },
+      "tags": ["features", "hand-testing"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-atraxa-goodstuff-balance",
+      "name": "Atraxa goodstuff pillars check",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Atraxa, Praetors' Voice",
+        "deckText": "1 Atraxa, Praetors' Voice\n10 Plains\n10 Island\n10 Swamp\n10 Forest\n1 Sol Ring\n1 Cultivate\n1 Kodama's Reach\n1 Rhystic Study\n1 Swords to Plowshares\n1 Beast Within\n1 Generous Gift\n1 Supreme Verdict\n1 Farseek\n1 Arcane Signet\n1 Fellwar Stone\n1 Nature's Lore\n1 Skyshroud Claim",
+        "plan": "midrange"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "ramp: about 10–12 pieces",
+          "card draw",
+          "single-target and board wipe removal"
+        ],
+        "minLength": 200
+      },
+      "tags": ["commander", "pillars", "atraxa"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-henzie-permanents-only",
+      "name": "Henzie permanents suggestion obeys color identity",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Henzie \"Toolbox\" Torre",
+        "deckText": "1 Henzie \"Toolbox\" Torre\n1 Sakura-Tribe Elder\n1 Wood Elves\n1 Titania, Protector of Argoth\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Swamp\n1 Forest\n1 Mountain\n1 Command Tower\n1 Sol Ring",
+        "plan": "Jund sacrifice midrange",
+        "colors": ["B", "G", "R"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": [
+          "Treasure Cruise",
+          "Swords to Plowshares",
+          "Farseek"
+        ],
+        "shouldContain": [
+          "Jund-legal permanents",
+          "creatures and enchantments that care about sacrificing"
+        ]
+      },
+      "tags": ["commander", "henzie", "color-identity"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-kastral-bird-tribal",
+      "name": "Kastral bird tribal density and legality",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Kastral, the Windcrested",
+        "deckText": "",
+        "plan": "tribal birds"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "a high number of Bird creatures",
+          "avoid off-colour cards like Angrath's Marauders",
+          "avoid hallucinated cards"
+        ],
         "shouldNotMentionCard": [
           "Angrath's Marauders",
           "Flock of Rats",
@@ -1136,32 +553,325 @@
           "Birds of Paradise"
         ]
       },
-      "tags": ["commander", "deck_building", "tribal", "legality", "reddit_regression"],
-      "source": "regression"
+      "tags": ["commander", "tribal", "kastral"],
+      "source": "generated-2025-01-27"
     },
     {
-      "id": "windgrace-lands-and-colors",
-      "name": "Lord Windgrace: sane land recommendations and Jund-legal suggestions",
+      "id": "deck-windgrace-lands-sanity",
+      "name": "Lord Windgrace land count sanity",
       "type": "deck_analysis",
       "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
         "format": "Commander",
         "commander": "Lord Windgrace",
-        "colors": ["B", "R", "G"],
-        "userMessage": "Analyze this Lord Windgrace landfall deck and tell me what changes you'd make.",
-        "deckText": "1 Lord Windgrace\n1 Sol Ring\n1 Arcane Signet\n1 Farseek\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Wood Elves\n1 Tireless Tracker\n1 Ramunap Excavator\n1 Crucible of Worlds\n1 The Gitrog Monster\n1 Omnath, Locus of Rage\n1 Avenger of Zendikar\n1 Scute Swarm\n1 Rampaging Baloths\n1 Valakut, the Molten Pinnacle\n1 Field of the Dead\n1 Command Tower\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Fabled Passage\n10 Forest\n10 Mountain\n10 Swamp\n1 Blood Crypt\n1 Stomping Ground\n1 Overgrown Tomb\n1 Wooded Foothills\n1 Bloodstained Mire\n1 Windswept Heath"
+        "deckText": "1 Lord Windgrace\n40 Landfall Land\n1 Sol Ring\n1 Cultivate\n1 Kodama's Reach\n1 Harrow\n1 Avenger of Zendikar\n1 Rampaging Baloths",
+        "plan": "lands matter"
       },
       "expectedChecks": {
-        "requireColorIdentitySafe": true,
-        "mustNotRecommendExcessiveLands": true,
-        "maxRecommendedLandsToAdd": 5,
-        "requireNoHallucinatedCards": true,
-        "shouldNotMentionCard": [
-          "Swords to Plowshares"
+        "shouldNotContain": [
+          "add 35 more lands",
+          "74 lands"
+        ],
+        "shouldContain": [
+          "around 40–44 lands is typical",
+          "focus on utility lands and land recursion"
         ]
       },
-      "tags": ["commander", "lands", "manabase", "color_identity", "reddit_regression"],
-      "source": "regression"
+      "tags": ["commander", "windgrace", "lands"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-edgar-markov-vampires",
+      "name": "Edgar Markov vampire tribal focus",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Edgar Markov",
+        "deckText": "1 Edgar Markov\n30 Vampire Creature\n10 Other Creature\n10 Removal Spell\n37 Land",
+        "plan": "aggressive vampire tribal"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "high creature count",
+          "most creatures should be Vampires",
+          "anthem or lord effects"
+        ]
+      },
+      "tags": ["commander", "tribal", "edgar"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-tatyova-landfall",
+      "name": "Tatyova landfall priorities",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Tatyova, Benthic Druid",
+        "deckText": "1 Tatyova, Benthic Druid\n40 Land\n1 Exploration\n1 Azusa, Lost but Seeking\n1 Avenger of Zendikar\n1 Rampaging Baloths\n1 Scapeshift\n1 Cultivate\n1 Kodama's Reach\n1 Growth Spiral",
+        "plan": "landfall and extra lands"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "extra land drops",
+          "landfall payoffs",
+          "protect Tatyova"
+        ]
+      },
+      "tags": ["commander", "tatyova", "landfall"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-urza-artifact-ramp",
+      "name": "Urza artifact ramp focus",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Urza, Lord High Artificer",
+        "deckText": "1 Urza, Lord High Artificer\n30 Artifact\n20 Nonartifact Spell\n35 Island\n1 Sol Ring\n1 Mana Crypt\n1 Arcane Signet",
+        "plan": "artifact combo/control"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "cheap artifact mana",
+          "card draw engines",
+          "some win conditions like combo or big artifact payoff"
+        ]
+      },
+      "tags": ["commander", "artifacts", "urza"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-yuriko-ninjas",
+      "name": "Yuriko ninja count and topdeck setup",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Yuriko, the Tiger's Shadow",
+        "deckText": "1 Yuriko, the Tiger's Shadow\n25 Ninja Creature\n10 Topdeck Manipulation\n10 Removal\n37 Land",
+        "plan": "ninja tempo"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "enablers with evasion",
+          "enough Ninjas to trigger Yuriko",
+          "topdeck manipulation like Brainstorm or Scroll Rack"
+        ]
+      },
+      "tags": ["commander", "yuriko", "tribal"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-krenko-tokens",
+      "name": "Krenko token count and support",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Krenko, Mob Boss",
+        "deckText": "1 Krenko, Mob Boss\n30 Goblin Creature\n10 Token Doublers/Anthems\n10 Removal\n37 Land",
+        "plan": "go-wide goblins"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "protect Krenko",
+          "token doublers or damage multipliers",
+          "haste enablers"
+        ]
+      },
+      "tags": ["commander", "krenko", "tokens"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-muldrotha-graveyard",
+      "name": "Muldrotha recursion emphasis",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Muldrotha, the Gravetide",
+        "deckText": "1 Muldrotha, the Gravetide\n15 Creature\n10 Enchantment\n10 Artifact\n10 Planeswalker\n10 Self-mill Spell\n36 Land",
+        "plan": "value recursion"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "lots of permanent types",
+          "self-mill",
+          "recurring removal engines"
+        ]
+      },
+      "tags": ["commander", "muldrotha", "graveyard"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-nekusar-wheel",
+      "name": "Nekusar wheel plan",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Nekusar, the Mindrazer",
+        "deckText": "1 Nekusar, the Mindrazer\n20 Wheel Spell\n10 Damage Enchantment\n10 Interaction\n37 Land",
+        "plan": "wheels and damage"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "wheel effects like Windfall",
+          "damage amplifiers",
+          "protect Nekusar"
+        ]
+      },
+      "tags": ["commander", "nekusar", "wheels"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-animar-counters-creatures",
+      "name": "Animar creature count and curve",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Animar, Soul of Elements",
+        "deckText": "1 Animar, Soul of Elements\n35 Creature\n5 Counterspell\n5 Removal\n36 Land",
+        "plan": "creature combo"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "high creature count",
+          "cheap creatures to grow Animar",
+          "combo finishers"
+        ]
+      },
+      "tags": ["commander", "animar", "counters"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-atraxa-superfriends",
+      "name": "Atraxa superfriends balance",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Atraxa, Praetors' Voice",
+        "deckText": "1 Atraxa, Praetors' Voice\n20 Planeswalker\n15 Ramp\n10 Interaction\n37 Land",
+        "plan": "superfriends"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "protect planeswalkers",
+          "board wipes",
+          "proliferate support"
+        ]
+      },
+      "tags": ["commander", "superfriends", "atraxa"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-modern-burn-check",
+      "name": "Modern Burn structure sanity",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Modern",
+        "commander": null,
+        "deckText": "4 Goblin Guide\n4 Monastery Swiftspear\n4 Eidolon of the Great Revel\n4 Lightning Bolt\n4 Lava Spike\n4 Rift Bolt\n4 Skewer the Critics\n4 Boros Charm\n4 Lightning Helix\n4 Searing Blaze\n4 Inspiring Vantage\n4 Sacred Foundry\n4 Sunbaked Canyon\n4 Mountain\n2 Fetch Land",
+        "plan": "aggro burn"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "low curve",
+          "around 19–20 lands",
+          "little to no creature removal outside of burn"
+        ]
+      },
+      "tags": ["modern", "burn"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-pioneer-spirits",
+      "name": "Pioneer Azorius Spirits curve",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Pioneer",
+        "commander": null,
+        "deckText": "4 Mausoleum Wanderer\n4 Supreme Phantom\n4 Rattlechains\n4 Shacklegeist\n4 Spell Queller\n4 Brazen Borrower\n4 Lofty Denial\n4 Curious Obsession\n4 Other Spell\n20 Land",
+        "plan": "tempo spirits"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "high density of Spirits",
+          "cheap interactive spells",
+          "curve mostly at 1–3 mana"
+        ]
+      },
+      "tags": ["pioneer", "tribal", "spirits"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-modern-tron-lands",
+      "name": "Modern Tron land composition",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Modern",
+        "commander": null,
+        "deckText": "4 Urza's Mine\n4 Urza's Tower\n4 Urza's Power Plant\n4 Chromatic Star\n4 Chromatic Sphere\n4 Ancient Stirrings\n4 Sylvan Scrying\n4 Karn Liberated\n4 Ugin, the Spirit Dragon\n4 Wurmcoil Engine\n8 Other Land",
+        "plan": "big mana"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Tron lands",
+          "tutors to assemble Tron",
+          "high curve finishers"
+        ]
+      },
+      "tags": ["modern", "tron"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-standard-midrange-balance",
+      "name": "Standard midrange role balance",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Standard",
+        "commander": null,
+        "deckText": "24 Land\n18 Creature\n8 Removal\n6 Card Draw\n4 Planeswalker",
+        "plan": "midrange"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "balanced curve",
+          "mix of threats and answers",
+          "around 24–26 lands"
+        ]
+      },
+      "tags": ["standard", "midrange"],
+      "source": "generated-2025-01-27"
+    },
+    {
+      "id": "deck-brawl-commander-check",
+      "name": "Brawl legality and size check",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Brawl",
+        "commander": "Kappa Tech-Wrecker",
+        "deckText": "1 Kappa Tech-Wrecker\n59 Other Card",
+        "plan": "brawl midrange"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "60 card singleton deck",
+          "uses Standard-legal cards"
+        ]
+      },
+      "tags": ["brawl", "legality"],
+      "source": "generated-2025-01-27"
     }
   ]
 }
-
