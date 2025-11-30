@@ -75,6 +75,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 /**
  * Check price cache for existing prices (24-hour TTL)
+ * Note: For use in other routes, import from @/lib/ai/price-utils
  */
 async function getCachedPrices(names: string[]): Promise<Record<string, { usd?: number; eur?: number; gbp?: number }>> {
   try {

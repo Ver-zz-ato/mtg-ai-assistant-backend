@@ -580,6 +580,78 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     if (ragContext) {
       sys += ragContext;
     }
+    
+    // Add conversation summary (conversation memory)
+    if (tid && !isGuest && threadHistory.length >= 10) {
+      try {
+        const { data: thread } = await supabase
+          .from('chat_threads')
+          .select('summary')
+          .eq('id', tid)
+          .maybeSingle();
+        
+        if (thread?.summary) {
+          try {
+            const summary = JSON.parse(thread.summary);
+            const { formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
+            const formatted = formatSummaryForPrompt(summary);
+            if (formatted) {
+              sys += formatted;
+            }
+          } catch {
+            // If summary is plain text, use it directly
+            sys += `\n\nConversation summary: ${thread.summary}`;
+          }
+        }
+        // Generate summary in background if missing (non-blocking)
+        if (!thread?.summary && threadHistory.length >= 10) {
+          (async () => {
+            try {
+              const { buildSummaryPrompt, parseSummary, formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
+              const summaryPrompt = buildSummaryPrompt(threadHistory);
+              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.");
+              const summary = parseSummary(typeof summaryResponse === 'string' ? summaryResponse : (summaryResponse as any)?.text || '');
+              
+              if (summary) {
+                await supabase.from('chat_threads')
+                  .update({ summary: JSON.stringify(summary) })
+                  .eq('id', tid);
+              }
+            } catch (error) {
+              console.warn('[chat] Background summary generation failed:', error);
+            }
+          })();
+        }
+      } catch (error) {
+        console.warn('[chat] Conversation summary failed:', error);
+      }
+    }
+    
+    // Add format-specific knowledge
+    try {
+      const { getFormatKnowledge, formatKnowledgeForPrompt } = await import("@/lib/data/format-knowledge");
+      const format = typeof prefs?.format === 'string' ? prefs.format : undefined;
+      const knowledge = getFormatKnowledge(format);
+      if (knowledge) {
+        sys += formatKnowledgeForPrompt(knowledge);
+      }
+    } catch (error) {
+      console.warn('[chat] Format knowledge injection failed:', error);
+    }
+    
+    // Add few-shot learning examples
+    if (userId && !isGuest) {
+      try {
+        const { findSimilarExamples, formatExamplesForPrompt } = await import("@/lib/ai/few-shot-learning");
+        const examples = await findSimilarExamples(text, undefined, undefined, 2);
+        if (examples.length > 0) {
+          sys += formatExamplesForPrompt(examples);
+        }
+      } catch (error) {
+        console.warn('[chat] Few-shot learning failed:', error);
+      }
+    }
+    
     // Persona seed (minimal/async)
     let persona_id = 'any:optimized:plain';
     const teachingFlag = !!(prefs && (prefs.teaching === true));
@@ -763,10 +835,27 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_research', { ms: Date.now()-stageT0 }); } catch {}
 
     const stage1T = Date.now();
-    const out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''));
+    let out1: any;
+    try {
+      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''));
+    } catch (error) {
+      // Error recovery: fallback to keyword search
+      console.warn('[chat] LLM call failed, attempting recovery:', error);
+      const { fallbackToKeywordSearch, getHelpfulErrorMessage } = await import("@/lib/ai/error-recovery");
+      const fallback = fallbackToKeywordSearch(text, threadHistory);
+      if (fallback.success && fallback.data && fallback.data.length > 0) {
+        out1 = { text: fallback.data[0] };
+      } else {
+        out1 = { text: getHelpfulErrorMessage() };
+      }
+    }
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_answer', { ms: Date.now()-stage1T, persona_id }); } catch {}
 
     let outText = typeof (out1 as any)?.text === "string" ? (out1 as any).text : String(out1 || "");
+    
+    // Add confidence scoring (non-blocking, runs in parallel with review)
+    // Note: Confidence scoring is lightweight and can run async
+    // For now, we'll skip it to avoid extra LLM calls, but the infrastructure is ready
 
     const stage2T = Date.now();
     const reviewPrompt = `You are reviewing the assistant’s draft response.
@@ -800,6 +889,37 @@ Return the corrected answer with concise, user-facing tone.`;
       outText = "Sorry — the AI service is temporarily unavailable in this environment. I can still help with search helpers and deck tools. Try again later or ask a specific question.";
     }
     outText = enforceChatGuards(outText, guardCtx);
+    
+    // Inject prices into card mentions (cache-first, Scryfall fallback)
+    try {
+      const { extractCardNames } = await import("@/lib/ai/price-injection");
+      const cardNames = extractCardNames(outText);
+      if (cardNames.length > 0) {
+        const { getCachedPrices } = await import("@/lib/ai/price-utils");
+        const normalizeName = (name: string) => name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[’'`]/g, "'").replace(/\s+/g, " ").trim();
+        const prices = await getCachedPrices(cardNames.map(normalizeName));
+        
+        // Inject prices into response
+        for (const cardName of cardNames) {
+          const normalizedName = normalizeName(cardName);
+          const priceData = prices[normalizedName];
+          const price = priceData?.usd;
+          
+          if (price && price > 0) {
+            const priceStr = price >= 100 ? `$${Math.round(price)}+` : `$${price.toFixed(2)}`;
+            const escapedName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const pattern1 = new RegExp(`\\*\\*${escapedName}\\*\\*(?!\\s*\\()`, 'g');
+            const pattern2 = new RegExp(`\\[\\[${escapedName}\\]\\](?!\\s*\\()`, 'g');
+            outText = outText.replace(pattern1, `**${cardName}** (${priceStr})`);
+            outText = outText.replace(pattern2, `[[${cardName}]] (${priceStr})`);
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail - price injection is nice-to-have
+      console.warn('[chat] Price injection failed:', error);
+    }
+    
     try {
       if (!suppressInsert) {
         const { data: last } = await supabase

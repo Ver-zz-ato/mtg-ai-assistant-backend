@@ -667,20 +667,32 @@ export default function AiTestPage() {
         {/* LEFT COLUMN: Tests */}
         <div className="space-y-4">
           <ELI5
-        heading="AI Testing Interface"
+        heading="What is this page?"
         items={[
-          "Test chat and deck analysis responses systematically.",
-          "Run individual tests or batch test all cases.",
-          "Auto-validate responses against expected checks (keywords, cards, length).",
-          "Optional LLM fact-checking and reference comparison.",
-          "Track results over time to measure improvements.",
-          "Create custom test cases from real user questions.",
+          "This is where we test if the AI is giving good answers.",
+          "Think of it like a spelling test, but for AI responses.",
+          "We ask the AI questions and check if the answers are correct.",
+          "Green checkmark = good answer. Red X = needs fixing.",
+          "You can test one question at a time, or test everything at once.",
+          "The results help us make the AI smarter over time.",
         ]}
       />
 
       {/* Validation Options */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
-        <div className="font-medium">Validation Options</div>
+        <div className="font-medium flex items-center gap-2">
+          How to Check Answers
+          <HelpTip text="These are different ways to check if the AI's answer is good. Turn them on/off like light switches." />
+        </div>
+        <ELI5
+          heading=""
+          items={[
+            "Keyword Checks: Looks for important words in the answer (like 'budget' or 'synergy').",
+            "LLM Judge: Uses another AI to check if the answer makes sense (like a teacher grading homework).",
+            "Reference Checks: Compares the answer to a known good answer.",
+            "Semantic Similarity: Checks if the answer means the same thing, even if words are different.",
+          ]}
+        />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
           <label className="inline-flex items-center gap-2">
             <input
@@ -747,7 +759,10 @@ export default function AiTestPage() {
 
       {/* Filters and Search */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
-        <div className="font-medium">Filters</div>
+        <div className="font-medium flex items-center gap-2">
+          Find Tests
+          <HelpTip text="Use these filters to find specific tests. Like searching for a book in a library." />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <div>
             <label className="text-xs opacity-70">Search</label>

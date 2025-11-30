@@ -1,0 +1,22 @@
+{
+  "format": "Standard",
+  "description": "60-card format with recent sets only",
+  "popularArchetypes": [
+    "Aggro",
+    "Midrange",
+    "Control",
+    "Combo"
+  ],
+  "staples": [
+    "Varied by set rotation"
+  ],
+  "banList": [
+    "Check current Standard ban list - rotates with sets"
+  ],
+  "metaTrends": [
+    "Changes with each set release",
+    "Focus on recent mechanics",
+    "Rotation-aware deckbuilding"
+  ]
+}
+
