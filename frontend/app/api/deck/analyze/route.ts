@@ -135,45 +135,224 @@ const FAST_MANA_REPLACEMENT_PRIORITY: Record<string, string[]> = {
 const FAST_MANA_REPLACEMENT_POOL = ["Arcane Signet", "Fellwar Stone", "Mind Stone", "Guardian Idol", "Commander's Sphere", "Coalition Relic", "Coldsteel Heart"];
 
 const COMMANDER_BANNED: Record<string, true> = {
+  "Adriana's Valor": true,
+  "Advantageous Proclamation": true,
+  "Amulet of Quoz": true,
   "Ancestral Recall": true,
+  "Ashnod's Coupon": true,
+  "Assemble the Rank and Vile": true,
+  "Backup Plan": true,
   "Balance": true,
   "Biorhythm": true,
   "Black Lotus": true,
+  "Brago's Favor": true,
+  "Bronze Tablet": true,
   "Channel": true,
+  "Chaos Orb": true,
+  "Cleanse": true,
+  "Contract from Below": true,
+  "Crusade": true,
+  "Darkpact": true,
+  "Demonic Attorney": true,
+  "Dockside Extortionist": true,
+  "Double Cross": true,
+  "Double Deal": true,
+  "Double Dip": true,
+  "Double Play": true,
+  "Double Stroke": true,
+  "Double Take": true,
+  "Echoing Boon": true,
+  "Emissary's Ploy": true,
   "Emrakul, the Aeons Torn": true,
+  "Enter the Dungeon": true,
+  "Erayo, Soratami Ascendant": true,
+  "Erayo's Essence": true,
   "Falling Star": true,
   "Fastbond": true,
-  "Flash": true,
-  "Gifts Ungiven": true,
   "Golos, Tireless Pilgrim": true,
   "Griselbrand": true,
+  "Hired Heist": true,
+  "Hold the Perimeter": true,
   "Hullbreacher": true,
+  "Hymn of the Wilds": true,
+  "Immediate Action": true,
+  "Imprison": true,
+  "Incendiary Dissent": true,
+  "Invoke Prejudice": true,
   "Iona, Shield of Emeria": true,
-  "Kokusho, the Evening Star": true,
+  "Iterative Analysis": true,
+  "Jeweled Bird": true,
+  "Jeweled Lotus": true,
+  "Jihad": true,
+  "Karakas": true,
   "Leovold, Emissary of Trest": true,
   "Library of Alexandria": true,
   "Limited Resources": true,
+  "Lutri, the Spellchaser": true,
+  "Magical Hacker": true,
+  "Mana Crypt": true,
   "Mox Emerald": true,
   "Mox Jet": true,
+  "Mox Lotus": true,
   "Mox Pearl": true,
   "Mox Ruby": true,
   "Mox Sapphire": true,
-  "Painter's Servant": true,
-  "Panoptic Mirror": true,
+  "Muzzio's Preparations": true,
+  "Nadu, Winged Wisdom": true,
+  "Natural Unity": true,
   "Paradox Engine": true,
+  "Power Play": true,
+  "Pradesh Gypsies": true,
   "Primeval Titan": true,
   "Prophet of Kruphix": true,
+  "R&D's Secret Lair": true,
+  "Rebirth": true,
   "Recurring Nightmare": true,
+  "Richard Garfield, Ph.D.": true,
+  "Rofellos, Llanowar Emissary": true,
+  "Secret Summoning": true,
+  "Secrets of Paradise": true,
+  "Sentinel Dispatch": true,
+  "Shahrazad": true,
+  "Sovereign's Realm": true,
+  "Staying Power": true,
+  "Stone-Throwing Devils": true,
+  "Summoner's Bond": true,
   "Sundering Titan": true,
-  "Sway of the Stars": true,
   "Sylvan Primordial": true,
+  "Tempest Efreet": true,
+  "Time Machine": true,
   "Time Vault": true,
   "Time Walk": true,
+  "Timmerian Fiends": true,
   "Tinker": true,
   "Tolarian Academy": true,
   "Trade Secrets": true,
+  "Unexpected Potential": true,
   "Upheaval": true,
+  "Weight Advantage": true,
+  "Worldknit": true,
   "Yawgmoth's Bargain": true,
+};
+
+const MODERN_BANNED: Record<string, true> = {
+  "Amped Raptor": true,
+  "Ancient Den": true,
+  "Arcum's Astrolabe": true,
+  "Birthing Pod": true,
+  "Blazing Shoal": true,
+  "Bridge from Below": true,
+  "Chrome Mox": true,
+  "Cloudpost": true,
+  "Dark Depths": true,
+  "Deathrite Shaman": true,
+  "Dig Through Time": true,
+  "Dread Return": true,
+  "Eye of Ugin": true,
+  "Field of the Dead": true,
+  "Fury": true,
+  "Gitaxian Probe": true,
+  "Glimpse of Nature": true,
+  "Golgari Grave-Troll": true,
+  "Great Furnace": true,
+  "Grief": true,
+  "Hogaak, Arisen Necropolis": true,
+  "Hypergenesis": true,
+  "Jegantha, the Wellspring": true,
+  "Krark-Clan Ironworks": true,
+  "Lurrus of the Dream-Den": true,
+  "Mental Misstep": true,
+  "Mycosynth Lattice": true,
+  "Mystic Sanctuary": true,
+  "Nadu, Winged Wisdom": true,
+  "Oko, Thief of Crowns": true,
+  "Once Upon a Time": true,
+  "Ponder": true,
+  "Punishing Fire": true,
+  "Rite of Flame": true,
+  "Seat of the Synod": true,
+  "Second Sunrise": true,
+  "Seething Song": true,
+  "Sensei's Divining Top": true,
+  "Simian Spirit Guide": true,
+  "Skullclamp": true,
+  "Summer Bloom": true,
+  "The One Ring": true,
+  "Tibalt's Trickery": true,
+  "Treasure Cruise": true,
+  "Tree of Tales": true,
+  "Umezawa's Jitte": true,
+  "Underworld Breach": true,
+  "Up the Beanstalk": true,
+  "Uro, Titan of Nature's Wrath": true,
+  "Vault of Whispers": true,
+  "Violent Outburst": true,
+  "Yorion, Sky Nomad": true,
+};
+
+const PIONEER_BANNED: Record<string, true> = {
+  "Amalia Benavides Aguirre": true,
+  "Arid Mesa": true,
+  "Balustrade Spy": true,
+  "Bloodstained Mire": true,
+  "Expressive Iteration": true,
+  "Felidar Guardian": true,
+  "Field of the Dead": true,
+  "Flooded Strand": true,
+  "Geological Appraiser": true,
+  "Heartfire Hero": true,
+  "Inverter of Truth": true,
+  "Jegantha, the Wellspring": true,
+  "Karn, the Great Creator": true,
+  "Kethis, the Hidden Hand": true,
+  "Leyline of Abundance": true,
+  "Lurrus of the Dream-Den": true,
+  "Marsh Flats": true,
+  "Misty Rainforest": true,
+  "Nexus of Fate": true,
+  "Oko, Thief of Crowns": true,
+  "Once Upon a Time": true,
+  "Polluted Delta": true,
+  "Scalding Tarn": true,
+  "Sorin, Imperious Bloodlord": true,
+  "Teferi, Time Raveler": true,
+  "Undercity Informer": true,
+  "Underworld Breach": true,
+  "Uro, Titan of Nature's Wrath": true,
+  "Veil of Summer": true,
+  "Verdant Catacombs": true,
+  "Walking Ballista": true,
+  "Wilderness Reclamation": true,
+  "Windswept Heath": true,
+  "Winota, Joiner of Forces": true,
+  "Wooded Foothills": true,
+};
+
+const STANDARD_BANNED: Record<string, true> = {
+  "Abuelo's Awakening": true,
+  "Cori-Steel Cutter": true,
+  "Heartfire Hero": true,
+  "Hopeless Nightmare": true,
+  "Monstrous Rage": true,
+  "Proft's Eidetic Memory": true,
+  "Screaming Nemesis": true,
+  "This Town Ain't Big Enough": true,
+  "Up the Beanstalk": true,
+  "Vivi Ornitier": true,
+};
+
+const BRAWL_BANNED: Record<string, true> = {
+  "Ancient Tomb": true,
+  "Chalice of the Void": true,
+  "Channel": true,
+  "Chrome Mox": true,
+  "Cori-Steel Cutter": true,
+  "Demonic Tutor": true,
+  "Mana Drain": true,
+  "Meddling Mage": true,
+  "Natural Order": true,
+  "Strip Mine": true,
+  "Tainted Pact": true,
 };
 
 const COMMANDER_ONLY_CARDS = new Set([
@@ -677,15 +856,34 @@ async function postFilterSuggestions(
     let reasonText = suggestion.reason || "";
     const reviewNotes: string[] = [];
 
-    if (context.format === "Commander" && COMMANDER_BANNED[card.name]) {
+    // Check if card is banned in the current format
+    const getBannedList = (format: string): Record<string, true> | null => {
+      switch (format) {
+        case "Commander":
+          return COMMANDER_BANNED;
+        case "Modern":
+          return MODERN_BANNED;
+        case "Pioneer":
+          return PIONEER_BANNED;
+        case "Standard":
+          return STANDARD_BANNED;
+        case "Brawl":
+          return BRAWL_BANNED;
+        default:
+          return null;
+      }
+    };
+
+    const bannedList = getBannedList(context.format);
+    if (bannedList && bannedList[card.name]) {
       const message = suggestion.reason
-        ? `${suggestion.reason} (banned in Commander, suggest a legal alternative)`
-        : "Banned in Commander, suggest a legal alternative.";
+        ? `${suggestion.reason} (banned in ${context.format}, suggest a legal alternative)`
+        : `Banned in ${context.format}, suggest a legal alternative.`;
       const existing = merged.get(card.name);
       if (existing) {
         existing.reason = [existing.reason, message].filter(Boolean).join(" | ") || message;
         existing.needs_review = true;
-  } else {
+      } else {
         merged.set(card.name, {
           card: card.name,
           reason: message,
