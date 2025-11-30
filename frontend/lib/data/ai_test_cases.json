@@ -705,6 +705,383 @@
       },
       "tags": ["archetype", "treasure", "artifact", "plan-recognition"],
       "source": "curated"
+    },
+    {
+      "id": "legality-001",
+      "name": "Prosper should not suggest white cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest improvements for my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Dockside Extortionist\n35 Mountain\n1 Prosper, Tome-Bound",
+        "format": "Commander",
+        "commander": "Prosper, Tome-Bound",
+        "colors": ["B", "R"]
+      },
+      "expectedChecks": {
+        "requireLegalIdentity": true,
+        "shouldNotMentionCard": ["Swords to Plowshares", "Path to Exile", "Smothering Tithe", "Teferi's Protection"],
+        "shouldContain": ["color identity", "black", "red"]
+      },
+      "tags": ["legality", "color-identity", "commander"],
+      "source": "curated"
+    },
+    {
+      "id": "legality-002",
+      "name": "Should not suggest banned cards like Hullbreacher",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest card draw for my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Island\n1 Talrand, Sky Summoner",
+        "format": "Commander",
+        "commander": "Talrand, Sky Summoner",
+        "colors": ["U"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Hullbreacher", "Lutri, the Spellchaser"],
+        "shouldContain": ["banned", "alternative"]
+      },
+      "tags": ["legality", "banned", "commander"],
+      "source": "curated"
+    },
+    {
+      "id": "legality-003",
+      "name": "Standard deck should not suggest non-Standard cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest removal for my Standard deck",
+        "deckText": "1 Lightning Bolt\n1 Counterspell\n22 Mountain\n1 Ragavan, Nimble Pilferer",
+        "format": "Standard"
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Lightning Bolt", "Counterspell", "Sol Ring", "Command Tower"],
+        "shouldMentionCard": ["Cut Down", "Go for the Throat", "Play with Fire"]
+      },
+      "tags": ["legality", "format", "standard"],
+      "source": "curated"
+    },
+    {
+      "id": "legality-004",
+      "name": "Should avoid silver-border and acorn cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest cards for my deck",
+        "deckText": "1 Sol Ring\n38 Forest\n1 Omnath, Locus of Rage",
+        "format": "Commander",
+        "commander": "Omnath, Locus of Rage",
+        "colors": ["G", "R"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Gleemax", "Richard Garfield, Ph.D.", "Booster Tutor"],
+        "shouldNotContain": ["silver border", "acorn", "un-set"]
+      },
+      "tags": ["legality", "silver-border", "acorn"],
+      "source": "curated"
+    },
+    {
+      "id": "duplicate-001",
+      "name": "Should not recommend same card twice",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest 5 ramp cards",
+        "deckText": "1 Sol Ring\n38 Mountain\n1 Chandra, Fire of Kaladesh",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireSpecificity": true,
+        "minLength": 100
+      },
+      "tags": ["duplicate", "suggestions"],
+      "source": "curated"
+    },
+    {
+      "id": "duplicate-002",
+      "name": "Should not suggest cards already in decklist",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest improvements",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Lightning Bolt\n1 Counterspell\n35 Mountain\n1 Chandra, Fire of Kaladesh",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldNotMentionCard": ["Sol Ring", "Arcane Signet", "Lightning Bolt"],
+        "minLength": 100
+      },
+      "tags": ["duplicate", "decklist"],
+      "source": "curated"
+    },
+    {
+      "id": "pillars-001",
+      "name": "Should correctly count ramp/draw/removal",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Read the Bones\n1 Swords to Plowshares\n1 Path to Exile\n35 Plains\n1 Giada, Font of Hope",
+        "format": "Commander",
+        "commander": "Giada, Font of Hope",
+        "colors": ["W"]
+      },
+      "expectedChecks": {
+        "shouldContain": ["ramp", "draw", "removal"],
+        "minLength": 150
+      },
+      "tags": ["pillars", "counting", "fundamentals"],
+      "source": "curated"
+    },
+    {
+      "id": "pillars-002",
+      "name": "Should flag deck with only 1 ramp as insufficient",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n38 Mountain\n1 Lightning Bolt\n1 Chandra, Fire of Kaladesh",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireProblemsFirst": true,
+        "shouldContain": ["ramp", "problem", "insufficient", "low"],
+        "shouldNotContain": ["enough ramp", "sufficient ramp", "adequate ramp"],
+        "minLength": 100
+      },
+      "tags": ["pillars", "ramp", "problems"],
+      "source": "curated"
+    },
+    {
+      "id": "pillars-003",
+      "name": "Should not ignore missing draw or removal",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Kodama's Reach\n38 Forest\n1 Omnath, Locus of Rage",
+        "format": "Commander",
+        "commander": "Omnath, Locus of Rage",
+        "colors": ["G", "R"]
+      },
+      "expectedChecks": {
+        "requireProblemsFirst": true,
+        "shouldContain": ["draw", "removal", "problem", "missing"],
+        "minLength": 100
+      },
+      "tags": ["pillars", "draw", "removal", "problems"],
+      "source": "curated"
+    },
+    {
+      "id": "synergy-commander-001",
+      "name": "Suggestions must tie to commander abilities",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest cards for my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n35 Forest\n1 Yisan, the Wanderer Bard",
+        "format": "Commander",
+        "commander": "Yisan, the Wanderer Bard",
+        "colors": ["G"]
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "shouldContain": ["Yisan", "creature", "verse counter", "tutor"],
+        "shouldNotContain": ["supports your plan", "works well", "good card"],
+        "minLength": 150
+      },
+      "tags": ["synergy", "commander", "specificity"],
+      "source": "curated"
+    },
+    {
+      "id": "synergy-commander-002",
+      "name": "Fail if synergy explanation is generic",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards work with my commander?",
+        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Blood Artist\n35 Swamp\n1 Teysa Karlov",
+        "format": "Commander",
+        "commander": "Teysa Karlov",
+        "colors": ["B", "W"]
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "shouldNotContain": ["supports your plan", "works well together", "good synergy", "fits the theme"],
+        "shouldContain": ["triggers", "dies", "death", "doubles"],
+        "minLength": 100
+      },
+      "tags": ["synergy", "generic", "explanation"],
+      "source": "curated"
+    },
+    {
+      "id": "synergy-commander-003",
+      "name": "Require trigger chain explanation",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Explain how these cards work together",
+        "deckText": "1 Sol Ring\n1 Parallel Lives\n1 Secure the Wastes\n35 Forest\n1 Rhys the Redeemed",
+        "format": "Commander",
+        "commander": "Rhys the Redeemed",
+        "colors": ["G", "W"]
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "shouldContain": ["doubles", "creates", "when", "enters", "trigger"],
+        "minLength": 150
+      },
+      "tags": ["synergy", "trigger-chain", "explanation"],
+      "source": "curated"
+    },
+    {
+      "id": "intent-001",
+      "name": "User asks for cheap removal under £1",
+      "type": "chat",
+      "input": {
+        "userMessage": "Suggest removal spells under £1 for my Commander deck",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "requireBudgetAwareness": true,
+        "shouldMentionCard": ["Swords to Plowshares", "Path to Exile", "Go for the Throat"],
+        "shouldNotMentionCard": ["Force of Will", "Cyclonic Rift", "Fierce Guardianship"],
+        "shouldContain": ["budget", "cheap", "affordable"],
+        "minLength": 100
+      },
+      "tags": ["intent", "budget", "removal"],
+      "source": "curated"
+    },
+    {
+      "id": "intent-002",
+      "name": "User asks for fast-meta early interaction",
+      "type": "chat",
+      "input": {
+        "userMessage": "I need fast early interaction for a competitive meta",
+        "format": "Commander",
+        "context": { "powerLevel": "competitive" }
+      },
+      "expectedChecks": {
+        "shouldMentionCard": ["Mental Misstep", "Force of Will", "Fierce Guardianship", "Daze"],
+        "shouldContain": ["early", "interaction", "fast", "competitive"],
+        "shouldNotContain": ["casual", "budget"],
+        "minLength": 100
+      },
+      "tags": ["intent", "competitive", "interaction"],
+      "source": "curated"
+    },
+    {
+      "id": "intent-003",
+      "name": "User asks for exactly 3 cards",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest exactly 3 ramp cards for my deck",
+        "deckText": "1 Sol Ring\n38 Mountain\n1 Chandra, Fire of Kaladesh",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "requireSpecificity": true,
+        "shouldMentionCard": ["Arcane Signet", "Fellwar Stone", "Mind Stone"],
+        "minLength": 100,
+        "maxLength": 500
+      },
+      "tags": ["intent", "specificity", "count"],
+      "source": "curated"
+    },
+    {
+      "id": "combo-001",
+      "name": "Detect nonsense combos",
+      "type": "chat",
+      "input": {
+        "userMessage": "Does Lightning Bolt and Counterspell create an infinite combo?",
+        "format": "Commander"
+      },
+      "expectedChecks": {
+        "shouldNotContain": ["infinite", "combo", "loop", "win"],
+        "shouldContain": ["no", "not", "don't work"],
+        "minLength": 50
+      },
+      "tags": ["combo", "nonsense", "validation"],
+      "source": "curated"
+    },
+    {
+      "id": "combo-002",
+      "name": "Fail if bot suggests impossible loops",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest combos for my deck",
+        "deckText": "1 Sol Ring\n1 Lightning Bolt\n1 Counterspell\n35 Island\n1 Talrand, Sky Summoner",
+        "format": "Commander",
+        "commander": "Talrand, Sky Summoner",
+        "colors": ["U"]
+      },
+      "expectedChecks": {
+        "shouldNotContain": ["Lightning Bolt.*Counterspell.*infinite", "infinite.*Lightning Bolt.*Counterspell"],
+        "minLength": 100
+      },
+      "tags": ["combo", "impossible", "validation"],
+      "source": "curated"
+    },
+    {
+      "id": "budget-bundle-001",
+      "name": "User asks for £30 upgrade bundle",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest a £30 upgrade bundle for my deck",
+        "deckText": "1 Sol Ring\n1 Arcane Signet\n38 Forest\n1 Omnath, Locus of Rage",
+        "format": "Commander",
+        "commander": "Omnath, Locus of Rage",
+        "colors": ["G", "R"],
+        "context": { "budget": 30 }
+      },
+      "expectedChecks": {
+        "requireBudgetAwareness": true,
+        "requireSpecificity": true,
+        "shouldMentionCard": ["Cultivate", "Kodama's Reach", "Rampaging Baloths", "Avenger of Zendikar"],
+        "shouldNotMentionCard": ["Mana Crypt", "Jeweled Lotus", "Gaea's Cradle"],
+        "shouldContain": ["budget", "upgrade", "bundle"],
+        "minLength": 150
+      },
+      "tags": ["budget", "bundle", "upgrade"],
+      "source": "curated"
+    },
+    {
+      "id": "budget-bundle-002",
+      "name": "Must include 3-5 budget pieces that synergize",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Suggest budget upgrades that work together",
+        "deckText": "1 Sol Ring\n1 Viscera Seer\n1 Blood Artist\n35 Swamp\n1 Teysa Karlov",
+        "format": "Commander",
+        "commander": "Teysa Karlov",
+        "colors": ["B", "W"],
+        "context": { "budget": true }
+      },
+      "expectedChecks": {
+        "requireSynergy": true,
+        "requireBudgetAwareness": true,
+        "shouldMentionCard": ["Zulaport Cutthroat", "Carrion Feeder", "Falkenrath Noble", "Pawn of Ulamog"],
+        "shouldContain": ["synergy", "work together", "triggers"],
+        "minLength": 150
+      },
+      "tags": ["budget", "bundle", "synergy"],
+      "source": "curated"
+    },
+    {
+      "id": "edge-case-001",
+      "name": "Empty decklist should not hallucinate archetype",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze my deck",
+        "deckText": "1 Sol Ring",
+        "format": "Commander",
+        "commander": "Chandra, Fire of Kaladesh",
+        "colors": ["R"]
+      },
+      "expectedChecks": {
+        "shouldContain": ["land", "ramp", "draw", "removal"],
+        "shouldNotContain": ["tokens", "aristocrats", "combo", "control"],
+        "minLength": 100
+      },
+      "tags": ["edge-case", "empty", "hallucination"],
+      "source": "curated"
     }
   ]
 }
