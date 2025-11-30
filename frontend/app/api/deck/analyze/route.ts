@@ -416,6 +416,9 @@ async function fetchSlotCandidates(
     "",
     "Each candidate's 'reason' should explain: (1) how it fixes the slot's problem, (2) why it synergizes with the deck plan.",
     "",
+    "For synergy explanations: Name the enabler card and payoff card, then describe the sequence (enabler → trigger → payoff).",
+    "Example: 'Viscera Seer enables free sacrifices; Blood Artist pays off with drain on death; together they create a value loop.'",
+    "",
     "Always respond with STRICT JSON: {\"candidates\":[{\"name\":\"...\",\"reason\":\"...\"}]}"
   ].join("\n");
 

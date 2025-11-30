@@ -148,7 +148,7 @@ async function aiSuggest(deckText: string, currency: string, budget: number): Pr
     "",
     "=== BUDGET SWAP MODE ===",
     "Given a decklist and price threshold, suggest cheaper near-equivalents that preserve deck function.",
-    "Focus on role/function overlap and synergy preservation.",
+      "Focus on role/function overlap and synergy preservation. For synergy: name enabler and payoff, describe the mechanical sequence.",
     "Respond ONLY with JSON array of objects: [{\"from\":\"Card A\",\"to\":\"Card B\",\"reason\":\"short reason\"}]"
   ].join("\n");
   
