@@ -36,10 +36,10 @@ export async function POST(req: Request){
       '',
       '=== BUDGET SWAP EXPLANATION MODE ===',
       'Explain clearly and concisely why a cheaper swap preserves deck function.',
-      'Focus on role/function overlap and synergy preservation.'
+      'Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.'
     ].join('\n');
     
-    const user = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
+    const user = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- If synergy is involved, name the enabler and payoff cards and explain the sequence (e.g., "Card A enables X; Card B pays off with Y").\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
 
     const r = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',

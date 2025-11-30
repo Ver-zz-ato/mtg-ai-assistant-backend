@@ -339,7 +339,7 @@ async function planSuggestionSlots(
     "",
     "Each slot's 'notes' field MUST state the specific problem it fixes (example: 'low early mana', 'no graveyard hate', 'struggles vs flyers', 'runs out of cards', 'can't close games').",
     "",
-    "Prioritize slots by: (1) synergy with deck plan, (2) fixing critical problems, (3) curve fit, (4) budget if mentioned.",
+    "Prioritize slots by: (1) synergy with deck plan (name enabler + payoff, explain sequence), (2) fixing critical problems, (3) curve fit, (4) budget if mentioned.",
     "",
     "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short problem description\",\"quantity\":1}]}",
   ].join("\n");
