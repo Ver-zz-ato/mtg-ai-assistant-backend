@@ -192,7 +192,19 @@ export async function POST(req: Request) {
     } catch {}
 
     // ANALYTICS: Track deck updates
-    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_updated", { deck_id: data.id, user_id: user.id, fields: Object.keys(update) }); } catch {}
+    try { 
+      const { captureServer } = await import("@/lib/server/analytics");
+      // Fetch deck data for analytics
+      const { data: deckData } = await supabase.from('decks').select('format, commander').eq('id', data.id).maybeSingle();
+      await captureServer("deck_updated", { 
+        deck_id: data.id, 
+        user_id: user.id, 
+        fields: Object.keys(update),
+        format: deckData?.format || null,
+        commander: deckData?.commander || null,
+        // prompt_version: not available in update route (would need to track from analysis)
+      }); 
+    } catch {}
 
     return NextResponse.json({ id: data.id }, { status: 200 });
   } catch (e: unknown) {

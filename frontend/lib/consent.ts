@@ -55,9 +55,32 @@ export function setConsentStatus(status: "accepted" | "declined"): void {
       window.localStorage.removeItem(LEGACY_CONSENT_KEY);
       window.dispatchEvent(new Event("analytics:consent-revoked"));
     }
+    
+    // Emit new consent change event
+    window.dispatchEvent(
+      new CustomEvent('manatap:consent-change', { detail: status })
+    );
   } catch (error) {
     console.error("Failed to save consent status:", error);
   }
+}
+
+/**
+ * Listen for consent changes
+ */
+export function onConsentChange(cb: (status: ConsentStatus) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  
+  const handler = (e: any) => {
+    cb(e.detail);
+  };
+  
+  window.addEventListener('manatap:consent-change', handler);
+  
+  // Return cleanup function
+  return () => {
+    window.removeEventListener('manatap:consent-change', handler);
+  };
 }
 
 /**

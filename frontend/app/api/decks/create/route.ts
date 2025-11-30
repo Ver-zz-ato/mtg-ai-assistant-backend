@@ -142,7 +142,20 @@ async function _POST(req: NextRequest) {
       }
     }
 
-    try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("deck_saved", { deck_id: data.id, inserted: cards.length || 0, user_id: user.id, ms: Date.now() - t0 }); } catch {}
+    try { 
+      const { captureServer } = await import("@/lib/server/analytics");
+      // Extract prompt_version from analysis data if present
+      const promptVersion = (payload.data as any)?.analyze?.prompt_version || (payload.data as any)?.analyze?.prompt_version_id || null;
+      await captureServer("deck_saved", { 
+        deck_id: data.id, 
+        inserted: cards.length || 0, 
+        user_id: user.id, 
+        ms: Date.now() - t0,
+        format: payload.format || null,
+        commander: commander || null,
+        prompt_version: promptVersion
+      }); 
+    } catch {}
     
     // Log activity for live presence banner
     try {

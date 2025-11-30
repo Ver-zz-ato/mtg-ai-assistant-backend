@@ -3,6 +3,8 @@
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import { getConsentStatus, setConsentStatus, type ConsentStatus } from "@/lib/consent";
+import { useCookieConsentModal } from "./CookieConsentContext";
+import { capture } from "@/lib/ph";
 
 /**
  * Centered cookie consent modal
@@ -10,24 +12,38 @@ import { getConsentStatus, setConsentStatus, type ConsentStatus } from "@/lib/co
  * - Blocks interaction until user chooses Accept or Decline
  * - Stores consent in localStorage
  * - Emits events for PostHog initialization
- * - Matches ManaTap dark theme
+ * - Matches ManaTap dark theme with premium visual polish
  */
 export default function CookieConsentModal() {
-  const [visible, setVisible] = React.useState(false);
+  const { isOpen, closeModal, openModal } = useCookieConsentModal();
   const [mounted, setMounted] = React.useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const firstButtonRef = useRef<HTMLButtonElement>(null);
+  const [source, setSource] = React.useState<'modal' | 'privacy_page'>('modal');
 
   // Only render on client to avoid hydration issues
   useEffect(() => {
     setMounted(true);
-    const status = getConsentStatus();
-    setVisible(status === "unknown");
   }, []);
+
+  // Listen for reopen event
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const handleReopen = () => {
+      setSource('modal');
+      openModal();
+    };
+    
+    window.addEventListener('manatap:open-consent-modal', handleReopen);
+    return () => {
+      window.removeEventListener('manatap:open-consent-modal', handleReopen);
+    };
+  }, [mounted, openModal]);
 
   // Focus trap for accessibility
   useEffect(() => {
-    if (!visible || !mounted) return;
+    if (!isOpen || !mounted) return;
 
     const modal = modalRef.current;
     if (!modal) return;
@@ -62,11 +78,11 @@ export default function CookieConsentModal() {
 
     document.addEventListener("keydown", handleTab);
     return () => document.removeEventListener("keydown", handleTab);
-  }, [visible, mounted]);
+  }, [isOpen, mounted]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    if (visible) {
+    if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -74,51 +90,63 @@ export default function CookieConsentModal() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [visible]);
+  }, [isOpen]);
 
   function handleAccept() {
     setConsentStatus("accepted");
-    setVisible(false);
+    // Track consent choice
+    capture('consent_choice', {
+      status: 'accepted',
+      source: source,
+      path: typeof window !== 'undefined' ? window.location.pathname : null,
+    });
+    closeModal();
   }
 
   function handleDecline() {
     setConsentStatus("declined");
-    setVisible(false);
+    // Track consent choice
+    capture('consent_choice', {
+      status: 'declined',
+      source: source,
+      path: typeof window !== 'undefined' ? window.location.pathname : null,
+    });
+    closeModal();
   }
 
   // Don't render on server
-  if (!mounted || !visible) return null;
+  if (!mounted || !isOpen) return null;
 
   return (
     <>
       {/* Backdrop overlay - blocks clicks outside modal */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-md"
         aria-hidden="true"
       />
       
       {/* Modal */}
       <div
         ref={modalRef}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cookie-modal-title"
         aria-describedby="cookie-modal-description"
       >
-        <div className="relative w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+        <div className="relative w-full max-w-md rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 via-neutral-900/80 to-neutral-950 shadow-[0_0_20px_rgba(0,0,0,0.4)]">
           {/* Content */}
-          <div className="p-6 space-y-4">
+          <div className="p-6 md:p-8 space-y-4">
             <h2
               id="cookie-modal-title"
-              className="text-2xl font-bold text-white"
+              className="text-xl font-semibold text-white mb-3 tracking-tight"
             >
               Cookies & Analytics
             </h2>
             
             <p
               id="cookie-modal-description"
-              className="text-neutral-300 text-sm leading-relaxed"
+              className="text-sm text-neutral-300 leading-relaxed"
             >
               We use cookies and analytics to understand how people use ManaTap and to improve AI deck suggestions. You can use the site without optional cookies.
             </p>
@@ -128,32 +156,45 @@ export default function CookieConsentModal() {
               <button
                 ref={firstButtonRef}
                 onClick={handleAccept}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg hover:shadow-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                className="w-full px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-blue-600 via-violet-600 to-purple-600 hover:from-blue-500 hover:via-violet-500 hover:to-purple-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] text-white transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
               >
                 Accept all
               </button>
               
               <button
                 onClick={handleDecline}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-neutral-600 bg-neutral-800 text-neutral-200 font-medium hover:bg-neutral-700 hover:border-neutral-500 transition-all focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                className="w-full px-4 py-2 rounded-lg font-medium bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
               >
                 Decline
               </button>
             </div>
 
-            {/* Learn more link */}
-            <div className="pt-2 text-center">
+            {/* Privacy policy link */}
+            <p className="text-xs text-neutral-500 mt-3">
+              You can change your choice anytime in{" "}
+              <button 
+                onClick={() => {
+                  closeModal();
+                  setTimeout(() => {
+                    openModal();
+                  }, 100);
+                }}
+                className="underline hover:text-neutral-400 transition-colors"
+              >
+                Cookie Settings
+              </button>
+              {" "}or read our{" "}
               <Link
                 href="/privacy"
-                className="text-xs text-neutral-400 hover:text-neutral-300 underline transition-colors"
+                className="underline hover:text-neutral-400 transition-colors"
                 onClick={(e) => {
-                  // Don't close modal when clicking learn more
                   e.stopPropagation();
                 }}
               >
-                Learn more about our privacy practices
+                Privacy Policy
               </Link>
-            </div>
+              .
+            </p>
           </div>
         </div>
       </div>
@@ -161,20 +202,4 @@ export default function CookieConsentModal() {
   );
 }
 
-/**
- * Hook to programmatically reopen the consent modal
- * Useful for "Cookie settings" links in footer
- */
-export function useCookieConsentModal() {
-  const [forceShow, setForceShow] = React.useState(false);
-
-  const openModal = React.useCallback(() => {
-    // Clear consent to force modal to show
-    const { clearConsentStatus } = require("@/lib/consent");
-    clearConsentStatus();
-    setForceShow(true);
-  }, []);
-
-  return { openModal, forceShow };
-}
 

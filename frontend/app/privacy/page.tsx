@@ -39,6 +39,14 @@ export default function PrivacyPage() {
       import('@/lib/consent').then(({ setConsentStatus }) => {
         setConsentStatus(enabled ? 'accepted' : 'declined');
         setAnalyticsConsent(enabled);
+        // Track consent choice from privacy page
+        import('@/lib/ph').then(({ capture }) => {
+          capture('consent_choice', {
+            status: enabled ? 'accepted' : 'declined',
+            source: 'privacy_page',
+            path: typeof window !== 'undefined' ? window.location.pathname : null,
+          });
+        }).catch(() => {});
       }).catch((e) => {
         console.error('Failed to update analytics consent:', e);
       });

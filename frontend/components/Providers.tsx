@@ -5,7 +5,7 @@ import posthog from 'posthog-js';
 import { PrefsProvider } from '@/components/PrefsContext';
 import ToastProvider from '@/components/ToastProvider';
 import ProProvider from '@/components/ProContext';
-import { getConsentStatus } from '@/lib/consent';
+import { getConsentStatus, onConsentChange } from '@/lib/consent';
 
 function hasConsent(): boolean {
   try {
@@ -80,9 +80,24 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       maybeInit(); 
     };
     window.addEventListener('analytics:consent-granted', onGranted);
+    
+    // Listen for consent changes and re-init/reset PostHog
+    const cleanupConsentChange = onConsentChange((status) => {
+      if (status === 'accepted') {
+        clearTimeout(timeoutId);
+        maybeInit();
+      } else if (status === 'declined') {
+        // Reset PostHog when consent is declined
+        try {
+          (posthog as any)?.reset?.();
+        } catch {}
+      }
+    });
+    
     return () => {
       clearTimeout(timeoutId);
       window.removeEventListener('analytics:consent-granted', onGranted);
+      cleanupConsentChange();
     };
   }, []);
 

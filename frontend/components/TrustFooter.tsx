@@ -1,6 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCookieConsentModal } from '@/components/CookieConsentContext';
+
+function CookieSettingsLink() {
+  const { openModal } = useCookieConsentModal();
+  
+  return (
+    <button 
+      onClick={openModal}
+      className="hover:text-gray-200 transition-colors text-xs"
+    >
+      Cookie Settings
+    </button>
+  );
+}
 
 interface TrustInfo {
   modelVersion: string;
@@ -238,6 +252,8 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
               <a className="hover:text-gray-200 transition-colors" href="/privacy">Privacy</a>
               <span className="text-gray-600">•</span>
               <a className="hover:text-gray-200 transition-colors" href="/refund">Refund Policy</a>
+              <span className="text-gray-600">•</span>
+              <CookieSettingsLink />
             </nav>
           </div>
         </div>

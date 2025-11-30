@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 import SupportWidgets from "@/components/SupportWidgets";
 import CookieConsentModal from "@/components/CookieConsentModal";
+import { CookieConsentProvider } from "@/components/CookieConsentContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import PromoBar from "@/components/PromoBar";
@@ -96,30 +97,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col">
         <GlobalBackground />
         <Providers>
-          <AuthProvider>
-            <KeyboardShortcutsProvider>
-              <TopLoadingBar />
-              <FirstVisitTracker />
-              <AnalyticsProvider />
-              <PromoBar />
-              <MaintenanceBanner />
-              <ErrorBoundary>
-                <Header />
-                <main className="flex-1">{children}</main>
-              </ErrorBoundary>
-              <CookieConsentModal />
-              <FeedbackFab />
-              {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
-              <TrustFooter />
-              <SupportWidgets />
-              <UndoToast />
-              {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
-              {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
-              <GuestExitWarning />
-              <IOSInstallPrompt />
-              <EmailVerificationReminder />
-            </KeyboardShortcutsProvider>
-          </AuthProvider>
+          <CookieConsentProvider>
+            <AuthProvider>
+              <KeyboardShortcutsProvider>
+                <TopLoadingBar />
+                <FirstVisitTracker />
+                <AnalyticsProvider />
+                <PromoBar />
+                <MaintenanceBanner />
+                <ErrorBoundary>
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                </ErrorBoundary>
+                <CookieConsentModal />
+                <FeedbackFab />
+                {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
+                <TrustFooter />
+                <SupportWidgets />
+                <UndoToast />
+                {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
+                {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
+                <GuestExitWarning />
+                <IOSInstallPrompt />
+                <EmailVerificationReminder />
+              </KeyboardShortcutsProvider>
+            </AuthProvider>
+          </CookieConsentProvider>
         </Providers>
       </body>
     </html>

@@ -57,7 +57,10 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
         plan,
         colors: colors.join(','),
         score: json?.result?.score || json?.score,
-        card_count: text.split('\n').filter(Boolean).length
+        card_count: text.split('\n').filter(Boolean).length,
+        prompt_version: json?.prompt_version || json?.prompt_version_id || null,
+        // deck_id: not available in this component (standalone analysis)
+        // commander: would need to extract from deckText or pass as prop
       });
       
       return json;

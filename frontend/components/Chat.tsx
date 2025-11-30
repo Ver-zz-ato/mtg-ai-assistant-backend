@@ -6,6 +6,7 @@ import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import GuestLimitModal from "@/components/GuestLimitModal";
 import { capture } from "@/lib/ph";
+import { enrichChatEvent } from "@/lib/analytics/enrichChatEvent";
 import { postMessage, postMessageStream, listMessages } from "@/lib/threads";
 import { 
   trackFirstAction, 
@@ -525,14 +526,22 @@ function Chat() {
     // Track analytics
     const streamStartTime = Date.now();
     streamStartTimeRef.current = streamStartTime;
-    capture('chat_sent', { 
-      chars: (val?.length ?? 0), 
-      thread_id: threadId ?? null,
-      is_decklist: looksDeck,
-      format: fmt,
-      budget: budget,
-      teaching_mode: teaching
-    });
+    capture('chat_sent', enrichChatEvent(
+      { 
+        chars: (val?.length ?? 0), 
+        is_decklist: looksDeck,
+        budget: budget,
+        teaching_mode: teaching,
+        source: 'client'
+      },
+      {
+        threadId: threadId ?? null,
+        format: fmt || null,
+        userMessage: val || null,
+        // commander_name: would need to fetch from linkedDeckId (not available here)
+        // persona and prompt_version not available client-side
+      }
+    ));
 
     const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching };
     
@@ -767,11 +776,21 @@ function Chat() {
             trackValueMomentReached('first_good_chat_response');
           }
           
-          capture('chat_stream_stop', {
-            stopped_by: 'complete',
-            duration_ms: Date.now() - streamStartTime,
-            tokens_if_known: Math.ceil(accumulatedContent.length / 4)
-          });
+          capture('chat_stream_stop', enrichChatEvent(
+            {
+              stopped_by: 'complete',
+              duration_ms: Date.now() - streamStartTime,
+              tokens_if_known: Math.ceil(accumulatedContent.length / 4),
+              assistant_message_id: streamingMsgId
+            },
+            {
+              threadId: currentThreadId || threadId || null,
+              userMessage: val || null,
+              assistantMessage: accumulatedContent.slice(0, 200) || null,
+              format: fmt || null,
+              // persona and prompt_version not available client-side
+            }
+          ));
         },
         (error: Error) => {
           setIsStreaming(false);
@@ -919,7 +938,25 @@ function Chat() {
       setBusy(true);
       try {
         await fetch('/api/feedback', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ rating, text }) });
-        try { const { capture } = await import("@/lib/ph"); capture('chat_feedback', { rating, thread_id: threadId ?? null, msg_id: msgId }); } catch {}
+        try { 
+          const { capture } = await import("@/lib/ph");
+          // Find the message being rated
+          const message = messages.find((m: any) => String(m.id) === msgId);
+          // Find the user message that preceded it
+          const messageIndex = messages.findIndex((m: any) => String(m.id) === msgId);
+          const userMessage = messageIndex > 0 ? messages[messageIndex - 1] : null;
+          
+          capture('chat_feedback', enrichChatEvent(
+            { rating, msg_id: msgId },
+            {
+              threadId: threadId ?? null,
+              userMessage: userMessage?.content || null,
+              assistantMessage: message?.content || content || null,
+              format: fmt || null,
+              // persona and prompt_version not available client-side
+            }
+          ));
+        } catch {}
         try { const tc = await import("@/lib/toast-client"); tc.toast('Thanks for the feedback!', 'success'); } catch {}
         setOpen(false); setText(""); setLen(0);
       } catch(e:any) {
@@ -1362,11 +1399,21 @@ function Chat() {
                     streamAbort.abort();
                     setStreamAbort(null);
                     setIsStreaming(false);
-                    capture('chat_stream_stop', {
-                      stopped_by: 'user',
-                      duration_ms: Date.now() - streamStartTimeRef.current,
-                      tokens_if_known: Math.ceil(streamingContent.length / 4)
-                    });
+                    capture('chat_stream_stop', enrichChatEvent(
+                      {
+                        stopped_by: 'user',
+                        duration_ms: Date.now() - streamStartTimeRef.current,
+                        tokens_if_known: Math.ceil(streamingContent.length / 4),
+                        assistant_message_id: streamingMessageIdRef.current || null
+                      },
+                      {
+                        threadId: threadId || null,
+                        userMessage: null, // Not available in this closure
+                        assistantMessage: streamingContent.slice(0, 200) || null,
+                        format: fmt || null,
+                        // persona and prompt_version not available client-side
+                      }
+                    ));
                   }
                 }} 
                 className="px-4 py-2 h-fit rounded bg-red-600 text-white hover:bg-red-700"
@@ -1389,11 +1436,21 @@ function Chat() {
                     streamAbort.abort();
                     setStreamAbort(null);
                     setIsStreaming(false);
-                    capture('chat_stream_stop', {
-                      stopped_by: 'user',
-                      duration_ms: Date.now() - streamStartTimeRef.current,
-                      tokens_if_known: Math.ceil(streamingContent.length / 4)
-                    });
+                    capture('chat_stream_stop', enrichChatEvent(
+                      {
+                        stopped_by: 'user',
+                        duration_ms: Date.now() - streamStartTimeRef.current,
+                        tokens_if_known: Math.ceil(streamingContent.length / 4),
+                        assistant_message_id: streamingMessageIdRef.current || null
+                      },
+                      {
+                        threadId: threadId || null,
+                        userMessage: null, // Not available in this closure
+                        assistantMessage: streamingContent.slice(0, 200) || null,
+                        format: fmt || null,
+                        // persona and prompt_version not available client-side
+                      }
+                    ));
                   }
                 }} 
                 className="w-full py-4 rounded-lg bg-red-600 text-white text-lg font-medium hover:bg-red-700 active:bg-red-800 transition-all touch-manipulation"

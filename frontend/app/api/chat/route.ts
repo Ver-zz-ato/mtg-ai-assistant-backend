@@ -978,7 +978,18 @@ Return the corrected answer with concise, user-facing tone.`;
     try {
       const { captureServer } = await import("@/lib/server/analytics");
       if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
-      await captureServer("chat_sent", { provider, ms: Date.now() - t0, thread_id: tid, user_id: userId, persona_id });
+      await captureServer("chat_sent", { 
+        provider, 
+        ms: Date.now() - t0, 
+        thread_id: tid, 
+        user_id: userId, 
+        persona: persona_id,
+        prompt_version: promptVersionId || null,
+        user_message: text ? text.slice(0, 200) : null,
+        assistant_message: outText ? outText.slice(0, 200) : null,
+        format: typeof prefs?.format === 'string' ? prefs.format : null,
+        commander_name: inferredContext?.commander || null
+      });
     } catch {}
 
     return ok({ text: outText, threadId: tid, provider });
