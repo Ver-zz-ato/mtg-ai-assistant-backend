@@ -237,9 +237,23 @@ export async function DELETE(req: NextRequest) {
 
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
+    const deleteAll = url.searchParams.get("all") === "true";
+
+    if (deleteAll) {
+      // Delete all test cases from database
+      // First get count for response
+      const { count } = await supabase.from("ai_test_cases").select("*", { count: "exact", head: true });
+      const { error } = await supabase.from("ai_test_cases").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      
+      if (error) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true, deleted: count || 0, message: "All database test cases deleted" });
+    }
 
     if (!id) {
-      return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "id required (or use ?all=true to delete all)" }, { status: 400 });
     }
 
     const { error } = await supabase.from("ai_test_cases").delete().eq("id", id);
