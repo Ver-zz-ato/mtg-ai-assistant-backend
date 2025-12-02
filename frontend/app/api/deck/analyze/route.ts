@@ -1518,6 +1518,54 @@ export async function POST(req: Request) {
   const note = totals.draw < 6 ? "needs a touch more draw" : totals.lands < (format === "Commander" ? 32 : 21) ? "mana base is light" : "solid, room to tune";
   const filterSummary = buildFilterSummary(filtered, postFilteredCount, suggestionDebugReasons);
 
+  // Generate validated full text analysis (if GPT is enabled and we have a system prompt)
+  let validatedAnalysis: {
+    text?: string;
+    json?: any;
+    validationErrors?: string[];
+    validationWarnings?: string[];
+  } | null = null;
+
+  if (useGPT && deckAnalysisSystemPrompt) {
+    try {
+      const { generateValidatedDeckAnalysis } = await import("@/lib/deck/analysis-with-validation");
+
+      const analysisOptions = {
+        systemPrompt: deckAnalysisSystemPrompt,
+        deckText,
+        context,
+        userMessage: body.userMessage,
+        commanderProfile,
+        temperature: 0.35,
+        maxTokens: 2000,
+      };
+
+      const validationContext = {
+        format,
+        commander: context.commander || null,
+        colors: context.colors || [],
+        deckText,
+      };
+
+      const result = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
+      
+      validatedAnalysis = {
+        text: result.text,
+        json: result.json,
+        validationErrors: result.validationErrors,
+        validationWarnings: result.validationWarnings,
+      };
+
+      // If validation failed completely, log it but don't fail the request
+      if (result.validationErrors.length > 0) {
+        console.warn("[deck/analyze] Validation errors:", result.validationErrors);
+      }
+    } catch (error) {
+      console.error("[deck/analyze] Failed to generate validated analysis:", error);
+      // Don't fail the request if analysis generation fails - return suggestions anyway
+    }
+  }
+
   return new Response(
     JSON.stringify({
     score,
@@ -1542,6 +1590,13 @@ export async function POST(req: Request) {
       },
       prompt_version: useGPT ? (promptVersionId || getActivePromptVersion()) : undefined,
       prompt_version_id: promptVersionId || undefined,
+      // Add validated analysis if available
+      ...(validatedAnalysis ? {
+        analysis: validatedAnalysis.text,
+        analysis_json: validatedAnalysis.json,
+        analysis_validation_errors: validatedAnalysis.validationErrors,
+        analysis_validation_warnings: validatedAnalysis.validationWarnings,
+      } : {}),
     }),
     { status: 200, headers: { "content-type": "application/json" } }
   );

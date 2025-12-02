@@ -313,17 +313,26 @@ function Chat() {
     };
   }, [isLoggedIn]);
   
-  // Extract and fetch card images and prices from assistant messages
+  // Extract and fetch card images and prices from assistant messages (including streaming content)
   useEffect(() => {
     (async () => {
       try {
         const assistantMessages = messages.filter(m => m.role === 'assistant');
-        if (assistantMessages.length === 0) return;
         
         // Extract cards from all assistant messages
         const allCards: string[] = [];
         for (const msg of assistantMessages) {
           const extracted = extractCardsForImages(msg.content || '');
+          extracted.forEach(card => {
+            if (!allCards.includes(card.name)) {
+              allCards.push(card.name);
+            }
+          });
+        }
+        
+        // Also extract cards from streaming content if active
+        if (isStreaming && streamingContent) {
+          const extracted = extractCardsForImages(streamingContent);
           extracted.forEach(card => {
             if (!allCards.includes(card.name)) {
               allCards.push(card.name);
@@ -350,7 +359,7 @@ function Chat() {
         console.warn('Failed to fetch card data:', error);
       }
     })();
-  }, [messages]);
+  }, [messages, isStreaming, streamingContent]);
 
   // Deck linking
   useEffect(() => {
@@ -1304,12 +1313,12 @@ function Chat() {
           {/* Show streaming content */}
           {isStreaming && streamingContent && (
             <div className="text-left">
-              <div className="inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap">
+              <div className="inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
                 <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
                   <span>assistant</span>
                   <span className="ml-2 animate-pulse">•••</span>
                 </div>
-                <div className="leading-relaxed">{streamingContent}</div>
+                <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
               </div>
             </div>
           )}

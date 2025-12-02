@@ -872,6 +872,395 @@
       },
       "tags": ["brawl", "legality"],
       "source": "generated-2025-01-27"
+    },
+    {
+      "id": "archetype-test-1-cascade-big-mana-ruby",
+      "name": "Cascade Big Mana (Ruby) - Anti-synergy with 1-drops",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Ruby, Daring Tracker",
+        "deckText": "1 Ruby, Daring Tracker\n1 Apex Devastator\n1 Annoyed Altisaur\n1 Maelstrom Colossus\n1 Imoti, Celebrant of Bounty\n1 Sweet-Gum Recluse\n1 Aurora Phoenix\n1 Ghalta, Stampede Tyrant\n1 Drakuseth, Maw of Flames\n1 Etali, Primal Storm\n1 Elder Gargaroth\n1 Topiary Stomper\n1 Solemn Simulacrum\n1 Avenger of Zendikar\n1 Ulvenwald Oddity\n1 Tireless Tracker\n1 Explosive Vegetation\n1 Skyshroud Claim\n1 Migration Path\n1 Harrow\n1 Roiling Regrowth\n1 Roar of Recklessness\n1 Garruk's Uprising\n20 Forest\n10 Mountain",
+        "plan": "cascade big mana ramp"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "cascade",
+          "big mana",
+          "land-based ramp"
+        ],
+        "shouldNotContain": [
+          "Llanowar Elves",
+          "Cultivate",
+          "Kodama's Reach",
+          "landfall"
+        ],
+        "shouldNotMentionCard": [
+          "Llanowar Elves",
+          "Elvish Mystic",
+          "Fyndhorn Elves"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "cascade", "anti-synergy"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-2-true-landfall-tatyova",
+      "name": "True Landfall (Tatyova) - Engine identification",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Tatyova, Benthic Druid",
+        "deckText": "1 Tatyova, Benthic Druid\n1 Avenger of Zendikar\n1 Rampaging Baloths\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Lotus Cobra\n1 Ulvenwald Mysteries\n1 Scute Swarm\n1 Baloth Woodcrasher\n1 Exploration\n1 Azusa, Lost but Seeking\n1 Sakura-Tribe Elder\n1 Cultivate\n1 Kodama's Reach\n1 Harrow\n1 Garruk's Uprising\n1 Elemental Bond\n1 Return of the Wildspeaker\n1 Simic Growth Chamber\n1 Myriad Landscape\n1 Evolving Wilds\n1 Terramorphic Expanse\n15 Forest\n10 Island",
+        "plan": "landfall"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "landfall",
+          "synergy chain",
+          "land ETB",
+          "Lotus Cobra",
+          "extra mana",
+          "landfall payoffs"
+        ],
+        "shouldNotContain": [
+          "random fatties",
+          "non-landfall creatures"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "landfall", "engine"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-3-tokens-doublers-rhys",
+      "name": "Tokens & Doublers (Rhys) - Token engine recognition",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Rhys the Redeemed",
+        "deckText": "1 Rhys the Redeemed\n1 Parallel Lives\n1 Anointed Procession\n1 Growing Ranks\n1 Second Harvest\n1 Doubling Season\n1 Elspeth, Sun's Champion\n1 Secure the Wastes\n1 Battle Screech\n1 Call the Coppercoats\n1 Cathars' Crusade\n1 Beastmaster Ascension\n1 Skullclamp\n1 Swords to Plowshares\n20 Plains\n10 Forest",
+        "plan": "tokens and doubling"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "tokens",
+          "doubling",
+          "token makers",
+          "exponential growth",
+          "synergy chain"
+        ],
+        "shouldNotContain": [
+          "random creature ramp",
+          "mana dorks"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "tokens", "doublers"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-4-aristocrats-korvold",
+      "name": "Aristocrats (Korvold) - Sacrifice loop logic",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Korvold, Fae-Cursed King",
+        "deckText": "1 Korvold, Fae-Cursed King\n1 Woe Strider\n1 Viscera Seer\n1 Ayara, First of Locthwain\n1 Village Rites\n1 Deadly Dispute\n1 Zulaport Cutthroat\n1 Blood Artist\n1 Mayhem Devil\n1 Savra, Queen of the Golgari\n1 Phyrexian Altar\n1 Ashnod's Altar\n1 Pitiless Plunderer\n1 Reassembling Skeleton\n1 Endrek Sahr\n1 Chittering Witch\n10 Swamp\n10 Mountain\n10 Forest",
+        "plan": "aristocrats sacrifice"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "aristocrats",
+          "sacrifice outlet",
+          "death trigger",
+          "Korvold",
+          "draw",
+          "token fodder",
+          "infinite loop potential",
+          "synergy chain"
+        ],
+        "shouldNotContain": [
+          "non-sacrifice-based suggestions"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "aristocrats", "sacrifice"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-5-voltron-sram",
+      "name": "Voltron (Sram) - Low CMC archetype detection",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Sram, Senior Edificer",
+        "deckText": "1 Sram, Senior Edificer\n1 All That Glitters\n1 Ethereal Armor\n1 Shielded by Faith\n1 Swiftfoot Boots\n1 Darksteel Plate\n1 Colossus Hammer\n1 Sigarda's Aid\n1 Puresteel Paladin\n1 Flawless Maneuver\n1 Gods Willing\n1 Sejiri Shelter\n1 Path to Exile\n20 Plains",
+        "plan": "voltron equipment"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "voltron",
+          "protection",
+          "card draw via auras",
+          "evasion"
+        ],
+        "shouldNotContain": [
+          "mana dorks",
+          "6+ mana spells"
+        ],
+        "shouldNotMentionCard": [
+          "Llanowar Elves",
+          "Elvish Mystic",
+          "Avenger of Zendikar",
+          "Elder Gargaroth"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "voltron", "low-cmc"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-6-blink-roon",
+      "name": "Blink (Roon) - ETB loop logic",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Roon of the Hidden Realm",
+        "deckText": "1 Roon of the Hidden Realm\n1 Mulldrifter\n1 Solemn Simulacrum\n1 Reflector Mage\n1 Acidic Slime\n1 Eternal Witness\n1 Sun Titan\n1 Ghostly Flicker\n1 Eerie Interlude\n1 Conjurer's Closet\n1 Thassa, Deep-Dwelling\n1 Panharmonicon\n10 Plains\n10 Island\n10 Forest",
+        "plan": "blink ETB value"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "blink",
+          "ETB creatures",
+          "value multiplication",
+          "synergy chain"
+        ],
+        "shouldNotContain": [
+          "big threats",
+          "non-ETB creatures"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "blink", "ETB"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-7-graveyard-recursion-muldrotha",
+      "name": "Graveyard Recursion (Muldrotha) - Avoid exile anti-synergy",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Muldrotha, the Gravetide",
+        "deckText": "1 Muldrotha, the Gravetide\n1 Satyr Wayfinder\n1 Stitcher's Supplier\n1 Grapple with the Past\n1 Eternal Witness\n1 Seasons Past\n1 Underrealm Lich\n1 Shriekmaw\n1 Spore Frog\n1 The Gitrog Monster\n10 Swamp\n10 Island\n10 Forest",
+        "plan": "graveyard recursion"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "graveyard",
+          "recursion",
+          "recursion loops",
+          "synergy chain"
+        ],
+        "shouldNotContain": [
+          "exile removal",
+          "exile-based effects"
+        ],
+        "shouldNotMentionCard": [
+          "Path to Exile",
+          "Swords to Plowshares",
+          "Rest in Peace"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "graveyard", "recursion"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-8-spellslinger-veyran",
+      "name": "Spellslinger (Veyran) - Spell density detection",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Veyran, Voice of Duality",
+        "deckText": "1 Veyran, Voice of Duality\n1 Thousand-Year Storm\n1 Archmage Emeritus\n1 Storm-Kiln Artist\n1 Opt\n1 Consider\n1 Brainstorm\n1 Lightning Bolt\n1 Izzet Charm\n1 Serum Visions\n1 Guttersnipe\n1 Aetherflux Reservoir\n10 Island\n10 Mountain",
+        "plan": "spellslinger storm"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "spellslinger",
+          "instant/sorcery synergies",
+          "spell-chain reasoning"
+        ],
+        "shouldNotContain": [
+          "creature-based ramp",
+          "mana dorks"
+        ],
+        "shouldNotMentionCard": [
+          "Llanowar Elves",
+          "Sakura-Tribe Elder",
+          "Cultivate"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "spellslinger", "storm"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-9-control-aminatou",
+      "name": "Control (Aminatou) - Control heuristics",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Aminatou, the Fateshifter",
+        "deckText": "1 Aminatou, the Fateshifter\n1 Teferi, Hero of Dominaria\n1 Narset, Parter of Veils\n1 Supreme Verdict\n1 Swords to Plowshares\n1 Vindicate\n1 Dovin's Veto\n1 Ponder\n1 Preordain\n1 Oath of Teferi\n10 Plains\n10 Island\n10 Swamp",
+        "plan": "control superfriends"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "control",
+          "superfriends",
+          "card advantage",
+          "more walkers",
+          "protection"
+        ],
+        "shouldNotContain": [
+          "add big creatures",
+          "combat plans"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "control", "superfriends"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-10-combo-kinnan-polymorph",
+      "name": "Combo (Kinnan Polymorph) - Combo detection",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Kinnan, Bonder Prodigy",
+        "deckText": "1 Kinnan, Bonder Prodigy\n1 Hullbreaker Horror\n1 Peregrine Drake\n1 Palinchron\n1 Transmogrify\n1 Lukka, Coppercoat Outcast\n1 Polymorph\n1 Llanowar Elves\n1 Coiling Oracle\n1 Kiora's Follower\n10 Island\n10 Forest",
+        "plan": "polymorph combo"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "combo",
+          "Kinnan",
+          "polymorph",
+          "cheat big creatures",
+          "redundancy",
+          "tutors",
+          "protection"
+        ],
+        "shouldNotContain": [
+          "landfall",
+          "ramp midrange advice"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "combo", "polymorph"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-11-stax-heliod",
+      "name": "Stax (Heliod) - Resource denial recognition",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Heliod, God of the Sun",
+        "deckText": "1 Heliod, God of the Sun\n1 Rule of Law\n1 Archon of Emeria\n1 Drannith Magistrate\n1 Aura of Silence\n1 Rest in Peace\n1 Thalia, Heretic Cathar\n1 Heliod's Intervention\n1 Smothering Tithe\n1 Approach of the Second Sun\n20 Plains",
+        "plan": "stax resource denial"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "stax",
+          "lock pieces",
+          "resource denial"
+        ],
+        "shouldNotContain": [
+          "token engines",
+          "voltron gear"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "stax", "resource-denial"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-12-cheat-kaalia",
+      "name": "Cheat into Play (Kaalia) - Archetype from creature tags",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Kaalia of the Vast",
+        "deckText": "1 Kaalia of the Vast\n1 Avacyn, Angel of Hope\n1 Rakdos the Defiler\n1 Gisela, Blade of Goldnight\n1 Balefire Dragon\n1 Angel of Serenity\n1 Sneak Attack\n1 Reanimate\n1 Faithless Looting\n10 Plains\n10 Swamp\n10 Mountain",
+        "plan": "cheat angels demons dragons"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "cheat-into-play",
+          "Angels",
+          "Demons",
+          "Dragons",
+          "large A/D/D creatures",
+          "protection"
+        ],
+        "shouldNotContain": [
+          "landfall",
+          "tokens",
+          "blink"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "cheat", "kaalia"],
+      "source": "archetype-stress-suite-2025-01-27"
+    },
+    {
+      "id": "archetype-test-13-fakeout-meren",
+      "name": "Fake-Out Deck (Meren) - Pattern override test",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "Analyze this deck and suggest improvements",
+        "format": "Commander",
+        "commander": "Meren of Clan Nel Toth",
+        "deckText": "1 Meren of Clan Nel Toth\n1 Rampaging Baloths\n1 Primordial Sage\n1 Terastodon\n1 Woodfall Primus\n1 Vorinclex, Voice of Hunger\n1 Skyshroud Claim\n1 Nissa's Pilgrimage\n1 Cultivate\n10 Swamp\n10 Forest",
+        "plan": "big mana golgari midrange"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "big mana",
+          "Golgari midrange"
+        ],
+        "shouldNotContain": [
+          "aristocrats",
+          "sacrifice outlets",
+          "death triggers"
+        ],
+        "shouldNotMentionCard": [
+          "Blood Artist",
+          "Viscera Seer",
+          "Zulaport Cutthroat",
+          "Woe Strider"
+        ],
+        "minLength": 200
+      },
+      "tags": ["archetype-stress", "fakeout", "pattern-override"],
+      "source": "archetype-stress-suite-2025-01-27"
     }
   ]
 }
