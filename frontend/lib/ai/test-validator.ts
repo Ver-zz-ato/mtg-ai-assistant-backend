@@ -13,6 +13,161 @@ export type ValidationResult = {
   warnings: string[];
 };
 
+/**
+ * Synonym groups for flexible keyword matching
+ * Maps a canonical phrase to its synonyms/variants
+ */
+const KEYWORD_SYNONYMS: Record<string, string[]> = {
+  // Ramp-related phrases
+  "ramp: about 10–12 pieces": [
+    "about 8-12 ramp",
+    "around 10-12 ramp",
+    "roughly 10-12 ramp",
+    "about ten ramp pieces",
+    "around 8-12 ramp cards",
+    "roughly 10-12 ramp effects",
+    "8-12 ramp sources",
+    "about 8-12 ramp pieces",
+    "around ten ramp",
+    "roughly 10-12 ramp",
+  ],
+  "about 8–12 ramp": [
+    "about 8-12 ramp",
+    "around 10-12 ramp",
+    "roughly 10-12 ramp",
+    "about ten ramp pieces",
+    "around 8-12 ramp cards",
+    "roughly 10-12 ramp effects",
+    "8-12 ramp sources",
+    "about 8-12 ramp pieces",
+  ],
+  // Land count phrases
+  "around 19–20 lands": [
+    "around 19-20 lands",
+    "about 19-20 lands",
+    "roughly 20 lands",
+    "you usually play about 19-20 lands",
+    "typically 19-20 lands",
+    "around 20 lands",
+    "about 20 lands",
+  ],
+  "around 36–38 lands": [
+    "around 36-38 lands",
+    "about 36-38 lands",
+    "roughly 36-38 lands",
+    "typically 36-38 lands",
+    "around 37 lands",
+    "about 37 lands",
+  ],
+  "around 24 lands": [
+    "around 24 lands",
+    "about 24 lands",
+    "roughly 24 lands",
+    "typically 24 lands",
+    "around 23-25 lands",
+    "about 23-25 lands",
+  ],
+  // Graveyard/recursion phrases
+  "graveyard": [
+    "graveyard",
+    "yard",
+    "grave",
+    "using your yard",
+    "from the grave",
+    "graveyard recursion",
+    "graveyard value",
+  ],
+  "recursion": [
+    "recursion",
+    "recur",
+    "recurring",
+    "getting cards back",
+    "bring back",
+    "reuse",
+    "reusing",
+    "return from graveyard",
+    "recur from graveyard",
+  ],
+  "reanimate": [
+    "reanimate",
+    "reanimation",
+    "bring back",
+    "return from graveyard",
+    "recur from graveyard",
+    "get back from graveyard",
+  ],
+  // Enchantress/enchantment phrases
+  "enchantress": [
+    "enchantress",
+    "enchantment-based draw",
+    "enchantments that draw",
+    "enchantments powering draw",
+    "enchantment draw engines",
+    "enchantment-matter",
+  ],
+  "enchantment": [
+    "enchantment",
+    "enchantments",
+    "enchantment-based",
+    "enchantment matter",
+  ],
+  // Removal phrases
+  "little to no creature removal": [
+    "little to no creature removal",
+    "minimal creature removal",
+    "few creature removal",
+    "not much creature removal",
+    "lacks creature removal",
+    "missing creature removal",
+  ],
+};
+
+/**
+ * Check if response contains a keyword or any of its synonyms
+ */
+function matchesKeywordFlexible(response: string, keyword: string): boolean {
+  const responseLower = response.toLowerCase();
+  const keywordLower = keyword.toLowerCase();
+  
+  // First try exact match
+  if (responseLower.includes(keywordLower)) {
+    return true;
+  }
+  
+  // Check synonyms
+  const synonyms = KEYWORD_SYNONYMS[keyword] || KEYWORD_SYNONYMS[keywordLower];
+  if (synonyms) {
+    return synonyms.some(synonym => responseLower.includes(synonym.toLowerCase()));
+  }
+  
+  // For numeric ranges, try semantic matching
+  // e.g., "about 10-12 ramp" should match "around 8-12 ramp pieces"
+  const rangeMatch = keyword.match(/(\d+)[\s-–]+(?:to|–|-)[\s-–]+(\d+)\s+(ramp|lands?|draw|removal)/i);
+  if (rangeMatch) {
+    const [, minStr, maxStr, category] = rangeMatch;
+    const min = parseInt(minStr);
+    const max = parseInt(maxStr);
+    const catLower = category.toLowerCase();
+    
+    // Look for similar ranges in response
+    const rangePattern = new RegExp(
+      `(?:about|around|roughly|typically|usually|generally)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${catLower}`,
+      "i"
+    );
+    const matches = response.matchAll(rangePattern);
+    for (const match of matches) {
+      const respMin = parseInt(match[1]);
+      const respMax = parseInt(match[2]);
+      // Accept if ranges overlap significantly (within 2 of each other)
+      if (Math.abs(respMin - min) <= 2 && Math.abs(respMax - max) <= 2) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
 export type ExpectedChecks = {
   shouldContain?: string[];
   shouldNotContain?: string[];
@@ -79,18 +234,17 @@ export function validateKeywords(
   let passedCount = 0;
   let totalChecks = 0;
 
-  // Should contain keywords
+  // Should contain keywords (with flexible synonym matching)
   if (expectedChecks.shouldContain && expectedChecks.shouldContain.length > 0) {
     for (const keyword of expectedChecks.shouldContain) {
       totalChecks++;
-      const keywordLower = keyword.toLowerCase();
-      const passed = responseLower.includes(keywordLower);
+      const passed = matchesKeywordFlexible(response, keyword);
       checks.push({
         type: "shouldContain",
         passed,
         message: passed
-          ? `Contains "${keyword}"`
-          : `Missing required keyword: "${keyword}"`,
+          ? `Contains "${keyword}" or equivalent phrasing`
+          : `Missing required concept: "${keyword}" (or equivalent phrasing)`,
       });
       if (passed) passedCount++;
     }
@@ -832,6 +986,7 @@ export function validateProblemsFirstStructure(
 
 /**
  * Synergy Judge: Checks that at least one sentence connects multiple cards with synergy language
+ * Now more flexible - doesn't require specific trigger phrases, focuses on structure
  */
 export function validateSynergy(
   response: string,
@@ -855,57 +1010,137 @@ export function validateSynergy(
 
   const responseLower = response.toLowerCase();
   
-  // Synergy language patterns
-  const synergyPhrases = [
-    "works well with", "combos with", "pairs with", "synergizes with",
-    "supports", "triggers", "fuels", "payoff for", "engine", "sac outlet",
-    "token maker", "enables", "works together", "combines with", "interacts with",
-    "when you", "whenever you", "each time you", "when X enters", "when X dies"
+  // Extract card names (multiple patterns: **Card Name**, [[Card Name]], or quoted "Card Name")
+  const cardNamePatterns = [
+    /\*\*([^*]+)\*\*/g,  // **Card Name**
+    /\[\[([^\]]+)\]\]/g, // [[Card Name]]
+    /"([^"]+)"/g,        // "Card Name"
   ];
   
-  // Extract card names (simple pattern - **Card Name** or [[Card Name]])
-  const cardNamePattern = /\*\*([^*]+)\*\*/g;
   const cardNames: string[] = [];
-  let match;
-  while ((match = cardNamePattern.exec(response)) !== null) {
-    cardNames.push(match[1].toLowerCase().trim());
+  for (const pattern of cardNamePatterns) {
+    let match;
+    while ((match = pattern.exec(response)) !== null) {
+      const name = match[1].toLowerCase().trim();
+      // Filter out common non-card phrases
+      if (name.length > 2 && name.length < 50 && !/^(the|and|or|of|in|at|to|for|with|by|from|build|deck|commander|your|this|that)$/i.test(name)) {
+        if (!cardNames.includes(name)) {
+          cardNames.push(name);
+        }
+      }
+    }
   }
   
-  // Check if any sentence contains both synergy language and multiple card names
-  const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  let hasSynergySentence = false;
+  // Need at least 2 card names to have synergy
+  if (cardNames.length < 2) {
+    checks.push({
+      type: "synergy",
+      passed: false,
+      message: "Need at least 2 card names to explain synergy",
+    });
+    return {
+      passed: false,
+      score: 0,
+      checks,
+      warnings: ["Response should mention at least 2 specific cards to explain how they work together"],
+    };
+  }
   
+  // Split into sentences for analysis
+  const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  
+  // Look for synergy explanations - more flexible patterns
+  // A synergy explanation should:
+  // 1. Mention 2+ card names in same sentence/paragraph
+  // 2. Explain how one enables/amplifies the other
+  // 3. Use causal language (because, so that, which lets, by doing X you can Y, etc.)
+  
+  const causalPatterns = [
+    /\b(because|so that|which lets|which allows|which enables|by doing|when you|whenever you|each time you|as you|if you)\b/i,
+    /\b(triggers|enables|allows|lets|gives you|provides|creates|generates|produces)\b/i,
+    /\b(then|next|after|once|when|whenever)\b/i,
+  ];
+  
+  const enablePatterns = [
+    /\b(enables|allows|lets|gives|provides|creates|generates|produces|triggers|activates)\b/i,
+    /\b(converts|turns|transforms|changes)\b/i,
+    /\b(amplifies|enhances|boosts|multiplies|doubles)\b/i,
+  ];
+  
+  let hasValidSynergy = false;
+  let synergySentence = "";
+  
+  // Check each sentence for synergy structure
   for (const sentence of sentences) {
     const sentenceLower = sentence.toLowerCase();
-    const hasSynergyPhrase = synergyPhrases.some(phrase => sentenceLower.includes(phrase));
-    
-    // Count card names in this sentence
     const cardsInSentence = cardNames.filter(card => sentenceLower.includes(card));
     
-    if (hasSynergyPhrase && cardsInSentence.length >= 2) {
-      hasSynergySentence = true;
+    // Need at least 2 cards in the sentence
+    if (cardsInSentence.length < 2) continue;
+    
+    // Check for causal/enable language
+    const hasCausalLanguage = causalPatterns.some(pattern => pattern.test(sentence));
+    const hasEnableLanguage = enablePatterns.some(pattern => pattern.test(sentence));
+    
+    // Also check for sequence indicators (X then Y, X enables Y, etc.)
+    const hasSequence = /\b(then|next|after|once|when|whenever|as|while)\b/i.test(sentence);
+    
+    // Check for explicit interaction description (mentions what one card does that affects the other)
+    const hasInteraction = /\b(triggers?|responds?|reacts?|uses?|takes advantage|leverages?|benefits? from)\b/i.test(sentence);
+    
+    // Valid synergy if it has:
+    // - 2+ cards AND
+    // - (causal language OR enable language OR sequence) AND
+    // - (interaction description OR explicit "together" language OR explains outcome)
+    const hasOutcome = /\b(together|combined|synergy|combo|loop|engine|value|advantage|result|achieve|accomplish|win|drain|draw|token|damage)\b/i.test(sentence);
+    
+    if (cardsInSentence.length >= 2 && (hasCausalLanguage || hasEnableLanguage || hasSequence) && (hasInteraction || hasOutcome || sentenceLower.includes("together"))) {
+      hasValidSynergy = true;
+      synergySentence = sentence.trim();
       break;
     }
   }
   
-  // Also check if response mentions at least 2 cards together in a meaningful way
-  // (even without explicit synergy phrases, if cards are mentioned together it might be synergy)
-  const hasMultipleCards = cardNames.length >= 2;
-  const passed = hasSynergySentence || (hasMultipleCards && responseLower.includes(" and ") && responseLower.length > 100);
+  // Fallback: Check if response has multiple cards mentioned close together with connecting words
+  if (!hasValidSynergy && cardNames.length >= 2) {
+    // Look for patterns like "Card A and Card B" or "Card A, Card B" in close proximity
+    for (let i = 0; i < cardNames.length - 1; i++) {
+      const card1 = cardNames[i];
+      const card2 = cardNames[i + 1];
+      const card1Index = responseLower.indexOf(card1);
+      const card2Index = responseLower.indexOf(card2);
+      
+      // If cards are mentioned within 200 chars of each other
+      if (card1Index !== -1 && card2Index !== -1 && Math.abs(card1Index - card2Index) < 200) {
+        const between = responseLower.substring(
+          Math.min(card1Index, card2Index),
+          Math.max(card1Index, card2Index) + Math.max(card1.length, card2.length)
+        );
+        
+        // Check for connecting language
+        if (/\b(and|with|plus|along|together|synergy|combo|works|enables|triggers|because|so|which|when)\b/i.test(between)) {
+          hasValidSynergy = true;
+          break;
+        }
+      }
+    }
+  }
+  
+  const passed = hasValidSynergy;
   
   checks.push({
     type: "synergy",
     passed,
     message: passed
-      ? "Contains synergy language connecting multiple cards"
-      : "Missing synergy explanations - should connect multiple cards with phrases like 'works well with', 'combos with', etc.",
+      ? `Contains synergy explanation connecting multiple cards${synergySentence ? `: "${synergySentence.slice(0, 80)}..."` : ""}`
+      : "Missing synergy explanation - should explain how 2+ cards work together (e.g., 'Card A does X, which enables Card B to do Y')",
   });
   
   return {
     passed,
     score: passed ? 100 : 0,
     checks,
-    warnings: passed ? [] : ["Response should explain how cards work together, not just list isolated suggestions"],
+    warnings: passed ? [] : ["Response should explain how cards interact, not just list them separately"],
   };
 }
 
