@@ -17,9 +17,11 @@ export function useProStatus() {
       return;
     }
     
-    (async () => {
+    const sb = createBrowserSupabaseClient();
+    
+    // Initial check + real-time subscription for Pro status updates
+    const checkProStatus = async () => {
       try {
-        const sb = createBrowserSupabaseClient();
         const { data } = await sb
           .from('profiles')
           .select('is_pro')
@@ -33,7 +35,35 @@ export function useProStatus() {
       } finally {
         setLoading(false);
       }
-    })();
+    };
+    
+    // Initial check
+    checkProStatus();
+    
+    // Subscribe to real-time profile changes (e.g., when admin toggles Pro)
+    const channel = sb
+      .channel(`profile-status-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          // Profile was updated - refresh Pro status
+          const newIsPro = Boolean((payload.new as any)?.is_pro);
+          setIsPro(newIsPro);
+          setLoading(false);
+          console.info('[useProStatus] Pro status updated via real-time', { isPro: newIsPro });
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      sb.removeChannel(channel);
+    };
   }, [user, authLoading]);
   
   return { isPro, loading };

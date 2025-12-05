@@ -26,8 +26,8 @@ export default function ProProvider({ children }: { children: React.ReactNode })
     
     const sb = createBrowserSupabaseClient();
     
-    // Check Pro status - DATABASE IS SOURCE OF TRUTH
-    (async () => {
+    // Initial check + real-time subscription for Pro status updates
+    const checkProStatus = async () => {
       try {
         const { data: profile, error } = await sb
           .from('profiles')
@@ -49,7 +49,34 @@ export default function ProProvider({ children }: { children: React.ReactNode })
       } catch (err) {
         setIsPro(false);
       }
-    })();
+    };
+    
+    // Initial check
+    checkProStatus();
+    
+    // Subscribe to real-time profile changes (e.g., when admin toggles Pro)
+    const channel = sb
+      .channel(`profile-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          // Profile was updated - refresh Pro status
+          const newIsPro = Boolean((payload.new as any)?.is_pro);
+          setIsPro(newIsPro);
+          console.info('Pro status updated via real-time subscription', { isPro: newIsPro });
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      sb.removeChannel(channel);
+    };
   }, [user, loading]);
 
   return (

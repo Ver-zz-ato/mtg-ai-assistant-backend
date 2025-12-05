@@ -155,13 +155,37 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   // Find user by customer ID and update their profile
   const supabase = await getServerSupabase();
   
-  const { data: profile, error: findError } = await supabase
+  let profile: { id: string } | null = null;
+  
+  // Try lookup by stripe_customer_id first
+  const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', session.customer)
     .single();
 
-  if (findError || !profile) {
+  if (profileByCustomer) {
+    profile = profileByCustomer;
+  } else {
+    // Fallback: Look up by user ID from session metadata (in case customer ID wasn't saved yet)
+    const userId = (session.metadata as any)?.app_user_id;
+    if (userId) {
+      const { data: profileById, error: findByIdError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+      
+      if (profileById) {
+        profile = profileById;
+        console.info('Found user by metadata.app_user_id fallback', { userId, customerId: session.customer });
+      } else {
+        console.error('Failed to find user by ID fallback:', userId, findByIdError);
+      }
+    }
+  }
+
+  if (!profile) {
     console.error('Failed to find user profile for customer:', session.customer, findError);
     return;
   }
