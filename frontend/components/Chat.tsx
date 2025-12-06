@@ -22,6 +22,7 @@ import { aiMemory } from '@/lib/ai-memory';
 import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
+import { logger } from "@/lib/logger";
 // Enhanced chat functionality
 import { 
   analyzeDeckProblems, 
@@ -269,7 +270,7 @@ function Chat() {
         return;
       }
       // Only throw for unexpected errors - suppress auth errors for guests
-      console.warn('Non-critical chat error:', e?.message);
+      logger.warn('Non-critical chat error:', { message: e?.message });
     }
   }
 
@@ -356,7 +357,7 @@ function Chat() {
         setCardImages(imagesMap);
         setCardPrices(pricesMap);
       } catch (error) {
-        console.warn('Failed to fetch card data:', error);
+        logger.warn('Failed to fetch card data:', { error });
       }
     })();
   }, [messages, isStreaming, streamingContent]);
@@ -563,7 +564,7 @@ function Chat() {
           deckContext = generateDeckContext(deckProblems, 'Current Deck');
         }
       } catch (error) {
-        console.warn('Failed to generate deck context:', error);
+        logger.warn('Failed to generate deck context:', { error });
       }
     }
     
@@ -831,7 +832,7 @@ function Chat() {
             ]);
             capture('chat_guest_limit', { message_count: guestMessageCount });
           } else {
-            console.error("Stream error:", error);
+            logger.error("Stream error:", error);
             streamFailed = true;
             
             // Track repeated errors for frustration detection

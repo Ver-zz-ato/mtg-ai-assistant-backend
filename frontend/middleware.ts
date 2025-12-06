@@ -2,6 +2,18 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { captureServer } from './lib/server/analytics';
+import { validateEnv } from './lib/env';
+
+// Validate environment variables at startup (fail fast)
+try {
+  validateEnv();
+} catch (error) {
+  // Log error but don't crash - middleware runs on every request
+  // The error will be caught when API routes try to use missing env vars
+  if (process.env.NODE_ENV === 'development') {
+    console.error('[Middleware] Environment validation warning:', error);
+  }
+}
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],

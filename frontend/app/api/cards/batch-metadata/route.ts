@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
+import { CachePresets } from "@/lib/api/cache";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -28,8 +30,8 @@ export const POST = withLogging(async (req: NextRequest) => {
     const uniq = Array.from(new Set(names.map((n: string) => n.trim()).filter(Boolean)));
     const keys = uniq.map(norm);
     
-    console.log('[batch-metadata] Querying for', keys.length, 'unique cards');
-    console.log('[batch-metadata] First 3 keys:', keys.slice(0, 3));
+    logger.debug('[batch-metadata] Querying for', keys.length, 'unique cards');
+    logger.debug('[batch-metadata] First 3 keys:', keys.slice(0, 3));
 
     // Fetch metadata from our scryfall_cache table
     const { data: rows, error } = await supabase
@@ -37,12 +39,12 @@ export const POST = withLogging(async (req: NextRequest) => {
       .select("name, type_line, oracle_text, color_identity, rarity, set, small, normal, art_crop")
       .in("name", keys);
     
-    console.log('[batch-metadata] Query returned', rows?.length || 0, 'rows');
-    if (error) console.error('[batch-metadata] Query error:', error);
+    logger.debug('[batch-metadata] Query returned', rows?.length || 0, 'rows');
+    if (error) logger.error('[batch-metadata] Query error:', error);
     if (rows && rows.length > 0) {
-      console.log('[batch-metadata] First 3 rows:', rows.slice(0, 3));
-      console.log('[batch-metadata] First row raw data:', JSON.stringify(rows[0], null, 2));
-      console.log('[batch-metadata] Checking rarity field:', rows[0]?.rarity, 'type:', typeof rows[0]?.rarity);
+      logger.debug('[batch-metadata] First 3 rows:', rows.slice(0, 3));
+      logger.debug('[batch-metadata] First row raw data:', JSON.stringify(rows[0], null, 2));
+      logger.debug('[batch-metadata] Checking rarity field:', rows[0]?.rarity, 'type:', typeof rows[0]?.rarity);
     }
 
     const rowsArray = (rows || []) as any[];
@@ -86,9 +88,12 @@ export const POST = withLogging(async (req: NextRequest) => {
     // Cache for 1 day
     memoSet(cacheKey, result, DAY);
     
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(result, { 
+      status: 200,
+      headers: CachePresets.LONG
+    });
   } catch (error) {
-    console.error('Batch metadata API error:', error);
+    logger.error('Batch metadata API error:', error);
     return NextResponse.json(
       { error: "Failed to fetch card metadata" }, 
       { status: 500 }

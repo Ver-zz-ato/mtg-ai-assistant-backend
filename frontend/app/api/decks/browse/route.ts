@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { CachePresets } from "@/lib/api/cache";
+import { logger } from "@/lib/logger";
 
 // Use service role client to bypass RLS for public deck browsing
 // This is safe because we only query decks with is_public = true
@@ -147,12 +149,12 @@ export async function GET(req: Request) {
     const filteredDecks = (data || []).filter(d => {
       const cardCount = countCards(d.deck_text);
       if (cardCount < 10) {
-        console.log(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
+        logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
       }
       return cardCount >= 10;
     });
     
-    console.log(`[Browse Decks] After card count filter: ${filteredDecks.length} decks`);
+    logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks`);
 
     // Get owner usernames
     const ownerIds = [...new Set(filteredDecks.map(d => d.user_id).filter(Boolean))];
@@ -179,12 +181,10 @@ export async function GET(req: Request) {
       limit,
       hasMore: filteredDecks.length > offset + limit,
     }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
-      }
+      headers: CachePresets.SHORT
     });
   } catch (error: any) {
-    console.error('[Browse Decks] Exception:', error);
+    logger.error('[Browse Decks] Exception:', error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }

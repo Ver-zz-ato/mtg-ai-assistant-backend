@@ -4,6 +4,7 @@ import { ChatPostSchema } from "@/lib/validate";
 import { ok, err } from "@/app/api/_utils/envelope";
 import type { SfCard } from "@/lib/deck/inference";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
+import { logger } from "@/lib/logger";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -247,7 +248,7 @@ async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allo
     const messageCount = count || 0;
     return { allowed: messageCount < FREE_USER_DAILY_LIMIT, count: messageCount };
   } catch (err) {
-    console.error('[checkFreeUserLimit] Exception:', err);
+    logger.error('[checkFreeUserLimit] Exception:', err);
     return { allowed: true, count: 0 };
   }
 }

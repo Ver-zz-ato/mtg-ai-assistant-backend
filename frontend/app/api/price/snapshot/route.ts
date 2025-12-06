@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { CachePresets } from "@/lib/api/cache";
 
 function norm(name: string): string {
   return String(name||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
@@ -43,7 +44,10 @@ export async function POST(req: NextRequest) {
     const prices: Record<string, number> = {};
     for (const row of (data as any[]) || []) prices[row.name_norm] = Number(row.unit);
 
-    return NextResponse.json({ ok: true, prices, currency, snapshot_date: latest });
+    return NextResponse.json(
+      { ok: true, prices, currency, snapshot_date: latest },
+      { headers: CachePresets.VERY_LONG }
+    );
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
