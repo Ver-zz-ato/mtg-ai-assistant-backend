@@ -163,17 +163,39 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     (Object.keys(types) as Array<keyof typeof types>).forEach(k => { if (tl.includes(k)) types[k] += q; });
   }
 
-  // Core meters: lands/ramp/draw/removal heuristic counts
+  // Core meters: lands/ramp/draw/removal heuristic counts - mutually exclusive
   const core = { lands:0, ramp:0, draw:0, removal:0 } as Record<string, number>;
   for (const { name, qty } of arr) {
     const d = details[norm(name)];
     const tl = String(d?.type_line||'');
     const text = String(d?.oracle_text||'').toLowerCase();
+    const nameLower = String(name||'').toLowerCase();
     const q = Math.max(1, Number(qty)||1);
-    if (tl.includes('Land')) core.lands += q;
-    if (/add \{[wubrgc]/i.test(text) || /search your library.*land/i.test(text) || /rampant growth|cultivate|kodama's reach|signet|talisman|sol ring/i.test(text)) core.ramp += q;
-    if (/draw .* card|investigate|impulse|cantrip|scry \d+/i.test(text)) core.draw += q;
-    if (/destroy target|exile target|counter target|fight target|deal .* damage to any target/i.test(text)) core.removal += q;
+    
+    // Priority order: Lands > Ramp > Draw > Removal (mutually exclusive)
+    if (tl.includes('Land')) {
+      core.lands += q;
+    } else if (
+      // Ramp: mana rocks, land search, or cards that add mana
+      /signet|talisman|sol ring|mana crypt|mana vault|chrome mox|mox diamond/i.test(nameLower) ||
+      /add \{[wubrg]\}/i.test(text) ||
+      /search your library for (a|up to .*?) land/i.test(text) ||
+      /rampant growth|cultivate|kodama's reach|farseek|nature's lore|three visits/i.test(nameLower)
+    ) {
+      core.ramp += q;
+    } else if (
+      // Draw: cards that draw cards (not just scry)
+      /draw (a|one|two|three|X|\d+) card/i.test(text) ||
+      /investigate/i.test(text) ||
+      /impulse|brainstorm|ponder|preordain|serum visions|opt/i.test(nameLower)
+    ) {
+      core.draw += q;
+    } else if (
+      // Removal: targeted destruction, exile, counter, or damage to any target
+      /destroy target|exile target|counter target spell|fight target|deal \d+ damage to any target/i.test(text)
+    ) {
+      core.removal += q;
+    }
   }
 
   function pieSvg(counts: Record<string, number>) {

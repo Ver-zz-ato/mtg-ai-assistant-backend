@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
+import PublicDeckCardList from "@/components/PublicDeckCardList";
 import LikeButton from "@/components/likes/LikeButton";
 import DeckComments from "@/components/DeckComments";
 import ExportToMoxfield from "@/components/ExportToMoxfield";
@@ -252,17 +253,39 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const q = Math.max(1, Number(qty)||1);
     (Object.keys(types) as Array<keyof typeof types>).forEach(k => { if (tl.includes(k)) types[k] += q; });
   }
-  // Core needs heuristic
+  // Core needs heuristic - mutually exclusive categorization
   const core = { lands:0, ramp:0, draw:0, removal:0 } as Record<string, number>;
   for (const { name, qty } of (cards||[])){
     const d = detailsAll[norm(name)] || {};
     const tl = String(d?.type_line||'');
     const text = String(d?.oracle_text||'').toLowerCase();
+    const nameLower = String(name||'').toLowerCase();
     const q = Math.max(1, Number(qty)||1);
-    if (tl.includes('Land')) core.lands += q;
-    if (/add \{[wubrgc]/i.test(text) || /search your library.*land/i.test(text) || /rampant growth|cultivate|kodama's reach|signet|talisman|sol ring/i.test(text)) core.ramp += q;
-    if (/draw .* card|investigate|impulse|cantrip|scry \d+/i.test(text)) core.draw += q;
-    if (/destroy target|exile target|counter target|fight target|deal .* damage to any target/i.test(text)) core.removal += q;
+    
+    // Priority order: Lands > Ramp > Draw > Removal (mutually exclusive)
+    if (tl.includes('Land')) {
+      core.lands += q;
+    } else if (
+      // Ramp: mana rocks, land search, or cards that add mana
+      /signet|talisman|sol ring|mana crypt|mana vault|chrome mox|mox diamond/i.test(nameLower) ||
+      /add \{[wubrg]\}/i.test(text) ||
+      /search your library for (a|up to .*?) land/i.test(text) ||
+      /rampant growth|cultivate|kodama's reach|farseek|nature's lore|three visits/i.test(nameLower)
+    ) {
+      core.ramp += q;
+    } else if (
+      // Draw: cards that draw cards (not just scry)
+      /draw (a|one|two|three|X|\d+) card/i.test(text) ||
+      /investigate/i.test(text) ||
+      /impulse|brainstorm|ponder|preordain|serum visions|opt/i.test(nameLower)
+    ) {
+      core.draw += q;
+    } else if (
+      // Removal: targeted destruction, exile, counter, or damage to any target
+      /destroy target|exile target|counter target spell|fight target|deal \d+ damage to any target/i.test(text)
+    ) {
+      core.removal += q;
+    }
   }
 
   function pieSvg(counts: Record<string, number>) {
@@ -449,29 +472,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                 Decklist ({(cards || []).length} cards)
               </h2>
             </div>
-            {(cards || []).length === 0 ? (
-              <div className="text-sm text-neutral-400 text-center py-8">No cards yet.</div>
-            ) : (
-              <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                <ul className="space-y-2">
-                  {(cards || []).map((c) => {
-                    const unit = priceMap.get(String(c.name).toLowerCase());
-                    const each = typeof unit === 'number' && unit>0 ? `$${unit.toFixed(2)}` : '';
-                    return (
-                      <li key={c.name} className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-800/40 hover:bg-neutral-800/70 transition-colors border border-neutral-700/50 hover:border-neutral-600/70 group">
-                        <span className="w-10 text-center tabular-nums font-semibold text-emerald-400 bg-neutral-900/50 px-2 py-1 rounded">{c.qty}×</span>
-                        <span className="flex-1 font-medium text-neutral-100">{c.name}</span>
-                        {each && (
-                          <span className="text-xs font-mono text-green-400 bg-green-950/40 px-2 py-1 rounded border border-green-900/50">
-                            {each}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+            <PublicDeckCardList cards={cards || []} priceMap={priceMap} />
           </div>
           
           {/* Comments Section */}

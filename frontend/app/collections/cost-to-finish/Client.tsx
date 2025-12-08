@@ -3,6 +3,7 @@
 import * as React from "react";
 import { capture } from "@/lib/ph";
 import { trackApiCall, trackPerformance } from '@/lib/analytics-performance';
+import FixDeckNamesModal from "@/components/FixDeckNamesModal";
 
 import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -206,6 +207,11 @@ export default function CostToFinishClient() {
   const [cardSwapLoading, setCardSwapLoading] = React.useState<Record<string, boolean>>({});
   const [cardSwapResults, setCardSwapResults] = React.useState<Record<string, any[]>>({});
   const [batchSwapsLoading, setBatchSwapsLoading] = React.useState(false);
+  
+  // Name fixing for pasted deck text
+  const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
+  const [fixNamesItems, setFixNamesItems] = React.useState<Array<{ originalName: string; qty: number; suggestions: string[] }>>([]);
+  const [pendingDeckText, setPendingDeckText] = React.useState<string>("");
 
   // Lazy load more shopping list items
   const loadMoreShopItems = React.useCallback(async () => {
@@ -424,6 +430,35 @@ export default function CostToFinishClient() {
       try { const { toastError } = await import('@/lib/toast-client'); toastError('Please select a deck or paste a decklist first.'); } catch { alert('Please select a deck or paste a decklist first.'); }
       return;
     }
+    
+    // If deckText is provided, check names first
+    if (!deckId && String(deckText||'').trim()) {
+      try {
+        const r = await fetch('/api/deck/parse-and-fix-names', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deckText }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j?.ok) {
+          if (j.items && j.items.length > 0) {
+            // Show modal to fix names
+            setFixNamesItems(j.items);
+            setPendingDeckText(deckText);
+            setFixNamesOpen(true);
+            return; // Don't proceed until names are fixed
+          } else if (j.cards && j.cards.length > 0) {
+            // All names are good, update deckText with corrected names
+            const correctedText = j.cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
+            setDeckText(correctedText);
+          }
+        }
+      } catch (e: any) {
+        console.error('Failed to check names:', e);
+        // Continue anyway
+      }
+    }
+    
     try {
       setBusy(true);
       setError(null);
@@ -1572,6 +1607,32 @@ export default function CostToFinishClient() {
           </div>
         </div>
       )}
+      
+      <FixDeckNamesModal
+        open={fixNamesOpen}
+        onClose={() => setFixNamesOpen(false)}
+        items={fixNamesItems}
+        onApply={(choices) => {
+          // Update deckText with corrected names
+          const r = fetch('/api/deck/parse-and-fix-names', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deckText: pendingDeckText }),
+          }).then(res => res.json()).then(j => {
+            if (j?.ok && j.cards) {
+              // Apply user choices
+              const corrected = j.cards.map((c: any) => {
+                const choice = choices[c.name];
+                return { ...c, name: choice || c.name };
+              });
+              const correctedText = corrected.map((c: any) => `${c.qty} ${c.name}`).join('\n');
+              setDeckText(correctedText);
+              // Re-run compute with corrected text
+              setTimeout(() => onCompute(), 100);
+            }
+          }).catch(() => {});
+        }}
+      />
     </div>
   );
 }

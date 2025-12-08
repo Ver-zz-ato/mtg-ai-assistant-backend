@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
+import FixDeckNamesModal from "@/components/FixDeckNamesModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { getManaGlow } from "@/lib/mana-colors";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -28,6 +29,12 @@ export default function ProbabilityHelpersPage() {
   // Deck selection & commander art
   const [selectedDeckId, setSelectedDeckId] = React.useState<string | null>(null);
   const [commanderArt, setCommanderArt] = React.useState<string | null>(null);
+  
+  // Deck text paste & name fixing
+  const [deckText, setDeckText] = React.useState("");
+  const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
+  const [fixNamesItems, setFixNamesItems] = React.useState<Array<{ originalName: string; qty: number; suggestions: string[] }>>([]);
+  const [parsedCards, setParsedCards] = React.useState<Array<{ name: string; qty: number }>>([]);
 
   // K-chips counts (user editable quick-picks)
   const [kLands, setKLands] = React.useState(35);
@@ -268,6 +275,78 @@ export default function ProbabilityHelpersPage() {
             window.history.replaceState({}, "", url.toString());
           } catch {}
           (async()=>{ try{ const res = await autoFillColorSources(deckId); if (res) { const { W,U,B,R,G } = res; setSrcW(Number(W)||0); setSrcU(Number(U)||0); setSrcB(Number(B)||0); setSrcR(Number(R)||0); setSrcG(Number(G)||0); } } catch{} })();
+        }}
+      />
+
+      {/* Paste Your Decklist */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded p-4 space-y-3">
+        <div className="text-sm font-semibold">Paste Your Decklist</div>
+        <textarea
+          value={deckText}
+          onChange={(e) => setDeckText(e.target.value)}
+          placeholder="Paste your decklist here (e.g., '1 Sol Ring', '36 Forest', etc.)"
+          className="w-full h-32 bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-sm font-mono resize-none"
+        />
+        <p className="text-xs text-neutral-500">
+          Pick a deck to auto-fill N. Add a match term or select cards to set K.
+        </p>
+        <p className="text-xs text-neutral-500">
+          Sign in to import from your decks. You can still paste a list manually.
+        </p>
+        <button
+          onClick={async () => {
+            if (!deckText.trim()) return;
+            try {
+              const r = await fetch('/api/deck/parse-and-fix-names', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deckText }),
+              });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok || !j?.ok) {
+                alert(j?.error || 'Failed to parse deck');
+                return;
+              }
+              if (j.items && j.items.length > 0) {
+                setFixNamesItems(j.items);
+                setFixNamesOpen(true);
+                setParsedCards(j.cards || []);
+              } else {
+                // All names are good, use the parsed cards
+                setParsedCards(j.cards || []);
+                // Auto-set deck size from parsed cards
+                const total = (j.cards || []).reduce((sum: number, c: any) => sum + (c.qty || 0), 0);
+                if (total > 0) setDeckSize(total);
+              }
+            } catch (e: any) {
+              alert(e?.message || 'Failed to parse deck');
+            }
+          }}
+          disabled={!deckText.trim()}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+        >
+          Parse & Check Names
+        </button>
+      </div>
+      
+      <FixDeckNamesModal
+        open={fixNamesOpen}
+        onClose={() => setFixNamesOpen(false)}
+        items={fixNamesItems}
+        onApply={(choices) => {
+          // Update parsed cards with user choices
+          const updated = parsedCards.map(c => {
+            // Find if this card was in the fix items
+            const item = fixNamesItems.find(it => it.originalName === c.name);
+            if (item && choices[item.originalName]) {
+              return { ...c, name: choices[item.originalName] };
+            }
+            return c;
+          });
+          setParsedCards(updated);
+          // Auto-set deck size
+          const total = updated.reduce((sum, c) => sum + (c.qty || 0), 0);
+          if (total > 0) setDeckSize(total);
         }}
       />
 

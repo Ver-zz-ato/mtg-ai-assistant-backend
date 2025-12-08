@@ -55,6 +55,27 @@ export default function HandTestingWidget({
   const [cardImages, setCardImages] = useState<Record<string, { small?: string; normal?: string; mana_cost?: string; type_line?: string }>>({});
   const [imagesLoading, setImagesLoading] = useState(false);
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
+  
+  // Free trial counter (3 runs for guests)
+  const [freeRunsRemaining, setFreeRunsRemaining] = useState<number | null>(null);
+  
+  // Load free runs count from localStorage
+  React.useEffect(() => {
+    if (isPro) {
+      setFreeRunsRemaining(null); // Pro users have unlimited
+      return;
+    }
+    try {
+      const stored = localStorage.getItem('hand_testing_free_runs');
+      const count = stored ? parseInt(stored, 10) : 3;
+      setFreeRunsRemaining(Math.max(0, count));
+    } catch {
+      setFreeRunsRemaining(3);
+    }
+  }, [isPro]);
+  
+  // Check if user can run (Pro or has free runs remaining)
+  const canRun = isPro || (freeRunsRemaining !== null && freeRunsRemaining > 0);
 
   // Expand deck list accounting for quantities
   const expandedDeck = React.useMemo(() => {
@@ -69,7 +90,7 @@ export default function HandTestingWidget({
 
   // Fetch card images and details from Scryfall
   useEffect(() => {
-    if (!isPro || deckCards.length === 0) return;
+    if (!canRun || deckCards.length === 0) return;
     
     const fetchCardImages = async () => {
       setImagesLoading(true);
@@ -149,7 +170,7 @@ export default function HandTestingWidget({
     };
     
     fetchCardImages();
-  }, [deckCards, isPro]);
+  }, [deckCards, canRun]);
 
   // Fisher-Yates shuffle
   const shuffleDeck = (deck: Card[]): Card[] => {
@@ -206,7 +227,16 @@ export default function HandTestingWidget({
 
   // Start new test
   const startHandTest = async () => {
-    if (!isPro) return;
+    if (!canRun) return;
+    
+    // Decrement free runs if not Pro
+    if (!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0) {
+      const newCount = freeRunsRemaining - 1;
+      setFreeRunsRemaining(newCount);
+      try {
+        localStorage.setItem('hand_testing_free_runs', String(newCount));
+      } catch {}
+    }
     
     // If images are still loading, wait for them
     if (imagesLoading) {
@@ -265,7 +295,7 @@ export default function HandTestingWidget({
 
   // Handle mulligan decision
   const handleDecision = (decision: 'keep' | 'mulligan') => {
-    if (!testSequence || !isPro) return;
+    if (!testSequence || !canRun) return;
 
     const newDecision = {
       hand: [...currentHand],
@@ -340,14 +370,15 @@ export default function HandTestingWidget({
     }
   };
 
-  // Track PRO gate view for non-PRO users
+  // Track PRO gate view for non-PRO users who have exhausted free runs
   useEffect(() => {
-    if (!isPro) {
+    if (!isPro && freeRunsRemaining !== null && freeRunsRemaining === 0) {
       trackProGateViewed('hand_testing', 'widget_display');
     }
-  }, [isPro]);
+  }, [isPro, freeRunsRemaining]);
 
-  if (!isPro) {
+  // Show Pro gate only if user is not Pro AND has no free runs remaining
+  if (!isPro && freeRunsRemaining !== null && freeRunsRemaining === 0) {
     return (
       <div className={`bg-gradient-to-br from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4 ${className}`}>
         <div className="flex items-center gap-3 mb-3">
@@ -357,6 +388,7 @@ export default function HandTestingWidget({
           <div>
             <h3 className="font-semibold text-amber-200">Hand Testing Widget</h3>
             <p className="text-sm opacity-80">Test opening hands with realistic mulligan decisions</p>
+            <p className="text-xs text-amber-300 mt-1">You've used your 3 free runs. Upgrade to Pro for unlimited access!</p>
           </div>
           <div className="ml-auto">
             <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide">
@@ -434,6 +466,11 @@ export default function HandTestingWidget({
                 gameState === 'finished' ? `Test complete (${mulliganCount} mulligans)` :
                 `Testing... (${mulliganCount} mulligans)`}`}
             </p>
+            {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
+              <p className="text-xs text-emerald-400 mt-1">
+                {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? 's' : ''} remaining
+              </p>
+            )}
           </div>
         </div>
         
