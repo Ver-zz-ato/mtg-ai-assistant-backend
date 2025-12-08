@@ -6,6 +6,8 @@ import { PrefsProvider } from '@/components/PrefsContext';
 import ToastProvider from '@/components/ToastProvider';
 import ProProvider from '@/components/ProContext';
 import { getConsentStatus, onConsentChange } from '@/lib/consent';
+import { initWebVitals } from '@/lib/analytics/webVitals';
+import { AnalyticsEvents } from '@/lib/analytics/events';
 
 function hasConsent(): boolean {
   try {
@@ -50,6 +52,26 @@ function initPosthogIfNeeded() {
 }
 
 /**
+ * Wait for PostHog to be fully initialized before proceeding
+ * Polls posthog._loaded flag with exponential backoff
+ * Never rejects - always resolves (safe for async/await)
+ */
+function waitForPostHogReady(maxWaitMs = 5000): Promise<void> {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const checkReady = () => {
+      const ph: any = posthog as any;
+      if (ph?._loaded || Date.now() - startTime > maxWaitMs) {
+        resolve();
+        return;
+      }
+      setTimeout(checkReady, 50); // Check every 50ms
+    };
+    checkReady();
+  });
+}
+
+/**
  * Global app providers.
  * - Ensures PrefsProvider is always present (fixes "usePrefs must be used within PrefsProvider").
  * - Initializes PostHog only after consent.
@@ -60,12 +82,22 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return; // guard: never run on the server
 
     // Initialize analytics only with consent; re-check when consent is granted
-    const maybeInit = () => {
+    const maybeInit = async () => {
       if (!hasConsent()) return;
       initPosthogIfNeeded();
+      
+      // Wait for PostHog to be fully initialized before proceeding
+      await waitForPostHogReady();
+      
+      // Re-check consent (user might have declined while waiting)
+      if (!hasConsent()) return;
+      
+      // Initialize Web Vitals tracking after PostHog is confirmed ready
+      initWebVitals();
+      
       try {
         if (!sessionStorage.getItem('analytics:app_open_sent')) {
-          (posthog as any)?.capture?.('app_open');
+          (posthog as any)?.capture?.(AnalyticsEvents.APP_OPEN);
           sessionStorage.setItem('analytics:app_open_sent','1');
         }
       } catch {}

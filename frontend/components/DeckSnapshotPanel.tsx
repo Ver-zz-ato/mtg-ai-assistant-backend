@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import PublicTrustFooter from "@/components/PublicTrustFooter";
-import { capture } from "@/lib/analytics"
+import { capture } from "@/lib/ph"
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import { trackApiCall, trackError } from '@/lib/analytics-performance';
 

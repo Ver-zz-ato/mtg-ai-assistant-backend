@@ -1,22 +1,24 @@
 'use client';
 import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import posthog from 'posthog-js';
+import { capture } from '@/lib/ph';
+import { AnalyticsEvents } from '@/lib/analytics/events';
 
-function hasConsent(): boolean {
-  try { return typeof window !== 'undefined' && window.localStorage.getItem('analytics:consent') === 'granted'; } catch { return false; }
-}
-
+/**
+ * Single pageview tracker component
+ * 
+ * Tracks pageviews on route changes using the centralized capture() helper
+ * and AnalyticsEvents constant to prevent duplicates.
+ */
 function AnalyticsInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  
   useEffect(() => {
-    if (!hasConsent()) return;
     const href = typeof window !== 'undefined' ? window.location.href : (pathname || '/');
-    try {
-      posthog.capture('$pageview', { $current_url: href });
-    } catch {}
+    capture(AnalyticsEvents.PAGE_VIEW, { $current_url: href });
   }, [pathname, searchParams?.toString()]);
+  
   return null;
 }
 

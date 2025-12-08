@@ -11,10 +11,30 @@ function getHost() {
   return process.env.POSTHOG_HOST || process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.posthog.com';
 }
 
+/**
+ * Check if server-side analytics is enabled
+ * 
+ * @returns true if PostHog key is configured
+ */
 export function serverAnalyticsEnabled() {
   return !!getKey();
 }
 
+/**
+ * Capture a server-side analytics event
+ * 
+ * @param event - Event name (prefer AnalyticsEvents constants from '@/lib/analytics/events')
+ * @param properties - Event properties
+ * @param distinctId - Optional distinct ID (defaults to 'anon' or properties.user_id)
+ * 
+ * @example
+ *   import { AnalyticsEvents } from '@/lib/analytics/events';
+ *   await captureServer(AnalyticsEvents.DECK_SAVED, { deck_id: '123' }, userId);
+ * 
+ * @example
+ *   // Legacy string usage still works
+ *   await captureServer('custom_event', { custom_prop: 'value' });
+ */
 export async function captureServer(event: string, properties: Record<string, any> = {}, distinctId?: string | null) {
   try {
     const key = getKey();
@@ -27,6 +47,11 @@ export async function captureServer(event: string, properties: Record<string, an
   } catch {}
 }
 
+/**
+ * Shutdown PostHog client (flush pending events)
+ * 
+ * Should be called during app shutdown to ensure all events are sent.
+ */
 export function shutdownAnalytics() {
   try { (ph as any)?.shutdown?.(); } catch {}
 }

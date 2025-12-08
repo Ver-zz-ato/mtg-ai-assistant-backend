@@ -26,11 +26,34 @@ export function hasConsent(): boolean {
   }
 }
 
+/**
+ * Capture an analytics event
+ * 
+ * @param event - Event name (prefer AnalyticsEvents constants from '@/lib/analytics/events')
+ * @param props - Optional event properties
+ * 
+ * @example
+ *   import { AnalyticsEvents } from '@/lib/analytics/events';
+ *   capture(AnalyticsEvents.DECK_SAVED, { deck_id: '123' });
+ * 
+ * @example
+ *   // Legacy string usage still works
+ *   capture('custom_event', { custom_prop: 'value' });
+ */
 export function capture(event: string, props?: Props): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
     // @ts-ignore - posthog is attached globally by the provider init
-    window.posthog?.capture?.(event, props);
+    const ph = (window as any).posthog;
+    if (!ph?._loaded) {
+      // PostHog not ready - event will be dropped (safe no-op)
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.warn('[analytics] PostHog not ready, event dropped:', event);
+      }
+      return;
+    }
+    ph.capture(event, props);
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.debug('[analytics] %s', event, props ?? {});
@@ -38,6 +61,15 @@ export function capture(event: string, props?: Props): void {
   } catch {}
 }
 
+/**
+ * Identify a user in PostHog
+ * 
+ * @param distinctId - Unique identifier for the user
+ * @param props - Optional user properties to set
+ * 
+ * @example
+ *   identify('user_123', { email: 'user@example.com', isPro: true });
+ */
 export function identify(distinctId: string, props?: Props): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
@@ -68,6 +100,11 @@ export function identify(distinctId: string, props?: Props): void {
   } catch {}
 }
 
+/**
+ * Reset PostHog (clears user identification and properties)
+ * 
+ * Typically called when user logs out or consent is declined.
+ */
 export function reset(): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
