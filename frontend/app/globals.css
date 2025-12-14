@@ -18,6 +18,15 @@
     transform: scale(1);
   }
 }
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.5), 0 0 60px rgba(139, 92, 246, 0.3);
+  }
+}
 .skeleton-shimmer {
   background-image: linear-gradient(90deg, rgba(38,38,38,0.6) 0%, rgba(64,64,64,0.85) 50%, rgba(38,38,38,0.6) 100%);
   background-size: 200% 100%;

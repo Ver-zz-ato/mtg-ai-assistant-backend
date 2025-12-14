@@ -147,22 +147,30 @@ export default function DeckAnalyzerExpandable() {
     <div className="w-full">
       {/* Clickable button/header - always visible */}
       <div
-        className={`${isExpanded ? "rounded-t-xl border-b-0" : "rounded-xl"} bg-neutral-950 border border-neutral-800 cursor-pointer transition-all hover:border-neutral-700 relative group`}
+        className={`${isExpanded ? "rounded-t-xl border-b-0" : "rounded-xl"} bg-gradient-to-br from-neutral-950 via-neutral-950 to-neutral-900 border-2 ${isHovering && !isExpanded ? "border-violet-500 shadow-2xl shadow-violet-500/50" : "border-violet-700/60 shadow-lg shadow-violet-500/20"} cursor-pointer transition-all duration-300 relative group`}
         onClick={() => setIsExpanded(!isExpanded)}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
+        style={{
+          animation: !isExpanded ? "glow-pulse 3s ease-in-out infinite" : "none"
+        }}
       >
-        <div className="p-4 relative">
+        {/* Glow effect overlay */}
+        {!isExpanded && (
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-transparent pointer-events-none" />
+        )}
+        
+        <div className="p-5 relative z-10">
           <img
             src="/Deck_Snapshot_Horizontal_cropped.png"
             alt="Deck Snapshot / Judger - Click to analyze a decklist"
-            className="w-full h-auto"
+            className="w-full h-auto drop-shadow-lg"
           />
           
           {/* Hover overlay with "Click to try" */}
           {isHovering && !isExpanded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl transition-opacity">
-              <div className="text-white font-semibold text-lg px-4 py-2 bg-violet-600/90 rounded-lg shadow-lg">
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet-600/80 via-purple-600/80 to-violet-700/80 rounded-xl transition-opacity backdrop-blur-sm">
+              <div className="text-white font-bold text-xl px-6 py-3 bg-violet-500/95 rounded-xl shadow-2xl border-2 border-white/30 transform scale-105 transition-transform">
                 Click to try →
               </div>
             </div>
@@ -172,9 +180,10 @@ export default function DeckAnalyzerExpandable() {
 
       {/* "Click to try" hint text below panel when collapsed */}
       {!isExpanded && (
-        <div className="text-center mt-2">
-          <span className="text-xs text-neutral-500 hover:text-neutral-400 transition-colors">
-            💡 Click above to analyze any decklist
+        <div className="text-center mt-3">
+          <span className="text-sm font-medium text-violet-300 hover:text-violet-200 transition-colors inline-flex items-center gap-2 bg-violet-950/40 px-4 py-2 rounded-lg border border-violet-700/50">
+            <span className="text-lg">💡</span>
+            <span>Click above to analyze any decklist</span>
           </span>
         </div>
       )}
