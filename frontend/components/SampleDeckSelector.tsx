@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { capture } from '@/lib/ph';
+import { useAuth } from '@/lib/auth-context';
 
 interface SampleDeck {
   id: string;
@@ -25,11 +26,15 @@ export default function SampleDeckSelector({
   onCancel,
   inline = false,
 }: SampleDeckSelectorProps) {
+  const { user } = useAuth();
   const [decks, setDecks] = useState<SampleDeck[]>([]);
+  const [filteredDecks, setFilteredDecks] = useState<SampleDeck[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlaystyle, setSelectedPlaystyle] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     loadSampleDecks();
@@ -41,6 +46,7 @@ export default function SampleDeckSelector({
       const data = await res.json();
       if (data.ok) {
         setDecks(data.decks);
+        setFilteredDecks(data.decks);
       } else {
         setError('Failed to load sample decks');
       }
@@ -51,7 +57,38 @@ export default function SampleDeckSelector({
     }
   }
 
+  // Filter decks by playstyle
+  useEffect(() => {
+    if (!selectedPlaystyle) {
+      setFilteredDecks(decks);
+      return;
+    }
+
+    const playstyleMap: Record<string, string[]> = {
+      'Aggro': ['Tribal Aggro', 'Aggro/Combo'],
+      'Control': ['Control/Superfriends', 'Control'],
+      'Combo': ['Aggro/Combo', 'Combo'],
+      'Midrange': ['Midrange'],
+      'Tokens': ['Token Swarm'],
+      'Tribal': ['Tribal Aggro'],
+    };
+
+    const matchingArchetypes = playstyleMap[selectedPlaystyle] || [];
+    const filtered = decks.filter(deck => 
+      matchingArchetypes.some(arch => deck.archetype.includes(arch))
+    );
+    
+    // If no matches, show all decks
+    setFilteredDecks(filtered.length > 0 ? filtered : decks);
+  }, [selectedPlaystyle, decks]);
+
   async function importDeck(deckId: string) {
+    // Check if user is logged in
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
     setImporting(true);
     setError(null);
 
@@ -140,8 +177,45 @@ export default function SampleDeckSelector({
         </div>
       )}
 
+      {/* Playstyle Filter */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          What playstyle do you prefer? (Optional)
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedPlaystyle(null)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              !selectedPlaystyle
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            All Decks
+          </button>
+          {['Aggro', 'Control', 'Combo', 'Midrange', 'Tokens', 'Tribal'].map((style) => (
+            <button
+              key={style}
+              onClick={() => setSelectedPlaystyle(style)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                selectedPlaystyle === style
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+        {selectedPlaystyle && (
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Showing {filteredDecks.length} deck{filteredDecks.length !== 1 ? 's' : ''} matching {selectedPlaystyle}
+          </p>
+        )}
+      </div>
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {decks.map((deck) => (
+        {filteredDecks.map((deck) => (
           <div
             key={deck.id}
             className={`border rounded-lg p-4 transition-all cursor-pointer ${
@@ -202,6 +276,41 @@ export default function SampleDeckSelector({
         </button>
       </div>
 
+      {/* Auth Required Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-[10001] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-4">👋</div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Create an Account to Get Started
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                You'll need a free account to import sample decks and start building your collection. It only takes a moment!
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <a
+                href="/auth/signin"
+                onClick={() => {
+                  capture('sample_deck_auth_clicked', { action: 'signin' });
+                  setShowAuthModal(false);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-center"
+              >
+                Sign In / Create Account
+              </a>
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay */}
       {importing && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -253,9 +362,26 @@ export function SampleDeckButton({ className = '' }: { className?: string }) {
         capture('sample_deck_button_clicked', { source: 'empty_state' });
         setShowSelector(true);
       }}
-      className={`px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl ${className}`}
+      className={`relative px-8 py-4 bg-gradient-to-r from-green-600 via-emerald-500 to-green-600 text-white rounded-xl font-bold text-lg hover:from-green-500 hover:via-emerald-400 hover:to-green-500 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 transform duration-200 border-2 border-green-400/50 ${className}`}
+      style={{
+        backgroundSize: '200% 200%',
+        animation: 'gradient-shift 3s ease infinite',
+      }}
     >
-      🎲 Start with a Sample Deck
+      <span className="relative z-10 flex items-center gap-2">
+        <span className="text-2xl animate-bounce">🎲</span>
+        <span>
+          <span className="block text-yellow-300 text-xs font-extrabold uppercase tracking-wider mb-0.5">CLICK HERE!</span>
+          <span>Start with a Sample Deck</span>
+        </span>
+        <span className="text-xl">→</span>
+      </span>
+      <style jsx>{`
+        @keyframes gradient-shift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+      `}</style>
     </button>
   );
 }

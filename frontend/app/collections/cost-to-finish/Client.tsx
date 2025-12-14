@@ -213,6 +213,71 @@ export default function CostToFinishClient() {
   const [fixNamesItems, setFixNamesItems] = React.useState<Array<{ originalName: string; qty: number; suggestions: string[] }>>([]);
   const [pendingDeckText, setPendingDeckText] = React.useState<string>("");
 
+  // Filters and sorting
+  const [priceFilter, setPriceFilter] = React.useState<{ min?: number; max?: number }>({});
+  const [roleFilter, setRoleFilter] = React.useState<string>("");
+  const [tierFilter, setTierFilter] = React.useState<string>("");
+  const [sortBy, setSortBy] = React.useState<"price" | "name" | "subtotal">("subtotal");
+  const [sortAsc, setSortAsc] = React.useState(false);
+  
+  // Inline swap suggestions per card
+  const [expandedSwaps, setExpandedSwaps] = React.useState<Set<string>>(new Set());
+  const [bulkSelectedSwaps, setBulkSelectedSwaps] = React.useState<Set<string>>(new Set());
+  
+  // Collection status
+  const [collectionStatus, setCollectionStatus] = React.useState<Record<string, "in_collection" | "in_wishlist" | "none">>({});
+  
+  // Shopping list filtering and sorting - moved to component level to fix hooks
+  const filteredItems = React.useMemo(() => {
+    if (shopItems.length === 0) return [];
+    let filtered = [...shopItems];
+    
+    // Price filter
+    if (priceFilter.min !== undefined) {
+      filtered = filtered.filter(it => (it.price_each || 0) >= priceFilter.min!);
+    }
+    if (priceFilter.max !== undefined) {
+      filtered = filtered.filter(it => (it.price_each || 0) <= priceFilter.max!);
+    }
+    
+    // Role filter
+    if (roleFilter) {
+      filtered = filtered.filter(it => it.role === roleFilter);
+    }
+    
+    // Tier filter
+    if (tierFilter) {
+      filtered = filtered.filter(it => it.tier === tierFilter);
+    }
+    
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any;
+      if (sortBy === "price") {
+        aVal = a.price_each || 0;
+        bVal = b.price_each || 0;
+      } else if (sortBy === "name") {
+        aVal = (a.name || "").toLowerCase();
+        bVal = (b.name || "").toLowerCase();
+      } else {
+        aVal = a.subtotal || 0;
+        bVal = b.subtotal || 0;
+      }
+      if (aVal < bVal) return sortAsc ? -1 : 1;
+      if (aVal > bVal) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    
+    return filtered;
+  }, [shopItems, priceFilter, roleFilter, tierFilter, sortBy, sortAsc]);
+  
+  // Get unique roles and tiers for filters
+  const uniqueRoles = React.useMemo(() => Array.from(new Set(shopItems.map(it => it.role).filter(Boolean))), [shopItems]);
+  const uniqueTiers = React.useMemo(() => Array.from(new Set(shopItems.map(it => it.tier).filter(Boolean))), [shopItems]);
+  
+  // Price trends per card (for sparklines)
+  const [priceTrends, setPriceTrends] = React.useState<Record<string, Array<{ date: string; unit: number }>>>({});
+
   // Lazy load more shopping list items
   const loadMoreShopItems = React.useCallback(async () => {
     if (shopItemsLoading || !shopItemsHasMore) return;
@@ -665,8 +730,99 @@ export default function CostToFinishClient() {
     return true;
   }), [rows.map(r=>r.card).join('|'), excludeLands, Object.keys(isLandMap).length]);
 
+  // Fetch price trends for cards (Pro feature)
+  React.useEffect(() => {
+    if (!isPro || shopItems.length === 0) return;
+    
+    (async () => {
+      // Fetch trends for all cards in batches of 10 (API limit)
+      const allNames = Array.from(new Set(shopItems.map(it => it.name).filter(Boolean)));
+      const batchSize = 10;
+      
+      for (let i = 0; i < allNames.length; i += batchSize) {
+        const batch = allNames.slice(i, i + batchSize);
+        try {
+          const params = new URLSearchParams();
+          batch.forEach(n => params.append('names[]', n));
+          params.set('currency', currency);
+          const from = new Date();
+          from.setDate(from.getDate() - 30);
+          params.set('from', from.toISOString().slice(0, 10));
+          
+          const r = await fetch(`/api/price/series?${params.toString()}`);
+          const j = await r.json().catch(() => ({ ok: false }));
+          
+          if (r.ok && j?.ok && Array.isArray(j.series)) {
+            const trends: Record<string, Array<{ date: string; unit: number }>> = {};
+            for (const s of j.series) {
+              const cardName = s.name;
+              if (s.points && Array.isArray(s.points)) {
+                trends[cardName] = s.points.map((p: any) => ({ date: p.date, unit: Number(p.unit || 0) }));
+              }
+            }
+            setPriceTrends(prev => ({ ...prev, ...trends }));
+          }
+        } catch {}
+      }
+    })();
+  }, [isPro, shopItems.map(it => it.name).join('|'), currency]);
+  
+  // Fetch collection status for cards - check all items
+  React.useEffect(() => {
+    if (!user || shopItems.length === 0) return;
+    
+    (async () => {
+      const names = Array.from(new Set(shopItems.map(it => it.name).filter(Boolean)));
+      if (names.length === 0) return;
+      
+      try {
+        const supabase = createBrowserSupabaseClient();
+        
+        // Check collections
+        const { data: collections } = await supabase
+          .from('collections')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+        
+        if (collections && collections.length > 0) {
+          const { data: collectionCards } = await supabase
+            .from('collection_cards')
+            .select('name')
+            .eq('collection_id', collections[0].id)
+            .in('name', names);
+          
+          const status: Record<string, "in_collection" | "in_wishlist" | "none"> = {};
+          const inCollection = new Set((collectionCards || []).map((c: any) => c.name.toLowerCase()));
+          
+          // Check wishlists
+          const { data: wishlistItems } = await supabase
+            .from('wishlist_items')
+            .select('name')
+            .eq('user_id', user.id)
+            .in('name', names);
+          
+          const inWishlist = new Set((wishlistItems || []).map((w: any) => w.name.toLowerCase()));
+          
+          for (const name of names) {
+            const key = name.toLowerCase();
+            if (inCollection.has(key)) {
+              status[name] = "in_collection";
+            } else if (inWishlist.has(key)) {
+              status[name] = "in_wishlist";
+            } else {
+              status[name] = "none";
+            }
+          }
+          
+          setCollectionStatus(prev => ({ ...prev, ...status }));
+        }
+      } catch {}
+    })();
+  }, [user, shopItems.map(it => it.name).join('|')]);
+  
   // Fetch budget swap suggestions for a single card
-  const fetchCardSwap = async (cardName: string, currentPrice: number) => {
+  const fetchCardSwapSuggestions = async (cardName: string, currentPrice?: number) => {
     if (!isPro) {
       try {
         const { toast } = await import('@/lib/toast-client');
@@ -682,7 +838,8 @@ export default function CostToFinishClient() {
       const tempDeckText = `1 ${cardName}`;
       // For expensive cards, cap the budget at $20 to get truly budget-friendly alternatives
       // For cheaper cards, use 50% of the price
-      const budgetCap = currentPrice > 40 ? 20 : Math.max(5, currentPrice * 0.5);
+      const price = currentPrice || 0;
+      const budgetCap = price > 40 ? 20 : Math.max(5, price * 0.5);
       const body = { deckText: tempDeckText, currency, budget: budgetCap, ai: false };
       const r = await fetch('/api/deck/swap-suggestions', { 
         method: 'POST', 
@@ -736,11 +893,15 @@ export default function CostToFinishClient() {
               <span>Live Pricing</span>
             </div>
             <div className="flex items-center gap-1.5 text-teal-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
               <span>Collection Tracking</span>
             </div>
             <div className="flex items-center gap-1.5 text-cyan-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
               <span>Budget Swaps</span>
             </div>
           </div>
@@ -1146,7 +1307,10 @@ export default function CostToFinishClient() {
                   }}
                   disabled={batchSwapsLoading}
                   className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm inline-flex items-center gap-2 transition-colors">
-                  {batchSwapsLoading ? '🔄 Loading...' : '💡 Suggest budget swaps'} {!batchSwapsLoading && <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>}
+                  {batchSwapsLoading ? '🔄 Loading...' : '💡 Suggest budget swaps'}{' '}
+                  {!batchSwapsLoading && (
+                    <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -1156,8 +1320,139 @@ export default function CostToFinishClient() {
           {shopItems.length > 0 && (
             <div className="mt-2 w-full max-w-none min-w-0">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-lg font-bold">🛒 Shopping list</div>
+                <div className="text-lg font-bold">🛒 Shopping list ({filteredItems.length} of {shopItems.length})</div>
               </div>
+              
+              {/* Filters and sorting */}
+              <div className="mb-3 p-3 rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-400 font-medium">Price:</span>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={priceFilter.min || ""}
+                    onChange={(e) => setPriceFilter(p => ({ ...p, min: e.target.value ? Number(e.target.value) : undefined }))}
+                    className="w-20 px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <span className="text-xs text-neutral-500">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={priceFilter.max || ""}
+                    onChange={(e) => setPriceFilter(p => ({ ...p, max: e.target.value ? Number(e.target.value) : undefined }))}
+                    className="w-20 px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">All Roles</option>
+                  {uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                
+                <select
+                  value={tierFilter}
+                  onChange={(e) => setTierFilter(e.target.value)}
+                  className="px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">All Tiers</option>
+                  {uniqueTiers.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                </select>
+                
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="subtotal">Sort by Subtotal</option>
+                  <option value="price">Sort by Price</option>
+                  <option value="name">Sort by Name</option>
+                </select>
+                
+                <button
+                  onClick={() => setSortAsc(!sortAsc)}
+                  className="px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded hover:bg-neutral-700 transition-colors"
+                  title={sortAsc ? "Ascending" : "Descending"}
+                >
+                  {sortAsc ? "↑" : "↓"}
+                </button>
+                
+                {isPro && (
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={expandedSwaps.size > 0}
+                      onChange={(e) => {
+                        if (!e.target.checked) {
+                          setExpandedSwaps(new Set());
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-neutral-400">Show swaps only</span>
+                  </label>
+                )}
+                
+                {(priceFilter.min !== undefined || priceFilter.max !== undefined || roleFilter || tierFilter) && (
+                  <button
+                    onClick={() => {
+                      setPriceFilter({});
+                      setRoleFilter("");
+                      setTierFilter("");
+                    }}
+                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-500 rounded text-white transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+              
+              {/* Bulk swap actions */}
+              {isPro && bulkSelectedSwaps.size > 0 && (
+                <div className="mb-3 p-3 rounded-lg border border-emerald-600 bg-emerald-950/20 flex items-center justify-between">
+                  <div className="text-sm text-emerald-400">
+                    {bulkSelectedSwaps.size} swap{bulkSelectedSwaps.size !== 1 ? 's' : ''} selected
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        // Apply all selected swaps
+                        const swapsToApply = swaps.filter(s => bulkSelectedSwaps.has(s.from));
+                        setShopItems(prev => {
+                          let updated = [...prev];
+                          for (const swap of swapsToApply) {
+                            updated = updated.map(item => 
+                              item.name.toLowerCase() === swap.from.toLowerCase()
+                                ? { ...item, name: swap.to, price_each: swap.price_to, subtotal: (swap.price_to || 0) * (item.qty_to_buy || 1) }
+                                : item
+                            );
+                          }
+                          return updated;
+                        });
+                        setAcceptedSwaps(prev => new Set([...prev, ...Array.from(bulkSelectedSwaps)]));
+                        setBulkSelectedSwaps(new Set());
+                        try {
+                          import('@/lib/toast-client').then(({ toast }) => 
+                            toast(`✓ Applied ${swapsToApply.length} swap${swapsToApply.length !== 1 ? 's' : ''}`, 'success')
+                          );
+                        } catch {}
+                      }}
+                      className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 rounded text-white font-medium"
+                    >
+                      Apply Selected ({bulkSelectedSwaps.size})
+                    </button>
+                    <button
+                      onClick={() => setBulkSelectedSwaps(new Set())}
+                      className="px-3 py-1.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded text-white"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Fixed height container with internal scroll */}
               <div className="w-full max-w-none min-w-0 rounded-xl border max-h-[600px] overflow-y-auto">
                 <div className="relative w-full min-w-0 px-2 sm:px-3 lg:px-4">
@@ -1169,17 +1464,18 @@ export default function CostToFinishClient() {
                         <th className="text-left py-2 px-3 align-middle whitespace-normal break-words">Cheapest print</th>
                         <th className="text-right py-2 px-3 align-middle whitespace-normal break-words">Qty</th>
                         <th className="text-right py-2 px-3 align-middle whitespace-normal break-words">Unit</th>
+                        {isPro && <th className="text-center py-2 px-3 align-middle whitespace-normal break-words w-[80px]">Trend</th>}
                         <th className="text-right py-2 px-3 align-middle whitespace-normal break-words">Subtotal</th>
                         <th className="hidden 2xl:table-cell text-left py-2 px-3 align-middle whitespace-normal break-words">Source</th>
                         <th className="hidden 2xl:table-cell text-left py-2 px-3 align-middle whitespace-normal break-words">Role</th>
                         <th className="hidden 2xl:table-cell text-left py-2 px-3 align-middle whitespace-normal break-words">Tier</th>
                         <th className="hidden 2xl:table-cell text-left py-2 px-3 align-middle whitespace-normal break-words">Link</th>
-                        <th className="hidden 2xl:table-cell text-left py-2 px-3 align-middle whitespace-normal break-words">Why</th>
+                        <th className="text-left py-2 px-3 align-middle whitespace-normal break-words">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
 
-                  {shopItems.map((it, i) => {
+                  {filteredItems.map((it, i) => {
                       const key = String(it.name||'').toLowerCase();
                       const src = srcMap.get(key) || (useSnapshot ? 'Snapshot' : 'Scryfall');
                       const name = String(it.name||'');
@@ -1212,6 +1508,55 @@ export default function CostToFinishClient() {
                             <td className="py-1 px-3 text-right align-middle whitespace-normal break-words">
                               {it.price_each != null && it.price_each > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(it.price_each) : <span className="text-neutral-600 italic text-xs">Loading...</span>}
                             </td>
+                            {isPro && (
+                              <td className="py-1 px-3 text-center align-middle">
+                                {(() => {
+                                  const trend = priceTrends[name.toLowerCase()] || priceTrends[name];
+                                  if (!trend || trend.length < 2) {
+                                    // Show loading indicator if we're still fetching
+                                    const isFetching = shopItems.some(item => item.name === name);
+                                    return isFetching ? (
+                                      <span className="text-xs text-neutral-600 animate-pulse">⋯</span>
+                                    ) : (
+                                      <span className="text-xs text-neutral-600" title="No trend data available">—</span>
+                                    );
+                                  }
+                                  const w = 70, h = 24;
+                                  const vals = trend.map(p => p.unit);
+                                  const min = Math.min(...vals), max = Math.max(...vals);
+                                  const nx = (i: number) => i * (w / Math.max(1, trend.length - 1));
+                                  const ny = (v: number) => max === min ? h / 2 : h - ((v - min) / (max - min)) * h;
+                                  const path = trend.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${nx(idx)},${ny(p.unit)}`).join(' ');
+                                  const isRising = vals[vals.length - 1] > vals[0];
+                                  const changePct = ((vals[vals.length - 1] - vals[0]) / vals[0]) * 100;
+                                  const changeAbs = Math.abs(changePct);
+                                  const tooltip = `${isRising ? '+' : ''}${changePct.toFixed(1)}% over ${trend.length} days`;
+                                  const color = changeAbs > 10 ? (isRising ? "#ef4444" : "#10b981") : "#6b7280";
+                                  return (
+                                    <div className="inline-block group relative cursor-help" title={tooltip}>
+                                      <svg width={w} height={h} className="inline-block">
+                                        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        {/* Area fill with gradient */}
+                                        <defs>
+                                          <linearGradient id={`grad-${name.replace(/\s+/g, '-')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                                            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
+                                          </linearGradient>
+                                        </defs>
+                                        <path d={`${path} L ${w},${h} L 0,${h} Z`} fill={`url(#grad-${name.replace(/\s+/g, '-')})`} />
+                                        {/* Current price dot */}
+                                        <circle cx={nx(trend.length - 1)} cy={ny(vals[vals.length - 1])} r="2.5" fill={color} />
+                                      </svg>
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                        <div className="font-semibold mb-0.5">{name}</div>
+                                        <div>{tooltip}</div>
+                                        <div className="text-neutral-400 mt-0.5">Current: {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(vals[vals.length - 1])}</div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                            )}
                             <td className="py-1 px-3 text-right align-middle whitespace-normal break-words">
                               {it.subtotal != null && it.subtotal > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(it.subtotal) : <span className="text-neutral-600 italic text-xs">Loading...</span>}
                             </td>
@@ -1231,25 +1576,197 @@ export default function CostToFinishClient() {
                               </div>
                             </td>
                             <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words"><a className="text-blue-300 hover:underline" href={it.scryfall_uri || '#'} target="_blank" rel="noreferrer">Scryfall</a></td>
-                            <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words">
-                              <button className="text-xs underline" onClick={async()=>{
-                                if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); } return; }
-                                if (whyBusy[name]) return;
-                                setWhyBusy(p=>({ ...p, [name]: true }));
-                                try {
-                                  const text = `In one short paragraph, explain why the card \"${name}\" is useful for this specific deck. Be concrete and avoid fluff.\n\nDeck list:\n${deckText || ''}`.slice(0, 4000);
-                                  const r = await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text, noUserInsert: true, prefs: { plan: 'Optimized' } }) });
-                                  const j = await r.json().catch(()=>({}));
-                                  const out = (j?.text || '').toString();
-                                  if (out) setWhyMap(m=>({ ...m, [name]: out }));
-                                } catch (e:any) { try { const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Explain failed'); } catch { alert(e?.message||'Explain failed'); } }
-                                finally { setWhyBusy(p=>({ ...p, [name]: false })); }
-                              }}>{whyBusy[name] ? '…' : 'Why?'}</button>
+                            <td className="py-1 px-3 align-middle whitespace-normal break-words">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {/* Collection status */}
+                                {(() => {
+                                  const status = collectionStatus[name];
+                                  if (status === "in_collection") {
+                                    return (
+                                      <span 
+                                        className="text-xs px-2 py-1 rounded bg-green-900/50 text-green-400 border border-green-800 font-medium cursor-help" 
+                                        title="This card is in your collection"
+                                      >
+                                        ✓ Owned
+                                      </span>
+                                    );
+                                  } else if (status === "in_wishlist") {
+                                    return (
+                                      <span 
+                                        className="text-xs px-2 py-1 rounded bg-blue-900/50 text-blue-400 border border-blue-800 font-medium cursor-help" 
+                                        title="This card is in your wishlist"
+                                      >
+                                        ★ Wishlist
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                
+                                {/* Budget swaps button */}
+                                {isPro && (() => {
+                                  const cardSwaps = cardSwapResults[name] || [];
+                                  const hasSwaps = cardSwaps.length > 0;
+                                  return (
+                                    <button
+                                      className="text-xs px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30"
+                                      onClick={() => {
+                                        if (expandedSwaps.has(name)) {
+                                          setExpandedSwaps(prev => {
+                                            const next = new Set(prev);
+                                            next.delete(name);
+                                            return next;
+                                          });
+                                        } else {
+                                          setExpandedSwaps(prev => new Set(prev).add(name));
+                                          if (!hasSwaps && !cardSwapLoading[name]) {
+                                            fetchCardSwapSuggestions(name);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      {hasSwaps ? `💡 ${cardSwaps.length}` : '💡 Swap'}
+                                    </button>
+                                  );
+                                })()}
+                                
+                                {/* Why button */}
+                                <button className="text-xs underline" onClick={async()=>{
+                                  if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); } return; }
+                                  if (whyBusy[name]) return;
+                                  setWhyBusy(p=>({ ...p, [name]: true }));
+                                  try {
+                                    const text = `In one short paragraph, explain why the card \"${name}\" is useful for this specific deck. Be concrete and avoid fluff.\n\nDeck list:\n${deckText || ''}`.slice(0, 4000);
+                                    const r = await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text, noUserInsert: true, prefs: { plan: 'Optimized' } }) });
+                                    const j = await r.json().catch(()=>({}));
+                                    const out = (j?.text || '').toString();
+                                    if (out) setWhyMap(m=>({ ...m, [name]: out }));
+                                  } catch (e:any) { try { const { toastError } = await import('@/lib/toast-client'); toastError(e?.message||'Explain failed'); } catch { alert(e?.message||'Explain failed'); } }
+                                  finally { setWhyBusy(p=>({ ...p, [name]: false })); }
+                                }}>{whyBusy[name] ? '…' : 'Why?'}</button>
+                              </div>
                             </td>
                           </tr>
+                          {/* Expanded swap suggestions */}
+                          {isPro && expandedSwaps.has(name) && (() => {
+                            const cardSwaps = cardSwapResults[name] || [];
+                            const loading = cardSwapLoading[name];
+                            return (
+                              <tr className="border-b bg-emerald-950/10">
+                                <td colSpan={isPro ? 12 : 11} className="py-3 px-4">
+                                  {loading ? (
+                                    <div className="text-xs text-neutral-400">Loading swap suggestions...</div>
+                                  ) : cardSwaps.length === 0 ? (
+                                    <div className="text-xs text-neutral-400">No budget alternatives found for this card.</div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-semibold text-emerald-400 mb-2">Budget Alternatives:</div>
+                                      {cardSwaps.map((swap: any, idx: number) => {
+                                        const savings = (it.price_each || 0) - (swap.price_to || swap.price || 0);
+                                        const isSelected = bulkSelectedSwaps.has(swap.from || name);
+                                        const isAccepted = acceptedSwaps.has(swap.from || name);
+                                        const swapKey = String(swap.to || swap.name || '').toLowerCase();
+                                        const swapImg = imgMap[swapKey]?.small;
+                                        return (
+                                          <div key={idx} className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${isAccepted ? 'border-emerald-500 bg-emerald-950/30' : 'border-neutral-700 bg-neutral-900/50 hover:border-emerald-600/50'}`}>
+                                            {/* Swap card image */}
+                                            {swapImg && (
+                                              <img
+                                                src={swapImg}
+                                                alt={swap.to || swap.name}
+                                                loading="lazy"
+                                                className="w-12 h-16 object-cover rounded border border-neutral-700 shrink-0"
+                                                onMouseEnter={(e) => {
+                                                  const normalImg = imgMap[swapKey]?.normal || swapImg;
+                                                  setPv({ src: normalImg, x: (e as any).clientX, y: (e as any).clientY - 16, shown: true });
+                                                }}
+                                                onMouseMove={(e) => setPv(p => p.shown ? { ...p, x: (e as any).clientX, y: (e as any).clientY - 16 } : p)}
+                                                onMouseLeave={() => setPv(p => ({ ...p, shown: false }))}
+                                              />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 text-sm mb-1">
+                                                <span className="font-medium text-neutral-300 line-through">{name}</span>
+                                                <span className="text-neutral-500">→</span>
+                                                <span className="font-semibold text-emerald-400">{swap.to || swap.name}</span>
+                                              </div>
+                                              {swap.reason && (
+                                                <div className="text-xs text-neutral-400 mb-2 italic line-clamp-2">
+                                                  {swap.reason}
+                                                </div>
+                                              )}
+                                              <div className="flex items-center gap-3 text-xs">
+                                                <span className="line-through text-neutral-500">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(it.price_each || 0)}</span>
+                                                <span className="text-emerald-400 font-semibold">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(swap.price_to || swap.price || 0)}</span>
+                                                <span className="px-2 py-0.5 rounded bg-emerald-900/50 text-emerald-300 font-semibold">
+                                                  Save {new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(savings)}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                              {isPro && (
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isSelected}
+                                                  onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                      setBulkSelectedSwaps(prev => new Set(prev).add(swap.from || name));
+                                                    } else {
+                                                      setBulkSelectedSwaps(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(swap.from || name);
+                                                        return next;
+                                                      });
+                                                    }
+                                                  }}
+                                                  className="w-4 h-4 cursor-pointer"
+                                                  title="Select for bulk apply"
+                                                />
+                                              )}
+                                              <button
+                                                onClick={() => {
+                                                  if (isAccepted) {
+                                                    setAcceptedSwaps(prev => {
+                                                      const next = new Set(prev);
+                                                      next.delete(swap.from || name);
+                                                      return next;
+                                                    });
+                                                  } else {
+                                                    setAcceptedSwaps(prev => new Set(prev).add(swap.from || name));
+                                                    setShopItems(prev => prev.map(item => 
+                                                      item.name.toLowerCase() === name.toLowerCase()
+                                                        ? { ...item, name: swap.to || swap.name, price_each: swap.price_to || swap.price, subtotal: (swap.price_to || swap.price || 0) * (item.qty_to_buy || 1) }
+                                                        : item
+                                                    ));
+                                                    try {
+                                                      import('@/lib/toast-client').then(({ toast }) => 
+                                                        toast(`✓ Swapped ${name} → ${swap.to || swap.name}`, 'success')
+                                                      );
+                                                    } catch {}
+                                                  }
+                                                }}
+                                                className={`px-3 py-1.5 rounded font-medium text-xs transition-colors ${
+                                                  isAccepted 
+                                                    ? 'bg-neutral-700 hover:bg-neutral-600 text-neutral-300' 
+                                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md hover:shadow-lg'
+                                                }`}
+                                              >
+                                                {isAccepted ? '✓ Applied' : 'Apply'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })()}
+                          
                           {whyMap[name] && (
                             <tr className="border-b bg-blue-950/20">
-                              <td colSpan={11} className="py-3 px-4 text-sm text-neutral-200 leading-relaxed">
+                              <td colSpan={isPro ? 12 : 11} className="py-3 px-4 text-sm text-neutral-200 leading-relaxed">
                                 <div className="flex items-start gap-2">
                                   <span className="text-blue-400 font-semibold shrink-0">💡</span>
                                   <span>{whyMap[name]}</span>
@@ -1267,6 +1784,7 @@ export default function CostToFinishClient() {
                     <td className="py-2 px-3 text-right font-medium">
                       {new Intl.NumberFormat(undefined, { style: "currency", currency }).format(shopTotal)}
                     </td>
+                    {isPro && <td />}
                     <td className="py-2 px-3 text-left">
                       {useSnapshot ? (
                         <span className="inline-flex items-center gap-2"><span className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs">Snapshot</span>{yesterdayDelta!=null && (<span className={`text-xs ${yesterdayDelta>=0?'text-red-300':'text-emerald-300'}`}>{yesterdayDelta>=0?'+':''}{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(yesterdayDelta)}</span>)}</span>
@@ -1274,7 +1792,7 @@ export default function CostToFinishClient() {
                         <span className="px-1.5 py-0.5 rounded bg-neutral-900 text-xs">Live</span>
                       )}
                     </td>
-                    <td colSpan={3} />
+                    <td colSpan={isPro ? 4 : 3} />
                   </tr>
                 </tfoot>
               </table>
@@ -1298,13 +1816,10 @@ export default function CostToFinishClient() {
               </div>
             </div>
           </div>
-          </div>
-        )}
+            </div>
+          )}
 
-        </div>
-        )}
-
-      {/* Swaps modal (Pro) - Interactive with pagination - MODAL OVERLAY */}
+        {/* Swaps modal (Pro) - Interactive with pagination - MODAL OVERLAY */}
         {swapsOpen && (
         <>
           {/* Backdrop overlay */}
@@ -1336,7 +1851,7 @@ export default function CostToFinishClient() {
                 <>
                   <div className="text-sm text-neutral-300 mb-3">
                     Found <span className="font-bold text-emerald-400">{swaps.length}</span> potential swaps to save money
-            </div>
+                  </div>
                   
                   {/* Paginated swap cards */}
                   <div className="space-y-2 mb-4">
@@ -1432,6 +1947,8 @@ export default function CostToFinishClient() {
               </div>
           </>
         )}
+        </div>
+        )}
 
         {/* RIGHT COLUMN: Top Missing Cards - only show when there are results */}
         {rowsToShow.length > 0 && (
@@ -1501,7 +2018,7 @@ export default function CostToFinishClient() {
                             
                             {/* Budget swap button */}
                             <button
-                              onClick={() => fetchCardSwap(r.card, r.unit)}
+                              onClick={() => fetchCardSwapSuggestions(r.card, r.unit)}
                               disabled={loading}
                               className="mt-2 text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >

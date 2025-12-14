@@ -321,11 +321,7 @@ export default function PriceTrackerPage(){
       </section>
 
           <section className="rounded border border-neutral-800 p-3">
-            <div className="font-medium mb-2 flex items-center gap-2">Top movers (7 days)
-              <span className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700 cursor-default" title="Cards with the biggest changes over the chosen window. Δ is absolute price change; Δ% is percentage change. Use filters to require a minimum price or limit to your watchlist.">?
-              </span>
-            </div>
-            <TopMovers currency={currency} />
+            <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} />
           </section>
         </section>
 
@@ -1092,49 +1088,5 @@ function DeckSelect({ deckId, setDeckId }: { deckId: string; setDeckId: (id:stri
   );
 }
 
-function TopMovers({ currency }: { currency: 'USD'|'EUR'|'GBP' }){
-  const [rows, setRows] = React.useState<Array<{ name:string; prior:number; latest:number; delta:number; pct:number }>>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [windowDays, setWindowDays] = React.useState(7);
-  const [minPrice, setMinPrice] = React.useState(0);
-  const [watchOnly, setWatchOnly] = React.useState(false);
-  const [watch, setWatch] = React.useState<string[]>([]);
-  React.useEffect(()=>{ (async()=>{ try{ const { createBrowserSupabaseClient } = await import('@/lib/supabase/client'); const sb = createBrowserSupabaseClient(); const { data: u } = await sb.auth.getUser(); const arr = (u?.user?.user_metadata?.watchlist_cards || []) as any[]; setWatch(Array.isArray(arr)?arr.map(String):[]); } catch{} })(); }, []);
-  React.useEffect(()=>{ (async()=>{ try{ setLoading(true); const r=await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${windowDays}&limit=100`, { cache:'no-store' }); const j=await r.json().catch(()=>({})); if (r.ok && j?.ok) setRows(j.rows||[]); else setRows([]); } finally { setLoading(false); } })(); }, [currency, windowDays]);
-  const filtered = rows.filter(r => r.latest >= (minPrice||0)).filter(r => !watchOnly || watch.includes(r.name));
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <label className="inline-flex items-center gap-1">Window
-          <select value={windowDays} onChange={e=>setWindowDays(parseInt(e.target.value,10))} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
-            <option value={1}>1d</option>
-            <option value={7}>7d</option>
-            <option value={30}>30d</option>
-          </select>
-        </label>
-        <label className="inline-flex items-center gap-1">Min price
-          <input type="number" min={0} step="0.5" value={minPrice} onChange={e=>setMinPrice(Math.max(0, Number(e.target.value)||0))} className="w-20 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-right" />
-        </label>
-        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={watchOnly} onChange={e=>setWatchOnly(e.target.checked)} /> Watchlist only</label>
-      </div>
-      {loading && <div className="text-xs opacity-70">Loading…</div>}
-      {!loading && filtered.length===0 && <div className="text-xs opacity-70">No movers for the selected filters.</div>}
-      <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 px-2">Card</th><th className="text-right py-1 px-2">Prior</th><th className="text-right py-1 px-2">Latest</th><th className="text-right py-1 px-2">Δ</th><th className="text-right py-1 px-2">Δ%</th></tr></thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.name} className="border-b border-neutral-900">
-              <td className="py-1 px-2 font-mono">{r.name}</td>
-              <td className="py-1 px-2 text-right">${r.prior.toFixed(2)}</td>
-              <td className="py-1 px-2 text-right">${r.latest.toFixed(2)}</td>
-              <td className={`py-1 px-2 text-right ${r.delta>=0?'text-emerald-400':'text-red-400'}`}>{r.delta>=0?'+':''}{r.delta.toFixed(2)}</td>
-              <td className={`py-1 px-2 text-right ${r.pct>=0?'text-emerald-400':'text-red-400'}`}>{(r.pct*100).toFixed(1)}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    </div>
-  );
-}
+// TopMovers component moved to separate file
+import TopMovers from './TopMovers';

@@ -18,10 +18,16 @@ const supabase = createClient(url, anon, { auth: { persistSession: false } });
 
 const getRecent = unstable_cache(
   async (limit: number) => {
+    // Show decks from the last year (no strict time limit, just prioritize recent)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const oneYearAgoISO = oneYearAgo.toISOString();
+    
     const { data, error } = await supabase
       .from("decks")
       .select("id, title, updated_at, deck_text, commander")
       .eq("is_public", true)
+      .gte("updated_at", oneYearAgoISO) // Show decks updated in the last year
       .order("updated_at", { ascending: false })
       .limit(Math.min(Math.max(limit || 10, 1), 24));
     if (error) throw new Error(error.message);

@@ -577,6 +577,578 @@ export const SAMPLE_DECKS: SampleDeck[] = [
 6 Swamp
 1 Reliquary Tower
 1 Rogue's Passage
+    `,
+  },
+  {
+    id: 'kess-spellslinger',
+    name: 'Kess, Dissident Mage - Spellslinger Combo',
+    commander: 'Kess, Dissident Mage',
+    description: 'Cast spells from your graveyard and chain together powerful instants and sorceries for explosive combo turns.',
+    colors: ['U', 'B', 'R'],
+    powerLevel: 8,
+    estimatedPrice: 130,
+    archetype: 'Combo',
+    deckList: `1 Kess, Dissident Mage
+
+// Combo Pieces (15)
+1 Demonic Consultation
+1 Thassa's Oracle
+1 Laboratory Maniac
+1 Jace, Wielder of Mysteries
+1 Doomsday
+1 Ad Nauseam
+1 Tendrils of Agony
+1 Brain Freeze
+1 Underworld Breach
+1 Lion's Eye Diamond
+1 Aetherflux Reservoir
+1 Dramatic Reversal
+1 Isochron Scepter
+1 Sensei's Divining Top
+1 Bolas's Citadel
+
+// Card Draw & Selection (15)
+1 Brainstorm
+1 Ponder
+1 Preordain
+1 Serum Visions
+1 Opt
+1 Gitaxian Probe
+1 Mystic Remora
+1 Rhystic Study
+1 Phyrexian Arena
+1 Dark Confidant
+1 Necropotence
+1 Yawgmoth's Will
+1 Wheel of Fortune
+1 Windfall
+1 Timetwister
+
+// Tutors (10)
+1 Demonic Tutor
+1 Vampiric Tutor
+1 Mystical Tutor
+1 Gamble
+1 Imperial Seal
+1 Diabolic Intent
+1 Wishclaw Talisman
+1 Solve the Equation
+1 Muddle the Mixture
+1 Merchant Scroll
+
+// Interaction (12)
+1 Counterspell
+1 Force of Will
+1 Force of Negation
+1 Swan Song
+1 Flusterstorm
+1 Pyroblast
+1 Red Elemental Blast
+1 Abrade
+1 Lightning Bolt
+1 Fatal Push
+1 Dismember
+1 Cyclonic Rift
+
+// Ramp (7)
+1 Sol Ring
+1 Arcane Signet
+1 Izzet Signet
+1 Rakdos Signet
+1 Dimir Signet
+1 Mana Crypt
+1 Mana Vault
+
+// Lands (30)
+1 Command Tower
+1 Steam Vents
+1 Blood Crypt
+1 Watery Grave
+1 Volcanic Island
+1 Badlands
+1 Underground Sea
+1 Scalding Tarn
+1 Polluted Delta
+1 Bloodstained Mire
+1 Flooded Strand
+1 Wooded Foothills
+1 Misty Rainforest
+1 Blood Moon
+1 City of Brass
+1 Mana Confluence
+1 Exotic Orchard
+1 Reflecting Pool
+1 Ancient Tomb
+1 Reliquary Tower
+1 Mystic Sanctuary
+1 Sunken Ruins
+1 Shivan Reef
+1 Sulfurous Springs
+1 Underground River
+4 Island
+2 Swamp
+2 Mountain
+`,
+  },
+  {
+    id: 'teysa-aristocrats',
+    name: 'Teysa Karlov - Aristocrats',
+    commander: 'Teysa Karlov',
+    description: 'Sacrifice creatures for value. Double your death triggers and drain opponents while building an engine.',
+    colors: ['W', 'B'],
+    powerLevel: 7,
+    estimatedPrice: 90,
+    archetype: 'Combo',
+    deckList: `1 Teysa Karlov
+
+// Sacrifice Outlets (10)
+1 Viscera Seer
+1 Carrion Feeder
+1 Yahenni, Undying Partisan
+1 Altar of Dementia
+1 Ashnod's Altar
+1 Phyrexian Altar
+1 Blasting Station
+1 High Market
+1 Phyrexian Tower
+1 Spawning Pit
+
+// Death Triggers (20)
+1 Blood Artist
+1 Zulaport Cutthroat
+1 Cruel Celebrant
+1 Bastion of Remembrance
+1 Corpse Knight
+1 Syr Konrad, the Grim
+1 Elenda, the Dusk Rose
+1 Dictate of Erebos
+1 Grave Pact
+1 Butcher of Malakir
+1 Requiem Angel
+1 Ogre Slumlord
+1 Pawn of Ulamog
+1 Sifter of Skulls
+1 Pitiless Plunderer
+1 Reassembling Skeleton
+1 Nether Traitor
+1 Bloodsoaked Champion
+1 Gravecrawler
+1 Doomed Traveler
+
+// Token Generators (15)
+1 Bitterblossom
+1 Ophiomancer
+1 Sram's Expertise
+1 Secure the Wastes
+1 Lingering Souls
+1 Spectral Procession
+1 Finale of Glory
+1 Divine Visitation
+1 Anointed Procession
+1 Kaya's Ghostform
+1 Karmic Guide
+1 Reveillark
+1 Sun Titan
+1 Emeria Shepherd
+1 Adeline, Resplendent Cathar
+
+// Removal & Interaction (10)
+1 Swords to Plowshares
+1 Path to Exile
+1 Anguished Unmaking
+1 Vindicate
+1 Utter End
+1 Toxic Deluge
+1 Damnation
+1 Wrath of God
+1 Merciless Eviction
+1 Farewell
+
+// Card Draw (8)
+1 Phyrexian Arena
+1 Dark Confidant
+1 Skullclamp
+1 Night's Whisper
+1 Sign in Blood
+1 Read the Bones
+1 Painful Truths
+1 Necropotence
+
+// Ramp (6)
+1 Sol Ring
+1 Arcane Signet
+1 Orzhov Signet
+1 Talisman of Hierarchy
+1 Mind Stone
+1 Wayfarer's Bauble
+
+// Lands (35)
+1 Command Tower
+1 Godless Shrine
+1 Isolated Chapel
+1 Concealed Courtyard
+1 Caves of Koilos
+1 Scoured Barrens
+1 Orzhov Basilica
+1 Temple of Silence
+1 Fetid Heath
+1 Shineshadow Snarl
+1 Brightclimb Pathway
+1 Shattered Sanctum
+1 Vault of Champions
+1 Spectator Seating
+1 Path of Ancestry
+1 Evolving Wilds
+1 Terramorphic Expanse
+1 Fabled Passage
+1 Phyrexian Tower
+1 High Market
+1 Bojuka Bog
+1 Scavenger Grounds
+1 Emeria, the Sky Ruin
+1 Cabal Coffers
+1 Urborg, Tomb of Yawgmoth
+8 Plains
+8 Swamp
+1 Castle Locthwain
+1 Castle Ardenvale
+`,
+  },
+  {
+    id: 'chulane-value',
+    name: 'Chulane, Teller of Tales - Value Engine',
+    commander: 'Chulane, Teller of Tales',
+    description: 'Draw cards and ramp with every creature you cast. Build an unstoppable value engine that outpaces opponents.',
+    colors: ['W', 'U', 'G'],
+    powerLevel: 7,
+    estimatedPrice: 110,
+    archetype: 'Midrange',
+    deckList: `1 Chulane, Teller of Tales
+
+// Value Creatures (25)
+1 Coiling Oracle
+1 Elvish Visionary
+1 Wall of Blossoms
+1 Wall of Omens
+1 Llanowar Visionary
+1 Mulldrifter
+1 Cloud of Faeries
+1 Peregrine Drake
+1 Palinchron
+1 Great Whale
+1 Deadeye Navigator
+1 Eternal Witness
+1 Reclamation Sage
+1 Acidic Slime
+1 Kogla, the Titan Ape
+1 Thragtusk
+1 Consecrated Sphinx
+1 Tatyova, Benthic Druid
+1 Aesi, Tyrant of Gyre Strait
+1 Tishana, Voice of Thunder
+1 Craterhoof Behemoth
+1 Avenger of Zendikar
+1 Regal Force
+1 Prime Speaker Zegana
+1 Biovisionary
+
+// Bounce & Replay (8)
+1 Cloudstone Curio
+1 Temur Sabertooth
+1 Erratic Portal
+1 Crystal Shard
+1 Equilibrium
+1 Man-o'-War
+1 Venser, Shaper Savant
+1 Reflector Mage
+
+// Protection & Interaction (12)
+1 Counterspell
+1 Swan Song
+1 Negate
+1 Cyclonic Rift
+1 Swords to Plowshares
+1 Path to Exile
+1 Beast Within
+1 Generous Gift
+1 Heroic Intervention
+1 Teferi's Protection
+1 Veil of Summer
+1 Autumn's Veil
+
+// Card Draw (8)
+1 Rhystic Study
+1 Mystic Remora
+1 Sylvan Library
+1 Brainstorm
+1 Ponder
+1 Preordain
+1 Fact or Fiction
+1 Dig Through Time
+
+// Ramp (10)
+1 Sol Ring
+1 Arcane Signet
+1 Simic Signet
+1 Selesnya Signet
+1 Azorius Signet
+1 Kodama's Reach
+1 Cultivate
+1 Farseek
+1 Nature's Lore
+1 Three Visits
+
+// Lands (36)
+1 Command Tower
+1 Breeding Pool
+1 Hallowed Fountain
+1 Temple Garden
+1 Sunpetal Grove
+1 Hinterland Harbor
+1 Glacial Fortress
+1 Flooded Grove
+1 Mystic Gate
+1 Seaside Citadel
+1 Bountiful Promenade
+1 Spire Garden
+1 Exotic Orchard
+1 Reflecting Pool
+1 Path of Ancestry
+1 Evolving Wilds
+1 Terramorphic Expanse
+1 Fabled Passage
+1 Alchemist's Refuge
+1 Mystic Sanctuary
+1 Reliquary Tower
+1 Gaea's Cradle
+1 Nykthos, Shrine to Nyx
+5 Forest
+4 Island
+3 Plains
+1 Rogue's Passage
+`,
+  },
+  {
+    id: 'grand-arbiter-stax',
+    name: 'Grand Arbiter Augustin IV - Stax Control',
+    commander: 'Grand Arbiter Augustin IV',
+    description: 'Slow opponents down with tax effects and lock pieces. Control the game while you build your win condition.',
+    colors: ['W', 'U'],
+    powerLevel: 8,
+    estimatedPrice: 180,
+    archetype: 'Control',
+    deckList: `1 Grand Arbiter Augustin IV
+
+// Stax Pieces (20)
+1 Thalia, Guardian of Thraben
+1 Thalia, Heretic Cathar
+1 Vryn Wingmare
+1 Glowrider
+1 Ethersworn Canonist
+1 Rule of Law
+1 Arcane Laboratory
+1 Eidolon of Rhetoric
+1 Drannith Magistrate
+1 Lavinia, Azorius Renegade
+1 Aven Mindcensor
+1 Leonin Arbiter
+1 Hushbringer
+1 Hushwing Gryff
+1 Torpor Orb
+1 Winter Orb
+1 Static Orb
+1 Tangle Wire
+1 Trinisphere
+1 Sphere of Resistance
+
+// Control & Interaction (15)
+1 Counterspell
+1 Force of Will
+1 Mana Drain
+1 Swan Song
+1 Flusterstorm
+1 Dispel
+1 Negate
+1 Cyclonic Rift
+1 Swords to Plowshares
+1 Path to Exile
+1 Wrath of God
+1 Terminus
+1 Supreme Verdict
+1 Fumigate
+1 Farewell
+
+// Card Draw (10)
+1 Rhystic Study
+1 Mystic Remora
+1 Mystic Confluence
+1 Fact or Fiction
+1 Brainstorm
+1 Ponder
+1 Preordain
+1 Dig Through Time
+1 Treasure Cruise
+1 Consecrated Sphinx
+
+// Win Conditions (5)
+1 Approach of the Second Sun
+1 Laboratory Maniac
+1 Jace, Wielder of Mysteries
+1 Teferi, Hero of Dominaria
+1 Elspeth, Sun's Champion
+
+// Ramp (8)
+1 Sol Ring
+1 Arcane Signet
+1 Azorius Signet
+1 Talisman of Progress
+1 Fellwar Stone
+1 Mind Stone
+1 Thought Vessel
+1 Wayfarer's Bauble
+
+// Lands (35)
+1 Command Tower
+1 Hallowed Fountain
+1 Glacial Fortress
+1 Seachrome Coast
+1 Flooded Strand
+1 Polluted Delta
+1 Marsh Flats
+1 Arid Mesa
+1 Misty Rainforest
+1 Scalding Tarn
+1 Tundra
+1 Celestial Colonnade
+1 Mystic Gate
+1 Flooded Grove
+1 Prairie Stream
+1 Port Town
+1 Nimbus Maze
+1 Reflecting Pool
+1 Exotic Orchard
+1 Path of Ancestry
+1 Evolving Wilds
+1 Terramorphic Expanse
+1 Fabled Passage
+1 Mystic Sanctuary
+1 Reliquary Tower
+1 Academy Ruins
+1 Inventors' Fair
+8 Island
+5 Plains
+1 Rogue's Passage
+`,
+  },
+  {
+    id: 'lathril-elves',
+    name: 'Lathril, Blade of the Elves - Elf Tribal',
+    commander: 'Lathril, Blade of the Elves',
+    description: 'Overwhelm with elf tokens and mana dorks. Generate massive amounts of mana and finish with a big alpha strike.',
+    colors: ['B', 'G'],
+    powerLevel: 7,
+    estimatedPrice: 95,
+    archetype: 'Tribal Aggro',
+    deckList: `1 Lathril, Blade of the Elves
+
+// Elves (30)
+1 Elvish Mystic
+1 Llanowar Elves
+1 Fyndhorn Elves
+1 Heritage Druid
+1 Quirion Ranger
+1 Wirewood Symbiote
+1 Wirewood Channeler
+1 Priest of Titania
+1 Elvish Archdruid
+1 Marwyn, the Nurturer
+1 Circle of Dreams Druid
+1 Selvala, Heart of the Wilds
+1 Ezuri, Renegade Leader
+1 Ezuri, Claw of Progress
+1 Rhys the Exiled
+1 Nath of the Gilt-Leaf
+1 Abomination of Llanowar
+1 Imperious Perfect
+1 Elvish Champion
+1 Timberwatch Elf
+1 Lys Alana Huntmaster
+1 Immaculate Magistrate
+1 Joraga Warcaller
+1 Craterhoof Behemoth
+1 End-Raze Forerunners
+1 Allosaurus Shepherd
+1 Reclamation Sage
+1 Shaman of the Pack
+1 Elvish Visionary
+1 Beast Whisperer
+
+// Tribal Support (10)
+1 Coat of Arms
+1 Door of Destinies
+1 Vanquisher's Banner
+1 Herald's Horn
+1 Urza's Incubator
+1 Shared Animosity
+1 Beastmaster Ascension
+1 Overwhelming Stampede
+1 Triumph of the Hordes
+1 Finale of Devastation
+
+// Removal & Interaction (8)
+1 Beast Within
+1 Assassin's Trophy
+1 Abrupt Decay
+1 Putrefy
+1 Golgari Charm
+1 Toxic Deluge
+1 Damnation
+1 Deadly Rollick
+
+// Card Draw (6)
+1 Sylvan Library
+1 Guardian Project
+1 Beast Whisperer
+1 Shamanic Revelation
+1 Return of the Wildspeaker
+1 Harmonize
+
+// Ramp (5)
+1 Sol Ring
+1 Arcane Signet
+1 Golgari Signet
+1 Talisman of Resilience
+1 Wayfarer's Bauble
+
+// Lands (40)
+1 Command Tower
+1 Overgrown Tomb
+1 Woodland Cemetery
+1 Llanowar Wastes
+1 Deathrite Shaman
+1 Blooming Marsh
+1 Darkbore Pathway
+1 Deathcap Glade
+1 Gilt-Leaf Palace
+1 Llanowar Reborn
+1 Pendelhaven
+1 Wirewood Lodge
+1 Nykthos, Shrine to Nyx
+1 Gaea's Cradle
+1 Cavern of Souls
+1 Unclaimed Territory
+1 Path of Ancestry
+1 Evolving Wilds
+1 Terramorphic Expanse
+1 Fabled Passage
+1 Bojuka Bog
+1 Reliquary Tower
+1 Yavimaya, Cradle of Growth
+1 Urborg, Tomb of Yawgmoth
+15 Forest
+5 Swamp
+1 Castle Garenbrig
+1 Castle Locthwain
 `,
   },
 ];
