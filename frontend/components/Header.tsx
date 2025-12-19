@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
-import { capture } from '@/lib/ph';
+import { capture, identify } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
 
@@ -43,6 +43,17 @@ export default function Header() {
     setSessionUser(u?.email ?? null);
     
     if (u) {
+      // Identify user in PostHog for filtering internal/test users
+      const userEmail = u.email || '';
+      const internalEmails = (process.env.NEXT_PUBLIC_INTERNAL_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      const isInternal = internalEmails.includes(userEmail.toLowerCase());
+      
+      identify(u.id, {
+        email: userEmail,
+        is_internal: isInternal,
+        is_test_user: isInternal, // PostHog can filter on this property
+      });
+      
       const md: any = u.user_metadata || {};
       const name = (md.username || u.email || "").toString();
       const avatarUrl = (md.avatar || "").toString();
@@ -107,6 +118,21 @@ export default function Header() {
       
       capture('auth_login_success', { method: 'email_password' });
       
+      // Identify user in PostHog for filtering internal/test users
+      const user = data?.user;
+      if (user) {
+        const userEmail = user.email || '';
+        // Mark as internal if it's the site owner/admin (you can configure this email)
+        const internalEmails = (process.env.NEXT_PUBLIC_INTERNAL_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+        const isInternal = internalEmails.includes(userEmail.toLowerCase());
+        
+        identify(user.id, {
+          email: userEmail,
+          is_internal: isInternal,
+          is_test_user: isInternal, // PostHog can filter on this property
+        });
+      }
+      
       // Also track server-side (always works, no cookie consent needed)
       try {
         await fetch('/api/analytics/track-event', {
@@ -136,7 +162,6 @@ export default function Header() {
       } catch {}
       
       // Check if email is verified
-      const user = data?.user;
       if (user && !user.email_confirmed_at) {
         // Email not verified - show resend option
         const resend = confirm(

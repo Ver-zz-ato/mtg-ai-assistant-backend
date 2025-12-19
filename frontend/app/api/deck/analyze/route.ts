@@ -1356,7 +1356,7 @@ export async function POST(req: Request) {
     console.warn("[deck/analyze] Failed to load prompt version:", e);
   }
 
-  const deckText = String(body.deckText || "").trim();
+  let deckText = String(body.deckText || "").trim();
   const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
   const useScryfall = Boolean(body.useScryfall ?? true);
   const useGPT = Boolean(body.useGPT ?? true);
@@ -1369,7 +1369,44 @@ export async function POST(req: Request) {
     );
   }
 
-  const entries = parsed.map(({ name, qty }) => ({ name, count: qty }));
+  // Smart name checking: fix card names using fuzzy matching (like all other functions)
+  let nameFixInfo: { fixed: number; items: Array<{ originalName: string; suggestions: string[] }> } | null = null;
+  try {
+    // Make internal API call to parse-and-fix-names
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                    (typeof req.url === 'string' ? new URL(req.url).origin : 'http://localhost:3000');
+    const fixRes = await fetch(`${baseUrl}/api/deck/parse-and-fix-names`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deckText }),
+    });
+    const fixData: any = await fixRes.json().catch(() => ({}));
+    
+    if (fixData?.ok && Array.isArray(fixData.cards)) {
+      // Use corrected card names
+      const correctedCards = fixData.cards;
+      // Rebuild deckText with corrected names
+      deckText = correctedCards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
+      
+      // Track what was fixed for potential user feedback
+      if (Array.isArray(fixData.items) && fixData.items.length > 0) {
+        nameFixInfo = {
+          fixed: fixData.items.length,
+          items: fixData.items.map((item: any) => ({
+            originalName: item.originalName || '',
+            suggestions: Array.isArray(item.suggestions) ? item.suggestions : []
+          }))
+        };
+      }
+    }
+  } catch (e: any) {
+    // If name fixing fails, continue with original deckText (graceful degradation)
+    console.warn('[deck/analyze] Name fixing failed, continuing with original names:', e?.message);
+  }
+
+  // Re-parse with potentially corrected deckText
+  const correctedParsed = parseDeckText(deckText);
+  const entries = correctedParsed.map(({ name, qty }) => ({ name, count: qty }));
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
   const byName = new Map<string, SfCard>();
   const lockedNormalized = new Set<string>();
@@ -1590,6 +1627,11 @@ export async function POST(req: Request) {
       },
       prompt_version: useGPT ? (promptVersionId || getActivePromptVersion()) : undefined,
       prompt_version_id: promptVersionId || undefined,
+      // Add name fixing info if cards were corrected
+      ...(nameFixInfo ? {
+        nameFixes: nameFixInfo.items,
+        nameFixesCount: nameFixInfo.fixed,
+      } : {}),
       // Add validated analysis if available
       ...(validatedAnalysis ? {
         analysis: validatedAnalysis.text,

@@ -11,11 +11,20 @@ declare global {
     | undefined;
 }
 
+// Seed messages to make shoutbox feel more active
+const seedMessages: Shout[] = [
+  { id: -1, user: "MTGPlayer", text: "Just built my first deck here - love the AI suggestions!", ts: Date.now() - (2 * 24 * 60 * 60 * 1000) },
+  { id: -2, user: "DeckBuilder", text: "How do I export my deck to Moxfield?", ts: Date.now() - (1.5 * 24 * 60 * 60 * 1000) },
+  { id: -3, user: "CommanderFan", text: "The cost-to-finish feature saved me so much money!", ts: Date.now() - (1 * 24 * 60 * 60 * 1000) },
+  { id: -4, user: "BudgetBuilder", text: "Anyone have tips for building a budget commander deck?", ts: Date.now() - (12 * 60 * 60 * 1000) },
+  { id: -5, user: "NewUser", text: "This site is amazing for deck building!", ts: Date.now() - (6 * 60 * 60 * 1000) },
+];
+
 const store =
   globalThis.__shoutStore ??
   (globalThis.__shoutStore = {
     clients: new Set<WritableStreamDefaultWriter<Uint8Array>>(),
-    history: [],
+    history: seedMessages.length > 0 ? [...seedMessages] : [],
     nextId: 1,
   });
 

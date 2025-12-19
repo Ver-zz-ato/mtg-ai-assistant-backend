@@ -107,6 +107,17 @@ const blogPosts = [
     gradient: 'from-yellow-600 via-amber-600 to-orange-600',
     icon: '💎',
   },
+  {
+    slug: 'bug-fixes-and-improvements-january-2025',
+    title: '🔧 Bug Fixes & Improvements: Making ManaTap More Reliable',
+    excerpt: 'We\'ve been hard at work fixing bugs, improving the user experience, and making ManaTap AI more reliable. Here\'s what\'s new in our latest update.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '5 min read',
+    gradient: 'from-blue-600 via-cyan-600 to-teal-600',
+    icon: '🔧',
+  },
 ];
 
 export default function BlogPage() {

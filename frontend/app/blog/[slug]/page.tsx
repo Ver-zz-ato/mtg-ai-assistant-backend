@@ -553,6 +553,92 @@ Building a $100 Commander deck doesn't mean building a weak one. Smart card choi
 *Looking for more budget deck-building advice? Check out our other articles on maximizing value and finding hidden gems.*
     `,
   },
+  'bug-fixes-and-improvements-january-2025': {
+    title: '🔧 Bug Fixes & Improvements: Making ManaTap More Reliable',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '5 min read',
+    gradient: 'from-blue-600 via-cyan-600 to-teal-600',
+    icon: '🔧',
+    content: `
+# 🔧 Bug Fixes & Improvements: Making ManaTap More Reliable
+
+We're constantly working to make ManaTap AI better, faster, and more reliable. This update focuses on fixing bugs, improving the user experience, and making the platform more polished overall. Here's what we've been working on.
+
+## 🐛 Bug Fixes
+
+### Build Errors & Syntax Issues
+
+We've resolved several build errors and syntax issues that were causing problems behind the scenes. These fixes ensure the site runs smoothly and all features work as expected.
+
+**What this means for you:** A more stable experience with fewer unexpected errors.
+
+### Recent Public Decks Display
+
+Fixed an issue where only one recent public deck was showing on the homepage. Now you'll see up to 5 recent public decks, making it easier to discover what other players are building.
+
+**What this means for you:** Better deck discovery and inspiration from the community.
+
+### Shoutbox Improvements
+
+The shoutbox now shows messages from the last 3 days only, keeping the conversation fresh and relevant. We've also added some seed messages to make the community feel more active and welcoming.
+
+**What this means for you:** A more engaging community experience with recent, relevant conversations.
+
+## ⚡ User Experience Improvements
+
+### Deck Snapshot Visual Design
+
+We've updated the Deck Snapshot / Judger component with a fresh blue/cyan color scheme that better matches the rest of the site. The new design is more prominent and easier to spot.
+
+**What this means for you:** A more cohesive visual experience and easier access to deck analysis tools.
+
+### Recent Public Decks Navigation
+
+The "Recent Public Decks" title is now clickable, taking you directly to the browse page where you can explore all public decks.
+
+**What this means for you:** Faster navigation and easier deck discovery.
+
+### Smart Name Checking
+
+The Run Analysis feature now includes smart name checking, just like our other deck functions. This means the AI will automatically correct card name typos and suggest the right cards, even if you misspell them.
+
+**What this means for you:** More accurate deck analysis, even with typos or partial card names.
+
+## 📊 Analytics Improvements
+
+We've improved our analytics tracking to better identify internal and test users. This helps us get more accurate data about how real users interact with the platform.
+
+**What this means for you:** Better data-driven improvements based on real user behavior.
+
+## 💙 Thank You
+
+A huge thank you to everyone who has been using ManaTap AI, reporting bugs, and providing feedback. Your input directly shapes how we improve the platform.
+
+Every bug report helps us fix issues faster. Every feature request helps us prioritize what to build next. Every piece of feedback makes ManaTap better.
+
+**You're not just users—you're co-builders of this platform.**
+
+## 🚀 What's Next
+
+We're not slowing down. Here's what we're working on next:
+
+- More performance improvements
+- Additional deck analysis features
+- Enhanced collection management tools
+- Better mobile experience
+- And much more!
+
+## Ready to Try the Improvements?
+
+**[Start Building Better Decks →](/my-decks)**
+
+Have feedback or found a bug? Use the feedback button in the app or reach out to us directly. We read everything and use your input to make ManaTap better every day.
+
+Thanks for being part of the ManaTap community!
+    `,
+  },
 };
 
 function articleJsonLd(post: typeof blogContent[string], slug: string) {

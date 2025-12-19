@@ -1,0 +1,19 @@
+{
+  "version": "v1.1.1",
+  "date": "2025-01-27",
+  "title": "Bug Fixes & UX Improvements",
+  "description": "This update focuses on fixing bugs, improving the user experience, and making ManaTap more reliable and polished.",
+  "type": "improvement",
+  "features": [
+    "Smart name checking now works in Run Analysis",
+    "Recent Public Decks title is now clickable",
+    "Shoutbox shows more active community with seed messages"
+  ],
+  "fixes": [
+    "Fixed build errors and syntax issues",
+    "Fixed Recent Public Decks only showing 1 deck (now shows up to 5)",
+    "Improved Deck Snapshot visual design (better color scheme)",
+    "Fixed shoutbox showing old messages (now filters to last 3 days)",
+    "Improved PostHog analytics (can now filter internal users)"
+  ]
+}

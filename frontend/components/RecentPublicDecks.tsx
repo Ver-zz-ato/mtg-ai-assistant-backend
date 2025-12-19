@@ -18,7 +18,7 @@ const supabase = createClient(url, anon, { auth: { persistSession: false } });
 
 const getRecent = unstable_cache(
   async (limit: number) => {
-    // Show decks from the last year (no strict time limit, just prioritize recent)
+    // Show decks from the last year
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const oneYearAgoISO = oneYearAgo.toISOString();
@@ -29,7 +29,7 @@ const getRecent = unstable_cache(
       .eq("is_public", true)
       .gte("updated_at", oneYearAgoISO) // Show decks updated in the last year
       .order("updated_at", { ascending: false })
-      .limit(Math.min(Math.max(limit || 10, 1), 24));
+      .limit(Math.min(Math.max(limit || 5, 1), 5)); // Max 5 decks
     if (error) throw new Error(error.message);
     return (data ?? []) as Row[];
   },
@@ -39,7 +39,7 @@ const getRecent = unstable_cache(
 
 import LikeButton from "./likes/LikeButton";
 
-export default async function RecentPublicDecks({ limit = 10 }: { limit?: number }) {
+export default async function RecentPublicDecks({ limit = 5 }: { limit?: number }) {
   let decks: Row[] = [];
   try {
     decks = await getRecent(limit);
@@ -69,7 +69,9 @@ export default async function RecentPublicDecks({ limit = 10 }: { limit?: number
   if (!decks.length) {
     return (
       <div className="rounded-xl border border-gray-800 p-4">
-        <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
+        <Link href="/decks/browse" className="text-2xl font-semibold mb-2 hover:text-blue-400 transition-colors block">
+          Recent Public Decks
+        </Link>
         <div className="text-xs text-muted-foreground">No public decks yet.</div>
       </div>
     );
@@ -130,7 +132,7 @@ export default async function RecentPublicDecks({ limit = 10 }: { limit?: number
     <div className="rounded-xl border border-gray-800 p-4">
       <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
       <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#6b7280 #1f2937' }}>
-        {decks.slice(0, 10).map((d) => {
+        {decks.map((d) => {
           const clean = (s: string) => s.replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
           const candidates: string[] = [];
           if (d.commander) candidates.push(clean(String(d.commander)));
