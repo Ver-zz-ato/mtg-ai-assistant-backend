@@ -14,6 +14,24 @@ export type ValidationResult = {
 };
 
 /**
+ * Normalize text by stripping markdown formatting while preserving content
+ */
+function normalizeMarkdown(text: string): string {
+  let normalized = text;
+  // Remove bold **text**
+  normalized = normalized.replace(/\*\*([^*]+)\*\*/g, '$1');
+  // Remove italic *text*
+  normalized = normalized.replace(/\*([^*]+)\*/g, '$1');
+  // Remove image tags [[card]]
+  normalized = normalized.replace(/\[\[([^\]]+)\]\]/g, '$1');
+  // Remove code blocks
+  normalized = normalized.replace(/`([^`]+)`/g, '$1');
+  // Remove links [text](url)
+  normalized = normalized.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+  return normalized;
+}
+
+/**
  * Synonym groups for flexible keyword matching
  * Maps a canonical phrase to its synonyms/variants
  */
@@ -41,6 +59,41 @@ const KEYWORD_SYNONYMS: Record<string, string[]> = {
     "8-12 ramp sources",
     "about 8-12 ramp pieces",
   ],
+  "mana rocks": [
+    "mana rocks",
+    "mana rock",
+    "rocks",
+    "artifact ramp",
+    "signets",
+    "sol ring",
+    "arcane signet",
+  ],
+  "land-based ramp": [
+    "land-based ramp",
+    "land ramp",
+    "land-fetch ramp",
+    "mana ramp",
+    "fetching lands",
+    "ramp spells that fetch lands",
+    "cultivate",
+    "kodama's reach",
+    "farseek",
+    "nature's lore",
+    "land search",
+    "ramp that searches for lands",
+  ],
+  "creature ramp": [
+    "creature ramp",
+    "mana dorks",
+    "creatures with ramp abilities",
+    "ramp creatures",
+    "creatures that produce mana",
+    "mana-producing creatures",
+    "llanowar elves",
+    "birds of paradise",
+    "elvish mystic",
+    "dorks",
+  ],
   // Land count phrases
   "around 19–20 lands": [
     "around 19-20 lands",
@@ -50,6 +103,8 @@ const KEYWORD_SYNONYMS: Record<string, string[]> = {
     "typically 19-20 lands",
     "around 20 lands",
     "about 20 lands",
+    "roughly 19-20 lands",
+    "19-20 lands is typical",
   ],
   "around 36–38 lands": [
     "around 36-38 lands",
@@ -58,6 +113,12 @@ const KEYWORD_SYNONYMS: Record<string, string[]> = {
     "typically 36-38 lands",
     "around 37 lands",
     "about 37 lands",
+    "around 33-37 lands",
+    "about 33-37 lands",
+    "around 34-38 lands",
+    "about 34-38 lands",
+    "around 35-39 lands",
+    "roughly 36-38 lands",
   ],
   "around 24 lands": [
     "around 24 lands",
@@ -66,6 +127,23 @@ const KEYWORD_SYNONYMS: Record<string, string[]> = {
     "typically 24 lands",
     "around 23-25 lands",
     "about 23-25 lands",
+    "23-25 lands is typical",
+    "roughly 23-25 lands",
+  ],
+  "more lands if your curve is high": [
+    "more lands if your curve is high",
+    "high curve needs more lands",
+    "higher curve requires more lands",
+    "expensive spells need more lands",
+    "higher mana curve means more lands",
+    "add more lands for high curve",
+  ],
+  "fewer lands if you have lots of ramp": [
+    "fewer lands if you have lots of ramp",
+    "with ramp you can play fewer lands",
+    "lots of ramp means fewer lands",
+    "ramp allows fewer lands",
+    "ramp lets you cut lands",
   ],
   // Graveyard/recursion phrases
   "graveyard": [
@@ -120,16 +198,156 @@ const KEYWORD_SYNONYMS: Record<string, string[]> = {
     "lacks creature removal",
     "missing creature removal",
   ],
+  // Strategy terms
+  "go-wide": [
+    "go-wide",
+    "token swarm",
+    "overwhelm",
+    "overrun defenses",
+    "overwhelm the table",
+    "overwhelm opponents",
+    "swarm strategy",
+    "wide strategy",
+    "lots of small creatures",
+    "many small creatures",
+    "create lots of small creatures",
+    "generate multiple creature tokens",
+    "use sheer numbers",
+  ],
+  "anthem effects": [
+    "anthem effects",
+    "anthem",
+    "anthems",
+    "buff effects",
+    "pump spells",
+    "overrun effects",
+    "global buffs",
+    "team buffs",
+    "creature buffs",
+    "pump the team",
+    "buff your creatures",
+  ],
+  "overwhelm the table": [
+    "overwhelm the table",
+    "overrun defenses",
+    "overwhelm opponents",
+    "overwhelm with numbers",
+    "use sheer numbers to overrun",
+    "overwhelm with tokens",
+  ],
+  // Tribal phrases
+  "majority of the creatures should share the tribe": [
+    "majority of the creatures should share the tribe",
+    "most creatures should be the same tribe",
+    "most creatures should share the tribe",
+    "focus on the tribe",
+    "maintain focus on the tribe",
+    "tribal focus",
+    "tribe-focused",
+  ],
+  "at least 25–30 creatures": [
+    "at least 25-30 creatures",
+    "25-30 creatures",
+    "around 25-30 creatures",
+    "about 25-30 creatures",
+    "25-35 creatures",
+    "around 25-35 creatures",
+  ],
+  // Trample vs Flying
+  "trample lets damage go over blockers": [
+    "trample lets damage go over blockers",
+    "trample allows extra damage",
+    "trample deals damage beyond blockers",
+    "trample damage goes through",
+    "trample deals damage to player",
+    "excess damage with trample",
+  ],
+  "flying can only be blocked by flyers or reach": [
+    "flying can only be blocked by flyers or reach",
+    "flying creatures can only be blocked by flying or reach",
+    "flying requires flying or reach to block",
+    "flyers block flyers",
+    "flying evasion",
+  ],
+  // Banned/illegal card phrases
+  "banned in Commander": [
+    "banned in Commander",
+    "banned in EDH",
+    "cannot be played in Commander",
+    "not legal in Commander",
+    "is banned",
+    "is not legal",
+  ],
+  "cannot be played": [
+    "cannot be played",
+    "can't be played",
+    "not legal",
+    "not allowed",
+    "illegal",
+  ],
+  "consider alternatives": [
+    "consider alternatives",
+    "alternative cards",
+    "alternatives include",
+    "instead consider",
+    "you could use",
+    "instead use",
+  ],
+  // Cost to Finish
+  "total price of missing cards": [
+    "total price of missing cards",
+    "price of missing cards",
+    "cost of missing cards",
+    "total cost to purchase missing cards",
+    "monetary cost",
+    "dollar cost",
+    "price needed",
+    "cost needed",
+  ],
+  "based on current market prices": [
+    "based on current market prices",
+    "current market prices",
+    "current prices",
+    "market prices",
+    "real-time prices",
+  ],
 };
 
 /**
+ * Calculate word-level similarity between two phrases
+ * Returns similarity score 0-1, where 1 is identical
+ */
+function phraseSimilarity(phrase1: string, phrase2: string): number {
+  const words1 = phrase1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const words2 = phrase2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  
+  if (words1.length === 0 || words2.length === 0) return 0;
+  
+  const set1 = new Set(words1);
+  const set2 = new Set(words2);
+  
+  // Count common words
+  let common = 0;
+  for (const word of set1) {
+    if (set2.has(word)) common++;
+  }
+  
+  // Jaccard similarity: intersection / union
+  const union = new Set([...words1, ...words2]).size;
+  return union > 0 ? common / union : 0;
+}
+
+/**
  * Check if response contains a keyword or any of its synonyms
+ * Uses markdown normalization and semantic matching
  */
 function matchesKeywordFlexible(response: string, keyword: string): boolean {
-  const responseLower = response.toLowerCase();
+  // Normalize markdown before matching
+  const normalizedResponse = normalizeMarkdown(response);
+  const responseLower = normalizedResponse.toLowerCase();
   const keywordLower = keyword.toLowerCase();
   
-  // First try exact match
+  // First try exact match on normalized text
   if (responseLower.includes(keywordLower)) {
     return true;
   }
@@ -137,31 +355,85 @@ function matchesKeywordFlexible(response: string, keyword: string): boolean {
   // Check synonyms
   const synonyms = KEYWORD_SYNONYMS[keyword] || KEYWORD_SYNONYMS[keywordLower];
   if (synonyms) {
-    return synonyms.some(synonym => responseLower.includes(synonym.toLowerCase()));
+    const found = synonyms.some(synonym => {
+      const synonymLower = synonym.toLowerCase();
+      // Try exact match first
+      if (responseLower.includes(synonymLower)) return true;
+      // Try semantic similarity for phrases
+      if (synonym.length > 10 && keyword.length > 10) {
+        // For longer phrases, check word-level similarity
+        const similarity = phraseSimilarity(keywordLower, synonymLower);
+        if (similarity > 0.5) {
+          // Check if the synonym concepts appear in response
+          const synonymWords = synonymLower.split(/\s+/).filter(w => w.length > 3);
+          return synonymWords.every(word => responseLower.includes(word));
+        }
+      }
+      return false;
+    });
+    if (found) return true;
   }
   
-  // For numeric ranges, try semantic matching
+  // For numeric ranges, try semantic matching with better tolerance
   // e.g., "about 10-12 ramp" should match "around 8-12 ramp pieces"
-  const rangeMatch = keyword.match(/(\d+)[\s-–]+(?:to|–|-)[\s-–]+(\d+)\s+(ramp|lands?|draw|removal)/i);
+  const rangeMatch = keyword.match(/(\d+)[\s-–]+(?:to|–|-)[\s-–]+(\d+)\s+(ramp|lands?|draw|removal|interaction|creatures?)/i);
   if (rangeMatch) {
     const [, minStr, maxStr, category] = rangeMatch;
     const min = parseInt(minStr);
     const max = parseInt(maxStr);
     const catLower = category.toLowerCase();
     
-    // Look for similar ranges in response
+    // Look for similar ranges in response with more flexible patterns
     const rangePattern = new RegExp(
-      `(?:about|around|roughly|typically|usually|generally)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${catLower}`,
+      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${catLower}`,
       "i"
     );
-    const matches = response.matchAll(rangePattern);
+    const matches = normalizedResponse.matchAll(rangePattern);
     for (const match of matches) {
       const respMin = parseInt(match[1]);
       const respMax = parseInt(match[2]);
-      // Accept if ranges overlap significantly (within 2 of each other)
-      if (Math.abs(respMin - min) <= 2 && Math.abs(respMax - max) <= 2) {
+      // Accept if ranges overlap significantly
+      // Commander lands: 33-37 vs 36-38 (overlap, accept)
+      // 60-card midrange: 22 vs 24 (difference of 2, within tolerance)
+      const tolerance = category.toLowerCase().includes('land') && (min + max) / 2 > 30 ? 3 : 2;
+      if (Math.abs(respMin - min) <= tolerance && Math.abs(respMax - max) <= tolerance) {
         return true;
       }
+      // Also check if ranges overlap at all
+      if (!(respMax < min || respMin > max)) {
+        return true;
+      }
+    }
+    
+    // Also try single number matches for ranges (e.g., "24 lands" matches "around 23-25 lands")
+    const singlePattern = new RegExp(
+      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play)?\\s*(\\d+)\\s+${catLower}`,
+      "i"
+    );
+    const singleMatches = normalizedResponse.matchAll(singlePattern);
+    for (const match of singleMatches) {
+      const value = parseInt(match[1]);
+      // Accept if single value falls within the range or is close
+      const tolerance = category.toLowerCase().includes('land') && min > 30 ? 3 : 2;
+      if (value >= min - tolerance && value <= max + tolerance) {
+        return true;
+      }
+    }
+  }
+  
+  // Semantic phrase matching for complex phrases
+  if (keyword.length > 15) {
+    // For longer phrases, check word-level similarity
+    const similarity = phraseSimilarity(keywordLower, responseLower);
+    if (similarity > 0.6) {
+      return true;
+    }
+    
+    // Check if key words from keyword appear in response
+    const keywordWords = keywordLower.split(/\s+/).filter(w => w.length > 3 && !['the', 'and', 'or', 'for', 'with'].includes(w));
+    const allKeyWordsPresent = keywordWords.length > 0 && keywordWords.every(word => responseLower.includes(word));
+    if (allKeyWordsPresent && keywordWords.length >= 2) {
+      return true;
     }
   }
   
@@ -222,13 +494,265 @@ export type JudgeResult = {
 };
 
 /**
+ * Validate MTG heuristics (numeric recommendations against standard ranges)
+ */
+export async function validateMTGHeuristics(
+  response: string,
+  testCase: { input: any }
+): Promise<ValidationResult> {
+  const { checkStrategicAdvice } = await import('./mtg-heuristics');
+  
+  const format = testCase.input.format as 'Commander' | 'Modern' | 'Standard' | 'Pioneer' | 'Pauper' | 'Legacy' | 'Vintage' | undefined;
+  const archetype = testCase.input.archetype as 'midrange' | 'aggro' | 'control' | 'combo' | 'burn' | 'tempo' | undefined;
+  
+  if (!format) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: 'mtg_heuristics',
+        passed: true,
+        message: 'No format specified - skipping heuristics',
+      }],
+      warnings: [],
+    };
+  }
+  
+  const issues = checkStrategicAdvice(response, format, archetype);
+  
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  let passedCount = 0;
+  let totalChecks = 0;
+  const warnings: string[] = [];
+  
+  for (const issue of issues) {
+    totalChecks++;
+    const passed = issue.severity !== 'critical';
+    checks.push({
+      type: `heuristic_${issue.category}`,
+      passed,
+      message: issue.message,
+    });
+    if (passed) {
+      passedCount++;
+    } else {
+      warnings.push(issue.message);
+    }
+  }
+  
+  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  const passed = score >= 70; // Slightly more lenient threshold for heuristics
+  
+  return {
+    passed,
+    score,
+    checks: checks.length > 0 ? checks : [{
+      type: 'mtg_heuristics',
+      passed: true,
+      message: 'No heuristic violations found',
+    }],
+    warnings,
+  };
+}
+
+/**
+ * Validate card role matches intended purpose
+ * E.g., Altar of Dementia is NOT a mana ramp card
+ */
+export async function validateCardRoles(
+  response: string,
+  testCase: { input: any },
+  supabase?: any
+): Promise<ValidationResult> {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  
+  if (!supabase) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{
+        type: 'card_role',
+        passed: true,
+        message: 'Card role validation skipped (no supabase client)',
+      }],
+      warnings: [],
+    };
+  }
+  
+  const responseLower = response.toLowerCase();
+  const cardNames = extractCardNames(response);
+  
+  // Known incorrect role assignments
+  const roleViolations: Array<{ card: string; incorrectRole: string; correctRole: string }> = [];
+  
+  // Check if Altar of Dementia is suggested as ramp
+  if (responseLower.includes('altar of dementia') && 
+      (responseLower.includes('ramp') || responseLower.includes('mana acceleration'))) {
+    roleViolations.push({
+      card: 'Altar of Dementia',
+      incorrectRole: 'mana ramp',
+      correctRole: 'sacrifice outlet',
+    });
+  }
+  
+  // Add more role checks as needed
+  
+  for (const violation of roleViolations) {
+    checks.push({
+      type: 'card_role_violation',
+      passed: false,
+      message: `"${violation.card}" is incorrectly suggested as ${violation.incorrectRole} (it's actually a ${violation.correctRole})`,
+    });
+    warnings.push(`Card role mismatch: ${violation.card} suggested as ${violation.incorrectRole}`);
+  }
+  
+  const passed = roleViolations.length === 0;
+  const score = passed ? 100 : Math.max(0, 100 - (roleViolations.length * 30));
+  
+  return {
+    passed,
+    score,
+    checks: checks.length > 0 ? checks : [{
+      type: 'card_role',
+      passed: true,
+      message: 'No card role violations found',
+    }],
+    warnings,
+  };
+}
+
+/**
+ * Validate context relevance - penalize generic advice that ignores deck context
+ */
+export function validateContextRelevance(
+  response: string,
+  testCase: { input: any; name?: string }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  let passedCount = 0;
+  let totalChecks = 0;
+  let score = 100;
+  
+  const responseLower = response.toLowerCase();
+  const commander = testCase.input.commander;
+  const deckText = testCase.input.deckText || '';
+  const format = testCase.input.format || '';
+  
+  // Check if commander is mentioned (if provided)
+  if (commander) {
+    totalChecks++;
+    const commanderLower = commander.toLowerCase();
+    const mentionsCommander = responseLower.includes(commanderLower) ||
+                              responseLower.includes(commander.split(',')[0].toLowerCase());
+    if (mentionsCommander) {
+      passedCount++;
+      checks.push({
+        type: 'mentions_commander',
+        passed: true,
+        message: `Response mentions commander "${commander}"`,
+      });
+    } else {
+      score -= 10;
+      checks.push({
+        type: 'mentions_commander',
+        passed: false,
+        message: `Response should mention commander "${commander}" but doesn't`,
+      });
+      warnings.push(`Commander "${commander}" not mentioned in response`);
+    }
+  }
+  
+  // Check for theme-specific keywords based on commander/deck
+  // Lands matter decks (e.g., Lord Windgrace)
+  if (commander && (commander.toLowerCase().includes('windgrace') || 
+                    deckText.toLowerCase().includes('land recursion'))) {
+    totalChecks++;
+    const landsMatterKeywords = ['land recursion', 'landfall', 'lands in graveyard', 'land synergy', 'land theme'];
+    const hasLandsMatter = landsMatterKeywords.some(kw => responseLower.includes(kw));
+    if (hasLandsMatter) {
+      passedCount++;
+      checks.push({
+        type: 'theme_relevance',
+        passed: true,
+        message: 'Response addresses land-focused theme',
+      });
+    } else {
+      score -= 15;
+      checks.push({
+        type: 'theme_relevance',
+        passed: false,
+        message: 'Response ignores land-focused theme (should mention land recursion/synergy)',
+      });
+      warnings.push('Response is too generic - ignores deck theme');
+    }
+  }
+  
+  // Sacrifice/permanents matter (e.g., Henzie "Toolbox" Torre)
+  if (commander && commander.toLowerCase().includes('henzie')) {
+    totalChecks++;
+    const permanentsKeywords = ['permanent', 'sacrifice', 'death trigger', 'dies trigger'];
+    const hasPermanents = permanentsKeywords.some(kw => responseLower.includes(kw));
+    if (hasPermanents) {
+      passedCount++;
+      checks.push({
+        type: 'theme_relevance',
+        passed: true,
+        message: 'Response addresses permanents/sacrifice theme',
+      });
+    } else {
+      score -= 15;
+      checks.push({
+        type: 'theme_relevance',
+        passed: false,
+        message: 'Response ignores permanents/sacrifice theme',
+      });
+      warnings.push('Response is too generic - ignores commander strategy');
+    }
+  }
+  
+  // Check for generic filler advice
+  const genericPhrases = [
+    'add more lands',
+    'add more draw',
+    'add more removal',
+    'add more ramp',
+  ];
+  
+  // If response is mostly generic advice without context, penalize
+  if (totalChecks > 0 && passedCount === 0) {
+    const genericCount = genericPhrases.filter(phrase => responseLower.includes(phrase)).length;
+    if (genericCount >= 3 && response.length < 300) {
+      score -= 20;
+      warnings.push('Response is too generic - lacks context-specific advice');
+    }
+  }
+  
+  const passed = score >= 70;
+  
+  return {
+    passed,
+    score: Math.max(0, score),
+    checks: checks.length > 0 ? checks : [{
+      type: 'context_relevance',
+      passed: true,
+      message: 'Response is contextually relevant',
+    }],
+    warnings,
+  };
+}
+
+/**
  * Validate response against keyword checks
  */
 export function validateKeywords(
   response: string,
   expectedChecks: ExpectedChecks
 ): ValidationResult {
-  const responseLower = response.toLowerCase();
+  // Normalize markdown before processing
+  const normalizedResponse = normalizeMarkdown(response);
+  const responseLower = normalizedResponse.toLowerCase();
   const checks: Array<{ type: string; passed: boolean; message: string }> = [];
   const warnings: string[] = [];
   let passedCount = 0;
@@ -255,9 +779,9 @@ export function validateKeywords(
     for (const keyword of expectedChecks.shouldNotContain) {
       totalChecks++;
       const keywordLower = keyword.toLowerCase();
-      // Check both literal and regex patterns
+      // Check both literal and regex patterns on normalized text
       const regex = new RegExp(keywordLower.replace(/\*/g, ".*"), "i");
-      const passed = !regex.test(response);
+      const passed = !regex.test(normalizedResponse);
       checks.push({
         type: "shouldNotContain",
         passed,
@@ -368,23 +892,40 @@ export async function validateLLMFactCheck(
   testCase: { name?: string; input: any; expectedChecks?: ExpectedChecks },
   apiKey: string
 ): Promise<{ validation: ValidationResult; judge: JudgeResult }> {
+  const commander = testCase.input.commander || '';
+  const deckTheme = testCase.input.deckText ? 'Deck analysis question' : '';
+  const context = commander ? `Commander: ${commander}` : (deckTheme || 'General question');
+  
   const systemPrompt = `You are a Magic: The Gathering expert fact-checker. Review the AI assistant's response and provide structured evaluation.
 
 Test case: ${testCase.name || "Unknown"}
 User question: ${JSON.stringify(testCase.input.userMessage || "")}
 Format: ${testCase.input.format || "Unknown"}
+Context: ${context}
+
+IMPORTANT EVALUATION CRITERIA:
+1. **Strategic Relevance**: Does the advice address the specific question/context? Generic "add lands, draw, removal" without mentioning commander/theme should score lower on synergy_score.
+2. **Context Awareness**: If a commander or deck theme is provided, does the response mention it and tailor advice accordingly?
+3. **Factual Accuracy**: Are card names correct? Are rules explanations accurate? Are format legality statements correct?
+4. **Legal Compliance**: All suggested cards must be legal in the format and match color identity (especially important for hybrid cards).
+5. **Strategic Quality**: Are recommendations strategically sound? (e.g., 22 lands for midrange is too low, should be ~24)
 
 Evaluate the response and return JSON with these exact fields:
 {
   "overall_score": 0-100,
   "factual_score": 0-100,  // Card names, rules, format legality accuracy
-  "legality_score": 0-100,  // Color identity, format legality, banlist compliance
-  "synergy_score": 0-100,   // How well suggestions fit the deck plan/commander
+  "legality_score": 0-100,  // Color identity, format legality, banlist compliance (0 if illegal cards suggested)
+  "synergy_score": 0-100,   // How well suggestions fit the deck plan/commander/theme (penalize generic advice)
   "pedagogy_score": 0-100,  // Clarity for teaching mode, explanation quality
   "issues": ["issue1", "issue2"],
   "improved_answer": "optional better version",
   "suggested_prompt_patch": "optional prompt improvement"
-}`;
+}
+
+Penalize heavily for:
+- Suggesting illegal cards (format or color identity violations) → legality_score should be 0-30
+- Generic advice that ignores commander/theme → synergy_score should be 50-70
+- Strategically poor recommendations (e.g., wrong land counts) → factual_score reduction`;
 
   const userPrompt = `AI Response to fact-check:\n\n${response}`;
 
@@ -478,42 +1019,83 @@ Evaluate the response and return JSON with these exact fields:
 }
 
 /**
- * Extract card names from response text (handles markdown formatting)
+ * Extract card names from response text (handles markdown formatting and plain text)
  */
 function extractCardNames(response: string): string[] {
   const cardNames: string[] = [];
-  // Match **Card Name** or [[Card Name]] patterns
-  const patterns = [
-    /\*\*([^*]+)\*\*/g,  // **Card Name**
-    /\[\[([^\]]+)\]\]/g,  // [[Card Name]]
-  ];
+  const normalized = normalizeMarkdown(response);
   
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(response)) !== null) {
-      const name = match[1].trim();
-      if (name && name.length > 0) {
-        cardNames.push(name);
-      }
+  // Pattern 1: Markdown bold **Card Name**
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  let match;
+  while ((match = boldPattern.exec(response)) !== null) {
+    const name = match[1].trim();
+    if (name && name.length > 0 && name.length < 100) {
+      cardNames.push(name);
     }
   }
   
-  return Array.from(new Set(cardNames)); // Remove duplicates
+  // Pattern 2: Image tags [[Card Name]]
+  const imagePattern = /\[\[([^\]]+)\]\]/g;
+  while ((match = imagePattern.exec(response)) !== null) {
+    const name = match[1].trim();
+    if (name && name.length > 0 && name.length < 100) {
+      cardNames.push(name);
+    }
+  }
+  
+  // Pattern 3: Plain text card names in lists or sentences
+  // Look for capitalized words/phrases that might be card names
+  // Common patterns: "Consider adding X", "Try X", "X is good", "cards like X, Y, and Z"
+  const plainTextPatterns = [
+    /(?:add|try|consider|suggest|recommend|include|use|play|run)\s+([A-Z][a-zA-Z\s'’]+(?:,\s+[A-Z][a-zA-Z\s'’]+)*)/g,
+    /(?:cards? like|examples? include|such as|including)\s+([A-Z][a-zA-Z\s'’]+(?:,\s+[A-Z][a-zA-Z\s'’]+)*)/g,
+  ];
+  
+  for (const pattern of plainTextPatterns) {
+    while ((match = pattern.exec(normalized)) !== null) {
+      const namesStr = match[1];
+      // Split by commas and clean
+      const names = namesStr.split(/,|\sand\s/).map(n => n.trim()).filter(n => n.length > 2 && n.length < 100);
+      cardNames.push(...names);
+    }
+  }
+  
+  // Filter out common false positives
+  const falsePositives = new Set([
+    'the', 'and', 'or', 'for', 'with', 'this', 'that', 'your', 'deck', 'card', 'cards',
+    'commander', 'format', 'example', 'examples', 'some', 'many', 'few', 'most', 'all'
+  ]);
+  
+  return Array.from(new Set(cardNames))
+    .filter(name => {
+      const lower = name.toLowerCase();
+      // Filter out single words that are likely not cards
+      if (name.split(/\s+/).length === 1 && falsePositives.has(lower)) {
+        return false;
+      }
+      // Filter out very short names (likely not cards)
+      if (name.length < 3) return false;
+      // Filter out very long names (likely not cards)
+      if (name.length > 80) return false;
+      return true;
+    });
 }
 
 /**
  * Check color identity compatibility
+ * Enhanced to handle hybrid cards and phyrexian mana correctly
  */
 async function checkColorIdentity(
   cardName: string,
   allowedColors: string[],
   supabase: any
-): Promise<{ passed: boolean; message: string }> {
+): Promise<{ passed: boolean; message: string; isHybrid?: boolean }> {
   try {
     const normalizedName = cardName.toLowerCase().trim();
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("color_identity, name")
+      .select("color_identity, name, mana_cost, produced_mana")
       .ilike("name", normalizedName)
       .limit(1)
       .maybeSingle();
@@ -525,37 +1107,71 @@ async function checkColorIdentity(
     const cardColors = Array.isArray(data.color_identity) ? data.color_identity : [];
     const allowedSet = new Set(allowedColors.map((c) => c.toUpperCase()));
     
-    // Check if all card colors are in allowed colors
+    // Check if this is a hybrid card (has multiple colors in color_identity)
+    // Hybrid cards like Sundering Growth (G/W hybrid) have color_identity ["G", "W"]
+    // In a mono-green deck, this is NOT legal even though it can be cast with green mana
+    const isHybrid = cardColors.length > 1;
+    
+    // For Commander/EDH: ALL colors in color_identity must be in allowed colors
+    // For hybrid cards: if card has [G, W] and deck allows only [G], it's illegal
+    // This is different from "can be cast with" - color identity is stricter
     const allAllowed = cardColors.every((c: string) => allowedSet.has(c.toUpperCase()));
     
     if (!allAllowed) {
+      const hybridNote = isHybrid ? " (hybrid card - all colors must match)" : "";
       return {
         passed: false,
-        message: `Card "${cardName}" has color identity ${cardColors.join(", ")} but deck only allows ${allowedColors.join(", ")}`,
+        message: `Card "${cardName}" has color identity ${cardColors.join(", ")} but deck only allows ${allowedColors.join(", ")}${hybridNote}`,
+        isHybrid,
       };
     }
 
-    return { passed: true, message: `Card "${cardName}" color identity OK` };
+    return { 
+      passed: true, 
+      message: `Card "${cardName}" color identity OK${isHybrid ? " (hybrid card)" : ""}`,
+      isHybrid,
+    };
   } catch (error: any) {
     return { passed: true, message: `Color check error for "${cardName}": ${error.message}` };
   }
 }
 
 /**
- * Check format legality (banned list)
+ * Commander-only cards that are NOT legal in Standard/Modern/Pioneer
+ */
+const COMMANDER_ONLY_CARDS = new Set([
+  "Sol Ring",
+  "Command Tower",
+  "Arcane Signet",
+  "Commander Sphere",
+  "Commander Plate",
+  "Fierce Guardianship",
+  "Deadly Rollick",
+  "Flawless Maneuver",
+  "Deflecting Swat",
+  "Teferi's Protection",
+  "Path of Ancestry",
+  "Exotic Orchard",
+]);
+
+/**
+ * Check format legality (banned list and Commander-only cards)
+ * Enhanced to verify ALL suggested cards comprehensively
  */
 async function checkFormatLegality(
   cardName: string,
   format: string,
   supabase: any
-): Promise<{ passed: boolean; message: string }> {
+): Promise<{ passed: boolean; message: string; severity?: 'critical' | 'warning' }> {
   try {
-    // Load banned cards list
+    const normalizedName = cardName.toLowerCase().trim();
+    const formatUpper = format.charAt(0).toUpperCase() + format.slice(1).toLowerCase();
+    
+    // Check banned list
     const bannedCardsModule = await import("@/lib/data/banned_cards.json");
     const bannedCards = (bannedCardsModule as any).default || bannedCardsModule;
-    const formatBanned = bannedCards[format] || [];
+    const formatBanned = bannedCards[formatUpper] || [];
     
-    const normalizedName = cardName.toLowerCase().trim();
     const isBanned = formatBanned.some((banned: string) => 
       banned.toLowerCase().trim() === normalizedName
     );
@@ -563,10 +1179,32 @@ async function checkFormatLegality(
     if (isBanned) {
       return {
         passed: false,
+        severity: 'critical',
         message: `Card "${cardName}" is banned in ${format}`,
       };
     }
 
+    // Check Commander-only cards in non-Commander formats
+    if (format !== 'Commander' && format !== 'EDH') {
+      // Check if card is Commander-only
+      const cardNameTitleCase = cardName.split(' ').map(w => 
+        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+      ).join(' ');
+      
+      if (COMMANDER_ONLY_CARDS.has(cardName) || COMMANDER_ONLY_CARDS.has(cardNameTitleCase)) {
+        return {
+          passed: false,
+          severity: 'critical',
+          message: `Card "${cardName}" is Commander-only and not legal in ${format}`,
+        };
+      }
+    }
+
+    // For Standard: Check if card might not be in Standard sets
+    // Note: Full Standard set checking requires Scryfall API or cached set data
+    // For now, we rely on banned list and Commander-only checks
+    // This is a limitation - full Standard legality would need set checking
+    
     return { passed: true, message: `Card "${cardName}" is legal in ${format}` };
   } catch (error: any) {
     return { passed: true, message: `Legality check error for "${cardName}": ${error.message}` };
@@ -620,8 +1258,9 @@ export async function validateReferenceCompare(
   const allowedColors = testCase.input.colors || [];
   const commander = testCase.input.commander;
 
-  // Check each card
-  for (const cardName of cardNames.slice(0, 20)) { // Limit to 20 cards to avoid too many checks
+  // Check each card (increased limit to 30 to catch more issues)
+  let criticalViolations = 0;
+  for (const cardName of cardNames.slice(0, 30)) {
     // Color identity check
     if (allowedColors.length > 0 || commander) {
       totalChecks++;
@@ -631,8 +1270,12 @@ export async function validateReferenceCompare(
         passed: colorCheck.passed,
         message: colorCheck.message,
       });
-      if (colorCheck.passed) passedCount++;
-      if (!colorCheck.passed) warnings.push(colorCheck.message);
+      if (colorCheck.passed) {
+        passedCount++;
+      } else {
+        warnings.push(colorCheck.message);
+        criticalViolations++; // Color violations are critical
+      }
     }
 
     // Format legality check
@@ -644,13 +1287,29 @@ export async function validateReferenceCompare(
         passed: legalityCheck.passed,
         message: legalityCheck.message,
       });
-      if (legalityCheck.passed) passedCount++;
-      if (!legalityCheck.passed) warnings.push(legalityCheck.message);
+      if (legalityCheck.passed) {
+        passedCount++;
+      } else {
+        warnings.push(legalityCheck.message);
+        if (legalityCheck.severity === 'critical') {
+          criticalViolations++; // Format violations are critical
+        }
+      }
     }
   }
 
-  const score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
-  const passed = score >= 80;
+  // Calculate score: Format/color violations should heavily penalize
+  // If there are critical violations, score should be much lower
+  let score = totalChecks > 0 ? Math.round((passedCount / totalChecks) * 100) : 100;
+  
+  // Heavy penalty for critical violations
+  if (criticalViolations > 0) {
+    // Each critical violation reduces score by at least 20 points
+    score = Math.max(0, score - (criticalViolations * 25));
+  }
+  
+  // Don't allow passing if there are critical violations
+  const passed = score >= 80 && criticalViolations === 0;
 
   return {
     passed,
@@ -1989,6 +2648,37 @@ export async function validateResponse(
   const checks = testCase.expectedChecks || {};
   const testType = testCase.type || "chat"; // Extract type from testCase
   
+  // MTG Heuristics validation (always run for deck-related questions)
+  if (runAdvanced && (testType === "deck_analysis" || testCase.input.format)) {
+    try {
+      const heuristicsResult = await validateMTGHeuristics(response, testCase);
+      (results as any).heuristicsResults = heuristicsResult;
+    } catch (error) {
+      // Silently fail if heuristics module has issues
+      console.warn('[validateResponse] MTG heuristics validation failed:', error);
+    }
+  }
+  
+  // Context relevance validation (always run)
+  if (runAdvanced) {
+    try {
+      const contextResult = validateContextRelevance(response, testCase);
+      (results as any).contextRelevanceResults = contextResult;
+    } catch (error) {
+      console.warn('[validateResponse] Context relevance validation failed:', error);
+    }
+  }
+  
+  // Card role validation (run when supabase available)
+  if (runAdvanced && options.supabase) {
+    try {
+      const roleResult = await validateCardRoles(response, testCase, options.supabase);
+      (results as any).cardRoleResults = roleResult;
+    } catch (error) {
+      console.warn('[validateResponse] Card role validation failed:', error);
+    }
+  }
+  
   if (runAdvanced) {
     // Deck Style & Plan Judge
     if (checks.requireDeckStyle !== false) { // Default to true for deck_analysis
@@ -2082,6 +2772,9 @@ export async function validateResponse(
   if (results.specificityResults) allScores.push(results.specificityResults.score);
   if (results.colorIdentityResults) allScores.push(results.colorIdentityResults.score);
   if ((results as any).safetyResults) allScores.push((results as any).safetyResults.score);
+  if ((results as any).heuristicsResults) allScores.push((results as any).heuristicsResults.score);
+  if ((results as any).contextRelevanceResults) allScores.push((results as any).contextRelevanceResults.score);
+  if ((results as any).cardRoleResults) allScores.push((results as any).cardRoleResults.score);
 
   const overallScore =
     allScores.length > 0

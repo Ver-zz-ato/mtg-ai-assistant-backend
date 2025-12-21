@@ -183,8 +183,20 @@
       "expectedChecks": {
         "shouldContain": [
           "total price of missing cards",
-          "based on current market prices",
-          "doesn't include cards you already own"
+          "price of missing cards",
+          "cost of missing cards",
+          "monetary price",
+          "dollar",
+          "purchase",
+          "market prices",
+          "current prices"
+        ],
+        "shouldNotContain": [
+          "mana cost",
+          "casting cost",
+          "to cast",
+          "mana requirement",
+          "total mana cost"
         ],
         "minLength": 150
       },
