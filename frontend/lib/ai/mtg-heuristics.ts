@@ -280,6 +280,7 @@ export function validateHeuristic(
 
 /**
  * Extract numeric recommendations from text
+ * Prioritizes explicit recommendations over example counts
  */
 export function extractNumericRecommendations(
   text: string,
@@ -296,12 +297,68 @@ export function extractNumericRecommendations(
   const keywords = categoryKeywords[category] || [];
   const values: number[] = [];
 
-  // Pattern 1: "X lands" or "X ramp pieces"
+  // FIRST PASS: Look for explicit recommendations (prioritize these)
+  // Patterns like "run 8-12 ramp", "aim for X-Y lands", "should have X-Y pieces", "recommended X-Y"
+  const recommendationPhrases = [
+    'run', 'aim for', 'should have', 'recommended', 'typically', 'usually', 'generally',
+    'you should', 'try to run', 'consider running', 'target', 'goal is', 'shoot for'
+  ];
+
+  for (const keyword of keywords) {
+    for (const phrase of recommendationPhrases) {
+      // Pattern for ranges: "run 8-12 ramp pieces" or "aim for 33-37 lands"
+      const recommendationRangePattern = new RegExp(
+        `${phrase}\\s+(?:about|around|roughly)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${keyword}(?:\\s+(?:pieces?|cards?|sources?|effects?))?`,
+        'gi'
+      );
+      let match;
+      while ((match = recommendationRangePattern.exec(text)) !== null) {
+        const min = parseInt(match[1]);
+        const max = parseInt(match[2]);
+        if (min > 0 && max > 0 && max >= min && max < 100) {
+          values.push(Math.round((min + max) / 2));
+        }
+      }
+
+      // Pattern for single numbers: "run 10 ramp pieces" or "aim for 24 lands"
+      const recommendationSinglePattern = new RegExp(
+        `${phrase}\\s+(?:about|around|roughly)?\\s*(\\d+)\\s+${keyword}(?:\\s+(?:pieces?|cards?|sources?|effects?))?`,
+        'gi'
+      );
+      while ((match = recommendationSinglePattern.exec(text)) !== null) {
+        const val = parseInt(match[1]);
+        if (val > 0 && val < 100) {
+          values.push(val);
+        }
+      }
+    }
+
+    // Also check for standalone ranges at sentence start or after punctuation (likely recommendations)
+    const standaloneRangePattern = new RegExp(
+      `(?:^|[.!?]\\s+)(?:you|your|a|an|the|in|for)\\s+(?:typical|standard|normal|good)\\s+(?:commander|deck|build).*?(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${keyword}(?:\\s+(?:pieces?|cards?|sources?|effects?))?`,
+      'gi'
+    );
+    let match: RegExpExecArray | null;
+    while ((match = standaloneRangePattern.exec(text)) !== null) {
+      const min = parseInt(match[1]);
+      const max = parseInt(match[2]);
+      if (min > 0 && max > 0 && max >= min && max < 100) {
+        values.push(Math.round((min + max) / 2));
+      }
+    }
+  }
+
+  // If we found explicit recommendations, return those (prioritize over examples)
+  if (values.length > 0) {
+    return Array.from(new Set(values)).sort((a, b) => a - b);
+  }
+
+  // SECOND PASS: Fall back to counting examples only if no recommendations found
+  // Pattern 1: "X lands" or "X ramp pieces" (simple count)
   for (const keyword of keywords) {
     const patterns = [
-      new RegExp(`(\\d+)\\s+${keyword}`, 'gi'),
-      new RegExp(`${keyword}.*?(\\d+)`, 'gi'),
-      new RegExp(`(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${keyword}`, 'gi'), // Ranges
+      new RegExp(`(\\d+)\\s+${keyword}(?:\\s+(?:pieces?|cards?|sources?|effects?|spells?))?(?:,|\\s|$)`, 'gi'),
+      new RegExp(`(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${keyword}(?:\\s+(?:pieces?|cards?|sources?|effects?))?`, 'gi'), // Ranges
     ];
 
     for (const pattern of patterns) {
@@ -314,7 +371,8 @@ export function extractNumericRecommendations(
           values.push(Math.round((min + max) / 2));
         } else {
           const val = parseInt(match[1]);
-          if (val > 0 && val < 100) {
+          // Filter out obvious non-recommendations (like "4-player" or page numbers)
+          if (val > 0 && val < 100 && val !== 4 && val !== 60 && val !== 100) {
             values.push(val);
           }
         }
@@ -328,6 +386,7 @@ export function extractNumericRecommendations(
 
 /**
  * Check if text contains poor strategic advice based on MTG heuristics
+ * Distinguishes between general advice (recommendations) and deck list analysis
  */
 export function checkStrategicAdvice(
   text: string,
@@ -346,11 +405,37 @@ export function checkStrategicAdvice(
     message: string;
   }> = [];
 
+  // Detect if this is general advice (guidelines) vs deck list analysis
+  // General advice indicators: "you should", "run", "aim for", "typically", "recommended", "generally"
+  // Deck list indicators: card lists, "your deck has", "the deck contains", specific card counts
+  const textLower = text.toLowerCase();
+  const isGeneralAdvice = /\b(you should|run|aim for|typically|usually|generally|recommended|consider running|target|goal|shoot for|in a typical|standard|normal|good)\b/i.test(text);
+  const isDeckList = /\b(your deck|this deck|the deck|deck contains|deck has|you have|you're running|currently have|deck list|decklist)\b/i.test(text);
+
   // Check land count (most important)
   const landValues = extractNumericRecommendations(text, 'lands');
   for (const value of landValues) {
+    // If this is general advice and we found a recommendation value, it's likely correct guidance
+    // Only flag if it's clearly wrong (critical violations)
     const result = validateHeuristic('lands', value, format, archetype);
-    if (result.severity === 'critical' || (result.severity === 'warning' && format === 'Modern' && archetype === 'midrange' && value < 23)) {
+    if (result.severity === 'critical') {
+      // Always flag critical violations
+      issues.push({
+        category: 'lands',
+        value,
+        severity: result.severity,
+        message: result.message,
+      });
+    } else if (result.severity === 'warning' && format === 'Modern' && archetype === 'midrange' && value < 23) {
+      // Flag specific Modern midrange land count warnings
+      issues.push({
+        category: 'lands',
+        value,
+        severity: result.severity,
+        message: result.message,
+      });
+    } else if (result.severity === 'warning' && isDeckList && !isGeneralAdvice) {
+      // For deck lists, warnings are more relevant (actual deck problems)
       issues.push({
         category: 'lands',
         value,
@@ -358,14 +443,40 @@ export function checkStrategicAdvice(
         message: result.message,
       });
     }
+    // Skip warnings for general advice recommendations (they're guidelines, not actual deck counts)
   }
 
   // Check ramp count (for Commander)
   if (format === 'Commander') {
     const rampValues = extractNumericRecommendations(text, 'ramp');
-    for (const value of rampValues) {
+    
+    // If we have multiple ramp values and this looks like general advice, prioritize higher values
+    // (recommendations are usually higher than example counts)
+    let valuesToCheck = rampValues;
+    if (isGeneralAdvice && rampValues.length > 1) {
+      // In general advice, higher values are more likely to be the recommendation
+      // Lower values might be example counts or other mentions
+      valuesToCheck = [Math.max(...rampValues)];
+    }
+    
+    for (const value of valuesToCheck) {
       const result = validateHeuristic('ramp', value, format);
+      
+      // Only flag critical violations for ramp
+      // If this is general advice recommending "8-12 ramp" and we found a value >= 8, it's fine
+      // Only flag if it's clearly too low (critical) AND not clearly a recommendation
       if (result.severity === 'critical') {
+        // For general advice with recommendation phrases, be more lenient
+        // If value is 4 but text says "run 8-12", ignore the 4 (it's just an example count)
+        if (isGeneralAdvice && value < 6) {
+          // Check if there's a higher recommendation mentioned
+          const hasHigherRecommendation = /\b(run|aim|target|recommended|typically|usually).*?([6-9]|\d{2,})\s+ramp/gi.test(text);
+          if (hasHigherRecommendation) {
+            // Skip this low value - it's just an example count, not the recommendation
+            continue;
+          }
+        }
+        
         issues.push({
           category: 'ramp',
           value,

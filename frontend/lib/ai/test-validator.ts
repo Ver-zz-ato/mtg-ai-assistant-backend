@@ -375,8 +375,8 @@ function matchesKeywordFlexible(response: string, keyword: string): boolean {
   }
   
   // For numeric ranges, try semantic matching with better tolerance
-  // e.g., "about 10-12 ramp" should match "around 8-12 ramp pieces"
-  const rangeMatch = keyword.match(/(\d+)[\s-–]+(?:to|–|-)[\s-–]+(\d+)\s+(ramp|lands?|draw|removal|interaction|creatures?)/i);
+  // e.g., "about 10-12 ramp" should match "around 8-12 ramp pieces" or "8-12 ramp cards" (even without "about")
+  const rangeMatch = keyword.match(/(?:about|around|roughly|typically)?\s*(\d+)[\s-–]+(?:to|–|-)[\s-–]+(\d+)\s+(ramp|lands?|draw|removal|interaction|creatures?)/i);
   if (rangeMatch) {
     const [, minStr, maxStr, category] = rangeMatch;
     const min = parseInt(minStr);
@@ -384,8 +384,9 @@ function matchesKeywordFlexible(response: string, keyword: string): boolean {
     const catLower = category.toLowerCase();
     
     // Look for similar ranges in response with more flexible patterns
+    // Qualifiers are optional - accept "8-12 ramp" even if keyword expects "about 8-12 ramp"
     const rangePattern = new RegExp(
-      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${catLower}`,
+      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play|you should|recommended)?\\s*(\\d+)[\\s-–]+(?:to|–|-)[\\s-–]+(\\d+)\\s+${catLower}(?:\\s+(?:pieces?|cards?|sources?|effects?|spells?))?`,
       "i"
     );
     const matches = normalizedResponse.matchAll(rangePattern);
@@ -407,7 +408,7 @@ function matchesKeywordFlexible(response: string, keyword: string): boolean {
     
     // Also try single number matches for ranges (e.g., "24 lands" matches "around 23-25 lands")
     const singlePattern = new RegExp(
-      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play)?\\s*(\\d+)\\s+${catLower}`,
+      `(?:about|around|roughly|typically|usually|generally|aim for|try|run|play|you should|recommended)?\\s*(\\d+)\\s+${catLower}(?:\\s+(?:pieces?|cards?|sources?|effects?|spells?))?`,
       "i"
     );
     const singleMatches = normalizedResponse.matchAll(singlePattern);
