@@ -5,6 +5,8 @@ import PublicTrustFooter from "@/components/PublicTrustFooter";
 import { capture } from "@/lib/ph"
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import { trackApiCall, trackError } from '@/lib/analytics-performance';
+import { trackProGateViewed, trackProGateClicked, trackProUpgradeStarted } from '@/lib/analytics-pro';
+import { useProStatus } from '@/hooks/useProStatus';
 
 type AnalyzeResult = {
   score: number;
@@ -26,10 +28,21 @@ type Props = {
 };
 
 export default function DeckSnapshotPanel({ format, plan, colors, currency }: Props) {
+  const { isPro } = useProStatus();
   const [deckText, setDeckText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  
+  // Track PRO gate view for export feature (workflow pro gate)
+  useEffect(() => {
+    if (result && !isPro) {
+      trackProGateViewed('export_deck_analysis', 'analysis_workflow', {
+        plan_suggested: 'monthly',
+        reason: 'feature_required',
+      });
+    }
+  }, [result, isPro]);
 
   const analyzeWithText = useCallback(async (text: string) => {
     if (!text?.trim()) return;
@@ -62,6 +75,23 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
         // deck_id: not available in this component (standalone analysis)
         // commander: would need to extract from deckText or pass as prop
       });
+      
+      // Track guest value moment for deck analysis (check if user is guest)
+      try {
+        const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
+        const sb = createBrowserSupabaseClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) {
+          // Guest user - track value moment
+          const { capture: captureEvent } = await import('@/lib/ph');
+          const { AnalyticsEvents } = await import('@/lib/analytics/events');
+          captureEvent(AnalyticsEvents.GUEST_VALUE_MOMENT, {
+            value_moment_type: 'deck_analyzed',
+            score: json?.result?.score || json?.score,
+            card_count: text.split('\n').filter(Boolean).length,
+          }, { isAuthenticated: false });
+        }
+      } catch {}
       
       return json;
     }).catch((e: any) => {
@@ -163,6 +193,40 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
             onSave={saveDeck}
             onMyDecks={gotoMyDecks}
           />
+          
+          {/* PRO Gate: Export Analysis (workflow pro gate example) */}
+          {!isPro && (
+            <div className="rounded-lg border border-amber-700/50 bg-amber-900/20 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-sm mb-1 flex items-center gap-2">
+                    <span>📤</span>
+                    <span>Export Full Analysis</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">PRO</span>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Export detailed analysis report, matchup breakdown, and improvement suggestions
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    trackProGateClicked('export_deck_analysis', 'analysis_workflow', {
+                      plan_suggested: 'monthly',
+                      reason: 'feature_required',
+                    });
+                    trackProUpgradeStarted('gate', {
+                      feature: 'export_deck_analysis',
+                      location: 'analysis_workflow',
+                    });
+                    window.location.href = '/pricing?source=analysis_export';
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-lg transition-all"
+                >
+                  Upgrade to Pro
+                </button>
+              </div>
+            </div>
+          )}
           {(result.metaHints && result.metaHints.length > 0) && (
             <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3">
               <div className="text-sm font-medium mb-2">Meta hints</div>

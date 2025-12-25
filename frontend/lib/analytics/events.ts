@@ -163,6 +163,16 @@ export const AnalyticsEvents = {
   GUEST_EXIT_WARNING_SIGNUP_CLICKED: 'guest_exit_warning_signup_clicked',
   GUEST_EXIT_WARNING_LEFT_ANYWAY: 'guest_exit_warning_left_anyway',
   GUEST_EXIT_WARNING_DISMISSED_SESSION: 'guest_exit_warning_dismissed_session',
+  GUEST_VALUE_MOMENT: 'guest_value_moment',
+  GUEST_LIMIT_MODAL_VARIANT: 'guest_limit_modal_variant',
+  
+  // ===== AUTH REQUIRED =====
+  AUTH_REQUIRED_VIEWED: 'auth_required_viewed',
+  AUTH_REQUIRED_CTA_CLICKED: 'auth_required_cta_clicked',
+  
+  // ===== HOME EXPERIMENT =====
+  HOME_VARIANT_VIEWED: 'home_variant_viewed',
+  HOME_PRIMARY_CTA_CLICKED: 'home_primary_cta_clicked',
   
   // ===== PWA & INSTALL =====
   APP_OPENED_STANDALONE: 'app_opened_standalone',

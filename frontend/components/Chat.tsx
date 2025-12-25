@@ -5,6 +5,9 @@ import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import GuestLimitModal from "@/components/GuestLimitModal";
+import { trackGuestValueMoment, hasValueMoment, getValueMomentType } from "@/lib/analytics/guest-value-moment";
+import { useCapture } from "@/lib/analytics/useCapture";
+import { AnalyticsEvents } from "@/lib/analytics/events";
 import { capture } from "@/lib/ph";
 import { enrichChatEvent } from "@/lib/analytics/enrichChatEvent";
 import { postMessage, postMessageStream, listMessages } from "@/lib/threads";
@@ -109,6 +112,9 @@ function Chat() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking, false = guest, true = logged in
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
+  const [hasDeckAnalyzed, setHasDeckAnalyzed] = useState<boolean>(false);
+  const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
+  const capture = useCapture();
   
   // Card image and price states
   const [cardImages, setCardImages] = useState<Map<string, ImageInfo>>(new Map());
@@ -784,6 +790,13 @@ function Chat() {
           // Track value moment for first successful chat response
           if (messageCountRef.current === 1 && accumulatedContent.length > 50) {
             trackValueMomentReached('first_good_chat_response');
+          }
+          
+          // Track guest value moment after 2+ chat messages
+          if (!isLoggedIn && messageCountRef.current >= 2) {
+            trackGuestValueMoment('chat_engaged', capture, {
+              chat_count: messageCountRef.current,
+            });
           }
           
           capture('chat_stream_stop', enrichChatEvent(
@@ -1486,6 +1499,8 @@ function Chat() {
         isOpen={showGuestLimitModal} 
         onClose={() => setShowGuestLimitModal(false)}
         messageCount={guestMessageCount}
+        hasValueMoment={hasValueMoment(guestMessageCount)}
+        valueMomentType={getValueMomentType(undefined, guestMessageCount)}
       />
       
       {/* Card hover preview */}

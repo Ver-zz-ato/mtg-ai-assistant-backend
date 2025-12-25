@@ -432,7 +432,7 @@ export default function HandTestingWidget({
           <button 
             onClick={() => {
               trackProGateClicked('hand_testing', 'widget_display');
-              trackProUpgradeStarted('hand_testing_widget', 'hand_testing');
+              trackProUpgradeStarted('gate', { feature: 'hand_testing', location: 'widget_display' });
               // TODO: Navigate to upgrade page
               window.location.href = '/pricing';
             }}

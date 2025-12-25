@@ -4,6 +4,7 @@
 // Safe to import from any client component.
 
 import { getConsentStatus } from '@/lib/consent';
+import { getSessionContext } from '@/lib/analytics/session-bootstrap';
 
 type Props = Record<string, any> | undefined;
 
@@ -27,20 +28,29 @@ export function hasConsent(): boolean {
 }
 
 /**
- * Capture an analytics event
+ * Capture an analytics event with automatic session context enrichment
+ * 
+ * Automatically adds: landing_page, referrer, utm_*, device_type, current_path, is_authenticated
  * 
  * @param event - Event name (prefer AnalyticsEvents constants from '@/lib/analytics/events')
- * @param props - Optional event properties
+ * @param props - Optional event properties (will be merged with session context)
+ * @param options - Optional configuration
+ * @param options.isAuthenticated - Whether user is authenticated (defaults to false if not provided)
+ * @param options.skipEnrichment - Skip automatic enrichment (for special cases)
  * 
  * @example
  *   import { AnalyticsEvents } from '@/lib/analytics/events';
- *   capture(AnalyticsEvents.DECK_SAVED, { deck_id: '123' });
+ *   capture(AnalyticsEvents.DECK_SAVED, { deck_id: '123' }, { isAuthenticated: true });
  * 
  * @example
  *   // Legacy string usage still works
  *   capture('custom_event', { custom_prop: 'value' });
  */
-export function capture(event: string, props?: Props): void {
+export function capture(
+  event: string, 
+  props?: Props,
+  options?: { isAuthenticated?: boolean; skipEnrichment?: boolean }
+): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
     // @ts-ignore - posthog is attached globally by the provider init
@@ -53,10 +63,21 @@ export function capture(event: string, props?: Props): void {
       }
       return;
     }
-    ph.capture(event, props);
+    
+    // Auto-enrich with session context unless explicitly skipped
+    let enrichedProps = props || {};
+    if (!options?.skipEnrichment) {
+      const sessionCtx = getSessionContext(options?.isAuthenticated ?? false);
+      enrichedProps = {
+        ...sessionCtx,
+        ...props, // Props override session context if keys conflict
+      };
+    }
+    
+    ph.capture(event, enrichedProps);
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
-      console.debug('[analytics] %s', event, props ?? {});
+      console.debug('[analytics] %s', event, enrichedProps ?? {});
     }
   } catch {}
 }

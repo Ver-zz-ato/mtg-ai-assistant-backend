@@ -1,5 +1,11 @@
+'use client';
+
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import InlineSignUpForm from './InlineSignUpForm';
 import FeatureCard from './FeatureCard';
+import { useCapture } from '@/lib/analytics/useCapture';
+import { AnalyticsEvents } from '@/lib/analytics/events';
 
 interface Feature {
   icon: string;
@@ -13,6 +19,7 @@ interface GuestLandingPageProps {
   subtitle: string;
   features: Feature[];
   demoSection?: React.ReactNode;
+  destination?: string; // The page they tried to access (e.g., '/my-decks')
 }
 
 export default function GuestLandingPage({
@@ -20,7 +27,25 @@ export default function GuestLandingPage({
   subtitle,
   features,
   demoSection,
+  destination,
 }: GuestLandingPageProps) {
+  const pathname = usePathname();
+  const capture = useCapture();
+  const finalDestination = destination || pathname || '/';
+  
+  // Track auth required view
+  useEffect(() => {
+    capture(AnalyticsEvents.AUTH_REQUIRED_VIEWED, {
+      destination: finalDestination,
+    });
+  }, [finalDestination, capture]);
+  
+  const handleCTAClick = (ctaType: 'primary' | 'secondary') => {
+    capture(AnalyticsEvents.AUTH_REQUIRED_CTA_CLICKED, {
+      cta: ctaType,
+      destination: finalDestination,
+    });
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -56,7 +81,9 @@ export default function GuestLandingPage({
 
         {/* Sign Up CTA */}
         <div className="max-w-2xl mx-auto">
-          <InlineSignUpForm />
+          <div onClick={() => handleCTAClick('primary')}>
+            <InlineSignUpForm />
+          </div>
         </div>
 
         {/* Trust Signals */}

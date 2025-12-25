@@ -219,6 +219,7 @@ function MyDecksPageContent() {
         subtitle="Create, analyze, and optimize your Magic: The Gathering decks with AI-powered insights"
         features={features}
         demoSection={demoSection}
+        destination="/my-decks"
       />
     );
   }

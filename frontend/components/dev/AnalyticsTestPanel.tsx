@@ -37,7 +37,7 @@ export default function AnalyticsTestPanel({ isVisible = process.env.NODE_ENV ==
       logEvent('👆 PRO Gate Clicked: test_feature at test_panel');
     },
     startUpgrade: () => {
-      trackProUpgradeStarted('test_panel', 'test_feature');
+      trackProUpgradeStarted('gate', { feature: 'test_feature', location: 'test_panel' });
       logEvent('💳 PRO Upgrade Started: from test_panel for test_feature');
     },
     useFeature: () => {

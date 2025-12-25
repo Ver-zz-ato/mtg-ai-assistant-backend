@@ -7,12 +7,15 @@ import { showProToast } from "@/lib/pro-ux";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/lib/auth-context";
+import GuestLandingPage from "@/components/GuestLandingPage";
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 const COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"]; 
 const Y_AXIS_WIDTH = 48;
 
 export default function PriceTrackerPage(){
+  const { user, loading: authLoading } = useAuth();
   const { isPro } = useProStatus();
   const watchlistRef = React.useRef<WatchlistPanelRef>(null);
   const [names, setNames] = React.useState<string>("");
@@ -107,6 +110,75 @@ export default function PriceTrackerPage(){
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Show guest landing page if not authenticated
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    const features = [
+      {
+        icon: '📈',
+        title: 'Price History Charts',
+        description: 'Track card prices over time with interactive charts. See trends, moving averages, and price spikes.',
+      },
+      {
+        icon: '💹',
+        title: 'Multi-Currency Support',
+        description: 'View prices in USD, EUR, or GBP. Export data for analysis in your preferred currency.',
+        highlight: true,
+      },
+      {
+        icon: '🔔',
+        title: 'Price Alerts',
+        description: 'Get notified when cards in your watchlist hit target prices or spike significantly.',
+      },
+      {
+        icon: '📊',
+        title: 'Deck Value Tracking',
+        description: 'Monitor your entire deck\'s value over time. See which cards drive price changes.',
+      },
+      {
+        icon: '📤',
+        title: 'CSV Export',
+        description: 'Export price data for external analysis. Perfect for spreadsheet analysis and reporting.',
+      },
+      {
+        icon: '🎯',
+        title: 'Top Movers',
+        description: 'Discover which cards are gaining or losing value fastest. Stay ahead of market trends.',
+      },
+    ];
+
+    const demoSection = (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-blue-50/50 dark:from-emerald-900/10 dark:to-blue-900/10" />
+        <div className="relative">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+            Real-Time Price Tracking
+          </h2>
+          <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+            Track any card's price history with beautiful charts and detailed analytics.
+          </div>
+        </div>
+      </div>
+    );
+
+    return (
+      <GuestLandingPage
+        title="Track Card Prices"
+        subtitle="Monitor Magic: The Gathering card prices with historical charts, alerts, and detailed analytics"
+        features={features}
+        demoSection={demoSection}
+        destination="/price-tracker"
+      />
+    );
+  }
 
   return (
     <main className="max-w-7xl mx-auto p-4 space-y-4">

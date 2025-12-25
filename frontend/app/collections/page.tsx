@@ -249,6 +249,7 @@ function CollectionsPageClientBody() {
         subtitle="Track, value, and organize your Magic: The Gathering card collection with powerful tools"
         features={features}
         demoSection={demoSection}
+        destination="/collections"
       />
     );
   }

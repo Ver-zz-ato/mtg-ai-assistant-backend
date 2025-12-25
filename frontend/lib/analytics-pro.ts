@@ -13,9 +13,12 @@ export type ProEventType =
 
 export interface ProEventProps {
   feature?: string;           // Which feature was gated/used
+  location?: string;          // Where the PRO gate appeared (alias for gate_location)
   gate_location?: string;     // Where the PRO gate appeared
+  plan_suggested?: string;    // Suggested plan (e.g., 'monthly', 'annual')
+  reason?: string;            // Why the gate appeared (e.g., 'feature_required', 'limit_reached')
   subscription_tier?: string; // Current user tier
-  upgrade_source?: string;    // What prompted upgrade attempt
+  upgrade_source?: string;    // What prompted upgrade attempt ('gate' | 'pricing')
   user_tenure_days?: number;  // Days since user registered
 }
 
@@ -41,24 +44,52 @@ export function captureProEvent(event: ProEventType, props?: ProEventProps) {
 }
 
 // Convenience functions for common PRO events
-export function trackProGateViewed(feature: string, location: string) {
+export function trackProGateViewed(
+  feature: string, 
+  location: string,
+  options?: {
+    plan_suggested?: string;
+    reason?: string;
+  }
+) {
   captureProEvent('pro_gate_viewed', { 
     feature, 
-    gate_location: location 
+    gate_location: location,
+    location, // Alias for consistency
+    plan_suggested: options?.plan_suggested || 'monthly',
+    reason: options?.reason || 'feature_required',
   });
 }
 
-export function trackProGateClicked(feature: string, location: string) {
+export function trackProGateClicked(
+  feature: string, 
+  location: string,
+  options?: {
+    plan_suggested?: string;
+    reason?: string;
+  }
+) {
   captureProEvent('pro_gate_clicked', { 
     feature, 
-    gate_location: location 
+    gate_location: location,
+    location, // Alias for consistency
+    plan_suggested: options?.plan_suggested || 'monthly',
+    reason: options?.reason || 'feature_required',
   });
 }
 
-export function trackProUpgradeStarted(source: string, feature?: string) {
+export function trackProUpgradeStarted(
+  source: 'gate' | 'pricing', 
+  options?: {
+    feature?: string;
+    location?: string;
+  }
+) {
   captureProEvent('pro_upgrade_started', { 
     upgrade_source: source,
-    feature 
+    feature: options?.feature,
+    gate_location: options?.location,
+    location: options?.location,
   });
 }
 

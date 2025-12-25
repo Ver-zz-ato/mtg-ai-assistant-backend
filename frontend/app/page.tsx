@@ -8,6 +8,8 @@ import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
 import LivePresenceBanner from "../components/LivePresenceBanner";
+import HomeVariantB from "../components/HomeVariantB";
+import { getHomeVariant } from "../lib/analytics/home-experiment";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
 const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
@@ -53,6 +55,9 @@ function jsonLd() {
 }
 
 export default function Page() {
+  const variant = getHomeVariant();
+  const showVariantB = variant === 'B';
+  
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd() }} />
@@ -65,6 +70,13 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 pt-2">
           <LivePresenceBanner />
         </div>
+        
+        {/* Variant B: Activation-first CTA above the fold */}
+        {showVariantB && (
+          <div className="max-w-[1600px] mx-auto px-4 pt-4">
+            <HomeVariantB />
+          </div>
+        )}
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">

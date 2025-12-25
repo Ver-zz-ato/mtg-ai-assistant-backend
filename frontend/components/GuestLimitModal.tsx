@@ -1,35 +1,63 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { capture } from '@/lib/ph';
+import { useCapture } from '@/lib/analytics/useCapture';
+import { AnalyticsEvents } from '@/lib/analytics/events';
 
 interface GuestLimitModalProps {
   isOpen: boolean;
   onClose: () => void;
   messageCount: number;
+  hasValueMoment?: boolean; // Whether user hit a "wow" moment (deck analyzed, 2+ chats, suggestion shown)
+  valueMomentType?: 'deck_analyzed' | 'chat_engaged' | 'suggestion_shown'; // Type of value moment
 }
 
-export default function GuestLimitModal({ isOpen, onClose, messageCount }: GuestLimitModalProps) {
+export default function GuestLimitModal({ 
+  isOpen, 
+  onClose, 
+  messageCount,
+  hasValueMoment = false,
+  valueMomentType,
+}: GuestLimitModalProps) {
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const capture = useCapture();
+  const modalVariant = hasValueMoment ? 'value_moment' : 'standard';
 
   useEffect(() => {
     if (isOpen) {
-      capture('guest_limit_modal_shown', { message_count: messageCount });
+      capture(AnalyticsEvents.GUEST_LIMIT_MODAL_SHOWN, { 
+        message_count: messageCount,
+        has_value_moment: hasValueMoment,
+        value_moment_type: valueMomentType,
+      });
+      // Track variant for A/B testing modal copy
+      capture(AnalyticsEvents.GUEST_LIMIT_MODAL_VARIANT, {
+        variant: modalVariant,
+        message_count: messageCount,
+      });
     }
-  }, [isOpen, messageCount]);
+  }, [isOpen, messageCount, hasValueMoment, valueMomentType, modalVariant, capture]);
 
   if (!isOpen) return null;
 
   const handleSignUp = () => {
     setIsSigningUp(true);
-    capture('guest_limit_signup_clicked', { message_count: messageCount });
+    capture(AnalyticsEvents.GUEST_LIMIT_SIGNUP_CLICKED, { 
+      message_count: messageCount,
+      variant: modalVariant,
+      has_value_moment: hasValueMoment,
+    });
     // Trigger auth modal
     window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }));
     onClose();
   };
 
   const handleSignIn = () => {
-    capture('guest_limit_signin_clicked', { message_count: messageCount });
+    capture(AnalyticsEvents.GUEST_LIMIT_SIGNIN_CLICKED, { 
+      message_count: messageCount,
+      variant: modalVariant,
+      has_value_moment: hasValueMoment,
+    });
     window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signin' } }));
     onClose();
   };
@@ -64,7 +92,10 @@ export default function GuestLimitModal({ isOpen, onClose, messageCount }: Guest
         {/* Benefits */}
         <div className="mb-6 space-y-3">
           <p className="text-center text-gray-300 mb-4">
-            Sign up for free to continue chatting and unlock:
+            {hasValueMoment 
+              ? "Save your progress and keep this analysis! Sign up for free to unlock:"
+              : "Sign up for free to continue chatting and unlock:"
+            }
           </p>
           <div className="space-y-2">
             {[
