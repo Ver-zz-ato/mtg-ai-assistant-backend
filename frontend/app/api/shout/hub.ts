@@ -11,13 +11,13 @@ declare global {
     | undefined;
 }
 
-// Seed messages to make shoutbox feel more active
+// Seed messages to make shoutbox feel more active (natural, casual tone)
 const seedMessages: Shout[] = [
-  { id: -1, user: "MTGPlayer", text: "Just built my first deck here - love the AI suggestions!", ts: Date.now() - (2 * 24 * 60 * 60 * 1000) },
-  { id: -2, user: "DeckBuilder", text: "How do I export my deck to Moxfield?", ts: Date.now() - (1.5 * 24 * 60 * 60 * 1000) },
-  { id: -3, user: "CommanderFan", text: "The cost-to-finish feature saved me so much money!", ts: Date.now() - (1 * 24 * 60 * 60 * 1000) },
-  { id: -4, user: "BudgetBuilder", text: "Anyone have tips for building a budget commander deck?", ts: Date.now() - (12 * 60 * 60 * 1000) },
-  { id: -5, user: "NewUser", text: "This site is amazing for deck building!", ts: Date.now() - (6 * 60 * 60 * 1000) },
+  { id: -1, user: "jake_mtg", text: "yo this deck analyzer is actually pretty sick", ts: Date.now() - (2 * 24 * 60 * 60 * 1000) },
+  { id: -2, user: "sarah", text: "can you export to moxfield?", ts: Date.now() - (1.5 * 24 * 60 * 60 * 1000) },
+  { id: -3, user: "mike", text: "saved like $200 using the cost tracker thing", ts: Date.now() - (1 * 24 * 60 * 60 * 1000) },
+  { id: -4, user: "alex", text: "budget edh tips anyone?", ts: Date.now() - (12 * 60 * 60 * 1000) },
+  { id: -5, user: "chris", text: "first time here, seems cool", ts: Date.now() - (6 * 60 * 60 * 1000) },
 ];
 
 const store =

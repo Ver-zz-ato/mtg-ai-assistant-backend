@@ -22,16 +22,33 @@ export function useProStatus() {
     // Initial check + real-time subscription for Pro status updates
     const checkProStatus = async () => {
       try {
-        const { data } = await sb
+        const { data, error } = await sb
           .from('profiles')
           .select('is_pro')
           .eq('id', user.id)
           .single();
         
-        setIsPro(data?.is_pro || false);
+        if (error) {
+          console.warn('[useProStatus] Profile query error, falling back to metadata:', error);
+          // Fallback to user metadata if profile query fails
+          const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
+          setIsPro(metadataIsPro);
+          if (metadataIsPro) {
+            console.info('[useProStatus] Using metadata fallback - Pro status:', metadataIsPro);
+          }
+        } else {
+          const profileIsPro = Boolean(data?.is_pro);
+          setIsPro(profileIsPro);
+          console.info('[useProStatus] Pro status from profile:', { userId: user.id, isPro: profileIsPro });
+        }
       } catch (err) {
-        console.error('[useProStatus] Error:', err);
-        setIsPro(false);
+        console.error('[useProStatus] Unexpected error:', err);
+        // Last resort fallback to metadata
+        const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
+        setIsPro(metadataIsPro);
+        if (metadataIsPro) {
+          console.info('[useProStatus] Using metadata fallback after error - Pro status:', metadataIsPro);
+        }
       } finally {
         setLoading(false);
       }
