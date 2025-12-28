@@ -48,3 +48,6 @@ legacy_*_backup/
 .env.local
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Playwright auth state
+tests/.auth/

@@ -43,7 +43,8 @@ export default function RightSidebar() {
           if (!closed) setItems((j.items as Shout[]) || []);
         } catch {}
 
-        const ev = new EventSource("/api/shout/stream");
+        const { createSecureEventSource, logConnectionError } = await import('@/lib/secure-connections');
+        const ev = createSecureEventSource("/api/shout/stream");
         evRef.current = ev;
 
         ev.onmessage = (e) => {
@@ -53,7 +54,18 @@ export default function RightSidebar() {
           } catch {}
         };
 
-        ev.onerror = () => { /* browser auto-reconnects */ };
+        ev.onerror = (event) => {
+          // Log connection errors for debugging (EventSource onerror receives an Event, not Error)
+          // Only log if connection actually failed (readyState === 2 = CLOSED)
+          if (ev.readyState === EventSource.CLOSED) {
+            logConnectionError('EventSource connection closed', {
+              type: 'eventsource',
+              url: '/api/shout/stream',
+              readyState: ev.readyState,
+            });
+          }
+          // Browser auto-reconnects, but we log for debugging when fully closed
+        };
       })();
     }, 1000);
 

@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { validateSupabaseUrl } from '@/lib/secure-connections';
 
 // SINGLETON: Only create ONE client instance per browser session
 let client: SupabaseClient | null = null;
@@ -10,8 +11,11 @@ let client: SupabaseClient | null = null;
 export function createBrowserSupabaseClient() {
   if (client) return client;
   
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  
+  // Validate and ensure HTTPS in production (Supabase will use wss:// for realtime if URL is https://)
+  const url = validateSupabaseUrl(rawUrl);
   
   client = createBrowserClient(url, anon);
   return client;

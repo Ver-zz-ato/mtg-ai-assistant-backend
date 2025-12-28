@@ -55,27 +55,70 @@ export default function ProProvider({ children }: { children: React.ReactNode })
     checkProStatus();
     
     // Subscribe to real-time profile changes (e.g., when admin toggles Pro)
-    const channel = sb
-      .channel(`profile-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload) => {
-          // Profile was updated - refresh Pro status
-          const newIsPro = Boolean((payload.new as any)?.is_pro);
-          setIsPro(newIsPro);
-          console.info('Pro status updated via real-time subscription', { isPro: newIsPro });
-        }
-      )
-      .subscribe();
+    // Wrap in try-catch to handle WebSocket connection errors gracefully
+    let channel: ReturnType<typeof sb.channel> | null = null;
+    try {
+      channel = sb
+        .channel(`profile-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Profile was updated - refresh Pro status
+            const newIsPro = Boolean((payload.new as any)?.is_pro);
+            setIsPro(newIsPro);
+            console.info('Pro status updated via real-time subscription', { isPro: newIsPro });
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.info('[ProContext] Realtime subscription active');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn('[ProContext] Realtime subscription error:', status);
+            // Log error for debugging (throttled to once per session)
+            if (typeof window !== 'undefined') {
+              try {
+                import('@/lib/secure-connections').then(({ logConnectionError }) => {
+                  logConnectionError(`Subscription ${status}`, {
+                    type: 'supabase-realtime',
+                    channel: `profile-${user.id}`,
+                    status,
+                  });
+                }).catch(() => {});
+              } catch {}
+            }
+          }
+        });
+    } catch (error) {
+      console.error('[ProContext] Failed to subscribe to realtime updates:', error);
+      // Fallback: subscription failed, but we already have the initial Pro status
+      // The app will continue to work, just without real-time updates
+      if (typeof window !== 'undefined') {
+        try {
+          import('@/lib/secure-connections').then(({ logConnectionError }) => {
+            logConnectionError(error, {
+              type: 'supabase-realtime',
+              channel: `profile-${user.id}`,
+              operation: 'subscribe',
+            });
+          }).catch(() => {});
+        } catch {}
+      }
+    }
     
     return () => {
-      sb.removeChannel(channel);
+      if (channel) {
+        try {
+          sb.removeChannel(channel);
+        } catch (error) {
+          console.warn('[ProContext] Error removing channel:', error);
+        }
+      }
     };
   }, [user, loading]);
 

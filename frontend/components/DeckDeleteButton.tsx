@@ -116,7 +116,11 @@ export default function DeckDeleteButton({ deckId, deckName, small, redirectTo }
 
   return (
     <>
-      <button onClick={handleOpen} disabled={busy} className={small ? "text-xs text-red-500 underline" : "px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-500/10"}>
+      <button 
+        onClick={handleOpen} 
+        disabled={busy} 
+        className="px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-500/10 transition-colors"
+      >
         Delete
       </button>
       {open && (()=>{ const Modal = require('./ConfirmDeleteModal').default; return (

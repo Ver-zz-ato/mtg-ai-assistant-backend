@@ -24,6 +24,7 @@ import IOSInstallPrompt from "@/components/iOSInstallPrompt";
 import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
+import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://manatap.ai"),
@@ -100,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CookieConsentProvider>
             <AuthProvider>
               <KeyboardShortcutsProvider>
+                <SecureConnectionsGuard />
                 <TopLoadingBar />
                 <FirstVisitTracker />
                 <AnalyticsProvider />

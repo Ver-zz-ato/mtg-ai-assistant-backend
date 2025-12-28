@@ -11,31 +11,31 @@ import HandTestingWidget from "@/components/HandTestingWidget";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
-  const [open, setOpen] = React.useState(true);
   return (
-    <section className="rounded-xl border border-neutral-800 p-2 space-y-2">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium">Assistant</div>
-        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
-          {open ? 'Hide' : 'Show'}
-        </button>
+    <>
+      <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
+        <DeckAssistant deckId={deckId} format={format} />
       </div>
-      {open && (
-        <>
-          <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
-            <DeckAssistant deckId={deckId} format={format} />
-          </div>
-          {deckId && (<div>
-            {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
-          </div>)}
-        </>
-      )}
-    </section>
+      {deckId && (<div>
+        {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
+      </div>)}
+    </>
   );
 }
 
 function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{name: string; qty: number}>; deckId: string }) {
   const [open, setOpen] = React.useState(true);
+  
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        setOpen(e.detail?.show ?? !open);
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, [open]);
+  
   return (
     <section className="rounded-xl border border-neutral-800 min-w-0 w-full">
       <div className="flex items-center justify-between mb-2 p-2">
@@ -58,6 +58,17 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
 
 function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro: boolean; format?: string }) {
   const [open, setOpen] = React.useState(true);
+  
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        setOpen(e.detail?.show ?? !open);
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, [open]);
+  
   return (
     <div className="rounded-xl border border-neutral-800 p-3">
       <div className="flex items-center justify-between mb-2">
@@ -78,6 +89,16 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
 function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boolean }) {
   const [open, setOpen] = React.useState(true);
   const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
+  
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        setOpen(e.detail?.show ?? !open);
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, [open]);
   
   return (
     <div className="rounded-xl border border-neutral-800 p-3">

@@ -271,18 +271,20 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   }
 
   return (
-    <section className="sticky top-4 z-10 rounded-xl border border-neutral-800 p-3 bg-neutral-950/95 backdrop-blur shadow-lg">
+    <section className="sticky top-4 z-10 rounded-xl border-2 border-pink-500/60 bg-gradient-to-br from-pink-950/40 via-purple-950/40 to-pink-950/40 p-4 backdrop-blur shadow-2xl shadow-pink-500/20 ring-1 ring-pink-400/30">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🎯</span>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🎯</span>
           <div>
-            <div className="text-sm font-semibold">Build Assistant</div>
-            <div className="text-xs text-gray-400">Smart suggestions for your deck</div>
+            <div className="text-base font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Build Assistant
+            </div>
+            <div className="text-xs text-gray-300 font-medium">Smart suggestions for your deck</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {expanded && <button onClick={()=>setEditing(v=>!v)} className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors">{editing? '✓ Done':'⚙️ Edit'}</button>}
-          <button onClick={()=>setExpanded(v=>!v)} className="text-xs bg-blue-600 hover:bg-blue-500 border border-blue-500 rounded px-3 py-1.5 font-semibold transition-colors">{expanded? '▼ Hide':'▶ Show'}</button>
+          <button onClick={()=>setExpanded(v=>!v)} className="text-xs bg-pink-600 hover:bg-pink-500 border border-pink-500 rounded px-4 py-2 font-bold transition-colors shadow-lg shadow-pink-500/30">{expanded? '▼ Hide':'▶ Show'}</button>
         </div>
       </div>
       {expanded && (
