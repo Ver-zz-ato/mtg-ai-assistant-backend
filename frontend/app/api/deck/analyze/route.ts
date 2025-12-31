@@ -448,13 +448,13 @@ type FilterSummary = {
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
-  opts: { temperature?: number; maxTokens?: number } = {}
+  opts: { maxTokens?: number } = {}
 ): Promise<string> {
   if (!OPENAI_API_KEY) {
     throw new Error("OpenAI API key not configured");
   }
 
-  const { temperature = 0.35, maxTokens = 400 } = opts;
+  const { maxTokens = 400 } = opts;
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -468,7 +468,7 @@ async function callOpenAI(
         { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
         { role: "user", content: [{ type: "input_text", text: userPrompt }] },
       ],
-      temperature,
+      // Note: temperature parameter removed - not supported by this model
       max_output_tokens: maxTokens,
     }),
   });
@@ -548,7 +548,7 @@ async function planSuggestionSlots(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 380 });
+    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 380 });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
     return slots.slice(0, 8).map((slot: any) => ({
@@ -626,7 +626,7 @@ async function fetchSlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: mode === "strict" ? 0.15 : 0.35, maxTokens: 320 });
+    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 320 });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -691,7 +691,7 @@ async function retrySlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { temperature: mode === "strict" ? 0.1 : 0.2, maxTokens: 260 });
+    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 260 });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -1573,7 +1573,7 @@ export async function POST(req: Request) {
         context,
         userMessage: body.userMessage,
         commanderProfile,
-        temperature: 0.35,
+        // Note: temperature removed - not supported by this model
         maxTokens: 2000,
       };
 

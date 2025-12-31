@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('thread lifecycle: create → rename → link → export → delete', async ({ page }) => {
   // assumes user is already authenticated in dev (or add login helper)
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
   // Type a message and send
   await page.fill('input[placeholder*="Ask about"]', 'Help me tune my mono-red Commander deck on a £50 budget.');

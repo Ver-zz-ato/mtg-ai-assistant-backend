@@ -13,7 +13,23 @@ export async function createClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const value = cookieStore.get(name)?.value;
+          // Handle base64-prefixed cookies (Supabase sometimes stores cookies with "base64-" prefix)
+          if (value && typeof value === 'string' && value.startsWith('base64-')) {
+            try {
+              const decoded = Buffer.from(value.slice(7), 'base64').toString('utf8');
+              // Return decoded value if it's valid JSON, otherwise return as-is
+              try {
+                JSON.parse(decoded);
+                return decoded;
+              } catch {
+                return value; // Not JSON, return original
+              }
+            } catch {
+              return value; // Decode failed, return original
+            }
+          }
+          return value;
         },
         set(name: string, value: string, options: any) {
           try { cookieStore.set({ name, value, ...options }); } catch {}
@@ -37,7 +53,23 @@ export async function getServerSupabase() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const value = cookieStore.get(name)?.value;
+          // Handle base64-prefixed cookies (Supabase sometimes stores cookies with "base64-" prefix)
+          if (value && typeof value === 'string' && value.startsWith('base64-')) {
+            try {
+              const decoded = Buffer.from(value.slice(7), 'base64').toString('utf8');
+              // Return decoded value if it's valid JSON, otherwise return as-is
+              try {
+                JSON.parse(decoded);
+                return decoded;
+              } catch {
+                return value; // Not JSON, return original
+              }
+            } catch {
+              return value; // Decode failed, return original
+            }
+          }
+          return value;
         },
         set(name: string, value: string, options: any) {
           try { cookieStore.set({ name, value, ...options }); } catch {}

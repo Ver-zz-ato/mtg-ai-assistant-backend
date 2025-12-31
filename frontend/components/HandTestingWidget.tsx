@@ -45,7 +45,7 @@ export default function HandTestingWidget({
   compact = false, 
   className = "" 
 }: HandTestingWidgetProps) {
-  const { isPro } = useProStatus();
+  const { isPro, loading: proLoading } = useProStatus();
   const [currentHand, setCurrentHand] = useState<HandCard[]>([]);
   const [mulliganCount, setMulliganCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -60,7 +60,13 @@ export default function HandTestingWidget({
   const [freeRunsRemaining, setFreeRunsRemaining] = useState<number | null>(null);
   
   // Load free runs count from localStorage
+  // IMPORTANT: Only update free runs when Pro status is definitively known (not loading)
   React.useEffect(() => {
+    // Don't update free runs while Pro status is still loading
+    if (proLoading) {
+      return;
+    }
+    
     if (isPro) {
       setFreeRunsRemaining(null); // Pro users have unlimited
       return;
@@ -68,14 +74,17 @@ export default function HandTestingWidget({
     try {
       const stored = localStorage.getItem('hand_testing_free_runs');
       const count = stored ? parseInt(stored, 10) : 3;
-      setFreeRunsRemaining(Math.max(0, count));
-    } catch {
+      const finalCount = Math.max(0, count);
+      setFreeRunsRemaining(finalCount);
+    } catch (err) {
       setFreeRunsRemaining(3);
     }
-  }, [isPro]);
+  }, [isPro, proLoading]);
   
   // Check if user can run (Pro or has free runs remaining)
-  const canRun = isPro || (freeRunsRemaining !== null && freeRunsRemaining > 0);
+  // IMPORTANT: While Pro status is loading, assume they can't run (conservative approach)
+  // This prevents showing the Pro gate prematurely before we know their status
+  const canRun = proLoading ? false : (isPro || (freeRunsRemaining !== null && freeRunsRemaining > 0));
 
   // Expand deck list accounting for quantities
   const expandedDeck = React.useMemo(() => {
@@ -227,7 +236,9 @@ export default function HandTestingWidget({
 
   // Start new test
   const startHandTest = async () => {
-    if (!canRun) return;
+    if (!canRun) {
+      return;
+    }
     
     // Decrement free runs if not Pro
     if (!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0) {
@@ -235,7 +246,9 @@ export default function HandTestingWidget({
       setFreeRunsRemaining(newCount);
       try {
         localStorage.setItem('hand_testing_free_runs', String(newCount));
-      } catch {}
+      } catch (err) {
+        // Silently fail if localStorage is unavailable
+      }
     }
     
     // If images are still loading, wait for them
@@ -375,10 +388,30 @@ export default function HandTestingWidget({
     if (!isPro && freeRunsRemaining !== null && freeRunsRemaining === 0) {
       trackProGateViewed('hand_testing', 'widget_display');
     }
-  }, [isPro, freeRunsRemaining]);
+  }, [isPro, freeRunsRemaining, proLoading]);
 
   // Show Pro gate only if user is not Pro AND has no free runs remaining
-  if (!isPro && freeRunsRemaining !== null && freeRunsRemaining === 0) {
+  // Don't show gate while Pro status is loading (wait for definitive answer)
+  const shouldShowProGate = !proLoading && !isPro && freeRunsRemaining !== null && freeRunsRemaining === 0;
+  
+  // Show loading state while Pro status is being determined
+  if (proLoading) {
+    return (
+      <div className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
+            🃏
+          </div>
+          <div>
+            <h3 className="font-semibold text-amber-200">Hand Testing Widget</h3>
+            <p className="text-xs opacity-70">Checking Pro status...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (shouldShowProGate) {
     return (
       <div className={`bg-gradient-to-br from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4 ${className}`}>
         <div className="flex items-center gap-3 mb-3">

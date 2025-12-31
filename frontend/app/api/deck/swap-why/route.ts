@@ -51,7 +51,7 @@ export async function POST(req: Request){
           { role:'user', content:[{ type:'input_text', text: user }] },
         ],
         max_output_tokens: 80,
-        temperature: 0.2,
+        // Note: temperature removed - not supported by this model
       }),
     }).catch(()=>null as any);
 

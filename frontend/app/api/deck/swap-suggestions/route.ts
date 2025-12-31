@@ -186,7 +186,7 @@ async function aiSuggest(deckText: string, currency: string, budget: number): Pr
       { role: "user", content: [{ type: "input_text", text: input }] },
     ],
     max_output_tokens: 512,
-    temperature: 0.7,
+    // Note: temperature removed - not supported by this model
   };
   const r = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",

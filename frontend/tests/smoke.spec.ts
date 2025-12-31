@@ -47,14 +47,11 @@ test.describe('Smoke Tests', () => {
   test('homepage loads and renders chat interface', async ({ page }) => {
     const errorTracker = setupErrorTracking(page);
     
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
     
-    // Wait for page to be fully loaded
-    await page.waitForLoadState('networkidle');
-    
-    // Verify chat textarea is visible
+    // Wait for chat textarea to appear (more reliable than networkidle for pages with persistent connections)
     const chatTextarea = page.getByTestId('chat-textarea');
-    await expect(chatTextarea).toBeVisible({ timeout: 10_000 });
+    await expect(chatTextarea).toBeVisible({ timeout: 15_000 });
     
     // Verify page title/heading is present (indicates page loaded)
     await expect(page.locator('body')).toBeVisible();
@@ -66,11 +63,9 @@ test.describe('Smoke Tests', () => {
   test('pricing page loads', async ({ page }) => {
     const errorTracker = setupErrorTracking(page);
     
-    await page.goto('/pricing');
-    await page.waitForLoadState('networkidle');
-    
-    // Verify pricing page has key content
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/pricing', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // Wait for body to be visible (more reliable than networkidle)
+    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
     
     // Check for pricing-related text (flexible to match actual content)
     const hasPricingContent = await page.locator('text=/pricing|subscription|plan/i').first().isVisible({ timeout: 5_000 }).catch(() => false);
@@ -82,11 +77,9 @@ test.describe('Smoke Tests', () => {
   test('price tracker page loads', async ({ page }) => {
     const errorTracker = setupErrorTracking(page);
     
-    await page.goto('/price-tracker');
-    await page.waitForLoadState('networkidle');
-    
-    // Verify page loads
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/price-tracker', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // Wait for body to be visible (more reliable than networkidle)
+    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
     
     // Verify URL is correct
     expect(page.url()).toContain('/price-tracker');
@@ -98,11 +91,10 @@ test.describe('Smoke Tests', () => {
     const errorTracker = setupErrorTracking(page);
     
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     
-    // Find and interact with chat textarea
+    // Wait for chat textarea (more reliable than networkidle)
     const chatTextarea = page.getByTestId('chat-textarea');
-    await expect(chatTextarea).toBeVisible({ timeout: 10_000 });
+    await expect(chatTextarea).toBeVisible({ timeout: 15_000 });
     
     // Test that we can type in the textarea
     await chatTextarea.fill('test message');
@@ -115,12 +107,15 @@ test.describe('Smoke Tests', () => {
   });
 
   test('health endpoint responds correctly', async ({ request }) => {
-    const res = await request.get('/api/health');
+    const res = await request.get('/api/health', { timeout: 30_000 });
     expect(res.status()).toBeGreaterThanOrEqual(200);
     expect(res.status()).toBeLessThan(600);
     
     const json = await res.json();
-    expect(json).toHaveProperty('supabase');
+    // Health endpoint returns { ok, checks: { database, scryfall, ... }, ts }
+    expect(json).toHaveProperty('ok');
+    expect(json).toHaveProperty('checks');
+    expect(json.checks).toHaveProperty('database');
   });
 });
 
@@ -133,11 +128,9 @@ test.describe('Authenticated Smoke Tests', () => {
     const hasAuth = process.env.PLAYWRIGHT_TEST_EMAIL && process.env.PLAYWRIGHT_TEST_PASSWORD;
     test.skip(!hasAuth, 'Skipping authenticated test - credentials not provided');
     
-    await page.goto('/my-decks');
-    await page.waitForLoadState('networkidle');
-    
-    // Verify page loads (should show deck list or empty state, not guest landing)
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/my-decks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // Wait for body to be visible (more reliable than networkidle)
+    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
     
     // Verify URL is correct
     expect(page.url()).toContain('/my-decks');
@@ -155,11 +148,9 @@ test.describe('Authenticated Smoke Tests', () => {
     const hasAuth = process.env.PLAYWRIGHT_TEST_EMAIL && process.env.PLAYWRIGHT_TEST_PASSWORD;
     test.skip(!hasAuth, 'Skipping authenticated test - credentials not provided');
     
-    await page.goto('/profile');
-    await page.waitForLoadState('networkidle');
-    
-    // Verify page loads
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/profile', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // Wait for body to be visible (more reliable than networkidle)
+    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
     expect(page.url()).toContain('/profile');
     
     // Check that we're not seeing the guest landing page
@@ -175,11 +166,9 @@ test.describe('Authenticated Smoke Tests', () => {
     const hasAuth = process.env.PLAYWRIGHT_TEST_EMAIL && process.env.PLAYWRIGHT_TEST_PASSWORD;
     test.skip(!hasAuth, 'Skipping authenticated test - credentials not provided');
     
-    await page.goto('/collections');
-    await page.waitForLoadState('networkidle');
-    
-    // Verify page loads
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/collections', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    // Wait for body to be visible (more reliable than networkidle)
+    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
     expect(page.url()).toContain('/collections');
     
     // Check that we're not seeing the guest landing page

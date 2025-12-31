@@ -1,0 +1,101 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "ManaTap Logo" [ref=e5]:
+        - /url: /
+        - img "ManaTap Logo" [ref=e6]
+      - button "Toggle menu" [ref=e8]:
+        - img [ref=e9]
+  - main [ref=e11]:
+    - generic [ref=e13]: Loading...
+  - button "Feedback" [ref=e14]
+  - contentinfo [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e22]: "AI Model:"
+          - generic [ref=e23]: GPT-5 & GPT-4o Mini
+        - generic [ref=e24]:
+          - generic [ref=e26]: "Card Data:"
+          - link "Scryfall API" [ref=e27]:
+            - /url: https://scryfall.com
+          - generic [ref=e28]: (Updated Oct 12, 2025)
+      - generic [ref=e30]: © 2025 ManaTap AI
+      - generic [ref=e31]:
+        - heading "Explore ManaTap" [level=3] [ref=e33]
+        - navigation [ref=e34]:
+          - link "Deck Builder" [ref=e35]:
+            - /url: /mtg-commander-ai-deck-builder
+          - link "What's New" [ref=e36]:
+            - /url: /changelog
+          - link "Cost to Finish" [ref=e37]:
+            - /url: /collections/cost-to-finish
+          - link "Blog" [ref=e38]:
+            - /url: /blog
+          - link "Budget Swaps" [ref=e39]:
+            - /url: /budget-swaps
+          - link "Price Tracker" [ref=e40]:
+            - /url: /price-tracker
+          - link "Probability" [ref=e41]:
+            - /url: /tools/probability
+          - link "Mulligan" [ref=e42]:
+            - /url: /tools/mulligan
+          - link "My Decks" [ref=e43]:
+            - /url: /my-decks
+          - link "My Collections" [ref=e44]:
+            - /url: /collections
+          - link "My Wishlist" [ref=e45]:
+            - /url: /wishlist
+          - link "Profile" [ref=e46]:
+            - /url: /profile
+      - generic [ref=e47]:
+        - generic [ref=e49]:
+          - 'link "Follow us on X: @ManaTapAI" [ref=e50]':
+            - /url: https://x.com/ManatapAI
+            - text: "Follow us on X:"
+            - generic [ref=e51]: "@ManaTapAI"
+          - generic [ref=e52]: •
+          - 'link "Instagram: @manatap.ai" [ref=e53]':
+            - /url: https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1
+            - text: "Instagram:"
+            - generic [ref=e54]: "@manatap.ai"
+        - generic [ref=e56]:
+          - generic [ref=e57]: "Support me:"
+          - link "Ko‑fi" [ref=e58]:
+            - /url: https://ko-fi.com/davydraws7/tip
+          - link "PayPal" [ref=e59]:
+            - /url: https://paypal.me/DavyDraws7
+          - link "Stripe" [ref=e60]:
+            - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - navigation [ref=e62]:
+          - link "Support" [ref=e63]:
+            - /url: /support
+          - generic [ref=e64]: •
+          - link "Pricing" [ref=e65]:
+            - /url: /pricing
+          - generic [ref=e66]: •
+          - link "Terms" [ref=e67]:
+            - /url: /terms
+          - generic [ref=e68]: •
+          - link "Privacy" [ref=e69]:
+            - /url: /privacy
+          - generic [ref=e70]: •
+          - link "Refund Policy" [ref=e71]:
+            - /url: /refund
+          - generic [ref=e72]: •
+          - button "Cookie Settings" [ref=e73]
+      - generic [ref=e74]:
+        - paragraph [ref=e75]: "This assistant uses AI to help with Magic: The Gathering deck building and strategy. Card information is sourced from Scryfall's comprehensive database. AI responses should be verified for competitive play."
+        - paragraph [ref=e76]: "Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 1993-2025 Wizards. All Rights Reserved. Manatap.ai is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. Manatap.ai may use the trademarks and other intellectual property of Wizards of the Coast LLC, which is permitted under Wizards' Fan Site Policy. MAGIC: THE GATHERING® is a trademark of Wizards of the Coast."
+        - paragraph [ref=e77]:
+          - text: Some card prices and other card data are provided by
+          - link "Scryfall" [ref=e78]:
+            - /url: https://scryfall.com/
+          - text: . Scryfall makes no guarantee about its price information and recommends you see stores for final prices and details. For more information about Wizards of the Coast, visit
+          - link "https://company.wizards.com/" [ref=e79]:
+            - /url: https://company.wizards.com/
+          - text: .
+```

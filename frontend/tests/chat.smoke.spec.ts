@@ -2,7 +2,7 @@
 import { test, expect } from "@playwright/test";
 
 test("chat thread lifecycle + debug endpoints", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: 'domcontentloaded', timeout: 60_000 });
   // Echo debug tells us env + auth status
   const echo = await page.request.get("/api/chat/debug/echo");
   expect(echo.ok()).toBeTruthy();

@@ -51,7 +51,8 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
       // Allow Scryfall API calls and Supabase/PostHog/Sentry + production domain for testing
-      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
+      // Note: wss:// is required for Supabase Realtime WebSocket connections
+      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
       "frame-src https://js.stripe.com https://ko-fi.com",
       // PERFORMANCE FIX: Allow PostHog/Sentry to create web workers from blob URLs
       "worker-src 'self' blob:",

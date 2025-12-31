@@ -11,7 +11,7 @@ export type AnalysisGenerationOptions = {
   context: InferredDeckContext;
   userMessage?: string;
   commanderProfile?: any;
-  temperature?: number;
+  // Note: temperature removed - not supported by this model
   maxTokens?: number;
 };
 
@@ -27,7 +27,6 @@ export async function generateDeckAnalysis(
     context,
     userMessage,
     commanderProfile,
-    temperature = 0.35,
     maxTokens = 2000,
   } = options;
 
@@ -83,7 +82,7 @@ export async function generateDeckAnalysis(
   ].filter(Boolean).join("\n");
 
   try {
-    const response = await callOpenAI(systemPrompt, userPrompt, { temperature, maxTokens });
+    const response = await callOpenAI(systemPrompt, userPrompt, { maxTokens });
     
     // Extract JSON from response
     const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
