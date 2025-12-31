@@ -27,9 +27,17 @@ function generatePlaceholderActivities(count: number, recentTimestamp: boolean =
   
   const cardNames = ['Sol Ring', 'Mana Crypt', 'Force of Will', 'Cyclonic Rift', 'Rhystic Study'];
   
+  const signupMessages = [
+    'New planeswalker joined!',
+    'Someone just signed up!',
+    'New member joined the community',
+    'Welcome, new brewer!',
+    'Another planeswalker arrived!'
+  ];
+  
   const activityTypes = [
     { type: 'deck_uploaded', gen: () => ({ message: `New deck uploaded: ${deckNames[Math.floor(Math.random() * deckNames.length)]}`, timestamp: new Date(now - Math.random() * 60 * MINUTE).toISOString() }) },
-    { type: 'user_joined', gen: () => ({ message: 'New planeswalker joined!', timestamp: new Date(now - Math.random() * 2 * 60 * MINUTE).toISOString() }) },
+    { type: 'user_joined', gen: () => ({ message: signupMessages[Math.floor(Math.random() * signupMessages.length)], timestamp: new Date(now - Math.random() * 2 * 60 * MINUTE).toISOString() }) },
     { type: 'price_change', gen: () => {
       const card = cardNames[Math.floor(Math.random() * cardNames.length)];
       const change = (Math.random() * 8 + 1).toFixed(1);

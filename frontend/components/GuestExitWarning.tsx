@@ -11,6 +11,7 @@ export default function GuestExitWarning() {
   const pathname = usePathname();
 
   // Check if guest has active chat on mount and when localStorage changes
+  // Trigger earlier: after 2+ messages (instead of just any messages)
   useEffect(() => {
     const checkGuestChat = async () => {
       try {
@@ -22,7 +23,9 @@ export default function GuestExitWarning() {
         const { data: { session } } = await supabase.auth.getSession();
         const isGuest = !session?.user;
         
-        setHasGuestChat(isGuest && !!guestMessages && JSON.parse(guestMessages).length > 0);
+        const messages = guestMessages ? JSON.parse(guestMessages) : [];
+        // Trigger after 2+ messages (earlier than before)
+        setHasGuestChat(isGuest && messages.length >= 2);
       } catch {
         setHasGuestChat(false);
       }
@@ -144,19 +147,19 @@ export default function GuestExitWarning() {
         </div>
 
         <h2 className="text-xl font-bold text-white text-center mb-2">
-          You'll Lose This Chat!
+          Save Your Chat History Before You Go!
         </h2>
         
         <p className="text-gray-300 text-center mb-6">
-          Your conversation isn't saved. Sign up for free to save your chat history and continue building decks!
+          Your conversation isn't saved. Sign up for free (30 seconds) to save your chat history, build decks, and track collections - all forever!
         </p>
 
         <div className="space-y-3">
           <button
             onClick={handleStayAndSignUp}
-            className="w-full bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-all"
+            className="w-full bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105 shadow-lg"
           >
-            💾 Sign Up & Save My Chat
+            💾 Sign Up Free & Save My Chat
           </button>
           
           <button

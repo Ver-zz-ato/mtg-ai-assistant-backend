@@ -8,6 +8,7 @@ import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-e
 import { track } from '@/lib/analytics/track';
 import Link from 'next/link';
 import ProValueTooltip from '@/components/ProValueTooltip';
+import PricingTestimonials from '@/components/PricingTestimonials';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
 
 export default function PricingPage() {
@@ -223,13 +224,32 @@ export default function PricingPage() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
+          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Unlock Your MTG Potential
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6">
             Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. 
             Get unlimited AI analysis, advanced insights, and premium features.
           </p>
+          
+          {/* ROI Calculator */}
+          <div className="bg-gradient-to-r from-emerald-600/20 to-blue-600/20 border border-emerald-500/30 rounded-xl p-6 max-w-2xl mx-auto mb-8">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left">
+              <div className="flex-1">
+                <p className="text-sm text-emerald-200 dark:text-emerald-300 font-semibold mb-2">💰 Save Time & Money</p>
+                <p className="text-2xl font-bold text-white dark:text-white mb-1">
+                  Less than a booster pack per month
+                </p>
+                <p className="text-sm text-emerald-100 dark:text-emerald-200">
+                  Save 5+ hours/week on deck building • Avoid expensive card mistakes
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white">£1.99</div>
+                <div className="text-sm text-emerald-200">per month</div>
+              </div>
+            </div>
+          </div>
 
           {/* Billing Interval Toggle */}
           <div className="inline-flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl p-2 shadow-lg border border-gray-200 dark:border-gray-700">
@@ -503,8 +523,11 @@ export default function PricingPage() {
           </div>
         </div>
 
+        {/* Testimonials Section */}
+        <PricingTestimonials />
+
         {/* CTA Section */}
-        <div className="text-center bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-12 text-white">
+        <div className="text-center bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-12 text-white mt-16">
           <h2 className="text-3xl font-bold mb-6">
             Ready to Level Up Your MTG Game?
           </h2>

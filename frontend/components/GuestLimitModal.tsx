@@ -85,7 +85,7 @@ export default function GuestLimitModal({
         {/* Message count */}
         <div className="text-center mb-6">
           <div className="inline-block px-4 py-2 bg-emerald-600/20 border border-emerald-600/30 rounded-lg">
-            <span className="text-emerald-400 font-semibold">{messageCount}/20 messages used</span>
+            <span className="text-emerald-400 font-semibold">{messageCount}/10 messages used</span>
           </div>
         </div>
 

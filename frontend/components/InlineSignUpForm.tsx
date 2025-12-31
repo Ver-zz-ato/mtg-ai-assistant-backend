@@ -68,14 +68,22 @@ export default function InlineSignUpForm() {
         console.debug('Server-side signup tracking failed (non-fatal):', trackError);
       }
       
-      // Log activity for live presence banner
+      // Log activity for live presence banner with varied messages
       try {
+        const signupMessages = [
+          'New planeswalker joined!',
+          'Someone just signed up!',
+          'New member joined the community',
+          'Welcome, new brewer!',
+          'Another planeswalker arrived!'
+        ];
+        const randomMessage = signupMessages[Math.floor(Math.random() * signupMessages.length)];
         await fetch('/api/stats/activity/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'user_joined',
-            message: 'New planeswalker joined!',
+            message: randomMessage,
           }),
         });
       } catch {}
@@ -108,9 +116,13 @@ export default function InlineSignUpForm() {
       <h3 className="text-2xl font-bold text-white mb-2 text-center">
         Ready to Get Started?
       </h3>
-      <p className="text-blue-100 text-center mb-6">
+      <p className="text-blue-100 text-center mb-2">
         Create your free account in seconds
       </p>
+      <div className="flex items-center justify-center gap-3 mb-6 text-xs">
+        <span className="px-2 py-1 bg-white/10 rounded text-emerald-200 hover:bg-white/20 transition-colors cursor-default" title="Your account is free forever, no hidden costs">✓ Free forever</span>
+        <span className="px-2 py-1 bg-white/10 rounded text-emerald-200 hover:bg-white/20 transition-colors cursor-default" title="Start using immediately, no payment needed">✓ No credit card required</span>
+      </div>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

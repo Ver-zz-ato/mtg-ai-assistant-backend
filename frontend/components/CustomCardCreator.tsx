@@ -2,6 +2,8 @@
 import React from "react";
 import { containsProfanity } from "@/lib/profanity";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
+import { capture } from "@/lib/ph";
+import { AnalyticsEvents } from "@/lib/analytics/events";
 
 // Preset name blocks
 const PREFIX = ["Dr.","Lord","Lady","Captain","Sir","Arch-","Grand","Shadow","Iron","Flame","Night","Star","Void","Storm","Bone","Blood","Rune","Sky","Stone","Wild"];
@@ -280,6 +282,15 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         return;
       }
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Attach failed');
+      
+      // Track custom card creation
+      capture(AnalyticsEvents.CUSTOM_CARD_CREATED, {
+        card_name: cleanName,
+        color: value.colorHint || '',
+        rarity: value.rarity || 'common',
+        has_custom_art: !!value.art?.url
+      });
+      
       // 2) Save to wallet (non-public) so it shows in Custom Card Wallet
       try {
         const save = await fetch('/api/custom-cards/save', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: cleanName, value }) });
@@ -355,6 +366,14 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             }
             setShareUrl(url);
             await navigator.clipboard?.writeText?.(url);
+            
+            // Track custom card sharing
+            capture(AnalyticsEvents.CUSTOM_CARD_SHARED, {
+              card_name: (value.nameParts||[]).join(' '),
+              color: value.colorHint || '',
+              rarity: value.rarity || 'common'
+            });
+            
             setToast('Share link copied.');
           } catch(e:any){ alert(e?.message||'Share failed'); }
         }} className="px-3 py-1 rounded border border-neutral-700 text-sm">Share this creation</button>

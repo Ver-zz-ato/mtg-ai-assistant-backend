@@ -5,6 +5,8 @@ import HistoryDropdown from "@/components/HistoryDropdown";
 import ThreadMenu from "@/components/ThreadMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import GuestLimitModal from "@/components/GuestLimitModal";
+import FloatingSignupPrompt from "@/components/FloatingSignupPrompt";
+import PostAnalysisSignupPrompt from "@/components/PostAnalysisSignupPrompt";
 import { trackGuestValueMoment, hasValueMoment, getValueMomentType } from "@/lib/analytics/guest-value-moment";
 import { useCapture } from "@/lib/analytics/useCapture";
 import { AnalyticsEvents } from "@/lib/analytics/events";
@@ -500,25 +502,30 @@ function Chat() {
     // Reset the flag when done (in finally block)
     try {
     
-    // Check guest message limits
-    if (!isLoggedIn && guestMessageCount >= 20) {
-      trackFeatureLimitHit('guest_chat', guestMessageCount, 20);
+    // Check guest message limits (lowered from 20 to 10)
+    if (!isLoggedIn && guestMessageCount >= 10) {
+      trackFeatureLimitHit('guest_chat', guestMessageCount, 10);
       setShowGuestLimitModal(true);
       return;
     }
     
-    // Show warnings at 15 and 18 messages
+    // Show warnings at 5, 7, and 9 messages (earlier soft prompts)
     if (!isLoggedIn) {
-      if (guestMessageCount === 14) {
-        // 15th message - first warning
+      if (guestMessageCount === 4) {
+        // 5th message - early soft prompt
         const { toast } = await import('@/lib/toast-client');
-        toast('⚠️ 5 messages left - Sign up to continue chatting!', 'warning');
-        capture('guest_limit_warning_15');
-      } else if (guestMessageCount === 17) {
-        // 18th message - urgent warning
+        toast('💡 Enjoying the chat? Sign up to save your progress!', 'info');
+        capture('guest_limit_warning_5');
+      } else if (guestMessageCount === 6) {
+        // 7th message - reminder warning
         const { toast } = await import('@/lib/toast-client');
-        toast('🚨 Only 2 messages left! Create a free account to keep chatting.', 'warning');
-        capture('guest_limit_warning_18');
+        toast('⚠️ 3 messages left - Sign up to continue chatting!', 'warning');
+        capture('guest_limit_warning_7');
+      } else if (guestMessageCount === 8) {
+        // 9th message - urgent warning
+        const { toast } = await import('@/lib/toast-client');
+        toast('🚨 Only 1 message left! Create a free account to keep chatting.', 'warning');
+        capture('guest_limit_warning_9');
       }
     }
     
@@ -1142,14 +1149,56 @@ function Chat() {
       <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
         <div className="flex items-center justify-center">
           <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
-                ManaTap AI — Your Deck-Building Companion
-              </h1>
-              {isLoggedIn === false && (
-                <span className="text-xs px-2 py-1 bg-yellow-900 rounded-full text-yellow-200">
-                  Guest Mode ({guestMessageCount}/50)
-                </span>
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
+                  ManaTap AI — Your Deck-Building Companion
+                </h1>
+                {isLoggedIn === false && (
+                  <button
+                    onClick={() => {
+                      capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
+                        source: 'guest_mode_badge',
+                        message_count: guestMessageCount
+                      });
+                      window.dispatchEvent(new CustomEvent('open-auth-modal', { 
+                        detail: { mode: 'signup' } 
+                      }));
+                    }}
+                    className={`text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
+                      guestMessageCount >= 7 
+                        ? 'bg-red-900 text-red-200 animate-pulse' 
+                        : guestMessageCount >= 5
+                        ? 'bg-amber-900 text-amber-200'
+                        : 'bg-yellow-900 text-yellow-200'
+                    }`}
+                    title={guestMessageCount >= 7 
+                      ? 'Only a few messages left! Sign up to continue'
+                      : guestMessageCount >= 5
+                      ? 'Sign up to save your chat history'
+                      : 'Click to sign up and save your progress'
+                    }
+                  >
+                    Guest Mode ({guestMessageCount}/10)
+                  </button>
+                )}
+              </div>
+              {/* Progress bar for guest users */}
+              {isLoggedIn === false && guestMessageCount > 0 && (
+                <div className="w-full max-w-xs">
+                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        guestMessageCount >= 7 
+                          ? 'bg-red-500' 
+                          : guestMessageCount >= 5
+                          ? 'bg-amber-500'
+                          : 'bg-yellow-500'
+                      }`}
+                      style={{ width: `${(guestMessageCount / 10) * 100}%` }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
             {/* Cycling mana-colored underline */}
@@ -1337,6 +1386,9 @@ function Chat() {
             </div>
           )}
           
+          {/* Post-analysis signup prompt for guest users */}
+          <PostAnalysisSignupPrompt messages={messages} />
+          
           {/* Scroll anchor for auto-scroll with extra padding */}
           <div ref={messagesEndRef} className="h-px pb-8 md:pb-12" />
         </div>
@@ -1502,6 +1554,9 @@ function Chat() {
         hasValueMoment={hasValueMoment(guestMessageCount)}
         valueMomentType={getValueMomentType(undefined, guestMessageCount)}
       />
+      
+      {/* Floating signup prompt for guest users */}
+      <FloatingSignupPrompt messageCount={guestMessageCount} />
       
       {/* Card hover preview */}
       {hoverCard && (

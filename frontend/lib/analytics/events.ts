@@ -28,6 +28,7 @@ export const AnalyticsEvents = {
   AUTH_LOGOUT_FAILED: 'auth_logout_failed',
   AUTH_LOGOUT_TIMEOUT_FALLBACK: 'auth_logout_timeout_fallback',
   SIGNUP_COMPLETED: 'signup_completed',
+  SIGNUP_CTA_CLICKED: 'signup_cta_clicked',
   
   // ===== EMAIL VERIFICATION =====
   EMAIL_VERIFICATION_REMINDER_SHOWN: 'email_verification_reminder_shown',
@@ -210,6 +211,10 @@ export const AnalyticsEvents = {
   
   // ===== BADGES =====
   BADGE_SHARE_ACTION: 'badge_share_action',
+  
+  // ===== CUSTOM CARDS =====
+  CUSTOM_CARD_CREATED: 'custom_card_created',
+  CUSTOM_CARD_SHARED: 'custom_card_shared',
   
   // ===== SERVER-SIDE EVENTS (from API routes) =====
   THREAD_CREATED: 'thread_created',

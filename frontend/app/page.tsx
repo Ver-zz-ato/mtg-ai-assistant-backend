@@ -8,6 +8,7 @@ import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
 import LivePresenceBanner from "../components/LivePresenceBanner";
+import HomepageSignupBanner from "../components/HomepageSignupBanner";
 import HomeVariantB from "../components/HomeVariantB";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 
@@ -70,6 +71,9 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 pt-2">
           <LivePresenceBanner />
         </div>
+        
+        {/* Homepage Signup Banner - shown for guest users */}
+        <HomepageSignupBanner />
         
         {/* Variant B: Activation-first CTA above the fold */}
         {showVariantB && (

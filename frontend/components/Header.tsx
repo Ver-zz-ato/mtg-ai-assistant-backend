@@ -658,39 +658,48 @@ export default function Header() {
                 <div className="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   Create account
                 </div>
-                <div className="text-sm text-neutral-300 mb-4">
+                <div className="text-sm text-neutral-300 mb-2">
                   Save decks, track collections, and unlock <span className="text-yellow-400 font-semibold">Pro features</span> ✨
                 </div>
+                <div className="flex items-center gap-2 mb-4 text-xs text-neutral-400">
+                  <span className="flex items-center gap-1">
+                    <span className="text-emerald-400">✓</span> Free forever
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-emerald-400">✓</span> No credit card required
+                  </span>
+                </div>
                 
-                {/* Live Presence Banner */}
-                <div className="mb-4 p-3 bg-gradient-to-r from-emerald-600/20 to-green-600/20 border border-emerald-500/40 rounded-lg shadow-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
-                    <span className="text-emerald-300 font-bold text-sm">
+                {/* Live Presence Banner - Enhanced */}
+                <div className="mb-5 p-4 bg-gradient-to-r from-emerald-600/20 to-green-600/20 border border-emerald-500/40 rounded-lg shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
+                    <span className="text-emerald-300 font-bold text-base">
                       {userStats ? `${Math.floor(Math.random() * 15) + 3} Planeswalkers brewing right now` : '🟢 Join the community brewing decks'}
                     </span>
                   </div>
                   
-                  {/* Activity Ticker */}
-                  <div className="text-xs text-emerald-200/80 space-y-1 border-t border-emerald-500/20 pt-2">
+                  {/* Activity Ticker - Enhanced */}
+                  <div className="text-sm text-emerald-200/90 space-y-1.5 border-t border-emerald-500/30 pt-3">
                     {userStats && userStats.totalUsers > 0 ? (
                       <>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-emerald-400">⚡</span>
-                          <span className="truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-400 text-base">⚡</span>
+                          <span className="truncate font-medium">
                             New deck uploaded: <span className="italic text-emerald-300">Atraxa Reanimator</span>
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-green-400">💰</span>
-                          <span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-400 text-base">💰</span>
+                          <span className="font-medium">
                             {userStats.totalUsers.toLocaleString()}+ builders • Price trends down 4.2% this week
                           </span>
                         </div>
                       </>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span>Join our growing community of deck builders and strategists</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Join our growing community of deck builders and strategists</span>
                       </div>
                     )}
                   </div>
@@ -739,6 +748,26 @@ export default function Header() {
                       // Silent fail - server-side tracking is best effort
                       console.debug('Server-side signup tracking failed (non-fatal):', trackError);
                     }
+                    
+                    // Log activity for live presence banner with varied messages
+                    try {
+                      const signupMessages = [
+                        'New planeswalker joined!',
+                        'Someone just signed up!',
+                        'New member joined the community',
+                        'Welcome, new brewer!',
+                        'Another planeswalker arrived!'
+                      ];
+                      const randomMessage = signupMessages[Math.floor(Math.random() * signupMessages.length)];
+                      await fetch('/api/stats/activity/log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          type: 'user_joined',
+                          message: randomMessage,
+                        }),
+                      });
+                    } catch {}
                     
                     setSignupSuccess(true);
                   } catch (e:any) { 

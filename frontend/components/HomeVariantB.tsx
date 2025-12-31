@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
 import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
 import { getHomeVariant, trackHomeVariantViewed, trackHomePrimaryCTAClicked } from '@/lib/analytics/home-experiment';
+import { trackSignupStarted } from '@/lib/analytics-enhanced';
 import SampleDeckSelector from './SampleDeckSelector';
 
 /**
@@ -12,6 +14,7 @@ import SampleDeckSelector from './SampleDeckSelector';
  */
 export default function HomeVariantB() {
   const capture = useCapture();
+  const { user, loading } = useAuth();
   const [variant] = useState(() => getHomeVariant());
   
   useEffect(() => {
@@ -42,6 +45,19 @@ export default function HomeVariantB() {
       sampleButton.click();
     }
   };
+
+  const handleSignupClick = () => {
+    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
+      source: 'homevariant_b',
+      position: 'activation_section'
+    });
+    trackSignupStarted('email', 'homevariant_b');
+    
+    // Trigger signup modal via custom event
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { 
+      detail: { mode: 'signup' } 
+    }));
+  };
   
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 mb-8">
@@ -66,6 +82,14 @@ export default function HomeVariantB() {
           >
             🎴 Try Sample Deck
           </button>
+          {!loading && !user && (
+            <button
+              onClick={handleSignupClick}
+              className="px-6 py-3 bg-white text-blue-600 hover:bg-gray-100 font-bold rounded-lg transition-all transform hover:scale-105 border-2 border-white/20"
+            >
+              💾 Sign Up to Save Analysis
+            </button>
+          )}
         </div>
         
         {/* Example analysis preview */}

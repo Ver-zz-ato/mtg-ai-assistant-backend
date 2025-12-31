@@ -105,17 +105,17 @@ export default function LivePresenceBanner() {
   const hasActivity = currentActivity?.message;
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-4 mb-2">
+    <div className="w-full max-w-[1600px] mx-auto px-4 mb-3">
       <div className="relative bg-neutral-900/50 border border-neutral-800/50 rounded-lg overflow-hidden transition-all duration-300">
         {expanded ? (
-          <div className="flex items-center justify-between px-3 py-2 text-xs">
+          <div className="flex items-center justify-between px-4 py-3 text-sm">
             {/* Live presence indicator */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="relative flex h-2 w-2">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
-              <span className="text-neutral-300 font-medium whitespace-nowrap">
+              <span className="text-neutral-200 font-semibold whitespace-nowrap text-base">
                 {data.activeUsers} Planeswalker{data.activeUsers !== 1 ? 's' : ''} brewing right now
               </span>
             </div>
@@ -125,7 +125,7 @@ export default function LivePresenceBanner() {
               <div className="flex-1 mx-4 overflow-hidden">
                 <div 
                   key={currentTickerIndex}
-                  className="text-neutral-400 animate-fade-in whitespace-nowrap"
+                  className="text-neutral-300 animate-fade-in whitespace-nowrap font-medium"
                 >
                   {currentActivity.message}
                 </div>
@@ -157,14 +157,14 @@ export default function LivePresenceBanner() {
         ) : (
           <button
             onClick={handleToggleExpand}
-            className="w-full px-3 py-1.5 flex items-center justify-between text-xs text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/30 transition-colors"
+            className="w-full px-4 py-2 flex items-center justify-between text-sm text-neutral-300 hover:text-neutral-200 hover:bg-neutral-800/30 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <span className="relative flex h-1.5 w-1.5">
+              <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>Show activity</span>
+              <span className="font-medium">Show activity</span>
             </div>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
