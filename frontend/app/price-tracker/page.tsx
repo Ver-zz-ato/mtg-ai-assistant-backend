@@ -9,6 +9,7 @@ import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import GuestLandingPage from "@/components/GuestLandingPage";
+import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 const COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"]; 
@@ -18,6 +19,15 @@ export default function PriceTrackerPage(){
   const { user, loading: authLoading } = useAuth();
   const { isPro } = useProStatus();
   const watchlistRef = React.useRef<WatchlistPanelRef>(null);
+  
+  // Track comprehensive page analytics
+  usePageAnalytics({
+    pageName: 'price-tracker',
+    trackTimeOnPage: true,
+    trackScrollDepth: true,
+    trackInteractions: true,
+    trackExitIntent: true
+  });
   const [names, setNames] = React.useState<string>("");
   const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
   const [range, setRange] = React.useState<"30"|"90"|"365"|"all">("90");
@@ -959,8 +969,8 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         const imgResponse = await r1.json().catch(() => ({ images: {} }));
         const imgs = imgResponse.images || {}; // Extract images from { ok: true, images: {...} }
         
-        // Fetch prices
-        const r2 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, currency: 'USD' }) });
+        // Fetch prices - use current price API instead of snapshot (which requires historical data)
+        const r2 = await fetch('/api/price', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, currency: 'USD' }) });
         const priceData = await r2.json().catch(() => ({ prices: {} }));
         const prices = priceData.prices || {};
         

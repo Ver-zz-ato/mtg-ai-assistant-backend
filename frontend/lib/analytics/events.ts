@@ -237,6 +237,15 @@ export const AnalyticsEvents = {
   
   // ===== WEB VITALS =====
   WEB_VITAL: 'web_vital', // Prefix for web vitals (e.g., web_vital_LCP, web_vital_CLS)
+  
+  // ===== PAGE ANALYTICS =====
+  PAGE_TIME_ON_PAGE: 'page_time_on_page',
+  PAGE_SCROLL_DEPTH: 'page_scroll_depth',
+  PAGE_INTERACTION: 'page_interaction',
+  PAGE_EXIT_INTENT: 'page_exit_intent',
+  PAGE_FEATURE_USED: 'page_feature_used',
+  PAGE_SECTION_VIEWED: 'page_section_viewed',
+  PAGE_ERROR_ENCOUNTERED: 'page_error_encountered',
 } as const;
 
 /**
