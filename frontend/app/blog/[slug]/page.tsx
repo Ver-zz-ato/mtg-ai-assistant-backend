@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+import BlogImage from '@/components/BlogImage';
 
 // Cache for 24 hours (blog content changes infrequently)
 export const revalidate = 86400;
@@ -915,15 +916,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <div className={`relative h-[40vh] min-h-[300px] bg-gradient-to-br ${post.gradient} overflow-hidden`}>
         {post.imageUrl ? (
           <>
-            <img 
+            <BlogImage 
               src={post.imageUrl} 
               alt={post.title}
               className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback to gradient if image fails
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20"></div>
             <div className="absolute inset-0 bg-black/30"></div>

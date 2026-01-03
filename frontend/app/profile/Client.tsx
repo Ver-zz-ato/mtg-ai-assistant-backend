@@ -10,7 +10,7 @@ import CardAutocomplete from "@/components/CardAutocomplete";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import ExportWishlistCSV from "@/components/ExportWishlistCSV";
 import WishlistCsvUpload from "@/components/WishlistCsvUpload";
-import { getImagesForNames } from "@/lib/scryfall";
+import { getImagesForNames } from "@/lib/scryfall-cache";
 import PrivacyDataToggle from "@/components/PrivacyDataToggle";
 import BadgeShareBanner from "@/components/BadgeShareBanner";
 import RateLimitIndicator from "@/components/RateLimitIndicator";
@@ -272,7 +272,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             } catch {}
 
             if (names.size) {
-              const { getImagesForNames } = await import("@/lib/scryfall");
               const m = await getImagesForNames(Array.from(names));
               const o: Record<string,string> = {};
               m.forEach((v:any,k:string)=>{ o[norm(k)] = v.art_crop || v.normal || v.small; });
@@ -428,25 +427,20 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     return `linear-gradient(90deg, ${cols.join(', ')})`;
   }, [colors]);
 
-  // Fetch top commander avatars once
+  // Fetch top commander avatars from cache
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch('https://api.scryfall.com/cards/search?q=is%3Acommander+legal%3Acommander+game%3Apaper&order=edhrec', { cache: 'force-cache' });
-        const j: any = await r.json().catch(()=>({}));
-        const data: any[] = Array.isArray(j?.data) ? j.data : [];
-        const imgs: string[] = [];
-        for (const card of data.slice(0, 24)) {
-          const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-          const url = img.art_crop || img.normal || img.small;
-          if (url) imgs.push(url);
+        const r = await fetch('/api/profile/popular-commanders', { cache: 'force-cache' });
+        const j = await r.json().catch(()=>({}));
+        if (j?.ok && Array.isArray(j.avatars)) {
+          setPopularCommanderAvatars(j.avatars.filter(Boolean)); // Filter out any empty strings
         }
-        if (imgs.length) setPopularCommanderAvatars(imgs);
       } catch {}
     })();
   }, []);
 
-  // Lazy art fetch fallback for any deck still missing an image (fuzzy Named)
+  // Lazy art fetch fallback for any deck still missing an image (using cached API)
   useEffect(() => {
     (async () => {
       const pending = recentDecks.filter(d => {
@@ -459,39 +453,45 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         let found = false; for (const c of candidates) { if (deckBg[norm(c)]) { found = true; break; } }
         return !found;
       }).slice(0, 12); // be gentle but cover most lists
+      
+      if (pending.length === 0) return;
+      
+      // Collect all candidates from all pending decks
+      const allCandidates = new Set<string>();
       for (const d of pending) {
-        const candidates: string[] = [];
-        if (d.commander) candidates.push(cleanName(String(d.commander)));
-        if (d.title) candidates.push(cleanName(String(d.title)));
+        if (d.commander) allCandidates.add(cleanName(String(d.commander)));
+        if (d.title) allCandidates.add(cleanName(String(d.title)));
         const firstLine = String(d.deck_text||'').split(/\r?\n/).find(l=>!!l?.trim());
-        if (firstLine) { const m = firstLine.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(cleanName(m ? m[2] : firstLine)); }
-        for (const n of (topCards[d.id] || []).slice(0,5)) candidates.push(cleanName(n));
-        // Try a collection POST first (more reliable than fuzzy for common cards)
-        try {
-          const identifiers = Array.from(new Set(candidates)).slice(0, 20).map(n=>({ name: n }));
-          if (identifiers.length) {
-            const cr = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ identifiers }) });
-            const cj: any = await cr.json().catch(()=>({}));
-            const data: any[] = Array.isArray(cj?.data) ? cj.data : [];
-            for (const card of data) {
-              const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-              const url = img.art_crop || img.normal || img.small;
-              if (url) { setDeckBg(prev => ({ ...prev, [norm(card?.name||'')]: url })); break; }
+        if (firstLine) { const m = firstLine.match(/^(\d+)\s*[xX]?\s+(.+)$/); allCandidates.add(cleanName(m ? m[2] : firstLine)); }
+        for (const n of (topCards[d.id] || []).slice(0,5)) allCandidates.add(cleanName(n));
+      }
+      
+      // Use cached API route instead of direct Scryfall calls
+      try {
+        const imgMap = await getImagesForNames(Array.from(allCandidates).slice(0, 100));
+        const updates: Record<string, string> = {};
+        for (const d of pending) {
+          const candidates: string[] = [];
+          if (d.commander) candidates.push(cleanName(String(d.commander)));
+          if (d.title) candidates.push(cleanName(String(d.title)));
+          const firstLine = String(d.deck_text||'').split(/\r?\n/).find(l=>!!l?.trim());
+          if (firstLine) { const m = firstLine.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(cleanName(m ? m[2] : firstLine)); }
+          for (const n of (topCards[d.id] || []).slice(0,5)) candidates.push(cleanName(n));
+          
+          // Find first candidate with image
+          for (const c of candidates) {
+            const normalized = norm(c);
+            const img = imgMap.get(normalized);
+            if (img?.art_crop || img?.normal || img?.small) {
+              updates[normalized] = img.art_crop || img.normal || img.small || '';
+              break;
             }
           }
-        } catch {}
-        // If still nothing, fuzzy each candidate
-        for (const c of candidates) {
-          try {
-            const fr = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(c)}`);
-            if (!fr.ok) continue;
-            const card: any = await fr.json().catch(()=>({}));
-            const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-            const url = img.art_crop || img.normal || img.small;
-            if (url) { setDeckBg(prev => ({ ...prev, [norm(card?.name || c)]: url })); break; }
-          } catch {}
         }
-      }
+        if (Object.keys(updates).length > 0) {
+          setDeckBg(prev => ({ ...prev, ...updates }));
+        }
+      } catch {}
     })();
   }, [recentDecks, deckBg]);
 

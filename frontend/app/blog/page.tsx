@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
+import BlogImage from '@/components/BlogImage';
 
 // Note: Metadata export removed for client component
 
@@ -190,22 +191,12 @@ export default function BlogPage() {
               <div className={`h-48 bg-gradient-to-br ${post.gradient} flex items-center justify-center relative overflow-hidden`}>
                 {post.imageUrl ? (
                   <>
-                    <img 
+                    <BlogImage 
                       src={post.imageUrl} 
                       alt={post.title}
                       className="absolute inset-0 w-full h-full object-cover opacity-90"
-                      onError={(e) => {
-                        // Fallback to gradient + icon if image fails
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          const iconDiv = document.createElement('div');
-                          iconDiv.className = 'relative z-10 text-8xl drop-shadow-2xl';
-                          iconDiv.textContent = post.icon;
-                          parent.appendChild(iconDiv);
-                        }
-                      }}
+                      fallbackToGradient={true}
+                      icon={post.icon}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
                     <div className="absolute inset-0 bg-black/20"></div>

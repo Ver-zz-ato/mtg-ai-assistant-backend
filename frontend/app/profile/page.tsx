@@ -3,6 +3,7 @@ import FeedbackFab from "@/components/FeedbackFab";
 import ProfileClient from "./Client";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { createClient } from "@/lib/supabase/server";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
 export const dynamic = "force-dynamic";
 
@@ -16,28 +17,6 @@ function logTiming(label: string, startTime: number) {
 }
 
 function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
-
-async function scryfallBatch(names: string[]) {
-  const startTime = Date.now();
-  const identifiers = Array.from(new Set((names||[]).filter(Boolean))).slice(0, 400).map(n=>({ name: n }));
-  const out: Record<string, any> = {};
-  if (!identifiers.length) {
-    logTiming('scryfallBatch (empty)', startTime);
-    return out;
-  }
-  try {
-    const fetchStart = Date.now();
-    const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ identifiers }) });
-    logTiming(`scryfallBatch fetch (${identifiers.length} cards)`, fetchStart);
-    const j:any = await r.json().catch(()=>({}));
-    const rows:any[] = Array.isArray(j?.data) ? j.data : [];
-    for (const c of rows) out[norm(c?.name||'')] = c;
-  } catch (e) {
-    if (DEBUG_PROFILE_LOAD) console.error('[PROFILE DEBUG] scryfallBatch error:', e);
-  }
-  logTiming(`scryfallBatch total (${identifiers.length} cards)`, startTime);
-  return out;
-}
 
 async function getDeckArt(sb: any, deckId: string, dbg: { candidates: string[]; method?: 'collection'|'fuzzy'|null }) {
   const startTime = Date.now();
@@ -63,43 +42,24 @@ async function getDeckArt(sb: any, deckId: string, dbg: { candidates: string[]; 
     }
     dbg.candidates = list.slice(0, 50);
     
+    // Use cached database lookup instead of direct Scryfall calls
     const batchStart = Date.now();
-    const imgMap = await scryfallBatch(list);
-    logTiming(`getDeckArt: scryfallBatch (${list.length} candidates)`, batchStart);
+    const imgMap = await getImagesForNamesCached(list);
+    logTiming(`getDeckArt: getImagesForNamesCached (${list.length} candidates)`, batchStart);
     
+    // Check cache results (fast path)
     for (const n of list) { 
-      const img = imgMap[norm(n)]; 
+      const normalized = norm(n);
+      const img = imgMap.get(normalized);
       if (img?.art_crop || img?.normal || img?.small) { 
         dbg.method = 'collection'; 
-        logTiming(`getDeckArt total (collection match)`, startTime);
+        logTiming(`getDeckArt total (cache match)`, startTime);
         return img.art_crop || img.normal || img.small; 
       } 
     }
     
-    const fuzzyStart = Date.now();
-    let fuzzyCount = 0;
-    for (const n of list.slice(0, 20)) {
-      try {
-        fuzzyCount++;
-        const fuzzyFetchStart = Date.now();
-        const fr = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(n)}`, { cache: 'no-store' });
-        if (DEBUG_PROFILE_LOAD && fuzzyCount <= 3) {
-          logTiming(`getDeckArt: fuzzy fetch #${fuzzyCount} (${n})`, fuzzyFetchStart);
-        }
-        if (!fr.ok) continue;
-        const card: any = await fr.json().catch(()=>({}));
-        const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-        const url = img.art_crop || img.normal || img.small;
-        if (url) { 
-          dbg.method = 'fuzzy'; 
-          logTiming(`getDeckArt total (fuzzy match after ${fuzzyCount} attempts)`, startTime);
-          return url; 
-        }
-      } catch (e) {
-        if (DEBUG_PROFILE_LOAD && fuzzyCount <= 3) console.error(`[PROFILE DEBUG] getDeckArt fuzzy error (#${fuzzyCount}):`, e);
-      }
-    }
-    if (DEBUG_PROFILE_LOAD) logTiming(`getDeckArt: all fuzzy attempts (${fuzzyCount} total)`, fuzzyStart);
+    // No match found in cache - return undefined (don't block with fuzzy fallback)
+    // The cache will handle fetching from Scryfall in background if needed
   } catch (e) {
     if (DEBUG_PROFILE_LOAD) console.error('[PROFILE DEBUG] getDeckArt error:', e);
   }
@@ -190,15 +150,15 @@ export default async function Page() {
         bannerDebug = { source:'favorite', method: null, candidates: [String(fav)], art: null };
         try { 
           const favStart = Date.now();
-          const fr = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(String(fav))}`, { cache: 'no-store' }); 
-          logTiming(`favorite commander fuzzy fetch (${fav})`, favStart);
-          if (fr.ok) { 
-            const card:any = await fr.json().catch(()=>({})); 
-            const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {}; 
-            bannerArt = img.art_crop || img.normal || img.small || undefined; 
-            bannerDebug.method = 'fuzzy'; 
-            bannerDebug.art = bannerArt||null; 
-          } 
+          const imgMap = await getImagesForNamesCached([String(fav)]);
+          logTiming(`favorite commander cached fetch (${fav})`, favStart);
+          const normalized = norm(String(fav));
+          const img = imgMap.get(normalized);
+          if (img?.art_crop || img?.normal || img?.small) {
+            bannerArt = img.art_crop || img.normal || img.small || undefined;
+            bannerDebug.method = 'collection';
+            bannerDebug.art = bannerArt||null;
+          }
         } catch (e) {
           if (DEBUG_PROFILE_LOAD) console.error('[PROFILE DEBUG] favorite commander fetch error:', e);
         }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
+import BlogImage from '@/components/BlogImage';
 
 export const metadata: Metadata = {
   title: 'Why AI Can Help With MTG Deck Building (And Where It Needs Work) | ManaTap AI',
@@ -241,14 +242,10 @@ export default function BlogPost() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section */}
       <div className="relative h-[40vh] min-h-[300px] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 overflow-hidden">
-        <img 
+        <BlogImage 
           src="https://cards.scryfall.io/art_crop/front/9/c/9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d.jpg?1594735806"
           alt="AI and MTG Deck Building"
           className="absolute inset-0 w-full h-full object-cover"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20"></div>
         <div className="absolute inset-0 bg-black/30"></div>
