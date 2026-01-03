@@ -48,7 +48,7 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
               • Price tracking & alerts<br/>
               • Priority support
             </div>
-            <div className="text-[11px] text-blue-300 font-semibold">Starting at $1.99/month</div>
+            <div className="text-[11px] text-blue-300 font-semibold">£1.99/month or £14.99/year</div>
             <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
           </div>
         )}

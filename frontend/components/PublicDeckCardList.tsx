@@ -67,8 +67,11 @@ export default function PublicDeckCardList({ cards, priceMap = new Map() }: Publ
       <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
         <ul className="space-y-2">
           {cards.map((c) => {
-            const unit = priceMap.get(String(c.name).toLowerCase());
-            const each = typeof unit === 'number' && unit > 0 ? `$${unit.toFixed(2)}` : '';
+            const unitPrice = priceMap.get(String(c.name).toLowerCase());
+            const totalValue = typeof unitPrice === 'number' && unitPrice > 0 
+              ? unitPrice * c.qty 
+              : null;
+            const valueDisplay = totalValue !== null ? `$${totalValue.toFixed(2)}` : '';
             
             // Get card image
             let key = c.name.toLowerCase();
@@ -128,9 +131,9 @@ export default function PublicDeckCardList({ cards, priceMap = new Map() }: Publ
                 
                 <span className="flex-1 font-medium text-neutral-100">{c.name}</span>
                 
-                {each && (
-                  <span className="text-xs font-mono text-green-400 bg-green-950/40 px-2 py-1 rounded border border-green-900/50">
-                    {each}
+                {valueDisplay && (
+                  <span className="text-xs font-mono text-green-400 bg-green-950/40 px-2 py-1 rounded border border-green-900/50" title={typeof unitPrice === 'number' && unitPrice > 0 ? `$${unitPrice.toFixed(2)} each × ${c.qty}` : ''}>
+                    {valueDisplay}
                   </span>
                 )}
               </li>

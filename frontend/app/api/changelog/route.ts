@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export const runtime = 'edge';
+// Note: Removed edge runtime - Supabase client may not work properly on edge
 export const revalidate = 0; // No cache - always fetch fresh data
 
 export async function GET() {

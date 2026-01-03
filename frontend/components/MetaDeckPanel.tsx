@@ -13,7 +13,6 @@ interface MetaData {
 export default function MetaDeckPanel() {
   const [meta, setMeta] = useState<MetaData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     // PERFORMANCE: Defer non-critical meta data fetch to avoid blocking initial paint
@@ -62,23 +61,15 @@ export default function MetaDeckPanel() {
           <span className="text-xl">📊</span>
           Meta Snapshot
         </h3>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
-        >
-          {collapsed ? 'Show' : 'Hide'}
-        </button>
       </div>
 
-      {!collapsed && (
-        <>
-          {/* Total decks stat */}
-          <div className="bg-black/30 rounded-lg p-3 mb-4 border border-purple-700/20">
-            <div className="text-sm text-gray-400">Public Decks</div>
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{meta.totalDecks.toLocaleString()}</div>
-          </div>
+      {/* Total decks stat */}
+      <div className="bg-black/30 rounded-lg p-3 mb-4 border border-purple-700/20">
+        <div className="text-sm text-gray-400 text-center">Public Decks</div>
+        <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent text-center">{meta.totalDecks.toLocaleString()}</div>
+      </div>
 
-          {/* Top Commanders */}
+      {/* Top Commanders */}
           <div className="mb-4">
             <h4 className="text-sm font-semibold text-gray-300 mb-2">🏆 Top Commanders</h4>
             {meta.topCommanders && meta.topCommanders.length > 0 ? (
@@ -137,15 +128,6 @@ export default function MetaDeckPanel() {
                 })}
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="mt-4 pt-3 border-t border-purple-800/20">
-            <div className="text-xs text-gray-500">
-              Updated {new Date(meta.lastUpdated).toLocaleTimeString()}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

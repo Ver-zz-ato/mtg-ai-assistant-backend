@@ -58,6 +58,7 @@ const blogContent: Record<string, {
   content: string;
   gradient: string;
   icon: string;
+  imageUrl?: string;
 }> = {
   'devlog-23-days-soft-launch': {
     title: '🚀 Devlog: 23 Days Into Soft Launch',
@@ -639,6 +640,235 @@ Have feedback or found a bug? Use the feedback button in the app or reach out to
 Thanks for being part of the ManaTap community!
     `,
   },
+  'why-ai-can-help-with-mtg-deck-building': {
+    title: '🤖 Why AI Can Help With MTG Deck Building (And Where It Needs Work)',
+    date: '2025-01-15',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '8 min read',
+    gradient: 'from-indigo-600 via-purple-600 to-pink-600',
+    icon: '🤖',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/9/c/9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d.jpg?1594735806', // Teferi, Master of Time
+    content: `
+# Why AI Can Help With MTG Deck Building (And Where It Needs Work)
+
+Magic: The Gathering has over 28,000 unique cards and infinite possible deck combinations. Building a competitive deck requires understanding card interactions, format legality, budget constraints, and meta-game trends. This is exactly where AI can shine—and where it still needs human insight.
+
+## The Promise: What AI Does Exceptionally Well
+
+### 🧠 Pattern Recognition at Scale
+
+AI excels at recognizing patterns across thousands of cards that would take humans hours to research. It can instantly identify:
+
+- **Synergy chains:** "If you're playing tokens, here are 15 cards that work together"
+- **Archetype detection:** "This deck is clearly aristocrats, not just black/white goodstuff"
+- **Format patterns:** "In Commander, you need 10-12 ramp pieces—here's what you're missing"
+
+**Why this matters:** You can focus on strategy while AI handles the card database search.
+
+### ⚡ Speed and Consistency
+
+A human deck builder might:
+- Spend 30 minutes researching budget alternatives
+- Miss obvious synergies due to fatigue
+- Forget format-specific rules
+
+AI can:
+- Analyze your entire deck in seconds
+- Check every card against format legality instantly
+- Suggest alternatives while maintaining your strategy
+
+**Real example:** ManaTap AI can analyze a 100-card Commander deck, identify 20+ potential improvements, and explain each suggestion—all in under 10 seconds.
+
+### 📊 Data-Driven Insights
+
+AI doesn't just guess—it uses:
+
+- **Price data:** Real-time market prices from Scryfall
+- **Format statistics:** What actually works in Commander, Modern, Standard
+- **Card relationships:** Which cards are played together most often
+
+**The result:** Suggestions backed by actual data, not just "this card seems good."
+
+### 🎯 Budget Optimization
+
+One of AI's strongest use cases is finding cheaper alternatives that maintain power level:
+
+- **Budget swaps:** "Replace this $50 card with this $2 alternative that fills the same role"
+- **Upgrade paths:** "Start here, then upgrade to this when your budget allows"
+- **Value analysis:** "This $10 card gives you 80% of the $100 card's power"
+
+**Why it works:** AI can compare thousands of cards simultaneously, finding value you might miss.
+
+## The Reality: Where AI Struggles
+
+### 🎲 Meta-Game Awareness
+
+AI doesn't know:
+- What your local playgroup plays
+- Which strategies are currently popular at your LGS
+- Tournament results from last weekend
+
+**The gap:** AI suggests cards based on general power level, not what's winning right now.
+
+**How we're improving:** We're working on integrating tournament data and meta-game trends into suggestions.
+
+### 🎨 Personal Playstyle
+
+AI can't read your mind about:
+- How competitive you want to be
+- Whether you prefer combo, control, or aggro
+- Your personal pet cards you refuse to cut
+
+**The gap:** AI optimizes for "best" cards, not "best for you."
+
+**How we're improving:** ManaTap learns from your deck history and feedback to understand your preferences.
+
+### 🧩 Complex Interactions
+
+Some card interactions are:
+- Too niche for training data
+- Format-specific edge cases
+- Dependent on your exact board state
+
+**The gap:** AI might miss a three-card combo that only works in your specific deck.
+
+**How we're improving:** Better combo detection algorithms and more context-aware analysis.
+
+### 💭 Creative Deck Building
+
+AI is great at optimization, but struggles with:
+- Truly novel strategies
+- "Bad" cards that work in specific contexts
+- Experimental builds that break conventions
+
+**The gap:** AI suggests proven strategies, not wild innovations.
+
+**Why this matters:** Sometimes the best decks come from breaking the rules.
+
+## How We're Making AI Better for MTG
+
+### 1. **Continuous Learning from Real Decks**
+
+Every deck uploaded to ManaTap teaches the AI something new:
+- Real player strategies
+- Actual card combinations that work
+- Format-specific patterns
+
+**Result:** The AI gets smarter with every deck, not just from static training data.
+
+### 2. **Human Feedback Loops**
+
+Every analysis includes feedback buttons:
+- "This suggestion is wrong" → AI learns what not to suggest
+- "This is perfect" → AI learns what works
+- "Explain your reasoning" → AI improves its explanations
+
+**Result:** The AI adapts to how real players think, not just card database logic.
+
+### 3. **Format-Specific Intelligence**
+
+We're training separate models for:
+- Commander (multiplayer, singleton, 40 life)
+- Modern (competitive, established card pool)
+- Standard (rotating format, current sets)
+
+**Result:** Suggestions that actually fit your format, not generic "good cards."
+
+### 4. **Context-Aware Analysis**
+
+The AI now considers:
+- Your commander's color identity
+- Your deck's mana curve
+- Your budget constraints
+- Your existing synergies
+
+**Result:** Suggestions that fit your deck, not just "powerful cards."
+
+## The Best Approach: AI + Human Intelligence
+
+The future of deck building isn't AI replacing humans—it's AI amplifying human creativity.
+
+### What AI Should Do:
+- ✅ Find cards you didn't know existed
+- ✅ Check format legality automatically
+- ✅ Calculate mana curves and probabilities
+- ✅ Suggest budget alternatives
+- ✅ Identify obvious synergies
+
+### What Humans Should Do:
+- ✅ Make strategic decisions
+- ✅ Understand your playgroup meta
+- ✅ Choose cards that match your playstyle
+- ✅ Build creative, experimental decks
+- ✅ Know when to ignore AI suggestions
+
+## Real Examples: AI Helping Real Players
+
+### Case 1: Budget Commander Optimization
+
+**Player:** "I want to build Atraxa but can't afford $500."
+
+**AI helped by:**
+- Finding 20+ budget alternatives to expensive staples
+- Maintaining the deck's core strategy (counters and proliferate)
+- Suggesting upgrade paths for later
+
+**Result:** A $150 deck that still feels like Atraxa and wins games.
+
+### Case 2: Synergy Discovery
+
+**Player:** "I have this token deck but it feels weak."
+
+**AI identified:**
+- Missing payoff cards (Impact Tremors, Purphoros)
+- Inefficient token producers
+- Cards that don't actually synergize
+
+**Result:** Deck went from "fun but weak" to "actually competitive."
+
+### Case 3: Format Legality
+
+**Player:** "Why can't I use this card in Modern?"
+
+**AI explained:**
+- Card was banned in 2019
+- Suggested legal alternatives
+- Explained why the ban happened
+
+**Result:** Player understood format rules and found better cards.
+
+## What's Next: The Future of AI Deck Building
+
+We're working on:
+
+1. **Meta-Game Integration:** Real tournament data informing suggestions
+2. **Playgroup Learning:** AI that adapts to your local meta
+3. **Playtesting Simulation:** AI that can simulate games to test deck performance
+4. **Creative Mode:** AI that suggests experimental, unconventional builds
+5. **Collaborative Building:** AI that works with you in real-time as you build
+
+## Try It Yourself
+
+Want to see how AI can help your deck building?
+
+**[Start Building with ManaTap AI →](/my-decks)**
+
+Upload a deck, get instant analysis, and see how AI suggestions compare to your own ideas. Every suggestion includes reasoning, so you can learn while you build.
+
+## Conclusion
+
+AI is a powerful tool for MTG deck building, but it's not a replacement for human creativity and strategic thinking. The best decks come from combining AI's pattern recognition and data analysis with human intuition and meta-game knowledge.
+
+**AI handles the database. You handle the strategy.**
+
+Together, that's how we build better decks.
+
+---
+
+*Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap AI.*
+    `,
+  },
 };
 
 function articleJsonLd(post: typeof blogContent[string], slug: string) {
@@ -683,11 +913,30 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section */}
       <div className={`relative h-[40vh] min-h-[300px] bg-gradient-to-br ${post.gradient} overflow-hidden`}>
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnptMCAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnptLTE4IDBjMy4zMTQgMCA2IDIuNjg2IDYgNnMtMi42ODYgNi02IDYtNi0yLjY4Ni02LTYgMi42ODYtNiA2LTZ6IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMSIgb3BhY2l0eT0iLjEiLz48L2c+PC9zdmc+')] opacity-20"></div>
+        {post.imageUrl ? (
+          <>
+            <img 
+              src={post.imageUrl} 
+              alt={post.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to gradient if image fails
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20"></div>
+            <div className="absolute inset-0 bg-black/30"></div>
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-black/20"></div>
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnptMCAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnptLTE4IDBjMy4zMTQgMCA2IDIuNjg2IDYgNnMtMi42ODYgNi02IDYtNi0yLjY4Ni02LTYgMi42ODYtNiA2LTZ6IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMSIgb3BhY2l0eT0iLjEiLz48L2c+PC9zdmc+')] opacity-20"></div>
+          </>
+        )}
         
         <div className="relative z-10 max-w-4xl mx-auto px-4 h-full flex flex-col justify-end pb-12">
-          <div className="text-9xl mb-6 drop-shadow-2xl">{post.icon}</div>
+          {!post.imageUrl && <div className="text-9xl mb-6 drop-shadow-2xl">{post.icon}</div>}
           
           <div className="flex items-center gap-3 mb-4">
             <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${

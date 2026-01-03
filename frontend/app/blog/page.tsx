@@ -1,10 +1,9 @@
-import Link from 'next/link';
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'MTG Deck Building Blog | ManaTap AI',
-  description: 'Tips, strategies, and insights for building better Magic: The Gathering decks',
-};
+import Link from 'next/link';
+import { useState, useMemo } from 'react';
+
+// Note: Metadata export removed for client component
 
 // Blog posts data - will move to MDX files later
 const blogPosts = [
@@ -40,6 +39,7 @@ const blogPosts = [
     readTime: '5 min read',
     gradient: 'from-emerald-600 via-green-600 to-teal-600',
     icon: '💰',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/e/e/ee6e5a35-fe21-4dee-b0ef-a8f2841511ad.jpg?1764180059', // Sol Ring
   },
   {
     slug: 'mana-curve-mastery',
@@ -62,6 +62,7 @@ const blogPosts = [
     readTime: '5 min read',
     gradient: 'from-amber-600 via-orange-600 to-rose-600',
     icon: '💎',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/d/6/d6914dba-0d27-4055-ac34-b3ebf5802221.jpg?1600698439', // Rhystic Study
   },
   {
     slug: 'how-to-build-your-first-commander-deck',
@@ -73,6 +74,7 @@ const blogPosts = [
     readTime: '8 min read',
     gradient: 'from-green-600 via-emerald-600 to-teal-600',
     icon: '🎯',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/8/2/824b2d73-2151-4e5e-9f05-8f63e2bdcaa9.jpg?1730632010', // Krenko, Mob Boss
   },
   {
     slug: 'the-7-most-common-deckbuilding-mistakes',
@@ -106,6 +108,7 @@ const blogPosts = [
     readTime: '9 min read',
     gradient: 'from-yellow-600 via-amber-600 to-orange-600',
     icon: '💎',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/d/f/dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe.jpg?1702429366', // Cyclonic Rift
   },
   {
     slug: 'bug-fixes-and-improvements-january-2025',
@@ -117,10 +120,34 @@ const blogPosts = [
     readTime: '5 min read',
     gradient: 'from-blue-600 via-cyan-600 to-teal-600',
     icon: '🔧',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/c/8/c8817585-0d32-4d56-9142-0d29512e86a9.jpg?1598304029', // Jace, the Mind Sculptor
+  },
+  {
+    slug: 'why-ai-can-help-with-mtg-deck-building',
+    title: '🤖 Why AI Can Help With MTG Deck Building (And Where It Needs Work)',
+    excerpt: 'AI is transforming how we build Magic decks, but it\'s not perfect. Learn how AI can accelerate your deck building, what it struggles with, and how we\'re making it better.',
+    date: '2025-01-15',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '8 min read',
+    gradient: 'from-indigo-600 via-purple-600 to-pink-600',
+    icon: '🤖',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/9/c/9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d.jpg?1594735806', // Teferi, Master of Time
   },
 ];
 
 export default function BlogPage() {
+  const [selectedCategory, setSelectedCategory] = useState<string>('All Posts');
+
+  const filteredPosts = useMemo(() => {
+    if (selectedCategory === 'All Posts') {
+      return blogPosts;
+    }
+    return blogPosts.filter(post => post.category === selectedCategory);
+  }, [selectedCategory]);
+
+  const categories = ['All Posts', 'Budget Building', 'Strategy', 'Commander', 'Announcement'];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -136,26 +163,24 @@ export default function BlogPage() {
 
         {/* Categories */}
         <div className="flex flex-wrap gap-2 justify-center mb-12">
-          <span className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium">
-            All Posts
-          </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-            Budget Building
-          </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-            Strategy
-          </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-            Commander
-          </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-            Announcement
-          </span>
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                selectedCategory === category
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
         </div>
 
         {/* Blog Posts Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {blogPosts.map((post) => (
+          {filteredPosts.map((post) => (
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}
@@ -163,9 +188,35 @@ export default function BlogPage() {
             >
               {/* Hero Image */}
               <div className={`h-48 bg-gradient-to-br ${post.gradient} flex items-center justify-center relative overflow-hidden`}>
-                <div className="absolute inset-0 bg-black/10"></div>
-                <div className="relative z-10 text-8xl drop-shadow-2xl animate-pulse">{post.icon}</div>
-                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent"></div>
+                {post.imageUrl ? (
+                  <>
+                    <img 
+                      src={post.imageUrl} 
+                      alt={post.title}
+                      className="absolute inset-0 w-full h-full object-cover opacity-90"
+                      onError={(e) => {
+                        // Fallback to gradient + icon if image fails
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const iconDiv = document.createElement('div');
+                          iconDiv.className = 'relative z-10 text-8xl drop-shadow-2xl';
+                          iconDiv.textContent = post.icon;
+                          parent.appendChild(iconDiv);
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                    <div className="absolute inset-0 bg-black/20"></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-black/10"></div>
+                    <div className="relative z-10 text-8xl drop-shadow-2xl animate-pulse">{post.icon}</div>
+                    <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  </>
+                )}
               </div>
 
               <div className="p-6">

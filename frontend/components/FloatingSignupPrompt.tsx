@@ -73,7 +73,7 @@ export default function FloatingSignupPrompt({ messageCount = 0 }: FloatingSignu
   const showUrgency = messageCount >= 5;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+    <div className="fixed bottom-24 right-6 z-50 animate-slide-up">
       <div className={`bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl shadow-2xl border border-blue-400/30 p-4 max-w-sm ${showUrgency ? 'ring-2 ring-amber-400/50' : ''}`}>
         <button
           onClick={handleDismiss}

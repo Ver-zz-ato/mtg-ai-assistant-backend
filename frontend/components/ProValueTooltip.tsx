@@ -166,7 +166,7 @@ export default function ProValueTooltip({
                 Upgrade to Pro
               </button>
               <div className="text-center mt-1">
-                <span className="text-xs text-gray-400">Starting at $9/month</span>
+                <span className="text-xs text-gray-400">£1.99/month or £14.99/year</span>
               </div>
             </div>
           </div>

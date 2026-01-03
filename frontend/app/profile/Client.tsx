@@ -147,27 +147,46 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
   // Load user + metadata
   useEffect(() => {
-    if (authLoading) return;
+    const clientEffectStart = performance.now();
+    if (typeof window !== 'undefined') {
+      console.log('[PROFILE CLIENT DEBUG] useEffect started');
+      performance.mark('profile-client-effect-start');
+    }
+    
+    if (authLoading) {
+      if (typeof window !== 'undefined') console.log('[PROFILE CLIENT DEBUG] Waiting for auth...');
+      return;
+    }
     
     if (!authUser) {
+      if (typeof window !== 'undefined') console.log('[PROFILE CLIENT DEBUG] No auth user, redirecting');
       window.location.href = '/';
       return;
     }
     
     (async () => {
       try {
+        const dataLoadStart = performance.now();
         setLoading(true);
+        if (typeof window !== 'undefined') {
+          console.log('[PROFILE CLIENT DEBUG] Starting data load');
+          performance.mark('profile-client-data-load-start');
+        }
         try { capture('profile_view'); } catch {}
         
         const u = authUser;
         setUserEmail(u?.email || "");
         
         // Query profiles table for accurate pro status and data
+        const profileQueryStart = performance.now();
         const { data: profileData } = await sb
           .from('profiles')
           .select('is_pro')
           .eq('id', u.id)
           .single();
+        if (typeof window !== 'undefined') {
+          console.log(`[PROFILE CLIENT DEBUG] Profile query: ${(performance.now() - profileQueryStart).toFixed(2)}ms`);
+        }
         
         const isProUser = profileData?.is_pro || false;
         setPro(isProUser);
@@ -185,13 +204,20 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
         // Usage summary
         try {
+          const usageStart = performance.now();
           const r = await fetch("/api/me/usage/summary", { cache: "no-store" });
           const j = await r.json().catch(()=>({}));
           if (r.ok && j?.ok) setUsage(j.totals);
-        } catch {}
+          if (typeof window !== 'undefined') {
+            console.log(`[PROFILE CLIENT DEBUG] Usage summary: ${(performance.now() - usageStart).toFixed(2)}ms`);
+          }
+        } catch (e) {
+          if (typeof window !== 'undefined') console.error('[PROFILE CLIENT DEBUG] Usage summary error:', e);
+        }
 
         // Counts
         if (u?.id) {
+          const countsStart = performance.now();
           const { count: dcount, error: deckError } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           if (deckError) console.error('[Profile] Error fetching deck count:', deckError);
           setDeckCount(dcount ?? 0);
@@ -256,11 +282,19 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         }
       } catch (err: any) {
         console.error('[Profile] Error loading profile data:', err);
+        if (typeof window !== 'undefined') console.error('[PROFILE CLIENT DEBUG] Error in data load:', err);
       } finally {
+        const totalTime = performance.now() - clientEffectStart;
+        if (typeof window !== 'undefined') {
+          console.log(`[PROFILE CLIENT DEBUG] Data load complete. Total time: ${totalTime.toFixed(2)}ms`);
+          performance.mark('profile-client-data-load-end');
+          performance.measure('profile-client-data-load', 'profile-client-data-load-start', 'profile-client-data-load-end');
+          performance.measure('profile-client-effect-total', 'profile-client-effect-start', 'profile-client-data-load-end');
+        }
         setLoading(false);
       }
     })();
-  }, [authUser, authLoading]);
+  }, [authUser, authLoading, sb]);
 
   function toggle<T extends string>(arr: T[], v: T): T[] { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
 
@@ -609,7 +643,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Starting at $1.99/month</div>
+                        <div className="text-sm font-medium">£1.99/month or £14.99/year</div>
                         <div className="flex gap-2">
                           <a 
                             href="/pricing" 

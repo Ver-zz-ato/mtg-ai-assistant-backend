@@ -1,5 +1,6 @@
 import { containsProfanity } from "@/lib/profanity";
 import { broadcast, pushHistory, type Shout } from "../hub";
+import { createClient } from "@/lib/supabase/server";
 
 type Body = { text?: string; user?: string };
 
@@ -26,7 +27,34 @@ export async function POST(req: Request) {
   }
   lastByUser.set(cleanUser, Date.now());
 
-  const msg: Shout = { id: nextIdNum(), user: cleanUser, text: cleanText, ts: Date.now() };
+  const ts = Date.now();
+  
+  // Save to database for persistence (get the ID back)
+  let dbId: number | null = null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('shoutbox_messages').insert({
+      user_name: cleanUser,
+      message_text: cleanText,
+      created_at: new Date(ts).toISOString()
+    }).select('id').single();
+    
+    if (!error && data) {
+      dbId = Number(data.id);
+    }
+  } catch (err) {
+    console.error('Failed to save shoutbox message to database:', err);
+    // Continue anyway - message will still broadcast in-memory with timestamp ID
+  }
+  
+  // Use database ID if available, otherwise use timestamp ID
+  const msg: Shout = { 
+    id: dbId !== null ? dbId : nextIdNum(), 
+    user: cleanUser, 
+    text: cleanText, 
+    ts 
+  };
+  
   pushHistory(msg);
   broadcast(msg);
   return Response.json({ ok: true });

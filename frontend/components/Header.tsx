@@ -302,7 +302,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/blog" 
-            className="text-sm hover:underline text-blue-400 font-medium"
+            className="text-sm hover:underline text-red-400 font-medium"
             onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
           >
             Blog
@@ -350,17 +350,6 @@ export default function Header() {
                   <div className="text-xs opacity-70">Legal & disclaimers</div>
                 </Link>
                 <hr className="my-2 border-gray-200 dark:border-gray-700" />
-                <Link
-                  href="/pricing"
-                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    setShowHelpMenu(false);
-                    capture('help_menu_clicked', { link: 'pricing' });
-                  }}
-                >
-                  <div className="font-medium">Pricing</div>
-                  <div className="text-xs opacity-70">Free & Pro features</div>
-                </Link>
               </div>
             )}
           </div>
@@ -523,9 +512,9 @@ export default function Header() {
             >
               Deck Builder
             </Link>
-            <Link 
-              href="/blog" 
-              className="block py-2 text-sm text-blue-400 font-medium"
+            <Link
+              href="/blog"
+              className="block py-2 text-sm text-red-400 font-medium"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -659,7 +648,7 @@ export default function Header() {
                   Create account
                 </div>
                 <div className="text-sm text-neutral-300 mb-2">
-                  Save decks, track collections, and unlock <span className="text-yellow-400 font-semibold">Pro features</span> ✨
+                  Save decks, track collections, and explore <span className="text-yellow-400 font-semibold">Pro features</span> ✨
                 </div>
                 <div className="flex items-center gap-2 mb-4 text-xs text-neutral-400">
                   <span className="flex items-center gap-1">
@@ -834,7 +823,7 @@ export default function Header() {
                     </div>
                   </div>
                   
-                  <div className="flex justify-end gap-2 mt-6">
+                  <div className="flex justify-center gap-2 mt-6">
                     <button 
                       type="button" 
                       onClick={()=>{

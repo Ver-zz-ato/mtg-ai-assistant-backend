@@ -431,19 +431,13 @@ export default function PricingPage() {
             </div>
 
             {isPro ? (
-              <div className="space-y-3">
-                <div className="text-center p-4 bg-white bg-opacity-10 rounded-lg border-2 border-emerald-400">
-                  <div className="text-emerald-300 font-bold mb-1">🎉 Thank you for being Pro!</div>
-                  <div className="text-sm text-blue-100">You have access to all premium features</div>
-                </div>
-                <button
-                  onClick={handleManageBilling}
-                  disabled={managingBilling}
-                  className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
-                >
-                  {managingBilling ? 'Opening...' : 'Manage Subscription'}
-                </button>
-              </div>
+              <button
+                onClick={handleManageBilling}
+                disabled={managingBilling}
+                className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                {managingBilling ? 'Opening...' : 'Manage Subscription'}
+              </button>
             ) : (
               <button 
                 onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
