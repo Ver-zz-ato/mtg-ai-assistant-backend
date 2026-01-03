@@ -12,6 +12,7 @@ export default function RightSidebar() {
   const [text, setText] = useState<string>("");
   const [toast, setToast] = useState<string | null>(null);
   const [debugSpace, setDebugSpace] = useState<boolean>(false);
+  const [isCardPanelCollapsed, setIsCardPanelCollapsed] = useState<boolean>(false);
   const evRef = useRef<EventSource | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -29,6 +30,24 @@ export default function RightSidebar() {
       }
     } catch {}
   }, []);
+
+  // Load collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('custom_card_panel_collapsed');
+      if (stored === 'true') {
+        setIsCardPanelCollapsed(true);
+      }
+    } catch {}
+  }, []);
+
+  const toggleCardPanel = () => {
+    const newState = !isCardPanelCollapsed;
+    setIsCardPanelCollapsed(newState);
+    try {
+      localStorage.setItem('custom_card_panel_collapsed', String(newState));
+    } catch {}
+  };
 
   // load history and connect SSE
   useEffect(() => {
@@ -115,15 +134,33 @@ export default function RightSidebar() {
         <DeckAnalyzerExpandable />
       </div>
 
-      {/* Custom Card Creator promo panel with proper borders */}
-      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
-        {debugSpace && (
-          <>
-            {require('react').createElement('div', { key:'top', className:'absolute -top-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
-            {require('react').createElement('div', { key:'bot', className:'absolute -bottom-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
-          </>
-        )}
-        {require('react').createElement(require('./CustomCardCreator').default, { compact: true })}
+      {/* Custom Card Creator promo panel with proper borders - collapsible */}
+      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden transition-all duration-300 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
+        <button
+          onClick={toggleCardPanel}
+          className="w-full flex items-center justify-between p-3 hover:bg-neutral-900 transition-colors"
+        >
+          <h3 className="text-sm font-semibold text-neutral-200">Custom Card Creator</h3>
+          <svg
+            className={`w-5 h-5 text-neutral-400 transition-transform duration-300 ${isCardPanelCollapsed ? '' : 'rotate-180'}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div className={`transition-all duration-300 overflow-hidden ${isCardPanelCollapsed ? 'max-h-0' : 'max-h-[2000px]'}`}>
+          <div className="p-4 pt-0">
+            {debugSpace && (
+              <>
+                {require('react').createElement('div', { key:'top', className:'absolute -top-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
+                {require('react').createElement('div', { key:'bot', className:'absolute -bottom-1 left-0 right-0 h-0.5 bg-sky-500/70' })}
+              </>
+            )}
+            {require('react').createElement(require('./CustomCardCreator').default, { compact: true })}
+          </div>
+        </div>
       </div>
 
       {/* Achievement Progress Widget - moved from left sidebar */}
@@ -131,7 +168,7 @@ export default function RightSidebar() {
         <BadgeProgressWidget />
       </div>
 
-      <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[16rem] flex flex-col">
+      <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 md:min-h-[16rem] flex flex-col max-h-[50vh] md:max-h-none">
         <div className="flex flex-col items-center gap-1.5 mb-4">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"></div>
@@ -142,7 +179,7 @@ export default function RightSidebar() {
           </div>
           <div className="h-0.5 w-24 bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 rounded-full animate-pulse"></div>
         </div>
-        <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm">
+        <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm min-h-0">
           {items.map((t, idx) => (
             <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">
               <div className="bg-emerald-950/40 border border-emerald-700 text-emerald-100 rounded-lg px-3 py-2">

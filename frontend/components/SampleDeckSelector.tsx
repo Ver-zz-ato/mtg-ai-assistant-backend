@@ -338,6 +338,17 @@ export default function SampleDeckSelector({
 export function SampleDeckButton({ className = '' }: { className?: string }) {
   const [showSelector, setShowSelector] = useState(false);
 
+  // Listen for open-sample-deck-modal event
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setShowSelector(true);
+    };
+    window.addEventListener('open-sample-deck-modal', handleOpenModal);
+    return () => {
+      window.removeEventListener('open-sample-deck-modal', handleOpenModal);
+    };
+  }, []);
+
   if (showSelector) {
     return (
       <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
@@ -365,7 +376,8 @@ export function SampleDeckButton({ className = '' }: { className?: string }) {
       className={`relative px-8 py-4 bg-gradient-to-r from-green-600 via-emerald-500 to-green-600 text-white rounded-xl font-bold text-lg hover:from-green-500 hover:via-emerald-400 hover:to-green-500 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 transform duration-200 border-2 border-green-400/50 ${className}`}
       style={{
         backgroundSize: '200% 200%',
-        animation: 'gradient-shift 3s ease infinite',
+        animation: 'gradient-shift 3s ease infinite, pulse-glow 2s ease-in-out infinite',
+        boxShadow: '0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.2)',
       }}
     >
       <span className="relative z-10 flex items-center gap-2">
@@ -380,6 +392,14 @@ export function SampleDeckButton({ className = '' }: { className?: string }) {
         @keyframes gradient-shift {
           0%, 100% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.5), 0 0 60px rgba(34, 197, 94, 0.3);
+          }
         }
       `}</style>
     </button>

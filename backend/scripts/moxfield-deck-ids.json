@@ -1,0 +1,21 @@
+{
+  "note": "Add Moxfield deck IDs here. Find them by:",
+  "instructions": [
+    "1. Go to https://www.moxfield.com/decks?format=commander&sort=popular",
+    "2. Click on a deck you want to use",
+    "3. Copy the deck ID from the URL (e.g., https://www.moxfield.com/decks/abc123xyz -> abc123xyz)",
+    "4. Add it to the 'deckIds' array below"
+  ],
+  "deckIds": [
+    "szfgyYf7QEKVBYxIG-C_oQ",
+    "tvg7g5Md4k-gqq0ndGM4lQ",
+    "paNlx7RKdEK87MuKnCF-bw",
+    "5fRODD2VREq0ztQ_gbFd2w",
+    "hHRxZKq44Eu1qdoWv_9riQ",
+    "1wZSUk2uuUet-yKg1dI0Fg",
+    "Nf8XKpDAukyK_ztQ6wNEcw",
+    "aA0vu5mwV0adl4RDiMd9SQ",
+    "-skogMutGkmIqtTZDA32kw",
+    "srpOuNuCtkKD6105OBIvZA"
+  ]
+}

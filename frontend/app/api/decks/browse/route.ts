@@ -154,7 +154,7 @@ export async function GET(req: Request) {
       return cardCount >= 10;
     });
     
-    logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks`);
+    logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks (from ${data?.length || 0} fetched, total available: ${count || 0})`);
 
     // Get owner usernames
     const ownerIds = [...new Set(filteredDecks.map(d => d.user_id).filter(Boolean))];
@@ -173,13 +173,19 @@ export async function GET(req: Request) {
       deck_text: deck.deck_text, // Include deck_text for art loading
     }));
 
+    // Calculate if there are more pages
+    // Note: We use the original count from Supabase, but we've filtered some out
+    // For simplicity, we'll use the filtered count and check if we got a full page
+    const totalAfterFilter = (count || 0); // This is approximate since filtering happens after pagination
+    const hasMore = filteredDecks.length === limit; // If we got a full page, there might be more
+
     return NextResponse.json({
       ok: true,
       decks,
-      total: filteredDecks.length,
+      total: totalAfterFilter, // Use the count from Supabase query
       page,
       limit,
-      hasMore: filteredDecks.length > offset + limit,
+      hasMore,
     }, {
       headers: CachePresets.SHORT
     });

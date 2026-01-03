@@ -214,6 +214,12 @@ export const AnalyticsEvents = {
   
   // ===== CUSTOM CARDS =====
   CUSTOM_CARD_CREATED: 'custom_card_created',
+  
+  // ===== QUIZ EVENTS =====
+  QUIZ_STARTED: 'quiz_started',
+  QUIZ_COMPLETED: 'quiz_completed',
+  QUIZ_BUILD_DECK_CLICKED: 'quiz_build_deck_clicked',
+  QUIZ_SHOW_SAMPLES_CLICKED: 'quiz_show_samples_clicked',
   CUSTOM_CARD_SHARED: 'custom_card_shared',
   
   // ===== SERVER-SIDE EVENTS (from API routes) =====

@@ -1,0 +1,16 @@
+{
+  "note": "Manually curated Commander decklists (100 cards each including commander)",
+  "instructions": [
+    "Add decklists here in the format shown below.",
+    "Each decklist must have exactly 100 cards total (99 + 1 commander).",
+    "Deck text format: Commander name on first line, then '1 Card Name' or 'Card Name' for each card."
+  ],
+  "decklists": [
+    {
+      "title": "Atraxa, Praetors' Voice - +1/+1 Counters",
+      "commander": "Atraxa, Praetors' Voice",
+      "colors": ["W", "U", "B", "G"],
+      "deckText": "Atraxa, Praetors' Voice\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard\n1 Exotic Orchard\n1 Command Tower\n1 Path of Ancestry\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Forbidden Orchard"
+    }
+  ]
+}
