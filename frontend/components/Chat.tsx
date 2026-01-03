@@ -656,6 +656,13 @@ function Chat() {
       ];
     });
     
+    // Dispatch event for homepage signup banner (first message trigger)
+    // Check before incrementing (messageCountRef is incremented later in the stream completion)
+    const isFirstMessage = messageCountRef.current === 0;
+    if (isFirstMessage) {
+      window.dispatchEvent(new CustomEvent('message-sent'));
+    }
+    
     // Save user message to the thread (for logged-in users only)
     if (isLoggedIn && currentThreadId) {
       // Save to database (fire and forget)

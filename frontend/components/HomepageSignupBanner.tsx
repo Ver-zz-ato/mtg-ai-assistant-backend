@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
@@ -8,16 +9,69 @@ import { trackSignupStarted } from '@/lib/analytics-enhanced';
 export default function HomepageSignupBanner() {
   const { user, loading } = useAuth();
   const capture = useCapture();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasTriggered, setHasTriggered] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollTriggeredRef = useRef(false);
+  const messageTriggeredRef = useRef(false);
 
   // Only show for guest users (not logged in)
   if (loading || user) {
     return null;
   }
 
+  useEffect(() => {
+    // Listen for first message sent
+    const handleFirstMessage = () => {
+      if (!messageTriggeredRef.current) {
+        messageTriggeredRef.current = true;
+        triggerExpansion('first_message');
+      }
+    };
+
+    // Listen for scroll past hero (approximately 400px scroll)
+    const handleScroll = () => {
+      if (!scrollTriggeredRef.current && window.scrollY > 400) {
+        scrollTriggeredRef.current = true;
+        triggerExpansion('scroll');
+      }
+    };
+
+    // 25 second timer (middle of 20-30 range)
+    timeoutRef.current = setTimeout(() => {
+      if (!hasTriggered) {
+        triggerExpansion('timer');
+      }
+    }, 25000);
+
+    window.addEventListener('message-sent', handleFirstMessage);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      window.removeEventListener('message-sent', handleFirstMessage);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [hasTriggered]);
+
+  const triggerExpansion = (trigger: 'first_message' | 'scroll' | 'timer') => {
+    if (hasTriggered) return;
+    setHasTriggered(true);
+    setIsExpanded(true);
+    
+    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
+      source: 'homepage_banner',
+      trigger: trigger,
+      position: 'delayed_expansion'
+    });
+  };
+
   const handleSignupClick = () => {
     capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
       source: 'homepage_banner',
-      position: 'above_fold'
+      position: isExpanded ? 'expanded' : 'collapsed'
     });
     trackSignupStarted('email', 'homepage_banner');
     
@@ -27,9 +81,33 @@ export default function HomepageSignupBanner() {
     }));
   };
 
+  // Collapsed state: reduced visual weight (smaller height, softer gradient)
+  if (!isExpanded) {
+    return (
+      <div className="max-w-[1600px] mx-auto px-4 mb-3">
+        <div className="bg-gradient-to-r from-blue-600/60 via-purple-600/60 to-pink-600/60 rounded-xl p-3 shadow-lg border border-blue-500/20 backdrop-blur-sm transition-all duration-500">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 text-center md:text-left">
+              <p className="text-white/90 text-sm font-medium">
+                Sign up free to save your chat history
+              </p>
+            </div>
+            <button
+              onClick={handleSignupClick}
+              className="px-6 py-2 bg-white/90 text-blue-600 font-semibold rounded-lg hover:bg-white transition-all text-sm whitespace-nowrap"
+            >
+              Sign Up Free
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Expanded state: full banner (re-surfaced aggressively)
   return (
-    <div className="max-w-[1600px] mx-auto px-4 mb-4">
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-5 shadow-xl border border-blue-500/30">
+    <div className="max-w-[1600px] mx-auto px-4 mb-4 animate-slide-down">
+      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-5 shadow-xl border border-blue-500/30 ring-2 ring-blue-400/50">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Mobile: CTA on top for better thumb reach */}
           <button
@@ -71,6 +149,22 @@ export default function HomepageSignupBanner() {
           </button>
         </div>
       </div>
+      
+      <style jsx>{`
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.4s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
