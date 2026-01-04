@@ -29,14 +29,20 @@ export default function ExportDeckCSV({ deckId, filename = "deck.csv", small, cl
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       const title: string = json.deck?.title || "Deck";
+      const commander: string = json.deck?.commander || "";
+      const cards: any[] = json.cards || [];
 
-      // Build rows as string[][] to satisfy TS in strict mode
-      const head: string[] = ["Name", "Qty"];
-      const body: string[][] = (json.cards || []).map((c: any) => [String(c.name), String(c.qty)]);
-      const rows: string[][] = [head, ...body];
+      // Format decklist: commander first, then cards
+      let decklistText = commander || "";
+      for (const card of cards) {
+        if (card.name.toLowerCase() !== commander.toLowerCase()) {
+          decklistText += `\n${card.qty} ${card.name}`;
+        }
+      }
 
-      const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-      const csv: string = rows.map((r: string[]) => r.map((v: string) => esc(v)).join(",")).join("\n");
+      // CSV format matching import format: title,commander,decklist
+      const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+      const csv = `title,commander,decklist\n${esc(title)},${esc(commander)},${esc(decklistText)}`;
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);

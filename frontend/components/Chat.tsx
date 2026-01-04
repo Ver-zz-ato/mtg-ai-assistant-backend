@@ -41,6 +41,7 @@ import {
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
+import { useProStatus } from "@/hooks/useProStatus";
 import { getBulkPrices } from "@/lib/chat/actions/bulk-prices";
 import { isDecklist } from "@/lib/chat/decklistDetector";
 
@@ -115,6 +116,8 @@ function Chat() {
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   const [hasDeckAnalyzed, setHasDeckAnalyzed] = useState<boolean>(false);
+  const [showReasoning, setShowReasoning] = useState<boolean>(false);
+  const { isPro } = useProStatus();
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
   const capture = useCapture();
@@ -1331,8 +1334,19 @@ function Chat() {
         </div>
 
         {/* Assistant spotlight header */}
-        <div className="">
+        <div className="flex items-center justify-between">
           <div className="text-sm font-semibold opacity-90">Your deck-building assistant</div>
+          {isPro && (
+            <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer hover:text-neutral-300 transition-colors">
+              <input
+                type="checkbox"
+                checked={showReasoning}
+                onChange={(e) => setShowReasoning(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500"
+              />
+              <span>Show reasoning</span>
+            </label>
+          )}
         </div>
       </div>
       
@@ -1432,6 +1446,25 @@ function Chat() {
                 >
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                     <span>{isAssistant ? 'assistant' : (displayName || 'you')}</span>
+                    {isAssistant && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(String(m.content || ''));
+                            capture('chat_message_copied', { messageId: String(m.id) });
+                            // Could show a toast here if needed
+                          } catch (err) {
+                            console.error('Failed to copy:', err);
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
+                        title="Copy message"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
                   {isAssistant && (

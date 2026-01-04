@@ -186,9 +186,16 @@ export default function BrowseDecksPage() {
     <main className="mx-auto max-w-7xl p-4 sm:p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Browse Public Decks</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-4xl font-bold text-white">Browse Public Decks</h1>
+          {total > 0 && (
+            <div className="text-sm text-gray-400">
+              Showing <span className="text-white font-semibold">{decks.length}</span> of <span className="text-white font-semibold">{total.toLocaleString()}</span> decks
+            </div>
+          )}
+        </div>
         <p className="text-gray-400">
-          Explore {total.toLocaleString()}+ community decks. Find inspiration, copy strategies, and share your own!
+          Explore community decks. Find inspiration, copy strategies, and share your own!
         </p>
       </div>
 
@@ -382,21 +389,36 @@ export default function BrowseDecksPage() {
             ))}
           </div>
 
-          {/* Infinite Scroll Observer Target */}
+          {/* Load More Button and Infinite Scroll Observer Target */}
           {hasMore && (
-            <div 
-              ref={observerTarget} 
-              className="h-20 flex items-center justify-center"
-            >
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Loading more decks...</span>
-                </div>
-              )}
+            <div className="flex flex-col items-center gap-4 mt-8">
+              <button
+                onClick={() => setPage(prev => prev + 1)}
+                disabled={loadingMore}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading...
+                  </span>
+                ) : (
+                  'Load More Decks'
+                )}
+              </button>
+              <div 
+                ref={observerTarget} 
+                className="h-20 flex items-center justify-center"
+              >
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <span>Loading more decks...</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           

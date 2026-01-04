@@ -23,7 +23,7 @@ const PLANS: Array<{ value: "Optimized" | "Budget"; label: string }> = [
   { value: "Budget", label: "Budget" },
 ];
 
-type ImportMode = "paste" | "csv";
+type ImportMode = "paste" | "csv" | "csv-batch";
 
 export default function ImportDeckModal({ open, onClose, onImported }: ImportDeckModalProps) {
   const [importMode, setImportMode] = useState<ImportMode>("paste");
@@ -36,6 +36,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   const [error, setError] = useState<string | null>(null);
   const [csvStatus, setCsvStatus] = useState<string | null>(null);
   const [csvProgress, setCsvProgress] = useState(0);
+  const [batchResults, setBatchResults] = useState<Array<{ title: string; success: boolean; error?: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -77,6 +78,10 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
     }
     if (importMode === "csv" && !deckText.trim()) {
       setError("Upload a CSV file first.");
+      return;
+    }
+    if (importMode === "csv-batch") {
+      setError("Use the file input to upload CSV file for batch import.");
       return;
     }
 
@@ -298,7 +303,19 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
                 : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
             }`}
           >
-            Upload CSV
+            Upload CSV (Single)
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportMode("csv-batch")}
+            disabled={busy}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              importMode === "csv-batch"
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+            }`}
+          >
+            Batch Import CSV
           </button>
         </div>
 
@@ -394,10 +411,10 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
               {cardCount > 0 ? `Detected ${cardCount} card ${cardCount === 1 ? "entry" : "entries"}.` : "Supports numbers like \"3 Command Tower\" or raw card-per-line lists."}
             </div>
           </div>
-        ) : (
+        ) : importMode === "csv" ? (
           <div className="space-y-1">
             <label className="text-xs text-neutral-400" htmlFor="import-deck-csv">
-              CSV File
+              CSV File (Single Deck)
             </label>
             <input
               ref={fileInputRef}
@@ -434,6 +451,106 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
               </div>
             )}
           </div>
+        ) : (
+          <div className="space-y-1">
+            <label className="text-xs text-neutral-400" htmlFor="import-deck-csv-batch">
+              CSV File (Multiple Decks - title, commander, decklist format)
+            </label>
+            <input
+              ref={fileInputRef}
+              id="import-deck-csv-batch"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                setBusy(true);
+                setError(null);
+                setBatchResults([]);
+                setCsvStatus("Processing CSV file...");
+                setCsvProgress(0);
+                
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  
+                  setCsvProgress(25);
+                  setCsvStatus("Uploading and parsing CSV...");
+                  
+                  const res = await fetch("/api/decks/import-csv-batch", {
+                    method: "POST",
+                    body: formData,
+                  });
+                  
+                  const json = await res.json();
+                  if (!res.ok || !json?.ok) {
+                    throw new Error(json?.error || "Batch import failed");
+                  }
+                  
+                  setCsvProgress(75);
+                  setCsvStatus(`Processing ${json.summary?.total || 0} decks...`);
+                  
+                  setBatchResults(json.results || []);
+                  setCsvProgress(100);
+                  setCsvStatus(
+                    `Complete! ${json.summary?.successful || 0} imported, ${json.summary?.failed || 0} failed`
+                  );
+                  
+                  // Close modal after 2 seconds if all succeeded
+                  if (json.summary?.failed === 0) {
+                    setTimeout(() => {
+                      onClose();
+                      if (json.results?.[0]?.deckId) {
+                        onImported(json.results[0].deckId);
+                      }
+                    }, 2000);
+                  }
+                } catch (err: any) {
+                  setError(err?.message || "Batch import failed");
+                  setCsvStatus(null);
+                  setCsvProgress(0);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-500 focus:border-blue-500 focus:outline-none"
+            />
+            <div className="text-[11px] text-neutral-500">
+              CSV format: title, commander, decklist (supports multiple decks)
+            </div>
+            {csvStatus && (
+              <div className="mt-3 space-y-1">
+                <div className="text-xs text-blue-400">{csvStatus}</div>
+                {csvProgress > 0 && csvProgress < 100 && (
+                  <div className="w-full bg-neutral-800 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${csvProgress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {batchResults.length > 0 && (
+              <div className="mt-3 max-h-40 overflow-y-auto space-y-1">
+                {batchResults.map((result, idx) => (
+                  <div
+                    key={idx}
+                    className={`text-xs p-2 rounded ${
+                      result.success
+                        ? "bg-green-900/30 text-green-300 border border-green-700"
+                        : "bg-red-900/30 text-red-300 border border-red-700"
+                    }`}
+                  >
+                    {result.success ? "✓" : "✗"} {result.title}
+                    {result.error && `: ${result.error}`}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {error && (
@@ -453,10 +570,15 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </button>
           <button
             type="submit"
-            disabled={busy || !deckText.trim() || (importMode === "csv" && csvProgress > 0 && csvProgress < 100)}
+            disabled={busy || (importMode === "paste" && !deckText.trim()) || (importMode === "csv" && csvProgress > 0 && csvProgress < 100) || importMode === "csv-batch"}
             className="rounded-lg bg-gradient-to-r from-emerald-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:from-emerald-500 hover:to-blue-500 disabled:opacity-50"
           >
-            {busy ? (importMode === "csv" && csvProgress > 0 && csvProgress < 100 ? "Matching cards…" : "Importing…") : "Import Deck"}
+            {busy 
+              ? (importMode === "csv" && csvProgress > 0 && csvProgress < 100 ? "Matching cards…" : "Importing…") 
+              : importMode === "csv-batch" 
+                ? "Upload CSV file above"
+                : "Import Deck"
+            }
           </button>
         </div>
       </form>

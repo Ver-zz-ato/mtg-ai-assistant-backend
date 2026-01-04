@@ -14,6 +14,20 @@ export function renderMarkdown(text: string): React.ReactNode {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
   
+  // Check for tables (markdown table format)
+  const tableMatch = text.match(/\|.+\|/);
+  if (tableMatch) {
+    // Try to parse as table
+    const tableLines = lines.filter(l => l.trim().includes('|') && l.trim().length > 1);
+    if (tableLines.length >= 2) {
+      // Check if second line is a separator (|---|---|)
+      const separatorLine = tableLines[1];
+      if (/^[\|\s\-:]+$/.test(separatorLine.trim())) {
+        return renderTable(tableLines);
+      }
+    }
+  }
+  
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
@@ -121,5 +135,53 @@ function parseInlineMarkdown(text: string): React.ReactNode {
   }
   
   return <>{parts}</>;
+}
+
+/**
+ * Render markdown table
+ */
+function renderTable(tableLines: string[]): React.ReactNode {
+  if (tableLines.length < 2) return null;
+  
+  // Parse header (first line)
+  const headerCells = tableLines[0]
+    .split('|')
+    .map(c => c.trim())
+    .filter(c => c.length > 0);
+  
+  // Skip separator line (second line)
+  const dataRows = tableLines.slice(2).map(line =>
+    line
+      .split('|')
+      .map(c => c.trim())
+      .filter(c => c.length > 0)
+  );
+  
+  return (
+    <div className="my-4 overflow-x-auto">
+      <table className="min-w-full border-collapse border border-neutral-700">
+        <thead>
+          <tr className="bg-neutral-800">
+            {headerCells.map((cell, idx) => (
+              <th key={idx} className="border border-neutral-700 px-3 py-2 text-left text-sm font-semibold text-neutral-200">
+                {parseInlineMarkdown(cell)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dataRows.map((row, rowIdx) => (
+            <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-neutral-900' : 'bg-neutral-950'}>
+              {headerCells.map((_, colIdx) => (
+                <td key={colIdx} className="border border-neutral-700 px-3 py-2 text-sm text-neutral-300">
+                  {parseInlineMarkdown(row[colIdx] || '')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
