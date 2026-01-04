@@ -15,12 +15,11 @@ export default function HomepageSignupBanner() {
   const scrollTriggeredRef = useRef(false);
   const messageTriggeredRef = useRef(false);
 
-  // Only show for guest users (not logged in)
-  if (loading || user) {
-    return null;
-  }
-
   useEffect(() => {
+    // Only set up listeners for guest users (not logged in)
+    if (loading || user) {
+      return;
+    }
     // Listen for first message sent
     const handleFirstMessage = () => {
       if (!messageTriggeredRef.current) {
@@ -54,7 +53,12 @@ export default function HomepageSignupBanner() {
       window.removeEventListener('message-sent', handleFirstMessage);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [hasTriggered]);
+  }, [hasTriggered, loading, user]);
+
+  // Only show for guest users (not logged in)
+  if (loading || user) {
+    return null;
+  }
 
   const triggerExpansion = (trigger: 'first_message' | 'scroll' | 'timer') => {
     if (hasTriggered) return;

@@ -184,4 +184,3 @@ function renderTable(tableLines: string[]): React.ReactNode {
     </div>
   );
 }
-
