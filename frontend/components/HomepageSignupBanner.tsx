@@ -93,14 +93,14 @@ export default function HomepageSignupBanner() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 text-center md:text-left">
               <p className="text-white/90 text-sm font-medium">
-                Sign up free to save your chat history
+                Sign up for free to save your chat history
               </p>
             </div>
             <button
               onClick={handleSignupClick}
               className="px-6 py-2 bg-white/90 text-blue-600 font-semibold rounded-lg hover:bg-white transition-all text-sm whitespace-nowrap"
             >
-              Sign Up Free
+              Sign Up For Free
             </button>
           </div>
         </div>
