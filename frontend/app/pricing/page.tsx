@@ -307,7 +307,7 @@ export default function PricingPage() {
             <div className="space-y-4 mb-8">
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Basic deck analysis (5/day)</span>
+                <span className="text-sm">Basic deck analysis (50/day)</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>

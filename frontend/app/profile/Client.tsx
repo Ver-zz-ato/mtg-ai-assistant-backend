@@ -1202,7 +1202,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <ul className="text-sm text-neutral-300 space-y-1.5 ml-4">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">•</span>
-                        <span>Unlimited AI deck analysis (Free: 5/day limit)</span>
+                        <span>Unlimited AI deck analysis (Free: 50/day limit)</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">•</span>

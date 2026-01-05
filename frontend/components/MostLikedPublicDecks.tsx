@@ -9,34 +9,75 @@ const supabase = createClient(url, anon, { auth: { persistSession: false } });
 
 const getMostLiked = unstable_cache(
   async (limit: number) => {
-    const { data: decks } = await supabase
+    // Use a more efficient approach: get all public decks with their like counts
+    // First, get all public deck IDs
+    const { data: allDecks } = await supabase
       .from('decks')
       .select('id, title')
-      .eq('is_public', true)
-      .limit(100); // Get more to filter
-    const rows = Array.isArray(decks) ? decks as any[] : [];
-    const pairs: { id: string; title: string; count: number }[] = [];
-    for (const d of rows) {
-      // Check if deck has at least 10 cards
-      const { count: cardCount } = await supabase
-        .from('deck_cards')
-        .select('id', { count: 'exact', head: true })
-        .eq('deck_id', d.id);
-      
-      // Skip decks with fewer than 10 cards
-      if ((cardCount || 0) < 10) continue;
-      
-      const { count } = await supabase
-        .from('deck_likes')
-        .select('deck_id', { count: 'exact', head: true })
-        .eq('deck_id', d.id);
-      pairs.push({ id: d.id, title: d.title || 'Untitled', count: count || 0 });
+      .eq('is_public', true);
+    
+    if (!allDecks || allDecks.length === 0) return [];
+    
+    const deckIds = allDecks.map(d => d.id);
+    
+    // Get like counts for all decks in one query using RPC or by grouping
+    // Since Supabase doesn't have a direct group by, we'll fetch all likes and count in memory
+    // This is more efficient than N+1 queries
+    const { data: allLikes } = await supabase
+      .from('deck_likes')
+      .select('deck_id')
+      .in('deck_id', deckIds);
+    
+    // Count likes per deck
+    const likeCounts = new Map<string, number>();
+    if (allLikes) {
+      for (const like of allLikes) {
+        likeCounts.set(like.deck_id, (likeCounts.get(like.deck_id) || 0) + 1);
+      }
     }
+    
+    // Build pairs with like counts
+    const pairs: { id: string; title: string; count: number }[] = [];
+    
+    // Check card counts in batches to avoid too many queries
+    const batchSize = 50;
+    for (let i = 0; i < allDecks.length; i += batchSize) {
+      const batch = allDecks.slice(i, i + batchSize);
+      const batchIds = batch.map(d => d.id);
+      
+      // Check card counts for this batch
+      const { data: cardCounts } = await supabase
+        .from('deck_cards')
+        .select('deck_id')
+        .in('deck_id', batchIds);
+      
+      // Count cards per deck
+      const cardsPerDeck = new Map<string, number>();
+      if (cardCounts) {
+        for (const card of cardCounts) {
+          cardsPerDeck.set(card.deck_id, (cardsPerDeck.get(card.deck_id) || 0) + 1);
+        }
+      }
+      
+      // Add to pairs if deck has at least 10 cards
+      for (const deck of batch) {
+        const cardCount = cardsPerDeck.get(deck.id) || 0;
+        if (cardCount >= 10) {
+          pairs.push({
+            id: deck.id,
+            title: deck.title || 'Untitled',
+            count: likeCounts.get(deck.id) || 0
+          });
+        }
+      }
+    }
+    
+    // Sort by like count descending
     pairs.sort((a, b) => b.count - a.count);
     return pairs.slice(0, Math.min(Math.max(limit||5,1), 10));
   },
   ["most_liked_public_decks"],
-  { revalidate: 60 }
+  { revalidate: 30 } // Reduced cache time to 30 seconds to show updates faster
 );
 
 export default async function MostLikedPublicDecks({ limit = 5 }: { limit?: number }) {
