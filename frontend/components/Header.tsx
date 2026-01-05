@@ -280,7 +280,7 @@ export default function Header() {
         <nav className="hidden lg:flex items-center gap-3 flex-shrink-0">
           <Link 
             href="/changelog" 
-            className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1"
+            className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1 px-2 py-1 rounded transition-all hover:bg-green-500/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
           >
             <span className="text-xs">✨</span>
@@ -288,28 +288,28 @@ export default function Header() {
           </Link>
           <Link 
             href="/decks/browse" 
-            className="text-sm hover:underline text-purple-400 font-medium"
+            className="text-sm hover:underline text-purple-400 font-medium px-2 py-1 rounded transition-all hover:bg-purple-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
           >
             Browse Decks
           </Link>
           <Link 
             href="/mtg-commander-ai-deck-builder" 
-            className="text-sm hover:underline text-blue-400 font-medium"
+            className="text-sm hover:underline text-blue-400 font-medium px-2 py-1 rounded transition-all hover:bg-blue-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'header' })}
           >
             Deck Builder
           </Link>
           <Link 
             href="/blog" 
-            className="text-sm hover:underline text-red-400 font-medium"
+            className="text-sm hover:underline text-red-400 font-medium px-2 py-1 rounded transition-all hover:bg-red-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
           >
             Blog
           </Link>
           <Link 
             href="/pricing" 
-            className="text-sm hover:underline text-yellow-400 font-medium"
+            className="text-sm hover:underline text-yellow-400 font-medium px-2 py-1 rounded transition-all hover:bg-yellow-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/pricing', source: 'header' })}
           >
             Pricing
@@ -356,7 +356,7 @@ export default function Header() {
 
           <Link 
             href="/my-decks" 
-            className="text-sm hover:underline text-pink-400 font-medium"
+            className="text-sm hover:underline text-pink-400 font-medium px-2 py-1 rounded transition-all hover:bg-pink-400/10 hover:shadow-sm"
             onClick={() => {
               capture('nav_link_clicked', { destination: '/my-decks', source: 'header' });
               trackFeatureDiscovered('deck_management', 'navigation');
@@ -366,7 +366,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/collections" 
-            className="text-sm hover:underline text-cyan-400 font-medium"
+            className="text-sm hover:underline text-cyan-400 font-medium px-2 py-1 rounded transition-all hover:bg-cyan-400/10 hover:shadow-sm"
             onClick={() => {
               capture('nav_link_clicked', { destination: '/collections', source: 'header' });
               trackFeatureDiscovered('collection_management', 'navigation');
@@ -376,7 +376,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/wishlist" 
-            className="text-sm hover:underline text-rose-400 font-medium"
+            className="text-sm hover:underline text-rose-400 font-medium px-2 py-1 rounded transition-all hover:bg-rose-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/wishlist', source: 'header' })}
           >
             My Wishlist
@@ -535,7 +535,7 @@ export default function Header() {
             <div className="block py-2 text-sm text-orange-400 font-medium">Help</div>
             <Link 
               href="/my-decks" 
-              className="block py-2 text-sm text-pink-400 font-medium"
+              className="block py-2 px-2 text-sm text-pink-400 font-medium rounded transition-all hover:bg-pink-400/10"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/my-decks', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -545,7 +545,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/collections" 
-              className="block py-2 text-sm text-cyan-400 font-medium"
+              className="block py-2 px-2 text-sm text-cyan-400 font-medium rounded transition-all hover:bg-cyan-400/10"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/collections', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -555,7 +555,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/wishlist" 
-              className="block py-2 text-sm text-rose-400 font-medium"
+              className="block py-2 px-2 text-sm text-rose-400 font-medium rounded transition-all hover:bg-rose-400/10"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/wishlist', source: 'mobile_menu' });
                 setMobileMenuOpen(false);

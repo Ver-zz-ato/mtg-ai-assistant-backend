@@ -55,7 +55,7 @@ export default function MetaDeckPanel() {
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl border border-purple-800/30 p-4">
+    <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl border border-purple-800/30 p-4 hover:border-purple-700/50 transition-all duration-200">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-purple-400 flex items-center gap-2">
           <span className="text-xl">📊</span>
@@ -75,7 +75,7 @@ export default function MetaDeckPanel() {
             {meta.topCommanders && meta.topCommanders.length > 0 ? (
               <div className="space-y-1">
                 {meta.topCommanders.slice(0, 5).map((cmd, i) => (
-                  <div key={cmd.name} className="flex items-center justify-between text-sm">
+                  <div key={cmd.name} className="flex items-center justify-between text-sm hover:bg-purple-900/20 rounded px-2 py-1 transition-colors duration-150 cursor-default">
                     <span className="text-gray-300 truncate flex-1">
                       <span className="text-purple-400 font-semibold mr-2">{i + 1}.</span>
                       {cmd.name}
@@ -94,7 +94,7 @@ export default function MetaDeckPanel() {
             <h4 className="text-sm font-semibold text-gray-300 mb-2">🔥 Trending Cards</h4>
             <div className="space-y-1">
               {meta.popularCards.slice(0, 5).map((card) => (
-                <div key={card.name} className="flex items-center justify-between text-sm">
+                <div key={card.name} className="flex items-center justify-between text-sm hover:bg-purple-900/20 rounded px-2 py-1 transition-colors duration-150 cursor-default">
                   <span className="text-gray-300 truncate flex-1">{card.name}</span>
                   <span className="text-gray-500 text-xs ml-2">{card.count}</span>
                 </div>

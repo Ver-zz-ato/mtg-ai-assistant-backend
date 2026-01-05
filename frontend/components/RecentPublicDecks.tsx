@@ -129,8 +129,8 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
   } catch {}
 
   return (
-    <div className="rounded-xl border border-gray-800 p-4">
-      <div className="text-2xl font-semibold mb-2">Recent Public Decks</div>
+    <div className="rounded-xl border border-gray-800 p-4 bg-neutral-950/50 hover:border-gray-700 transition-all duration-200">
+      <div className="text-2xl font-semibold mb-3">Recent Public Decks</div>
       <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#6b7280 #1f2937' }}>
         {decks.map((d) => {
           const clean = (s: string) => s.replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
@@ -154,7 +154,7 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
             if (img?.art_crop || img?.normal || img?.small) { art = img.art_crop || img.normal || img.small; break; }
           }
           return (
-            <li key={d.id} className="relative border rounded-md hover:border-gray-600">
+            <li key={d.id} className="relative border rounded-md hover:border-gray-600 transition-all duration-200 hover:shadow-md hover:scale-[1.02] cursor-pointer">
               {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
               {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />

@@ -7,7 +7,7 @@ import MostLikedPublicDecks from "./MostLikedPublicDecks";
 
 export default function LeftSidebar() {
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-6">
       <Suspense fallback={<RecentPublicDecksSkeleton />}>
         <RecentPublicDecks />
       </Suspense>

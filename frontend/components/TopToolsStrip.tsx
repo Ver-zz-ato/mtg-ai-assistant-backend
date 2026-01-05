@@ -53,9 +53,9 @@ export default function TopToolsStrip() {
             key={idx}
             href={tool.href}
             onClick={() => handleToolClick(tool)}
-            className="block rounded-xl overflow-hidden snap-center flex-shrink-0"
+            className="block rounded-xl overflow-hidden snap-center flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20 hover:ring-2 hover:ring-blue-400/50"
           >
-            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[200px] max-h-[120px] object-cover" priority />
+            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[200px] max-h-[120px] object-cover transition-transform duration-300" priority />
           </a>
         ))}
       </div>

@@ -81,7 +81,7 @@ export default function Page() {
             <HomeVariantB />
           </div>
         )}
-        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">
             <MetaDeckPanel />

@@ -110,7 +110,7 @@ export default function HomepageSignupBanner() {
 
   // Expanded state: full banner (re-surfaced aggressively)
   return (
-    <div className="max-w-[1600px] mx-auto px-4 mb-4 animate-slide-down">
+    <div className="max-w-[1600px] mx-auto px-4 mb-8 animate-slide-down">
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-5 shadow-xl border border-blue-500/30 ring-2 ring-blue-400/50">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Mobile: CTA on top for better thumb reach */}
