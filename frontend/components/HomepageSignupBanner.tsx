@@ -14,12 +14,28 @@ export default function HomepageSignupBanner() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollTriggeredRef = useRef(false);
   const messageTriggeredRef = useRef(false);
+  const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
     // Only set up listeners for guest users (not logged in)
     if (loading || user) {
       return;
     }
+
+    // Define triggerExpansion inside useEffect to avoid stale closures
+    const triggerExpansion = (trigger: 'first_message' | 'scroll' | 'timer') => {
+      if (hasTriggeredRef.current) return;
+      hasTriggeredRef.current = true;
+      setHasTriggered(true);
+      setIsExpanded(true);
+      
+      capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
+        source: 'homepage_banner',
+        trigger: trigger,
+        position: 'delayed_expansion'
+      });
+    };
+
     // Listen for first message sent
     const handleFirstMessage = () => {
       if (!messageTriggeredRef.current) {
@@ -38,7 +54,7 @@ export default function HomepageSignupBanner() {
 
     // 25 second timer (middle of 20-30 range)
     timeoutRef.current = setTimeout(() => {
-      if (!hasTriggered) {
+      if (!hasTriggeredRef.current) {
         triggerExpansion('timer');
       }
     }, 25000);
@@ -53,24 +69,12 @@ export default function HomepageSignupBanner() {
       window.removeEventListener('message-sent', handleFirstMessage);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [hasTriggered, loading, user]);
+  }, [loading, user, capture]);
 
   // Only show for guest users (not logged in)
   if (loading || user) {
     return null;
   }
-
-  const triggerExpansion = (trigger: 'first_message' | 'scroll' | 'timer') => {
-    if (hasTriggered) return;
-    setHasTriggered(true);
-    setIsExpanded(true);
-    
-    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
-      source: 'homepage_banner',
-      trigger: trigger,
-      position: 'delayed_expansion'
-    });
-  };
 
   const handleSignupClick = () => {
     capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {

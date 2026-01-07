@@ -16,6 +16,8 @@ import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
 import DeckPriceMini from "@/components/DeckPriceMini";
 
+import DeckOverview from "./DeckOverview";
+
 type Params = { id: string };
 type Search = { r?: string };
 
@@ -383,7 +385,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         <section className="col-span-12 md:col-span-9">
           {/* Deck Overview - Highlighted feature */}
           {format === 'commander' && (() => {
-            const DeckOverview = require('./DeckOverview').default;
             const deckColors = (deck as any)?.colors || [];
             const deckAim = (deck as any)?.deck_aim || null;
             return (

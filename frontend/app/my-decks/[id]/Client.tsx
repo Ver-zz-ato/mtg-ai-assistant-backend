@@ -29,12 +29,12 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(e.detail?.show ?? !open);
+        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
     return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
-  }, [open]);
+  }, []);
   
   return (
     <section className="rounded-xl border border-neutral-800 min-w-0 w-full">
@@ -62,12 +62,12 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(e.detail?.show ?? !open);
+        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
     return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
-  }, [open]);
+  }, []);
   
   return (
     <div className="rounded-xl border border-neutral-800 p-3">
@@ -93,12 +93,12 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(e.detail?.show ?? !open);
+        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
     return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
-  }, [open]);
+  }, []);
   
   return (
     <div className="rounded-xl border border-neutral-800 p-3">
