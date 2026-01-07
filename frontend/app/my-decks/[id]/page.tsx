@@ -16,8 +16,6 @@ import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
 import DeckPriceMini from "@/components/DeckPriceMini";
 
-import DeckOverview from "./DeckOverview";
-
 type Params = { id: string };
 type Search = { r?: string };
 
@@ -383,36 +381,10 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         </aside>
 
         <section className="col-span-12 md:col-span-9">
-          {/* Deck Overview - Highlighted feature */}
-          {format === 'commander' && (() => {
-            const deckColors = (deck as any)?.colors || [];
-            const deckAim = (deck as any)?.deck_aim || null;
-            return (
-              <div className="mb-6">
-                <DeckOverview 
-                  deckId={id}
-                  initialCommander={deck?.commander || null}
-                  initialColors={Array.isArray(deckColors) ? deckColors : []}
-                  initialAim={deckAim}
-                  format={format}
-                />
-              </div>
-            );
-          })()}
-          
           <header className="mb-4 flex items-center justify-between gap-2">
             <div>
               <div className="text-xs opacity-70">Deck name:</div>
               <InlineDeckTitle deckId={id} initial={title} />
-              {format === 'commander' && (
-                <div className="mt-2">
-                  <div className="text-xs opacity-70">Commander:</div>
-                  {(() => {
-                    const CommanderEditor = require('./CommanderEditor').default;
-                    return <CommanderEditor deckId={id} initial={deck?.commander || null} format={format} />;
-                  })()}
-                </div>
-              )}
               <div className="mt-2 mb-2">
                 <FormatSelector deckId={id} initialFormat={format} />
               </div>
@@ -435,7 +407,15 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           {/* key forces remount when ?r= changes */}
           {/* Right column: functions panel, then editor */}
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
-          <Client deckId={id} isPro={isPro} format={format} key={r || "_"} />
+          <Client 
+            deckId={id} 
+            isPro={isPro} 
+            format={format} 
+            commander={deck?.commander || null}
+            colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
+            deckAim={(deck as any)?.deck_aim || null}
+            key={r || "_"} 
+          />
         </section>
         </div>
       </div>

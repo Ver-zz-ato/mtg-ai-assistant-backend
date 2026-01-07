@@ -1,6 +1,7 @@
 // app/my-decks/[id]/DeckOverview.tsx
 "use client";
 import * as React from "react";
+import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 
 type DeckOverviewProps = {
   deckId: string;
@@ -22,9 +23,12 @@ export default function DeckOverview({
   const [commander, setCommander] = React.useState(initialCommander || "");
   const [colors, setColors] = React.useState(initialColors || []);
   const [aim, setAim] = React.useState(initialAim || "");
+  const [editingCommander, setEditingCommander] = React.useState(false);
   const [editingAim, setEditingAim] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [commanderImage, setCommanderImage] = React.useState<ImageInfo | null>(null);
+  const [hoverImage, setHoverImage] = React.useState(false);
 
   // Update when initial values change
   React.useEffect(() => {
@@ -32,6 +36,56 @@ export default function DeckOverview({
     setColors(initialColors || []);
     setAim(initialAim || "");
   }, [initialCommander, initialColors, initialAim]);
+
+  // Fetch commander image
+  React.useEffect(() => {
+    if (!commander) {
+      setCommanderImage(null);
+      return;
+    }
+    (async () => {
+      try {
+        const images = await getImagesForNames([commander]);
+        const imageInfo = images.get(commander.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
+        setCommanderImage(imageInfo || null);
+      } catch (err) {
+        console.warn('Failed to fetch commander image:', err);
+        setCommanderImage(null);
+      }
+    })();
+  }, [commander]);
+
+  async function saveCommander(newCommander: string) {
+    const c = newCommander.trim();
+    if (c === commander) return setEditingCommander(false);
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/decks/${deckId}/commander`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commander: c }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setCommander(c);
+      setEditingCommander(false);
+      window.dispatchEvent(new Event('deck:changed'));
+    } catch (e: any) {
+      setError(e?.message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onCommanderKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      setEditingCommander(false);
+      setCommander(initialCommander || "");
+    }
+  }
 
   async function saveAim(newAim: string) {
     const a = newAim.trim();
@@ -87,53 +141,115 @@ export default function DeckOverview({
   }
 
   return (
-    <div className="rounded-xl border-2 border-blue-500/50 bg-gradient-to-br from-blue-950/30 via-neutral-900 to-purple-950/30 p-6 shadow-xl">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50"></div>
-        <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+    <div className="rounded-lg border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-3 shadow-md mb-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-1 w-1 rounded-full bg-blue-400 animate-pulse"></div>
+        <h3 className="text-sm font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           Deck Overview
-        </h2>
+        </h3>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
         {/* Commander */}
         <div>
-          <div className="text-xs opacity-70 mb-1.5 uppercase tracking-wide">Commander</div>
-          <div className="text-lg font-semibold text-blue-400">
-            {commander || "Not set"}
+          <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center justify-between">
+            <span>Commander</span>
+            {!readOnly && !editingCommander && (
+              <button
+                onClick={() => setEditingCommander(true)}
+                className="text-blue-400 hover:text-blue-300 text-[10px] transition-colors flex items-center gap-0.5"
+                title="Edit commander"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Edit
+              </button>
+            )}
           </div>
+          {editingCommander ? (
+            <div className="flex flex-col">
+              <input
+                autoFocus
+                defaultValue={commander}
+                onBlur={(e) => saveCommander(e.currentTarget.value)}
+                onKeyDown={onCommanderKey}
+                disabled={busy}
+                placeholder="Commander name"
+                className="text-sm font-semibold bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-blue-500"
+              />
+              {error && <span className="text-[10px] text-red-400 mt-0.5">{error}</span>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {commanderImage?.small && (
+                <div 
+                  className="relative"
+                  onMouseEnter={() => setHoverImage(true)}
+                  onMouseLeave={() => setHoverImage(false)}
+                >
+                  <img 
+                    src={commanderImage.small} 
+                    alt={commander}
+                    className="w-8 h-11 rounded border border-neutral-700 object-cover cursor-pointer hover:border-blue-400 transition-colors"
+                  />
+                  {hoverImage && commanderImage.normal && (
+                    <div className="fixed z-50 pointer-events-none" style={{
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      maxWidth: '90vw',
+                      maxHeight: '90vh'
+                    }}>
+                      <img 
+                        src={commanderImage.normal} 
+                        alt={commander}
+                        className="w-48 h-64 rounded border-2 border-blue-500 shadow-2xl"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="text-sm font-semibold text-blue-400 flex-1">
+                {commander || "Not set"}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Colors */}
+        {/* Colors - Read-only */}
         <div>
-          <div className="text-xs opacity-70 mb-1.5 uppercase tracking-wide">Color Identity</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center gap-1">
+            <span>Color Identity</span>
+            <span className="text-[8px] opacity-50" title="Automatically detected from deck cards">(AI)</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
             {colors.length > 0 ? (
               colors.map((c) => (
                 <span
                   key={c}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${colorClasses[c] || 'bg-neutral-700 text-white'}`}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${colorClasses[c] || 'bg-neutral-700 text-white'}`}
                 >
                   {colorNames[c] || c}
                 </span>
               ))
             ) : (
-              <span className="text-sm text-neutral-400 italic">No colors detected</span>
+              <span className="text-[10px] text-neutral-400 italic">No colors detected</span>
             )}
           </div>
         </div>
 
         {/* Aim/Goal */}
         <div>
-          <div className="text-xs opacity-70 mb-1.5 uppercase tracking-wide flex items-center justify-between">
+          <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center justify-between">
             <span>Deck Aim / Goal</span>
             {!readOnly && !editingAim && (
               <button
                 onClick={() => setEditingAim(true)}
-                className="text-blue-400 hover:text-blue-300 text-xs transition-colors flex items-center gap-1"
+                className="text-blue-400 hover:text-blue-300 text-[10px] transition-colors flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20"
                 title="Edit deck aim"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Edit
@@ -148,21 +264,21 @@ export default function DeckOverview({
                 onBlur={(e) => saveAim(e.currentTarget.value)}
                 onKeyDown={onKey}
                 disabled={busy}
-                placeholder="Describe your deck's strategy, win condition, or goal (e.g., 'Token swarm with aristocrats payoffs', 'Control with planeswalker ultimates')"
-                rows={3}
-                className="text-sm bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500 resize-none"
+                placeholder="Deck strategy/goal..."
+                rows={2}
+                className="text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-blue-500 resize-none"
               />
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-xs text-neutral-500">Press Ctrl+Enter or click outside to save, Esc to cancel</span>
-                {error && <span className="text-xs text-red-400">{error}</span>}
+              <div className="mt-0.5 flex items-center justify-between">
+                <span className="text-[9px] text-neutral-500">Ctrl+Enter to save, Esc to cancel</span>
+                {error && <span className="text-[9px] text-red-400">{error}</span>}
               </div>
             </div>
           ) : (
-            <div className="text-sm text-neutral-200 min-h-[3rem] p-3 bg-neutral-950/50 rounded-lg border border-neutral-800">
+            <div className="text-xs text-neutral-200 min-h-[2.5rem] p-2 bg-neutral-950/50 rounded border border-neutral-800">
               {aim ? (
-                <p className="whitespace-pre-wrap">{aim}</p>
+                <p className="whitespace-pre-wrap line-clamp-2">{aim}</p>
               ) : (
-                <p className="text-neutral-500 italic">No aim/goal set. Click Edit to add one.</p>
+                <p className="text-neutral-500 italic text-[10px]">No aim/goal set. Click Edit to add one.</p>
               )}
             </div>
           )}

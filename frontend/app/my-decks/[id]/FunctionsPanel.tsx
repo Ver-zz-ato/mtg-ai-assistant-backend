@@ -28,8 +28,18 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
   const toggleAllPanels = () => {
     const newState = !allPanelsHidden;
     setAllPanelsHidden(newState);
+    // When allPanelsHidden is false (panels visible), we want to hide them (show: false)
+    // When allPanelsHidden is true (panels hidden), we want to show them (show: true)
+    // newState = !allPanelsHidden, so if newState is true (will be hidden), show should be false
+    const shouldShow = !newState; // Invert: if panels will be hidden, show = false
+    console.log('[HideAllPanels] Toggling panels:', { 
+      allPanelsHidden, 
+      newState, 
+      shouldShow,
+      buttonText: newState ? 'Show All Side Panels' : 'Hide All Side Panels'
+    });
     window.dispatchEvent(new CustomEvent('side-panels-toggle', { 
-      detail: { action: 'toggle-all', show: newState } 
+      detail: { action: 'toggle-all', show: shouldShow } 
     }));
   };
 

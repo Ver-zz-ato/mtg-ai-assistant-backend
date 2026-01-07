@@ -8,6 +8,7 @@ import LegalityTokensPanel from "./LegalityTokensPanel";
 import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
+import DeckOverview from "./DeckOverview";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
@@ -29,7 +30,18 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
+        console.log('[HandTestingWidget] Toggle event received:', { 
+          action: e.detail?.action, 
+          show: e.detail?.show, 
+          currentOpen: open, 
+          shouldShow 
+        });
+        setOpen(prev => {
+          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
+          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          return newValue;
+        });
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
@@ -62,7 +74,18 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
+        console.log('[HandTestingWidget] Toggle event received:', { 
+          action: e.detail?.action, 
+          show: e.detail?.show, 
+          currentOpen: open, 
+          shouldShow 
+        });
+        setOpen(prev => {
+          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
+          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          return newValue;
+        });
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
@@ -93,7 +116,18 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
-        setOpen(prev => e.detail?.show !== undefined ? e.detail.show : !prev);
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
+        console.log('[HandTestingWidget] Toggle event received:', { 
+          action: e.detail?.action, 
+          show: e.detail?.show, 
+          currentOpen: open, 
+          shouldShow 
+        });
+        setOpen(prev => {
+          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
+          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          return newValue;
+        });
       }
     };
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
@@ -117,7 +151,7 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
   );
 }
 
-export default function Client({ deckId, isPro, format }: { deckId?: string; isPro?: boolean; format?: string }) {
+export default function Client({ deckId, isPro, format, commander, colors, deckAim }: { deckId?: string; isPro?: boolean; format?: string; commander?: string | null; colors?: string[]; deckAim?: string | null }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   
   // Track deck editor opened and fetch deck cards for hand testing
@@ -167,6 +201,16 @@ export default function Client({ deckId, isPro, format }: { deckId?: string; isP
   return (
     <div className="flex flex-col xl:flex-row gap-4 max-w-full overflow-x-auto">
       <div className="flex-1 min-w-0">
+        {/* Deck Overview - right above decklist */}
+        {format?.toLowerCase() === 'commander' && (
+          <DeckOverview 
+            deckId={deckId!}
+            initialCommander={commander || null}
+            initialColors={colors || []}
+            initialAim={deckAim || null}
+            format={format}
+          />
+        )}
         <CardsPane deckId={deckId} />
       </div>
       <aside className="md:w-80 lg:w-96 xl:w-[30rem] 2xl:w-[36rem] flex-shrink-0 space-y-4">
