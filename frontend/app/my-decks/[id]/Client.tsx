@@ -28,24 +28,42 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
   const [open, setOpen] = React.useState(true);
   
   React.useEffect(() => {
+    console.log('[HandTestingWidget] Setting up event listener, initial open:', open);
+    
     const handler = (e: CustomEvent) => {
+      console.log('[HandTestingWidget] Event received:', {
+        type: e.type,
+        detail: e.detail,
+        action: e.detail?.action,
+        show: e.detail?.show,
+        currentOpen: open
+      });
+      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
-        console.log('[HandTestingWidget] Toggle event received:', { 
-          action: e.detail?.action, 
-          show: e.detail?.show, 
-          currentOpen: open, 
-          shouldShow 
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
+        console.log('[HandTestingWidget] Processing toggle-all:', {
+          shouldShow,
+          currentOpen: open,
+          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
         });
+        
         setOpen(prev => {
-          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
-          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          const newValue = shouldShow !== undefined ? shouldShow : !prev;
+          console.log('[HandTestingWidget] State update:', { prev, newValue, shouldShow });
           return newValue;
         });
+      } else {
+        console.log('[HandTestingWidget] Ignoring event - action is not toggle-all:', e.detail?.action);
       }
     };
+    
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    console.log('[HandTestingWidget] Event listener registered');
+    
+    return () => {
+      console.log('[HandTestingWidget] Removing event listener');
+      window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    };
   }, []);
   
   return (
@@ -72,24 +90,40 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
   const [open, setOpen] = React.useState(true);
   
   React.useEffect(() => {
+    console.log('[DeckAnalyzer] Setting up event listener, initial open:', open);
+    
     const handler = (e: CustomEvent) => {
+      console.log('[DeckAnalyzer] Event received:', {
+        type: e.type,
+        detail: e.detail,
+        action: e.detail?.action,
+        show: e.detail?.show,
+        currentOpen: open
+      });
+      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
-        console.log('[HandTestingWidget] Toggle event received:', { 
-          action: e.detail?.action, 
-          show: e.detail?.show, 
-          currentOpen: open, 
-          shouldShow 
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
+        console.log('[DeckAnalyzer] Processing toggle-all:', {
+          shouldShow,
+          currentOpen: open,
+          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
         });
+        
         setOpen(prev => {
-          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
-          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          const newValue = shouldShow !== undefined ? shouldShow : !prev;
+          console.log('[DeckAnalyzer] State update:', { prev, newValue, shouldShow });
           return newValue;
         });
       }
     };
+    
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    console.log('[DeckAnalyzer] Event listener registered');
+    
+    return () => {
+      console.log('[DeckAnalyzer] Removing event listener');
+      window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    };
   }, []);
   
   return (
@@ -114,24 +148,40 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
   const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
   
   React.useEffect(() => {
+    console.log('[DeckProbability] Setting up event listener, initial open:', open);
+    
     const handler = (e: CustomEvent) => {
+      console.log('[DeckProbability] Event received:', {
+        type: e.type,
+        detail: e.detail,
+        action: e.detail?.action,
+        show: e.detail?.show,
+        currentOpen: open
+      });
+      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : !open;
-        console.log('[HandTestingWidget] Toggle event received:', { 
-          action: e.detail?.action, 
-          show: e.detail?.show, 
-          currentOpen: open, 
-          shouldShow 
+        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
+        console.log('[DeckProbability] Processing toggle-all:', {
+          shouldShow,
+          currentOpen: open,
+          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
         });
+        
         setOpen(prev => {
-          const newValue = e.detail?.show !== undefined ? e.detail.show : !prev;
-          console.log('[HandTestingWidget] Setting open:', { prev, newValue });
+          const newValue = shouldShow !== undefined ? shouldShow : !prev;
+          console.log('[DeckProbability] State update:', { prev, newValue, shouldShow });
           return newValue;
         });
       }
     };
+    
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    console.log('[DeckProbability] Event listener registered');
+    
+    return () => {
+      console.log('[DeckProbability] Removing event listener');
+      window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    };
   }, []);
   
   return (

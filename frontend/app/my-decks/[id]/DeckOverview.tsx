@@ -37,6 +37,68 @@ export default function DeckOverview({
     setAim(initialAim || "");
   }, [initialCommander, initialColors, initialAim]);
 
+  // Auto-infer deck aim if not set
+  React.useEffect(() => {
+    if (readOnly || format?.toLowerCase() !== 'commander') return;
+    if (initialAim) return; // Don't infer if user has already set one
+    
+    // Wait a bit for deck to load, then infer
+    const timer = setTimeout(async () => {
+      try {
+        console.log('[DeckOverview] Auto-inferring deck aim...');
+        const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const json = await res.json().catch(() => ({}));
+        if (json?.ok && json?.inferred && json?.aim) {
+          console.log('[DeckOverview] Inferred aim:', json.aim);
+          setAim(json.aim);
+          window.dispatchEvent(new Event('deck:changed'));
+        } else if (json?.ok && !json?.inferred) {
+          console.log('[DeckOverview] Aim not inferred:', json?.reason || 'already set or no cards');
+        }
+      } catch (err) {
+        console.warn('[DeckOverview] Failed to infer aim:', err);
+      }
+    }, 1000); // Wait 1 second after mount
+
+    return () => clearTimeout(timer);
+  }, [deckId, initialAim, readOnly, format]);
+
+  // Also infer when deck changes (cards added/removed)
+  React.useEffect(() => {
+    if (readOnly || format?.toLowerCase() !== 'commander') return;
+    if (aim) return; // Don't re-infer if user has set one
+    
+    const handleDeckChange = async () => {
+      // Debounce: wait 2 seconds after last change
+      clearTimeout((window as any).__deckAimInferTimer);
+      (window as any).__deckAimInferTimer = setTimeout(async () => {
+        try {
+          console.log('[DeckOverview] Deck changed, re-inferring aim...');
+          const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const json = await res.json().catch(() => ({}));
+          if (json?.ok && json?.inferred && json?.aim) {
+            console.log('[DeckOverview] Re-inferred aim:', json.aim);
+            setAim(json.aim);
+          }
+        } catch (err) {
+          console.warn('[DeckOverview] Failed to re-infer aim:', err);
+        }
+      }, 2000);
+    };
+
+    window.addEventListener('deck:changed', handleDeckChange);
+    return () => {
+      window.removeEventListener('deck:changed', handleDeckChange);
+      clearTimeout((window as any).__deckAimInferTimer);
+    };
+  }, [deckId, aim, readOnly, format]);
+
   // Fetch commander image
   React.useEffect(() => {
     if (!commander) {
