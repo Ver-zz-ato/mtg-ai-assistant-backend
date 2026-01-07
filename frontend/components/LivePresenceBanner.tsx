@@ -116,7 +116,7 @@ export default function LivePresenceBanner() {
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
               <span className="text-neutral-200 font-semibold whitespace-nowrap text-base">
-                {data.activeUsers} Planeswalker{data.activeUsers !== 1 ? 's' : ''} brewing right now
+                {data.activeUsers} Player{data.activeUsers !== 1 ? 's' : ''} brewing right now
               </span>
             </div>
 

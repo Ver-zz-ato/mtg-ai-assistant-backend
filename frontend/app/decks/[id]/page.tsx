@@ -156,7 +156,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
 
   // Fetch deck meta (public visibility enforced by RLS)
-  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id").eq("id", id).maybeSingle();
+  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim").eq("id", id).maybeSingle();
   const title = deckRow?.title ?? "Deck";
   const format = String(deckRow?.format || "Commander");
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
@@ -417,6 +417,25 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
         {/* Main content */}
         <section className="col-span-12 lg:col-span-6">
+          {/* Deck Overview - Highlighted feature */}
+          {format.toLowerCase() === 'commander' && (() => {
+            const DeckOverview = require('@/app/my-decks/[id]/DeckOverview').default;
+            const deckColors = (deckRow as any)?.colors || [];
+            const deckAim = (deckRow as any)?.deck_aim || null;
+            return (
+              <div className="mb-6">
+                <DeckOverview 
+                  deckId={id}
+                  initialCommander={deckRow?.commander || null}
+                  initialColors={Array.isArray(deckColors) ? deckColors : []}
+                  initialAim={deckAim}
+                  format={format}
+                  readOnly={true}
+                />
+              </div>
+            );
+          })()}
+          
           <header className="mb-6 p-6 rounded-xl border border-neutral-700 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 shadow-lg">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="flex-1">

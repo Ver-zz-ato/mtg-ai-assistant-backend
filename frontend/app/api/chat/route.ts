@@ -688,18 +688,27 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       const deckIdLinked = th?.deck_id as string | null;
       if (deckIdLinked) {
         // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
-        const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
+        const { data: d } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdLinked).maybeSingle();
         const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
         
         let deckText = "";
         let entries: Array<{ count: number; name: string }> = [];
+        
+        // Build deck context with commander and aim
+        const deckContextParts: string[] = [];
+        if (d?.commander) {
+          deckContextParts.push(`Commander: ${d.commander}`);
+        }
+        if (d?.deck_aim) {
+          deckContextParts.push(`Deck aim/goal: ${d.deck_aim}`);
+        }
         
         if (allCards && Array.isArray(allCards) && allCards.length > 0) {
           // Use deck_cards table (full database, proper structure)
           entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
           deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
           const cardList = allCards.map((c: any) => `${c.qty}x ${c.name}`).join("; ");
-          sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${cardList}`;
+          deckContextParts.push(`Cards: ${cardList}`);
         } else {
           // Fallback to deck_text field for backward compatibility
           const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdLinked).maybeSingle();
@@ -715,8 +724,12 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
             }
             entries = Array.from(map.entries()).map(([name, count]) => ({ count, name }));
             const summary = entries.map(e => `${e.count} ${e.name}`).join(", ");
-            sys += `\n\nDeck context (title: ${dFallback?.title || "linked"}): ${summary}`;
+            deckContextParts.push(`Cards: ${summary}`);
           }
+        }
+        
+        if (deckContextParts.length > 0) {
+          sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${deckContextParts.join('. ')}`;
         }
         
         // Run inference if we have deck entries
@@ -724,7 +737,9 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
           try {
             const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
             const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+            // Use commander from database (already fetched above)
             const commander = d?.commander || null;
+            const deckAim = d?.deck_aim || null;
             const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
             
             // Build card name map for inference
@@ -740,6 +755,11 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
             const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
             const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
             inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName, { plan: planOption, currency: currencyPref });
+            
+            // Use deck_aim from database if available (user-specified or AI-inferred)
+            if (deckAim) {
+              sys += `\n\nDeck aim/goal (user-specified): ${deckAim}. Use this to guide recommendations and ensure suggestions align with this strategy.`;
+            }
             
             const commanderProfile = inferredContext.commander ? COMMANDER_PROFILES[inferredContext.commander] : undefined;
             if (commanderProfile?.archetypeHint) {

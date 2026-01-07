@@ -475,6 +475,158 @@ export function detectPowerLevel(
   return 'mid';
 }
 
+/**
+ * Infer deck aim/strategy based on commander, cards, and archetype patterns
+ * Returns a concise description of the deck's goal/strategy
+ */
+export async function inferDeckAim(
+  commander: string | null,
+  entries: Array<{ count: number; name: string }>,
+  byName: Map<string, SfCard>,
+  archetype?: 'token_sac' | 'aristocrats' | null
+): Promise<string | null> {
+  // Check COMMANDER_PROFILES first for known commanders
+  if (commander) {
+    const { COMMANDER_PROFILES } = await import('./archetypes');
+    const profile = COMMANDER_PROFILES[commander];
+    if (profile?.archetypeHint) {
+      return profile.archetypeHint;
+    }
+  }
+
+  // Analyze card patterns to infer strategy
+  const cardNames = entries.map(e => e.name.toLowerCase());
+  const cardTexts = new Map<string, string>();
+  
+  // Collect oracle texts
+  for (const { name } of entries) {
+    const card = byName.get(name.toLowerCase());
+    if (card?.oracle_text) {
+      cardTexts.set(name.toLowerCase(), card.oracle_text.toLowerCase());
+    }
+  }
+
+  // Detect archetype patterns
+  const patterns: string[] = [];
+  
+  // Token strategies
+  const tokenCards = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /create.*token|token.*creature|populate/i.test(text) ||
+           /goblin|soldier|zombie|elf|angel|dragon.*token/i.test(n);
+  });
+  if (tokenCards.length >= 5) {
+    const aristocratCards = cardNames.filter(n => {
+      const text = cardTexts.get(n) || '';
+      return /when.*dies|sacrifice.*creature|blood artist|zulaport|mayhem/i.test(text);
+    });
+    if (aristocratCards.length >= 3) {
+      patterns.push('Token swarm with aristocrats payoffs');
+    } else {
+      patterns.push('Token generation and combat');
+    }
+  }
+
+  // Planeswalker strategies
+  const planeswalkerCount = entries.filter(e => {
+    const card = byName.get(e.name.toLowerCase());
+    return card?.type_line?.toLowerCase().includes('planeswalker');
+  }).length;
+  if (planeswalkerCount >= 8) {
+    const proliferateCards = cardNames.filter(n => {
+      const text = cardTexts.get(n) || '';
+      return /proliferate/i.test(text);
+    });
+    if (proliferateCards.length >= 3) {
+      patterns.push('Planeswalker control with proliferate to reach ultimates');
+    } else {
+      patterns.push('Planeswalker value and control');
+    }
+  }
+
+  // Graveyard/reanimator
+  const reanimatorCards = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /return.*from.*graveyard|reanimate|entomb|buried alive|reanimation/i.test(text);
+  });
+  if (reanimatorCards.length >= 4) {
+    patterns.push('Reanimator strategy: cheat big creatures into play');
+  }
+
+  // Landfall
+  const landfallCards = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /landfall|when.*land.*enters/i.test(text);
+  });
+  if (landfallCards.length >= 5) {
+    patterns.push('Landfall value engine');
+  }
+
+  // Combo
+  const tutorCards = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /search.*library|tutor|demonic tutor|vampiric tutor|enlightened tutor/i.test(text);
+  });
+  const comboPayoffs = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /infinite|win.*game|you win|each opponent loses/i.test(text);
+  });
+  if (tutorCards.length >= 4 && comboPayoffs.length >= 2) {
+    patterns.push('Combo deck: tutor for win conditions');
+  }
+
+  // Tribal
+  const tribes = ['goblin', 'zombie', 'elf', 'angel', 'dragon', 'wizard', 'vampire', 'merfolk'];
+  for (const tribe of tribes) {
+    const tribeCards = cardNames.filter(n => 
+      n.includes(tribe) || cardTexts.get(n)?.includes(tribe)
+    );
+    if (tribeCards.length >= 10) {
+      patterns.push(`${tribe.charAt(0).toUpperCase() + tribe.slice(1)} tribal synergy`);
+      break;
+    }
+  }
+
+  // Voltron (equipment/auras)
+  const equipmentCount = entries.filter(e => {
+    const card = byName.get(e.name.toLowerCase());
+    return card?.type_line?.toLowerCase().includes('equipment');
+  }).length;
+  const auraCount = entries.filter(e => {
+    const card = byName.get(e.name.toLowerCase());
+    return card?.type_line?.toLowerCase().includes('aura');
+  }).length;
+  if (equipmentCount >= 5 || auraCount >= 5) {
+    patterns.push('Voltron: equip commander for commander damage wins');
+  }
+
+  // Control (counterspells and board wipes)
+  const counterspells = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /counter.*spell|counter target/i.test(text);
+  }).length;
+  const boardWipes = cardNames.filter(n => {
+    const text = cardTexts.get(n) || '';
+    return /destroy all|exile all|board wipe|wrath/i.test(text);
+  }).length;
+  if (counterspells >= 6 && boardWipes >= 3) {
+    patterns.push('Control: counter threats and wipe boards');
+  }
+
+  // If we have patterns, return the most specific one
+  if (patterns.length > 0) {
+    // Prefer more specific patterns (longer descriptions)
+    return patterns.sort((a, b) => b.length - a.length)[0];
+  }
+
+  // Fallback: generic description based on commander
+  if (commander) {
+    return `Commander-focused strategy built around ${commander}`;
+  }
+
+  return null;
+}
+
 export function tagCardRoles(
   entries: Array<{ count: number; name: string }>,
   commander: string | null,

@@ -31,7 +31,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const supabase = await createClient();
   const { data: ures } = await supabase.auth.getUser();
   const isPro = Boolean((ures?.user as any)?.user_metadata?.pro);
-  const { data: deck } = await supabase.from("decks").select("title, is_public, commander, format").eq("id", id).maybeSingle();
+  const { data: deck } = await supabase.from("decks").select("title, is_public, commander, format, colors, deck_aim").eq("id", id).maybeSingle();
   const title = deck?.title || "Untitled Deck";
   const format = String(deck?.format || "commander").toLowerCase();
 
@@ -381,10 +381,37 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         </aside>
 
         <section className="col-span-12 md:col-span-9">
+          {/* Deck Overview - Highlighted feature */}
+          {format === 'commander' && (() => {
+            const DeckOverview = require('./DeckOverview').default;
+            const deckColors = (deck as any)?.colors || [];
+            const deckAim = (deck as any)?.deck_aim || null;
+            return (
+              <div className="mb-6">
+                <DeckOverview 
+                  deckId={id}
+                  initialCommander={deck?.commander || null}
+                  initialColors={Array.isArray(deckColors) ? deckColors : []}
+                  initialAim={deckAim}
+                  format={format}
+                />
+              </div>
+            );
+          })()}
+          
           <header className="mb-4 flex items-center justify-between gap-2">
             <div>
               <div className="text-xs opacity-70">Deck name:</div>
               <InlineDeckTitle deckId={id} initial={title} />
+              {format === 'commander' && (
+                <div className="mt-2">
+                  <div className="text-xs opacity-70">Commander:</div>
+                  {(() => {
+                    const CommanderEditor = require('./CommanderEditor').default;
+                    return <CommanderEditor deckId={id} initial={deck?.commander || null} format={format} />;
+                  })()}
+                </div>
+              )}
               <div className="mt-2 mb-2">
                 <FormatSelector deckId={id} initialFormat={format} />
               </div>

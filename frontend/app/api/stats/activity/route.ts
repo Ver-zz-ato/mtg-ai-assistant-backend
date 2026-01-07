@@ -28,11 +28,11 @@ function generatePlaceholderActivities(count: number, recentTimestamp: boolean =
   const cardNames = ['Sol Ring', 'Mana Crypt', 'Force of Will', 'Cyclonic Rift', 'Rhystic Study'];
   
   const signupMessages = [
-    'New planeswalker joined!',
+    'New player joined!',
     'Someone just signed up!',
     'New member joined the community',
     'Welcome, new brewer!',
-    'Another planeswalker arrived!'
+    'Another player arrived!'
   ];
   
   const activityTypes = [
@@ -138,7 +138,7 @@ export async function GET() {
         for (const profile of recentSignups) {
           activities.push({
             type: 'user_joined',
-            message: 'New planeswalker joined!',
+            message: 'New player joined!',
             timestamp: profile.created_at,
           });
         }

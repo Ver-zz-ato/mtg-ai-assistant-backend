@@ -665,7 +665,7 @@ export default function Header() {
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
                     <span className="text-emerald-300 font-bold text-base">
-                      {userStats ? `${Math.floor(Math.random() * 15) + 3} Planeswalkers brewing right now` : '🟢 Join the community brewing decks'}
+                      {userStats ? `${Math.floor(Math.random() * 15) + 3} Players brewing right now` : '🟢 Join the community brewing decks'}
                     </span>
                   </div>
                   
@@ -741,11 +741,11 @@ export default function Header() {
                     // Log activity for live presence banner with varied messages
                     try {
                       const signupMessages = [
-                        'New planeswalker joined!',
+                        'New player joined!',
                         'Someone just signed up!',
                         'New member joined the community',
                         'Welcome, new brewer!',
-                        'Another planeswalker arrived!'
+                        'Another player arrived!'
                       ];
                       const randomMessage = signupMessages[Math.floor(Math.random() * signupMessages.length)];
                       await fetch('/api/stats/activity/log', {

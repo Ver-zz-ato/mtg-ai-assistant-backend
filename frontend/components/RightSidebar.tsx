@@ -59,7 +59,11 @@ export default function RightSidebar() {
         try {
           const r = await fetch("/api/shout/history", { cache: "no-store" });
           const j = await r.json().catch(() => ({ items: [] }));
-          if (!closed) setItems((j.items as Shout[]) || []);
+          if (!closed) {
+            const items = (j.items as Shout[]) || [];
+            // Ensure items are sorted by timestamp descending (newest first)
+            setItems(items.sort((a, b) => b.ts - a.ts));
+          }
         } catch {}
 
         const { createSecureEventSource, logConnectionError } = await import('@/lib/secure-connections');
@@ -69,7 +73,11 @@ export default function RightSidebar() {
         ev.onmessage = (e) => {
           try {
             const msg = JSON.parse((e as MessageEvent).data) as Shout;
-            setItems((prev) => [...prev, msg].slice(-100));
+            setItems((prev) => {
+              const updated = [...prev, msg];
+              // Sort by timestamp descending (newest first) and keep last 100
+              return updated.sort((a, b) => b.ts - a.ts).slice(0, 100);
+            });
           } catch {}
         };
 

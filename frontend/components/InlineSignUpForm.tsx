@@ -71,11 +71,11 @@ export default function InlineSignUpForm() {
       // Log activity for live presence banner with varied messages
       try {
         const signupMessages = [
-          'New planeswalker joined!',
+          'New player joined!',
           'Someone just signed up!',
           'New member joined the community',
           'Welcome, new brewer!',
-          'Another planeswalker arrived!'
+          'Another player arrived!'
         ];
         const randomMessage = signupMessages[Math.floor(Math.random() * signupMessages.length)];
         await fetch('/api/stats/activity/log', {

@@ -616,9 +616,16 @@ function Chat() {
     let deckContext = '';
     if (linkedDeckId) {
       try {
+        // Fetch deck info to get commander and deck_aim
+        const deckRes = await fetch(`/api/decks/get?id=${encodeURIComponent(linkedDeckId)}`, { cache: 'no-store' });
+        const deckData = await deckRes.json().catch(() => ({ ok: false }));
+        const commander = deckData?.deck?.commander || null;
+        const deckAim = deckData?.deck?.deck_aim || null;
+        
         const deckProblems = await analyzeDeckProblems(linkedDeckId);
-        if (deckProblems.length > 0) {
-          deckContext = generateDeckContext(deckProblems, 'Current Deck');
+        // Always generate context if we have commander or deck_aim, even without problems
+        if (deckProblems.length > 0 || commander || deckAim) {
+          deckContext = generateDeckContext(deckProblems, 'Current Deck', undefined, commander, deckAim);
         }
       } catch (error) {
         logger.warn('Failed to generate deck context:', { error });

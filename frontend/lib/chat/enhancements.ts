@@ -189,9 +189,11 @@ export async function analyzeDeckProblems(deckId: string): Promise<DeckProblemSp
  * Generate deck-aware system context for AI
  * Even if no problems found, includes deck info so AI knows about it
  */
-export function generateDeckContext(problems: DeckProblemSpot[], deckTitle?: string, decklistText?: string): string {
+export function generateDeckContext(problems: DeckProblemSpot[], deckTitle?: string, decklistText?: string, commander?: string | null, deckAim?: string | null): string {
   const contextLines = [
     `== DECK CONTEXT: "${deckTitle || 'Pasted Decklist'}" ==`,
+    ...(commander ? [`Commander: ${commander}`] : []),
+    ...(deckAim ? [`Deck aim/goal: ${deckAim}`] : []),
   ];
   
   // If we have decklist text, include a summary
