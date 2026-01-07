@@ -16,6 +16,20 @@ export default function PanelWrapper({
 }) {
   const [open, setOpen] = React.useState(true);
   
+  // Listen for hide/show all panels event
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        const shouldShow = e.detail?.show;
+        if (shouldShow !== undefined) {
+          setOpen(Boolean(shouldShow));
+        }
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, [title]);
+  
   // Map color names to actual Tailwind classes
   const colorClasses: Record<string, { dot: string; text: string }> = {
     'green-400': { dot: 'bg-green-400', text: 'from-green-400 to-emerald-500' },

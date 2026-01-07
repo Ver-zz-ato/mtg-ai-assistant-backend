@@ -110,7 +110,6 @@ Generate ${count} diverse test cases that would catch similar issues to the fail
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.7,
           max_tokens: 2000,
           response_format: { type: "json_object" },
         }),

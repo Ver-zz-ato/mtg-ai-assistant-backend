@@ -68,7 +68,6 @@ Generate ${count} test cases.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: random ? 0.9 : 0.7, // Higher temperature for more diverse random tests
         max_tokens: 3000,
         response_format: { type: "json_object" },
       }),

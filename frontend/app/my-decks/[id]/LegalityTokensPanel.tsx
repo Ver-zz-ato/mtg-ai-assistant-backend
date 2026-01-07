@@ -11,6 +11,20 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
 
   const toggleColor = (c: string) => setColors(prev => prev.includes(c) ? prev.filter(x=>x!==c) : [...prev, c]);
 
+  // Listen for hide/show all panels event
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        const shouldShow = e.detail?.show;
+        if (shouldShow !== undefined) {
+          setOpen(shouldShow);
+        }
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, []);
+
   async function loadDeckText() {
     setError(null);
     try {

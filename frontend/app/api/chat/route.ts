@@ -147,7 +147,6 @@ async function callOpenAI(userText: string, sys?: string) {
       model,
       messages,
       max_tokens: Math.max(16, tokens|0),
-      temperature: 1,
     };
     const res = await fetch(OPENAI_URL, {
       method: "POST",

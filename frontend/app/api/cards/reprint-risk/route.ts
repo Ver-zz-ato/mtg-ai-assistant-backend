@@ -46,7 +46,6 @@ export async function POST(req: Request) {
           { role: "user", content: [{ type: "input_text", text: user }] },
         ],
         max_output_tokens: 600,
-        temperature: 0.2,
       } as any;
       const r = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",

@@ -12,6 +12,23 @@ import DeckOverview from "./DeckOverview";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
+  const [open, setOpen] = React.useState(true);
+  
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        const shouldShow = e.detail?.show;
+        if (shouldShow !== undefined) {
+          setOpen(Boolean(shouldShow));
+        }
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, []);
+  
+  if (!open) return null;
+  
   return (
     <>
       <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
@@ -28,40 +45,22 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
   const [open, setOpen] = React.useState(true);
   
   React.useEffect(() => {
-    console.log('[HandTestingWidget] Setting up event listener, initial open:', open);
-    
     const handler = (e: CustomEvent) => {
-      console.log('[HandTestingWidget] Event received:', {
-        type: e.type,
-        detail: e.detail,
-        action: e.detail?.action,
-        show: e.detail?.show,
-        currentOpen: open
-      });
-      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
-        console.log('[HandTestingWidget] Processing toggle-all:', {
-          shouldShow,
-          currentOpen: open,
-          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
-        });
+        // e.detail.show can be true or false - we use it directly
+        const shouldShow = e.detail?.show;
         
         setOpen(prev => {
-          const newValue = shouldShow !== undefined ? shouldShow : !prev;
-          console.log('[HandTestingWidget] State update:', { prev, newValue, shouldShow });
+          // If shouldShow is explicitly true/false, use it; otherwise toggle
+          const newValue = shouldShow !== undefined ? Boolean(shouldShow) : !prev;
           return newValue;
         });
-      } else {
-        console.log('[HandTestingWidget] Ignoring event - action is not toggle-all:', e.detail?.action);
       }
     };
     
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    console.log('[HandTestingWidget] Event listener registered');
     
     return () => {
-      console.log('[HandTestingWidget] Removing event listener');
       window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
     };
   }, []);
@@ -90,38 +89,20 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
   const [open, setOpen] = React.useState(true);
   
   React.useEffect(() => {
-    console.log('[DeckAnalyzer] Setting up event listener, initial open:', open);
-    
     const handler = (e: CustomEvent) => {
-      console.log('[DeckAnalyzer] Event received:', {
-        type: e.type,
-        detail: e.detail,
-        action: e.detail?.action,
-        show: e.detail?.show,
-        currentOpen: open
-      });
-      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
-        console.log('[DeckAnalyzer] Processing toggle-all:', {
-          shouldShow,
-          currentOpen: open,
-          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
-        });
+        const shouldShow = e.detail?.show;
         
         setOpen(prev => {
-          const newValue = shouldShow !== undefined ? shouldShow : !prev;
-          console.log('[DeckAnalyzer] State update:', { prev, newValue, shouldShow });
+          const newValue = shouldShow !== undefined ? Boolean(shouldShow) : !prev;
           return newValue;
         });
       }
     };
     
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    console.log('[DeckAnalyzer] Event listener registered');
     
     return () => {
-      console.log('[DeckAnalyzer] Removing event listener');
       window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
     };
   }, []);
@@ -143,43 +124,51 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
   );
 }
 
+function DeckCardRecommendationsWithHide({ deckId, onAddCard }: { deckId: string; onAddCard: (cardName: string) => Promise<void> }) {
+  const [open, setOpen] = React.useState(true);
+  
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.action === 'toggle-all') {
+        const shouldShow = e.detail?.show;
+        if (shouldShow !== undefined) {
+          setOpen(Boolean(shouldShow));
+        }
+      }
+    };
+    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
+    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+  }, []);
+  
+  if (!open) return null;
+  
+  try {
+    const DeckCardRecs = require('@/components/DeckCardRecommendations').default;
+    return <DeckCardRecs deckId={deckId} onAddCard={onAddCard} />;
+  } catch {
+    return null;
+  }
+}
+
 function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boolean }) {
   const [open, setOpen] = React.useState(true);
   const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
   
   React.useEffect(() => {
-    console.log('[DeckProbability] Setting up event listener, initial open:', open);
-    
     const handler = (e: CustomEvent) => {
-      console.log('[DeckProbability] Event received:', {
-        type: e.type,
-        detail: e.detail,
-        action: e.detail?.action,
-        show: e.detail?.show,
-        currentOpen: open
-      });
-      
       if (e.detail?.action === 'toggle-all') {
-        const shouldShow = e.detail?.show !== undefined ? e.detail.show : undefined;
-        console.log('[DeckProbability] Processing toggle-all:', {
-          shouldShow,
-          currentOpen: open,
-          willSetTo: shouldShow !== undefined ? shouldShow : 'toggle'
-        });
+        const shouldShow = e.detail?.show;
         
         setOpen(prev => {
-          const newValue = shouldShow !== undefined ? shouldShow : !prev;
-          console.log('[DeckProbability] State update:', { prev, newValue, shouldShow });
+          const newValue = shouldShow !== undefined ? Boolean(shouldShow) : !prev;
           return newValue;
         });
       }
     };
     
     window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    console.log('[DeckProbability] Event listener registered');
     
     return () => {
-      console.log('[DeckProbability] Removing event listener');
       window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
     };
   }, []);
@@ -267,34 +256,27 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
         <AssistantSection deckId={String(deckId)} format={format} />
         
         {/* Card Recommendations */}
-        {(() => { 
-          try {
-            const DeckCardRecs = require('@/components/DeckCardRecommendations').default;
-            return <DeckCardRecs 
-              deckId={String(deckId)} 
-              onAddCard={async (cardName: string) => {
-                try {
-                  const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: cardName, qty: 1 })
-                  });
-                  const data = await res.json();
-                  if (data.ok) {
-                    window.dispatchEvent(new Event('deck:changed'));
-                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
-                  } else {
-                    alert(data.error || 'Failed to add card');
-                  }
-                } catch (e: any) {
-                  alert(e?.message || 'Failed to add card');
-                }
-              }}
-            />;
-          } catch {
-            return null;
-          }
-        })()}
+        <DeckCardRecommendationsWithHide
+          deckId={String(deckId)}
+          onAddCard={async (cardName: string) => {
+            try {
+              const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: cardName, qty: 1 })
+              });
+              const data = await res.json();
+              if (data.ok) {
+                window.dispatchEvent(new Event('deck:changed'));
+                window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
+              } else {
+                alert(data.error || 'Failed to add card');
+              }
+            } catch (e: any) {
+              alert(e?.message || 'Failed to add card');
+            }
+          }}
+        />
         
         {/* Hand Testing Widget */}
         <HandTestingWidgetWithHide 

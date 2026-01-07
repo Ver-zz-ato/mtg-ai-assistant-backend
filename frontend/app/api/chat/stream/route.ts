@@ -250,7 +250,6 @@ export async function POST(req: NextRequest) {
     const openAIBody = {
       model: MODEL,
       messages,
-      temperature: 1,
       stream: true,
       max_tokens: tokenLimit // gpt-4o-mini uses max_tokens
     };
@@ -298,7 +297,6 @@ export async function POST(req: NextRequest) {
                 model: "gpt-4o-mini",
                 messages,
                 max_tokens: tokenLimit, // GPT-4o-mini uses max_tokens
-                temperature: 1,
                 stream: true
               };
               

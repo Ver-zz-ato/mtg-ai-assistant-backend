@@ -28,12 +28,6 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
   const toggleAllPanels = () => {
     const currentState = allPanelsHidden;
     const newState = !currentState;
-    console.log('[FunctionsPanel] toggleAllPanels called:', {
-      currentState,
-      newState,
-      currentButtonText: currentState ? 'Show All Side Panels' : 'Hide All Side Panels',
-      willDispatch: newState ? 'show: false (hide panels)' : 'show: true (show panels)'
-    });
     
     setAllPanelsHidden(newState);
     
@@ -42,26 +36,11 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
     // newState = !allPanelsHidden, so if newState is true (will be hidden), show should be false
     const shouldShow = !newState; // Invert: if panels will be hidden, show = false
     
-    console.log('[FunctionsPanel] Dispatching event:', {
-      action: 'toggle-all',
-      show: shouldShow,
-      eventDetail: { action: 'toggle-all', show: shouldShow }
-    });
-    
     const event = new CustomEvent('side-panels-toggle', { 
       detail: { action: 'toggle-all', show: shouldShow } 
     });
     
-    console.log('[FunctionsPanel] Event created:', event);
-    console.log('[FunctionsPanel] Event detail:', event.detail);
-    
     window.dispatchEvent(event);
-    
-    console.log('[FunctionsPanel] Event dispatched. Checking listeners...');
-    // Check if event was received (this is async, so just log)
-    setTimeout(() => {
-      console.log('[FunctionsPanel] Event should have been received by now');
-    }, 100);
   };
 
   return (

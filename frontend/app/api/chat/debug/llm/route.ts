@@ -13,7 +13,6 @@ export async function GET() {
       model,
       messages: [{ role: "user", content: "ping" }],
       max_tokens: 32,
-      temperature: 1,
     };
     const res = await fetch(OPENAI_URL, {
       method: "POST",

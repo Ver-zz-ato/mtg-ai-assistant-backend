@@ -45,18 +45,14 @@ export default function DeckOverview({
     // Wait a bit for deck to load, then infer
     const timer = setTimeout(async () => {
       try {
-        console.log('[DeckOverview] Auto-inferring deck aim...');
         const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
         const json = await res.json().catch(() => ({}));
         if (json?.ok && json?.inferred && json?.aim) {
-          console.log('[DeckOverview] Inferred aim:', json.aim);
           setAim(json.aim);
           window.dispatchEvent(new Event('deck:changed'));
-        } else if (json?.ok && !json?.inferred) {
-          console.log('[DeckOverview] Aim not inferred:', json?.reason || 'already set or no cards');
         }
       } catch (err) {
         console.warn('[DeckOverview] Failed to infer aim:', err);
@@ -76,14 +72,12 @@ export default function DeckOverview({
       clearTimeout((window as any).__deckAimInferTimer);
       (window as any).__deckAimInferTimer = setTimeout(async () => {
         try {
-          console.log('[DeckOverview] Deck changed, re-inferring aim...');
           const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           });
           const json = await res.json().catch(() => ({}));
           if (json?.ok && json?.inferred && json?.aim) {
-            console.log('[DeckOverview] Re-inferred aim:', json.aim);
             setAim(json.aim);
           }
         } catch (err) {
@@ -338,7 +332,7 @@ export default function DeckOverview({
           ) : (
             <div className="text-xs text-neutral-200 min-h-[2.5rem] p-2 bg-neutral-950/50 rounded border border-neutral-800">
               {aim ? (
-                <p className="whitespace-pre-wrap line-clamp-2">{aim}</p>
+                <p className="whitespace-pre-wrap break-words">{aim}</p>
               ) : (
                 <p className="text-neutral-500 italic text-[10px]">No aim/goal set. Click Edit to add one.</p>
               )}
