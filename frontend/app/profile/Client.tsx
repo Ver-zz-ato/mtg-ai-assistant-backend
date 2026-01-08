@@ -149,17 +149,14 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   useEffect(() => {
     const clientEffectStart = performance.now();
     if (typeof window !== 'undefined') {
-      console.log('[PROFILE CLIENT DEBUG] useEffect started');
       performance.mark('profile-client-effect-start');
     }
     
     if (authLoading) {
-      if (typeof window !== 'undefined') console.log('[PROFILE CLIENT DEBUG] Waiting for auth...');
       return;
     }
     
     if (!authUser) {
-      if (typeof window !== 'undefined') console.log('[PROFILE CLIENT DEBUG] No auth user, redirecting');
       window.location.href = '/';
       return;
     }
@@ -169,7 +166,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         const dataLoadStart = performance.now();
         setLoading(true);
         if (typeof window !== 'undefined') {
-          console.log('[PROFILE CLIENT DEBUG] Starting data load');
           performance.mark('profile-client-data-load-start');
         }
         try { capture('profile_view'); } catch {}
@@ -184,9 +180,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           .select('is_pro')
           .eq('id', u.id)
           .single();
-        if (typeof window !== 'undefined') {
-          console.log(`[PROFILE CLIENT DEBUG] Profile query: ${(performance.now() - profileQueryStart).toFixed(2)}ms`);
-        }
         
         const isProUser = profileData?.is_pro || false;
         setPro(isProUser);
@@ -208,22 +201,17 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           const r = await fetch("/api/me/usage/summary", { cache: "no-store" });
           const j = await r.json().catch(()=>({}));
           if (r.ok && j?.ok) setUsage(j.totals);
-          if (typeof window !== 'undefined') {
-            console.log(`[PROFILE CLIENT DEBUG] Usage summary: ${(performance.now() - usageStart).toFixed(2)}ms`);
-          }
         } catch (e) {
-          if (typeof window !== 'undefined') console.error('[PROFILE CLIENT DEBUG] Usage summary error:', e);
+          // Silently fail
         }
 
         // Counts
         if (u?.id) {
           const countsStart = performance.now();
-          const { count: dcount, error: deckError } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
-          if (deckError) console.error('[Profile] Error fetching deck count:', deckError);
+          const { count: dcount } = await sb.from("decks").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           setDeckCount(dcount ?? 0);
           
-          const { count: ccount, error: collError } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
-          if (collError) console.error('[Profile] Error fetching collection count:', collError);
+          const { count: ccount } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           setCollectionCount(ccount ?? 0);
           const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
           const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null })) || [];
@@ -280,12 +268,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           } catch {}
         }
       } catch (err: any) {
-        console.error('[Profile] Error loading profile data:', err);
-        if (typeof window !== 'undefined') console.error('[PROFILE CLIENT DEBUG] Error in data load:', err);
+        // Silently fail
       } finally {
         const totalTime = performance.now() - clientEffectStart;
         if (typeof window !== 'undefined') {
-          console.log(`[PROFILE CLIENT DEBUG] Data load complete. Total time: ${totalTime.toFixed(2)}ms`);
           performance.mark('profile-client-data-load-end');
           performance.measure('profile-client-data-load', 'profile-client-data-load-start', 'profile-client-data-load-end');
           performance.measure('profile-client-effect-total', 'profile-client-effect-start', 'profile-client-data-load-end');
@@ -796,10 +782,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                                     e.preventDefault();
                                     return;
                                   }
-                                  console.log('Checkbox clicked:', d.title, 'checked:', e.target.checked);
                                   setPinnedDeckIds(prev => {
                                     const newIds = e.target.checked ? [...prev.filter(x=>x!==d.id), d.id] : prev.filter(x=>x!==d.id);
-                                    console.log('New pinnedDeckIds:', newIds);
                                     return newIds;
                                   });
                                 }} 
@@ -819,7 +803,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     {pinnedDeckIds.length > 0 && (
                       <button 
                         onClick={() => {
-                          console.log('Clearing all pins. Current:', pinnedDeckIds);
                           setPinnedDeckIds([]);
                         }} 
                         className="text-xs text-red-400 hover:text-red-300 underline"
@@ -1530,7 +1513,6 @@ function StatsCharts(props: StatsChartsProps) {
             }
           }
         } catch (error) {
-          console.error('[Profile Charts] Error fetching trends:', error);
         }
         if (!pieDone) {
           // Fallback: derive color presence from deck color sources
@@ -2189,7 +2171,6 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         setItems(data.watchlist.items); // Show all items
       }
     } catch (e) {
-      console.error('Load watchlist error:', e);
     } finally {
       setLoading(false);
     }
@@ -2229,7 +2210,6 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         throw new Error(data.error || 'Failed to add card');
       }
     } catch (e: any) {
-      console.error('Add card error:', e);
       try {
         const { toast } = await import('@/lib/toast-client');
         toast(e?.message || 'Failed to add card', 'error');
@@ -2257,7 +2237,6 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         } catch {}
       }
     } catch (e: any) {
-      console.error('Remove card error:', e);
       try {
         const { toast } = await import('@/lib/toast-client');
         toast('Failed to remove card', 'error');

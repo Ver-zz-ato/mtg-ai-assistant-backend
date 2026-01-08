@@ -83,7 +83,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
             }
           }
         } catch (e) {
-          console.warn('Failed to load bulk import timestamp:', e);
+          // Silently fail
         }
         
         setTrustInfo({
@@ -93,7 +93,6 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         });
       } catch (error) {
         // Fallback values
-        console.warn('Failed to load footer data:', error);
         setTrustInfo({
           modelVersion: 'GPT-5 & GPT-4o Mini',
           dataSource: 'Scryfall API',

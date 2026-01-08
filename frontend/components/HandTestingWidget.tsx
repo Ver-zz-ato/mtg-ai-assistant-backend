@@ -107,8 +107,6 @@ export default function HandTestingWidget({
         const uniqueNames = Array.from(new Set(deckCards.map(card => card.name))).slice(0, 200);
         if (uniqueNames.length === 0) return;
         
-        console.log('Fetching images for cards:', uniqueNames);
-        
         // Try internal API first, then fallback to Scryfall directly
         let response;
         try {
@@ -118,7 +116,6 @@ export default function HandTestingWidget({
             body: JSON.stringify({ names: uniqueNames })
           });
         } catch (error) {
-          console.log('Internal API failed, trying Scryfall directly:', error);
           // Fallback to Scryfall directly
           const identifiers = uniqueNames.map(name => ({ name: name.trim() }));
           response = await fetch('https://api.scryfall.com/cards/collection', {
@@ -133,17 +130,11 @@ export default function HandTestingWidget({
         }
         
         const data = await response.json();
-        console.log('API response received:', {
-          hasData: !!data?.data,
-          dataLength: data?.data?.length || 0,
-          hasNotFound: !!data?.not_found,
-          notFoundCount: data?.not_found?.length || 0
-        });
         
         if (data?.data && Array.isArray(data.data)) {
           const imageMap: Record<string, any> = {};
           
-          data.data.forEach((card: any, index: number) => {
+          data.data.forEach((card: any) => {
             const name = card.name?.toLowerCase()?.trim() || '';
             const images = card.image_uris || card.card_faces?.[0]?.image_uris || {};
             
@@ -154,25 +145,13 @@ export default function HandTestingWidget({
                 mana_cost: card.mana_cost || '',
                 type_line: card.type_line || ''
               };
-              console.log(`Card ${index + 1}: ${name} -> images available:`, {
-                hasSmall: !!images.small,
-                hasNormal: !!images.normal,
-                hasLarge: !!images.large
-              });
             }
           });
           
-          console.log('Final image map created with', Object.keys(imageMap).length, 'entries');
           setCardImages(imageMap);
-        } else {
-          console.warn('No data array found in response:', data);
-        }
-        
-        if (data?.not_found && data.not_found.length > 0) {
-          console.warn('Some cards not found:', data.not_found);
         }
       } catch (error) {
-        console.error('Failed to fetch card images:', error);
+        // Silently fail
       } finally {
         setImagesLoading(false);
       }
@@ -211,18 +190,11 @@ export default function HandTestingWidget({
   // Draw opening hand
   const drawHand = (size: number = 7): HandCard[] => {
     const shuffled = shuffleDeck(expandedDeck);
-    console.log('Drawing hand of size:', size);
-    console.log('Available card images:', Object.keys(cardImages).length, 'entries');
     
     return shuffled.slice(0, size).map((card, index) => {
       const normalizedName = card.name.toLowerCase()?.trim();
       const cardData = cardImages[normalizedName] || {};
       const hasImage = !!(cardData.small || cardData.normal);
-      
-      console.log(`Card ${index + 1}: "${card.name}" (normalized: "${normalizedName}") -> has image: ${hasImage}`);
-      if (!hasImage) {
-        console.log('Available image keys:', Object.keys(cardImages).slice(0, 10));
-      }
       
       return {
         ...card,
@@ -253,13 +225,11 @@ export default function HandTestingWidget({
     
     // If images are still loading, wait for them
     if (imagesLoading) {
-      console.log('Images still loading, waiting...');
       return;
     }
     
     // If no images loaded yet, try to wait a bit more
     if (Object.keys(cardImages).length === 0) {
-      console.log('No card images loaded yet, waiting a moment...');
       setTimeout(() => {
         if (Object.keys(cardImages).length > 0) {
           startHandTest();

@@ -94,7 +94,7 @@ export default function FixSingleCardModal({
               }
             }
           } catch (e) {
-            console.error('Failed to fetch DFC variants:', e);
+            // Silently fail
           }
         }
         

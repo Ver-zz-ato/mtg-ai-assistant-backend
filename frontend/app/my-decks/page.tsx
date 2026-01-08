@@ -126,7 +126,7 @@ function MyDecksPageContent() {
         setDecks(sorted);
         setPinnedIds(pinned);
       } catch (err: any) {
-        console.error('[My Decks] Load error:', err);
+        // Silently fail
       } finally {
         setLoading(false);
       }
@@ -273,7 +273,6 @@ function MyDecksPageContent() {
           const CreateFAB = require('@/components/CreateDeckFAB').default; 
           return <CreateFAB />;
         } catch (e) {
-          console.error('Error loading CreateFAB:', e);
           return null;
         }
       })()}

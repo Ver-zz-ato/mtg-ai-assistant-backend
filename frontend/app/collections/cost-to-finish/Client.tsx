@@ -44,15 +44,6 @@ export default function CostToFinishClient() {
       const rr = rarityMap[cardName]||'';
       if (rr && rr in rarCounts) rarCounts[rr] += r.need||0;
     }
-    console.log('[DistributionCharts] Rarity counts:', rarCounts, 'from', rowsToShow.length, 'rows');
-    console.log('[DistributionCharts] RarityMap has', Object.keys(rarityMap).length, 'entries');
-    if (Object.keys(rarityMap).length > 0 && rarCounts.common === 0 && rarCounts.uncommon === 0 && rarCounts.rare === 0 && rarCounts.mythic === 0) {
-      console.warn('[DistributionCharts] RarityMap populated but no matches!');
-      console.log('[DistributionCharts] First card from rowsToShow:', rowsToShow[0]?.card, '→ normalized:', normalize(rowsToShow[0]?.card || ''));
-      console.log('[DistributionCharts] First 3 keys from rarityMap:', Object.keys(rarityMap).slice(0, 3));
-    } else if (Object.keys(rarityMap).length > 0) {
-      console.log('[DistributionCharts] ✅ Rarity matching working!');
-    }
     return (
       <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-emerald-700/40 bg-neutral-950 p-4">
@@ -332,7 +323,6 @@ export default function CostToFinishClient() {
         }
       }
     } catch (error) {
-      console.error('[Cost to Finish] Failed to load more items:', error);
     } finally {
       setShopItemsLoading(false);
     }
@@ -519,7 +509,6 @@ export default function CostToFinishClient() {
           }
         }
       } catch (e: any) {
-        console.error('Failed to check names:', e);
         // Continue anyway
       }
     }
@@ -603,8 +592,6 @@ export default function CostToFinishClient() {
         });
         
         const metaData = metaResp.ok ? await metaResp.json() : { data: [] };
-        console.log('[Cost to Finish] Metadata API response:', metaData);
-        console.log('[Cost to Finish] First 3 data items:', metaData.data?.slice(0, 3));
         const pairs = (metaData.data || []).map((j: any) => {
           const name = j.name || '';
             const rarity = String(j?.rarity || '').toLowerCase();
@@ -626,13 +613,11 @@ export default function CostToFinishClient() {
           lm[key] = !!row.land;
           cm[key] = { ramp: row.ramp, draw: row.draw, removal: row.removal, land: row.land };
         }
-        console.log('[Cost to Finish] Rarity map populated:', rm, 'for', pairs.length, 'cards');
-        console.log('[Cost to Finish] Sample rarities:', Object.entries(rm).slice(0, 5));
         setRarityMap(rm);
         setIsLandMap(lm);
         setCatMap(cm);
       } catch (err) {
-        console.error('[Cost to Finish] Failed to fetch metadata:', err);
+        // Silently fail
       }
 
       // If using snapshot, compute delta vs yesterday if available
@@ -664,12 +649,9 @@ export default function CostToFinishClient() {
           limit: 15,
           offset: 0
         };
-        console.log('[Cost to Finish] Fetching shopping list with payload:', payload);
         const r = await fetch("/api/deck/shopping-list", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
         const sj = await r.json();
-        console.log('[Cost to Finish] Shopping list response:', { ok: r.ok, status: r.status, sjOk: sj?.ok, itemsCount: sj?.items?.length, total: sj?.total, hasMore: sj?.hasMore });
         if (r.ok && sj?.ok && Array.isArray(sj.items)) {
-          console.log('[Cost to Finish] First 3 items:', sj.items.slice(0, 3));
           setShopItems(sj.items);
           setShopItemsHasMore(sj.hasMore || false);
           const names = Array.from(new Set((sj.items as any[]).map(it => it.name))).filter(Boolean);
@@ -705,10 +687,8 @@ export default function CostToFinishClient() {
             } catch {}
           }
         } else {
-          console.error('[Cost to Finish] Shopping list API failed:', sj);
         }
       } catch (e) {
-        console.error('[Cost to Finish] Shopping list fetch error:', e);
       }
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -1281,20 +1261,15 @@ export default function CostToFinishClient() {
                     try{
                       // Don't set a budget threshold - find ALL possible swaps
                       const body:any = { deckText, currency, useSnapshot, snapshotDate, ai: false };
-                      console.log('[Budget Swaps] Requesting swaps with payload:', body);
                       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
                       const j = await r.json().catch(()=>({}));
-                      console.log('[Budget Swaps] API response:', { ok: r.ok, status: r.status, responseOk: j?.ok, suggestionsCount: j?.suggestions?.length });
-                      console.log('[Budget Swaps] Full response:', j);
                       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Swap suggestions failed');
                       const sugs = Array.isArray(j?.suggestions)? j.suggestions: [];
-                      console.log('[Budget Swaps] Parsed suggestions:', sugs);
                       setSwaps(sugs); 
                       setSwapsPage(0); 
                       setAcceptedSwaps(new Set());
                       setSwapsOpen(true);
                     } catch(e:any){ 
-                      console.error('[Budget Swaps] Error:', e);
                       try {
                         const { toastError } = await import('@/lib/toast-client');
                         toastError(e?.message || 'Suggestions failed');

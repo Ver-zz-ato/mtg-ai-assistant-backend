@@ -62,7 +62,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         };
       }
     } catch (error) {
-      console.warn('Failed to load cached card data:', error);
+      // Silently fail
     }
     return out;
   }

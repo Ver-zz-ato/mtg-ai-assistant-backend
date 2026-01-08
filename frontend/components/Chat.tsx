@@ -1461,7 +1461,7 @@ function Chat() {
                             capture('chat_message_copied', { messageId: String(m.id) });
                             // Could show a toast here if needed
                           } catch (err) {
-                            console.error('Failed to copy:', err);
+                            // Silently fail
                           }
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"

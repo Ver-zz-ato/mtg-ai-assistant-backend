@@ -55,7 +55,7 @@ export default function DeckOverview({
           window.dispatchEvent(new Event('deck:changed'));
         }
       } catch (err) {
-        console.warn('[DeckOverview] Failed to infer aim:', err);
+        // Silently fail
       }
     }, 1000); // Wait 1 second after mount
 
@@ -81,7 +81,7 @@ export default function DeckOverview({
             setAim(json.aim);
           }
         } catch (err) {
-          console.warn('[DeckOverview] Failed to re-infer aim:', err);
+          // Silently fail
         }
       }, 2000);
     };
@@ -105,7 +105,6 @@ export default function DeckOverview({
         const imageInfo = images.get(commander.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
         setCommanderImage(imageInfo || null);
       } catch (err) {
-        console.warn('Failed to fetch commander image:', err);
         setCommanderImage(null);
       }
     })();

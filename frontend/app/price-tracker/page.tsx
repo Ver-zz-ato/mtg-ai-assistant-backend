@@ -765,7 +765,6 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
           setCommanderArt('');
         }
       } catch (e) {
-        console.warn('Failed to load commander art:', e);
       } finally {
         setLoadingArt(false);
       }
@@ -987,7 +986,6 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         }
         setImgMap(map);
       } catch (e) {
-        console.error('Failed to load watchlist data:', e);
         setImgMap({});
       }
     })();

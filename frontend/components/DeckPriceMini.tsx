@@ -20,24 +20,18 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
       const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
       
       // Step 1: Try snapshot prices first
-      console.log('[DeckPriceMini] Fetching prices for', names.length, 'cards, currency:', currency);
-      console.log('[DeckPriceMini] Card names:', names.slice(0, 10));
       const pr = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
       const pj = await pr.json().catch(()=>({}));
       let prices: Record<string, number> = (pj?.ok && pj?.prices) ? pj.prices : {};
-      console.log('[DeckPriceMini] Snapshot prices:', Object.keys(prices).length, 'prices');
-      console.log('[DeckPriceMini] Snapshot price keys:', Object.keys(prices).slice(0, 10));
       
       // Step 2: Fallback to Scryfall live prices for missing cards
       const missingNames = names.filter(name => !prices[norm(name)]);
-      console.log('[DeckPriceMini] Missing prices for', missingNames.length, 'cards:', missingNames.slice(0, 5));
       
       if (missingNames.length > 0) {
         try {
           // Process in batches of 75 (Scryfall's limit)
           for (let i = 0; i < missingNames.length; i += 75) {
             const batch = missingNames.slice(i, i + 75);
-            console.log('[DeckPriceMini] Scryfall batch', Math.floor(i/75) + 1, '- fetching:', batch.slice(0, 5));
             const identifiers = batch.map(n => ({ name: n }));
             const scryfallRes = await fetch('https://api.scryfall.com/cards/collection', {
               method: 'POST',
@@ -46,7 +40,6 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
             });
             const scryfallData = await scryfallRes.json().catch(() => ({}));
             const cards: any[] = Array.isArray(scryfallData?.data) ? scryfallData.data : [];
-            console.log('[DeckPriceMini] Scryfall returned', cards.length, 'cards');
             
             let foundCount = 0;
             for (const card of cards) {
@@ -75,25 +68,15 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
               if (priceValue != null && priceValue > 0 && !isNaN(Number(priceValue))) {
                 prices[cardName] = Number(priceValue);
                 foundCount++;
-                const priceType = cardPrices?.[priceKey] ? priceKey : (cardPrices?.usd_foil || cardPrices?.eur_foil || cardPrices?.gbp_foil ? 'foil' : 'other');
-                console.log('[DeckPriceMini] ✓ Found price for', card.name, '->', cardName, '=', priceValue, currency, `(${priceType})`);
               } else {
-                // Log the full price object structure for debugging
-                const priceKeys = Object.keys(cardPrices || {}).filter(k => cardPrices[k] != null);
-                console.log('[DeckPriceMini] ✗ No price for', card.name, '->', cardName);
-                console.log('[DeckPriceMini]   Available price keys:', priceKeys);
-                console.log('[DeckPriceMini]   Price values:', priceKeys.map(k => `${k}=${cardPrices[k]}`).join(', '));
-                
                 // Last resort: try to fetch cheapest printing if this card has prints_search_uri
-                // Trigger this if: no price keys at all, OR only has TIX (reserved list cards)
+                const priceKeys = Object.keys(cardPrices || {}).filter(k => cardPrices[k] != null);
                 const onlyHasTix = priceKeys.length === 1 && priceKeys[0] === 'tix';
                 if (card?.prints_search_uri && (!priceKeys.length || onlyHasTix)) {
-                  console.log('[DeckPriceMini]   Attempting to fetch cheapest printing from', card.prints_search_uri, '(only TIX or no prices available)');
                   try {
                     const printsRes = await fetch(card.prints_search_uri, { cache: 'no-store' });
                     const printsData = await printsRes.json().catch(() => ({}));
                     const printCards = Array.isArray(printsData?.data) ? printsData.data : [];
-                    console.log('[DeckPriceMini]   Found', printCards.length, 'printings');
                     
                     // Find cheapest non-foil price across all printings
                     let cheapest: number | null = null;
@@ -118,36 +101,24 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
                     if (cheapest !== null && cheapest > 0) {
                       prices[cardName] = cheapest;
                       foundCount++;
-                      console.log('[DeckPriceMini]   ✓ Found cheapest printing price:', cheapest, currency, 'from', printCards.length, 'printings');
-                    } else {
-                      console.log('[DeckPriceMini]   ✗ No prices found in any printing');
                     }
                   } catch (printError) {
-                    console.warn('[DeckPriceMini]   Failed to fetch prints:', printError);
+                    // Silently fail
                   }
                 }
               }
             }
-            console.log('[DeckPriceMini] Batch result: found', foundCount, 'prices');
           }
         } catch (scryfallError) {
-          console.warn('[DeckPriceMini] Scryfall fallback failed:', scryfallError);
           // Continue with whatever prices we have from snapshot
         }
       }
       
-      console.log('[DeckPriceMini] Final prices:', Object.keys(prices).length, 'total');
-      console.log('[DeckPriceMini] Sample prices:', Object.entries(prices).slice(0, 5));
-      
       const sum = items.reduce((acc,it)=> {
         const normalizedName = norm(it.name);
         const price = prices[normalizedName] || 0;
-        if (price === 0) {
-          console.log('[DeckPriceMini] Card', it.name, 'normalized:', normalizedName, 'has no price');
-        }
         return acc + (price * Math.max(0, Number(it.qty||0)));
       }, 0);
-      console.log('[DeckPriceMini] Calculated total:', sum);
       setTotal(sum);
     } catch(e:any){ setError(e?.message||'failed'); }
     finally{ setBusy(false); }

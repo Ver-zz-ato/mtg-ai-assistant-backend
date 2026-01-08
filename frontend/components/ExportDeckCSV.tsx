@@ -54,7 +54,6 @@ export default function ExportDeckCSV({ deckId, filename = "deck.csv", small, cl
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error(e);
       alert("Export failed");
     } finally {
       setBusy(false);

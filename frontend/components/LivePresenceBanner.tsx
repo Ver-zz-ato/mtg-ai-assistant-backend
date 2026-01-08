@@ -44,7 +44,7 @@ export default function LivePresenceBanner() {
           setData(json);
         }
       } catch (error) {
-        console.warn('Failed to fetch activity:', error);
+        // Silently fail
       } finally {
         setLoading(false);
       }

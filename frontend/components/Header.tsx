@@ -149,7 +149,6 @@ export default function Header() {
         });
       } catch (trackError) {
         // Silent fail - server-side tracking is best effort
-        console.debug('Server-side login tracking failed (non-fatal):', trackError);
       }
       
       trackSignupCompleted('email'); // This could be login or signup completion
@@ -186,7 +185,6 @@ export default function Header() {
       
       window.location.reload();
     } catch (err) {
-      console.error('[Header] Sign in exception:', err);
       alert('Login failed. Please try again.');
     }
   }
@@ -215,12 +213,11 @@ export default function Header() {
         const authKeys = keys.filter(k => k.includes('auth-token') || k.includes('supabase'));
         authKeys.forEach(k => localStorage.removeItem(k));
       } catch (e) {
-        console.error('[Header] Failed to clear localStorage:', e);
+        // Silently fail
       }
       
       window.location.reload();
     } catch (error: any) {
-      console.error('[Header] signOut() failed:', error);
       
       // Even if signOut fails, try to clear localStorage and reload
       if (error.message === 'Sign out timeout') {
@@ -735,7 +732,6 @@ export default function Header() {
                       });
                     } catch (trackError) {
                       // Silent fail - server-side tracking is best effort
-                      console.debug('Server-side signup tracking failed (non-fatal):', trackError);
                     }
                     
                     // Log activity for live presence banner with varied messages

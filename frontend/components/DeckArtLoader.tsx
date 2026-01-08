@@ -110,10 +110,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           }
         }
       } catch (err) {
-        // Suppress AbortError spam in console
-        if (err instanceof Error && err.name !== 'AbortError') {
-          console.warn('[DeckArtLoader] batch-images failed:', err);
-        }
+        // Silently fail
       }
       return null;
     }
@@ -141,10 +138,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           }
         }
       } catch (err) {
-        // Suppress AbortError spam in console
-        if (err instanceof Error && err.name !== 'AbortError') {
-          console.warn('[DeckArtLoader] fuzzy match failed:', err);
-        }
+        // Silently fail
       }
       return map;
     }
@@ -208,10 +202,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
               }
             }
           } catch (err) {
-            // Suppress AbortError spam in console
-            if (err instanceof Error && err.name !== 'AbortError') {
-              console.warn('[DeckArtLoader] deck_cards fetch failed:', err);
-            }
+            // Silently fail
           }
         }
 
@@ -267,7 +258,6 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('[DeckArtLoader] Fatal error:', err);
           setError(true);
           setLoading(false);
         }

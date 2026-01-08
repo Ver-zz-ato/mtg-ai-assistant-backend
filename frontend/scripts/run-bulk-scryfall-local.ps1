@@ -33,7 +33,7 @@ try {
     # Step 1: Check if server is already running
     Write-Host "Checking if server is already running..." -ForegroundColor Yellow
     try {
-        $response = Invoke-WebRequest -Uri "$LocalUrl" -Method GET -TimeoutSec 2 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "$LocalUrl" -Method GET -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
         Write-Host "OK: Server is already running on port $Port" -ForegroundColor Green
         $ServerAlreadyRunning = $true
     } catch {
@@ -66,7 +66,7 @@ try {
             $Elapsed += $WaitInterval
             
             try {
-                $testResponse = Invoke-WebRequest -Uri "$LocalUrl" -Method GET -TimeoutSec 2 -ErrorAction Stop
+                $testResponse = Invoke-WebRequest -Uri "$LocalUrl" -Method GET -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
                 $Ready = $true
                 $secondsText = "$Elapsed seconds"
                 Write-Host "Server is ready! (took ~$secondsText)" -ForegroundColor Green
@@ -112,7 +112,7 @@ try {
         }
         
         # Make the request (with long timeout for the import)
-        $Response = Invoke-WebRequest -Uri $Endpoint -Method POST -Headers $Headers -TimeoutSec 600 -ErrorAction Stop
+        $Response = Invoke-WebRequest -Uri $Endpoint -Method POST -Headers $Headers -TimeoutSec 600 -UseBasicParsing -ErrorAction Stop
         
         $EndTime = Get-Date
         $Duration = ($EndTime - $StartTime).TotalSeconds

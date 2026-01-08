@@ -65,7 +65,6 @@ export default function InlineSignUpForm() {
         });
       } catch (trackError) {
         // Silent fail - server-side tracking is best effort
-        console.debug('Server-side signup tracking failed (non-fatal):', trackError);
       }
       
       // Log activity for live presence banner with varied messages

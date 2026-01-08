@@ -47,7 +47,7 @@ export default function PlaystyleQuizResults({
         }
         setCommanderImages(imageMap);
       } catch (e) {
-        console.error('Failed to load commander images:', e);
+        // Silently fail
       } finally {
         setLoadingImages(false);
       }

@@ -97,7 +97,6 @@ export default function BudgetSwapsClient(){
         // First ensure we have auth
         const { data: { user } } = await sb.auth.getUser();
         if (!user) {
-          console.warn('[Budget Swaps] No user authenticated');
           return;
         }
         
@@ -110,12 +109,10 @@ export default function BudgetSwapsClient(){
         
         if (!alive) return;
         if (error) {
-          console.error('[Budget Swaps] Deck fetch failed (RLS?):', error.message, error.code);
           return;
         }
         
         if (!data) {
-          console.warn('[Budget Swaps] No deck data returned');
           return;
         }
         
@@ -144,17 +141,13 @@ export default function BudgetSwapsClient(){
           const j = await r.json().catch(()=>({ ok:false }));
           if (r.ok && j?.ok && j.art) {
             art = String(j.art);
-            console.log('[Budget Swaps] Got art from banner-art API:', art);
-          } else {
-            console.warn('[Budget Swaps] Banner-art API failed:', j);
           }
         } catch (e) {
-          console.warn('[Budget Swaps] Banner-art API error:', e);
+          // Silently fail
         }
 
         // Fallback to direct commander image fetch if server route fails
         if (!art && commander) {
-          console.log('[Budget Swaps] Trying fallback with commander:', commander);
           try {
             const { getImagesForNames } = await import('@/lib/scryfall-cache');
             const names = [commander];
@@ -162,22 +155,19 @@ export default function BudgetSwapsClient(){
             const key = names[0]?.toLowerCase()?.normalize('NFKD')?.replace(/[\u0300-\u036f]/g,'')?.replace(/\s+/g,' ')?.trim();
             const img = key ? m.get(key) : null;
             art = img?.art_crop || img?.normal || img?.small;
-            if (art) console.log('[Budget Swaps] Got art from fallback:', art);
           } catch (e) {
-            console.warn('[Budget Swaps] Fallback failed:', e);
+            // Silently fail
           }
         }
 
         if (!alive) return;
         if (art) {
-          console.log('[Budget Swaps] Setting commander art:', art);
           setCommanderArt(art);
         } else {
-          console.warn('[Budget Swaps] No art found for:', commander);
           setCommanderArt('');
         }
       } catch (err) {
-        console.error('[Budget Swaps] Fatal error:', err);
+        // Silently fail
       }
     })();
     return () => { alive = false; };
@@ -216,7 +206,6 @@ export default function BudgetSwapsClient(){
           }
         }
       } catch (e: any) {
-        console.error('Failed to check names:', e);
         // Continue anyway
       }
     }

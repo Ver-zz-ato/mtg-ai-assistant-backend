@@ -29,6 +29,14 @@ const nextConfig: NextConfig = {
   // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
 
+  // Console log suppression - removes ALL console.* calls in production builds
+  // Set DISABLE_CONSOLE_LOGS=true (server-side) to remove console logs at build time
+  // Set NEXT_PUBLIC_DISABLE_CONSOLE_LOGS=true (client-side) for runtime suppression
+  // Note: This only affects production builds (npm run build), dev mode will still show logs
+  compiler: process.env.DISABLE_CONSOLE_LOGS === 'true' ? {
+    removeConsole: true, // Remove ALL console.* calls (log, info, debug, warn, error)
+  } : undefined,
+
   async rewrites() {
     return [
       {

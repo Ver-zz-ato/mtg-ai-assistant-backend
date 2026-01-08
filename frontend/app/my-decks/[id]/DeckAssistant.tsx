@@ -89,7 +89,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           enhancedContext = problemContext + '\n\n' + enhancedContext;
         }
       } catch (error) {
-        console.warn('Failed to generate enhanced deck context:', error);
+        // Silently fail
       }
       
       return enhancedContext;
@@ -128,7 +128,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         const imagesMap = await getImagesForNames(allCards);
         setCardImages(imagesMap);
       } catch (error) {
-        console.warn('Failed to fetch card images:', error);
+        // Silently fail
       }
     })();
   }, [msgs]);
@@ -480,7 +480,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             break;
         }
       } catch (error) {
-        console.error('Action chip error:', error);
+        // Silently fail
       }
     };
     
@@ -517,7 +517,6 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       // Trigger deck update event
       window.dispatchEvent(new CustomEvent('deck:changed'));
     } catch (error) {
-      console.error('Remove card error:', error);
       throw error;
     }
   }

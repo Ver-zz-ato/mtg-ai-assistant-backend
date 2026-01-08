@@ -40,7 +40,6 @@ export function getSecureEventSourceUrl(path: string): string {
     // If the URL uses http:// and page is https://, upgrade to https://
     if (window.location.protocol === 'https:' && url.protocol === 'http:') {
       url.protocol = 'https:';
-      console.warn('[secure-connections] Upgraded EventSource URL from http to https:', url.toString());
       // Log to analytics once
       try {
         import('@/lib/ph').then(({ capture }) => {
@@ -82,7 +81,6 @@ export function validateSupabaseUrl(url: string | undefined): string {
       const urlObj = new URL(url);
       if (urlObj.protocol === 'http:') {
         urlObj.protocol = 'https:';
-        console.warn('[secure-connections] Upgraded Supabase URL from http to https - this ensures realtime uses wss://');
         
         // Log to analytics once (throttled via guard)
         try {
@@ -98,7 +96,6 @@ export function validateSupabaseUrl(url: string | undefined): string {
         return urlObj.toString();
       }
     } catch (e) {
-      console.error('[secure-connections] Invalid Supabase URL format:', url, e);
       // Return original URL even if parsing fails (let Supabase handle the error)
     }
   }
@@ -134,12 +131,7 @@ export function logConnectionError(error: unknown, context: {
   
   // Throttle: only log each error type/URL once per session
   if (loggedErrors.has(errorKey)) {
-    // Already logged this error type, skip (but still log to console for debugging)
-    console.warn('[secure-connections] Connection error (already logged to analytics):', {
-      type: context.type,
-      url: context.url,
-      error: errorMessage,
-    });
+    // Already logged this error type, skip
     return;
   }
   
@@ -152,8 +144,6 @@ export function logConnectionError(error: unknown, context: {
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
     timestamp: new Date().toISOString(),
   };
-
-  console.error('[secure-connections] Connection error:', errorDetails);
 
   // Try to send to analytics (if available, don't block on it)
   if (typeof window !== 'undefined') {

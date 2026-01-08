@@ -211,7 +211,7 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
           setDeckCards(json.cards || []);
         }
       } catch (error) {
-        console.error('Failed to fetch deck cards:', error);
+        // Silently fail
       }
     };
     

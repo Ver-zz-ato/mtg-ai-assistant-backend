@@ -21,7 +21,7 @@ export default function DeckDeleteButton({ deckId, deckName, small, redirectTo }
           setFetchedDeckName(deckData.deck.title || deckData.deck.name || 'Untitled');
         }
       } catch (e) {
-        console.error('Failed to fetch deck name:', e);
+        // Silently fail
       }
     }
   };
@@ -66,7 +66,6 @@ export default function DeckDeleteButton({ deckId, deckName, small, redirectTo }
                 alert('Failed to restore deck');
               }
             } catch (e) {
-              console.error('Failed to undo delete:', e);
               alert('Failed to restore deck');
             }
           },

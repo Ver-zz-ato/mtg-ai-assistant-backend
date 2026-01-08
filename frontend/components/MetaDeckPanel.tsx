@@ -29,7 +29,7 @@ export default function MetaDeckPanel() {
         setMeta(data);
       }
     } catch (e) {
-      console.error('Failed to fetch meta:', e);
+      // Silently fail
     } finally {
       setLoading(false);
     }

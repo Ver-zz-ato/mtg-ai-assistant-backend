@@ -253,7 +253,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         }).filter((x: any) => x.url);
         setArtOptions(out);
       } catch (e) {
-        console.error('Failed to load art options:', e);
+        // Silently fail
       } finally {
         setLoadingArt(false);
       }

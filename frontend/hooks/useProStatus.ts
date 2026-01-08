@@ -36,40 +36,24 @@ export function useProStatus() {
         
         // If browser query failed, try server-side API fallback (uses same auth, may bypass RLS issues)
         if (profileError) {
-          console.warn('[useProStatus] Browser query error, trying server-side API:', profileError.message);
           try {
             const apiRes = await fetch('/api/user/pro-status');
             if (apiRes.ok) {
               const apiData = await apiRes.json();
               if (apiData.ok && apiData.isPro !== undefined) {
                 isProUser = apiData.isPro;
-                console.info('[useProStatus] Server-side API fallback:', {
-                  isPro: apiData.isPro,
-                  fromProfile: apiData.fromProfile,
-                  fromMetadata: apiData.fromMetadata
-                });
               }
             }
           } catch (apiErr) {
-            console.warn('[useProStatus] Server-side API fallback failed, using metadata:', apiErr);
+            // Fallback to metadata
           }
         }
         
         setIsPro(isProUser);
-        
-        console.info('[useProStatus] Pro status determined:', {
-          userId: user.id,
-          fromProfile: isProFromProfile,
-          fromMetadata: isProFromMetadata,
-          final: isProUser,
-          hadError: !!profileError
-        });
       } catch (err) {
-        console.error('[useProStatus] Unexpected error:', err);
         // Last resort fallback to metadata
         const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
         setIsPro(metadataIsPro);
-        console.info('[useProStatus] Using metadata fallback after error:', metadataIsPro);
       } finally {
         setLoading(false);
       }
@@ -99,18 +83,10 @@ export function useProStatus() {
             const newIsPro = profileIsPro || metadataIsPro;
             setIsPro(newIsPro);
             setLoading(false);
-            console.info('[useProStatus] Pro status updated via real-time', { 
-              fromProfile: profileIsPro,
-              fromMetadata: metadataIsPro,
-              final: newIsPro 
-            });
           }
         )
         .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.info('[useProStatus] Realtime subscription active');
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.warn('[useProStatus] Realtime subscription error:', status);
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             // Log error for debugging (throttled to once per session)
             if (typeof window !== 'undefined') {
               try {
@@ -126,7 +102,6 @@ export function useProStatus() {
           }
         });
     } catch (error) {
-      console.error('[useProStatus] Failed to subscribe to realtime updates:', error);
       // Fallback: subscription failed, but we already have the initial Pro status
       // The app will continue to work, just without real-time updates
       if (typeof window !== 'undefined') {
@@ -147,7 +122,7 @@ export function useProStatus() {
         try {
           sb.removeChannel(channel);
         } catch (error) {
-          console.warn('[useProStatus] Error removing channel:', error);
+          // Silently fail
         }
       }
     };
