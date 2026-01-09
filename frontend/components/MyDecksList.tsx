@@ -53,61 +53,69 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
     const fetchDeckData = async () => {
       if (mounted) setIsLoadingData(true);
       
-      // Fetch all deck stats and tags in parallel
-      const promises = rows.map(async (deck) => {
-        try {
-          // Check if aborted before fetching
-          if (abortController.signal.aborted) return { deckId: deck.id, cardCount: 0, tags: [] };
+      try {
+        // Check if aborted before fetching
+        if (abortController.signal.aborted) return;
 
-          // Fetch cards and tags in parallel for this deck
-          const [cardsRes, tagsRes] = await Promise.all([
-            fetch(`/api/decks/cards?deckId=${deck.id}`, { 
-              cache: 'no-store',
-              signal: abortController.signal 
-            }),
-            fetch(`/api/decks/${deck.id}/tags`, { 
-              cache: 'no-store',
-              signal: abortController.signal 
-            })
-          ]);
-
-          const [cardsJson, tagsJson] = await Promise.all([
-            cardsRes.json().catch(() => ({ ok: false })),
-            tagsRes.json().catch(() => ({ ok: false }))
-          ]);
-
-          return {
-            deckId: deck.id,
-            cardCount: cardsJson?.ok && cardsJson?.cards 
-              ? cardsJson.cards.reduce((sum: number, c: any) => sum + (c.qty || 0), 0)
-              : 0,
-            tags: tagsJson?.ok && tagsJson?.tags ? tagsJson.tags : []
-          };
-        } catch (err: any) {
-          // Ignore abort errors - they're expected when navigating away
-          if (err.name === 'AbortError') {
-            return { deckId: deck.id, cardCount: 0, tags: [] };
-          }
-          return { deckId: deck.id, cardCount: 0, tags: [] };
-        }
-      });
-
-      // Wait for all fetches to complete, then update state once
-      const results = await Promise.all(promises);
-      
-      // Only update state if component is still mounted and not aborted
-      if (mounted && !abortController.signal.aborted) {
-        const newStats = new Map<string, DeckStats>();
-        const newTags = new Map<string, string[]>();
+        // PERFORMANCE: Use bulk stats endpoint instead of individual API calls per deck
+        // This reduces from 2N API calls (N cards + N tags) to just 1 API call total
+        const deckIds = rows.map(d => d.id);
         
-        results.forEach(result => {
-          newStats.set(result.deckId, { cardCount: result.cardCount });
-          newTags.set(result.deckId, result.tags);
+        const bulkRes = await fetch('/api/decks/bulk-stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deckIds }),
+          cache: 'no-store',
+          signal: abortController.signal
         });
+
+        if (abortController.signal.aborted) return;
+
+        const bulkJson = await bulkRes.json().catch(() => ({ ok: false }));
+
+        if (!bulkJson?.ok || !bulkJson?.stats) {
+          // Fallback to empty stats if bulk endpoint fails
+          const newStats = new Map<string, DeckStats>();
+          const newTags = new Map<string, string[]>();
+          if (mounted && !abortController.signal.aborted) {
+            setDeckStats(newStats);
+            setDeckTags(newTags);
+            setIsLoadingData(false);
+          }
+          return;
+        }
+
+        const stats = bulkJson.stats;
         
-        setDeckStats(newStats);
-        setDeckTags(newTags);
-        setIsLoadingData(false);
+        // Convert bulk response to the expected format
+        const results = deckIds.map(deckId => ({
+          deckId,
+          cardCount: stats[deckId]?.cardCount || 0,
+          tags: stats[deckId]?.tags || []
+        }));
+        
+        // Only update state if component is still mounted and not aborted
+        if (mounted && !abortController.signal.aborted) {
+          const newStats = new Map<string, DeckStats>();
+          const newTags = new Map<string, string[]>();
+          
+          results.forEach(result => {
+            newStats.set(result.deckId, { cardCount: result.cardCount });
+            newTags.set(result.deckId, result.tags);
+          });
+          
+          setDeckStats(newStats);
+          setDeckTags(newTags);
+          setIsLoadingData(false);
+        }
+      } catch (err: any) {
+        // Ignore abort errors - they're expected when navigating away
+        if (err.name !== 'AbortError' && mounted && !abortController.signal.aborted) {
+          // On error, set empty stats (graceful degradation)
+          setDeckStats(new Map());
+          setDeckTags(new Map());
+          setIsLoadingData(false);
+        }
       }
     };
 
@@ -316,7 +324,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                   }}
                 >
                   {art && !loading ? (
-                    <img src={art} alt="cover" className="w-full h-full object-cover" />
+                    <img src={art} alt="cover" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   ) : loading ? (
                     <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
                   ) : (

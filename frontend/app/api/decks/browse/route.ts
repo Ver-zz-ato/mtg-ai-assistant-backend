@@ -67,9 +67,10 @@ export async function GET(req: Request) {
     
     // Build query - use service role to bypass RLS for public deck browsing
     // Check both is_public and public columns to be safe (some decks might only have one set)
+    // PERFORMANCE: Use nested select to fetch username in same query (avoid separate query)
     let query = supabase
       .from('decks')
-      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text, is_public, public', { count: 'exact' })
+      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text, is_public, public, profiles(username)', { count: 'exact' })
       .or('is_public.eq.true,public.eq.true');
 
     // Apply filters
@@ -156,22 +157,33 @@ export async function GET(req: Request) {
     
     logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks (from ${data?.length || 0} fetched, total available: ${count || 0})`);
 
-    // Get owner usernames
-    const ownerIds = [...new Set(filteredDecks.map(d => d.user_id).filter(Boolean))];
-    const { data: users } = await supabase
-      .from('profiles')
-      .select('id, username')
-      .in('id', ownerIds);
-
-    const userMap = new Map(users?.map(u => [u.id, u.username]) || []);
-
-    // Enrich deck data
-    const decks = filteredDecks.map(deck => ({
-      ...deck,
-      owner_username: userMap.get(deck.user_id) || 'Anonymous',
-      card_count: countCards(deck.deck_text),
-      deck_text: deck.deck_text, // Include deck_text for art loading
-    }));
+    // Enrich deck data - username already fetched via nested select (no separate query needed)
+    const decks = filteredDecks.map((deck: any) => {
+      // Handle nested profile data from Supabase join
+      // If profiles is an array (can happen with some relationships), take first item
+      // If profiles is an object, use it directly
+      // If null/undefined, use Anonymous
+      const profile = Array.isArray(deck.profiles) 
+        ? deck.profiles[0] 
+        : deck.profiles;
+      const username = profile?.username || 'Anonymous';
+      
+      return {
+        id: deck.id,
+        title: deck.title,
+        commander: deck.commander,
+        format: deck.format,
+        colors: deck.colors,
+        created_at: deck.created_at,
+        updated_at: deck.updated_at,
+        user_id: deck.user_id,
+        is_public: deck.is_public,
+        public: deck.public,
+        owner_username: username,
+        card_count: countCards(deck.deck_text),
+        deck_text: deck.deck_text, // Include deck_text for art loading
+      };
+    });
 
     // Calculate if there are more pages
     // Note: We use the original count from Supabase, but we've filtered some out

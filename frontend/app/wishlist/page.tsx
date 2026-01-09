@@ -509,6 +509,49 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   </span>
                 </button>
               )}
+              <button
+                onClick={async () => {
+                  if (!wishlistId) return;
+                  try {
+                    const currentWishlist = wishlists.find(w => w.id === wishlistId);
+                    const isPublic = currentWishlist?.is_public || false;
+                    const res = await fetch(`/api/wishlists/${wishlistId}/share`, {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ is_public: !isPublic })
+                    });
+                    const json = await res.json();
+                    if (json?.ok) {
+                      // Update local state
+                      setWishlists(prev => prev.map(w => 
+                        w.id === wishlistId ? { ...w, is_public: !isPublic } : w
+                      ));
+                      // Copy share link if making public
+                      if (!isPublic && json.url) {
+                        await navigator.clipboard.writeText(json.url);
+                        const { toast } = await import('@/lib/toast-client');
+                        toast('Wishlist is now public! Share link copied to clipboard.', 'success');
+                      } else {
+                        const { toast } = await import('@/lib/toast-client');
+                        toast('Wishlist is now private.', 'success');
+                      }
+                    } else {
+                      const { toastError } = await import('@/lib/toast-client');
+                      toastError(json?.error || 'Failed to update share status');
+                    }
+                  } catch (e: any) {
+                    const { toastError } = await import('@/lib/toast-client');
+                    toastError(e?.message || 'Share failed');
+                  }
+                }}
+                className="px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+                title={wishlists.find(w => w.id === wishlistId)?.is_public ? "Make private" : "Share wishlist"}
+              >
+                <span className="flex items-center gap-1">
+                  <span>{wishlists.find(w => w.id === wishlistId)?.is_public ? "🔒" : "🔗"}</span>
+                  <span>{wishlists.find(w => w.id === wishlistId)?.is_public ? "Private" : "Share"}</span>
+                </span>
+              </button>
             </>
           )}
         </div>

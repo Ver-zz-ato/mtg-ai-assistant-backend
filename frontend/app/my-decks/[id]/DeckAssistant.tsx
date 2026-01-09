@@ -413,6 +413,8 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   key={idx}
                   src={image.small}
                   alt={card.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
                   onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
                   onMouseLeave={handleCardMouseLeave}

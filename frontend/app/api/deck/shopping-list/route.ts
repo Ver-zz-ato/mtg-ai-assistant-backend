@@ -143,6 +143,51 @@ async function fetchNamedCard(name: string): Promise<any | null> {
   return r.json();
 }
 
+// PERFORMANCE: Batch fetch cards using Scryfall /cards/collection endpoint (handles up to 75 at a time)
+async function fetchCardsBatch(names: string[]): Promise<Map<string, any>> {
+  const results = new Map<string, any>();
+  if (!names.length) return results;
+  
+  // Scryfall /cards/collection accepts max 75 cards per request
+  const BATCH_SIZE = 75;
+  
+  for (let i = 0; i < names.length; i += BATCH_SIZE) {
+    const batch = names.slice(i, i + BATCH_SIZE);
+    
+    // Format identifiers for Scryfall collection endpoint
+    const identifiers = batch.map(name => ({ name }));
+    
+    try {
+      const response = await fetch('https://api.scryfall.com/cards/collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifiers }),
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        console.warn(`[Shopping List] Batch fetch failed for batch ${i}-${i + batch.length}`);
+        continue;
+      }
+      
+      const json = await response.json().catch(() => ({}));
+      const cards = Array.isArray(json?.data) ? json.data : [];
+      
+      // Map cards by normalized name for lookup
+      for (const card of cards) {
+        const nameKey = normalizeName(card.name || '');
+        if (nameKey) {
+          results.set(nameKey, card);
+        }
+      }
+    } catch (error) {
+      console.warn(`[Shopping List] Batch fetch error for batch ${i}-${i + batch.length}:`, error);
+    }
+  }
+  
+  return results;
+}
+
 async function fetchCheapestPrint(baseCard: any, want: Currency): Promise<{ set: string; set_name: string; collector_number: string; price: number; uri: string; prints: number; oracle_text?: string } | null> {
   if (!baseCard) return null;
   const printsUri = baseCard?.prints_search_uri;
@@ -279,10 +324,34 @@ export const POST = withLogging(async (req: NextRequest) => {
     const items: any[] = [];
     const pricesToCache: Array<{ name: string; usd?: number; eur?: number; gbp?: number }> = [];
 
+    // PERFORMANCE: Batch fetch all missing cards at once instead of one-by-one
+    const missingNames: string[] = [];
+    const missingCards: Map<string, { key: string; name: string; qty: number; have: number; to_buy: number }> = new Map();
+    
+    // Identify cards that need fetching (not in cache)
     for (const { key, name, qty, have, to_buy } of toFetch) {
-      // Check cache first
-      const cachedPrice = priceCache.get(normalizeName(name));
-      const cachedCard = cardCache.get(normalizeName(name));
+      const normName = normalizeName(name);
+      const cachedPrice = priceCache.get(normName);
+      const cachedCard = cardCache.get(normName);
+      
+      // Only add to batch if missing from cache
+      if (!cachedCard || !cachedPrice) {
+        missingNames.push(name);
+        missingCards.set(normName, { key, name, qty, have, to_buy });
+      }
+    }
+    
+    // Batch fetch missing cards (up to 75 at a time via Scryfall /cards/collection)
+    const batchFetched = missingNames.length > 0 
+      ? await fetchCardsBatch(missingNames)
+      : new Map<string, any>();
+
+    // Process all cards (cached + batch fetched)
+    for (const { key, name, qty, have, to_buy } of toFetch) {
+      const normName = normalizeName(name);
+      const cachedPrice = priceCache.get(normName);
+      const cachedCard = cardCache.get(normName);
+      const batchCard = batchFetched.get(normName);
 
       let price_each = 0;
       let set = null;
@@ -307,49 +376,74 @@ export const POST = withLogging(async (req: NextRequest) => {
         
         console.log(`[Shopping List] 🚀 Full cache hit for ${name}: ${price_each}`);
       } 
-      // Priority 2: Partial cache - get missing data from Scryfall (slower)
-      else if (cachedPrice) {
+      // Priority 2: Partial cache - use batch fetched card data
+      else if (cachedPrice && batchCard) {
         if (currency === "USD") price_each = cachedPrice.usd || 0;
         else if (currency === "EUR") price_each = cachedPrice.eur || 0;
         else if (currency === "GBP") price_each = cachedPrice.gbp || 0;
         
-        console.log(`[Shopping List] ⚡ Partial cache hit for ${name}, fetching details...`);
+        console.log(`[Shopping List] ⚡ Partial cache hit for ${name}, using batch fetched details...`);
         
-        try {
-          const card = await fetchNamedCard(name);
-          set = card?.set;
-          set_name = card?.set_name;
-          collector_number = card?.collector_number;
-          uri = card?.scryfall_uri || uri;
-          oracle_text = card?.oracle_text || oracle_text;
-        } catch (error) {
-          console.warn(`[Shopping List] Failed to fetch details for ${name}:`, error);
-        }
+        set = batchCard?.set;
+        set_name = batchCard?.set_name;
+        collector_number = batchCard?.collector_number;
+        uri = batchCard?.scryfall_uri || uri;
+        oracle_text = batchCard?.oracle_text || oracle_text;
       }
-      // Priority 3: No cache - full Scryfall fetch (slowest)
-      else {
-        console.log(`[Shopping List] ❌ Cache miss for ${name}, fetching from Scryfall...`);
+      // Priority 3: No cache - use batch fetched card, then get cheapest print if needed
+      else if (batchCard) {
+        console.log(`[Shopping List] ❌ Cache miss for ${name}, using batch fetched card...`);
         
         try {
-          const card = await fetchNamedCard(name);
-          const cheapest = await fetchCheapestPrint(card, currency);
+          const cheapest = await fetchCheapestPrint(batchCard, currency);
           
           price_each = Math.max(0, Number(cheapest?.price || 0));
-          set = cheapest?.set || card?.set;
-          set_name = cheapest?.set_name || card?.set_name;
-          collector_number = cheapest?.collector_number || card?.collector_number;
-          oracle_text = cheapest?.oracle_text || oracle_text;
-          uri = cheapest?.uri || card?.uri || uri;
+          set = cheapest?.set || batchCard?.set;
+          set_name = cheapest?.set_name || batchCard?.set_name;
+          collector_number = cheapest?.collector_number || batchCard?.collector_number;
+          oracle_text = cheapest?.oracle_text || batchCard?.oracle_text || oracle_text;
+          uri = cheapest?.uri || batchCard?.uri || uri;
           prints = cheapest?.prints || 0;
 
           // Cache the prices we just fetched
-          const prices = card?.prices || {};
+          const prices = batchCard?.prices || {};
           pricesToCache.push({
             name,
             usd: Number(prices.usd || 0) || undefined,
             eur: Number(prices.eur || 0) || undefined,
             gbp: undefined // Scryfall doesn't provide GBP
           });
+        } catch (error) {
+          console.warn(`[Shopping List] Failed to process batch fetched card ${name}:`, error);
+          price_each = 0;
+        }
+      }
+      // Fallback: Try individual fetch if batch didn't find it (shouldn't happen often)
+      else {
+        console.log(`[Shopping List] ⚠️ Card not in batch results, falling back to individual fetch for ${name}...`);
+        
+        try {
+          const card = await fetchNamedCard(name);
+          if (card) {
+            const cheapest = await fetchCheapestPrint(card, currency);
+            
+            price_each = Math.max(0, Number(cheapest?.price || 0));
+            set = cheapest?.set || card?.set;
+            set_name = cheapest?.set_name || card?.set_name;
+            collector_number = cheapest?.collector_number || card?.collector_number;
+            oracle_text = cheapest?.oracle_text || card?.oracle_text || oracle_text;
+            uri = cheapest?.uri || card?.uri || uri;
+            prints = cheapest?.prints || 0;
+
+            // Cache the prices we just fetched
+            const prices = card?.prices || {};
+            pricesToCache.push({
+              name,
+              usd: Number(prices.usd || 0) || undefined,
+              eur: Number(prices.eur || 0) || undefined,
+              gbp: undefined // Scryfall doesn't provide GBP
+            });
+          }
         } catch (error) {
           console.warn(`[Shopping List] Failed to fetch ${name}:`, error);
           price_each = 0;

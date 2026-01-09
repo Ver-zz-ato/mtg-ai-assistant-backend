@@ -555,6 +555,8 @@ export default function HandTestingWidget({
                     <img 
                       src={card.image_url} 
                       alt={card.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transition-transform duration-200"
                       onMouseEnter={(e) => {
                         const { x, y, below } = calcPos(e as any);
