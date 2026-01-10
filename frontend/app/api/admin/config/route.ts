@@ -31,6 +31,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok:false, error: 'forbidden' }, { status: 403 });

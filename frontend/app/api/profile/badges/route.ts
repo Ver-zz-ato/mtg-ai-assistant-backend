@@ -13,6 +13,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest){
   try{
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const sb = await createClient();
     const { data: ures } = await sb.auth.getUser();
     const u = ures?.user; if (!u) return NextResponse.json({ ok:false, error:'auth_required' }, { status: 401 });

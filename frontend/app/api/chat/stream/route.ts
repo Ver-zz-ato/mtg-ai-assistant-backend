@@ -73,16 +73,54 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Guest user limit checking
+    // Guest user limit checking (server-side enforcement)
     if (isGuest) {
-      const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
-      const GUEST_MESSAGE_LIMIT = 50;
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const guestToken = cookieStore.get('guest_session_token')?.value || null;
       
-      if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
+      // Extract IP and User-Agent
+      const forwarded = req.headers.get('x-forwarded-for');
+      const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
+      
+      if (!guestToken) {
+        return new Response(JSON.stringify({
+          fallback: true,
+          reason: "guest_token_missing",
+          message: "Please sign in to continue chatting. Guest access requires a session token.",
+          guestLimitReached: true
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Verify token
+      const { verifyGuestToken } = await import('@/lib/guest-tracking');
+      const tokenData = await verifyGuestToken(guestToken);
+      
+      if (!tokenData) {
+        return new Response(JSON.stringify({
+          fallback: true,
+          reason: "guest_token_invalid",
+          message: "Please sign in to continue chatting. Invalid or expired guest session.",
+          guestLimitReached: true
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Check limit server-side
+      const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
+      const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
+      
+      if (!guestCheck.allowed) {
         return new Response(JSON.stringify({
           fallback: true,
           reason: "guest_limit_exceeded",
-          message: "Please sign in to continue chatting. You've reached the 20 message limit for guest users.",
+          message: "Please sign in to continue chatting. You've reached the 10 message limit for guest users.",
           guestLimitReached: true
         }), {
           status: 200,
@@ -91,11 +129,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Rate limiting (skip for guest users)
-    if (!isGuest) {
-      const rl = await checkRateLimit(supabase as any, userId!);
+    // Rate limiting for authenticated users
+    if (!isGuest && userId) {
+      // Check Pro status
+      let isPro = false;
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', userId)
+          .single();
+        isPro = profile?.is_pro || false;
+      } catch {}
+
+      // Durable rate limiting (database-backed)
+      const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+      const { hashString } = await import('@/lib/guest-tracking');
+      const userKeyHash = `user:${await hashString(userId)}`;
+      
+      const dailyLimit = isPro ? 500 : 50;
+      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat/stream', dailyLimit, 1);
+      
+      if (!durableLimit.allowed) {
+        return new Response(JSON.stringify({ 
+          fallback: true,
+          reason: "durable_rate_limited",
+          message: `You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`
+        }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // In-memory rate limiting (short-term burst protection)
+      const rl = await checkRateLimit(supabase as any, userId);
       if (!rl.ok) {
-        return new Response(JSON.stringify({ fallback: true }), {
+        return new Response(JSON.stringify({ 
+          fallback: true,
+          reason: "rate_limited",
+          message: rl.error || "Rate limited"
+        }), {
           status: 429,
           headers: { "Content-Type": "application/json" }
         });

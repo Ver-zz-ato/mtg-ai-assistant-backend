@@ -7,6 +7,15 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     // Parse request body
     const body = await req.json().catch(() => ({}));
     const { plan, successUrl, cancelUrl } = body;

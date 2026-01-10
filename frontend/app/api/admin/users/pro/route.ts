@@ -14,6 +14,15 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest){
   try{
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok:false, error:"forbidden" }, { status:403 });
@@ -49,6 +58,19 @@ export async function POST(req: NextRequest){
     if (profileError) {
       console.error('Failed to update profiles.is_pro:', profileError);
       return NextResponse.json({ ok:false, error: `Metadata updated but profile update failed: ${profileError.message}` }, { status:500 });
+    }
+
+    // Audit log for Pro status changes
+    try {
+      await supabase.from('admin_audit').insert({
+        actor_id: user.id,
+        action: 'user_pro_status_changed',
+        target: userId,
+        payload: { pro, changed_by: user.email || user.id }
+      });
+    } catch (auditError) {
+      // Don't fail request if audit logging fails
+      console.error('Failed to log admin audit:', auditError);
     }
 
     console.info('Admin manually set Pro status', { userId, pro, admin: user.email });

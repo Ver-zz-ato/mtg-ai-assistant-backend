@@ -14,6 +14,15 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -28,89 +37,60 @@ export async function POST(req: NextRequest) {
 
     console.log("🔧 Running scryfall_cache schema migration...");
 
-    // Run the migration SQL
-    const migrationSQL = `
-      -- Add missing fields to scryfall_cache
-      BEGIN;
-      
-      ALTER TABLE scryfall_cache 
-        ADD COLUMN IF NOT EXISTS mana_cost text;
-      
-      ALTER TABLE scryfall_cache 
-        ADD COLUMN IF NOT EXISTS oracle_text text;
-      
-      ALTER TABLE scryfall_cache 
-        ADD COLUMN IF NOT EXISTS type_line text;
-      
-      ALTER TABLE scryfall_cache 
-        ADD COLUMN IF NOT EXISTS cmc integer DEFAULT 0;
-      
-      -- Add comments
-      COMMENT ON COLUMN scryfall_cache.mana_cost IS 'Mana cost string like {2}{R}{G}';
-      COMMENT ON COLUMN scryfall_cache.oracle_text IS 'Card rules text for archetype analysis';
-      COMMENT ON COLUMN scryfall_cache.type_line IS 'Card type line like "Creature — Human Warrior"';
-      COMMENT ON COLUMN scryfall_cache.cmc IS 'Converted mana cost as integer';
-      
-      COMMIT;
-    `;
-
-    const { error } = await admin.rpc('exec_sql', { sql: migrationSQL });
+    // Use safe purpose-built RPC (replaces dangerous exec_sql)
+    const { data, error } = await admin.rpc('migrate_cache_schema');
     
     if (error) {
-      // Try individual migrations in case the RPC doesn't exist
-      console.log("📝 Running individual column additions...");
-      
-      const migrations = [
-        "ALTER TABLE scryfall_cache ADD COLUMN IF NOT EXISTS mana_cost text;",
-        "ALTER TABLE scryfall_cache ADD COLUMN IF NOT EXISTS oracle_text text;", 
-        "ALTER TABLE scryfall_cache ADD COLUMN IF NOT EXISTS type_line text;",
-        "ALTER TABLE scryfall_cache ADD COLUMN IF NOT EXISTS cmc integer DEFAULT 0;"
-      ];
-      
-      for (const sql of migrations) {
-        try {
-          // Use a simple upsert approach to test column existence
-          console.log(`Testing column: ${sql.split(' ')[5]}`);
-        } catch (testError) {
-          console.log(`Column ${sql.split(' ')[5]} needs to be added`);
-        }
-      }
-    }
-
-    // Verify the schema by checking column existence
-    console.log("🔍 Verifying schema...");
-    
-    // Test with a simple insert to validate all columns exist
-    const testRow = {
-      name: 'test_schema_validation',
-      color_identity: ['R'],
-      mana_cost: '{2}{R}',
-      oracle_text: 'Test card text',
-      type_line: 'Sorcery',
-      cmc: 3,
-      updated_at: new Date().toISOString()
-    };
-    
-    const { error: testError } = await admin
-      .from('scryfall_cache')
-      .upsert([testRow], { onConflict: 'name' });
-    
-    if (testError) {
-      return NextResponse.json({ 
-        ok: false, 
-        error: `Schema validation failed: ${testError.message}`,
-        suggestion: "Some columns may be missing from scryfall_cache table"
+      console.error("❌ Migration RPC failed:", error);
+      return NextResponse.json({
+        ok: false,
+        error: "migration_rpc_failed",
+        message: error.message || "Schema migration failed"
       }, { status: 500 });
     }
-    
-    // Clean up test row
-    await admin.from('scryfall_cache').delete().eq('name', 'test_schema_validation');
+
+    const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (!result || !result.success) {
+      console.error("❌ Migration returned failure:", result?.message);
+      return NextResponse.json({
+        ok: false,
+        error: "migration_failed",
+        message: result?.message || "Schema migration failed"
+      }, { status: 500 });
+    }
+
+    console.log(`✅ ${result.message}`);
+
+    // Log admin action to audit table
+    try {
+      await admin.from('admin_audit').insert({
+        actor_id: user.id,
+        action: 'migrate_cache_schema',
+        target: 'scryfall_cache',
+        details: {
+          columns_added: result.columns_added || [],
+          message: result.message
+        }
+      });
+    } catch (auditError) {
+      console.error('Failed to log admin audit:', auditError);
+      // Don't fail the request if audit logging fails
+    }
+
+    // Log security event
+    try {
+      const { logAdminAction } = await import('@/lib/api/security-events');
+      logAdminAction(user.id, 'migrate_cache_schema', 'scryfall_cache', {
+        columns_added: result.columns_added || []
+      });
+    } catch {}
 
     console.log("✅ Schema migration completed successfully");
     
     return NextResponse.json({ 
       ok: true, 
-      message: "scryfall_cache schema updated successfully",
+      message: result.message || "scryfall_cache schema updated successfully",
+      columns_added: result.columns_added || [],
       columns_available: ["name", "color_identity", "mana_cost", "oracle_text", "type_line", "cmc", "small", "normal", "art_crop", "updated_at"]
     });
 

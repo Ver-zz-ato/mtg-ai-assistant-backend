@@ -13,6 +13,11 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
+/**
+ * ⚠️ SECURITY: This route executes raw SQL via RPC.
+ * Admin access required + MFA recommended for admin accounts.
+ * CSRF protection applied to prevent cross-site attacks.
+ */
 export async function POST(req: NextRequest) {
   const logs: string[] = [];
   const log = (msg: string) => {
@@ -23,6 +28,15 @@ export async function POST(req: NextRequest) {
   };
 
   try {
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     log("Starting VACUUM ANALYZE operation...");
 
     const supabase = await getServerSupabase();
@@ -52,57 +66,66 @@ export async function POST(req: NextRequest) {
 
     if (tableName) {
       log(`Attempting VACUUM ANALYZE on table: ${tableName}...`);
-      log("NOTE: Supabase client may not support VACUUM - this may need to be run manually via SQL editor");
       
-      // Try via RPC if available
+      // Use safe purpose-built RPC (replaces dangerous exec_sql)
       try {
-        const { data, error } = await admin.rpc('exec_sql', {
-          sql: `VACUUM ANALYZE ${tableName};`
+        const { data, error } = await admin.rpc('vacuum_analyze_table', {
+          target_table: tableName
         });
 
         if (error) {
-          log(`WARNING: RPC exec_sql not available or failed: ${error.message}`);
-          log("This operation requires direct SQL access - use Supabase SQL Editor");
+          log(`ERROR: RPC vacuum_analyze_table failed: ${error.message}`);
           return NextResponse.json({
             ok: false,
-            error: "vacuum_requires_sql_editor",
-            message: "VACUUM ANALYZE requires direct SQL access. Please run this manually in Supabase SQL Editor.",
-            sql_command: `VACUUM ANALYZE ${tableName};`,
+            error: "vacuum_failed",
+            message: error.message || "VACUUM ANALYZE failed. Table may not be in whitelist.",
             logs: logs
-          });
+          }, { status: 500 });
         }
 
-        log(`✅ VACUUM ANALYZE completed for ${tableName}`);
+        const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+        if (!result || !result.success) {
+          log(`WARNING: VACUUM ANALYZE returned failure: ${result?.message || 'Unknown error'}`);
+          return NextResponse.json({
+            ok: false,
+            error: "vacuum_rejected",
+            message: result?.message || "Table is not in allowed whitelist",
+            logs: logs
+          }, { status: 400 });
+        }
+
+        log(`✅ VACUUM ANALYZE completed for ${tableName}: ${result.message}`);
       } catch (err: any) {
         log(`ERROR: ${err.message}`);
         return NextResponse.json({
           ok: false,
-          error: "vacuum_not_supported",
-          message: "VACUUM ANALYZE requires direct SQL access. Please run this manually in Supabase SQL Editor.",
-          sql_command: `VACUUM ANALYZE ${tableName};`,
+          error: "vacuum_exception",
+          message: err.message || "VACUUM ANALYZE failed with exception",
           logs: logs
-        });
+        }, { status: 500 });
       }
     } else {
-      log("Attempting VACUUM ANALYZE on all tables...");
-      log("NOTE: This requires direct SQL access - instructions provided");
+      log("VACUUM ANALYZE on all tables not supported - specify table_name parameter");
       
       return NextResponse.json({
         ok: false,
-        error: "vacuum_requires_sql_editor",
-        message: "VACUUM ANALYZE requires direct SQL access. Please run this manually in Supabase SQL Editor.",
-        sql_command: "VACUUM ANALYZE;",
-        recommended_tables: [
+        error: "table_name_required",
+        message: "Please specify a table_name parameter. VACUUM ANALYZE can only be run on individual whitelisted tables for security.",
+        allowed_tables: [
           'scryfall_cache',
           'price_snapshots',
           'price_cache',
           'chat_messages',
           'decks',
-          'deck_cards'
+          'deck_cards',
+          'profiles',
+          'profiles_public',
+          'api_usage_rate_limits',
+          'guest_sessions',
+          'admin_audit'
         ],
-        instructions: "Run VACUUM ANALYZE on individual tables via Supabase SQL Editor for better control",
         logs: logs
-      });
+      }, { status: 400 });
     }
 
     // Log to admin_audit

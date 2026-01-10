@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { sanitizeHTML } from '@/lib/sanitize';
 
 interface ChangelogEntry {
   version: string;
@@ -152,17 +153,19 @@ export default function ChangelogPage() {
                       const listLines = lines.slice(listStartIndex).filter(line => line.trim().match(/^[-*]\s+/));
                       
                       if (beforeList) {
+                        const sanitized = sanitizeHTML(beforeList.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
                         elements.push(
-                          <p key={`header-${sIndex}`} className={`mb-2 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: beforeList.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                          <p key={`header-${sIndex}`} className={`mb-2 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: sanitized }} />
                         );
                       }
                       
                       if (listLines.length > 0) {
                         elements.push(
                           <ul key={`list-${sIndex}`} className="list-disc list-inside space-y-1 ml-4 mb-0">
-                            {listLines.map((item, itemIndex) => (
-                              <li key={itemIndex} dangerouslySetInnerHTML={{ __html: item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                            ))}
+                            {listLines.map((item, itemIndex) => {
+                              const sanitized = sanitizeHTML(item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
+                              return <li key={itemIndex} dangerouslySetInnerHTML={{ __html: sanitized }} />;
+                            })}
                           </ul>
                         );
                       }
@@ -171,15 +174,17 @@ export default function ChangelogPage() {
                       const listLines = lines.filter(line => line.trim().match(/^[-*]\s+/));
                       elements.push(
                         <ul key={`list-${sIndex}`} className="list-disc list-inside space-y-1 ml-4 mb-0">
-                          {listLines.map((item, itemIndex) => (
-                            <li key={itemIndex} dangerouslySetInnerHTML={{ __html: item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                          ))}
+                          {listLines.map((item, itemIndex) => {
+                            const sanitized = sanitizeHTML(item.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
+                            return <li key={itemIndex} dangerouslySetInnerHTML={{ __html: sanitized }} />;
+                          })}
                         </ul>
                       );
                     } else {
                       // Regular paragraph - check if it's a header
+                      const sanitized = sanitizeHTML(trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
                       elements.push(
-                        <p key={`para-${sIndex}`} className={`mb-0 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                        <p key={`para-${sIndex}`} className={`mb-0 ${isHeader ? 'font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: sanitized }} />
                       );
                     }
                   });

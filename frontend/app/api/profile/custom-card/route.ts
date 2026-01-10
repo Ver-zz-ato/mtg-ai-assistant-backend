@@ -21,6 +21,15 @@ export async function GET(req: NextRequest){
 
 export async function POST(req: NextRequest){
   try{
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthenticated' }, { status:401 });
@@ -59,6 +68,15 @@ export async function POST(req: NextRequest){
 
 export async function PUT(req: NextRequest){
   try{
+    // CSRF protection: Validate Origin header
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthenticated' }, { status:401 });

@@ -22,13 +22,16 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   
+  // Initialize response (will be modified for guest tokens)
+  let response: NextResponse | null = null;
+
   // Handle API routes (Supabase auth + maintenance mode)
   if (path.startsWith('/api/')) {
-    const res = NextResponse.next();
+    response = NextResponse.next();
 
     // Attach/refresh Supabase cookies; never block on error
     try {
-      const supabase = createMiddlewareClient({ req, res });
+      const supabase = createMiddlewareClient({ req, response });
       await supabase.auth.getSession();
     } catch (e) {
       console.error('Supabase middleware getSession error:', e);
@@ -54,36 +57,72 @@ export async function middleware(req: NextRequest) {
         } catch { /* allow on failure */ }
       }
     }
-
-    return res;
-  }
-  
-  // Handle page routes (first visit tracking without cookie consent)
-  const visitorId = req.cookies.get('visitor_id')?.value;
-  if (!visitorId) {
-    const newVisitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const response = NextResponse.next();
-    response.cookies.set('visitor_id', newVisitorId, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 365,
-      httpOnly: false,
-      sameSite: 'lax',
-    });
+  } else {
+    // Handle page routes (first visit tracking)
+    response = NextResponse.next();
+    const visitorId = req.cookies.get('visitor_id')?.value;
     
-    // Track via PostHog SDK (no cookie consent needed for server-side tracking)
-    try {
-      await captureServer('user_first_visit', {
-        landing_page: path,
-        referrer: req.headers.get('referer') || undefined,
-        user_agent: req.headers.get('user-agent')?.slice(0, 200) || undefined,
-        timestamp: new Date().toISOString(),
-      }, newVisitorId);
-    } catch (error) {
-      console.error('Failed to track first visit:', error);
+    if (!visitorId) {
+      const newVisitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      response.cookies.set('visitor_id', newVisitorId, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365,
+        httpOnly: false,
+        sameSite: 'lax',
+      });
+      
+      // Track via PostHog SDK (no cookie consent needed for server-side tracking)
+      try {
+        await captureServer('user_first_visit', {
+          landing_page: path,
+          referrer: req.headers.get('referer') || undefined,
+          user_agent: req.headers.get('user-agent')?.slice(0, 200) || undefined,
+          timestamp: new Date().toISOString(),
+        }, newVisitorId);
+      } catch (error) {
+        console.error('Failed to track first visit:', error);
+      }
     }
-    
-    return response;
+  }
+
+  // Generate guest token for unauthenticated users (for both API and page routes)
+  // Check if user has auth cookie - if not, they're a guest
+  const hasAuthCookie = req.cookies.getAll().some(cookie => 
+    cookie.name.startsWith('sb-') && cookie.name.includes('auth-token')
+  );
+  
+  if (!hasAuthCookie && response) {
+    const guestToken = req.cookies.get('guest_session_token')?.value;
+    if (!guestToken) {
+      // Generate new guest token
+      try {
+        const { generateGuestToken } = await import('./lib/guest-tracking');
+        // Extract IP and User-Agent directly from NextRequest headers
+        const forwarded = req.headers.get('x-forwarded-for');
+        const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+        const userAgent = req.headers.get('user-agent') || 'unknown';
+        const newToken = await generateGuestToken(ip, userAgent);
+        
+        response.cookies.set('guest_session_token', newToken, {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+          httpOnly: true, // Prevent client-side access
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        });
+      } catch (error) {
+        // Fail silently - guest token generation is best-effort
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[Middleware] Failed to generate guest token:', error);
+        }
+      }
+    }
+  } else if (response && hasAuthCookie) {
+    // Authenticated user - remove guest token if present
+    if (req.cookies.get('guest_session_token')) {
+      response.cookies.delete('guest_session_token');
+    }
   }
   
-  return NextResponse.next();
+  return response || NextResponse.next();
 }

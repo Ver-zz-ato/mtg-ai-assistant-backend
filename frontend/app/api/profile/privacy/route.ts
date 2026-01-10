@@ -27,6 +27,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // CSRF protection: Validate Origin header
+    const req = request as any as import('next/server').NextRequest;
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     

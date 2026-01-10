@@ -220,14 +220,7 @@ async function callOpenAI(userText: string, sys?: string) {
 }
 
 // Guest mode constants
-const GUEST_MESSAGE_LIMIT = 50;
 const FREE_USER_DAILY_LIMIT = 50;
-
-// Check if guest user has exceeded message limit
-async function checkGuestMessageLimit(guestMessageCount: number): Promise<{ allowed: boolean; count: number }> {
-  const allowed = guestMessageCount < GUEST_MESSAGE_LIMIT;
-  return { allowed, count: guestMessageCount };
-}
 
 // Check if free user has exceeded daily limit
 async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allowed: boolean; count: number }> {
@@ -266,12 +259,36 @@ export async function POST(req: NextRequest) {
     const raw = await req.json().catch(() => ({}));
     
     if (!user) {
-      // Allow guest users with message limits
-      const guestMessageCount = parseInt(raw?.guestMessageCount || '0', 10);
-      const guestCheck = await checkGuestMessageLimit(guestMessageCount);
+      // Allow guest users with server-side enforced message limits
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const guestToken = cookieStore.get('guest_session_token')?.value || null;
+      
+      // Extract IP and User-Agent for token verification/tracking
+      const forwarded = req.headers.get('x-forwarded-for');
+      const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
+      
+      // If no token, deny (middleware should have created one, but fail closed)
+      if (!guestToken) {
+        status = 401;
+        return err(`Please sign in to continue chatting. Guest access requires a session token.`, "guest_token_missing", 401);
+      }
+
+      // Verify token and check limit server-side
+      const { verifyGuestToken } = await import('@/lib/guest-tracking');
+      const tokenData = await verifyGuestToken(guestToken);
+      
+      if (!tokenData) {
+        status = 401;
+        return err(`Please sign in to continue chatting. Invalid or expired guest session.`, "guest_token_invalid", 401);
+      }
+
+      const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
+      const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
       if (!guestCheck.allowed) {
         status = 401;
-        return err(`Please sign in to continue chatting. You've reached the 50 message limit for guest users.`, "guest_limit_reached", 401);
+        return err(`Please sign in to continue chatting. You've reached the 10 message limit for guest users.`, "guest_limit_reached", 401);
       }
       isGuest = true;
       userId = null;
@@ -279,7 +296,7 @@ export async function POST(req: NextRequest) {
       userId = user.id;
     }
 
-    // Check Pro status
+    // Check Pro status (only for authenticated users)
     let isPro = false;
     if (userId) {
       const { data: profile } = await supabase
@@ -290,15 +307,31 @@ export async function POST(req: NextRequest) {
       isPro = profile?.is_pro || false;
     }
 
-    // Only check rate limits for authenticated users
+    // Durable rate limiting (database-backed, persists across restarts)
+    // This complements in-memory rate limiting for reliability
     if (!isGuest && userId) {
+      // Authenticated users: durable rate limit check
+      const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+      const { hashString } = await import('@/lib/guest-tracking');
+      const userKeyHash = `user:${await hashString(userId)}`;
+      
+      // Rate limits: Free users: 50/day, Pro: 500/day
+      const dailyLimit = isPro ? 500 : 50;
+      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat', dailyLimit, 1);
+      
+      if (!durableLimit.allowed) {
+        status = 429;
+        return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`, "durable_rate_limited", status);
+      }
+      
+      // In-memory rate limiting (complements durable limit - handles short-term bursts)
       const rl = await checkRateLimit(supabase as any, userId);
       if (!rl.ok) {
         status = 429;
         return err(rl.error || "rate limited", "rate_limited", status);
       }
       
-      // Check daily limits for free users
+      // Legacy daily limit check (kept for safety, but durable limit above is primary)
       if (!isPro) {
         const freeCheck = await checkFreeUserLimit(supabase, userId);
         if (!freeCheck.allowed) {
@@ -307,6 +340,8 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // Guest users: rate limiting handled by checkGuestMessageLimit above (guest_sessions table)
+    // No additional durable rate limit needed - guest tracking already enforces 10/day server-side
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
     const normalized = { text: inputText, threadId: raw?.threadId };
     const parse = ChatPostSchema.safeParse(normalized);

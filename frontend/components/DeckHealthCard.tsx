@@ -1,14 +1,10 @@
 "use client";
 import React from "react";
+import { sanitizeHTML } from "@/lib/sanitize";
 
 function sanitizeLLM(input: string): string {
-  // Strip all tags; allow only basic line breaks.
-  try {
-    const withoutTags = input.replace(/<[^>]*>/g, '');
-    return withoutTags;
-  } catch {
-    return input;
-  }
+  // Use DOMPurify for proper HTML sanitization (allows safe HTML, removes scripts)
+  return sanitizeHTML(input);
 }
 
 type Bands = { curve: number; ramp: number; draw: number; removal: number; mana: number };
@@ -67,13 +63,13 @@ export default function DeckHealthCard({
           <div>
             <div className="font-semibold text-sm mb-1">What’s good</div>
             <ul className="list-disc pl-5 text-sm space-y-1">
-              {(result.whatsGood ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: t }} />)}
+              {(result.whatsGood ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: sanitizeHTML(t) }} />)}
             </ul>
           </div>
           <div>
             <div className="font-semibold text-sm mb-1">Quick fixes</div>
             <ul className="list-disc pl-5 text-sm space-y-1">
-              {(result.quickFixes ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: t }} />)}
+              {(result.quickFixes ?? []).map((t, i) => <li key={i} dangerouslySetInnerHTML={{ __html: sanitizeHTML(t) }} />)}
             </ul>
           </div>
         </div>

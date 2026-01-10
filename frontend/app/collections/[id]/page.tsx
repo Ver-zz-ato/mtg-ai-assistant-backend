@@ -20,7 +20,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         <CollectionHeaderControls collectionId={id} />
       </header>
       <CollectionEditor collectionId={id} mode="page" />
-      <script dangerouslySetInnerHTML={{ __html: "try{window.__phCapture&&window.__phCapture('collections.editor_open',{id:'" + id + "'})}catch(e){}" }} />
+      {/* PostHog tracking handled client-side in CollectionEditor component */}
     </main>
   );
 }
