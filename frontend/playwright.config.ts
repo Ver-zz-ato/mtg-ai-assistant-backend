@@ -25,6 +25,8 @@ export default defineConfig({
     video: 'retain-on-failure',
     // Use domcontentloaded for faster page loads (doesn't wait for all resources)
     actionTimeout: 15_000, // 15 second timeout for actions
+    // Auto-accept cookie consent for all tests by setting localStorage
+    storageState: undefined, // Will be set per-project
   },
   webServer: {
     command: 'npm run dev',

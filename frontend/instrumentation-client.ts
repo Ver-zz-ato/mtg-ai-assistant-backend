@@ -29,6 +29,40 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Filter out malicious external script errors (not from our codebase)
+  // These are typically injected by browser extensions, adware, or malware
+  beforeSend(event, hint) {
+    // Check for known malicious domains in error messages
+    const errorMessage = event.exception?.values?.[0]?.value || '';
+    const originalException = hint.originalException as Error | undefined;
+    const errorUrl = originalException?.message || '';
+    
+    // Ignore errors from known malicious domains (browser extension/adware injection)
+    const maliciousDomains = [
+      'sevendata.fun',
+      'secdomcheck.online',
+    ];
+    
+    const fullErrorText = (errorMessage + ' ' + errorUrl).toLowerCase();
+    if (maliciousDomains.some(domain => fullErrorText.includes(domain.toLowerCase()))) {
+      // These are not our errors - ignore them to reduce noise in Sentry
+      return null;
+    }
+    
+    // Also check breadcrumbs for malicious domain requests
+    if (event.breadcrumbs) {
+      const hasMaliciousRequest = event.breadcrumbs.some(breadcrumb => {
+        const url = breadcrumb.data?.url || '';
+        return maliciousDomains.some(domain => url.toLowerCase().includes(domain.toLowerCase()));
+      });
+      if (hasMaliciousRequest) {
+        return null;
+      }
+    }
+    
+    return event;
+  },
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

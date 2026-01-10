@@ -80,6 +80,28 @@ setup('authenticate', async ({ page, request }) => {
   // Navigate to the app first to establish the domain context
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   
+  // Accept cookie consent to avoid modal blocking interactions
+  // Set both new and legacy consent keys for compatibility
+  await page.evaluate(() => {
+    localStorage.setItem('manatap_cookie_consent', 'accepted');
+    localStorage.setItem('analytics:consent', 'granted');
+    // Dispatch event for existing listeners
+    window.dispatchEvent(new Event('analytics:consent-granted'));
+  });
+  
+  // Try to find and click Accept button if modal is visible
+  try {
+    const acceptButton = page.getByRole('button', { name: /accept.*all|accept/i }).or(
+      page.locator('button:has-text("Accept"), button:has-text("Accept all")')
+    ).first();
+    if (await acceptButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await acceptButton.click();
+      await page.waitForTimeout(500);
+    }
+  } catch {
+    // If modal handling fails, continue anyway - localStorage should prevent it from showing again
+  }
+  
   // Build the cookie value - Supabase expects a JSON string
   const cookieValue = JSON.stringify({
     access_token: accessToken,
@@ -101,7 +123,45 @@ setup('authenticate', async ({ page, request }) => {
   // Wait a moment for cookie to be set, then verify
   await page.waitForTimeout(500);
 
-  // Save authenticated state to file
+  // Ensure cookie consent is accepted in saved state (set both keys for compatibility)
+  await page.evaluate(() => {
+    localStorage.setItem('manatap_cookie_consent', 'accepted');
+    localStorage.setItem('analytics:consent', 'granted');
+  });
+
+  // Create a test deck if user has no decks (for tests that need decks)
+  try {
+    const decksResponse = await request.get(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/decks/my`, {
+      headers: {
+        'Cookie': `${cookieName}=${encodeURIComponent(JSON.stringify({ access_token: accessToken, refresh_token: refreshToken, expires_at: authData.expires_at, expires_in: authData.expires_in, token_type: authData.token_type, user: authData.user }))}`,
+      },
+    });
+    const decksData = await decksResponse.json().catch(() => ({ decks: [] }));
+    const decks = Array.isArray(decksData?.decks) ? decksData.decks : [];
+    
+    if (decks.length === 0) {
+      // Create a test deck
+      const createResponse = await request.post(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/decks/create`, {
+        headers: {
+          'Cookie': `${cookieName}=${encodeURIComponent(JSON.stringify({ access_token: accessToken, refresh_token: refreshToken, expires_at: authData.expires_at, expires_in: authData.expires_in, token_type: authData.token_type, user: authData.user }))}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
+          title: 'Test Deck',
+          format: 'commander',
+          deck_text: '1 Sol Ring\n1 Lightning Bolt\n1 Counterspell\n1 Rhystic Study',
+        },
+      });
+      if (createResponse.ok()) {
+        console.log('✅ Created test deck for testing');
+      }
+    }
+  } catch (e) {
+    // If deck creation fails, continue anyway - tests will skip if no decks exist
+    console.log('⚠️  Could not create test deck (tests may skip)', e);
+  }
+
+  // Save authenticated state to file (includes localStorage)
   await page.context().storageState({ path: authFile });
   console.log('✅ Authentication setup complete. Session saved to', authFile);
 });

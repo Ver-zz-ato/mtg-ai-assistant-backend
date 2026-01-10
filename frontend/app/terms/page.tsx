@@ -1,8 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 
-// Cache for 1 hour (static legal content)
-export const revalidate = 3600;
+// Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE errors with Date formatting
+export const dynamic = 'force-dynamic';
 
 function formatToday(): string {
   try {
