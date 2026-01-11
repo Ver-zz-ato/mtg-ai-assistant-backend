@@ -6,7 +6,10 @@ import type { SfCard } from "@/lib/deck/inference";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import { logger } from "@/lib/logger";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// Model configuration: Use mini for simple queries, gpt-5 for complex analysis
+const MODEL_MINI = "gpt-4o-mini"; // For simple queries: card parsing, legality checks, fast previews
+const MODEL_MID = process.env.OPENAI_MODEL || "gpt-5"; // For complex analysis: deck analysis, synergy, "why this works"
+const MODEL = MODEL_MINI; // Default fallback (most chat queries are simple)
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -127,14 +130,15 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}): string {
   return text;
 }
 
-async function callOpenAI(userText: string, sys?: string) {
+async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = false) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return { fallback: true, text: `Echo: ${userText}` };
   }
 
-  const baseModel = (process.env.OPENAI_MODEL || MODEL || "gpt-4o-mini").trim();
-  const fallbackModel = (process.env.OPENAI_FALLBACK_MODEL || "gpt-4o-mini").trim();
+  // Use mid-tier model (gpt-5) for complex analysis, mini (gpt-4o-mini) for simple queries
+  const baseModel = useMidTier ? MODEL_MID.trim() : MODEL_MINI;
+  const fallbackModel = MODEL_MINI; // Always fallback to mini on error
 
   async function invoke(model: string, tokens: number) {
     const messages: any[] = [];
@@ -889,10 +893,23 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     } catch {}
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_research', { ms: Date.now()-stageT0 }); } catch {}
 
+    // Detect if this is a complex analysis query (use gpt-5) vs simple query (use gpt-4o-mini)
+    const queryLower = (text || '').toLowerCase();
+    const isComplexAnalysis = 
+      // Deck analysis indicators
+      inferredContext !== null || 
+      pastedDecklistContext !== '' ||
+      // Keywords indicating complex analysis
+      /\b(synergy|how.*work|why.*work|explain|analyze|analysis|strategy|archetype|combo|interaction|engine)\b/i.test(queryLower) ||
+      // Questions about deck mechanics
+      /\b(what.*wrong|improve|suggest|recommend|swap|better|upgrade|optimize)\b/i.test(queryLower) ||
+      // Questions requiring deep understanding
+      /\b(why|how does|what makes|how would|why would|what.*best|which.*better)\b/i.test(queryLower);
+    
     const stage1T = Date.now();
     let out1: any;
     try {
-      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''));
+      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -1021,11 +1038,13 @@ Return the corrected answer with concise, user-facing tone.`;
         it = approx; ot = Math.ceil((outText?.length || 0) / 4);
       }
       const { costUSD } = await import("@/lib/ai/pricing");
-      const cost = costUSD(MODEL, it, ot);
+      // Use the model that was actually used (gpt-5 for complex analysis, gpt-4o-mini for simple queries)
+      const actualModel = isComplexAnalysis ? MODEL_MID : MODEL_MINI;
+      const cost = costUSD(actualModel, it, ot);
       try {
-        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost, persona_id, teaching: teachingFlag });
+        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: actualModel, input_tokens: it, output_tokens: ot, cost_usd: cost, persona_id, teaching: teachingFlag });
       } catch {
-        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: MODEL, input_tokens: it, output_tokens: ot, cost_usd: cost });
+        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: actualModel, input_tokens: it, output_tokens: ot, cost_usd: cost });
       }
     } catch {}
 

@@ -1,0 +1,38 @@
+{
+  "testCases": [
+    {
+      "id": "pdf-test-001",
+      "title": "Food Chain Infinite Mana",
+      "format": "commander",
+      "commander": "General Tazri",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Food Chain\n1 Misthollow Griffin\n1 Eternal Scourge\n1 Squee, the Immortal\n1 Kalastria Healer\n1 Halimar Excavator\n1 Demonic Tutor\n1 Enlightened Tutor\n1 Worldly Tutor\n1 Tainted Pact\n1 Sol Ring\n1 Arcane Signet\n1 Chromatic Lantern\n1 Birds of Paradise\n1 Elvish Spirit Guide\n1 Rhystic Study\n1 Sylvan Library\n1 Pact of Negation\n1 Fierce Guardianship\n1 Finale of Devastation\n1 Hagra Diabolist\n1 Mana Drain\n1 Command Tower\n1 Mana Confluence\n1 Plains\n1 Island\n1 Swamp\n1 Mountain\n1 Forest",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must mention General Tazri",
+        "must identify combo win condition"
+      ],
+      "focus": "Tests recognition of an infinite mana combo using Food Chain with creatures cast from exile, and checks if the AI identifies that the commander can be recast infinitely to trigger ally abilities for a win. abilities for a win."
+    },
+    {
+      "id": "pdf-test-002",
+      "title": "Thassa's Oracle Consultation",
+      "format": "commander",
+      "commander": "Tymna the",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Thassa's Oracle\n1 Demonic Consultation\n1 Tainted Pact\n1 Jace, Wielder of Mysteries\n1 Gitaxian Probe\n1 Brainstorm\n1 Swan Song\n1 Force of Will\n1 Force of Negation\n1 Vampiric Tutor\n1 Mox Diamond\n1 Ad Nauseam\n1 Sol Ring\n1 Arcane Signet\n1 Mana Crypt\n1 Sensei's Divining Top\n1 Mystical Tutor\n1 Enlightened Tutor\n1 Snapcaster Mage\n1 Laboratory Maniac\n1 Polluted Delta\n1 Tropical Island\n1 Savannah\n1 Underground Sea\n1 Tundra",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must mention Tymna the",
+        "must identify combo win condition",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "Tests whether the AI can identify a game-winning combo (Thassa's Oracle + Consultation/ Tainted Pact) in a four-color cEDH deck and correctly interpret the deck's primary win condition."
+    }
+  ]
+}

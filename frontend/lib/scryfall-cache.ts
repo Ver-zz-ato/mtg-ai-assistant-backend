@@ -16,8 +16,8 @@ function norm(name: string): string {
 }
 
 /**
- * Fetch card images from internal cache database
- * Much faster and doesn't spam Scryfall API
+ * Fetch card images from internal cache database first, then fallback to Scryfall API
+ * Checks cache first for performance, falls back to Scryfall for cache misses
  */
 export async function getImagesForNames(names: string[]): Promise<Map<string, ImageInfo>> {
   const out = new Map<string, ImageInfo>();
@@ -42,6 +42,7 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
   }
 
   // Fetch misses from database in batches of 100
+  const dbMissesNorm: string[] = [];
   for (let i = 0; i < missesNorm.length; i += 100) {
     const batchNorm = missesNorm.slice(i, i + 100);
     if (batchNorm.length === 0) continue;
@@ -55,19 +56,77 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
         body: JSON.stringify({ names: batchOrigNames }),
       });
 
-      if (!res.ok) continue;
+      if (res.ok) {
+        const { ok, images } = await res.json();
+        if (ok && images) {
+          // Store results from database in both caches
+          for (const [normalizedName, info] of Object.entries(images)) {
+            const imageInfo = info as ImageInfo;
+            if (imageInfo.small || imageInfo.normal || imageInfo.art_crop) {
+              memCache.set(normalizedName, imageInfo);
+              out.set(normalizedName, imageInfo);
+            }
+          }
+        }
+      }
 
-      const { ok, images } = await res.json();
-      if (!ok || !images) continue;
-
-      // Store results in both caches
-      for (const [normalizedName, info] of Object.entries(images)) {
-        const imageInfo = info as ImageInfo;
-        memCache.set(normalizedName, imageInfo);
-        out.set(normalizedName, imageInfo);
+      // Track which cards from this batch weren't found in database (or had no images)
+      for (const n of batchNorm) {
+        if (!out.has(n)) {
+          dbMissesNorm.push(n);
+        }
       }
     } catch (err) {
-      console.warn("[getImagesForNames] Batch fetch failed:", err);
+      console.warn("[getImagesForNames] Database batch fetch failed:", err);
+      // On error, mark all as misses for Scryfall fallback
+      dbMissesNorm.push(...batchNorm);
+    }
+  }
+
+  // Fallback to Scryfall API for cards not found in database cache
+  if (dbMissesNorm.length > 0) {
+    try {
+      // Batch fetch from Scryfall in chunks of 75 (Scryfall limit)
+      for (let i = 0; i < dbMissesNorm.length; i += 75) {
+        const batchNorm = dbMissesNorm.slice(i, i + 75);
+        if (batchNorm.length === 0) continue;
+        
+        const identifiers = batchNorm.map((n) => ({ name: origForNorm.get(n)! }));
+        
+        try {
+          const r = await fetch("https://api.scryfall.com/cards/collection", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ identifiers }),
+            cache: "no-store",
+          });
+
+          if (r.ok) {
+            const j: any = await r.json().catch(() => ({}));
+            const data = Array.isArray(j?.data) ? j.data : [];
+            
+            for (const card of data) {
+              const key = norm(card?.name || "");
+              if (!key || !origForNorm.has(key)) continue;
+              
+              const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
+              const info: ImageInfo = {
+                small: img.small,
+                normal: img.normal,
+                art_crop: img.art_crop,
+              };
+              
+              // Store in both caches
+              memCache.set(key, info);
+              out.set(key, info);
+            }
+          }
+        } catch (err) {
+          console.warn("[getImagesForNames] Scryfall batch fetch failed:", err);
+        }
+      }
+    } catch (err) {
+      console.warn("[getImagesForNames] Scryfall fallback failed:", err);
     }
   }
 

@@ -1,0 +1,63 @@
+• Food Chain Infinite Mana (5-Color) – Format: Commander. Deck (Commander: General Tazri):
+• Food Chain
+• Misthollow Griffin
+• Eternal Scourge
+• Squee, the Immortal
+• Kalastria Healer
+• Halimar Excavator
+• Demonic Tutor
+• Enlightened Tutor
+• Worldly Tutor
+• Tainted Pact
+• Sol Ring
+• Arcane Signet
+• Chromatic Lantern
+• Birds of Paradise
+• Elvish Spirit Guide
+• Rhystic Study
+• Sylvan Library
+• Pact of Negation
+• Fierce Guardianship
+• Finale of Devastation
+• Hagra Diabolist
+• Mana Drain
+• Command Tower
+• Mana Confluence
+• Plains
+• Island
+• Swamp
+• Mountain
+• Forest
+Focus: Tests recognition of an infinite mana combo using Food Chain with creatures cast from
+exile, and checks if the AI identifies that the commander can be recast infinitely to trigger ally
+abilities for a win.
+• Thassa's Oracle Consultation (4c Combo) – Format: Commander. Deck (Commander: Tymna the
+Weaver & Thrasios, Triton Hero):
+• Thassa's Oracle
+1
+• Demonic Consultation
+• Tainted Pact
+• Jace, Wielder of Mysteries
+• Gitaxian Probe
+• Brainstorm
+• Swan Song
+• Force of Will
+• Force of Negation
+• Vampiric Tutor
+• Mox Diamond
+• Ad Nauseam
+• Sol Ring
+• Arcane Signet
+• Mana Crypt
+• Sensei's Divining Top
+• Mystical Tutor
+• Enlightened Tutor
+• Snapcaster Mage
+• Laboratory Maniac
+• Polluted Delta
+• Tropical Island
+• Savannah
+• Underground Sea
+• Tundra
+Focus: Tests whether the AI can identify a game-winning combo (Thassa's Oracle + Consultation/
+Tainted Pact) in a four-color cEDH deck and correctly interpret the deck's primary win condition.

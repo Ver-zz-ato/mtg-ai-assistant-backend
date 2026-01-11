@@ -1,0 +1,913 @@
+Magic: The Gathering AI Deck Analysis Test
+Cases
+Commander Format Tests
+Combo Archetype
+• Food Chain Infinite Mana (5-Color) – Format: Commander. Deck (Commander: General Tazri):
+• Food Chain
+• Misthollow Griffin
+• Eternal Scourge
+• Squee, the Immortal
+• Kalastria Healer
+• Halimar Excavator
+• Demonic Tutor
+• Enlightened Tutor
+• Worldly Tutor
+• Tainted Pact
+• Sol Ring
+• Arcane Signet
+• Chromatic Lantern
+• Birds of Paradise
+• Elvish Spirit Guide
+• Rhystic Study
+• Sylvan Library
+• Pact of Negation
+• Fierce Guardianship
+• Finale of Devastation
+• Hagra Diabolist
+• Mana Drain
+• Command Tower
+• Mana Confluence
+• Plains
+• Island
+• Swamp
+• Mountain
+• Forest
+Focus: Tests recognition of an infinite mana combo using Food Chain with creatures cast from
+exile, and checks if the AI identifies that the commander can be recast infinitely to trigger ally
+abilities for a win.
+• Thassa's Oracle Consultation (4c Combo) – Format: Commander. Deck (Commander: Tymna the
+Weaver & Thrasios, Triton Hero):
+• Thassa's Oracle
+1
+• Demonic Consultation
+• Tainted Pact
+• Jace, Wielder of Mysteries
+• Gitaxian Probe
+• Brainstorm
+• Swan Song
+• Force of Will
+• Force of Negation
+• Vampiric Tutor
+• Mox Diamond
+• Ad Nauseam
+• Sol Ring
+• Arcane Signet
+• Mana Crypt
+• Sensei's Divining Top
+• Mystical Tutor
+• Enlightened Tutor
+• Snapcaster Mage
+• Laboratory Maniac
+• Polluted Delta
+• Tropical Island
+• Savannah
+• Underground Sea
+• Tundra
+Focus: Tests whether the AI can identify a game-winning combo (Thassa's Oracle + Consultation/
+Tainted Pact) in a four-color cEDH deck and correctly interpret the deck's primary win condition.
+• Kiki-Jiki Twin Combo (Temur) – Format: Commander. Deck (Commander: Riku of Two Reflections):
+• Kiki-Jiki, Mirror Breaker
+• Zealous Conscripts
+• Splinter Twin
+• Pestermite
+• Deceiver Exarch
+• Village Bell-Ringer
+• Tooth and Nail
+• Green Sun's Zenith
+• Panharmonicon
+• Guardian Project
+• Lightning Bolt
+• Counterspell
+• Mystical Tutor
+• Prophetic Bolt
+• Sol Ring
+• Izzet Signet
+• Simic Signet
+• Gruul Signet
+• Breeding Pool
+• Stomping Ground
+• Steam Vents
+2
+• Command Tower
+Focus: A creature combo deck that uses Kiki-Jiki with various creatures (Conscripts, Pestermite,
+etc.) to create infinite creature tokens. It checks if the AI recognizes the infinite Kiki-Jiki combo
+and doesn't misclassify this as a midrange deck due to the mix of creature cards.
+• Exquisite Blood / Sanguine Bond (Orzhov) – Format: Commander. Deck (Commander: Liesa,
+Shroud of Dusk):
+• Exquisite Blood
+• Sanguine Bond
+• Vizkopa Guildmage
+• Defiant Bloodlord
+• Twilight Prophet
+• Serra Ascendant
+• Greed
+• Erebos, God of the Dead
+• Demonic Tutor
+• Enlightened Tutor
+• Test of Endurance
+• Children of Korlis
+• Sangromancer
+• Sol Ring
+• Orzhov Signet
+• Pristine Talisman
+• Command Tower
+• Godless Shrine
+• Vault of Champions
+• Swamp
+• Plains
+Focus: Tests the AI's recognition of a two-card infinite life-drain combo (Exquisite Blood +
+Sanguine Bond). The deck's focus on lifegain and drain should be identified, ensuring the AI
+notes the combo win condition instead of treating it as a generic lifegain deck.
+• Godo Helm Combo (Mono-Red) – Format: Commander. Deck (Commander: Godo, Bandit Warlord):
+• Helm of the Host
+• Hammer of Nazahn
+• Brass Squire
+• Magnetic Theft
+• Aurelia's Fury
+• Zealous Conscripts
+• Port Razer
+• Breath of Fury
+• Final Fortune
+• Chance for Glory
+• Godo, Bandit Warlord (in deck for tutor effect)
+• Blood Moon
+• Dockside Extortionist
+• Gamble
+• Seething Song
+3
+• Wheel of Fortune
+• Sol Ring
+• Wayfarer's Bauble
+• Mountain
+• Mountain
+• Mountain
+• Forgotten Cave
+• Reliquary Tower
+Focus: A mono-red combo/Voltron deck that equips Helm of the Host to Godo to generate
+infinite combat phases. It checks if the AI spots the infinite combat step combo and doesn't
+miscategorize the deck as merely equipment-based aggro (even though it has many equipment
+cards).
+• Gitrog Dakmor Combo (Golgari) – Format: Commander. Deck (Commander: The Gitrog Monster):
+• Dakmor Salvage
+• Gitrog Monster (as card engine)
+• Skirge Familiar
+• Kozilek, Butcher of Truth
+• World Shaper
+• Life from the Loam
+• Lotus Petal
+• Mana Bond
+• Tortured Existence
+• Chain of Smog
+• Deathrite Shaman
+• Underrealm Lich
+• Vampiric Tutor
+• Entomb
+• Sol Ring
+• Arcane Signet
+• Golgari Signet
+• Command Tower
+• Overgrown Tomb
+• Bayou
+• Swamp
+• Forest
+Focus: A Graveyard combo deck using The Gitrog Monster. It tests if the AI detects the Dakmor
+Salvage + Gitrog infinite draw combo (discarding Dakmor to draw repeatedly, potentially
+milling the whole deck) and understands the deck's dredge/self-mill win condition, rather than
+seeing it as a generic graveyard value deck.
+• Basalt Monolith Infinite Mana (Simic) – Format: Commander. Deck (Commander: Kinnan, Bonder
+Prodigy):
+• Basalt Monolith
+• Mana Reflection
+• Peregrine Drake
+• Memnarch
+4
+• Walking Ballista
+• Hydroid Krasis
+• Freed from the Real
+• Aphemia, the Cacophony (illegal – off-color for Simic)
+• Leyline of Abundance
+• Bluemarket Lotus (fictional card for test)
+• Training Grounds
+• Crop Rotation
+• Finale of Devastation
+• Mystical Tutor
+• Cyclonic Rift
+• Sol Ring
+• Simic Signet
+• Thrasios, Triton Hero
+• Breeding Pool
+• Tropical Island
+• Yavimaya Coast
+• Island
+• Forest
+Focus: A Simic combo-ramp deck focused on generating infinite mana (Basalt Monolith + Kinnan
+or Mana Reflection). It intentionally contains an off-color card (Aphemia, which has black) to test
+if the AI catches the color identity violation. The main check is whether the AI notes the infinite
+mana outlet (Ballista/Krasis) and flags the illegal inclusion.
+• Doomsday Piles (Grixis) – Format: Commander. Deck (Commander: Kess, Dissident Mage):
+• Doomsday
+• Thassa's Oracle
+• Laboratory Maniac
+• Yawgmoth's Will
+• Gush
+• Ideas Unbound
+• Lion's Eye Diamond
+• Brainstorm
+• Personal Tutor
+• Deep Analysis
+• Gitaxian Probe
+• Pact of Negation
+• Dark Ritual
+• Cabal Ritual
+• Sol Ring
+• Dimir Signet
+• Talisman of Dominance
+• Command Tower
+• Underground Sea
+• Volcanic Island
+• Badlands
+• Island
+• Swamp
+Focus: A Grixis Doomsday deck built to set up a winning five-card pile (usually finishing with
+5
+Thassa's Oracle or Lab Maniac). It tests the AI's ability to recognize the extremely compact
+Doomsday combo and the requirement of precise sequencing, rather than missing the combo
+and treating the deck as a generic spell-heavy control.
+• Underworld Breach Storm (Jeskai) – Format: Commander. Deck (Commander: Elsha of the
+Infinite):
+• Underworld Breach
+• Lion's Eye Diamond
+• Brain Freeze
+• Wheel of Fortune
+• Narset, Parter of Veils
+• Snapcaster Mage
+• Monastery Mentor
+• Jeska's Will
+• Smothering Tithe
+• Enlightened Tutor
+• Past in Flames
+• Windfall
+• Deflecting Swat
+• Force of Negation
+• Sol Ring
+• Arcane Signet
+• Talisman of Progress
+• Volcanic Island
+• Tundra
+• Plateau
+• Command Tower
+• Mystic Monastery
+Focus: A Jeskai storm combo deck that uses Underworld Breach with Brain Freeze and Lion's Eye
+Diamond to loop spells. It checks if the AI spots the Breach storm combo (infinite self-mill and
+recast) and the presence of protective pieces (Narset to stop opponents' draws), rather than just
+calling it a spellslinger deck without noting the combo.
+• Flash Hulk (5c cEDH) – Format: Commander. Deck (Commander: Kenrith, the Returned King):
+• Flash (banned)
+• Protean Hulk
+• Viscera Seer
+• Mikaeus, the Unhallowed
+• Walking Ballista
+• Grand Abolisher
+• Sylvan Safekeeper
+• Thassa's Oracle
+• Eladamri's Call
+• Summoner's Pact
+• Pact of Negation
+• Fierce Guardianship
+• Defense Grid
+• Chain of Vapor
+6
+• Sol Ring
+• Mana Crypt
+• Command Tower
+• City of Brass
+• Mana Confluence
+• Savannah
+• Underground Sea
+• Volcanic Island
+• Plateau
+• Bayou
+Focus: A top-tier cEDH combo list using the infamous Flash + Protean Hulk combo (with Flash
+banned in Commander). It tests the AI's ability to flag the banned card and to identify the fast
+win condition (Protean Hulk fetching Mikaeus + Ballista for infinite damage) amid the deck's
+many protective elements.
+• Birthing Pod Chain (Simic) – Format: Commander. Deck (Commander: Prime Speaker Vannifar):
+• Birthing Pod
+• Prime Speaker Vannifar
+• Pestermite
+• Deceiver Exarch
+• Breaching Hippocamp
+• Karmic Guide
+• Kiki-Jiki, Mirror Breaker
+• Bounding Krasis
+• Intruder Alarm
+• Glen Elendra Archmage
+• Neoform
+• Green Sun's Zenith
+• Lightning Greaves
+• Deadeye Navigator
+• Sol Ring
+• Simic Signet
+• Incubation Druid
+• Command Tower
+• Tropical Island
+• Breeding Pool
+• Forest
+• Island
+Focus: A Simic creature-combo deck that uses Vannifar/Birthing Pod chains to tutor up an
+infinite combo (ending with Kiki-Jiki + a untapper like Pestermite). It checks if the AI follows the
+creature tutor chain to the combo finish, rather than misreading the deck as just value-
+oriented for ETB effects.
+• Mikaeus + Triskelion (Mono-Black) – Format: Commander. Deck (Commander: Sidisi, Undead
+Vizier):
+• Mikaeus, the Unhallowed
+• Triskelion
+7
+• Walking Ballista
+• Buried Alive
+• Entomb
+• Victimize
+• Reanimate
+• Exsanguinate
+• Gray Merchant of Asphodel
+• Crypt Ghast
+• Cabal Coffers
+• Jet Medallion
+• Sol Ring
+• Phyrexian Arena
+• Necropotence
+• Toxic Deluge
+• Command Tower
+• Swamp
+• Swamp
+• Swamp
+• Swamp
+• Swamp
+Focus: A mono-black combo deck designed to pull off the Mikaeus + Triskelion infinite damage
+combo. The AI should catch that Mikaeus (giving undying) plus Triskelion can generate infinite
+damage, and not just describe the deck as generic reanimator or mono-black control. It also
+tests identification of the deck's heavy tutor package (Sidisi, Buried Alive, etc.) supporting the
+combo.
+• Lab Maniac Self-Mill (Dimir) – Format: Commander. Deck (Commander: Phenax, God of Deception):
+• Laboratory Maniac
+• Leveler
+• Thassa's Oracle
+• Traumatize
+• Keening Stone
+• Altar of Dementia
+• Jace, Wielder of Mysteries
+• Mindcrank
+• Consuming Aberration
+• Fraying Sanity
+• Undead Alchemist
+• Mesmeric Orb
+• Mind Grind
+• Pact of Negation
+• Damnation
+• Sol Ring
+• Dimir Signet
+• Command Tower
+• Drowned Catacomb
+• Watery Grave
+• Island
+8
+• Swamp
+Focus: A Dimir self-mill deck that can win by emptying its own library and using Lab Maniac/
+Thassa's Oracle. It tests if the AI notices the plan of self-mill to win (with Leveler instantly exiling
+the library, for example) and the alternate win conditions, instead of treating Phenax as purely a
+defensive mill card or missing the Lab Maniac trigger entirely.
+• Worldgorger Dragon Combo (Rakdos) – Format: Commander. Deck (Commander: Prosper, Tome-
+Bound):
+• Worldgorger Dragon
+• Animate Dead
+• Dance of the Dead
+• Necromancy
+• Dockside Extortionist
+• Zulaport Cutthroat
+• Chaos Warp
+• Faithless Looting
+• Bog Initiate
+• Agadeem's Awakening
+• Command the Dreadhorde
+• Twinflame
+• Phyrexian Altar
+• Sol Ring
+• Rakdos Signet
+• Talisman of Indulgence
+• Swamp
+• Mountain
+• Command Tower
+• Blood Crypt
+• Luxury Suite
+• Smoldering Marsh
+Focus: A Rakdos reanimator combo that uses Worldgorger Dragon + Animate Dead to
+generate infinite mana (and infinite loops). The AI should note the danger of the Worldgorger
+combo and how it produces infinite mana (and typically ends by animating a different creature to
+break the loop). It tests if the AI flags the combo and doesn't just describe the deck as generic
+reanimator or Prosper treasure-value without mentioning the loop.
+• "Bomberman" Infinite Mana (Mono-White) – Format: Commander. Deck (Commander: Teshar,
+Ancestor's Apostle):
+• Auriok Salvagers
+• Lion's Eye Diamond
+• Sun Titan
+• Archaic Denison (fictional card as filler)
+• Scrapyard Recombiner
+• Walking Ballista
+• Skullclamp
+• Mishra's Bauble
+• Salvage Scout
+• Karmic Guide
+9
+• Buried Ruin
+• Enlightened Tutor
+• Ranger-Captain of Eos
+• Silence
+• Sol Ring
+• Pearl Medallion
+• Mind Stone
+• Ancient Den
+• Buried Ruin
+• Plains
+• Plains
+• Plains
+• Plains
+• Plains
+Focus: A mono-white combo deck showcasing the classic Bomberman combo (Auriok Salvagers +
+Lion's Eye Diamond for infinite mana). It tests the AI's ability to identify the infinite mana +
+Ballista kill in a deck that might otherwise look like a value or artifact-based strategy. It also
+checks if the AI notes any unique win conditions or lock pieces (like Ranger-Captain to protect
+the combo).
+• Najeela Extra Combats (5-Color) – Format: Commander. Deck (Commander: Najeela, the Blade-
+Blossom):
+• Druids' Repository
+• Nature's Will
+• Bear Umbra
+• Aggravated Assault
+• Sword of Feast and Famine
+• Snapdragon Snarecaster (fictional filler creature)
+• Combat Celebrant
+• Derevi, Empyrial Tactician
+• Brave the Sands
+• Patriarch's Bidding
+• Grand Abolisher
+• Vampiric Tutor
+• Silence
+• Reconnaissance
+• Sol Ring
+• Arcane Signet
+• Birds of Paradise
+• Command Tower
+• City of Brass
+• Mana Confluence
+• Plateau
+• Savannah
+• Tropical Island
+• Underground Sea
+• Badlands
+Focus: A 5-color Najeela deck built for infinite combat phases (using cards like Nature's Will or
+Druids' Repository plus Najeela, or Aggravated Assault with enough attackers). It checks if the
+10
+AI recognizes the infinite combat combo and the fact that Najeela's warrior token generation
+fuels that combo. The AI should not confuse this for a simple Warrior tribal deck without noting
+the combo potential.
+Aggro/Voltron Archetype
+• Mono-White Tokens (Go-wide Aggro) – Format: Commander. Deck (Commander: Adeline,
+Resplendent Cathar):
+• Soul Warden
+• Esper Sentinel
+• Mother of Runes
+• Raise the Alarm
+• Recruiter of the Guard
+• Spectral Procession
+• Cathars' Crusade
+• Crusade
+• Glorious Anthem
+• Mentor of the Meek
+• Elspeth, Sun's Champion
+• Skullclamp
+• Pearl Medallion
+• Secure the Wastes
+• Windbrisk Heights
+• Sol Ring
+• Plains ×8
+• Ancient Tomb
+• Emeria, the Sky Ruin
+Focus: A wide mono-white token swarm strategy to test curve analysis and whether the AI
+correctly identifies a go-wide aggro plan. It ensures the AI notes the mass creature generation
+and pumping (e.g. Cathars' Crusade) and doesn't get confused by the presence of a high-cost
+Planeswalker (Elspeth) in what is fundamentally an aggressive deck.
+• Goblin Tribal Aggro (Mono-Red) – Format: Commander. Deck (Commander: Krenko, Mob Boss):
+• Goblin Lackey
+• Goblin Warchief
+• Goblin Chieftain
+• Goblin Piledriver
+• Legion Loyalist
+• Mogg War Marshal
+• Goblin Recruiter
+• Siege-Gang Commander
+• Krenko's Command
+• Impact Tremors
+• Mob Justice
+• Goblin Grenade
+• Throne of the God-Pharaoh
+• Skullclamp
+• Cavalcade of Calamity
+• Goblin King
+• Mountain ×15
+11
+• Forgotten Cave
+Focus: A Goblin tribal swarm deck to test recognition of tribal synergies (goblin lords, token
+generators, direct damage from goblins). Ensures the AI notes the rapid creature production and
+damage amplifiers, properly classifying it as a fast aggro strategy and not missing how cards like
+Skullclamp supercharge the swarm with card draw.
+• Elf Tribal "Elfball" (Mono-Green) – Format: Commander. Deck (Commander: Ezuri, Renegade
+Leader):
+• Llanowar Elves
+• Elvish Mystic
+• Fyndhorn Elves
+• Elvish Archdruid
+• Imperious Perfect
+• Elvish Champion
+• Priest of Titania
+• Marwyn, the Nurturer
+• Joraga Warcaller
+• Craterhoof Behemoth
+• Overrun
+• Regal Force
+• Natural Order
+• Green Sun's Zenith
+• Beast Within
+• Forest ×12
+• Wirewood Lodge
+• Nykthos, Shrine to Nyx
+Focus: An Elf tribal deck that floods the board and generates explosive mana, aiming to Overrun
+opponents with a Craterhoof finisher. Tests if the AI identifies the ramp-to-finisher pattern (lots
+of elf mana into Craterhoof Behemoth) and correctly tags it as aggressive, rather than mislabeling
+it as purely combo or missing the one-turn kill potential.
+• Equipment Voltron (Boros) – Format: Commander. Deck (Commander: Wyleth, Soul of Steel):
+• Colossus Hammer
+• Sword of Fire and Ice
+• Sunforger
+• Swiftfoot Boots
+• Darksteel Plate
+• Loxodon Warhammer
+• Sigarda's Aid
+• Puresteel Paladin
+• Sram, Senior Edificer
+• Open the Armory
+• Steelshaper's Gift
+• Danitha Capashen, Paragon
+• Brass Squire
+• Bloodforged Battle-Axe
+• Helm of the Host
+• Plains ×5
+12
+• Mountain ×5
+• Ancient Den
+• Great Furnace
+• Command Tower
+Focus: A Voltron deck where the commander is suited up with numerous equipments. This tests
+if the AI understands the single-threat game plan and notes the heavy equipment synergy
+(Wyleth drawing cards from equipped attacks), instead of misidentifying the deck due to its low
+creature count.
+• Aura Voltron (Naya) – Format: Commander. Deck (Commander: Uril, the Miststalker):
+• Rancor
+• Ethereal Armor
+• Daybreak Coronet
+• Bear Umbra
+• Snake Umbra
+• Unflinching Courage
+• Ancestral Mask
+• Shield of the Oversoul
+• Spirit Mantle
+• Kor Spiritdancer
+• Mesa Enchantress
+• Satyr Enchanter
+• Idyllic Tutor
+• Open the Armory
+• Forest ×4
+• Mountain ×2
+• Plains ×4
+• Command Tower
+• Fire-Lit Thicket
+• Wooded Bastion
+• Rugged Prairie
+Focus: A Voltron aura deck focusing on piling enchantments onto a single hexproof creature
+(Uril). It checks if the AI notes the strategy of a single massive attacker buffered by auras and life-
+gain, rather than getting confused by the lack of board spread. The AI should recognize the
+protective pieces (totem armor, Uril's inherent hexproof) and the all-in nature of this deck.
+• Demon Stompy Aggro (Rakdos) – Format: Commander. Deck (Commander: Rakdos, Lord of Riots):
+• Cryptbreaker
+• Bloodsoaked Champion
+• Lightning Skelemental
+• Spawn of Mayhem
+• Heartless Hidetsugu
+• Sulfuric Vortex
+• Fiery Confluence
+• Anger
+• Torpor Orb
+• Sire of Insanity
+13
+• Vilis, Broker of Blood
+• Seething Song
+• Dark Ritual
+• Lightning Bolt
+• Swamp ×6
+• Mountain ×6
+• Bloodfell Caves
+• Command Tower
+• Graven Cairns
+• Rakdos Signet
+• Sol Ring
+Focus: A Rakdos aggro deck that aims to drop opponents' life totals quickly to enable casting
+huge creatures for cheap (via Rakdos's ability). Tests whether the AI recognizes the plan of
+dealing early damage to power out big threats (like Vilis) and correctly identifies this as an
+aggressive deck with a top-end payoff, rather than as a midrange or purely suicidal black deck.
+• Gruul Smash with Off-Color Card (RG Illegal) – Format: Commander. Deck (Commander:
+Xenagos, God of Revels):
+• Boros Charm(off-color)
+• Ghalta, Primal Hunger
+• Worldspine Wurm
+• Ilharg, the Raze-Boar
+• Spellbreaker Behemoth
+• Selvala, Heart of the Wilds
+• Rhythm of the Wild
+• Decimate
+• Blasphemous Act
+• Garruk's Uprising
+• Gruul War Chant
+• Lightning Greaves
+• Gruul Signet
+• Command Tower
+• Forest ×5
+• Mountain ×5
+• Stomping Ground
+• Gruul Turf
+• Mossfire Valley
+Focus: A Gruul beatdown deck with huge creatures and double-power effects from Xenagos. It
+intentionally includes an off-color card (Boros Charm requiring white mana) that's outside the
+commander's red-green identity. This test checks whether the AI flags the color identity
+violation (illegal card inclusion) while evaluating the straightforward aggressive strategy.
+• Mono-Red Aggro with Hybrid Mana Trap (Illegal) – Format: Commander. Deck (Commander:
+Torbran, Thane of Red Fell):
+• Figure of Destiny(hybrid R/W, off-color)
+• Goblin Guide
+• Monastery Swiftspear
+14
+• Eidolon of the Great Revel
+• Thermo-Alchemist
+• Harsh Mentor
+• Lightning Bolt
+• Chain Lightning
+• Price of Progress
+• Flame Rift
+• Sulfuric Vortex
+• Fireblast
+• Rite of Flame
+• Skullscar Mage (fictional filler burn spell)
+• Ruby Medallion
+• Mountain ×15
+• Ramunap Ruins
+• Valakut, the Molten Pinnacle
+Focus: A mono-red burn deck that sneaks in a hybrid-mana creature (Figure of Destiny, with a
+white mana upgrade cost) illegal for a mono-red commander. This tests the AI's handling of color
+identity errors. It should flag Figure of Destiny as an illegal inclusion while recognizing the deck's
+burn-based aggressive plan (amplified by Torbran's damage bonus).
+• Evasive Creatures with Duplicate (Simic) – Format: Commander. Deck (Commander: Edric,
+Spymaster of Trest):
+• Flying Men
+• Slither Blade (×2 – duplicate)
+• Mist-Cloaked Herald
+• Triton Shorestalker
+• Invisible Stalker
+• Blighted Agent
+• Wingcrafter
+• Wildborn Preserver
+• Curious Obsession
+• Coastal Piracy
+• Bident of Thassa
+• Nature's Will
+• Cyclonic Rift
+• Mystical Tutor
+• Island ×6
+• Forest ×5
+• Command Tower
+• Tropical Island
+• Breeding Pool
+• Simic Signet
+• Sol Ring
+Focus: A Simic tempo deck full of small evasive creatures to abuse Edric's ability (drawing cards
+when creatures hit opponents). It deliberately includes a duplicate card (Slither Blade listed
+twice) to test enforcement of the singleton rule in Commander. The AI should catch the duplicate
+and identify the deck's low-curve evasive aggro plan, rather than overlooking the illegal
+duplication or mislabeling the deck as control due to the card-draw elements.
+15
+• Creature-Heavy Beatdown (Gruul) – Format: Commander. Deck (Commander: Ruric Thar, the
+Unbowed):
+• Ulvenwald Tracker
+• Scavenging Ooze
+• Shifting Ceratops
+• Glorybringer
+• Inferno Titan
+• Ghalta, Primal Hunger
+• Terastodon
+• Bane of Progress
+• Avenger of Zendikar
+• Beast Within
+• Hull Breach
+• Rhythm of the Wild
+• Gruul War Chant
+• Lightning Greaves
+• Sol Ring
+• Gruul Signet
+• Thran Dynamo
+• Forest ×6
+• Mountain ×5
+• Command Tower
+• Kessig Wolf Run
+• Rootbound Crag
+Focus: A Gruul beatdown deck with almost all creature spells, leveraging Ruric Thar's
+punishment of noncreature spells. It checks that the AI picks up on the theme of maximizing
+creatures (and Ruric's damage effect on anyone casting spells) and doesn't mislabel it – the
+presence of a few noncreature support cards (like removal) should not confuse the classification
+away from "creature-heavy aggro."
+• Sliver Legion Aggro (5-Color) – Format: Commander. Deck (Commander: Sliver Overlord):
+• Gemhide Sliver
+• Manaweft Sliver
+• Predatory Sliver
+• Sinew Sliver
+• Cloudshredder Sliver
+• Blur Sliver
+• Bonescythe Sliver
+• Sliver Legion
+• Megantic Sliver
+• Harmonic Sliver
+• Crystalline Sliver
+• Ward Sliver
+• Amoeboid Changeling
+• Distant Melody
+• Sol Ring
+• Arcane Signet
+• Plains ×2
+16
+• Island ×2
+• Swamp ×2
+• Mountain ×2
+• Forest ×2
+• Sliver Hive
+• Cavern of Souls
+• Ancient Ziggurat
+Focus: A 5-color Sliver deck showcasing tribal synergy (all creatures share and amplify abilities).
+This tests if the AI notes the across-the-board synergy and aggressive stat boosts (multiple sliver
+lords stacking) and correctly evaluates it as a tribal aggro strategy, rather than misinterpreting
+the deck as just a random assortment of creatures.
+• Kaalia's Big Threats (Mardu) – Format: Commander. Deck (Commander: Kaalia of the Vast):
+• Iona, Shield of Emeria (banned)
+• Master of Cruelties
+• Balefire Dragon
+• Archfiend of Despair
+• Avacyn, Angel of Hope
+• Rune-Scarred Demon
+• Angelic Arbiter
+• Utvara Hellkite
+• Scourge of the Throne
+• Vilis, Broker of Blood
+• Lightning Greaves
+• Swiftfoot Boots
+• Swords to Plowshares
+• Terminate
+• Rakdos Signet
+• Orzhov Signet
+• Boros Signet
+• Sol Ring
+• Plains ×2
+• Swamp ×2
+• Mountain ×2
+• Command Tower
+• Nomad Outpost
+• Clifftop Retreat
+• Godless Shrine
+Focus: A Mardu Kaalia deck that cheats huge Angels, Demons, and Dragons into play. It
+deliberately includes Iona, Shield of Emeria, a card banned in Commander, to see if the AI flags
+this illegal card while analyzing the deck's high-power creature strategy. The AI should focus on
+how Kaalia accelerates these big threats into play and note the banned card inclusion as a critical
+issue.
+• Red Burn & Big Mana (Mono-Red) – Format: Commander. Deck (Commander: Neheb, the Eternal):
+• Ghitu Lavarunner
+• Viashino Pyromancer
+17
+• Soul-Scar Mage
+• Thermo-Alchemist
+• Lightning Bolt
+• Lava Spike
+• Skewer the Critics
+• Flame Rift
+• Sulfuric Vortex
+• Light Up the Stage
+• Banefire
+• Comet Storm
+• Pyrohemia
+• Torbran, Thane of Red Fell
+• Sol Ring
+• Ruby Medallion
+• Mountain ×15
+• Forgotten Cave
+• Ramunap Ruins
+• Shrine of Burning Rage
+Focus: A mono-red burn deck that also leverages Neheb's ability to generate mana from damage
+(to fuel big X spells like Banefire). It tests whether the AI can identify the direct damage strategy
+and the plan to convert damage into huge follow-up spells, instead of misclassifying the deck's
+intent. The presence of Torbran should clue the AI into the damage-doubling theme, and
+Neheb's mana generation should be recognized as enabling one-turn big finishes.
+• Landfall Ramp Beatdown (Gruul, Illegal Card) – Format: Commander. Deck (Commander:
+Omnath, Locus of Rage):
+• Primeval Titan (banned)
+• Lotus Cobra
+• Rampaging Baloths
+• Avenger of Zendikar
+• Tireless Tracker
+• Mina and Denn, Wildborn
+• Cultivate
+• Kodama's Reach
+• Harrow
+• Explosive Vegetation
+• Scapeshift
+• Oracle of Mul Daya
+• Gruul Signet
+• Sol Ring
+• Valakut, the Molten Pinnacle
+• Field of the Dead
+• Command Tower
+• Cinder Glade
+• Gruul Turf
+• Forest ×5
+• Mountain ×5
+Focus: A Gruul landfall deck that ramps hard to drop huge threats and make swarms of tokens
+(Omnath makes Elementals on landfall). It includes Primeval Titan, which is banned in
+18
+Commander, to test the AI's detection of format illegal cards in an otherwise straightforward
+ramp-aggro deck. The AI should note the heavy land ramp and landfall payoffs as the core
+strategy, while flagging the banned Titan.
+• Spellslinger Aggro (Izzet Wizards) – Format: Commander. Deck (Commander: Adeliz, the Cinder
+Wind):
+• Delver of Secrets
+• Goblin Electromancer
+• Viashino Pyromancer
+• Stormchaser Mage
+• Nivix Cyclops
+• Electrostatic Field
+• Lightning Bolt
+• Lightning Strike
+• Wizard's Lightning
+• Shock
+• Opt
+• Brainstorm
+• Chart a Course
+• Curious Obsession
+• Island ×8
+• Mountain ×6
+• Volcanic Island
+• Shivan Reef
+• Swiftwater Cliffs
+• Sol Ring
+• Izzet Signet
+Focus: An Izzet spellslinger deck that uses cheap Wizards and a flurry of burn/cantrip spells to
+quickly pressure life totals, with Adeliz pumping the team for each spell. It tests if the AI correctly
+sees the aggressive spell-trigger synergy (Adeliz's team buff) and does not mistake it for a
+control deck. The analysis should highlight how instant and sorcery density translate into
+damage via Adeliz and creatures like Electrostatic Field.
+• Vampire Tribal Aggro (Mardu) – Format: Commander. Deck (Commander: Edgar Markov):
+• Vampire Lacerator
+• Bloodghast
+• Cordial Vampire
+• Stromkirk Captain
+• Captivating Vampire
+• Drana, Liberator of Malakir
+• Sanctum Seeker
+• Kalastria Highborn
+• Blood Artist
+• Anowon, the Ruin Sage
+• Sorin, Lord of Innistrad
+• Phyrexian Arena
+• Bolas's Citadel
+• Sign in Blood
+19
+• Sol Ring
+• Orzhov Signet
+• Rakdos Signet
+• Boros Signet
+• Swamp ×4
+• Mountain ×2
+• Plains ×2
+• Command Tower
+• Blood Crypt
+• Godless Shrine
+• Sacred Foundry
+Focus: A Mardu Vampire tribal deck known for aggressive token generation (Edgar's eminence
+ability) and vampire "lords" that buff the team or drain life. It checks that the AI notes the tribal
+synergy and life-drain elements (e.g. Sanctum Seeker, Blood Artist) and correctly classifies it as an
+aggro strategy. The AI should not confuse the incidental lifegain/life-drain for a pure lifegain
+deck or overlook the fact that Edgar Markov rapidly floods the board with vampire tokens.
+(The Modern and Standard test cases are organized similarly by archetype, covering banned-card inclusions,
+color pie violations, archetype misclassifications, and synergy/combo recognition in those formats, for a total
+of 200 test decks.)

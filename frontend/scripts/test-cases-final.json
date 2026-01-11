@@ -1,0 +1,550 @@
+{
+  "testCases": [
+    {
+      "id": "pdf-test-001",
+      "title": "Food Chain Infinite Mana",
+      "format": "commander",
+      "commander": "General Tazri)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Food Chain\n1 Misthollow Griffin\n1 Eternal Scourge\n1 Squee, the Immortal\n1 Kalastria Healer\n1 Halimar Excavator\n1 Demonic Tutor\n1 Enlightened Tutor\n1 Worldly Tutor\n1 Tainted Pact\n1 Sol Ring\n1 Arcane Signet\n1 Chromatic Lantern\n1 Birds of Paradise\n1 Elvish Spirit Guide\n1 Rhystic Study\n1 Sylvan Library\n1 Pact of Negation\n1 Fierce Guardianship\n1 Finale of Devastation\n1 Hagra Diabolist\n1 Mana Drain\n1 Command Tower\n1 Mana Confluence\n1 Plains\n1 Island\n1 Swamp\n1 Mountain\n1 Forest",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention General Tazri)"
+      ],
+      "focus": "Tests recognition of an infinite mana combo using Food Chain with creatures cast from exile, and checks if the AI identifies that the commander can be recast infinitely to trigger ally abilities for a win.."
+    },
+    {
+      "id": "pdf-test-002",
+      "title": "Thassa's Oracle Consultation",
+      "format": "commander",
+      "commander": "Tymna the Weaver & Thrasios, Triton Hero",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Thassa's Oracle\n1 Demonic Consultation\n1 Tainted Pact\n1 Jace, Wielder of Mysteries\n1 Gitaxian Probe\n1 Brainstorm\n1 Swan Song\n1 Force of Will\n1 Force of Negation\n1 Vampiric Tutor\n1 Mox Diamond\n1 Ad Nauseam\n1 Sol Ring\n1 Arcane Signet\n1 Mana Crypt\n1 Sensei's Divining Top\n1 Mystical Tutor\n1 Enlightened Tutor\n1 Snapcaster Mage\n1 Laboratory Maniac\n1 Polluted Delta\n1 Tropical Island\n1 Savannah\n1 Underground Sea\n1 Tundra",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Tymna the Weaver & Thrasios, Triton Hero"
+      ],
+      "focus": "Tests whether the AI can identify a game-winning combo (Thassa's Oracle + Consultation/ Tainted Pact) in a four-color cEDH deck and correctly interpret the deck's primary win condition.."
+    },
+    {
+      "id": "pdf-test-003",
+      "title": "Kiki-Jiki Twin Combo",
+      "format": "commander",
+      "commander": "Riku of Two Reflections)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Kiki-Jiki, Mirror Breaker\n1 Zealous Conscripts\n1 Splinter Twin\n1 Pestermite\n1 Deceiver Exarch\n1 Village Bell-Ringer\n1 Tooth and Nail\n1 Green Sun's Zenith\n1 Panharmonicon\n1 Guardian Project\n1 Lightning Bolt\n1 Counterspell\n1 Mystical Tutor\n1 Prophetic Bolt\n1 Sol Ring\n1 Izzet Signet\n1 Simic Signet\n1 Gruul Signet\n1 Breeding Pool\n1 Stomping Ground\n1 Steam Vents\n1 Command Tower",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Riku of Two Reflections)"
+      ],
+      "focus": "A creature combo deck that uses Kiki-Jiki with various creatures (Conscripts, Pestermite, etc.) to create infinite creature tokens. It checks if the AI recognizes the infinite Kiki-Jiki combo and doesn't misclassify this as a midrange deck due to the mix of creature cards.."
+    },
+    {
+      "id": "pdf-test-004",
+      "title": "Exquisite Blood / Sanguine Bond",
+      "format": "commander",
+      "commander": "Liesa, Shroud of Dusk",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Exquisite Blood\n1 Sanguine Bond\n1 Vizkopa Guildmage\n1 Defiant Bloodlord\n1 Twilight Prophet\n1 Serra Ascendant\n1 Greed\n1 Erebos, God of the Dead\n1 Demonic Tutor\n1 Enlightened Tutor\n1 Test of Endurance\n1 Children of Korlis\n1 Sangromancer\n1 Sol Ring\n1 Orzhov Signet\n1 Pristine Talisman\n1 Command Tower\n1 Godless Shrine\n1 Vault of Champions\n1 Swamp\n1 Plains",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Liesa"
+      ],
+      "focus": "Tests the AI's recognition of a two-card infinite life-drain combo (Exquisite Blood + Sanguine Bond). The deck's focus on lifegain and drain should be identified, ensuring the AI notes the combo win condition instead of treating it as a generic lifegain deck.."
+    },
+    {
+      "id": "pdf-test-005",
+      "title": "Godo Helm Combo",
+      "format": "commander",
+      "commander": "Godo, Bandit Warlord)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Helm of the Host\n1 Hammer of Nazahn\n1 Brass Squire\n1 Magnetic Theft\n1 Aurelia's Fury\n1 Zealous Conscripts\n1 Port Razer\n1 Breath of Fury\n1 Final Fortune\n1 Chance for Glory\n1 Godo, Bandit Warlord (in deck for tutor effect)\n1 Blood Moon\n1 Dockside Extortionist\n1 Gamble\n1 Seething Song\n1 Wheel of Fortune\n1 Sol Ring\n1 Wayfarer's Bauble\n1 Mountain\n1 Mountain\n1 Mountain\n1 Forgotten Cave\n1 Reliquary Tower",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must mention Godo, Bandit Warlord)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A mono-red combo/Voltron deck that equips Helm of the Host to Godo to generate infinite combat phases. It checks if the AI spots the infinite combat step combo and doesn't miscategorize the deck as merely equipment-based aggro (even though it has many equipment cards).."
+    },
+    {
+      "id": "pdf-test-006",
+      "title": "Gitrog Dakmor Combo",
+      "format": "commander",
+      "commander": "The Gitrog Monster)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Dakmor Salvage\n1 Gitrog Monster (as card engine)\n1 Skirge Familiar\n1 Kozilek, Butcher of Truth\n1 World Shaper\n1 Life from the Loam\n1 Lotus Petal\n1 Mana Bond\n1 Tortured Existence\n1 Chain of Smog\n1 Deathrite Shaman\n1 Underrealm Lich\n1 Vampiric Tutor\n1 Entomb\n1 Sol Ring\n1 Arcane Signet\n1 Golgari Signet\n1 Command Tower\n1 Overgrown Tomb\n1 Bayou\n1 Swamp\n1 Forest",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must mention The Gitrog Monster)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Graveyard combo deck using The Gitrog Monster. It tests if the AI detects the Dakmor Salvage + Gitrog infinite draw combo (discarding Dakmor to draw repeatedly, potentially milling the whole deck) and understands the deck's dredge/self-mill win condition, rather than seeing it as a generic graveyard value deck.."
+    },
+    {
+      "id": "pdf-test-007",
+      "title": "Basalt Monolith Infinite Mana",
+      "format": "commander",
+      "commander": "Kinnan, Bonder",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Basalt Monolith\n1 Mana Reflection\n1 Peregrine Drake\n1 Memnarch\n1 Walking Ballista\n1 Hydroid Krasis\n1 Freed from the Real\n1 Aphemia, the Cacophony (illegal – off-color for Simic)\n1 Leyline of Abundance\n1 Bluemarket Lotus (fictional card for test)\n1 Training Grounds\n1 Crop Rotation\n1 Finale of Devastation\n1 Mystical Tutor\n1 Cyclonic Rift\n1 Sol Ring\n1 Simic Signet\n1 Thrasios, Triton Hero\n1 Breeding Pool\n1 Tropical Island\n1 Yavimaya Coast\n1 Island\n1 Forest",
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION",
+        "COLOR_IDENTITY_OFFCOLOR"
+      ],
+      "must_assert": [
+        "must mention Kinnan, Bonder",
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must flag color identity violations",
+        "must not recommend off-color cards"
+      ],
+      "focus": "A Simic combo-ramp deck focused on generating infinite mana (Basalt Monolith + Kinnan or Mana Reflection). It intentionally contains an off-color card (Aphemia, which has black) to test if the AI catches the color identity violation. The main check is whether the AI notes the infinite mana outlet (Ballista/Krasis) and flags the illegal inclusion.."
+    },
+    {
+      "id": "pdf-test-008",
+      "title": "Doomsday Piles",
+      "format": "commander",
+      "commander": "Kess, Dissident Mage)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Doomsday\n1 Thassa's Oracle\n1 Laboratory Maniac\n1 Yawgmoth's Will\n1 Gush\n1 Ideas Unbound\n1 Lion's Eye Diamond\n1 Brainstorm\n1 Personal Tutor\n1 Deep Analysis\n1 Gitaxian Probe\n1 Pact of Negation\n1 Dark Ritual\n1 Cabal Ritual\n1 Sol Ring\n1 Dimir Signet\n1 Talisman of Dominance\n1 Command Tower\n1 Underground Sea\n1 Volcanic Island\n1 Badlands\n1 Island\n1 Swamp",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must mention Kess, Dissident Mage)",
+        "must identify combo win condition",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Grixis Doomsday deck built to set up a winning five-card pile (usually finishing with 5 Thassa's Oracle or Lab Maniac). It tests the AI's ability to recognize the extremely compact Doomsday combo and the requirement of precise sequencing, rather than missing the combo and treating the deck as a generic spell-heavy control.."
+    },
+    {
+      "id": "pdf-test-009",
+      "title": "Underworld Breach Storm",
+      "format": "commander",
+      "commander": "Elsha of the",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Underworld Breach\n1 Lion's Eye Diamond\n1 Brain Freeze\n1 Wheel of Fortune\n1 Narset, Parter of Veils\n1 Snapcaster Mage\n1 Monastery Mentor\n1 Jeska's Will\n1 Smothering Tithe\n1 Enlightened Tutor\n1 Past in Flames\n1 Windfall\n1 Deflecting Swat\n1 Force of Negation\n1 Sol Ring\n1 Arcane Signet\n1 Talisman of Progress\n1 Volcanic Island\n1 Tundra\n1 Plateau\n1 Command Tower\n1 Mystic Monastery",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Elsha of the"
+      ],
+      "focus": "A Jeskai storm combo deck that uses Underworld Breach with Brain Freeze and Lion's Eye Diamond to loop spells. It checks if the AI spots the Breach storm combo (infinite self-mill and recast) and the presence of protective pieces (Narset to stop opponents' draws), rather than just calling it a spellslinger deck without noting the combo.."
+    },
+    {
+      "id": "pdf-test-010",
+      "title": "Flash Hulk",
+      "format": "commander",
+      "commander": "Kenrith, the Returned King)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Flash (banned)\n1 Protean Hulk\n1 Viscera Seer\n1 Mikaeus, the Unhallowed\n1 Walking Ballista\n1 Grand Abolisher\n1 Sylvan Safekeeper\n1 Thassa's Oracle\n1 Eladamri's Call\n1 Summoner's Pact\n1 Pact of Negation\n1 Fierce Guardianship\n1 Defense Grid\n1 Chain of Vapor\n1 Sol Ring\n1 Mana Crypt\n1 Command Tower\n1 City of Brass\n1 Mana Confluence\n1 Savannah\n1 Underground Sea\n1 Volcanic Island\n1 Plateau\n1 Bayou",
+      "tags": [
+        "COMBO_RECOGNITION",
+        "CMD_BANNED_CARD_PRESENT"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must flag banned card if present",
+        "must include >=3 legal recommendations",
+        "must mention Kenrith, the Returned King)"
+      ],
+      "focus": "A top-tier cEDH combo list using the infamous Flash + Protean Hulk combo (with Flash banned in Commander). It tests the AI's ability to flag the banned card and to identify the fast win condition (Protean Hulk fetching Mikaeus + Ballista for infinite damage) amid the deck's many protective elements.."
+    },
+    {
+      "id": "pdf-test-011",
+      "title": "Birthing Pod Chain",
+      "format": "commander",
+      "commander": "Prime Speaker Vannifar)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Birthing Pod\n1 Prime Speaker Vannifar\n1 Pestermite\n1 Deceiver Exarch\n1 Breaching Hippocamp\n1 Karmic Guide\n1 Kiki-Jiki, Mirror Breaker\n1 Bounding Krasis\n1 Intruder Alarm\n1 Glen Elendra Archmage\n1 Neoform\n1 Green Sun's Zenith\n1 Lightning Greaves\n1 Deadeye Navigator\n1 Sol Ring\n1 Simic Signet\n1 Incubation Druid\n1 Command Tower\n1 Tropical Island\n1 Breeding Pool\n1 Forest\n1 Island",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Prime Speaker Vannifar)"
+      ],
+      "focus": "A Simic creature-combo deck that uses Vannifar/Birthing Pod chains to tutor up an infinite combo (ending with Kiki-Jiki + a untapper like Pestermite). It checks if the AI follows the creature tutor chain to the combo finish, rather than misreading the deck as just value- oriented for ETB effects.."
+    },
+    {
+      "id": "pdf-test-012",
+      "title": "Mikaeus + Triskelion",
+      "format": "commander",
+      "commander": "Sidisi, Undead",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Mikaeus, the Unhallowed\n1 Triskelion\n1 Walking Ballista\n1 Buried Alive\n1 Entomb\n1 Victimize\n1 Reanimate\n1 Exsanguinate\n1 Gray Merchant of Asphodel\n1 Crypt Ghast\n1 Cabal Coffers\n1 Jet Medallion\n1 Sol Ring\n1 Phyrexian Arena\n1 Necropotence\n1 Toxic Deluge\n1 Command Tower\n1 Swamp\n1 Swamp\n1 Swamp\n1 Swamp\n1 Swamp",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Sidisi, Undead"
+      ],
+      "focus": "A mono-black combo deck designed to pull off the Mikaeus + Triskelion infinite damage combo. The AI should catch that Mikaeus (giving undying) plus Triskelion can generate infinite damage, and not just describe the deck as generic reanimator or mono-black control. It also tests identification of the deck's heavy tutor package (Sidisi, Buried Alive, etc.) supporting the combo.."
+    },
+    {
+      "id": "pdf-test-013",
+      "title": "Lab Maniac Self-Mill",
+      "format": "commander",
+      "commander": "Phenax, God of Deception)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Laboratory Maniac\n1 Leveler\n1 Thassa's Oracle\n1 Traumatize\n1 Keening Stone\n1 Altar of Dementia\n1 Jace, Wielder of Mysteries\n1 Mindcrank\n1 Consuming Aberration\n1 Fraying Sanity\n1 Undead Alchemist\n1 Mesmeric Orb\n1 Mind Grind\n1 Pact of Negation\n1 Damnation\n1 Sol Ring\n1 Dimir Signet\n1 Command Tower\n1 Drowned Catacomb\n1 Watery Grave\n1 Island\n1 Swamp",
+      "tags": [],
+      "must_assert": [
+        "must mention Phenax, God of Deception)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Dimir self-mill deck that can win by emptying its own library and using Lab Maniac/ Thassa's Oracle. It tests if the AI notices the plan of self-mill to win (with Leveler instantly exiling the library, for example) and the alternate win conditions, instead of treating Phenax as purely a defensive mill card or missing the Lab Maniac trigger entirely.."
+    },
+    {
+      "id": "pdf-test-014",
+      "title": "Worldgorger Dragon Combo",
+      "format": "commander",
+      "commander": "Prosper, Tome-",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Worldgorger Dragon\n1 Animate Dead\n1 Dance of the Dead\n1 Necromancy\n1 Dockside Extortionist\n1 Zulaport Cutthroat\n1 Chaos Warp\n1 Faithless Looting\n1 Bog Initiate\n1 Agadeem's Awakening\n1 Command the Dreadhorde\n1 Twinflame\n1 Phyrexian Altar\n1 Sol Ring\n1 Rakdos Signet\n1 Talisman of Indulgence\n1 Swamp\n1 Mountain\n1 Command Tower\n1 Blood Crypt\n1 Luxury Suite\n1 Smoldering Marsh",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Prosper, Tome-"
+      ],
+      "focus": "A Rakdos reanimator combo that uses Worldgorger Dragon + Animate Dead to generate infinite mana (and infinite loops). The AI should note the danger of the Worldgorger combo and how it produces infinite mana (and typically ends by animating a different creature to break the loop). It tests if the AI flags the combo and doesn't just describe the deck as generic reanimator or Prosper treasure-value without mentioning the loop.."
+    },
+    {
+      "id": "pdf-test-015",
+      "title": "\"Bomberman\" Infinite Mana",
+      "format": "commander",
+      "commander": "Teshar",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Auriok Salvagers\n1 Lion's Eye Diamond\n1 Sun Titan\n1 Archaic Denison (fictional card as filler)\n1 Scrapyard Recombiner\n1 Walking Ballista\n1 Skullclamp\n1 Mishra's Bauble\n1 Salvage Scout\n1 Karmic Guide\n1 Buried Ruin\n1 Enlightened Tutor\n1 Ranger-Captain of Eos\n1 Silence\n1 Sol Ring\n1 Pearl Medallion\n1 Mind Stone\n1 Ancient Den\n1 Buried Ruin\n1 Plains\n1 Plains\n1 Plains\n1 Plains\n1 Plains",
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must mention Teshar"
+      ],
+      "focus": "A mono-white combo deck showcasing the classic Bomberman combo (Auriok Salvagers + Lion's Eye Diamond for infinite mana). It tests the AI's ability to identify the infinite mana + Ballista kill in a deck that might otherwise look like a value or artifact-based strategy. It also checks if the AI notes any unique win conditions or lock pieces (like Ranger-Captain to protect the combo).."
+    },
+    {
+      "id": "pdf-test-016",
+      "title": "Najeela Extra Combats",
+      "format": "commander",
+      "commander": "Najeela, the Blade-",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Druids' Repository\n1 Nature's Will\n1 Bear Umbra\n1 Aggravated Assault\n1 Sword of Feast and Famine\n1 Snapdragon Snarecaster (fictional filler creature)\n1 Combat Celebrant\n1 Derevi, Empyrial Tactician\n1 Brave the Sands\n1 Patriarch's Bidding\n1 Grand Abolisher\n1 Vampiric Tutor\n1 Silence\n1 Reconnaissance\n1 Sol Ring\n1 Arcane Signet\n1 Birds of Paradise\n1 Command Tower\n1 City of Brass\n1 Mana Confluence\n1 Plateau\n1 Savannah\n1 Tropical Island\n1 Underground Sea\n1 Badlands",
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must mention Najeela, the Blade-",
+        "must identify combo win condition",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A 5-color Najeela deck built for infinite combat phases (using cards like Nature's Will or Druids' Repository plus Najeela, or Aggravated Assault with enough attackers). It checks if the 10 AI recognizes the infinite combat combo and the fact that Najeela's warrior token generation fuels that combo. The AI should not confuse this for a simple Warrior tribal deck without noting the combo potential.."
+    },
+    {
+      "id": "pdf-test-017",
+      "title": "Mono-White Tokens",
+      "format": "commander",
+      "commander": "Adeline",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Soul Warden\n1 Esper Sentinel\n1 Mother of Runes\n1 Raise the Alarm\n1 Recruiter of the Guard\n1 Spectral Procession\n1 Cathars' Crusade\n1 Crusade\n1 Glorious Anthem\n1 Mentor of the Meek\n1 Elspeth, Sun's Champion\n1 Skullclamp\n1 Pearl Medallion\n1 Secure the Wastes\n1 Windbrisk Heights\n1 Sol Ring\n1 Plains ×8\n1 Ancient Tomb\n1 Emeria, the Sky Ruin",
+      "tags": [],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must mention Adeline"
+      ],
+      "focus": "A wide mono-white token swarm strategy to test curve analysis and whether the AI correctly identifies a go-wide aggro plan. It ensures the AI notes the mass creature generation and pumping (e.g. Cathars' Crusade) and doesn't get confused by the presence of a high-cost Planeswalker (Elspeth) in what is fundamentally an aggressive deck.."
+    },
+    {
+      "id": "pdf-test-018",
+      "title": "Goblin Tribal Aggro",
+      "format": "commander",
+      "commander": "Krenko, Mob Boss)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Goblin Lackey\n1 Goblin Warchief\n1 Goblin Chieftain\n1 Goblin Piledriver\n1 Legion Loyalist\n1 Mogg War Marshal\n1 Goblin Recruiter\n1 Siege-Gang Commander\n1 Krenko's Command\n1 Impact Tremors\n1 Mob Justice\n1 Goblin Grenade\n1 Throne of the God-Pharaoh\n1 Skullclamp\n1 Cavalcade of Calamity\n1 Goblin King\n1 Mountain ×15\n1 Forgotten Cave",
+      "tags": [],
+      "must_assert": [
+        "must mention Krenko, Mob Boss)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Goblin tribal swarm deck to test recognition of tribal synergies (goblin lords, token generators, direct damage from goblins). Ensures the AI notes the rapid creature production and damage amplifiers, properly classifying it as a fast aggro strategy and not missing how cards like Skullclamp supercharge the swarm with card draw.."
+    },
+    {
+      "id": "pdf-test-019",
+      "title": "Elf Tribal \"Elfball\"",
+      "format": "commander",
+      "commander": "Ezuri, Renegade",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Llanowar Elves\n1 Elvish Mystic\n1 Fyndhorn Elves\n1 Elvish Archdruid\n1 Imperious Perfect\n1 Elvish Champion\n1 Priest of Titania\n1 Marwyn, the Nurturer\n1 Joraga Warcaller\n1 Craterhoof Behemoth\n1 Overrun\n1 Regal Force\n1 Natural Order\n1 Green Sun's Zenith\n1 Beast Within\n1 Forest ×12\n1 Wirewood Lodge\n1 Nykthos, Shrine to Nyx",
+      "tags": [
+        "COMBO_RECOGNITION"
+      ],
+      "must_assert": [
+        "must identify combo win condition",
+        "must mention Ezuri, Renegade",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "An Elf tribal deck that floods the board and generates explosive mana, aiming to Overrun opponents with a Craterhoof finisher. Tests if the AI identifies the ramp-to-finisher pattern (lots of elf mana into Craterhoof Behemoth) and correctly tags it as aggressive, rather than mislabeling it as purely combo or missing the one-turn kill potential.."
+    },
+    {
+      "id": "pdf-test-020",
+      "title": "Equipment Voltron",
+      "format": "commander",
+      "commander": "Wyleth, Soul of Steel)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Colossus Hammer\n1 Sword of Fire and Ice\n1 Sunforger\n1 Swiftfoot Boots\n1 Darksteel Plate\n1 Loxodon Warhammer\n1 Sigarda's Aid\n1 Puresteel Paladin\n1 Sram, Senior Edificer\n1 Open the Armory\n1 Steelshaper's Gift\n1 Danitha Capashen, Paragon\n1 Brass Squire\n1 Bloodforged Battle-Axe\n1 Helm of the Host\n1 Plains ×5\n1 Mountain ×5\n1 Ancient Den\n1 Great Furnace\n1 Command Tower",
+      "tags": [
+        "SYNERGY_RECOGNITION"
+      ],
+      "must_assert": [
+        "must mention Wyleth, Soul of Steel)",
+        "must include >=3 legal recommendations",
+        "must identify key synergies"
+      ],
+      "focus": "A Voltron deck where the commander is suited up with numerous equipments. This tests if the AI understands the single-threat game plan and notes the heavy equipment synergy (Wyleth drawing cards from equipped attacks), instead of misidentifying the deck due to its low creature count.."
+    },
+    {
+      "id": "pdf-test-021",
+      "title": "Aura Voltron",
+      "format": "commander",
+      "commander": "Uril, the Miststalker)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Rancor\n1 Ethereal Armor\n1 Daybreak Coronet\n1 Bear Umbra\n1 Snake Umbra\n1 Unflinching Courage\n1 Ancestral Mask\n1 Shield of the Oversoul\n1 Spirit Mantle\n1 Kor Spiritdancer\n1 Mesa Enchantress\n1 Satyr Enchanter\n1 Idyllic Tutor\n1 Open the Armory\n1 Forest ×4\n1 Mountain ×2\n1 Plains ×4\n1 Command Tower\n1 Fire-Lit Thicket\n1 Wooded Bastion\n1 Rugged Prairie",
+      "tags": [
+        "CMD_SINGLETON_VIOLATION"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must mention Uril, the Miststalker)",
+        "must flag duplicate cards in Commander deck"
+      ],
+      "focus": "A Voltron aura deck focusing on piling enchantments onto a single hexproof creature (Uril). It checks if the AI notes the strategy of a single massive attacker buffered by auras and life- gain, rather than getting confused by the lack of board spread. The AI should recognize the protective pieces (totem armor, Uril's inherent hexproof) and the all-in nature of this deck.."
+    },
+    {
+      "id": "pdf-test-022",
+      "title": "Demon Stompy Aggro",
+      "format": "commander",
+      "commander": "Rakdos, Lord of Riots)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Cryptbreaker\n1 Bloodsoaked Champion\n1 Lightning Skelemental\n1 Spawn of Mayhem\n1 Heartless Hidetsugu\n1 Sulfuric Vortex\n1 Fiery Confluence\n1 Anger\n1 Torpor Orb\n1 Sire of Insanity\n1 Vilis, Broker of Blood\n1 Seething Song\n1 Dark Ritual\n1 Lightning Bolt\n1 Swamp ×6\n1 Mountain ×6\n1 Bloodfell Caves\n1 Command Tower\n1 Graven Cairns\n1 Rakdos Signet\n1 Sol Ring",
+      "tags": [],
+      "must_assert": [
+        "must mention Rakdos, Lord of Riots)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Rakdos aggro deck that aims to drop opponents' life totals quickly to enable casting huge creatures for cheap (via Rakdos's ability). Tests whether the AI recognizes the plan of dealing early damage to power out big threats (like Vilis) and correctly identifies this as an aggressive deck with a top-end payoff, rather than as a midrange or purely suicidal black deck.."
+    },
+    {
+      "id": "pdf-test-023",
+      "title": "Gruul Smash with Off-Color Card",
+      "format": "commander",
+      "commander": "",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Boros Charm(off-color)\n1 Ghalta, Primal Hunger\n1 Worldspine Wurm\n1 Ilharg, the Raze-Boar\n1 Spellbreaker Behemoth\n1 Selvala, Heart of the Wilds\n1 Rhythm of the Wild\n1 Decimate\n1 Blasphemous Act\n1 Garruk's Uprising\n1 Gruul War Chant\n1 Lightning Greaves\n1 Gruul Signet\n1 Command Tower\n1 Forest ×5\n1 Mountain ×5\n1 Stomping Ground\n1 Gruul Turf\n1 Mossfire Valley",
+      "tags": [
+        "COLOR_IDENTITY_OFFCOLOR"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must flag color identity violations",
+        "must not recommend off-color cards"
+      ],
+      "focus": "A Gruul beatdown deck with huge creatures and double-power effects from Xenagos. It intentionally includes an off-color card (Boros Charm requiring white mana) that's outside the commander's red-green identity. This test checks whether the AI flags the color identity violation (illegal card inclusion) while evaluating the straightforward aggressive strategy.."
+    },
+    {
+      "id": "pdf-test-024",
+      "title": "Mono-Red Aggro with Hybrid Mana Trap",
+      "format": "commander",
+      "commander": "",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Figure of Destiny(hybrid R/W, off-color)\n1 Goblin Guide\n1 Monastery Swiftspear\n1 Eidolon of the Great Revel\n1 Thermo-Alchemist\n1 Harsh Mentor\n1 Lightning Bolt\n1 Chain Lightning\n1 Price of Progress\n1 Flame Rift\n1 Sulfuric Vortex\n1 Fireblast\n1 Rite of Flame\n1 Skullscar Mage (fictional filler burn spell)\n1 Ruby Medallion\n1 Mountain ×15\n1 Ramunap Ruins\n1 Valakut, the Molten Pinnacle",
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COLOR_IDENTITY_OFFCOLOR"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must flag color identity violations",
+        "must not recommend off-color cards"
+      ],
+      "focus": "A mono-red burn deck that sneaks in a hybrid-mana creature (Figure of Destiny, with a white mana upgrade cost) illegal for a mono-red commander. This tests the AI's handling of color identity errors. It should flag Figure of Destiny as an illegal inclusion while recognizing the deck's burn-based aggressive plan (amplified by Torbran's damage bonus).."
+    },
+    {
+      "id": "pdf-test-025",
+      "title": "Evasive Creatures with Duplicate",
+      "format": "commander",
+      "commander": "Edric",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Flying Men\n1 Slither Blade (×2 – duplicate)\n1 Mist-Cloaked Herald\n1 Triton Shorestalker\n1 Invisible Stalker\n1 Blighted Agent\n1 Wingcrafter\n1 Wildborn Preserver\n1 Curious Obsession\n1 Coastal Piracy\n1 Bident of Thassa\n1 Nature's Will\n1 Cyclonic Rift\n1 Mystical Tutor\n1 Island ×6\n1 Forest ×5\n1 Command Tower\n1 Tropical Island\n1 Breeding Pool\n1 Simic Signet\n1 Sol Ring",
+      "tags": [
+        "CMD_SINGLETON_VIOLATION"
+      ],
+      "must_assert": [
+        "must mention Edric",
+        "must flag duplicate cards in Commander deck",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Simic tempo deck full of small evasive creatures to abuse Edric's ability (drawing cards when creatures hit opponents). It deliberately includes a duplicate card (Slither Blade listed twice) to test enforcement of the singleton rule in Commander. The AI should catch the duplicate and identify the deck's low-curve evasive aggro plan, rather than overlooking the illegal duplication or mislabeling the deck as control due to the card-draw elements. 15"
+    },
+    {
+      "id": "pdf-test-026",
+      "title": "Creature-Heavy Beatdown",
+      "format": "commander",
+      "commander": "Ruric Thar, the",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Ulvenwald Tracker\n1 Scavenging Ooze\n1 Shifting Ceratops\n1 Glorybringer\n1 Inferno Titan\n1 Ghalta, Primal Hunger\n1 Terastodon\n1 Bane of Progress\n1 Avenger of Zendikar\n1 Beast Within\n1 Hull Breach\n1 Rhythm of the Wild\n1 Gruul War Chant\n1 Lightning Greaves\n1 Sol Ring\n1 Gruul Signet\n1 Thran Dynamo\n1 Forest ×6\n1 Mountain ×5\n1 Command Tower\n1 Kessig Wolf Run\n1 Rootbound Crag",
+      "tags": [],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must mention Ruric Thar, the"
+      ],
+      "focus": "A Gruul beatdown deck with almost all creature spells, leveraging Ruric Thar's punishment of noncreature spells. It checks that the AI picks up on the theme of maximizing creatures (and Ruric's damage effect on anyone casting spells) and doesn't mislabel it – the presence of a few noncreature support cards (like removal) should not confuse the classification away from \"creature-heavy aggro.\""
+    },
+    {
+      "id": "pdf-test-027",
+      "title": "Sliver Legion Aggro",
+      "format": "commander",
+      "commander": "Sliver Overlord)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Gemhide Sliver\n1 Manaweft Sliver\n1 Predatory Sliver\n1 Sinew Sliver\n1 Cloudshredder Sliver\n1 Blur Sliver\n1 Bonescythe Sliver\n1 Sliver Legion\n1 Megantic Sliver\n1 Harmonic Sliver\n1 Crystalline Sliver\n1 Ward Sliver\n1 Amoeboid Changeling\n1 Distant Melody\n1 Sol Ring\n1 Arcane Signet\n1 Plains ×2\n1 Island ×2\n1 Swamp ×2\n1 Mountain ×2\n1 Forest ×2\n1 Sliver Hive\n1 Cavern of Souls\n1 Ancient Ziggurat",
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "SYNERGY_RECOGNITION"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must flag duplicate cards in Commander deck",
+        "must identify key synergies",
+        "must mention Sliver Overlord)"
+      ],
+      "focus": "A 5-color Sliver deck showcasing tribal synergy (all creatures share and amplify abilities). This tests if the AI notes the across-the-board synergy and aggressive stat boosts (multiple sliver lords stacking) and correctly evaluates it as a tribal aggro strategy, rather than misinterpreting the deck as just a random assortment of creatures.."
+    },
+    {
+      "id": "pdf-test-028",
+      "title": "Kaalia's Big Threats",
+      "format": "commander",
+      "commander": "Kaalia of the Vast)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Iona, Shield of Emeria (banned)\n1 Master of Cruelties\n1 Balefire Dragon\n1 Archfiend of Despair\n1 Avacyn, Angel of Hope\n1 Rune-Scarred Demon\n1 Angelic Arbiter\n1 Utvara Hellkite\n1 Scourge of the Throne\n1 Vilis, Broker of Blood\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Swords to Plowshares\n1 Terminate\n1 Rakdos Signet\n1 Orzhov Signet\n1 Boros Signet\n1 Sol Ring\n1 Plains ×2\n1 Swamp ×2\n1 Mountain ×2\n1 Command Tower\n1 Nomad Outpost\n1 Clifftop Retreat\n1 Godless Shrine",
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "CMD_BANNED_CARD_PRESENT"
+      ],
+      "must_assert": [
+        "must include >=3 legal recommendations",
+        "must flag banned card if present",
+        "must mention Kaalia of the Vast)",
+        "must flag duplicate cards in Commander deck"
+      ],
+      "focus": "A Mardu Kaalia deck that cheats huge Angels, Demons, and Dragons into play. It deliberately includes Iona, Shield of Emeria, a card banned in Commander, to see if the AI flags this illegal card while analyzing the deck's high-power creature strategy. The AI should focus on how Kaalia accelerates these big threats into play and note the banned card inclusion as a critical issue.."
+    },
+    {
+      "id": "pdf-test-029",
+      "title": "Red Burn & Big Mana",
+      "format": "commander",
+      "commander": "Neheb, the Eternal)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Ghitu Lavarunner\n1 Viashino Pyromancer\n1 Soul-Scar Mage\n1 Thermo-Alchemist\n1 Lightning Bolt\n1 Lava Spike\n1 Skewer the Critics\n1 Flame Rift\n1 Sulfuric Vortex\n1 Light Up the Stage\n1 Banefire\n1 Comet Storm\n1 Pyrohemia\n1 Torbran, Thane of Red Fell\n1 Sol Ring\n1 Ruby Medallion\n1 Mountain ×15\n1 Forgotten Cave\n1 Ramunap Ruins\n1 Shrine of Burning Rage",
+      "tags": [],
+      "must_assert": [
+        "must mention Neheb, the Eternal)",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A mono-red burn deck that also leverages Neheb's ability to generate mana from damage (to fuel big X spells like Banefire). It tests whether the AI can identify the direct damage strategy and the plan to convert damage into huge follow-up spells, instead of misclassifying the deck's intent. The presence of Torbran should clue the AI into the damage-doubling theme, and Neheb's mana generation should be recognized as enabling one-turn big finishes.."
+    },
+    {
+      "id": "pdf-test-030",
+      "title": "Landfall Ramp Beatdown",
+      "format": "commander",
+      "commander": "",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Primeval Titan (banned)\n1 Lotus Cobra\n1 Rampaging Baloths\n1 Avenger of Zendikar\n1 Tireless Tracker\n1 Mina and Denn, Wildborn\n1 Cultivate\n1 Kodama's Reach\n1 Harrow\n1 Explosive Vegetation\n1 Scapeshift\n1 Oracle of Mul Daya\n1 Gruul Signet\n1 Sol Ring\n1 Valakut, the Molten Pinnacle\n1 Field of the Dead\n1 Command Tower\n1 Cinder Glade\n1 Gruul Turf\n1 Forest ×5\n1 Mountain ×5",
+      "tags": [
+        "FORMAT_LEGALITY_ERROR",
+        "CMD_BANNED_CARD_PRESENT"
+      ],
+      "must_assert": [
+        "must flag cards not legal in format",
+        "must flag banned card if present",
+        "must include >=3 legal recommendations"
+      ],
+      "focus": "A Gruul landfall deck that ramps hard to drop huge threats and make swarms of tokens (Omnath makes Elementals on landfall). It includes Primeval Titan, which is banned in 18 Commander, to test the AI's detection of format illegal cards in an otherwise straightforward ramp-aggro deck. The AI should note the heavy land ramp and landfall payoffs as the core strategy, while flagging the banned Titan.."
+    },
+    {
+      "id": "pdf-test-031",
+      "title": "Spellslinger Aggro",
+      "format": "commander",
+      "commander": "Adeliz, the Cinder",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Delver of Secrets\n1 Goblin Electromancer\n1 Viashino Pyromancer\n1 Stormchaser Mage\n1 Nivix Cyclops\n1 Electrostatic Field\n1 Lightning Bolt\n1 Lightning Strike\n1 Wizard's Lightning\n1 Shock\n1 Opt\n1 Brainstorm\n1 Chart a Course\n1 Curious Obsession\n1 Island ×8\n1 Mountain ×6\n1 Volcanic Island\n1 Shivan Reef\n1 Swiftwater Cliffs\n1 Sol Ring\n1 Izzet Signet",
+      "tags": [
+        "SYNERGY_RECOGNITION"
+      ],
+      "must_assert": [
+        "must mention Adeliz, the Cinder",
+        "must include >=3 legal recommendations",
+        "must identify key synergies"
+      ],
+      "focus": "An Izzet spellslinger deck that uses cheap Wizards and a flurry of burn/cantrip spells to quickly pressure life totals, with Adeliz pumping the team for each spell. It tests if the AI correctly sees the aggressive spell-trigger synergy (Adeliz's team buff) and does not mistake it for a control deck. The analysis should highlight how instant and sorcery density translate into damage via Adeliz and creatures like Electrostatic Field.."
+    },
+    {
+      "id": "pdf-test-032",
+      "title": "Vampire Tribal Aggro",
+      "format": "commander",
+      "commander": "Edgar Markov)",
+      "user_prompt": "What cards should I add to improve this Commander deck?",
+      "decklist": "1 Vampire Lacerator\n1 Bloodghast\n1 Cordial Vampire\n1 Stromkirk Captain\n1 Captivating Vampire\n1 Drana, Liberator of Malakir\n1 Sanctum Seeker\n1 Kalastria Highborn\n1 Blood Artist\n1 Anowon, the Ruin Sage\n1 Sorin, Lord of Innistrad\n1 Phyrexian Arena\n1 Bolas's Citadel\n1 Sign in Blood\n1 Sol Ring\n1 Orzhov Signet\n1 Rakdos Signet\n1 Boros Signet\n1 Swamp ×4\n1 Mountain ×2\n1 Plains ×2\n1 Command Tower\n1 Blood Crypt\n1 Godless Shrine\n1 Sacred Foundry",
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "COMBO_RECOGNITION",
+        "SYNERGY_RECOGNITION",
+        "CMD_BANNED_CARD_PRESENT"
+      ],
+      "must_assert": [
+        "must mention Edgar Markov)",
+        "must flag duplicate cards in Commander deck",
+        "must identify combo win condition",
+        "must include >=3 legal recommendations",
+        "must flag banned card if present",
+        "must identify key synergies"
+      ],
+      "focus": "A Mardu Vampire tribal deck known for aggressive token generation (Edgar's eminence ability) and vampire \"lords\" that buff the team or drain life. It checks that the AI notes the tribal synergy and life-drain elements (e.g. Sanctum Seeker, Blood Artist) and correctly classifies it as an aggro strategy. The AI should not confuse the incidental lifegain/life-drain for a pure lifegain deck or overlook the fact that Edgar Markov rapidly floods the board with vampire tokens. (The Modern and Standard test cases are organized similarly by archetype, covering banned-card inclusions, color pie violations, archetype misclassifications, and synergy/combo recognition in those formats, for a total of 200 test decks.)"
+    }
+  ]
+}

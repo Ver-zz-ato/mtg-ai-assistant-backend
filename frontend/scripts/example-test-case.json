@@ -1,0 +1,47 @@
+{
+  "testCases": [
+    {
+      "id": "pdf-test-001",
+      "title": "Commander Color Identity Test - Atraxa",
+      "format": "commander",
+      "commander": "Atraxa, Praetors' Voice",
+      "user_prompt": "What cards should I add to improve this deck?",
+      "decklist": "1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Command Tower\n1 Arcane Signet\n1 Birds of Paradise",
+      "tags": ["COLOR_IDENTITY_OFFCOLOR"],
+      "must_assert": [
+        "must mention Atraxa, Praetors' Voice",
+        "must include ≥3 legal recommendations",
+        "must not recommend off-color cards"
+      ],
+      "focus": "Color identity validation"
+    },
+    {
+      "id": "pdf-test-002",
+      "title": "Modern Format Banned Card Test",
+      "format": "modern",
+      "commander": null,
+      "user_prompt": "How can I improve this Modern deck?",
+      "decklist": "4 Lightning Bolt\n4 Ponder\n4 Preordain\n...",
+      "tags": ["FORMAT_LEGALITY_ERROR", "CMD_BANNED_CARD_PRESENT"],
+      "must_assert": [
+        "must flag banned card if present",
+        "must include ≥3 legal recommendations"
+      ],
+      "focus": "Format legality"
+    },
+    {
+      "id": "pdf-test-003",
+      "title": "Standard Rotation Trap Test",
+      "format": "standard",
+      "commander": null,
+      "user_prompt": "What should I add to this Standard deck?",
+      "decklist": "4 Fatal Push\n4 Thoughtseize\n...",
+      "tags": ["FORMAT_LEGALITY_ERROR"],
+      "must_assert": [
+        "must flag cards not in Standard",
+        "must include ≥3 legal recommendations"
+      ],
+      "focus": "Standard rotation"
+    }
+  ]
+}

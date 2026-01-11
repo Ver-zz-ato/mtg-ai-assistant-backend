@@ -1,12 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 
-// Cache for 1 hour (static support content)
-export const revalidate = 3600;
+// Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE errors
+export const dynamic = 'force-dynamic';
 
 // Dynamic import for client component
-const SupportFormClient = dynamic(() => import('@/components/SupportForm'), {
+const SupportFormClient = nextDynamic(() => import('@/components/SupportForm'), {
   loading: () => (
     <div className="max-w-2xl mx-auto bg-gray-800 rounded-xl p-6 border border-gray-700">
       <div className="animate-pulse space-y-4">

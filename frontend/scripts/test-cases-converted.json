@@ -1,0 +1,698 @@
+{
+  "testCases": [
+    {
+      "name": "Food Chain Infinite Mana",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "General Tazri",
+        "deckText": "1 Food Chain\n1 Misthollow Griffin\n1 Eternal Scourge\n1 Squee, the Immortal\n1 Kalastria Healer\n1 Halimar Excavator\n1 Demonic Tutor\n1 Enlightened Tutor\n1 Worldly Tutor\n1 Tainted Pact\n1 Sol Ring\n1 Arcane Signet\n1 Chromatic Lantern\n1 Birds of Paradise\n1 Elvish Spirit Guide\n1 Rhystic Study\n1 Sylvan Library\n1 Pact of Negation\n1 Fierce Guardianship\n1 Finale of Devastation\n1 Hagra Diabolist\n1 Mana Drain\n1 Command Tower\n1 Mana Confluence\n1 Plains\n1 Island\n1 Swamp\n1 Mountain\n1 Forest"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "General Tazri)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:Tests recognition of an infinite mana combo using Food Chain with creatures cast from exile, and che"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Thassa's Oracle Consultation",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Tymna the Weaver & Thrasios, Triton Hero",
+        "deckText": "1 Thassa's Oracle\n1 Demonic Consultation\n1 Tainted Pact\n1 Jace, Wielder of Mysteries\n1 Gitaxian Probe\n1 Brainstorm\n1 Swan Song\n1 Force of Will\n1 Force of Negation\n1 Vampiric Tutor\n1 Mox Diamond\n1 Ad Nauseam\n1 Sol Ring\n1 Arcane Signet\n1 Mana Crypt\n1 Sensei's Divining Top\n1 Mystical Tutor\n1 Enlightened Tutor\n1 Snapcaster Mage\n1 Laboratory Maniac\n1 Polluted Delta\n1 Tropical Island\n1 Savannah\n1 Underground Sea\n1 Tundra"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Tymna the Weaver & Thrasios, Triton Hero"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:Tests whether the AI can identify a game-winning combo (Thassa's Oracle + Consultation/ Tainted Pact"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Kiki-Jiki Twin Combo",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Riku of Two Reflections",
+        "deckText": "1 Kiki-Jiki, Mirror Breaker\n1 Zealous Conscripts\n1 Splinter Twin\n1 Pestermite\n1 Deceiver Exarch\n1 Village Bell-Ringer\n1 Tooth and Nail\n1 Green Sun's Zenith\n1 Panharmonicon\n1 Guardian Project\n1 Lightning Bolt\n1 Counterspell\n1 Mystical Tutor\n1 Prophetic Bolt\n1 Sol Ring\n1 Izzet Signet\n1 Simic Signet\n1 Gruul Signet\n1 Breeding Pool\n1 Stomping Ground\n1 Steam Vents\n1 Command Tower"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Riku of Two Reflections)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A creature combo deck that uses Kiki-Jiki with various creatures (Conscripts, Pestermite, etc.) to c"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Exquisite Blood / Sanguine Bond",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Liesa",
+        "deckText": "1 Exquisite Blood\n1 Sanguine Bond\n1 Vizkopa Guildmage\n1 Defiant Bloodlord\n1 Twilight Prophet\n1 Serra Ascendant\n1 Greed\n1 Erebos, God of the Dead\n1 Demonic Tutor\n1 Enlightened Tutor\n1 Test of Endurance\n1 Children of Korlis\n1 Sangromancer\n1 Sol Ring\n1 Orzhov Signet\n1 Pristine Talisman\n1 Command Tower\n1 Godless Shrine\n1 Vault of Champions\n1 Swamp\n1 Plains"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Liesa"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:Tests the AI's recognition of a two-card infinite life-drain combo (Exquisite Blood + Sanguine Bond)"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Godo Helm Combo",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Godo, Bandit Warlord",
+        "deckText": "1 Helm of the Host\n1 Hammer of Nazahn\n1 Brass Squire\n1 Magnetic Theft\n1 Aurelia's Fury\n1 Zealous Conscripts\n1 Port Razer\n1 Breath of Fury\n1 Final Fortune\n1 Chance for Glory\n1 Godo, Bandit Warlord (in deck for tutor effect)\n1 Blood Moon\n1 Dockside Extortionist\n1 Gamble\n1 Seething Song\n1 Wheel of Fortune\n1 Sol Ring\n1 Wayfarer's Bauble\n1 Mountain\n1 Mountain\n1 Mountain\n1 Forgotten Cave\n1 Reliquary Tower"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Godo, Bandit Warlord)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A mono-red combo/Voltron deck that equips Helm of the Host to Godo to generate infinite combat phase"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Gitrog Dakmor Combo",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "The Gitrog Monster",
+        "deckText": "1 Dakmor Salvage\n1 Gitrog Monster (as card engine)\n1 Skirge Familiar\n1 Kozilek, Butcher of Truth\n1 World Shaper\n1 Life from the Loam\n1 Lotus Petal\n1 Mana Bond\n1 Tortured Existence\n1 Chain of Smog\n1 Deathrite Shaman\n1 Underrealm Lich\n1 Vampiric Tutor\n1 Entomb\n1 Sol Ring\n1 Arcane Signet\n1 Golgari Signet\n1 Command Tower\n1 Overgrown Tomb\n1 Bayou\n1 Swamp\n1 Forest"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "The Gitrog Monster)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A Graveyard combo deck using The Gitrog Monster. It tests if the AI detects the Dakmor Salvage + Git"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Basalt Monolith Infinite Mana",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Kinnan, Bonder",
+        "deckText": "1 Basalt Monolith\n1 Mana Reflection\n1 Peregrine Drake\n1 Memnarch\n1 Walking Ballista\n1 Hydroid Krasis\n1 Freed from the Real\n1 Aphemia, the Cacophony (illegal – off-color for Simic)\n1 Leyline of Abundance\n1 Bluemarket Lotus (fictional card for test)\n1 Training Grounds\n1 Crop Rotation\n1 Finale of Devastation\n1 Mystical Tutor\n1 Cyclonic Rift\n1 Sol Ring\n1 Simic Signet\n1 Thrasios, Triton Hero\n1 Breeding Pool\n1 Tropical Island\n1 Yavimaya Coast\n1 Island\n1 Forest"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldNotContain": [
+          "off-color cards"
+        ],
+        "shouldContain": [
+          "Kinnan, Bonder",
+          "color identity violations"
+        ]
+      },
+      "tags": [
+        "COLOR_IDENTITY_OFFCOLOR",
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION",
+        "focus:A Simic combo-ramp deck focused on generating infinite mana (Basalt Monolith + Kinnan or Mana Reflec"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Doomsday Piles",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Kess, Dissident Mage",
+        "deckText": "1 Doomsday\n1 Thassa's Oracle\n1 Laboratory Maniac\n1 Yawgmoth's Will\n1 Gush\n1 Ideas Unbound\n1 Lion's Eye Diamond\n1 Brainstorm\n1 Personal Tutor\n1 Deep Analysis\n1 Gitaxian Probe\n1 Pact of Negation\n1 Dark Ritual\n1 Cabal Ritual\n1 Sol Ring\n1 Dimir Signet\n1 Talisman of Dominance\n1 Command Tower\n1 Underground Sea\n1 Volcanic Island\n1 Badlands\n1 Island\n1 Swamp"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Kess, Dissident Mage)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A Grixis Doomsday deck built to set up a winning five-card pile (usually finishing with 5 Thassa's O"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Underworld Breach Storm",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Elsha of the",
+        "deckText": "1 Underworld Breach\n1 Lion's Eye Diamond\n1 Brain Freeze\n1 Wheel of Fortune\n1 Narset, Parter of Veils\n1 Snapcaster Mage\n1 Monastery Mentor\n1 Jeska's Will\n1 Smothering Tithe\n1 Enlightened Tutor\n1 Past in Flames\n1 Windfall\n1 Deflecting Swat\n1 Force of Negation\n1 Sol Ring\n1 Arcane Signet\n1 Talisman of Progress\n1 Volcanic Island\n1 Tundra\n1 Plateau\n1 Command Tower\n1 Mystic Monastery"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Elsha of the"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A Jeskai storm combo deck that uses Underworld Breach with Brain Freeze and Lion's Eye Diamond to lo"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Flash Hulk",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Kenrith, the Returned King",
+        "deckText": "1 Flash (banned)\n1 Protean Hulk\n1 Viscera Seer\n1 Mikaeus, the Unhallowed\n1 Walking Ballista\n1 Grand Abolisher\n1 Sylvan Safekeeper\n1 Thassa's Oracle\n1 Eladamri's Call\n1 Summoner's Pact\n1 Pact of Negation\n1 Fierce Guardianship\n1 Defense Grid\n1 Chain of Vapor\n1 Sol Ring\n1 Mana Crypt\n1 Command Tower\n1 City of Brass\n1 Mana Confluence\n1 Savannah\n1 Underground Sea\n1 Volcanic Island\n1 Plateau\n1 Bayou"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Kenrith, the Returned King)",
+          "banned card if present"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "CMD_BANNED_CARD_PRESENT",
+        "COMBO_RECOGNITION",
+        "focus:A top-tier cEDH combo list using the infamous Flash + Protean Hulk combo (with Flash banned in Comma"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Birthing Pod Chain",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Prime Speaker Vannifar",
+        "deckText": "1 Birthing Pod\n1 Prime Speaker Vannifar\n1 Pestermite\n1 Deceiver Exarch\n1 Breaching Hippocamp\n1 Karmic Guide\n1 Kiki-Jiki, Mirror Breaker\n1 Bounding Krasis\n1 Intruder Alarm\n1 Glen Elendra Archmage\n1 Neoform\n1 Green Sun's Zenith\n1 Lightning Greaves\n1 Deadeye Navigator\n1 Sol Ring\n1 Simic Signet\n1 Incubation Druid\n1 Command Tower\n1 Tropical Island\n1 Breeding Pool\n1 Forest\n1 Island"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Prime Speaker Vannifar)"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A Simic creature-combo deck that uses Vannifar/Birthing Pod chains to tutor up an infinite combo (en"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Mikaeus + Triskelion",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Sidisi, Undead",
+        "deckText": "1 Mikaeus, the Unhallowed\n1 Triskelion\n1 Walking Ballista\n1 Buried Alive\n1 Entomb\n1 Victimize\n1 Reanimate\n1 Exsanguinate\n1 Gray Merchant of Asphodel\n1 Crypt Ghast\n1 Cabal Coffers\n1 Jet Medallion\n1 Sol Ring\n1 Phyrexian Arena\n1 Necropotence\n1 Toxic Deluge\n1 Command Tower\n1 Swamp\n1 Swamp\n1 Swamp\n1 Swamp\n1 Swamp"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Sidisi, Undead"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A mono-black combo deck designed to pull off the Mikaeus + Triskelion infinite damage combo. The AI "
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Lab Maniac Self-Mill",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Phenax, God of Deception",
+        "deckText": "1 Laboratory Maniac\n1 Leveler\n1 Thassa's Oracle\n1 Traumatize\n1 Keening Stone\n1 Altar of Dementia\n1 Jace, Wielder of Mysteries\n1 Mindcrank\n1 Consuming Aberration\n1 Fraying Sanity\n1 Undead Alchemist\n1 Mesmeric Orb\n1 Mind Grind\n1 Pact of Negation\n1 Damnation\n1 Sol Ring\n1 Dimir Signet\n1 Command Tower\n1 Drowned Catacomb\n1 Watery Grave\n1 Island\n1 Swamp"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Phenax, God of Deception)"
+        ]
+      },
+      "tags": [
+        "focus:A Dimir self-mill deck that can win by emptying its own library and using Lab Maniac/ Thassa's Oracl"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Worldgorger Dragon Combo",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Prosper, Tome-",
+        "deckText": "1 Worldgorger Dragon\n1 Animate Dead\n1 Dance of the Dead\n1 Necromancy\n1 Dockside Extortionist\n1 Zulaport Cutthroat\n1 Chaos Warp\n1 Faithless Looting\n1 Bog Initiate\n1 Agadeem's Awakening\n1 Command the Dreadhorde\n1 Twinflame\n1 Phyrexian Altar\n1 Sol Ring\n1 Rakdos Signet\n1 Talisman of Indulgence\n1 Swamp\n1 Mountain\n1 Command Tower\n1 Blood Crypt\n1 Luxury Suite\n1 Smoldering Marsh"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Prosper, Tome-"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:A Rakdos reanimator combo that uses Worldgorger Dragon + Animate Dead to generate infinite mana (and"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "\"Bomberman\" Infinite Mana",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Teshar",
+        "deckText": "1 Auriok Salvagers\n1 Lion's Eye Diamond\n1 Sun Titan\n1 Archaic Denison (fictional card as filler)\n1 Scrapyard Recombiner\n1 Walking Ballista\n1 Skullclamp\n1 Mishra's Bauble\n1 Salvage Scout\n1 Karmic Guide\n1 Buried Ruin\n1 Enlightened Tutor\n1 Ranger-Captain of Eos\n1 Silence\n1 Sol Ring\n1 Pearl Medallion\n1 Mind Stone\n1 Ancient Den\n1 Buried Ruin\n1 Plains\n1 Plains\n1 Plains\n1 Plains\n1 Plains"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Teshar"
+        ]
+      },
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION",
+        "focus:A mono-white combo deck showcasing the classic Bomberman combo (Auriok Salvagers + Lion's Eye Diamon"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Najeela Extra Combats",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Najeela, the Blade-",
+        "deckText": "1 Druids' Repository\n1 Nature's Will\n1 Bear Umbra\n1 Aggravated Assault\n1 Sword of Feast and Famine\n1 Snapdragon Snarecaster (fictional filler creature)\n1 Combat Celebrant\n1 Derevi, Empyrial Tactician\n1 Brave the Sands\n1 Patriarch's Bidding\n1 Grand Abolisher\n1 Vampiric Tutor\n1 Silence\n1 Reconnaissance\n1 Sol Ring\n1 Arcane Signet\n1 Birds of Paradise\n1 Command Tower\n1 City of Brass\n1 Mana Confluence\n1 Plateau\n1 Savannah\n1 Tropical Island\n1 Underground Sea\n1 Badlands"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Najeela, the Blade-"
+        ]
+      },
+      "tags": [
+        "FAKE_CARD_BAIT",
+        "COMBO_RECOGNITION",
+        "focus:A 5-color Najeela deck built for infinite combat phases (using cards like Nature's Will or Druids' R"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Mono-White Tokens",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Adeline",
+        "deckText": "1 Soul Warden\n1 Esper Sentinel\n1 Mother of Runes\n1 Raise the Alarm\n1 Recruiter of the Guard\n1 Spectral Procession\n1 Cathars' Crusade\n1 Crusade\n1 Glorious Anthem\n1 Mentor of the Meek\n1 Elspeth, Sun's Champion\n1 Skullclamp\n1 Pearl Medallion\n1 Secure the Wastes\n1 Windbrisk Heights\n1 Sol Ring\n1 Plains ×8\n1 Ancient Tomb\n1 Emeria, the Sky Ruin"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Adeline"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "focus:A wide mono-white token swarm strategy to test curve analysis and whether the AI correctly identifie"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Goblin Tribal Aggro",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Krenko, Mob Boss",
+        "deckText": "1 Goblin Lackey\n1 Goblin Warchief\n1 Goblin Chieftain\n1 Goblin Piledriver\n1 Legion Loyalist\n1 Mogg War Marshal\n1 Goblin Recruiter\n1 Siege-Gang Commander\n1 Krenko's Command\n1 Impact Tremors\n1 Mob Justice\n1 Goblin Grenade\n1 Throne of the God-Pharaoh\n1 Skullclamp\n1 Cavalcade of Calamity\n1 Goblin King\n1 Mountain ×15\n1 Forgotten Cave"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Krenko, Mob Boss)"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "focus:A Goblin tribal swarm deck to test recognition of tribal synergies (goblin lords, token generators, "
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Elf Tribal \"Elfball\"",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Ezuri, Renegade",
+        "deckText": "1 Llanowar Elves\n1 Elvish Mystic\n1 Fyndhorn Elves\n1 Elvish Archdruid\n1 Imperious Perfect\n1 Elvish Champion\n1 Priest of Titania\n1 Marwyn, the Nurturer\n1 Joraga Warcaller\n1 Craterhoof Behemoth\n1 Overrun\n1 Regal Force\n1 Natural Order\n1 Green Sun's Zenith\n1 Beast Within\n1 Forest ×12\n1 Wirewood Lodge\n1 Nykthos, Shrine to Nyx"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Ezuri, Renegade"
+        ]
+      },
+      "tags": [
+        "COMBO_RECOGNITION",
+        "focus:An Elf tribal deck that floods the board and generates explosive mana, aiming to Overrun opponents w"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Equipment Voltron",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Wyleth, Soul of Steel",
+        "deckText": "1 Colossus Hammer\n1 Sword of Fire and Ice\n1 Sunforger\n1 Swiftfoot Boots\n1 Darksteel Plate\n1 Loxodon Warhammer\n1 Sigarda's Aid\n1 Puresteel Paladin\n1 Sram, Senior Edificer\n1 Open the Armory\n1 Steelshaper's Gift\n1 Danitha Capashen, Paragon\n1 Brass Squire\n1 Bloodforged Battle-Axe\n1 Helm of the Host\n1 Plains ×5\n1 Mountain ×5\n1 Ancient Den\n1 Great Furnace\n1 Command Tower"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Wyleth, Soul of Steel)"
+        ]
+      },
+      "tags": [
+        "SYNERGY_RECOGNITION",
+        "focus:A Voltron deck where the commander is suited up with numerous equipments. This tests if the AI under"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Aura Voltron",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Uril, the Miststalker",
+        "deckText": "1 Rancor\n1 Ethereal Armor\n1 Daybreak Coronet\n1 Bear Umbra\n1 Snake Umbra\n1 Unflinching Courage\n1 Ancestral Mask\n1 Shield of the Oversoul\n1 Spirit Mantle\n1 Kor Spiritdancer\n1 Mesa Enchantress\n1 Satyr Enchanter\n1 Idyllic Tutor\n1 Open the Armory\n1 Forest ×4\n1 Mountain ×2\n1 Plains ×4\n1 Command Tower\n1 Fire-Lit Thicket\n1 Wooded Bastion\n1 Rugged Prairie"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Uril, the Miststalker)",
+          "duplicate cards in Commander deck"
+        ]
+      },
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "focus:A Voltron aura deck focusing on piling enchantments onto a single hexproof creature (Uril). It check"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Demon Stompy Aggro",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Rakdos, Lord of Riots",
+        "deckText": "1 Cryptbreaker\n1 Bloodsoaked Champion\n1 Lightning Skelemental\n1 Spawn of Mayhem\n1 Heartless Hidetsugu\n1 Sulfuric Vortex\n1 Fiery Confluence\n1 Anger\n1 Torpor Orb\n1 Sire of Insanity\n1 Vilis, Broker of Blood\n1 Seething Song\n1 Dark Ritual\n1 Lightning Bolt\n1 Swamp ×6\n1 Mountain ×6\n1 Bloodfell Caves\n1 Command Tower\n1 Graven Cairns\n1 Rakdos Signet\n1 Sol Ring"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Rakdos, Lord of Riots)"
+        ]
+      },
+      "tags": [
+        "focus:A Rakdos aggro deck that aims to drop opponents' life totals quickly to enable casting huge creature"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Gruul Smash with Off-Color Card",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "deckText": "1 Boros Charm(off-color)\n1 Ghalta, Primal Hunger\n1 Worldspine Wurm\n1 Ilharg, the Raze-Boar\n1 Spellbreaker Behemoth\n1 Selvala, Heart of the Wilds\n1 Rhythm of the Wild\n1 Decimate\n1 Blasphemous Act\n1 Garruk's Uprising\n1 Gruul War Chant\n1 Lightning Greaves\n1 Gruul Signet\n1 Command Tower\n1 Forest ×5\n1 Mountain ×5\n1 Stomping Ground\n1 Gruul Turf\n1 Mossfire Valley"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldNotContain": [
+          "off-color cards"
+        ],
+        "shouldContain": [
+          "color identity violations"
+        ]
+      },
+      "tags": [
+        "COLOR_IDENTITY_OFFCOLOR",
+        "focus:A Gruul beatdown deck with huge creatures and double-power effects from Xenagos. It intentionally in"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Mono-Red Aggro with Hybrid Mana Trap",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "deckText": "1 Figure of Destiny(hybrid R/W, off-color)\n1 Goblin Guide\n1 Monastery Swiftspear\n1 Eidolon of the Great Revel\n1 Thermo-Alchemist\n1 Harsh Mentor\n1 Lightning Bolt\n1 Chain Lightning\n1 Price of Progress\n1 Flame Rift\n1 Sulfuric Vortex\n1 Fireblast\n1 Rite of Flame\n1 Skullscar Mage (fictional filler burn spell)\n1 Ruby Medallion\n1 Mountain ×15\n1 Ramunap Ruins\n1 Valakut, the Molten Pinnacle"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldNotContain": [
+          "off-color cards"
+        ],
+        "shouldContain": [
+          "color identity violations"
+        ]
+      },
+      "tags": [
+        "COLOR_IDENTITY_OFFCOLOR",
+        "FAKE_CARD_BAIT",
+        "focus:A mono-red burn deck that sneaks in a hybrid-mana creature (Figure of Destiny, with a white mana upg"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Evasive Creatures with Duplicate",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Edric",
+        "deckText": "1 Flying Men\n1 Slither Blade (×2 – duplicate)\n1 Mist-Cloaked Herald\n1 Triton Shorestalker\n1 Invisible Stalker\n1 Blighted Agent\n1 Wingcrafter\n1 Wildborn Preserver\n1 Curious Obsession\n1 Coastal Piracy\n1 Bident of Thassa\n1 Nature's Will\n1 Cyclonic Rift\n1 Mystical Tutor\n1 Island ×6\n1 Forest ×5\n1 Command Tower\n1 Tropical Island\n1 Breeding Pool\n1 Simic Signet\n1 Sol Ring"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Edric",
+          "duplicate cards in Commander deck"
+        ]
+      },
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "focus:A Simic tempo deck full of small evasive creatures to abuse Edric's ability (drawing cards when crea"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Creature-Heavy Beatdown",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Ruric Thar, the",
+        "deckText": "1 Ulvenwald Tracker\n1 Scavenging Ooze\n1 Shifting Ceratops\n1 Glorybringer\n1 Inferno Titan\n1 Ghalta, Primal Hunger\n1 Terastodon\n1 Bane of Progress\n1 Avenger of Zendikar\n1 Beast Within\n1 Hull Breach\n1 Rhythm of the Wild\n1 Gruul War Chant\n1 Lightning Greaves\n1 Sol Ring\n1 Gruul Signet\n1 Thran Dynamo\n1 Forest ×6\n1 Mountain ×5\n1 Command Tower\n1 Kessig Wolf Run\n1 Rootbound Crag"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Ruric Thar, the"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "focus:A Gruul beatdown deck with almost all creature spells, leveraging Ruric Thar's punishment of noncrea"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Sliver Legion Aggro",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Sliver Overlord",
+        "deckText": "1 Gemhide Sliver\n1 Manaweft Sliver\n1 Predatory Sliver\n1 Sinew Sliver\n1 Cloudshredder Sliver\n1 Blur Sliver\n1 Bonescythe Sliver\n1 Sliver Legion\n1 Megantic Sliver\n1 Harmonic Sliver\n1 Crystalline Sliver\n1 Ward Sliver\n1 Amoeboid Changeling\n1 Distant Melody\n1 Sol Ring\n1 Arcane Signet\n1 Plains ×2\n1 Island ×2\n1 Swamp ×2\n1 Mountain ×2\n1 Forest ×2\n1 Sliver Hive\n1 Cavern of Souls\n1 Ancient Ziggurat"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Sliver Overlord)",
+          "duplicate cards in Commander deck"
+        ]
+      },
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "SYNERGY_RECOGNITION",
+        "focus:A 5-color Sliver deck showcasing tribal synergy (all creatures share and amplify abilities). This te"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Kaalia's Big Threats",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Kaalia of the Vast",
+        "deckText": "1 Iona, Shield of Emeria (banned)\n1 Master of Cruelties\n1 Balefire Dragon\n1 Archfiend of Despair\n1 Avacyn, Angel of Hope\n1 Rune-Scarred Demon\n1 Angelic Arbiter\n1 Utvara Hellkite\n1 Scourge of the Throne\n1 Vilis, Broker of Blood\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Swords to Plowshares\n1 Terminate\n1 Rakdos Signet\n1 Orzhov Signet\n1 Boros Signet\n1 Sol Ring\n1 Plains ×2\n1 Swamp ×2\n1 Mountain ×2\n1 Command Tower\n1 Nomad Outpost\n1 Clifftop Retreat\n1 Godless Shrine"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Kaalia of the Vast)",
+          "banned card if present",
+          "duplicate cards in Commander deck"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "CMD_BANNED_CARD_PRESENT",
+        "focus:A Mardu Kaalia deck that cheats huge Angels, Demons, and Dragons into play. It deliberately includes"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Red Burn & Big Mana",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Neheb, the Eternal",
+        "deckText": "1 Ghitu Lavarunner\n1 Viashino Pyromancer\n1 Soul-Scar Mage\n1 Thermo-Alchemist\n1 Lightning Bolt\n1 Lava Spike\n1 Skewer the Critics\n1 Flame Rift\n1 Sulfuric Vortex\n1 Light Up the Stage\n1 Banefire\n1 Comet Storm\n1 Pyrohemia\n1 Torbran, Thane of Red Fell\n1 Sol Ring\n1 Ruby Medallion\n1 Mountain ×15\n1 Forgotten Cave\n1 Ramunap Ruins\n1 Shrine of Burning Rage"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Neheb, the Eternal)"
+        ]
+      },
+      "tags": [
+        "focus:A mono-red burn deck that also leverages Neheb's ability to generate mana from damage (to fuel big X"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Landfall Ramp Beatdown",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "deckText": "1 Primeval Titan (banned)\n1 Lotus Cobra\n1 Rampaging Baloths\n1 Avenger of Zendikar\n1 Tireless Tracker\n1 Mina and Denn, Wildborn\n1 Cultivate\n1 Kodama's Reach\n1 Harrow\n1 Explosive Vegetation\n1 Scapeshift\n1 Oracle of Mul Daya\n1 Gruul Signet\n1 Sol Ring\n1 Valakut, the Molten Pinnacle\n1 Field of the Dead\n1 Command Tower\n1 Cinder Glade\n1 Gruul Turf\n1 Forest ×5\n1 Mountain ×5"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "banned card if present",
+          "cards not legal in format"
+        ]
+      },
+      "tags": [
+        "CMD_BANNED_CARD_PRESENT",
+        "FORMAT_LEGALITY_ERROR",
+        "focus:A Gruul landfall deck that ramps hard to drop huge threats and make swarms of tokens (Omnath makes E"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Spellslinger Aggro",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Adeliz, the Cinder",
+        "deckText": "1 Delver of Secrets\n1 Goblin Electromancer\n1 Viashino Pyromancer\n1 Stormchaser Mage\n1 Nivix Cyclops\n1 Electrostatic Field\n1 Lightning Bolt\n1 Lightning Strike\n1 Wizard's Lightning\n1 Shock\n1 Opt\n1 Brainstorm\n1 Chart a Course\n1 Curious Obsession\n1 Island ×8\n1 Mountain ×6\n1 Volcanic Island\n1 Shivan Reef\n1 Swiftwater Cliffs\n1 Sol Ring\n1 Izzet Signet"
+      },
+      "expectedChecks": {
+        "shouldContain": [
+          "Adeliz, the Cinder"
+        ],
+        "minCardSuggestions": 3
+      },
+      "tags": [
+        "SYNERGY_RECOGNITION",
+        "focus:An Izzet spellslinger deck that uses cheap Wizards and a flurry of burn/cantrip spells to quickly pr"
+      ],
+      "source": "pdf_import_2025"
+    },
+    {
+      "name": "Vampire Tribal Aggro",
+      "type": "deck_analysis",
+      "input": {
+        "userMessage": "What cards should I add to improve this Commander deck?",
+        "format": "Commander",
+        "commander": "Edgar Markov",
+        "deckText": "1 Vampire Lacerator\n1 Bloodghast\n1 Cordial Vampire\n1 Stromkirk Captain\n1 Captivating Vampire\n1 Drana, Liberator of Malakir\n1 Sanctum Seeker\n1 Kalastria Highborn\n1 Blood Artist\n1 Anowon, the Ruin Sage\n1 Sorin, Lord of Innistrad\n1 Phyrexian Arena\n1 Bolas's Citadel\n1 Sign in Blood\n1 Sol Ring\n1 Orzhov Signet\n1 Rakdos Signet\n1 Boros Signet\n1 Swamp ×4\n1 Mountain ×2\n1 Plains ×2\n1 Command Tower\n1 Blood Crypt\n1 Godless Shrine\n1 Sacred Foundry"
+      },
+      "expectedChecks": {
+        "minCardSuggestions": 3,
+        "shouldContain": [
+          "Edgar Markov)",
+          "duplicate cards in Commander deck",
+          "banned card if present"
+        ]
+      },
+      "tags": [
+        "CMD_SINGLETON_VIOLATION",
+        "SYNERGY_RECOGNITION",
+        "CMD_BANNED_CARD_PRESENT",
+        "COMBO_RECOGNITION",
+        "focus:A Mardu Vampire tribal deck known for aggressive token generation (Edgar's eminence ability) and vam"
+      ],
+      "source": "pdf_import_2025"
+    }
+  ]
+}
