@@ -9,6 +9,8 @@ import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
 import DeckOverview from "./DeckOverview";
+import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
+import FixNamesModal from "./FixNamesModal";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
@@ -192,6 +194,7 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
 
 export default function Client({ deckId, isPro, format, commander, colors, deckAim }: { deckId?: string; isPro?: boolean; format?: string; commander?: string | null; colors?: string[]; deckAim?: string | null }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
+  const [fixModalOpen, setFixModalOpen] = useState(false);
   
   // Track deck editor opened and fetch deck cards for hand testing
   useEffect(() => {
@@ -240,6 +243,26 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
   return (
     <div className="flex flex-col xl:flex-row gap-4 max-w-full overflow-x-auto">
       <div className="flex-1 min-w-0">
+        {/* Unrecognized Cards Banner - shows above decklist if cards need fixing */}
+        <UnrecognizedCardsBanner 
+          type="deck" 
+          id={deckId} 
+          onFix={() => {
+            // Only open if Pro (checking Pro status from parent)
+            if (!isPro) {
+              try {
+                import('@/lib/pro-ux').then(({ showProToast }) => showProToast()).catch(() => {
+                  alert('This is a Pro feature. Upgrade to unlock.');
+                });
+              } catch {
+                alert('This is a Pro feature. Upgrade to unlock.');
+              }
+              return;
+            }
+            setFixModalOpen(true);
+          }} 
+        />
+        
         {/* Deck Overview - right above decklist */}
         {format?.toLowerCase() === 'commander' && (
           <DeckOverview 
@@ -294,6 +317,19 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
         <LegalityTokensPanel deckId={deckId} format={format} />
         <DeckProbabilityWithHide deckId={deckId} isPro={!!isPro} />
       </aside>
+      
+      {/* Fix Names Modal - triggered by banner or FunctionsPanel button */}
+      {fixModalOpen && (
+        <FixNamesModal 
+          deckId={deckId} 
+          open={fixModalOpen} 
+          onClose={() => {
+            setFixModalOpen(false);
+            // Refresh deck to update banner after fixes
+            window.dispatchEvent(new Event('deck:changed'));
+          }} 
+        />
+      )}
     </div>
   );
 }

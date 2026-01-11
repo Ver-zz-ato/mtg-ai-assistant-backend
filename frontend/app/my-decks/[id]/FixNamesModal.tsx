@@ -31,6 +31,8 @@ export default function FixNamesModal({ deckId, open, onClose }: { deckId: strin
         if (!res.ok || j?.ok===false) throw new Error(j?.error || 'Rename failed');
       }
       onClose();
+      // Trigger deck change event to refresh banner and other components
+      window.dispatchEvent(new Event('deck:changed'));
       try { window.location.reload(); } catch {}
     } catch (e:any) { alert(e?.message || 'Apply failed'); }
     finally { setSaving(false); }

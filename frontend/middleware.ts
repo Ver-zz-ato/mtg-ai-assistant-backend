@@ -31,7 +31,7 @@ export async function middleware(req: NextRequest) {
 
     // Attach/refresh Supabase cookies; never block on error
     try {
-      const supabase = createMiddlewareClient({ req, response });
+      const supabase = createMiddlewareClient({ req, res: response as NextResponse });
       await supabase.auth.getSession();
     } catch (e) {
       console.error('Supabase middleware getSession error:', e);

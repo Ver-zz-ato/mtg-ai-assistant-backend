@@ -48,6 +48,8 @@ export default function FixCollectionNamesModal({
         if (!res.ok || j?.ok===false) throw new Error(j?.error || 'Rename failed');
       }
       onClose();
+      // Trigger collection change event to refresh banner and other components
+      window.dispatchEvent(new Event('collection:changed'));
       try { window.location.reload(); } catch {}
     } catch (e:any) { showToast(e?.message || 'Apply failed', 'error'); }
     finally { setSaving(false); setCurrentIndex(0); }

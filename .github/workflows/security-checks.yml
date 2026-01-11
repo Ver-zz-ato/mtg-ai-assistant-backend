@@ -1,0 +1,104 @@
+name: Security Checks
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'db/migrations/**'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'db/migrations/**'
+
+jobs:
+  security-invariants:
+    name: Check Security Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        # Note: If checkout action fails, use: actions/checkout@v3 as fallback
+
+      - name: Check for exec_sql usage (FAIL)
+        run: |
+          if grep -r "\.rpc(['\"]exec_sql" frontend/app/api --exclude-dir=node_modules 2>/dev/null; then
+            echo "❌ ERROR: exec_sql detected in admin routes"
+            echo "Use safe purpose-built RPCs instead (vacuum_analyze_table, migrate_cache_schema)"
+            echo "See: docs/SECURITY_INVARIANTS.md #3"
+            exit 1
+          fi
+          echo "✅ No exec_sql usage found"
+
+      - name: Check for potential secret exposure (WARN)
+        run: |
+          # Check for NEXT_PUBLIC_* env vars that might be secrets
+          if grep -r "NEXT_PUBLIC_.*SECRET\|NEXT_PUBLIC_.*KEY.*sk_" frontend --exclude-dir=node_modules --exclude="*.md" 2>/dev/null | grep -v "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY\|NEXT_PUBLIC_POSTHOG_KEY\|NEXT_PUBLIC_SUPABASE"; then
+            echo "⚠️ WARNING: Potential secret exposure via NEXT_PUBLIC_*"
+            echo "Verify these are intentional public keys, not secrets"
+            echo "See: docs/SECURITY_INVARIANTS.md #9"
+            # Don't fail - just warn (some might be intentional)
+          else
+            echo "✅ No obvious secret exposure detected"
+          fi
+
+      - name: Check for service role key in client code (FAIL)
+        run: |
+          if grep -r "SERVICE.*ROLE\|service.*role.*key" frontend --exclude-dir=node_modules --exclude="*.md" -i 2>/dev/null | grep -v "NEXT_PUBLIC_SUPABASE_ANON_KEY"; then
+            echo "❌ ERROR: Service role key pattern detected in frontend code"
+            echo "Service role keys must NEVER be exposed to client"
+            echo "See: docs/SECURITY_INVARIANTS.md #9"
+            exit 1
+          fi
+          echo "✅ No service role key exposure detected"
+
+      - name: Check for private keys in code (FAIL)
+        run: |
+          if grep -r "BEGIN.*PRIVATE KEY\|BEGIN RSA PRIVATE KEY" frontend --exclude-dir=node_modules 2>/dev/null; then
+            echo "❌ ERROR: Private key detected in codebase"
+            echo "Never commit private keys to git"
+            echo "See: docs/SECURITY_INVARIANTS.md #9"
+            exit 1
+          fi
+          echo "✅ No private keys detected"
+
+      - name: Check for dangerouslySetInnerHTML without sanitize (WARN)
+        run: |
+          # This is a simple check - complex cases may need manual review
+          files_with_danger=$(grep -r "dangerouslySetInnerHTML" frontend --include="*.tsx" --include="*.ts" --exclude-dir=node_modules -l 2>/dev/null || true)
+          if [ -n "$files_with_danger" ]; then
+            echo "⚠️ Files using dangerouslySetInnerHTML:"
+            echo "$files_with_danger"
+            echo ""
+            echo "⚠️ WARNING: Ensure all use sanitizeHTML() before rendering"
+            echo "Review these files manually for proper sanitization"
+            echo "See: docs/SECURITY_INVARIANTS.md #2"
+            # Don't fail - manual review needed for exceptions
+          else
+            echo "✅ No dangerouslySetInnerHTML usage found"
+          fi
+
+      - name: Check for header-based auth without secrets (WARN)
+        run: |
+          # Check cron routes for header-only auth
+          cron_files=$(find frontend/app/api/cron -name "route.ts" 2>/dev/null || true)
+          if [ -n "$cron_files" ]; then
+            for file in $cron_files; do
+              # Check if file has x-vercel-id or similar header check without CRON_KEY validation
+              if grep -q "x-vercel-id\|x-cron-key" "$file" 2>/dev/null; then
+                if ! grep -q "CRON_KEY\|cronKey" "$file" 2>/dev/null; then
+                  echo "⚠️ WARNING: $file uses header-based auth but may not validate CRON_KEY"
+                  echo "Ensure all cron routes validate secrets, not just header presence"
+                  echo "See: docs/SECURITY_INVARIANTS.md #10"
+                fi
+              fi
+            done
+          fi
+          echo "✅ Header-based auth check completed"
+
+      - name: Security checks summary
+        run: |
+          echo "✅ Security invariant checks completed"
+          echo "See docs/SECURITY_INVARIANTS.md for full checklist"

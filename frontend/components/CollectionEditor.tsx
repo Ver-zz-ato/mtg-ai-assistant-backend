@@ -5,6 +5,15 @@ import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 import { getImagesForNames } from "@/lib/scryfall";
 import Sparkline from "@/components/Sparkline";
+import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
+import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
+import { useProStatus } from "@/hooks/useProStatus";
+import { DualRange } from "@/components/shared/DualRange";
+import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
+import PriceChip from "@/components/shared/PriceChip";
+import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
+import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
+import CardAutocomplete from "@/components/CardAutocomplete";
 
 function BarList({ data, total, colors, onClick }: { data: Array<{ label:string; value:number }>; total?: number; colors?: string[]; onClick?: (label:string)=>void }){
   const sum = (total ?? data.reduce((s,d)=>s+d.value,0)) || 1;
@@ -286,18 +295,8 @@ export type CollectionEditorProps = {
 
 type Item = { id?: string; name: string; qty: number; created_at?: string };
 
-import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
-import { useProStatus } from "@/hooks/useProStatus";
-import { DualRange } from "@/components/shared/DualRange";
-import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
-import PriceChip from "@/components/shared/PriceChip";
-import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
-import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
-import CardAutocomplete from "@/components/CardAutocomplete";
-
-function FixNamesButton({ collectionId }: { collectionId: string }){
+function FixNamesButton({ collectionId, onOpenModal }: { collectionId: string; onOpenModal: () => void }){
   const { isPro } = useProStatus();
-  const [open, setOpen] = React.useState(false);
   
   // Track PRO gate view when component renders for non-PRO users
   React.useEffect(() => {
@@ -327,21 +326,18 @@ function FixNamesButton({ collectionId }: { collectionId: string }){
     );
   }
   return (
-    <>
-      <button 
-        onClick={() => {
-          setOpen(true);
-          trackProFeatureUsed('fix_card_names');
-        }} 
-        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
-      >
-        <span className="flex items-center gap-1.5">
-          <span>✏️</span>
-          <span>Fix names</span>
-        </span>
-      </button>
-      <FixCollectionNamesModal collectionId={collectionId} open={open} onClose={()=>setOpen(false)} />
-    </>
+    <button 
+      onClick={() => {
+        trackProFeatureUsed('fix_card_names');
+        onOpenModal();
+      }} 
+      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+    >
+      <span className="flex items-center gap-1.5">
+        <span>✏️</span>
+        <span>Fix names</span>
+      </span>
+    </button>
   );
 }
 
@@ -353,6 +349,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [qty, setQty] = React.useState<number>(1);
   const [toast, setToast] = React.useState<string|null>(null);
   const [tab, setTab] = React.useState<"overview"|"edit"|"stats"|"export">("overview");
+  const [fixModalOpen, setFixModalOpen] = React.useState(false);
   // Page-only state: filters, sort, pending changes, concurrency guard, currency
   const [filterText, setFilterText] = React.useState("");
   const [debouncedFilter, setDebouncedFilter] = React.useState("");
@@ -746,12 +743,19 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-10 gap-6" style={{ minHeight:'calc(100vh - 140px)' }}>
       {/* Left: filter + virtualized list editor */}
       <div className="flex flex-col h-full overflow-hidden lg:col-span-2 xl:col-span-7">
+        {/* Unrecognized Cards Banner - shows above collection if cards need fixing */}
+        <UnrecognizedCardsBanner 
+          type="collection" 
+          id={collectionId} 
+          onFix={() => setFixModalOpen(true)} 
+        />
+        
         {/* Sticky Save/Cancel + Search */}
         <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-2 border-b border-neutral-900">
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-sm font-medium">🔍 Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
             {/* Fix names (PRO) */}
-            <FixNamesButton collectionId={collectionId} />
+            <FixNamesButton collectionId={collectionId} onOpenModal={() => setFixModalOpen(true)} />
             <label className="text-sm font-medium">🔤 Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
             <label className="text-sm font-medium">📊 Dir<select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"><option value="asc">Asc</option><option value="desc">Desc</option></select></label>
             <div className="ml-auto flex items-center gap-2">
@@ -1053,6 +1057,20 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-3 py-1.5 rounded border border-neutral-700 text-sm">Cancel</button>
       </div>
       {toast && (<div className="pointer-events-none fixed bottom-4 right-4 rounded bg-black/80 text-white text-xs px-3 py-2 shadow">{toast}</div>)}
+      
+      {/* Fix Names Modal - triggered by banner or FixNamesButton */}
+      {fixModalOpen && (
+        <FixCollectionNamesModal 
+          collectionId={collectionId} 
+          open={fixModalOpen} 
+          onClose={() => {
+            setFixModalOpen(false);
+            // Refresh collection to update banner after fixes
+            reload();
+            window.dispatchEvent(new Event('collection:changed'));
+          }} 
+        />
+      )}
     </div>
   );
 }

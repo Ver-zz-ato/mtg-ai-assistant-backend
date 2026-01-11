@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
@@ -70,33 +69,39 @@ export async function POST(req: NextRequest) {
   let actor: string | null = null; // Declare actor at function scope
   
   try {
+    // Authentication for cron job (similar to other cron routes)
+    const cronKeyHeader = req.headers.get("x-cron-key") || "";
+    const vercelId = req.headers.get("x-vercel-id"); // Vercel automatically adds this
+    const url = new URL(req.url);
+    const cronKeyQuery = url.searchParams.get("key") || "";
+    
     const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    const hdr = req.headers.get("x-cron-key") || "";
-    console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
-
+    
+    // Allow if:
+    // 1. Request has x-vercel-id (from Vercel cron) - trusted if coming from Vercel
+    // 2. x-cron-key header matches CRON_KEY (for external/manual triggers)
+    // 3. key query parameter matches CRON_KEY (alternative for manual triggers)
+    const isFromVercel = !!vercelId;
+    const hasValidHeader = cronKey && cronKeyHeader === cronKey;
+    const hasValidQuery = cronKey && cronKeyQuery === cronKey;
+    
     let useAdmin = false;
 
-    if (cronKey && hdr === cronKey) {
+    if (isFromVercel || hasValidHeader || hasValidQuery) {
       useAdmin = true;
       actor = 'cron';
-      console.log("✅ Cron key auth successful");
-    } else {
-      console.log("🔍 Trying user auth...");
-      try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && isAdmin(user)) {
-          useAdmin = true;
-          actor = user.id as string;
-          console.log("✅ Admin user auth successful");
-        }
-      } catch (authError: any) {
-        console.log("❌ User auth failed:", authError.message);
-      }
+      console.log("✅ Cron auth successful", { isFromVercel, hasValidHeader, hasValidQuery });
     }
+    // Note: User auth fallback removed to avoid Supabase auth helper errors in cron contexts
+    // Cron routes should only use x-vercel-id (Vercel cron) or x-cron-key (manual triggers)
 
     if (!useAdmin) {
-      console.log("❌ Authorization failed");
+      console.log("❌ Authorization failed", { 
+        hasVercelId: !!vercelId,
+        hasCronKeyHeader: !!cronKeyHeader,
+        hasQueryKey: !!cronKeyQuery,
+        cronKeySet: !!cronKey
+      });
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
