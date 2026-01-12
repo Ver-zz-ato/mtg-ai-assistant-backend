@@ -33,30 +33,55 @@ Sentry.init({
   // Filter out malicious external script errors (not from our codebase)
   // These are typically injected by browser extensions, adware, or malware
   beforeSend(event, hint) {
-    // Check for known malicious domains in error messages
-    const errorMessage = event.exception?.values?.[0]?.value || '';
-    const originalException = hint.originalException as Error | undefined;
-    const errorUrl = originalException?.message || '';
-    
     // Ignore errors from known malicious domains (browser extension/adware injection)
     const maliciousDomains = [
       'sevendata.fun',
       'secdomcheck.online',
     ];
     
-    const fullErrorText = (errorMessage + ' ' + errorUrl).toLowerCase();
+    // Build a comprehensive search string from all error-related fields
+    const errorValue = event.exception?.values?.[0]?.value || '';
+    const errorType = event.exception?.values?.[0]?.type || '';
+    // Access title and message safely (they may not be on the base Event type)
+    const eventTitle = (event as any).title || '';
+    const eventMessage = (event as any).message || '';
+    const originalException = hint.originalException as Error | undefined;
+    const errorUrl = originalException?.message || '';
+    
+    // Combine all text fields for searching
+    const fullErrorText = (
+      errorValue + ' ' + 
+      errorType + ' ' + 
+      eventTitle + ' ' + 
+      eventMessage + ' ' + 
+      errorUrl
+    ).toLowerCase();
+    
+    // Check if any malicious domain appears in the error text
     if (maliciousDomains.some(domain => fullErrorText.includes(domain.toLowerCase()))) {
       // These are not our errors - ignore them to reduce noise in Sentry
       return null;
     }
     
-    // Also check breadcrumbs for malicious domain requests
+    // Check breadcrumbs for malicious domain requests
     if (event.breadcrumbs) {
       const hasMaliciousRequest = event.breadcrumbs.some(breadcrumb => {
         const url = breadcrumb.data?.url || '';
-        return maliciousDomains.some(domain => url.toLowerCase().includes(domain.toLowerCase()));
+        const method = breadcrumb.data?.method || '';
+        return maliciousDomains.some(domain => 
+          url.toLowerCase().includes(domain.toLowerCase()) ||
+          method.toLowerCase().includes(domain.toLowerCase())
+        );
       });
       if (hasMaliciousRequest) {
+        return null;
+      }
+    }
+    
+    // Check request URL if present
+    if (event.request?.url) {
+      const requestUrl = event.request.url.toLowerCase();
+      if (maliciousDomains.some(domain => requestUrl.includes(domain.toLowerCase()))) {
         return null;
       }
     }
