@@ -1,0 +1,201 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "ManaTap Logo ManaTap AI" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "ManaTap Logo" [ref=e6] [cursor=pointer]
+        - generic [ref=e7] [cursor=pointer]: ManaTap AI
+      - navigation [ref=e8]:
+        - link "✨ What's New" [ref=e9] [cursor=pointer]:
+          - /url: /changelog
+          - generic [ref=e10] [cursor=pointer]: ✨
+          - text: What's New
+        - link "Browse Decks" [ref=e11] [cursor=pointer]:
+          - /url: /decks/browse
+        - link "Deck Builder" [ref=e12] [cursor=pointer]:
+          - /url: /mtg-commander-ai-deck-builder
+        - link "Blog" [ref=e13] [cursor=pointer]:
+          - /url: /blog
+        - link "Pricing" [ref=e14] [cursor=pointer]:
+          - /url: /pricing
+        - button "Help ▾" [ref=e16]:
+          - text: Help
+          - generic [ref=e17]: ▾
+        - link "My Decks" [ref=e18] [cursor=pointer]:
+          - /url: /my-decks
+        - link "My Collections" [ref=e19] [cursor=pointer]:
+          - /url: /collections
+        - link "My Wishlist" [ref=e20] [cursor=pointer]:
+          - /url: /wishlist
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - textbox "email" [ref=e23]
+          - textbox "password" [ref=e24]
+          - button "Sign in" [ref=e25]
+        - button "Sign up" [ref=e26]
+  - main [ref=e27]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - heading "Build Better Decks" [level=1] [ref=e31]
+        - paragraph [ref=e32]: "Create, analyze, and optimize your Magic: The Gathering decks with AI-powered insights"
+      - generic [ref=e36]:
+        - heading "Powerful Deck Management" [level=2] [ref=e37]
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: 🔍 Quick Search
+            - paragraph [ref=e41]: Find any deck instantly with powerful search and filters
+          - generic [ref=e42]:
+            - generic [ref=e43]: 📌 Pin Favorites
+            - paragraph [ref=e44]: Keep your best decks pinned to the top for quick access
+          - generic [ref=e45]:
+            - generic [ref=e46]: 🌐 Share & Publish
+            - paragraph [ref=e47]: Make decks public and share them with the community
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]: 📚
+          - heading "Unlimited Deck Building" [level=3] [ref=e51]
+          - paragraph [ref=e52]: Create and manage as many decks as you want. Import from popular formats or build from scratch.
+        - generic [ref=e53]:
+          - generic [ref=e54]: 🤖
+          - heading "AI-Powered Analysis" [level=3] [ref=e55]
+          - paragraph [ref=e56]: Get instant insights on mana curve, synergies, and deck strength powered by advanced AI.
+        - generic [ref=e57]:
+          - generic [ref=e58]: 💰
+          - heading "Budget Optimization" [level=3] [ref=e59]
+          - paragraph [ref=e60]: Find cheaper alternatives without sacrificing synergy. Optimize your deck within your budget.
+        - generic [ref=e61]:
+          - generic [ref=e62]: 🎲
+          - heading "Mulligan Simulator" [level=3] [ref=e63]
+          - paragraph [ref=e64]: Test your opening hands with our interactive London mulligan simulator using real MTG card art.
+        - generic [ref=e65]:
+          - generic [ref=e66]: 📊
+          - heading "Advanced Statistics" [level=3] [ref=e67]
+          - paragraph [ref=e68]: Deep dive into probability calculations, combo odds, and deck performance metrics.
+        - generic [ref=e69]:
+          - generic [ref=e70]: 📤
+          - heading "Export Anywhere" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Export your decks to Moxfield, MTGO, Arena, and other popular MTG platforms.
+      - generic [ref=e75]:
+        - heading "Ready to Get Started?" [level=3] [ref=e76]
+        - paragraph [ref=e77]: Create your free account in seconds
+        - generic [ref=e78]:
+          - generic "Your account is free forever, no hidden costs" [ref=e79]: ✓ Free forever
+          - generic "Start using immediately, no payment needed" [ref=e80]: ✓ No credit card required
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]: Email
+            - textbox "your@email.com" [ref=e84]
+          - generic [ref=e85]:
+            - generic [ref=e86]: Password
+            - textbox "Min 8 characters" [ref=e87]
+          - button "Create Free Account" [ref=e88]
+          - paragraph [ref=e89]:
+            - text: By signing up, you agree to our
+            - link "Terms of Service" [ref=e90] [cursor=pointer]:
+              - /url: /terms
+      - generic [ref=e91]:
+        - paragraph [ref=e92]: "Join thousands of Magic: The Gathering players"
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]: ✓
+            - generic [ref=e96]: Free Forever
+          - generic [ref=e97]:
+            - generic [ref=e98]: ✓
+            - generic [ref=e99]: No Credit Card Required
+          - generic [ref=e100]:
+            - generic [ref=e101]: ✓
+            - generic [ref=e102]: Pro Features Available
+  - button "Feedback" [ref=e103]
+  - contentinfo [ref=e104]:
+    - generic [ref=e105]:
+      - generic [ref=e108]:
+        - generic [ref=e109]:
+          - generic [ref=e111]: "AI Model:"
+          - generic [ref=e112]: GPT-5 & GPT-4o Mini
+        - generic [ref=e113]:
+          - generic [ref=e115]: "Card Data:"
+          - link "Scryfall API" [ref=e116] [cursor=pointer]:
+            - /url: https://scryfall.com
+          - generic [ref=e117]: (Updated Recent)
+      - generic [ref=e119]: © 2026 ManaTap AI
+      - generic [ref=e120]:
+        - heading "Explore ManaTap" [level=3] [ref=e122]
+        - navigation [ref=e123]:
+          - link "Deck Builder" [ref=e124] [cursor=pointer]:
+            - /url: /mtg-commander-ai-deck-builder
+          - link "What's New" [ref=e125] [cursor=pointer]:
+            - /url: /changelog
+          - link "Cost to Finish" [ref=e126] [cursor=pointer]:
+            - /url: /collections/cost-to-finish
+          - link "Blog" [ref=e127] [cursor=pointer]:
+            - /url: /blog
+          - link "Budget Swaps" [ref=e128] [cursor=pointer]:
+            - /url: /budget-swaps
+          - link "Price Tracker" [ref=e129] [cursor=pointer]:
+            - /url: /price-tracker
+          - link "Probability" [ref=e130] [cursor=pointer]:
+            - /url: /tools/probability
+          - link "Mulligan" [ref=e131] [cursor=pointer]:
+            - /url: /tools/mulligan
+          - link "My Decks" [ref=e132] [cursor=pointer]:
+            - /url: /my-decks
+          - link "My Collections" [ref=e133] [cursor=pointer]:
+            - /url: /collections
+          - link "My Wishlist" [ref=e134] [cursor=pointer]:
+            - /url: /wishlist
+          - link "Profile" [ref=e135] [cursor=pointer]:
+            - /url: /profile
+      - generic [ref=e136]:
+        - generic [ref=e138]:
+          - 'link "Follow us on X: @ManaTapAI" [ref=e139] [cursor=pointer]':
+            - /url: https://x.com/ManatapAI
+            - text: "Follow us on X:"
+            - generic [ref=e140] [cursor=pointer]: "@ManaTapAI"
+          - generic [ref=e141]: •
+          - 'link "Instagram: @manatap.ai" [ref=e142] [cursor=pointer]':
+            - /url: https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1
+            - text: "Instagram:"
+            - generic [ref=e143] [cursor=pointer]: "@manatap.ai"
+        - generic [ref=e145]:
+          - generic [ref=e146]: "Support me:"
+          - link "Ko‑fi" [ref=e147] [cursor=pointer]:
+            - /url: https://ko-fi.com/davydraws7/tip
+          - link "PayPal" [ref=e148] [cursor=pointer]:
+            - /url: https://paypal.me/DavyDraws7
+          - link "Stripe" [ref=e149] [cursor=pointer]:
+            - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - navigation [ref=e151]:
+          - link "Support" [ref=e152] [cursor=pointer]:
+            - /url: /support
+          - generic [ref=e153]: •
+          - link "Pricing" [ref=e154] [cursor=pointer]:
+            - /url: /pricing
+          - generic [ref=e155]: •
+          - link "Terms" [ref=e156] [cursor=pointer]:
+            - /url: /terms
+          - generic [ref=e157]: •
+          - link "Privacy" [ref=e158] [cursor=pointer]:
+            - /url: /privacy
+          - generic [ref=e159]: •
+          - link "Refund Policy" [ref=e160] [cursor=pointer]:
+            - /url: /refund
+          - generic [ref=e161]: •
+          - button "Cookie Settings" [ref=e162]
+      - generic [ref=e163]:
+        - paragraph [ref=e164]: "This assistant uses AI to help with Magic: The Gathering deck building and strategy. Card information is sourced from Scryfall's comprehensive database. AI responses should be verified for competitive play."
+        - paragraph [ref=e165]: "Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 1993-2026 Wizards. All Rights Reserved. Manatap.ai is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. Manatap.ai may use the trademarks and other intellectual property of Wizards of the Coast LLC, which is permitted under Wizards' Fan Site Policy. MAGIC: THE GATHERING® is a trademark of Wizards of the Coast."
+        - paragraph [ref=e166]:
+          - text: Some card prices and other card data are provided by
+          - link "Scryfall" [ref=e167] [cursor=pointer]:
+            - /url: https://scryfall.com/
+          - text: . Scryfall makes no guarantee about its price information and recommends you see stores for final prices and details. For more information about Wizards of the Coast, visit
+          - link "https://company.wizards.com/" [ref=e168] [cursor=pointer]:
+            - /url: https://company.wizards.com/
+          - text: .
+  - button "Open Next.js Dev Tools" [ref=e174] [cursor=pointer]:
+    - img [ref=e175] [cursor=pointer]
+  - alert [ref=e178]
+```

@@ -17,4 +17,32 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Filter out harmless connection abort errors (common during test runs)
+  // These occur when HTTP connections are aborted (client disconnects) and are not actual errors
+  beforeSend(event, hint) {
+    const error = hint.originalException as Error & { code?: string } | undefined;
+    const errorMessage = event.exception?.values?.[0]?.value || '';
+    const errorType = event.exception?.values?.[0]?.type || '';
+    const culprit = (event as any).culprit || '';
+
+    // Filter out connection abort errors (common in tests when clients disconnect)
+    // These are harmless and expected behavior when:
+    // - Test clients disconnect
+    // - HTTP connections are aborted
+    // - Network errors occur during test cleanup
+    if (
+      errorMessage === 'aborted' ||
+      errorMessage.toLowerCase().includes('aborted') ||
+      error?.code === 'ECONNRESET' ||
+      error?.code === 'EPIPE' ||
+      culprit.includes('abortIncoming') ||
+      culprit.includes('_http_server')
+    ) {
+      // These are not real errors - ignore them to reduce noise in Sentry
+      return null;
+    }
+
+    return event;
+  },
 });
