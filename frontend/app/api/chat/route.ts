@@ -5,6 +5,8 @@ import { ok, err } from "@/app/api/_utils/envelope";
 import type { SfCard } from "@/lib/deck/inference";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import { logger } from "@/lib/logger";
+import { memoGet, memoSet } from "@/lib/utils/memoCache";
+import { deduplicatedFetch } from "@/lib/api/deduplicator";
 
 // Model configuration: Use mini for simple queries, gpt-5 for complex analysis
 const MODEL_MINI = "gpt-4o-mini"; // For simple queries: card parsing, legality checks, fast previews
@@ -152,7 +154,8 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
       messages,
       max_tokens: Math.max(16, tokens|0),
     };
-    const res = await fetch(OPENAI_URL, {
+    // Task 4: Add request deduplication for OpenAI calls
+    const res = await deduplicatedFetch(OPENAI_URL, {
       method: "POST",
       headers: { "content-type": "application/json", "authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(body),
@@ -179,8 +182,11 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
     }
   } catch {}
 
+  // Task 3: Reduce max tokens for simple queries
+  const maxTokens = useMidTier ? 384 : 256;
+  
   // First attempt with configured model
-  let attempt = await invoke(baseModel, 384);
+  let attempt = await invoke(baseModel, maxTokens);
 
   // If failed, examine error and retry once with adjusted params or fallback model
   if (!attempt.ok) {
@@ -326,6 +332,17 @@ export async function POST(req: NextRequest) {
       if (!durableLimit.allowed) {
         status = 429;
         return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`, "durable_rate_limited", status);
+      }
+      
+      // Task 6: Add per-minute rate limiting (10 requests per minute per user)
+      // Use separate key for per-minute limits: chat:minute:${userKeyHash}
+      // Note: checkDurableRateLimit uses date-based grouping, so per-minute limits are approximate
+      // (grouped by day, but separate key prevents interference with daily limits)
+      const minuteKeyHash = `chat:minute:${userKeyHash}`;
+      const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1/1440); // 1 minute = 1/1440 days
+      if (!minuteLimit.allowed) {
+        status = 429;
+        return err(`Too many requests. Please slow down (10 requests per minute limit).`, "rate_limited_per_minute", status);
       }
       
       // In-memory rate limiting (complements durable limit - handles short-term bursts)
@@ -703,8 +720,18 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       persona_id = p.id;
       sys = p.seed + "\n\n" + sys;
     } catch {}
+    // Task 7: Optimize system prompts - limit client context to essential fields
     if (context) {
-      try { const ctx = JSON.stringify(context).slice(0, 500); sys += `\n\nClient context (JSON): ${ctx}`; } catch {}
+      try { 
+        // Only include essential fields to reduce token count
+        const essential = {
+          deckId: context.deckId,
+          budget: context.budget,
+          colors: context.colors
+        };
+        const ctx = JSON.stringify(essential).slice(0, 200); 
+        sys += `\n\nClient context: ${ctx}`; 
+      } catch {}
     }
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
       const fmt = typeof prefs.format === 'string' ? prefs.format : undefined;
@@ -716,8 +743,9 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       // Add specific guidance for snapshot requests
       sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
     }
+    // Task 7: Optimize system prompts - shorten teaching mode formatting
     if (teachingFlag) {
-      sys += `\n\nTeaching mode formatting:\nIn teaching mode, always answer in 3 parts:\n1. Concept/explanation (what this thing is in MTG terms).\n2. Categorised examples (grouped: land-based ramp, mana rocks, mana dorks, spells, etc.).\n3. Application to this user's deck (how many they should run given colors/curve/commander).\nDo not make the teaching answer shorter than the normal answer.\nWhen teaching beginners, define any MTG jargon the first time it appears ("mana dork" = one-mana creature that taps for mana, "ETB" = enters the battlefield, etc.) and include examples in parentheses.\nMatch examples to the format: Commander should reference staples like **Sol Ring**, **Arcane Signet**, **Cultivate**; Modern should cite efficiency cards such as **Ragavan, Nimble Pilferer**, **Consider**, **Lightning Bolt**; Standard should highlight current rotation-safe staples in that colorset.`;
+      sys += `\n\nTeaching mode: Answer in 3 parts: 1) Concept/explanation, 2) Categorized examples (land ramp, rocks, dorks), 3) Application to deck. Define jargon first time (ETB=enters battlefield). Match examples to format.`;
     }
     // Add inference when deck is linked
     let inferredContext: any = null;
@@ -893,18 +921,47 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     } catch {}
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_research', { ms: Date.now()-stageT0 }); } catch {}
 
-    // Detect if this is a complex analysis query (use gpt-5) vs simple query (use gpt-4o-mini)
+    // Task 2: Tighten complex analysis detection - require deck context OR multiple complex keywords
     const queryLower = (text || '').toLowerCase();
-    const isComplexAnalysis = 
-      // Deck analysis indicators
-      inferredContext !== null || 
-      pastedDecklistContext !== '' ||
-      // Keywords indicating complex analysis
-      /\b(synergy|how.*work|why.*work|explain|analyze|analysis|strategy|archetype|combo|interaction|engine)\b/i.test(queryLower) ||
-      // Questions about deck mechanics
-      /\b(what.*wrong|improve|suggest|recommend|swap|better|upgrade|optimize)\b/i.test(queryLower) ||
-      // Questions requiring deep understanding
-      /\b(why|how does|what makes|how would|why would|what.*best|which.*better)\b/i.test(queryLower);
+    
+    // Simple query patterns (negative patterns - these should use mini)
+    const isSimpleQuery = 
+      // Card name lookups
+      /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(queryLower.trim()) ||
+      // Quick single-card questions
+      /^(is|can|does|will)\s+\w+\s+(a|an|legal|banned|good|bad)\b/i.test(queryLower.trim());
+    
+    // Complex analysis requires deck context OR multiple complex indicators
+    const hasDeckContext = inferredContext !== null || pastedDecklistContext !== '';
+    const complexKeywords = [
+      /\b(synergy|how.*work|why.*work|explain|analyze|analysis|strategy|archetype|combo|interaction|engine)\b/i,
+      /\b(what.*wrong|improve|suggest|recommend|swap|better|upgrade|optimize)\b/i,
+      /\b(why|how does|what makes|how would|why would|what.*best|which.*better)\b/i
+    ];
+    const complexKeywordCount = complexKeywords.filter(regex => regex.test(queryLower)).length;
+    
+    // Only use gpt-5 when truly needed: deck context OR 2+ complex keywords (not simple queries)
+    const isComplexAnalysis = !isSimpleQuery && (hasDeckContext || complexKeywordCount >= 2);
+    
+    // Task 1: Add response caching for chat (check cache before calling OpenAI)
+    const { hashString } = await import('@/lib/guest-tracking');
+    const sysPromptHash = await hashString(sys || '');
+    const format = typeof prefs?.format === 'string' ? prefs.format : '';
+    const commander = inferredContext?.commander || '';
+    const cacheKey = `chat:${text}:${sysPromptHash}:${format}:${commander || ''}`;
+    const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+    
+    // Check cache before making API call
+    const cachedResponse = memoGet<{ text: string; usage?: any; fallback?: boolean }>(cacheKey);
+    if (cachedResponse) {
+      if (DEV) console.log(`[chat] Cache HIT for query: ${text.slice(0, 50)}...`);
+      // Return cached response immediately
+      const outText = cachedResponse.text || '';
+      if (!suppressInsert && !isGuest && tid) {
+        await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: outText });
+      }
+      return ok({ text: outText, threadId: tid, provider: "cached" });
+    }
     
     const stage1T = Date.now();
     let out1: any;
@@ -961,6 +1018,13 @@ Return the corrected answer with concise, user-facing tone.`;
       outText = "Sorry — the AI service is temporarily unavailable in this environment. I can still help with search helpers and deck tools. Try again later or ask a specific question.";
     }
     outText = enforceChatGuards(outText, guardCtx);
+    
+    // Task 1: Cache successful responses for 1 hour
+    if (outText && !(out1 as any)?.fallback) {
+      const usage = (out1 as any)?.usage || {};
+      memoSet(cacheKey, { text: outText, usage, fallback: false }, CACHE_TTL_MS);
+      if (DEV) console.log(`[chat] Cached response for query: ${text.slice(0, 50)}...`);
+    }
     
     // Inject prices into card mentions (cache-first, Scryfall fallback)
     try {

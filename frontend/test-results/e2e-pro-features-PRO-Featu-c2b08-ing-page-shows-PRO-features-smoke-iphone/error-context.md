@@ -1,0 +1,380 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "ManaTap Logo" [ref=e5]:
+        - /url: /
+        - img "ManaTap Logo" [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - textbox "email" [ref=e9]
+          - textbox "password" [ref=e10]
+          - button "Sign in" [ref=e11]
+        - button "Sign up" [ref=e12]
+      - button "Toggle menu" [ref=e14]:
+        - img [ref=e15]
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - heading "Unlock Your MTG Potential" [level=1] [ref=e21]
+        - paragraph [ref=e22]: "Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. Get unlimited AI analysis, advanced insights, and premium features."
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - paragraph [ref=e26]: 💰 Save Time & Money
+            - paragraph [ref=e27]: Less than a booster pack per month
+            - paragraph [ref=e28]: Save 5+ hours/week on deck building • Avoid expensive card mistakes
+          - generic [ref=e29]:
+            - generic [ref=e30]: £1.99
+            - generic [ref=e31]: per month
+        - generic [ref=e32]:
+          - button "Monthly" [ref=e33]
+          - button "Annual Save 20%" [ref=e34]:
+            - text: Annual
+            - generic [ref=e35]: Save 20%
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - heading "Free" [level=3] [ref=e39]
+            - generic [ref=e40]: $0
+            - generic [ref=e41]: Forever
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: ✓
+              - generic [ref=e45]: Basic deck analysis (50/day)
+            - generic [ref=e46]:
+              - generic [ref=e47]: ✓
+              - generic [ref=e48]: Collection tracking
+            - generic [ref=e49]:
+              - generic [ref=e50]: ✓
+              - generic [ref=e51]: Current card prices
+            - generic [ref=e52]:
+              - generic [ref=e53]: ✓
+              - generic [ref=e54]: Community support
+          - link "Get Started Free" [ref=e55]:
+            - /url: /profile
+        - generic [ref=e56]:
+          - generic [ref=e57]: POPULAR
+          - generic [ref=e58]:
+            - heading "Pro" [level=3] [ref=e59]
+            - generic [ref=e60]: £1.99
+            - generic [ref=e61]: per month
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - generic [ref=e64]: ✓
+              - generic [ref=e65]: Everything in Free
+            - generic [ref=e66]:
+              - generic [ref=e67]: ✓
+              - generic [ref=e69]: Unlimited AI analysis
+            - generic [ref=e70]:
+              - generic [ref=e71]: ✓
+              - generic [ref=e73]: Advanced deck statistics
+            - generic [ref=e74]:
+              - generic [ref=e75]: ✓
+              - generic [ref=e77]: Price tracking & alerts
+            - generic [ref=e78]:
+              - generic [ref=e79]: ✓
+              - generic [ref=e80]: Priority support
+            - generic [ref=e81]:
+              - generic [ref=e82]: ✓
+              - generic [ref=e83]: Pro badge & early access
+          - button "Upgrade to Pro - £1.99/mo" [ref=e84]
+      - generic [ref=e85]:
+        - heading "Feature Comparison" [level=2] [ref=e86]
+        - table [ref=e88]:
+          - rowgroup [ref=e89]:
+            - row "Feature Free Pro" [ref=e90]:
+              - cell "Feature" [ref=e91]
+              - cell "Free" [ref=e92]
+              - cell "Pro" [ref=e93]
+          - rowgroup [ref=e94]:
+            - row "🎯 Hand Testing Widget Interactive London mulligan simulation with real MTG card artwork — Full simulator" [ref=e95]:
+              - cell "🎯 Hand Testing Widget Interactive London mulligan simulation with real MTG card artwork" [ref=e96]:
+                - generic [ref=e97]:
+                  - generic [ref=e98]: 🎯
+                  - generic [ref=e99]:
+                    - generic [ref=e100]: Hand Testing Widget
+                    - generic [ref=e101]: Interactive London mulligan simulation with real MTG card artwork
+              - cell "—" [ref=e102]:
+                - generic [ref=e103]: —
+              - cell "Full simulator" [ref=e104]:
+                - generic [ref=e106]: Full simulator
+            - row "📊 Deck Probability Analysis Advanced probability calculations and statistical insights View only Full calculations" [ref=e107]:
+              - cell "📊 Deck Probability Analysis Advanced probability calculations and statistical insights" [ref=e108]:
+                - generic [ref=e109]:
+                  - generic [ref=e110]: 📊
+                  - generic [ref=e111]:
+                    - generic [ref=e112]: Deck Probability Analysis
+                    - generic [ref=e113]: Advanced probability calculations and statistical insights
+              - cell "View only" [ref=e114]:
+                - generic [ref=e115]: View only
+              - cell "Full calculations" [ref=e116]:
+                - generic [ref=e118]: Full calculations
+            - row "💡 AI Budget Swaps Smart card suggestions to optimize your deck within budget Basic swaps AI-powered + Export" [ref=e119]:
+              - cell "💡 AI Budget Swaps Smart card suggestions to optimize your deck within budget" [ref=e120]:
+                - generic [ref=e121]:
+                  - generic [ref=e122]: 💡
+                  - generic [ref=e123]:
+                    - generic [ref=e124]: AI Budget Swaps
+                    - generic [ref=e125]: Smart card suggestions to optimize your deck within budget
+              - cell "Basic swaps" [ref=e126]:
+                - generic [ref=e127]: Basic swaps
+              - cell "AI-powered + Export" [ref=e128]:
+                - generic [ref=e130]: AI-powered + Export
+            - row "🔧 Fix Card Names Automatically fix and normalize card names in collections and decks — Batch processing" [ref=e131]:
+              - cell "🔧 Fix Card Names Automatically fix and normalize card names in collections and decks" [ref=e132]:
+                - generic [ref=e133]:
+                  - generic [ref=e134]: 🔧
+                  - generic [ref=e135]:
+                    - generic [ref=e136]: Fix Card Names
+                    - generic [ref=e137]: Automatically fix and normalize card names in collections and decks
+              - cell "—" [ref=e138]:
+                - generic [ref=e139]: —
+              - cell "Batch processing" [ref=e140]:
+                - generic [ref=e142]: Batch processing
+            - row "📈 Price Snapshots Historical price tracking and trend analysis Current prices only Full history + alerts" [ref=e143]:
+              - cell "📈 Price Snapshots Historical price tracking and trend analysis" [ref=e144]:
+                - generic [ref=e145]:
+                  - generic [ref=e146]: 📈
+                  - generic [ref=e147]:
+                    - generic [ref=e148]: Price Snapshots
+                    - generic [ref=e149]: Historical price tracking and trend analysis
+              - cell "Current prices only" [ref=e150]:
+                - generic [ref=e151]: Current prices only
+              - cell "Full history + alerts" [ref=e152]:
+                - generic [ref=e154]: Full history + alerts
+            - row "📋 Export to Moxfield/MTGO Export your decks and collections to popular platforms — All formats" [ref=e155]:
+              - cell "📋 Export to Moxfield/MTGO Export your decks and collections to popular platforms" [ref=e156]:
+                - generic [ref=e157]:
+                  - generic [ref=e158]: 📋
+                  - generic [ref=e159]:
+                    - generic [ref=e160]: Export to Moxfield/MTGO
+                    - generic [ref=e161]: Export your decks and collections to popular platforms
+              - cell "—" [ref=e162]:
+                - generic [ref=e163]: —
+              - cell "All formats" [ref=e164]:
+                - generic [ref=e166]: All formats
+            - row "🛠️ Collection Bulk Operations Set to playset, batch fixes, and advanced collection management Basic editing Bulk operations" [ref=e167]:
+              - cell "🛠️ Collection Bulk Operations Set to playset, batch fixes, and advanced collection management" [ref=e168]:
+                - generic [ref=e169]:
+                  - generic [ref=e170]: 🛠️
+                  - generic [ref=e171]:
+                    - generic [ref=e172]: Collection Bulk Operations
+                    - generic [ref=e173]: Set to playset, batch fixes, and advanced collection management
+              - cell "Basic editing" [ref=e174]:
+                - generic [ref=e175]: Basic editing
+              - cell "Bulk operations" [ref=e176]:
+                - generic [ref=e178]: Bulk operations
+            - row "🎲 AI Deck Assistant Advanced AI-powered deck building and optimization suggestions Basic suggestions Auto-toggle + Pro features" [ref=e179]:
+              - cell "🎲 AI Deck Assistant Advanced AI-powered deck building and optimization suggestions" [ref=e180]:
+                - generic [ref=e181]:
+                  - generic [ref=e182]: 🎲
+                  - generic [ref=e183]:
+                    - generic [ref=e184]: AI Deck Assistant
+                    - generic [ref=e185]: Advanced AI-powered deck building and optimization suggestions
+              - cell "Basic suggestions" [ref=e186]:
+                - generic [ref=e187]: Basic suggestions
+              - cell "Auto-toggle + Pro features" [ref=e188]:
+                - generic [ref=e190]: Auto-toggle + Pro features
+            - row "📊 Advanced Analytics Price trend sparklines, watchlists, and deck value tracking Basic stats Full analytics suite" [ref=e191]:
+              - cell "📊 Advanced Analytics Price trend sparklines, watchlists, and deck value tracking" [ref=e192]:
+                - generic [ref=e193]:
+                  - generic [ref=e194]: 📊
+                  - generic [ref=e195]:
+                    - generic [ref=e196]: Advanced Analytics
+                    - generic [ref=e197]: Price trend sparklines, watchlists, and deck value tracking
+              - cell "Basic stats" [ref=e198]:
+                - generic [ref=e199]: Basic stats
+              - cell "Full analytics suite" [ref=e200]:
+                - generic [ref=e202]: Full analytics suite
+            - row "🌟 Pro Badge & Priority Show your support with a Pro badge and priority feature access — Exclusive Pro features" [ref=e203]:
+              - cell "🌟 Pro Badge & Priority Show your support with a Pro badge and priority feature access" [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: 🌟
+                  - generic [ref=e207]:
+                    - generic [ref=e208]: Pro Badge & Priority
+                    - generic [ref=e209]: Show your support with a Pro badge and priority feature access
+              - cell "—" [ref=e210]:
+                - generic [ref=e211]: —
+              - cell "Exclusive Pro features" [ref=e212]:
+                - generic [ref=e214]: Exclusive Pro features
+      - generic [ref=e215]:
+        - heading "Loved by MTG Players Everywhere" [level=2] [ref=e216]
+        - generic [ref=e217]:
+          - generic [ref=e218]:
+            - generic [ref=e219]:
+              - img [ref=e220]
+              - img [ref=e222]
+              - img [ref=e224]
+              - img [ref=e226]
+              - img [ref=e228]
+            - paragraph [ref=e230]: "\"ManaTap AI helped me optimize my deck's mana curve and identified key synergies I missed. Went from 2-2 to 4-0 at my LGS. Worth every penny!\""
+            - generic [ref=e231]:
+              - generic [ref=e232]: Marcus Chen
+              - generic [ref=e233]: Competitive Commander Player
+          - generic [ref=e234]:
+            - generic [ref=e235]:
+              - img [ref=e236]
+              - img [ref=e238]
+              - img [ref=e240]
+              - img [ref=e242]
+              - img [ref=e244]
+            - paragraph [ref=e246]: "\"The budget swap feature is incredible. Saved me over $200 on my Gishath deck without sacrificing power level. The AI suggestions are spot-on.\""
+            - generic [ref=e247]:
+              - generic [ref=e248]: Sarah Martinez
+              - generic [ref=e249]: Budget Deck Builder
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - img [ref=e252]
+              - img [ref=e254]
+              - img [ref=e256]
+              - img [ref=e258]
+              - img [ref=e260]
+            - paragraph [ref=e262]: "\"Finally, an AI that actually understands Magic. The deck analysis catches things even experienced players miss. My playgroup is jealous of my optimized lists.\""
+            - generic [ref=e263]:
+              - generic [ref=e264]: James Thompson
+              - generic [ref=e265]: EDH Enthusiast
+          - generic [ref=e266]:
+            - generic [ref=e267]:
+              - img [ref=e268]
+              - img [ref=e270]
+              - img [ref=e272]
+              - img [ref=e274]
+              - img [ref=e276]
+            - paragraph [ref=e278]: "\"I was overwhelmed by deck building until ManaTap. The suggestions are clear, the price tracking is helpful, and it's made the game so much more enjoyable.\""
+            - generic [ref=e279]:
+              - generic [ref=e280]: Emily Rodriguez
+              - generic [ref=e281]: Casual Player
+          - generic [ref=e282]:
+            - generic [ref=e283]:
+              - img [ref=e284]
+              - img [ref=e286]
+              - img [ref=e288]
+              - img [ref=e290]
+              - img [ref=e292]
+            - paragraph [ref=e294]: "\"The probability calculator and hand testing widget are game-changers. I've refined my mulligan decisions and my win rate has noticeably improved.\""
+            - generic [ref=e295]:
+              - generic [ref=e296]: David Park
+              - generic [ref=e297]: Tournament Player
+          - generic [ref=e298]:
+            - generic [ref=e299]:
+              - img [ref=e300]
+              - img [ref=e302]
+              - img [ref=e304]
+              - img [ref=e306]
+              - img [ref=e308]
+            - paragraph [ref=e310]: "\"Being able to track my collection, see cost-to-finish, and get personalized recommendations all in one place? This tool pays for itself.\""
+            - generic [ref=e311]:
+              - generic [ref=e312]: Alexandra Foster
+              - generic [ref=e313]: Collection Manager
+      - generic [ref=e314]:
+        - heading "Ready to Level Up Your MTG Game?" [level=2] [ref=e315]
+        - paragraph [ref=e316]: Join thousands of players who are already using ManaTap AI Pro to improve their decks and win more games.
+        - button "Start Your Pro Journey - £1.99/mo" [ref=e317]
+      - generic [ref=e318]:
+        - heading "Frequently Asked Questions" [level=2] [ref=e319]
+        - generic [ref=e320]:
+          - generic [ref=e321]:
+            - heading "Can I cancel anytime?" [level=3] [ref=e322]
+            - paragraph [ref=e323]: Yes! You can cancel your Pro subscription at any time. You'll retain Pro access until the end of your billing period.
+          - generic [ref=e324]:
+            - heading "What payment methods do you accept?" [level=3] [ref=e325]
+            - paragraph [ref=e326]: We accept all major credit cards and PayPal for your convenience.
+          - generic [ref=e327]:
+            - heading "Is there a free trial?" [level=3] [ref=e328]
+            - paragraph [ref=e329]: Our Free tier gives you a great taste of what ManaTap AI can do. Upgrade to Pro when you're ready for more!
+          - generic [ref=e330]:
+            - heading "Do you offer discounts?" [level=3] [ref=e331]
+            - paragraph [ref=e332]: We occasionally offer special promotions. Follow us or check back for seasonal discounts!
+  - button "Feedback" [ref=e333]
+  - contentinfo [ref=e334]:
+    - generic [ref=e335]:
+      - generic [ref=e338]:
+        - generic [ref=e339]:
+          - generic [ref=e341]: "AI Model:"
+          - generic [ref=e342]: GPT-5 & GPT-4o Mini
+        - generic [ref=e343]:
+          - generic [ref=e345]: "Card Data:"
+          - link "Scryfall API" [ref=e346]:
+            - /url: https://scryfall.com
+          - generic [ref=e347]: (Updated Recent)
+      - generic [ref=e349]: © 2026 ManaTap AI
+      - generic [ref=e350]:
+        - heading "Explore ManaTap" [level=3] [ref=e352]
+        - navigation [ref=e353]:
+          - link "Deck Builder" [ref=e354]:
+            - /url: /mtg-commander-ai-deck-builder
+          - link "What's New" [ref=e355]:
+            - /url: /changelog
+          - link "Cost to Finish" [ref=e356]:
+            - /url: /collections/cost-to-finish
+          - link "Blog" [ref=e357]:
+            - /url: /blog
+          - link "Budget Swaps" [ref=e358]:
+            - /url: /budget-swaps
+          - link "Price Tracker" [ref=e359]:
+            - /url: /price-tracker
+          - link "Probability" [ref=e360]:
+            - /url: /tools/probability
+          - link "Mulligan" [ref=e361]:
+            - /url: /tools/mulligan
+          - link "My Decks" [ref=e362]:
+            - /url: /my-decks
+          - link "My Collections" [ref=e363]:
+            - /url: /collections
+          - link "My Wishlist" [ref=e364]:
+            - /url: /wishlist
+          - link "Profile" [ref=e365]:
+            - /url: /profile
+      - generic [ref=e366]:
+        - generic [ref=e368]:
+          - 'link "Follow us on X: @ManaTapAI" [ref=e369]':
+            - /url: https://x.com/ManatapAI
+            - text: "Follow us on X:"
+            - generic [ref=e370]: "@ManaTapAI"
+          - generic [ref=e371]: •
+          - 'link "Instagram: @manatap.ai" [ref=e372]':
+            - /url: https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1
+            - text: "Instagram:"
+            - generic [ref=e373]: "@manatap.ai"
+        - generic [ref=e375]:
+          - generic [ref=e376]: "Support me:"
+          - link "Ko‑fi" [ref=e377]:
+            - /url: https://ko-fi.com/davydraws7/tip
+          - link "PayPal" [ref=e378]:
+            - /url: https://paypal.me/DavyDraws7
+          - link "Stripe" [ref=e379]:
+            - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - navigation [ref=e381]:
+          - link "Support" [ref=e382]:
+            - /url: /support
+          - generic [ref=e383]: •
+          - link "Pricing" [ref=e384]:
+            - /url: /pricing
+          - generic [ref=e385]: •
+          - link "Terms" [ref=e386]:
+            - /url: /terms
+          - generic [ref=e387]: •
+          - link "Privacy" [ref=e388]:
+            - /url: /privacy
+          - generic [ref=e389]: •
+          - link "Refund Policy" [ref=e390]:
+            - /url: /refund
+          - generic [ref=e391]: •
+          - button "Cookie Settings" [ref=e392]
+      - generic [ref=e393]:
+        - paragraph [ref=e394]: "This assistant uses AI to help with Magic: The Gathering deck building and strategy. Card information is sourced from Scryfall's comprehensive database. AI responses should be verified for competitive play."
+        - paragraph [ref=e395]: "Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 1993-2026 Wizards. All Rights Reserved. Manatap.ai is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. Manatap.ai may use the trademarks and other intellectual property of Wizards of the Coast LLC, which is permitted under Wizards' Fan Site Policy. MAGIC: THE GATHERING® is a trademark of Wizards of the Coast."
+        - paragraph [ref=e396]:
+          - text: Some card prices and other card data are provided by
+          - link "Scryfall" [ref=e397]:
+            - /url: https://scryfall.com/
+          - text: . Scryfall makes no guarantee about its price information and recommends you see stores for final prices and details. For more information about Wizards of the Coast, visit
+          - link "https://company.wizards.com/" [ref=e398]:
+            - /url: https://company.wizards.com/
+          - text: .
+  - button "Open Next.js Dev Tools" [ref=e404] [cursor=pointer]:
+    - img [ref=e405] [cursor=pointer]
+  - alert [ref=e410]
+```

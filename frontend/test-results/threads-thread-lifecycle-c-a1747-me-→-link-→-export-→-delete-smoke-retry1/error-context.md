@@ -1,0 +1,346 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "ManaTap Logo ManaTap AI" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "ManaTap Logo" [ref=e6] [cursor=pointer]
+        - generic [ref=e7] [cursor=pointer]: ManaTap AI
+      - navigation [ref=e8]:
+        - link "✨ What's New" [ref=e9] [cursor=pointer]:
+          - /url: /changelog
+          - generic [ref=e10] [cursor=pointer]: ✨
+          - text: What's New
+        - link "Browse Decks" [ref=e11] [cursor=pointer]:
+          - /url: /decks/browse
+        - link "Deck Builder" [ref=e12] [cursor=pointer]:
+          - /url: /mtg-commander-ai-deck-builder
+        - link "Blog" [ref=e13] [cursor=pointer]:
+          - /url: /blog
+        - link "Pricing" [ref=e14] [cursor=pointer]:
+          - /url: /pricing
+        - button "Help ▾" [ref=e16]:
+          - text: Help
+          - generic [ref=e17]: ▾
+        - link "My Decks" [ref=e18] [cursor=pointer]:
+          - /url: /my-decks
+        - link "My Collections" [ref=e19] [cursor=pointer]:
+          - /url: /collections
+        - link "My Wishlist" [ref=e20] [cursor=pointer]:
+          - /url: /wishlist
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - textbox "email" [ref=e23]
+          - textbox "password" [ref=e24]
+          - button "Sign in" [ref=e25]
+        - button "Sign up" [ref=e26]
+  - main [ref=e27]:
+    - generic [ref=e30]:
+      - generic [ref=e33]:
+        - link "Cost to Finish" [ref=e34] [cursor=pointer]:
+          - /url: /collections/cost-to-finish
+          - img "Cost to Finish" [ref=e35] [cursor=pointer]
+        - link "Budget Swaps" [ref=e36] [cursor=pointer]:
+          - /url: /deck/swap-suggestions
+          - img "Budget Swaps" [ref=e37] [cursor=pointer]
+        - link "Price Tracker" [ref=e38] [cursor=pointer]:
+          - /url: /price-tracker
+          - img "Price Tracker" [ref=e39] [cursor=pointer]
+        - link "Mulligan Simulator" [ref=e40] [cursor=pointer]:
+          - /url: /tools/mulligan
+          - img "Mulligan Simulator" [ref=e41] [cursor=pointer]
+        - link "Probability Helpers" [ref=e42] [cursor=pointer]:
+          - /url: /tools/probability
+          - img "Probability Helpers" [ref=e43] [cursor=pointer]
+      - generic [ref=e47]:
+        - paragraph [ref=e49]: Sign up for free to save your chat history
+        - button "Sign Up For Free" [ref=e50]
+      - generic [ref=e51]:
+        - complementary [ref=e52]:
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]: Recent Public Decks
+              - list [ref=e63]:
+                - listitem [ref=e64] [cursor=pointer]:
+                  - link "Cedh ❤ 0 01/01/2026, 10:16:55" [ref=e67] [cursor=pointer]:
+                    - /url: /decks/9b3b6f0a-6057-4ae7-a43b-2d44ae1351db
+                    - generic [ref=e68] [cursor=pointer]:
+                      - generic [ref=e69] [cursor=pointer]: Cedh
+                      - button "❤ 0" [ref=e71]:
+                        - text: ❤
+                        - generic [ref=e72]: "0"
+                    - generic [ref=e73] [cursor=pointer]: 01/01/2026, 10:16:55
+                - listitem [ref=e74] [cursor=pointer]:
+                  - link "Henzie ❤ 0 29/12/2025, 19:13:19" [ref=e77] [cursor=pointer]:
+                    - /url: /decks/f25345e4-30a3-40b6-a754-9603e629049c
+                    - generic [ref=e78] [cursor=pointer]:
+                      - generic [ref=e79] [cursor=pointer]: Henzie
+                      - button "❤ 0" [ref=e81]:
+                        - text: ❤
+                        - generic [ref=e82]: "0"
+                    - generic [ref=e83] [cursor=pointer]: 29/12/2025, 19:13:19
+            - generic [ref=e84]:
+              - generic [ref=e85]: Most liked decks
+              - list [ref=e86]:
+                - listitem [ref=e87] [cursor=pointer]:
+                  - generic [ref=e88] [cursor=pointer]:
+                    - generic [ref=e89] [cursor=pointer]: 🥇
+                    - link "Cedh" [ref=e90] [cursor=pointer]:
+                      - /url: /decks/9b3b6f0a-6057-4ae7-a43b-2d44ae1351db
+                  - generic [ref=e91] [cursor=pointer]: ❤ 25
+                - listitem [ref=e92] [cursor=pointer]:
+                  - generic [ref=e93] [cursor=pointer]:
+                    - generic [ref=e94] [cursor=pointer]: 🥈
+                    - link "Henzie" [ref=e95] [cursor=pointer]:
+                      - /url: /decks/f25345e4-30a3-40b6-a754-9603e629049c
+                  - generic [ref=e96] [cursor=pointer]: ❤ 25
+                - listitem [ref=e97] [cursor=pointer]:
+                  - generic [ref=e98] [cursor=pointer]:
+                    - generic [ref=e99] [cursor=pointer]: 🥉
+                    - link "Narfi, Betrayer King – Snow Control" [ref=e100] [cursor=pointer]:
+                      - /url: /decks/969e51b3-ed71-4366-8ce4-08032beb069f
+                  - generic [ref=e101] [cursor=pointer]: ❤ 22
+                - listitem [ref=e102] [cursor=pointer]:
+                  - link "Hinata, Dawn-Crowned – Noncreature Reduction" [ref=e104] [cursor=pointer]:
+                    - /url: /decks/afddc253-9110-4bb4-89ad-1b727b82c014
+                  - generic [ref=e105] [cursor=pointer]: ❤ 22
+                - listitem [ref=e106] [cursor=pointer]:
+                  - link "Anim Pakal, Thousandth Moon – Gnome Tokens" [ref=e108] [cursor=pointer]:
+                    - /url: /decks/1f3c78b1-a9e5-47c0-987b-0fb8c090e159
+                  - generic [ref=e109] [cursor=pointer]: ❤ 22
+            - button "Feedback" [ref=e110]
+        - generic [ref=e112]:
+          - generic [ref=e117]:
+            - heading "ManaTap AI — Your Deck-Building Companion" [level=1] [ref=e118]
+            - button "Guest Mode (0/10)" [ref=e119] [cursor=pointer]
+          - generic [ref=e121]:
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - generic [ref=e125]: "Format:"
+                - button "commander" [ref=e126]
+                - button "standard" [ref=e127]
+                - button "modern" [ref=e128]
+              - generic [ref=e129]:
+                - generic [ref=e130]: "Colors:"
+                - 'button "Color identity filter: White" [ref=e131]':
+                  - img "White mana" [ref=e133]
+                  - generic [ref=e134]: White
+                - 'button "Color identity filter: Blue" [ref=e135]':
+                  - img "Blue mana" [ref=e137]
+                  - generic [ref=e138]: Blue
+                - 'button "Color identity filter: Black" [ref=e139]':
+                  - img "Black mana" [ref=e141]
+                  - generic [ref=e142]: Black
+                - 'button "Color identity filter: Red" [ref=e143]':
+                  - img "Red mana" [ref=e145]
+                  - generic [ref=e146]: Red
+                - 'button "Color identity filter: Green" [ref=e147]':
+                  - img "Green mana" [ref=e149]
+                  - generic [ref=e150]: Green
+                - button "Clear" [ref=e151]
+              - generic [ref=e152]:
+                - generic [ref=e153]: "Value:"
+                - button "budget" [ref=e154]
+                - button "optimized" [ref=e155]
+                - button "luxury" [ref=e156]
+              - generic [ref=e157]:
+                - generic [ref=e158]: "Teaching:"
+                - generic [ref=e159]:
+                  - checkbox "Explain in more detail" [ref=e160]
+                  - generic [ref=e161]: Explain in more detail
+            - generic [ref=e165]:
+              - combobox [ref=e166]:
+                - option "Loading…" [selected]
+              - button "🔍" [ref=e167]
+            - generic [ref=e169]:
+              - button "New Chat" [ref=e170]
+              - button "Rename" [disabled] [ref=e171]
+              - button "Delete" [disabled] [ref=e172]
+              - button "Link deck" [disabled] [ref=e173]
+              - generic "No deck linked" [ref=e174]:
+                - generic [ref=e175]: 🔗
+                - generic [ref=e176]: not linked
+            - generic [ref=e178]: Your deck-building assistant
+          - generic [ref=e179]:
+            - generic [ref=e180]:
+              - generic [ref=e181]: "Using:"
+              - generic [ref=e182]: Commander • Optimized
+            - generic [ref=e184]:
+              - generic [ref=e185]: 💬
+              - heading "Welcome to ManaTap AI!" [level=3] [ref=e186]
+              - paragraph [ref=e187]: "Start building your perfect deck. Ask me anything about Magic: The Gathering, or get started with a sample Commander deck."
+              - generic [ref=e188]:
+                - button "🎲 CLICK HERE! Start with a Sample Deck →" [ref=e189]:
+                  - generic [ref=e190]:
+                    - generic [ref=e191]: 🎲
+                    - generic [ref=e192]:
+                      - generic [ref=e193]: CLICK HERE!
+                      - generic [ref=e194]: Start with a Sample Deck
+                    - generic [ref=e195]: →
+                - button "🎯 FIND MY Playstyle" [ref=e196]:
+                  - generic [ref=e197]:
+                    - generic [ref=e198]: 🎯
+                    - generic [ref=e199]:
+                      - generic [ref=e200]: FIND MY
+                      - generic [ref=e201]: Playstyle
+              - generic [ref=e203]:
+                - button "Analyze this Commander deck and tell me what it's missing." [ref=e204]
+                - button "Fix the mana base for this 3-colour deck." [ref=e205]
+                - button "Suggest 5 on-colour upgrades for this commander." [ref=e206]
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - button "“Analyze my Commander deck”" [ref=e210]
+              - button "“Fix my 3-colour mana base”" [ref=e211]
+              - button "“Suggest five upgrades”" [ref=e212]
+              - button "“(Experimental) Build token deck under £50”" [ref=e213]
+            - generic [ref=e214]:
+              - textbox "Fix the mana base for this 3-colour deck." [ref=e216]
+              - generic [ref=e217]:
+                - button "Start voice input" [ref=e218]:
+                  - img [ref=e219]
+                - button "Send" [disabled] [ref=e222]
+        - complementary [ref=e223]:
+          - generic [ref=e224]:
+            - generic [ref=e226]:
+              - img "Deck Snapshot / Judger - Click to analyze a decklist" [ref=e229] [cursor=pointer]
+              - generic [ref=e231]:
+                - generic [ref=e232]: 💡
+                - generic [ref=e233]: Click above to analyze any decklist
+            - generic [ref=e234]:
+              - button "Custom Card Creator" [ref=e235]:
+                - heading "Custom Card Creator" [level=3] [ref=e236]
+                - img [ref=e237]
+              - generic [ref=e241]:
+                - generic [ref=e242]: Custom Card Creator
+                - generic [ref=e243]: Assemble a playful profile card.
+                - generic [ref=e244]: Art via Scryfall (credit shown).
+                - generic [ref=e245]:
+                  - button "🎲 Randomize All" [ref=e247]
+                  - generic [ref=e251]:
+                    - generic [ref=e252]:
+                      - textbox "Card Name" [ref=e253]: Dr. Dark Destroyer
+                      - button "🎲" [ref=e254]
+                      - generic [ref=e255]:
+                        - button "3" [ref=e256] [cursor=pointer]
+                        - button "U" [ref=e257] [cursor=pointer]:
+                          - img "U" [ref=e258] [cursor=pointer]
+                    - generic [ref=e260] [cursor=pointer]: Click to add art
+                    - generic [ref=e261]:
+                      - textbox "Type Line" [ref=e262]: Creature — Wizard
+                      - button "🎲" [ref=e263]
+                      - button "C" [ref=e264] [cursor=pointer]
+                    - generic [ref=e265]:
+                      - button "🎲" [ref=e266]
+                      - textbox "Enter card text..." [ref=e267]: Dr. Dark Destroyer plans three turns ahead—four if you’re counting. Knowledge is tempo; tempo becomes inevitability.
+                    - generic [ref=e269]:
+                      - button "1" [ref=e270] [cursor=pointer]
+                      - generic [ref=e271]: /
+                      - button "1" [ref=e272] [cursor=pointer]
+                - generic [ref=e275]: Loading art choices...
+                - paragraph [ref=e276]: "This fan-made card is for personal, non‑commercial use. Artwork is credited to the listed artist and linked via Scryfall; all Magic: The Gathering trademarks and related properties are owned by Wizards of the Coast. No affiliation or endorsement is implied, and images are used under fair‑use/fan‑work principles."
+                - generic [ref=e277]:
+                  - button "Attach to my profile" [ref=e278]
+                  - button "Share this creation" [ref=e279]
+            - heading "🏆 Achievement Progress" [level=3] [ref=e282]:
+              - generic [ref=e283]: 🏆
+              - text: Achievement Progress
+            - generic [ref=e297]:
+              - heading "Shoutbox" [level=2] [ref=e301]
+              - generic [ref=e305]:
+                - textbox "Anon" [ref=e306]
+                - textbox "Say something…" [ref=e307]
+                - button "Post" [ref=e308]
+    - button "Feedback" [ref=e309]
+  - button "Feedback" [ref=e310]
+  - contentinfo [ref=e311]:
+    - generic [ref=e312]:
+      - generic [ref=e315]:
+        - generic [ref=e316]:
+          - generic [ref=e318]: "AI Model:"
+          - generic [ref=e319]: GPT-5 & GPT-4o Mini
+        - generic [ref=e320]:
+          - generic [ref=e322]: "Card Data:"
+          - link "Scryfall API" [ref=e323] [cursor=pointer]:
+            - /url: https://scryfall.com
+          - generic [ref=e324]: (Updated Oct 12, 2025)
+      - generic [ref=e326]: © 2026 ManaTap AI
+      - generic [ref=e327]:
+        - heading "Explore ManaTap" [level=3] [ref=e329]
+        - navigation [ref=e330]:
+          - link "Deck Builder" [ref=e331] [cursor=pointer]:
+            - /url: /mtg-commander-ai-deck-builder
+          - link "What's New" [ref=e332] [cursor=pointer]:
+            - /url: /changelog
+          - link "Cost to Finish" [ref=e333] [cursor=pointer]:
+            - /url: /collections/cost-to-finish
+          - link "Blog" [ref=e334] [cursor=pointer]:
+            - /url: /blog
+          - link "Budget Swaps" [ref=e335] [cursor=pointer]:
+            - /url: /budget-swaps
+          - link "Price Tracker" [ref=e336] [cursor=pointer]:
+            - /url: /price-tracker
+          - link "Probability" [ref=e337] [cursor=pointer]:
+            - /url: /tools/probability
+          - link "Mulligan" [ref=e338] [cursor=pointer]:
+            - /url: /tools/mulligan
+          - link "My Decks" [ref=e339] [cursor=pointer]:
+            - /url: /my-decks
+          - link "My Collections" [ref=e340] [cursor=pointer]:
+            - /url: /collections
+          - link "My Wishlist" [ref=e341] [cursor=pointer]:
+            - /url: /wishlist
+          - link "Profile" [ref=e342] [cursor=pointer]:
+            - /url: /profile
+      - generic [ref=e343]:
+        - generic [ref=e345]:
+          - 'link "Follow us on X: @ManaTapAI" [ref=e346] [cursor=pointer]':
+            - /url: https://x.com/ManatapAI
+            - text: "Follow us on X:"
+            - generic [ref=e347] [cursor=pointer]: "@ManaTapAI"
+          - generic [ref=e348]: •
+          - 'link "Instagram: @manatap.ai" [ref=e349] [cursor=pointer]':
+            - /url: https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1
+            - text: "Instagram:"
+            - generic [ref=e350] [cursor=pointer]: "@manatap.ai"
+        - generic [ref=e352]:
+          - generic [ref=e353]: "Support me:"
+          - link "Ko‑fi" [ref=e354] [cursor=pointer]:
+            - /url: https://ko-fi.com/davydraws7/tip
+          - link "PayPal" [ref=e355] [cursor=pointer]:
+            - /url: https://paypal.me/DavyDraws7
+          - link "Stripe" [ref=e356] [cursor=pointer]:
+            - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - navigation [ref=e358]:
+          - link "Support" [ref=e359] [cursor=pointer]:
+            - /url: /support
+          - generic [ref=e360]: •
+          - link "Pricing" [ref=e361] [cursor=pointer]:
+            - /url: /pricing
+          - generic [ref=e362]: •
+          - link "Terms" [ref=e363] [cursor=pointer]:
+            - /url: /terms
+          - generic [ref=e364]: •
+          - link "Privacy" [ref=e365] [cursor=pointer]:
+            - /url: /privacy
+          - generic [ref=e366]: •
+          - link "Refund Policy" [ref=e367] [cursor=pointer]:
+            - /url: /refund
+          - generic [ref=e368]: •
+          - button "Cookie Settings" [ref=e369]
+      - generic [ref=e370]:
+        - paragraph [ref=e371]: "This assistant uses AI to help with Magic: The Gathering deck building and strategy. Card information is sourced from Scryfall's comprehensive database. AI responses should be verified for competitive play."
+        - paragraph [ref=e372]: "Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 1993-2026 Wizards. All Rights Reserved. Manatap.ai is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. Manatap.ai may use the trademarks and other intellectual property of Wizards of the Coast LLC, which is permitted under Wizards' Fan Site Policy. MAGIC: THE GATHERING® is a trademark of Wizards of the Coast."
+        - paragraph [ref=e373]:
+          - text: Some card prices and other card data are provided by
+          - link "Scryfall" [ref=e374] [cursor=pointer]:
+            - /url: https://scryfall.com/
+          - text: . Scryfall makes no guarantee about its price information and recommends you see stores for final prices and details. For more information about Wizards of the Coast, visit
+          - link "https://company.wizards.com/" [ref=e375] [cursor=pointer]:
+            - /url: https://company.wizards.com/
+          - text: .
+  - button "Open Next.js Dev Tools" [ref=e381] [cursor=pointer]:
+    - img [ref=e382] [cursor=pointer]
+  - alert [ref=e385]
+```
