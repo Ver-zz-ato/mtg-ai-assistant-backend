@@ -8,12 +8,55 @@ import DeckComments from "@/components/DeckComments";
 import ExportToMoxfield from "@/components/ExportToMoxfield";
 import ExportToTCGPlayer from "@/components/ExportToTCGPlayer";
 import CloneDeckButton from "@/components/CloneDeckButton";
+import ShareButton from "@/components/ShareButton";
 import type { Metadata } from "next";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
 
-// Generate dynamic metadata for public deck pages (SEO)
+// Helper function to get deck art for Open Graph images
+async function getDeckArtForMetadata(supabase: any, deckId: string, commander: string | null): Promise<string | undefined> {
+  function norm(s: string): string {
+    return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  }
+  
+  // Try fetching commander art directly from scryfall_cache (fast, no external API calls)
+  if (commander) {
+    try {
+      const { getImagesForNamesCached } = await import("@/lib/server/scryfallCache");
+      const cleanCommander = commander.replace(/\s*\(.*?\)\s*$/, '').trim();
+      const imgMap = await getImagesForNamesCached([cleanCommander]);
+      const img = imgMap.get(norm(cleanCommander));
+      if (img?.art_crop || img?.normal) {
+        return img.art_crop || img.normal || undefined;
+      }
+    } catch {}
+  }
+  
+  // Fallback: try fetching top card from deck_cards for art
+  try {
+    const { data: topCard } = await supabase
+      .from("deck_cards")
+      .select("name")
+      .eq("deck_id", deckId)
+      .order("qty", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (topCard?.name) {
+      const { getImagesForNamesCached } = await import("@/lib/server/scryfallCache");
+      const imgMap = await getImagesForNamesCached([topCard.name]);
+      const img = imgMap.get(norm(topCard.name));
+      if (img?.art_crop || img?.normal) {
+        return img.art_crop || img.normal || undefined;
+      }
+    }
+  } catch {}
+  
+  return undefined;
+}
+
+// Generate dynamic metadata for public deck pages (SEO + Social Sharing)
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
@@ -39,20 +82,45 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     ? `Explore this ${format} deck featuring ${commander} on ManaTap.ai. View the full decklist, card recommendations, and strategy insights.`
     : `Explore this ${format} deck on ManaTap.ai. View the full decklist, card recommendations, and strategy insights.`;
   
+  // Fetch deck art for Open Graph images
+  const deckImage = await getDeckArtForMetadata(supabase, id, commander);
+  
+  const canonicalUrl = `https://manatap.ai/decks/${id}`;
+  
+  const ogImage = deckImage 
+    ? {
+        url: deckImage,
+        width: 1200,
+        height: 630,
+        alt: commander ? `${title} - ${commander} deck` : `${title} deck`,
+      }
+    : {
+        url: "/manatap-og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "ManaTap AI - MTG Deck Builder",
+      };
+  
   return {
-    title: `${title} | ManaTap.ai`,
+    title: `${title}${commander ? ` - ${commander}` : ''} | ManaTap.ai`,
     description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
-      title: `${title} | ManaTap.ai`,
+      title: `${title}${commander ? ` - ${commander}` : ''} | ManaTap.ai`,
       description,
       type: "website",
-      url: `https://www.manatap.ai/decks/${id}`,
+      url: canonicalUrl,
       siteName: "ManaTap.ai",
+      locale: "en_US",
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | ManaTap.ai`,
+      title: `${title}${commander ? ` - ${commander}` : ''} | ManaTap.ai`,
       description,
+      images: [ogImage.url],
     },
   };
 }
@@ -159,6 +227,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim").eq("id", id).maybeSingle();
   const title = deckRow?.title ?? "Deck";
   const format = String(deckRow?.format || "Commander");
+  const commander = deckRow?.commander || "";
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
   const isOwner = user?.id && (deckRow as any)?.user_id === user.id;
 
@@ -467,6 +536,14 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             <div className="mt-4 flex flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <LikeButton deckId={id} />
+                <ShareButton
+                  url={`https://manatap.ai/decks/${id}`}
+                  title={title}
+                  description={commander ? `${format} deck featuring ${commander}` : `${format} deck`}
+                  type="deck"
+                  isPublic={deckRow?.is_public === true}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg border border-purple-500/50"
+                />
               </div>
               <div className="flex flex-wrap gap-2">
                 <CloneDeckButton deckId={id} />
