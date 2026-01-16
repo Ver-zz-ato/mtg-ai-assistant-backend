@@ -1,0 +1,74 @@
+name: Manual Deploy Trigger
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deployment target'
+        required: true
+        default: 'vercel'
+        type: choice
+        options:
+          - vercel
+          - render
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Trigger Vercel Deployment
+        if: inputs.target == 'vercel'
+        run: |
+          echo "🚀 Triggering Vercel deployment..."
+          
+          # Option 1: Use Vercel CLI (requires VERCEL_TOKEN in secrets)
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            npm install -g vercel@latest
+            vercel deploy --token="${{ secrets.VERCEL_TOKEN }}" --yes
+          else
+            echo "⚠️ VERCEL_TOKEN not set. Triggering via webhook instead..."
+            
+            # Option 2: Trigger via Vercel webhook (if configured)
+            if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
+              curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+              echo "✅ Deploy hook triggered"
+            else
+              echo "❌ No Vercel credentials found. Please:"
+              echo "   1. Set VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID in GitHub Secrets, OR"
+              echo "   2. Set VERCEL_DEPLOY_HOOK for webhook deployment"
+              echo "   3. Or deploy manually via: vercel --prod"
+              exit 1
+            fi
+          fi
+      
+      - name: Trigger Render Deployment
+        if: inputs.target == 'render'
+        run: |
+          echo "🚀 Triggering Render deployment..."
+          
+          # Option 1: Use Render API (requires RENDER_API_KEY in secrets)
+          if [ -n "${{ secrets.RENDER_API_KEY }}" ] && [ -n "${{ secrets.RENDER_SERVICE_ID }}" ]; then
+            curl -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+              -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d '{"clearCache": true}'
+            echo "✅ Render deployment triggered"
+          else
+            echo "❌ RENDER_API_KEY or RENDER_SERVICE_ID not set."
+            echo "   Please set these in GitHub Secrets, or trigger manually via:"
+            echo "   https://dashboard.render.com -> Service -> Manual Deploy"
+            exit 1
+          fi
+      
+      - name: Deployment Status
+        run: |
+          echo "✅ Deployment trigger sent!"
+          echo "Check your deployment dashboard for status:"
+          if [ "${{ inputs.target }}" == "vercel" ]; then
+            echo "  Vercel: https://vercel.com/dashboard"
+          else
+            echo "  Render: https://dashboard.render.com"
+          fi
