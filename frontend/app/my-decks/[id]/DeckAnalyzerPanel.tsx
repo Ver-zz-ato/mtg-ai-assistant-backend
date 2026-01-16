@@ -31,15 +31,36 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
     try {
       setBusy(true); setError(null);
       const deckText = await fetchDeckText();
-      if (!deckText) { setScore(null); setBands(null); setRawCounts(null); return; }
+      if (!deckText) { 
+        setScore(null); 
+        setBands(null); 
+        setRawCounts(null);
+        setError('No deck text found');
+        setBusy(false);
+        return; 
+      }
       // Try to get commander from DB for commander-aware includes
       let commander: string | undefined = undefined;
       try { const sb = createBrowserSupabaseClient(); const { data } = await sb.from('decks').select('commander').eq('id', deckId).maybeSingle(); commander = String((data as any)?.commander||'') || undefined; } catch {}
       const payload:any = { deckText, format:'Commander', useScryfall:true };
       if (commander) payload.commander = commander;
-      const res = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      
+      // Add timeout to prevent hanging (30 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const res = await fetch('/api/deck/analyze', { 
+        method:'POST', 
+        headers:{'content-type':'application/json'}, 
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      
+      // Clear timeout once fetch completes
+      clearTimeout(timeoutId);
+      
       const j = await res.json().catch(()=>({}));
-      if (!res.ok || j?.error) throw new Error(j?.error || res.statusText);
+      if (!res.ok || j?.error) throw new Error(j?.error || res.statusText || 'Analysis failed');
       setScore(j?.score ?? null); setBands(j?.bands ?? null);
       if (j?.counts) setRawCounts(j.counts);
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
@@ -48,8 +69,16 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setPromptVersion(j?.prompt_version);
       setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
       setFilteredReasons(Array.isArray(j?.filteredReasons) ? j.filteredReasons.filter((r:string)=>typeof r === 'string' && r.trim()).map((r:string)=>r.trim()) : []);
-    } catch (e:any) { setError(e?.message || 'Analyze failed'); }
-    finally { setBusy(false); }
+    } catch (e:any) { 
+      if (e.name === 'AbortError') {
+        setError('Analysis timed out. Please try again.');
+      } else {
+        setError(e?.message || 'Analyze failed');
+      }
+      setBusy(false);
+    } finally { 
+      setBusy(false); 
+    }
   }
 
   React.useEffect(() => { run(); /* one-time on load */ }, []);

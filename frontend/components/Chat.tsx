@@ -1211,9 +1211,9 @@ function Chat() {
           <div className="flex flex-col items-center gap-1">
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
+                <h2 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
                   ManaTap AI — Your Deck-Building Companion
-                </h1>
+                </h2>
                 {isLoggedIn === false && (
                   <button
                     onClick={() => {
@@ -1395,10 +1395,10 @@ function Chat() {
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
               <div className="text-8xl mb-6 opacity-80">💬</div>
-              <h3 className="text-xl font-bold text-neutral-200 mb-3">
+              <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-3">
                 Welcome to ManaTap AI!
               </h3>
-              <p className="text-neutral-400 mb-6 max-w-md">
+              <p className="text-xs md:text-sm text-neutral-400 mb-6 max-w-md px-2">
                 Start building your perfect deck. Ask me anything about Magic: The Gathering, or get started with a sample Commander deck.
               </p>
               <div className="flex gap-4 flex-wrap justify-center mb-4">
@@ -1427,16 +1427,17 @@ function Chat() {
                   } catch { return null; } 
                 })()}
               </div>
-              {/* Example prompt pills */}
-              <div className="flex gap-2 flex-wrap justify-center max-w-2xl">
+              {/* Example prompt pills - mobile responsive text */}
+              <div className="flex gap-2 flex-wrap justify-center max-w-2xl px-2">
                 {examplePrompts.slice(0, 3).map((prompt, idx) => (
                   <button
                     key={idx}
                     onClick={() => setText(prompt)}
-                    className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-purple-500 rounded-full text-xs text-neutral-300 transition-all hover:scale-105"
+                    className="px-2 py-1 md:px-3 md:py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-purple-500 rounded-full text-[10px] md:text-xs text-neutral-300 transition-all hover:scale-105 max-w-full truncate"
                     style={{ 
                       animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
                     }}
+                    title={prompt}
                   >
                     {prompt}
                   </button>

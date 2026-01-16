@@ -265,7 +265,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
             {mode === 'edit' && (
               <button 
                 onClick={randomizeTitle}
-                className="w-4 h-4 text-xs text-black hover:text-gray-600 mr-2"
+                className="w-6 h-6 md:w-4 md:h-4 min-w-[24px] min-h-[24px] p-1 md:p-0.5 text-xs text-black hover:text-gray-600 mr-2"
                 title="Randomize name"
               >
                 🎲
@@ -439,7 +439,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
             {mode === 'edit' && (
               <button 
                 onClick={randomizeType}
-                className="w-4 h-4 text-xs text-black hover:text-gray-600 mr-2"
+                className="w-6 h-6 md:w-4 md:h-4 min-w-[24px] min-h-[24px] p-1 md:p-0.5 text-xs text-black hover:text-gray-600 mr-2"
                 title="Randomize type"
               >
                 🎲
@@ -456,7 +456,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
                   onChange?.({ rarity: nextRarity, setSymbol: value.setSymbol || 'CCC' });
                 }
               }}
-              className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold ${mode === 'edit' ? 'cursor-pointer hover:scale-110' : ''} ${
+              className={`w-6 h-6 md:w-4 md:h-4 min-w-[24px] min-h-[24px] p-1 md:p-0.5 rounded-full flex items-center justify-center text-xs font-bold ${mode === 'edit' ? 'cursor-pointer hover:scale-110' : ''} ${
                 value.rarity === 'mythic' ? 'bg-orange-500 text-white' :
                 value.rarity === 'rare' ? 'bg-yellow-500 text-black' :
                 value.rarity === 'uncommon' ? 'bg-gray-400 text-black' :
@@ -494,7 +494,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
             {mode === 'edit' && (
               <button 
                 onClick={randomizeText}
-                className="absolute top-1 right-1 w-4 h-4 text-xs text-gray-600 hover:text-gray-800 z-10"
+                className="absolute top-1 right-1 w-6 h-6 md:w-4 md:h-4 min-w-[24px] min-h-[24px] p-1 md:p-0.5 text-xs text-gray-600 hover:text-gray-800 z-10"
                 title="Randomize text"
               >
                 🎲

@@ -6,15 +6,22 @@ export default function PanelWrapper({
   colorFrom, 
   colorTo, 
   large = false, 
-  children 
+  children,
+  defaultHiddenOnMobile = false
 }: { 
   title: string; 
   colorFrom: string; 
   colorTo: string; 
   large?: boolean;
   children: React.ReactNode;
+  defaultHiddenOnMobile?: boolean;
 }) {
-  const [open, setOpen] = React.useState(true);
+  // On mobile, start hidden if defaultHiddenOnMobile is true, otherwise start open
+  const [open, setOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return true;
+    if (defaultHiddenOnMobile && window.innerWidth < 768) return false;
+    return true;
+  });
   
   // Listen for hide/show all panels event
   React.useEffect(() => {

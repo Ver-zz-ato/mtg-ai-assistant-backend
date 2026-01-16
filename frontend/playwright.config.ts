@@ -60,5 +60,25 @@ export default defineConfig({
         storageState: path.join(__dirname, 'tests/.auth/user.json'),
       },
     },
+    // Android tests - additional mobile device coverage
+    {
+      name: 'smoke-android',
+      testMatch: /.*\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['Pixel 5'],
+        storageState: path.join(__dirname, 'tests/.auth/user.json'),
+      },
+    },
+    // iPad tests - tablet device coverage
+    {
+      name: 'smoke-ipad',
+      testMatch: /.*\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['iPad Pro'],
+        storageState: path.join(__dirname, 'tests/.auth/user.json'),
+      },
+    },
   ],
 });

@@ -90,6 +90,7 @@ export default function HistoryDropdown(props: Props) {
           value={selectValue}
           onChange={(e) => onChange(e.target.value || null)}
           style={{ position: 'relative', zIndex: 1000 }}
+          aria-label="Select conversation thread"
         >
           <option value="">{loading ? 'Loading…' : 'New thread'}</option>
           {threads?.map((t) => (

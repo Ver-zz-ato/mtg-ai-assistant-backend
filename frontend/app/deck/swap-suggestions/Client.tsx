@@ -765,18 +765,22 @@ export default function BudgetSwapsClient(){
                         className="absolute top-3 left-3 w-4 h-4 rounded border-neutral-600 text-purple-600 focus:ring-purple-500 focus:ring-2 cursor-pointer z-10"
                       />
 
-                      {/* Savings badge */}
-                      <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${good ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                        {good ? 'Save ' : '+'}{fmt(savings)}
+                      {/* Savings badge - prevent overflow on mobile with better positioning */}
+                      <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold whitespace-nowrap z-10 ${good ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+                        <span className="hidden sm:inline">{good ? 'Save ' : '+'}</span>
+                        <span className="sm:hidden">{good ? 'S' : '+'}</span>
+                        <span>{fmt(savings)}</span>
                       </div>
 
-                      {/* Card layout: FROM → TO */}
-                      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center mt-6">
-                        {/* FROM card */}
-                        <div className="border-l-4 border-red-500 pl-3 pr-2 py-2 rounded bg-red-950/10">
+                      {/* Card layout: FROM → TO - add padding on mobile to prevent badge overlap */}
+                      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center mt-6 pr-20 sm:pr-0">
+                        {/* FROM card - truncate long names on mobile */}
+                        <div className="border-l-4 border-red-500 pl-3 pr-2 py-2 rounded bg-red-950/10 min-w-0">
                           <div className="text-[10px] uppercase tracking-wide text-red-400 mb-1 font-semibold">Remove</div>
-                          <CardRowPreviewLeft name={s.from} imageSmall={mFrom.small} imageLarge={mFrom.large} setCode={mFrom.set} rarity={mFrom.rarity} />
-                          <div className="text-xs text-red-400 mt-1">{fmt(s.price_from)}</div>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <CardRowPreviewLeft name={s.from} imageSmall={mFrom.small} imageLarge={mFrom.large} setCode={mFrom.set} rarity={mFrom.rarity} />
+                          </div>
+                          <div className="text-xs text-red-400 mt-1 truncate">{fmt(s.price_from)}</div>
                         </div>
 
                         {/* Arrow + Why button */}
@@ -801,11 +805,13 @@ export default function BudgetSwapsClient(){
                           </button>
                         </div>
 
-                        {/* TO card */}
-                        <div className="border-l-4 border-green-500 pl-3 pr-2 py-2 rounded bg-green-950/10">
+                        {/* TO card - truncate long names on mobile */}
+                        <div className="border-l-4 border-green-500 pl-3 pr-2 py-2 rounded bg-green-950/10 min-w-0">
                           <div className="text-[10px] uppercase tracking-wide text-green-400 mb-1 font-semibold">Add</div>
-                          <CardRowPreviewLeft name={s.to} imageSmall={mTo.small} imageLarge={mTo.large} setCode={mTo.set} rarity={mTo.rarity} />
-                          <div className="text-xs text-green-400 mt-1">{fmt(s.price_to)}</div>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <CardRowPreviewLeft name={s.to} imageSmall={mTo.small} imageLarge={mTo.large} setCode={mTo.set} rarity={mTo.rarity} />
+                          </div>
+                          <div className="text-xs text-green-400 mt-1 truncate">{fmt(s.price_to)}</div>
                         </div>
                       </div>
 

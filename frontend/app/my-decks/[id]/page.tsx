@@ -277,7 +277,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Mana Curve - THIRD */}
-          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="green-500">
+          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="green-500" defaultHiddenOnMobile={true}>
             <div className="grid grid-cols-7 gap-1 items-end h-24">
               {(['1','2','3','4','5','6','7+'] as const).map(k => {
                 const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
@@ -353,7 +353,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Playstyle Radar - SIXTH */}
-          <PanelWrapper title="Playstyle Radar" colorFrom="purple-400" colorTo="purple-600" large>
+          <PanelWrapper title="Playstyle Radar" colorFrom="purple-400" colorTo="purple-600" large defaultHiddenOnMobile={true}>
             <div className="flex flex-col items-center gap-6">
               <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
                 <div className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1">

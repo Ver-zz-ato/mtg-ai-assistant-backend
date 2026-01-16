@@ -10,6 +10,7 @@ import EmailVerificationSuccessPopup from "../components/EmailVerificationSucces
 import LivePresenceBanner from "../components/LivePresenceBanner";
 import HomepageSignupBanner from "../components/HomepageSignupBanner";
 import HomeVariantB from "../components/HomeVariantB";
+import HomepageFAQ from "../components/HomepageFAQ";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
@@ -81,6 +82,21 @@ export default function Page() {
             <HomeVariantB />
           </div>
         )}
+        
+        {/* SEO-focused H1 section - always visible for clear page identity */}
+        <div className="max-w-[1600px] mx-auto px-4 py-8 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            MTG AI Deck Builder
+          </h1>
+          <p className="text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
+            Build, analyze, and optimize Magic: The Gathering decks with AI-powered suggestions. 
+            Free to start—no signup required.
+          </p>
+        </div>
+        
+        {/* FAQ Section - trust reinforcement before main tools */}
+        <HomepageFAQ />
+        
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">

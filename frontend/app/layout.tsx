@@ -78,8 +78,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5, // Allow up to 5x zoom
+  userScalable: true, // Enable zooming
   themeColor: '#2563eb',
 };
 
@@ -120,7 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
                 {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
                 <GuestExitWarning />
-                <IOSInstallPrompt />
+                {/* <IOSInstallPrompt /> */} {/* DISABLED: Remove install popup per user request */}
                 <EmailVerificationReminder />
               </KeyboardShortcutsProvider>
             </AuthProvider>
