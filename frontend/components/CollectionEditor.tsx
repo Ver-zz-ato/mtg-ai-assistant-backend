@@ -75,20 +75,20 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick }: 
   })(); }, [collectionId, currency]);
   return (
     <>
-      <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
-        <summary className="cursor-pointer select-none px-4 py-3 list-none">
+      <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+        <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
           <div className="flex items-center gap-2">
-            <div className="h-1 w-1 rounded-full bg-sky-400 animate-pulse shadow-lg shadow-sky-400/50"></div>
-            <span className="text-base font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">Type histogram</span>
+            <div className="h-1 w-1 rounded-full bg-sky-400/70 animate-pulse shadow-sm shadow-sky-400/30"></div>
+            <span className="text-sm font-semibold text-neutral-300">Type histogram</span>
           </div>
         </summary>
         <div className="p-3"><BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} /></div>
       </details>
-      <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
-        <summary className="cursor-pointer select-none px-4 py-3 list-none">
+      <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+        <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
           <div className="flex items-center gap-2">
-            <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50"></div>
-            <span className="text-base font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">Price distribution</span>
+            <div className="h-1 w-1 rounded-full bg-green-400/70 animate-pulse shadow-sm shadow-green-400/30"></div>
+            <span className="text-sm font-semibold text-neutral-300">Price distribution</span>
           </div>
         </summary>
         <div className="p-3"><BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} /></div>
@@ -530,10 +530,24 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [filterTypes, setFilterTypes] = React.useState<string[]>([]); // Creature, Instant, etc.
   const [filterQtyMin, setFilterQtyMin] = React.useState<number>(0);
   const [filterPriceBand, setFilterPriceBand] = React.useState<string>(''); // '<1','1-5','5-20','20-50','50-100','100+'
+  const [filtersExpanded, setFiltersExpanded] = React.useState(false);
 
   // Price slider min/max
   const [pMin, setPMin] = React.useState<number|''>('');
   const [pMax, setPMax] = React.useState<number|''>('');
+  
+  // Count active filters
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (filterColors.length) count += filterColors.length;
+    if (filterTypes.length) count += filterTypes.length;
+    if (filterPriceBand) count += 1;
+    if (filterQtyMin > 0) count += 1;
+    if (filterRarity.length) count += filterRarity.length;
+    if (filterSets.length) count += filterSets.length;
+    if (pMin !== '' || pMax !== '') count += 1;
+    return count;
+  }, [filterColors.length, filterTypes.length, filterPriceBand, filterQtyMin, filterRarity.length, filterSets.length, pMin, pMax]);
 
   const filteredSorted = React.useMemo(()=>{
     let arr = items.slice();
@@ -764,20 +778,36 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
             </div>
           </div>
-          {/* Filters Row with chips */}
+          {/* Filters Row - Collapsible */}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            {/* Active chips */}
-            <div className="w-full flex flex-wrap gap-1">
-              {filterColors.map(c=> (<button key={'c-'+c} onClick={()=>setFilterColors(p=>p.filter(x=>x!==c))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Color: {c} ✕</button>))}
-              {filterTypes.map(t=> (<button key={'t-'+t} onClick={()=>setFilterTypes(p=>p.filter(x=>x!==t))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Type: {t} ✕</button>))}
-              {!!filterPriceBand && (<button onClick={()=>setFilterPriceBand('')} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Price: {filterPriceBand} ✕</button>)}
-              {filterQtyMin>0 && (<button onClick={()=>setFilterQtyMin(0)} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Qty ≥ {filterQtyMin} ✕</button>)}
-              {filterRarity.map(r=> (<button key={'r-'+r} onClick={()=>setFilterRarity(p=>p.filter(x=>x!==r))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Rarity: {r} ✕</button>))}
-              {filterSets.map(s=> (<button key={'s-'+s} onClick={()=>setFilterSets(p=>p.filter(x=>x!==s))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Set: {s} ✕</button>))}
-              {(filterColors.length||filterTypes.length||filterPriceBand||filterQtyMin>0||filterRarity.length||filterSets.length)? (
-                <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
-              ) : null}
-            </div>
+            {/* Filters pill/button - shows when collapsed */}
+            {!filtersExpanded && (
+              <button 
+                onClick={() => setFiltersExpanded(true)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+                  activeFilterCount > 0
+                    ? 'bg-neutral-800 border-neutral-700 hover:bg-neutral-700'
+                    : 'bg-neutral-900/50 border-neutral-700/50 hover:bg-neutral-800 text-neutral-400'
+                }`}
+              >
+                {activeFilterCount > 0 ? `Filters active (${activeFilterCount})` : 'Filters'}
+              </button>
+            )}
+            
+            {filtersExpanded && (
+              <>
+                {/* Active chips */}
+                <div className="w-full flex flex-wrap gap-1">
+                  {filterColors.map(c=> (<button key={'c-'+c} onClick={()=>setFilterColors(p=>p.filter(x=>x!==c))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Color: {c} ✕</button>))}
+                  {filterTypes.map(t=> (<button key={'t-'+t} onClick={()=>setFilterTypes(p=>p.filter(x=>x!==t))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Type: {t} ✕</button>))}
+                  {!!filterPriceBand && (<button onClick={()=>setFilterPriceBand('')} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Price: {filterPriceBand} ✕</button>)}
+                  {filterQtyMin>0 && (<button onClick={()=>setFilterQtyMin(0)} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Qty ≥ {filterQtyMin} ✕</button>)}
+                  {filterRarity.map(r=> (<button key={'r-'+r} onClick={()=>setFilterRarity(p=>p.filter(x=>x!==r))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Rarity: {r} ✕</button>))}
+                  {filterSets.map(s=> (<button key={'s-'+s} onClick={()=>setFilterSets(p=>p.filter(x=>x!==s))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Set: {s} ✕</button>))}
+                  {(filterColors.length||filterTypes.length||filterPriceBand||filterQtyMin>0||filterRarity.length||filterSets.length)? (
+                    <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setPMin(''); setPMax(''); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
+                  ) : null}
+                </div>
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
               <span className="font-semibold text-sm bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">🎨 Colors:</span>
               {[
@@ -859,6 +889,8 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setFilterText(''); }} className="ml-auto px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">🗑️ Clear All</button>
               </div>
             </details>
+              </>
+            )}
           </div>
         </div>
 
@@ -896,7 +928,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 const key = it.id||it.name; const staged = pending.has(key)? pending.get(key)! : it.qty;
                 const k2 = n(it.name); const unit = (()=>{ const nn=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); return priceMap[nn(it.name)]||0; })();
                 return (
-                  <div key={`${key}-${startIndex+idx}`} className="flex items-center justify-between border-b border-neutral-900 px-3" style={{ height: rowH }}>
+                  <div key={`${key}-${startIndex+idx}`} className="flex items-center justify-between border-b border-neutral-900 px-3 hover:bg-neutral-900/30 transition-colors" style={{ height: rowH }}>
                     <span className="text-sm inline-flex items-center gap-2 min-w-0">
                       <input type="checkbox" checked={selected.has(key)} onChange={(e)=>{ const n = new Set(selected); e.target.checked? n.add(key): n.delete(key); setSelected(n); }} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"/>
                       <input type="number" min={0} step={1} value={staged} className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center" onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); setQtyStaged(it, v); }} />
@@ -904,7 +936,15 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs opacity-80 tabular-nums w-32 text-right">{unit>0? new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(unit*staged): '—'}</span>
-                      <button className="text-xs text-red-500 underline" onClick={()=>remove(it)}>delete</button>
+                      <button 
+                        className="text-xs text-neutral-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-500/10" 
+                        onClick={()=>remove(it)}
+                        title="Delete card"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 );
@@ -917,22 +957,35 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
 
       {/* Right: stats/tools panels */}
       <aside className="h-full overflow-auto space-y-3 lg:col-span-1 xl:col-span-3">
+        {/* Overview - Visually dominant */}
+        <div className="rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
+          <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+              <span className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Overview</span>
+            </div>
+            <div className="text-base font-semibold">Cards: <b className="font-mono text-cyan-400">{totalCards}</b></div>
+            <div className="text-base font-semibold">Unique: <b className="font-mono text-cyan-400">{unique}</b></div>
+            <div className="text-base font-semibold flex items-center gap-2">Value: <b className="font-mono text-cyan-400">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b>
+              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+            </div>
+            <button onClick={refreshValue} className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl">Refresh now</button>
+          </div>
+        </div>
+        {/* Wishlist compare - Moved up below Overview */}
         <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
-              <span className="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Overview</span>
+              <div className="h-1 w-1 rounded-full bg-pink-400 animate-pulse shadow-lg shadow-pink-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">Wishlist compare</span>
             </div>
           </summary>
           <div className="p-3 space-y-2">
-            <div className="text-sm">Cards: <b className="font-mono">{totalCards}</b></div>
-            <div className="text-sm">Unique: <b className="font-mono">{unique}</b></div>
-            <div className="text-sm flex items-center gap-2">Value: <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b>
-              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
-            </div>
-            <button onClick={refreshValue} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Refresh now</button>
+            <p className="text-xs text-neutral-400 mb-2">See which cards you're missing</p>
+            <WishlistCompareCard collectionId={collectionId} currency={currency} />
           </div>
         </details>
+        
         <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
@@ -940,9 +993,37 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               <span className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Color pie</span>
             </div>
           </summary>
-          <div className="p-3"><ColorPie /></div>
+          <div className="p-3 space-y-2">
+            <ColorPie />
+            {(() => {
+              const sum = Object.values(colorCounts).reduce((a,b)=>a+b,0) || 1;
+              const order:[keyof typeof colorCounts, string][] = [['W','White'],['U','Blue'],['B','Black'],['R','Red'],['G','Green']];
+              const topColors = order
+                .map(([k]) => ({ k, val: (colorCounts[k]||0)/sum }))
+                .filter(({val}) => val > 0)
+                .sort((a,b) => b.val - a.val)
+                .slice(0, 2);
+              
+              if (topColors.length >= 2 && topColors[0].val > 0.25 && topColors[1].val > 0.25) {
+                const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+                return (
+                  <p className="text-xs text-neutral-400 italic mt-2">
+                    {colorNames[topColors[0].k]} and {colorNames[topColors[1].k]} dominate this collection
+                  </p>
+                );
+              } else if (topColors.length > 0 && topColors[0].val > 0.4) {
+                const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+                return (
+                  <p className="text-xs text-neutral-400 italic mt-2">
+                    Heavily skewed toward {colorNames[topColors[0].k]}
+                  </p>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </details>
-        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <details open={!!lastSnapshotAt} className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
               <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
@@ -950,11 +1031,25 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             </div>
           </summary>
           <div className="p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs opacity-80">
-              <span>Last snapshot:</span>
-              <span className="font-mono">{lastSnapshotAt ? new Date(lastSnapshotAt).toLocaleString() : '—'}</span>
-            </div>
-            <Sparkline names={items.map(i=>i.name)} currency={currency} />
+            {!lastSnapshotAt ? (
+              <>
+                <p className="text-xs text-neutral-400 mb-3">
+                  No price snapshots yet — track collection value over time.
+                </p>
+                {/* Ghost chart placeholder */}
+                <div className="h-24 bg-neutral-900/50 border border-neutral-800 rounded-lg flex items-center justify-center mb-2">
+                  <div className="text-xs text-neutral-500 italic">Chart will appear here</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-xs opacity-80">
+                  <span>Last snapshot:</span>
+                  <span className="font-mono">{new Date(lastSnapshotAt).toLocaleString()}</span>
+                </div>
+                <Sparkline names={items.map(i=>i.name)} currency={currency} />
+              </>
+            )}
             {isPro ? (
               <button onClick={async()=>{ 
                 trackProFeatureUsed('price_snapshot');
@@ -976,16 +1071,6 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               </button>
             )}
           </div>
-        </details>
-        {/* Wishlist compare moved up */}
-        <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
-          <summary className="cursor-pointer select-none px-4 py-3 list-none">
-            <div className="flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-pink-400 animate-pulse shadow-lg shadow-pink-400/50"></div>
-              <span className="text-base font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">Wishlist compare</span>
-            </div>
-          </summary>
-          <WishlistCompareCard collectionId={collectionId} currency={currency} />
         </details>
         {/* Analytics (advanced) hidden by default */}
         <AnalyticsCards collectionId={collectionId} currency={currency}

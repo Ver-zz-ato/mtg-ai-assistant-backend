@@ -10,6 +10,7 @@ type DeckOverviewProps = {
   initialAim: string | null;
   format?: string;
   readOnly?: boolean; // If true, don't show edit buttons (for public deck pages)
+  healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null;
 };
 
 export default function DeckOverview({ 
@@ -18,7 +19,8 @@ export default function DeckOverview({
   initialColors, 
   initialAim,
   format,
-  readOnly = false
+  readOnly = false,
+  healthMetrics = null
 }: DeckOverviewProps) {
   const [commander, setCommander] = React.useState(initialCommander || "");
   const [colors, setColors] = React.useState(initialColors || []);
@@ -339,6 +341,60 @@ export default function DeckOverview({
           )}
         </div>
       </div>
+      
+      {/* Deck Health - Thin strip below Deck Identity */}
+      {healthMetrics && format?.toLowerCase() === 'commander' && (() => {
+        const { lands, ramp, draw, removal } = healthMetrics;
+        const formatTargets = {
+          lands: { min: 34, max: 38, current: lands },
+          ramp: { min: 8, max: 8, current: ramp },
+          draw: { min: 8, max: 8, current: draw },
+          removal: { min: 5, max: 5, current: removal }
+        };
+        
+        const getHealthStatus = (key: keyof typeof formatTargets) => {
+          const t = formatTargets[key];
+          if (t.current >= t.min && t.current <= t.max) return { icon: '🟢', label: 'solid', color: 'text-emerald-400' };
+          if (t.current < t.min * 0.7) return { icon: '🔴', label: 'needs work', color: 'text-red-400' };
+          return { icon: '🟡', label: 'slightly low', color: 'text-amber-400' };
+        };
+        
+        const manaBase = getHealthStatus('lands');
+        const interaction = getHealthStatus('removal');
+        const cardDraw = getHealthStatus('draw');
+        const winCondition = { icon: '🟢', label: 'clear', color: 'text-emerald-400' }; // Placeholder - could be calculated from deck
+        
+        const healthItems = [
+          { label: 'Mana base', status: manaBase },
+          { label: 'Interaction', status: interaction },
+          { label: 'Card draw', status: cardDraw },
+          { label: 'Win condition', status: winCondition }
+        ];
+        
+        return (
+          <div className="mt-3 pt-3 border-t border-neutral-800/50">
+            <div className="text-[10px] opacity-70 mb-2 uppercase tracking-wide">Deck Health</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+              {healthItems.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    // Scroll to relevant section or trigger AI fix
+                    try {
+                      window.dispatchEvent(new CustomEvent('deck:health-click', { detail: { category: item.label.toLowerCase() } }));
+                    } catch {}
+                  }}
+                  className={`flex items-center gap-1.5 ${item.status.color} hover:opacity-80 transition-opacity cursor-pointer`}
+                  title={`Click to fix ${item.label.toLowerCase()}`}
+                >
+                  <span>{item.status.icon}</span>
+                  <span>{item.label} — <span className="opacity-90">{item.status.label}</span></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -9,12 +9,14 @@ export default function ThreadMenu({
   onDeleted,
   onNewChat,
   deckId,
+  messageCount,
 }: {
   threadId: string | null;
   onChanged?: () => void;
   onDeleted?: () => void;
   onNewChat?: () => void;
   deckId?: string | null;
+  messageCount?: number;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -89,35 +91,63 @@ export default function ThreadMenu({
   }, [threadId]);
 
   const disabled = !threadId || busy;
+  const [showOptions, setShowOptions] = React.useState(false);
+  
+  // Auto-show options if deck is linked OR after second message is sent
+  React.useEffect(() => {
+    if (linked || (messageCount && messageCount >= 2)) {
+      setShowOptions(true);
+    }
+  }, [linked, messageCount]);
+
+  // Check if we should auto-show (deck linked or 2+ messages sent)
+  const shouldAutoShow = linked || (messageCount !== undefined && messageCount >= 2);
 
   return (
-    <div className="flex flex-wrap gap-2 text-sm">
+    <div className="flex flex-wrap gap-2 text-sm items-center">
       <button className="px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-white" onClick={onNewChat} data-testid="new-chat-button">
         New Chat
       </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doRename} disabled={disabled} data-testid="thread-action">
-        Rename
-      </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={doDelete} disabled={disabled} data-testid="thread-action">
-        Delete
-      </button>
-      <button className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50" onClick={openLink} disabled={disabled} data-testid="thread-action" title={linked ? 'Change link' : 'Link to deck'}>
-        {linked ? 'Change link' : 'Link deck'}
-      </button>
-      {linkMode && (
-        <div className="flex items-center gap-2">
-          <select className="rounded bg-neutral-900 border border-neutral-700 px-2 py-1 text-xs" value={sel} onChange={(e)=>setSel(e.target.value)}>
-            <option value="">— Unlink —</option>
-            {choices.map(c => (<option key={c.id} value={c.id}>{c.title}</option>))}
-          </select>
-          <button className="px-2 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white text-xs" onClick={saveLink} disabled={busy}>Save</button>
-          <button className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs" onClick={()=>setLinkMode(false)} disabled={busy}>Cancel</button>
-        </div>
+      
+      {/* Collapsed thread options */}
+      {(showOptions || shouldAutoShow) && (
+        <>
+          <button className="px-3 py-1 rounded bg-neutral-900/60 hover:bg-neutral-800/80 disabled:opacity-40 text-neutral-400 hover:text-neutral-300 border border-neutral-800/50" onClick={doRename} disabled={disabled} data-testid="thread-action">
+            Rename
+          </button>
+          <button className="px-3 py-1 rounded bg-neutral-900/60 hover:bg-neutral-800/80 disabled:opacity-40 text-neutral-400 hover:text-neutral-300 border border-neutral-800/50" onClick={doDelete} disabled={disabled} data-testid="thread-action">
+            Delete
+          </button>
+          <button className="px-3 py-1 rounded bg-neutral-900/60 hover:bg-neutral-800/80 disabled:opacity-40 text-neutral-400 hover:text-neutral-300 border border-neutral-800/50" onClick={openLink} disabled={disabled} data-testid="thread-action" title={linked ? 'Change link' : 'Link to deck'}>
+            {linked ? 'Change link' : 'Link deck'}
+          </button>
+          {linkMode && (
+            <div className="flex items-center gap-2">
+              <select className="rounded bg-neutral-900 border border-neutral-700 px-2 py-1 text-xs" value={sel} onChange={(e)=>setSel(e.target.value)}>
+                <option value="">— Unlink —</option>
+                {choices.map(c => (<option key={c.id} value={c.id}>{c.title}</option>))}
+              </select>
+              <button className="px-2 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white text-xs" onClick={saveLink} disabled={busy}>Save</button>
+              <button className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs" onClick={()=>setLinkMode(false)} disabled={busy}>Cancel</button>
+            </div>
+          )}
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-neutral-700 ml-1" title={linked ? 'Deck linked' : 'No deck linked'}>
+            <span className={linked ? 'text-green-400' : 'text-neutral-500'}>🔗</span>
+            <span className="opacity-70">{linked ? 'linked' : 'not linked'}</span>
+          </span>
+        </>
       )}
-      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-neutral-700 ml-1" title={linked ? 'Deck linked' : 'No deck linked'}>
-        <span className={linked ? 'text-green-400' : 'text-neutral-500'}>🔗</span>
-        <span className="opacity-70">{linked ? 'linked' : 'not linked'}</span>
-      </span>
+      
+      {/* Show options toggle button when options are hidden */}
+      {!showOptions && !shouldAutoShow && threadId && (
+        <button 
+          onClick={() => setShowOptions(true)}
+          className="px-2 py-1 rounded bg-neutral-900/60 hover:bg-neutral-800/80 text-neutral-400 hover:text-neutral-300 border border-neutral-800/50 text-xs"
+          title="Chat options"
+        >
+          ⋯
+        </button>
+      )}
     </div>
   );
 }

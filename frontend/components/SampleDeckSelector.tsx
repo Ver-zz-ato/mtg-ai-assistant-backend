@@ -373,19 +373,17 @@ export function SampleDeckButton({ className = '' }: { className?: string }) {
         capture('sample_deck_button_clicked', { source: 'empty_state' });
         setShowSelector(true);
       }}
-      className={`relative px-8 py-4 bg-gradient-to-r from-green-600 via-emerald-500 to-green-600 text-white rounded-xl font-bold text-lg hover:from-green-500 hover:via-emerald-400 hover:to-green-500 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 transform duration-200 border-2 border-green-400/50 ${className}`}
+      className={`relative px-9 py-4 bg-gradient-to-r from-green-600 via-emerald-500 to-green-600 text-white rounded-xl font-bold text-lg hover:from-green-500 hover:via-emerald-400 hover:to-green-500 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 transform duration-200 border-2 border-green-400/50 ${className.includes('w-') ? className : ''}`}
       style={{
         backgroundSize: '200% 200%',
         animation: 'gradient-shift 3s ease infinite, pulse-glow 2s ease-in-out infinite',
         boxShadow: '0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.2)',
+        ...(className.includes('w-') ? {} : { minWidth: '320px', flexGrow: 1.15, flexBasis: '115%' }),
       }}
     >
       <span className="relative z-10 flex items-center gap-2">
         <span className="text-2xl animate-bounce">🎲</span>
-        <span>
-          <span className="block text-yellow-300 text-xs font-extrabold uppercase tracking-wider mb-0.5">CLICK HERE!</span>
-          <span>Start with a Sample Deck</span>
-        </span>
+        <span>Build a Sample Commander Deck</span>
         <span className="text-xl">→</span>
       </span>
       <style jsx>{`

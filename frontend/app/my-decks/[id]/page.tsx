@@ -164,7 +164,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   }
 
   // Core meters: lands/ramp/draw/removal heuristic counts - mutually exclusive
-  const core = { lands:0, ramp:0, draw:0, removal:0 } as Record<string, number>;
+  const core: { lands: number; ramp: number; draw: number; removal: number } = { lands:0, ramp:0, draw:0, removal:0 };
   for (const { name, qty } of arr) {
     const d = details[norm(name)];
     const tl = String(d?.type_line||'');
@@ -246,12 +246,12 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-12 md:col-span-3 space-y-4">
           {/* Deck Value - FIRST */}
-          <PanelWrapper title="Deck Value" colorFrom="green-400" colorTo="emerald-500">
+          <PanelWrapper title="Deck Value" colorFrom="emerald-400" colorTo="teal-500">
             <DeckPriceMini deckId={id} />
           </PanelWrapper>
 
           {/* Deck Fundamentals - SECOND */}
-          <PanelWrapper title="Deck Fundamentals" colorFrom="amber-400" colorTo="orange-500">
+          <PanelWrapper title="Deck Fundamentals" colorFrom="emerald-400" colorTo="teal-500">
             <div className="space-y-2 text-[11px]">
               {(() => {
                 // Format-specific targets
@@ -277,7 +277,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Mana Curve - THIRD */}
-          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="green-500" defaultHiddenOnMobile={true}>
+          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="teal-500" defaultHiddenOnMobile={true}>
             <div className="grid grid-cols-7 gap-1 items-end h-24">
               {(['1','2','3','4','5','6','7+'] as const).map(k => {
                 const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
@@ -295,7 +295,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Card Types - FOURTH */}
-          <PanelWrapper title="Card Types" colorFrom="sky-400" colorTo="blue-500">
+          <PanelWrapper title="Card Types" colorFrom="emerald-400" colorTo="teal-500" defaultCollapsed={true}>
             <div className="space-y-1 text-[11px]">
               {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
                 const total = Object.values(types).reduce((a,b)=>a+b,0) || 1;
@@ -353,7 +353,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Playstyle Radar - SIXTH */}
-          <PanelWrapper title="Playstyle Radar" colorFrom="purple-400" colorTo="purple-600" large defaultHiddenOnMobile={true}>
+          <PanelWrapper title="Playstyle Radar" colorFrom="emerald-400" colorTo="teal-500" large defaultCollapsed={true}>
             <div className="flex flex-col items-center gap-6">
               <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
                 <div className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1">
@@ -414,6 +414,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             commander={deck?.commander || null}
             colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
             deckAim={(deck as any)?.deck_aim || null}
+            healthMetrics={core}
             key={r || "_"} 
           />
         </section>

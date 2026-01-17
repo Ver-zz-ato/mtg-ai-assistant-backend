@@ -102,7 +102,7 @@ export default function Page() {
           </aside>
           
           {/* Main chat area - 1.5x wider */}
-          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3">
+          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3 pt-6">
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>

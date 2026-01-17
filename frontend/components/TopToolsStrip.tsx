@@ -47,7 +47,7 @@ export default function TopToolsStrip() {
 
   return (
     <div className="w-full">
-      <div className="w-full grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-0 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+      <div className="w-full grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-0 overflow-x-auto snap-x snap-mandatory scrollbar-hide opacity-85">
         {tools.map((tool, idx) => (
           <a
             key={idx}
@@ -55,7 +55,7 @@ export default function TopToolsStrip() {
             onClick={() => handleToolClick(tool)}
             className="block rounded-xl overflow-hidden snap-center flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20 hover:ring-2 hover:ring-blue-400/50"
           >
-            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[200px] max-h-[120px] object-cover transition-transform duration-300" priority />
+            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover transition-transform duration-300" priority />
           </a>
         ))}
       </div>

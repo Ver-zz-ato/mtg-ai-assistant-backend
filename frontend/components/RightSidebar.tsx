@@ -138,9 +138,21 @@ export default function RightSidebar() {
 
   return (
     <div className={`flex flex-col w-full gap-4 relative z-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`}>
-      {/* FAQ Section - moved to right sidebar above Deck Snapshot */}
+      {/* Top CTA: Analyze any deck */}
+      <div className="w-full bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 border-2 border-blue-500/30 rounded-xl p-4 text-center">
+        <h3 className="text-lg font-bold text-white mb-2">Analyze any deck</h3>
+        <p className="text-sm text-neutral-300 mb-3">Paste your decklist or ask about a Commander</p>
+        <a 
+          href="/my-decks" 
+          className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-all hover:scale-105 shadow-lg"
+        >
+          Start Analyzing →
+        </a>
+      </div>
+
+      {/* FAQ Section - collapsed by default */}
       <div className="w-full">
-        <HomepageFAQ />
+        <HomepageFAQ defaultCollapsed={true} />
       </div>
 
       {/* Deck Snapshot: Expandable analyzer panel */}
@@ -148,13 +160,13 @@ export default function RightSidebar() {
         <DeckAnalyzerExpandable />
       </div>
 
-      {/* Custom Card Creator promo panel with proper borders - collapsible */}
-      <div className={`relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden transition-all duration-300 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
+      {/* Custom Card Creator promo panel - lighter, playful styling */}
+      <div className={`relative z-20 bg-neutral-900/40 border border-neutral-700/50 rounded-xl overflow-hidden transition-all duration-300 ${debugSpace ? 'outline outline-2 outline-sky-500' : ''}`}>
         <button
           onClick={toggleCardPanel}
-          className="w-full flex items-center justify-between p-3 hover:bg-neutral-900 transition-colors"
+          className="w-full flex items-center justify-between p-3 hover:bg-neutral-800/50 transition-colors"
         >
-          <h3 className="text-sm font-semibold text-neutral-200">Custom Card Creator</h3>
+          <h3 className="text-sm font-medium text-neutral-300 opacity-80">🎨 Custom Card Creator</h3>
           <svg
             className={`w-5 h-5 text-neutral-400 transition-transform duration-300 ${isCardPanelCollapsed ? '' : 'rotate-180'}`}
             fill="none"

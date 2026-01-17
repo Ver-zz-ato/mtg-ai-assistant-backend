@@ -200,7 +200,7 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
   );
 }
 
-export default function Client({ deckId, isPro, format, commander, colors, deckAim }: { deckId?: string; isPro?: boolean; format?: string; commander?: string | null; colors?: string[]; deckAim?: string | null }) {
+export default function Client({ deckId, isPro, format, commander, colors, deckAim, healthMetrics }: { deckId?: string; isPro?: boolean; format?: string; commander?: string | null; colors?: string[]; deckAim?: string | null; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   const [fixModalOpen, setFixModalOpen] = useState(false);
   
@@ -279,43 +279,55 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             initialColors={colors || []}
             initialAim={deckAim || null}
             format={format}
+            healthMetrics={healthMetrics || null}
           />
         )}
         <CardsPane deckId={deckId} />
       </div>
       <aside className="md:w-80 lg:w-96 xl:w-[30rem] 2xl:w-[36rem] flex-shrink-0 space-y-4">
-        <AssistantSection deckId={String(deckId)} format={format} />
-        
-        {/* Card Recommendations */}
-        <DeckCardRecommendationsWithHide
-          deckId={String(deckId)}
-          onAddCard={async (cardName: string) => {
-            try {
-              const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: cardName, qty: 1 })
-              });
-              const data = await res.json();
-              if (data.ok) {
-                window.dispatchEvent(new Event('deck:changed'));
-                window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
-              } else {
-                alert(data.error || 'Failed to add card');
-              }
+        {/* AI Assistant - Grouped header */}
+        <div className="rounded-xl border border-purple-800/50 bg-purple-950/20 p-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse"></div>
+            <h3 className="text-sm font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
+              AI Assistant
+            </h3>
+          </div>
+          <div className="space-y-4">
+            <AssistantSection deckId={String(deckId)} format={format} />
+            
+            {/* Card Recommendations */}
+            <DeckCardRecommendationsWithHide
+              deckId={String(deckId)}
+              onAddCard={async (cardName: string) => {
+                try {
+                  const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: cardName, qty: 1 })
+                  });
+                  const data = await res.json();
+                  if (data.ok) {
+                    window.dispatchEvent(new Event('deck:changed'));
+                    window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
+                  } else {
+                    alert(data.error || 'Failed to add card');
+                  }
             } catch (e: any) {
               alert(e?.message || 'Failed to add card');
             }
-          }}
-        />
+              }}
+            />
+            
+            {/* Hand Testing Widget - explicitly stays visible by default */}
+            <HandTestingWidgetWithHide 
+              deckCards={deckCards}
+              deckId={deckId}
+            />
+          </div>
+        </div>
         
-        {/* Hand Testing Widget */}
-        <HandTestingWidgetWithHide 
-          deckCards={deckCards}
-          deckId={deckId}
-        />
-        
-        {/* Deck Analyzer */}
+        {/* Secondary tools - collapsed by default */}
         <DeckAnalyzerWithHide 
           deckId={deckId}
           isPro={!!isPro}

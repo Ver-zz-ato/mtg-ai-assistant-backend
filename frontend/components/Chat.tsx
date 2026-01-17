@@ -106,6 +106,7 @@ function Chat() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
+  const [hoveredPromptIndex, setHoveredPromptIndex] = useState<number | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -1204,7 +1205,9 @@ function Chat() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-black text-white overflow-hidden relative">
+      {/* Subtle glow animation on chat container */}
+      <div className="absolute inset-0 pointer-events-none rounded-lg border-2 border-blue-500/20 animate-chatGlow" style={{ zIndex: 0 }}></div>
       {/* Mobile-optimized Header */}
       <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
         <div className="flex items-center justify-center">
@@ -1271,57 +1274,85 @@ function Chat() {
       <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
         {/* Preferences strip */}
         {extrasOn && (
-          <div className="w-full border border-neutral-800 bg-neutral-900/60 rounded-lg px-3 py-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-sm sm:text-base">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="opacity-70 text-xs sm:text-sm">Format:</span>
+          <div className="w-full space-y-3">
+            {/* Tier 1: Format and Value - Primary intent with background panel */}
+            <div className="border border-neutral-700/50 bg-neutral-800/40 rounded-lg px-3 py-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className="opacity-90 text-xs sm:text-sm font-bold">Format:</span>
                 {(['commander','standard','modern'] as const).map(f => (
                   <button
                     key={f}
                     onClick={()=>setFmt(f)}
-                    className={`px-2 py-1 sm:px-3 sm:py-2 rounded border touch-manipulation text-xs sm:text-sm ${fmt===f?'bg-blue-700 text-white border-blue-600':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
+                    className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded border touch-manipulation text-xs sm:text-sm font-medium ${fmt===f?'bg-blue-700 text-white border-blue-600 shadow-lg shadow-blue-700/30':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
                   >{f}</button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="opacity-70 text-xs sm:text-sm">Colors:</span>
-                {(['W','U','B','R','G'] as const).map(c => (
-                  <button
-                    key={c}
-                    onClick={()=>setColors(s=>({...s,[c]:!s[c]}))}
-                    className={`px-1 py-1 sm:px-2 sm:py-1 rounded border touch-manipulation ${colors[c]?'bg-neutral-900 border-neutral-600':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'} flex flex-col items-center gap-1`}
-                    title={`Color identity filter: ${COLOR_LABEL[c]}`}
-                    aria-label={`Color identity filter: ${COLOR_LABEL[c]}`}
-                  >
-                    <span className={`relative inline-flex items-center justify-center rounded-full ${colors[c] ? 'ring-2 ring-offset-2 ring-offset-neutral-900 ' + (c==='W'?'ring-amber-300':c==='U'?'ring-sky-400':c==='B'?'ring-slate-400':c==='R'?'ring-red-400':'ring-emerald-400') : ''}`} style={{ width: 20, height: 20 }}>
-                      <ManaIcon c={c as any} active={true} />
-                    </span>
-                    <span className="text-[8px] sm:text-[10px] opacity-80">{COLOR_LABEL[c]}</span>
-                  </button>
-                ))}
-                <button
-                  onClick={()=>setColors({W:false,U:false,B:false,R:false,G:false})}
-                  className="px-2 py-1 sm:px-3 sm:py-2 rounded border bg-neutral-900 border-neutral-700 hover:bg-neutral-800 touch-manipulation text-xs sm:text-sm"
-                  title="Clear color identity filter"
-                >Clear</button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="opacity-70 text-xs sm:text-sm">Value:</span>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className="opacity-90 text-xs sm:text-sm font-bold">Value:</span>
                 {(['budget','optimized','luxury'] as const).map(b => (
                   <button
                     key={b}
                     onClick={()=>setBudget(b)}
-                    className={`px-2 py-1 sm:px-3 sm:py-2 rounded border touch-manipulation text-xs sm:text-sm ${budget===b?'bg-emerald-700 text-white border-emerald-600':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
+                    className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded border touch-manipulation text-xs sm:text-sm font-medium ${budget===b?'bg-emerald-700 text-white border-emerald-600 shadow-lg shadow-emerald-700/30':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
                   >{b}</button>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="opacity-70 text-xs sm:text-sm">Teaching:</span>
-                <label className="inline-flex items-center gap-2 text-xs sm:text-sm touch-manipulation">
-                  <input type="checkbox" checked={!!teaching} onChange={e=>setTeaching(e.target.checked)} className="touch-manipulation" />
-                  <span className="opacity-80">Explain in more detail</span>
-                </label>
+            </div>
+
+            {/* Tier 2: Colors - Less prominent */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="opacity-60 text-xs sm:text-sm font-medium">Colors:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['W','U','B','R','G'] as const).map(c => (
+                  <button
+                    key={c}
+                    onClick={()=>setColors(s=>({...s,[c]:!s[c]}))}
+                    className={`px-1 py-1 sm:px-1.5 sm:py-1 rounded border touch-manipulation transition-all ${colors[c]?'bg-neutral-900 border-neutral-600':'bg-neutral-900/60 border-neutral-800/50 hover:bg-neutral-800/80 opacity-50 hover:opacity-70'} flex flex-col items-center gap-0.5`}
+                    title={`Color identity filter: ${COLOR_LABEL[c]}`}
+                    aria-label={`Color identity filter: ${COLOR_LABEL[c]}`}
+                  >
+                    <span className={`relative inline-flex items-center justify-center rounded-full ${colors[c] ? 'ring-1 ring-offset-1 ring-offset-neutral-900 ' + (c==='W'?'ring-amber-300':c==='U'?'ring-sky-400':c==='B'?'ring-slate-400':c==='R'?'ring-red-400':'ring-emerald-400') : ''}`} style={{ width: 16, height: 16 }}>
+                      <ManaIcon c={c as any} active={true} />
+                    </span>
+                    <span className="text-[7px] sm:text-[9px] opacity-70">{COLOR_LABEL[c]}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={()=>setColors({W:false,U:false,B:false,R:false,G:false})}
+                  className="px-2 py-1 rounded border bg-neutral-900/60 border-neutral-800/50 hover:bg-neutral-800/80 touch-manipulation text-[10px] sm:text-xs opacity-60"
+                  title="Clear color identity filter"
+                >Clear</button>
               </div>
+              {Object.values(colors).every(v => !v) && (
+                <span className="text-[10px] sm:text-xs text-neutral-500 italic ml-1">
+                  Optional — inferred from Commander or decklist
+                </span>
+              )}
+            </div>
+
+            {/* Tier 3: Explanation depth - Grouped Teaching + Reasoning */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-800/50 pt-2">
+              <span className="opacity-70 text-xs sm:text-sm font-medium">Explanation depth:</span>
+              <label className="inline-flex items-center gap-2 text-xs sm:text-sm touch-manipulation cursor-pointer group" title="Turn this on if you want why, not just what">
+                <input 
+                  type="checkbox" 
+                  checked={!!teaching} 
+                  onChange={e=>setTeaching(e.target.checked)} 
+                  className="touch-manipulation w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500" 
+                />
+                <span className="opacity-80 group-hover:opacity-100">Explain in more detail</span>
+              </label>
+              {isPro && (
+                <label className="inline-flex items-center gap-2 text-xs sm:text-sm touch-manipulation cursor-pointer group" title="Turn this on if you want why, not just what">
+                  <input
+                    type="checkbox"
+                    checked={showReasoning}
+                    onChange={(e) => setShowReasoning(e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="opacity-80 group-hover:opacity-100">Show reasoning</span>
+                </label>
+              )}
             </div>
           </div>
         )}
@@ -1339,23 +1370,14 @@ function Chat() {
             onChanged={() => setHistKey((k: any) => k + 1)}
             onDeleted={() => { setThreadId(null); setMessages([]); setHistKey((k: any) => k + 1); }}
             onNewChat={newChat}
+            deckId={linkedDeckId}
+            messageCount={messages.length}
           />
         </div>
 
         {/* Assistant spotlight header */}
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold opacity-90">Your deck-building assistant</div>
-          {isPro && (
-            <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer hover:text-neutral-300 transition-colors">
-              <input
-                type="checkbox"
-                checked={showReasoning}
-                onChange={(e) => setShowReasoning(e.target.checked)}
-                className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500"
-              />
-              <span>Show reasoning</span>
-            </label>
-          )}
         </div>
       </div>
       
@@ -1380,10 +1402,12 @@ function Chat() {
           if (budget) activeFilters.push(budget.charAt(0).toUpperCase() + budget.slice(1));
           
           if (activeFilters.length > 0) {
+            // Build sentence-like context
+            const formatName = fmt === 'commander' ? 'Commander' : fmt ? fmt.charAt(0).toUpperCase() + fmt.slice(1) : 'Commander';
+            const valueDesc = budget === 'budget' ? 'budget-friendly' : budget === 'luxury' ? 'luxury' : 'optimized for power and consistency';
             return (
-              <div className="mb-2 px-3 py-1.5 bg-neutral-900/60 border border-neutral-700 rounded text-neutral-300 text-xs flex-shrink-0 flex items-center gap-1.5">
-                <span className="opacity-70">Using:</span>
-                <span className="font-medium">{activeFilters.join(' • ')}</span>
+              <div className="mb-2 px-3 py-1.5 bg-neutral-900/60 border border-neutral-700 rounded text-neutral-300 text-xs flex-shrink-0">
+                <span className="opacity-90">You're building a <span className="font-medium">{formatName}</span> deck, <span className="font-medium">{valueDesc}</span>.</span>
               </div>
             );
           }
@@ -1396,52 +1420,86 @@ function Chat() {
             <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
               <div className="text-8xl mb-6 opacity-80">💬</div>
               <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-3">
-                Welcome to ManaTap AI!
+                Paste a decklist or name a Commander.
               </h3>
-              <p className="text-xs md:text-sm text-neutral-400 mb-6 max-w-md px-2">
-                Start building your perfect deck. Ask me anything about Magic: The Gathering, or get started with a sample Commander deck.
+              <p className="text-xs md:text-sm text-neutral-400 mb-3 max-w-md px-2">
+                I'll check legality, mana balance, and synergy—and tell you exactly what to fix.
               </p>
-              <div className="flex gap-4 flex-wrap justify-center mb-4">
-                {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
-                {(()=>{ 
-                  try { 
-                    const PlaystyleQuizModal = require('./PlaystyleQuizModal').default;
-                    return (
-                      <>
-                        <button
-                          onClick={() => setShowQuizModal(true)}
-                          className="relative px-6 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white rounded-xl font-bold text-base hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 transition-all shadow-xl hover:shadow-purple-500/50 hover:scale-105 transform duration-200 border-2 border-purple-400/50"
-                        >
-                          <span className="relative z-10 flex items-center gap-2">
-                            <span>🎯</span>
-                            <span>
-                              <span className="block text-yellow-300 text-xs font-extrabold uppercase tracking-wider mb-0.5">FIND MY</span>
-                              <span>Playstyle</span>
-                            </span>
-                          </span>
-                          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 opacity-0 hover:opacity-100 transition-opacity blur-xl"></div>
-                        </button>
-                        {showQuizModal && <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} />}
-                      </>
-                    );
-                  } catch { return null; } 
-                })()}
+              {/* Confidence framing sentence */}
+              <p className="text-xs md:text-sm text-neutral-500 mb-8 max-w-md px-2">
+                ManaTap will check legality, mana balance, synergy, and budget—automatically.
+              </p>
+              
+              <div className="flex flex-col gap-3 items-center justify-center mb-8">
+                <div className="flex gap-4 flex-wrap justify-center">
+                  {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
+                  {(()=>{ 
+                    try { 
+                      const PlaystyleQuizModal = require('./PlaystyleQuizModal').default;
+                      return (
+                        <>
+                          <div className="flex flex-col items-center">
+                            <button
+                              onClick={() => setShowQuizModal(true)}
+                              className="relative px-6 py-3 bg-gradient-to-r from-purple-500/90 via-pink-500/90 to-purple-500/90 text-white rounded-xl font-bold text-base hover:from-purple-500/80 hover:via-pink-500/80 hover:to-purple-500/80 transition-all shadow-lg hover:shadow-purple-500/30 hover:scale-105 transform duration-200 border-2 border-purple-400/40"
+                            >
+                              <span className="relative z-10 flex items-center gap-2">
+                                <span>🎯</span>
+                                <span>
+                                  <span className="block text-yellow-200 text-xs font-extrabold uppercase tracking-wider mb-0.5">FIND MY</span>
+                                  <span>Playstyle</span>
+                                </span>
+                              </span>
+                            </button>
+                            <span className="mt-2 text-[10px] text-neutral-500 italic">Not sure what you like yet?</span>
+                          </div>
+                          {showQuizModal && <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} />}
+                        </>
+                      );
+                    } catch { return null; } 
+                  })()}
+                </div>
               </div>
-              {/* Example prompt pills - mobile responsive text */}
-              <div className="flex gap-2 flex-wrap justify-center max-w-2xl px-2">
-                {examplePrompts.slice(0, 3).map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setText(prompt)}
-                    className="px-2 py-1 md:px-3 md:py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-purple-500 rounded-full text-[10px] md:text-xs text-neutral-300 transition-all hover:scale-105 max-w-full truncate"
-                    style={{ 
-                      animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
-                    }}
-                    title={prompt}
-                  >
-                    {prompt}
-                  </button>
-                ))}
+              
+              {/* Example prompt pills - with intro text and hover pre-fill */}
+              <div className="mt-6 space-y-3 max-w-2xl px-2">
+                <p className="text-xs md:text-sm text-neutral-500 mb-2">
+                  Or try one of these instantly:
+                </p>
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {examplePrompts.slice(0, 3).map((prompt, idx) => {
+                    const isHovered = hoveredPromptIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setText(prompt);
+                          setHoveredPromptIndex(null);
+                        }}
+                        onMouseEnter={() => {
+                          // Pre-fill on hover (even before click) for momentum - only if input is empty
+                          if ((!Array.isArray(messages) || messages.length === 0) && !text) {
+                            setHoveredPromptIndex(idx);
+                            setText(prompt);
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          // Reset hover state when mouse leaves
+                          if (isHovered) {
+                            setHoveredPromptIndex(null);
+                          }
+                        }}
+                        className="px-4 py-2.5 md:px-5 md:py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-blue-500/60 rounded-full text-xs md:text-sm text-neutral-300 transition-all hover:scale-105 max-w-full shadow-md hover:shadow-blue-500/20"
+                        style={{ 
+                          animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
+                        }}
+                        title={prompt}
+                      >
+                        {prompt}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ) : messages.map((m) => {
@@ -1508,10 +1566,12 @@ function Chat() {
         </div>
       </div>
       
-      {/* Mobile-optimized input area - sticky at bottom */}
+      {/* Mobile-optimized input area - sticky at bottom with background tint */}
       <div className="p-3 sm:p-4 border-t border-neutral-800 bg-black flex-shrink-0">
-        {/* Suggested prompt chips */}
-        <div className="mb-3 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] opacity-90">
+        {/* Background tint behind input area */}
+        <div className="bg-neutral-900/40 border-t border-neutral-800/50 rounded-lg p-3 -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 mb-3 sm:mb-4">
+          {/* Suggested prompt chips */}
+          <div className="mb-3 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] opacity-90">
           {[
             { label: '“Analyze my Commander deck”', text: "Analyze this Commander deck and tell me what it's missing." },
             { label: '“Fix my 3-colour mana base”', text: "Fix the mana base for this 3-colour deck." },
@@ -1528,9 +1588,10 @@ function Chat() {
           ))}
         </div>
 
-        <div className="flex gap-2 flex-col sm:flex-row">
-          <div className="relative flex-1">
-            <textarea
+          {/* Input area */}
+          <div className="flex gap-2 flex-col sm:flex-row">
+            <div className="relative flex-1">
+              <textarea
               data-testid="chat-textarea"
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -1540,7 +1601,7 @@ function Chat() {
                   send();
                 }
               }}
-              placeholder={examplePrompts[currentPromptIndex]}
+              placeholder={(!Array.isArray(messages) || messages.length === 0) ? "Paste a decklist, name a Commander, or ask a question…" : examplePrompts[currentPromptIndex]}
               rows={3}
               className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               style={{
@@ -1657,6 +1718,7 @@ function Chat() {
               </button>
             )}
           </div>
+        </div>
         </div>
       </div>
       

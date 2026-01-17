@@ -271,15 +271,15 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   }
 
   return (
-    <section className="sticky top-4 z-10 rounded-xl border-2 border-pink-500/60 bg-gradient-to-br from-pink-950/40 via-purple-950/40 to-pink-950/40 p-4 backdrop-blur shadow-2xl shadow-pink-500/20 ring-1 ring-pink-400/30">
+    <section className="sticky top-4 z-10 rounded-xl border-2 border-pink-500/45 bg-gradient-to-br from-pink-950/30 via-purple-950/30 to-pink-950/30 p-4 backdrop-blur shadow-xl shadow-pink-500/15 ring-1 ring-pink-400/20">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎯</span>
           <div>
-            <div className="text-base font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <div className="text-base font-bold bg-gradient-to-r from-pink-400/75 via-purple-400/75 to-pink-400/75 bg-clip-text text-transparent">
               Build Assistant
             </div>
-            <div className="text-xs text-gray-300 font-medium">Smart suggestions for your deck</div>
+            <div className="text-xs text-gray-400 font-medium">AI suggestions available</div>
           </div>
         </div>
         <div className="flex items-center gap-2">

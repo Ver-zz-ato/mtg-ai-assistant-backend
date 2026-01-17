@@ -59,8 +59,8 @@ const faqItems: FAQItem[] = [
   }
 ];
 
-export default function HomepageFAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+export default function HomepageFAQ({ defaultCollapsed = false }: { defaultCollapsed?: boolean }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(defaultCollapsed ? null : 0);
 
   const toggleItem = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
