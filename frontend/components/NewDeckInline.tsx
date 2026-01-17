@@ -52,19 +52,21 @@ export default function NewDeckInline() {
 
   return (
     <div className="flex items-center gap-3">
+      {/* Tertiary: Search input - less prominent */}
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && !busy && title.trim() && create()}
         placeholder="Enter deck name..."
-        className="rounded-lg border-2 border-neutral-700 focus:border-blue-500 bg-black/40 px-4 py-2 outline-none text-sm transition-colors"
+        className="rounded-lg border-2 border-neutral-700 focus:border-blue-500 bg-black/40 px-4 py-2 outline-none text-sm transition-colors opacity-80 focus:opacity-100"
         aria-label="New deck name"
         autoFocus
       />
+      {/* Primary: Create Deck - stronger glow and size */}
       <button 
         onClick={create} 
         disabled={busy || !title.trim()} 
-        className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold shadow-lg transition-all text-sm"
+        className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all text-sm scale-105 hover:scale-110"
       >
         {busy ? "Creating…" : "✨ Create Deck"}
       </button>

@@ -10,6 +10,7 @@ import { aiMemory } from '@/lib/ai-memory';
 import { capture } from '@/lib/ph';
 import { EmptyDecksState } from './EmptyStates';
 import { TagPills, TagSelector } from './DeckTags';
+import { getTagByLabel } from '@/lib/predefined-tags';
 
 interface DeckRow {
   id: string;
@@ -270,6 +271,15 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
 
   return (
     <div className="space-y-4">
+      {/* Empty state guidance for users with few decks */}
+      {rows.length > 0 && rows.length <= 2 && (
+        <div className="text-center py-2 px-4 bg-blue-950/20 border border-blue-500/20 rounded-lg">
+          <p className="text-xs text-blue-300">
+            💡 <span className="font-medium">Tip:</span> Import from <span className="underline">Moxfield</span> or start fresh with AI assistance
+          </p>
+        </div>
+      )}
+      
       {isLoadingData && (
         <div className="flex items-center gap-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
           <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -302,7 +312,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
             title={r.title || undefined}
           >
             {(art, loading) => (
-              <div className="group rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 flex flex-col hover:border-neutral-600 transition-all" style={{ transform: isThisSwiped ? 'translateX(-120px)' : 'translateX(0)' }}>
+              <div className={`group rounded-xl border overflow-hidden bg-neutral-950 flex flex-col transition-all ${isPinned ? 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-transparent' : 'border-neutral-800'} hover:border-neutral-600 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1`} style={{ transform: isThisSwiped ? 'translateX(-120px)' : 'translateX(0)' }}>
                 {/* Cover - Clickable */}
                 <Link 
                   href={`/my-decks/${r.id}`}
@@ -334,15 +344,15 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                       <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
                       
                       {stats?.cardCount === 0 || stats?.cardCount === undefined ? (
-                        // No cards: Show "Add cards" CTA
-                        <div className="text-center z-10">
-                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-600/20 border-2 border-dashed border-emerald-600/40 flex items-center justify-center">
+                        // No cards: Show "New deck" state with better styling
+                        <div className="text-center z-10 p-4">
+                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-600/20 border-2 border-dashed border-emerald-500/50 flex items-center justify-center">
                             <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                             </svg>
                           </div>
-                          <div className="text-sm text-emerald-300 font-medium">Add cards to see art</div>
-                          <div className="text-xs text-neutral-400 mt-1">Click to start building</div>
+                          <div className="text-sm text-emerald-300 font-medium">New deck — start building</div>
+                          <div className="text-xs text-neutral-400 mt-1">Add cards to see art</div>
                         </div>
                       ) : (
                         // Has cards but no art: Show mana symbol
@@ -372,12 +382,13 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                 
                 {/* Body with expanded stats */}
                 <div className="p-4 flex-1 flex flex-col gap-3">
-                  {/* Title and Delete */}
+                  {/* Title and Delete - Delete hover-only */}
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/my-decks/${r.id}`} className="font-semibold text-base truncate hover:underline flex-1" title={title}>{title}</Link>
                     <button 
                       onClick={(e) => { e.preventDefault(); deleteDeck(r.id, title); }} 
-                      className="text-xs text-red-400 hover:text-red-300 underline opacity-70 hover:opacity-100 transition-opacity"
+                      className="text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-70 hover:opacity-100 transition-opacity"
+                      aria-label="Delete deck"
                     >
                       Delete
                     </button>
@@ -390,9 +401,25 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                     </div>
                   )}
                   
-                  {/* Tags */}
+                  {/* Tags - outline chips style */}
                   <div className="flex items-center gap-2">
-                    <TagPills tags={deckTags.get(r.id) || []} maxDisplay={3} />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(deckTags.get(r.id) || []).slice(0, 3).map((tag) => {
+                        const def = getTagByLabel(tag);
+                        const borderColor = def?.color?.replace('text-', 'border-') || 'border-neutral-600';
+                        return (
+                          <span
+                            key={tag}
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
+                          >
+                            {tag}
+                          </span>
+                        );
+                      })}
+                      {(deckTags.get(r.id) || []).length > 3 && (
+                        <span className="text-xs text-neutral-500">+{(deckTags.get(r.id) || []).length - 3}</span>
+                      )}
+                    </div>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -405,18 +432,20 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                     </button>
                   </div>
                   
-                  {/* Main stats - bigger pills */}
+                  {/* Main stats - improved chip distinction */}
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 border border-blue-600/30 text-blue-300">
+                    {/* Cards: Badge style */}
+                    <span className="px-2.5 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
                       <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
                     </span>
-                    <span className={`px-2.5 py-1.5 rounded-lg ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
+                    {/* Visibility: Pill style */}
+                    <span className={`px-2.5 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
                       {r.is_public ? '🌐 Public' : '🔒 Private'}
                     </span>
                   </div>
                   
-                  {/* Actions row */}
-                  <div className="flex items-center gap-2 mt-auto pt-2 border-t border-neutral-800">
+                  {/* Actions row - more spacing */}
+                  <div className="flex items-center gap-3 mt-auto pt-3 pb-1 border-t border-neutral-800">
                     <LikeButton deckId={r.id} />
                     {(()=>{ 
                       try {

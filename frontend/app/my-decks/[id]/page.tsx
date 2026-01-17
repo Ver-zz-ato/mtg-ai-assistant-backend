@@ -69,18 +69,30 @@ export default async function Page({ params, searchParams }: { params: Promise<P
 
   // Build details from deck cards (for both pie and radar)
   const details = await scryfallBatch(arr.map(a=>a.name));
-  // Pie from actual deck composition - count each CARD once per color identity
+  
+  // Color Balance: For Commander format, use commander's color identity only
+  // (rules: you can only play cards matching commander's colors)
   const pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
-  for (const { name, qty } of arr) {
-    const d = details[norm(name)];
-    const ci: string[] = Array.isArray(d?.color_identity) ? d.color_identity : [];
-    const q = Math.max(1, Number(qty)||1);
-    // Each card contributes its full quantity to each of its colors
-    // This means multicolored cards will be counted multiple times
-    // which is correct for showing color distribution in the deck
-    for (const c of ci) {
-      if (pieCounts.hasOwnProperty(c)) {
-        pieCounts[c] = (pieCounts[c]||0) + q;
+  const deckColors = Array.isArray((deck as any)?.colors) ? (deck as any).colors : [];
+  
+  if (format === 'commander' && deckColors.length > 0) {
+    // For Commander: show only commander's color identity
+    // Each color gets a count of 1 for visual representation
+    deckColors.forEach((c: string) => {
+      if (pieCounts.hasOwnProperty(c.toUpperCase())) {
+        pieCounts[c.toUpperCase()] = 1;
+      }
+    });
+  } else {
+    // For non-Commander formats: count colors from actual deck cards
+    for (const { name, qty } of arr) {
+      const d = details[norm(name)];
+      const ci: string[] = Array.isArray(d?.color_identity) ? d.color_identity : [];
+      const q = Math.max(1, Number(qty)||1);
+      for (const c of ci) {
+        if (pieCounts.hasOwnProperty(c)) {
+          pieCounts[c] = (pieCounts[c]||0) + q;
+        }
       }
     }
   }
@@ -311,12 +323,12 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           </PanelWrapper>
 
           {/* Deck Trends (Color Balance) - FIFTH */}
-          <PanelWrapper title="Deck Trends" colorFrom="cyan-400" colorTo="blue-500" large>
+          <PanelWrapper title="Deck Trends" colorFrom="cyan-400" colorTo="blue-500" large defaultCollapsed={true}>
             <div className="flex flex-col items-center gap-6">
               <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
                 <div className="text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-1">
                   <span>⚪</span>
-                  <span title="Derived from commander and title; falls back to deck cards">Color Balance</span>
+                  <span title="Shows commander's color identity (only legal colors for Commander format)">Color Balance</span>
                 </div>
                 {hasPie ? (
                   <>

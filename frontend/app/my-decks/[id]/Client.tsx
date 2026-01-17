@@ -279,7 +279,7 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             healthMetrics={healthMetrics || null}
           />
         )}
-        <CardsPane deckId={deckId} />
+        <CardsPane deckId={deckId} format={format} allowedColors={colors || []} />
       </div>
       <aside className="md:w-80 lg:w-96 xl:w-[30rem] 2xl:w-[36rem] flex-shrink-0 space-y-4">
         {/* AI Assistant - Grouped header */}

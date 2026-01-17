@@ -28,9 +28,18 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [filteredReasons, setFilteredReasons] = React.useState<string[]>([]);
 
   async function run() {
+    if (busy) {
+      console.log('Deck Analyzer: Already running, skipping');
+      return;
+    }
+    
     try {
-      setBusy(true); setError(null);
+      console.log('Deck Analyzer: Starting analysis...');
+      setBusy(true); 
+      setError(null);
       const deckText = await fetchDeckText();
+      console.log('Deck Analyzer: Fetched deck text, length:', deckText?.length || 0);
+      
       if (!deckText) { 
         setScore(null); 
         setBands(null); 
@@ -60,7 +69,10 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       clearTimeout(timeoutId);
       
       const j = await res.json().catch(()=>({}));
+      console.log('Deck Analyzer: API response status:', res.ok, 'error:', j?.error);
+      
       if (!res.ok || j?.error) throw new Error(j?.error || res.statusText || 'Analysis failed');
+      console.log('Deck Analyzer: Analysis complete, score:', j?.score);
       setScore(j?.score ?? null); setBands(j?.bands ?? null);
       if (j?.counts) setRawCounts(j.counts);
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
@@ -70,6 +82,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
       setFilteredReasons(Array.isArray(j?.filteredReasons) ? j.filteredReasons.filter((r:string)=>typeof r === 'string' && r.trim()).map((r:string)=>r.trim()) : []);
     } catch (e:any) { 
+      console.error('Deck Analyzer: Error during analysis:', e);
       if (e.name === 'AbortError') {
         setError('Analysis timed out. Please try again.');
       } else {
@@ -120,7 +133,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
             Deck Analyzer
           </h3>
         </div>
-        <button onClick={run} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60">{busy?'Analyzing…':'Run'}</button>
+        <button onClick={() => run()} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60">{busy?'Analyzing…':'Run'}</button>
       </div>
       {error && <div className="text-xs text-red-400">{error}</div>}
       {score!=null && (

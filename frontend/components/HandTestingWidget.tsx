@@ -149,6 +149,9 @@ export default function HandTestingWidget({
           });
           
           setCardImages(imageMap);
+        } else if (data && typeof data === 'object' && !data.data) {
+          // Handle case where response might be in different format
+          console.warn('Unexpected batch-images response format:', data);
         }
       } catch (error) {
         // Silently fail
@@ -471,7 +474,7 @@ export default function HandTestingWidget({
             <p className="text-xs opacity-70">
               {imagesLoading ? 'Loading card images...' :
                Object.keys(cardImages).length === 0 ? 'Waiting for card images...' :
-               `${expandedDeck.length} cards • ${Object.keys(cardImages).length} images loaded • ${gameState === 'initial' ? 'Ready to test' : 
+               `${expandedDeck.length} cards • ${Object.keys(cardImages).length} card images available • ${gameState === 'initial' ? 'Ready to test' : 
                 gameState === 'finished' ? `Test complete (${mulliganCount} mulligans)` :
                 `Testing... (${mulliganCount} mulligans)`}`}
             </p>

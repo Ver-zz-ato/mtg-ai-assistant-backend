@@ -278,7 +278,7 @@ export default function DeckOverview({
         <div>
           <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center gap-1">
             <span>Color Identity</span>
-            <span className="text-[8px] opacity-50" title="Automatically detected from deck cards">(AI)</span>
+            <span className="text-[8px] opacity-50" title="From commander or deck metadata">(from Commander)</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {colors.length > 0 ? (

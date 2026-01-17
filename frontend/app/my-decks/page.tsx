@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
@@ -85,12 +85,21 @@ function MyDecksPageContent() {
     }
   }, [searchParams]);
 
-  // Load decks
+  // Load decks - prevent reload when tabbing out/in
+  const decksLoadedRef = useRef(false);
+  
   useEffect(() => {
     if (authLoading) return;
     
     if (!user) {
       setLoading(false);
+      decksLoadedRef.current = false;
+      return;
+    }
+    
+    // Only reload if decks haven't been loaded yet, or if user ID actually changed
+    if (decksLoadedRef.current && decks && decks.length > 0) {
+      // Decks already loaded, don't reload on tab switch
       return;
     }
     
@@ -126,13 +135,14 @@ function MyDecksPageContent() {
 
         setDecks(sorted);
         setPinnedIds(pinned);
+        decksLoadedRef.current = true; // Mark as loaded
       } catch (err: any) {
         // Silently fail
       } finally {
         setLoading(false);
       }
     })();
-  }, [user, authLoading]);
+  }, [user?.id, authLoading]); // Only depend on user ID, not entire user object
 
   if (authLoading) {
     return (
@@ -230,10 +240,14 @@ function MyDecksPageContent() {
       <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-semibold">My Decks</h1>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
+          {/* Primary: Create Deck - stronger visual presence */}
+          <div className="flex-1 md:flex-none">
+            {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
+          </div>
+          {/* Secondary: Import Deck */}
           <button
             onClick={openImportModal}
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:border-neutral-600"
           >
             Import Deck
           </button>

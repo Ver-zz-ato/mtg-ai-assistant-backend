@@ -8,7 +8,7 @@ import FixSingleCardModal from "./FixSingleCardModal";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
 
-export default function CardsPane({ deckId }: { deckId?: string }) {
+export default function CardsPane({ deckId, format, allowedColors = [] }: { deckId?: string; format?: string; allowedColors?: string[] }) {
   const [cards, setCards] = useState<CardRow[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -82,6 +82,32 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
       } catch (validationError) {
         console.warn('Validation check failed, proceeding anyway:', validationError);
         // Continue with adding if validation fails (fallback)
+      }
+    }
+
+    // For Commander format: validate color identity matches commander
+    if (format?.toLowerCase() === 'commander' && allowedColors.length > 0) {
+      try {
+        const cardName = validatedName || n;
+        // Fetch card color_identity from Scryfall cache
+        const colorCheckRes = await fetch(`/api/cards/color-check?name=${encodeURIComponent(cardName)}&allowedColors=${allowedColors.join(',')}`);
+        const colorCheckJson = await colorCheckRes.json().catch(() => ({ ok: false }));
+        
+        if (!colorCheckJson.ok || colorCheckJson.allowed === false) {
+          const cardColors = colorCheckJson.cardColors || [];
+          const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+          const cardColorNames = cardColors.map((c: string) => colorNames[c] || c).join(', ');
+          const allowedColorNames = allowedColors.map((c: string) => colorNames[c.toUpperCase()] || c).join(', ');
+          
+          alert(`Cannot add "${cardName}" to this Commander deck.\n\n` +
+                `Card color identity: ${cardColorNames || 'Colorless'}\n` +
+                `Commander colors: ${allowedColorNames}\n\n` +
+                `In Commander format, all cards must match your commander's color identity.`);
+          return;
+        }
+      } catch (colorCheckError) {
+        console.warn('Color identity check failed, proceeding anyway:', colorCheckError);
+        // Continue with adding if color check fails (fallback to allow the add)
       }
     }
 
@@ -764,11 +790,15 @@ export default function CardsPane({ deckId }: { deckId?: string }) {
               return (<span className="text-xs opacity-40 w-40 text-right">— <button className="underline text-cyan-400 ml-1 hover:text-cyan-300 transition-colors" onClick={()=>setFixModalCard({ id: c.id, name: c.name })}>fix?</button></span>);
               })()}
               <button
-                className="ml-3 px-2 py-0.5 text-red-300 border border-red-400 rounded hover:bg-red-950/40 disabled:opacity-50"
+                className="ml-3 p-1.5 text-neutral-400 hover:text-red-400 rounded hover:bg-red-950/40 disabled:opacity-50 transition-colors"
                 onClick={() => remove(c.id, c.name, c.qty)}
                 disabled={busyId === c.id}
+                title="Delete card"
+                aria-label="Delete card"
               >
-                delete
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
               </button>
             </div>
           </div>
