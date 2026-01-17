@@ -2161,6 +2161,9 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
   const [loading, setLoading] = React.useState(true);
   const [addName, setAddName] = React.useState('');
   const [adding, setAdding] = React.useState(false);
+  const [priceMap, setPriceMap] = React.useState<Map<string, { price: number; delta_24h: number }>>(new Map());
+  const [showAddValidation, setShowAddValidation] = React.useState(false);
+  const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
 
   const loadWatchlist = async () => {
     try {
@@ -2179,15 +2182,74 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
   React.useEffect(() => {
     loadWatchlist();
   }, []);
+  
+  // Load prices and deltas for watchlist items
+  React.useEffect(() => {
+    if (items.length === 0) { setPriceMap(new Map()); return; }
+    (async () => {
+      try {
+        const pricePromises = items.map(async (item) => {
+          try {
+            const res = await fetch(`/api/price?name=${encodeURIComponent(item.name)}&currency=USD`, { cache: 'no-store' });
+            const data = await res.json();
+            if (data.ok) {
+              return { name: item.name, price: data.price || 0, delta_24h: data.delta_24h || 0 };
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch price for ${item.name}:`, e);
+          }
+          return { name: item.name, price: 0, delta_24h: 0 };
+        });
+        
+        const results = await Promise.all(pricePromises);
+        const map = new Map(results.map(r => [r.name, { price: r.price, delta_24h: r.delta_24h }]));
+        setPriceMap(map);
+      } catch (e) {
+        setPriceMap(new Map());
+      }
+    })();
+  }, [items]);
 
-  const addCard = async () => {
+  const addCard = async (validatedName?: string) => {
     if (!pro) {
       try { showProToast(); } catch {}
       return;
     }
     
-    const name = addName.trim();
+    const name = (validatedName || addName).trim();
     if (!name) return;
+
+    // If validatedName is provided, skip validation (already validated)
+    if (!validatedName) {
+      // Validate card name before adding
+      try {
+        const validationRes = await fetch('/api/cards/fuzzy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: [name] })
+        });
+        const validationJson = await validationRes.json().catch(() => ({}));
+        const fuzzyResults = validationJson?.results || {};
+        
+        const suggestion = fuzzyResults[name]?.suggestion;
+        const allSuggestions = Array.isArray(fuzzyResults[name]?.all) ? fuzzyResults[name].all : [];
+        
+        // If name needs fixing, show validation modal
+        if (suggestion && suggestion !== name && allSuggestions.length > 0) {
+          setAddValidationItems([{
+            originalName: name,
+            suggestions: allSuggestions,
+            choice: allSuggestions[0] || suggestion,
+            qty: 1
+          }]);
+          setShowAddValidation(true);
+          return;
+        }
+      } catch (validationError) {
+        console.warn('Validation check failed, proceeding anyway:', validationError);
+        // Continue with adding if validation fails (fallback)
+      }
+    }
 
     try {
       setAdding(true);
@@ -2277,7 +2339,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
           })()}
         </label>
         <button
-          onClick={addCard}
+          onClick={() => addCard()}
           disabled={adding || !addName.trim()}
           className="w-full px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
         >
@@ -2295,17 +2357,36 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
       ) : (
         <>
           <ul className="text-sm space-y-1 p-3 bg-neutral-900/50 rounded border border-neutral-800 max-h-64 overflow-y-auto">
-            {items.map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-2">
-                <span className="flex-1 truncate">{item.name}</span>
-                <button
-                  onClick={() => removeCard(item.id, item.name)}
-                  className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors"
-                >
-                  ×
-                </button>
-              </li>
-            ))}
+            {items.map((item) => {
+              const priceData = priceMap.get(item.name);
+              const price = priceData?.price || 0;
+              const delta24h = priceData?.delta_24h || 0;
+              const hasPrice = price > 0;
+              
+              return (
+                <li key={item.id} className="flex items-center justify-between gap-2 py-1 border-b border-neutral-800/50 last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate font-medium">{item.name}</span>
+                    {hasPrice && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs font-mono text-emerald-400">${price.toFixed(2)}</span>
+                        {delta24h !== 0 && (
+                          <span className={`text-[10px] font-mono ${delta24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {delta24h >= 0 ? '▲' : '▼'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeCard(item.id, item.name)}
+                    className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors flex-shrink-0"
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <a
             href="/watchlist"
@@ -2314,6 +2395,60 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
             → View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
           </a>
         </>
+      )}
+      
+      {/* Pre-add validation modal */}
+      {showAddValidation && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>
+          <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                Fix Card Name Before Adding
+              </h3>
+            </div>
+            <div className="mb-3 text-xs text-neutral-400">
+              Found a card that needs fixing. Select the correct name from the dropdown:
+            </div>
+            <div className="space-y-2 mb-4">
+              {addValidationItems.map((it, idx) => (
+                <div key={`${it.originalName}-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors">
+                  <div className="flex-1">
+                    <div className="font-medium text-neutral-200 truncate">{it.originalName}</div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <select value={it.choice} onChange={e=>setAddValidationItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
+                    className="bg-neutral-950 border border-neutral-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[180px]">
+                    {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button onClick={async()=>{
+                try {
+                  const correctedName = addValidationItems[0]?.choice || addValidationItems[0]?.originalName;
+                  if (!correctedName) return;
+                  
+                  setShowAddValidation(false);
+                  setAddValidationItems([]);
+                  
+                  // Add with corrected name
+                  await addCard(correctedName);
+                } catch(e:any) {
+                  alert(e?.message||'Failed to add card');
+                }
+              }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                Apply Fixed Name & Add
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

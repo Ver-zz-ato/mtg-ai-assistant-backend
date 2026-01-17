@@ -164,6 +164,9 @@ function WatchlistEditor() {
   const [previewCard, setPreviewCard] = useState<{ src: string; x: number; y: number } | null>(null);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [bulkValidationItems, setBulkValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
+  const [showBulkValidation, setShowBulkValidation] = React.useState(false);
+  const [pendingTargetPrice, setPendingTargetPrice] = React.useState<number | null>(null);
 
   const loadWatchlist = async () => {
     try {
@@ -220,18 +223,50 @@ function WatchlistEditor() {
     }
   };
 
-  const addCard = async () => {
-    if (!addName.trim()) return;
+  const addCard = async (cardName?: string) => {
+    const name = (cardName || addName).trim();
+    if (!name) return;
     
     try {
       setAdding(true);
       setError(null);
       
+      // Validate card name before adding (similar to wishlist/collections)
+      try {
+        const validationRes = await fetch('/api/cards/fuzzy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: [name] })
+        });
+        const validationJson = await validationRes.json().catch(() => ({}));
+        const fuzzyResults = validationJson?.results || {};
+        
+        const suggestion = fuzzyResults[name]?.suggestion;
+        const allSuggestions = Array.isArray(fuzzyResults[name]?.all) ? fuzzyResults[name].all : [];
+        
+        // If name needs fixing, show validation modal
+        if (suggestion && suggestion !== name && allSuggestions.length > 0) {
+          setBulkValidationItems([{
+            originalName: name,
+            suggestions: allSuggestions,
+            choice: allSuggestions[0] || suggestion,
+            qty: 1
+          }]);
+          setShowBulkValidation(true);
+          setPendingTargetPrice(targetPrice ? parseFloat(targetPrice) : null);
+          setAdding(false);
+          return;
+        }
+      } catch (validationError) {
+        console.warn('Validation check failed, proceeding anyway:', validationError);
+        // Continue with adding if validation fails (fallback)
+      }
+      
       const res = await fetch('/api/watchlist/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: addName.trim(),
+          name: name,
           target_price: targetPrice ? parseFloat(targetPrice) : null
         })
       });
@@ -377,8 +412,57 @@ function WatchlistEditor() {
     );
   }
 
+  // Calculate alert summary
+  const alertSummary = useMemo(() => {
+    let droppedToday = 0;
+    let hitTarget = 0;
+    let nearTarget = 0;
+    
+    items.forEach((item) => {
+      const priceData = prices.get(item.name);
+      const current = priceData?.current || 0;
+      const delta24h = priceData?.delta_24h || 0;
+      
+      if (delta24h < -2) droppedToday++;
+      if (item.target_price && current > 0 && current <= item.target_price) hitTarget++;
+      if (item.target_price && current > 0 && ((current / item.target_price) <= 1.1 && (current / item.target_price) >= 0.9) && current > item.target_price) nearTarget++;
+    });
+    
+    return { droppedToday, hitTarget, nearTarget };
+  }, [items, prices]);
+
   return (
     <div className="space-y-6">
+      {/* Alert Summary Panel */}
+      {items.length > 0 && (alertSummary.droppedToday > 0 || alertSummary.hitTarget > 0 || alertSummary.nearTarget > 0) && (
+        <div className="rounded-xl border border-neutral-800 p-4 bg-gradient-to-r from-blue-950/30 via-purple-950/20 to-blue-950/30">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse"></div>
+            <h3 className="font-semibold text-sm">Watchlist Alerts</h3>
+          </div>
+          <div className="flex flex-wrap gap-4 text-xs">
+            {alertSummary.droppedToday > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-red-400">▼</span>
+                <span><strong>{alertSummary.droppedToday}</strong> card{alertSummary.droppedToday !== 1 ? 's' : ''} dropped today</span>
+              </div>
+            )}
+            {alertSummary.hitTarget > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">🎯</span>
+                <span><strong>{alertSummary.hitTarget}</strong> card{alertSummary.hitTarget !== 1 ? 's' : ''} hit your target price!</span>
+              </div>
+            )}
+            {alertSummary.nearTarget > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400">⚡</span>
+                <span><strong>{alertSummary.nearTarget}</strong> card{alertSummary.nearTarget !== 1 ? 's' : ''} near target price</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Add Card Section */}
       <div className="rounded-xl border border-neutral-800 p-6 bg-neutral-900/50">
         <h3 className="font-semibold mb-4">Add Card to Watchlist</h3>
@@ -388,7 +472,7 @@ function WatchlistEditor() {
             <CardAutocomplete
               value={addName}
               onChange={setAddName}
-              onPick={setAddName}
+              onPick={(name)=>{ setAddName(name); setTimeout(() => addCard(name), 0); }}
             />
           </div>
           <div>
@@ -405,7 +489,7 @@ function WatchlistEditor() {
         </div>
         <div className="mt-4 flex items-center gap-3">
           <button
-            onClick={addCard}
+            onClick={() => addCard()}
             disabled={adding || !addName.trim()}
             className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -447,15 +531,38 @@ function WatchlistEditor() {
 
                   const cardImg = images[item.name.toLowerCase()];
                   
+                  // Calculate visual states
+                  const delta7d = priceData?.delta_7d || 0;
+                  const delta30d = priceData?.delta_30d || 0;
+                  const nearTarget = item.target_price && current > 0 && current > 0 && ((current / item.target_price) <= 1.1 && (current / item.target_price) >= 0.9); // Within 10%
+                  
+                  // Determine row state color based on 7d or 30d trend (prioritize 7d if available)
+                  const trendDelta = delta7d !== 0 ? delta7d : delta30d;
+                  const isRising = trendDelta > 2; // > 2% increase
+                  const isFalling = trendDelta < -2; // > 2% decrease
+                  const isNearTarget = nearTarget && !targetHit;
+                  
+                  // Row background styling based on state
+                  let rowBgClass = 'bg-white/[0.02] hover:bg-white/[0.04] transition-colors group';
+                  if (targetHit) rowBgClass = 'bg-green-900/20 border-l-2 border-l-green-500/50';
+                  else if (isNearTarget) rowBgClass = 'bg-amber-900/10 border-l-2 border-l-amber-500/40';
+                  else if (isRising) rowBgClass = 'bg-green-900/10 border-l-2 border-l-green-500/30';
+                  else if (isFalling) rowBgClass = 'bg-red-900/10 border-l-2 border-l-red-500/30';
+                  
+                  // Calculate % to target
+                  const percentToTarget = item.target_price && current > 0 
+                    ? ((current / item.target_price) * 100).toFixed(1)
+                    : null;
+                  
                   return (
-                    <tr key={item.id} className={`hover:bg-neutral-800/30 ${targetHit ? 'bg-green-900/10' : ''}`}>
+                    <tr key={item.id} className={`${rowBgClass}`}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           {cardImg?.small && (
                             <img 
                               src={cardImg.small} 
                               alt={item.name}
-                              className="w-10 h-14 rounded object-cover cursor-pointer"
+                              className="w-12 h-16 rounded object-cover cursor-pointer border border-neutral-800"
                               onMouseEnter={(e) => handleMouseEnter(e, item.name)}
                               onMouseLeave={handleMouseLeave}
                             />
@@ -465,13 +572,16 @@ function WatchlistEditor() {
                             {targetHit && (
                               <div className="text-xs text-green-500 mt-1">🎯 Target price hit!</div>
                             )}
+                            {isNearTarget && !targetHit && (
+                              <div className="text-xs text-amber-500 mt-1">Near target ({percentToTarget}%)</div>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="text-right p-4 font-mono">
                         {priceData ? formatPrice(current) : '—'}
                       </td>
-                      <td className="text-right p-4 font-mono text-sm">
+                      <td className="text-right p-4 text-sm">
                         {editingTarget === item.id ? (
                           <div className="flex items-center gap-1 justify-end">
                             <input
@@ -479,7 +589,7 @@ function WatchlistEditor() {
                               step="0.01"
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
-                              className="w-20 bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-right"
+                              className="w-20 bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-right text-xs"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   updateTargetPrice(item.id, editValue ? parseFloat(editValue) : null);
@@ -491,45 +601,98 @@ function WatchlistEditor() {
                             />
                             <button
                               onClick={() => updateTargetPrice(item.id, editValue ? parseFloat(editValue) : null)}
-                              className="text-green-500 hover:text-green-400 text-xs"
+                              className="text-green-500 hover:text-green-400 text-xs px-1"
                             >
                               ✓
                             </button>
                             <button
                               onClick={() => setEditingTarget(null)}
-                              className="text-red-500 hover:text-red-400 text-xs"
+                              className="text-red-500 hover:text-red-400 text-xs px-1"
                             >
                               ✕
                             </button>
                           </div>
                         ) : (
-                          <div
-                            className="opacity-70 cursor-pointer hover:opacity-100 hover:text-blue-400"
-                            onClick={() => {
-                              setEditingTarget(item.id);
-                              setEditValue(item.target_price ? item.target_price.toString() : '');
-                            }}
-                          >
-                            {item.target_price ? formatPrice(item.target_price) : <span className="opacity-50">Set target</span>}
+                          <div className="flex flex-col items-end gap-1">
+                            <div
+                              className="font-mono opacity-80 cursor-pointer hover:opacity-100 hover:text-blue-400 underline underline-offset-2 decoration-dotted"
+                              onClick={() => {
+                                setEditingTarget(item.id);
+                                setEditValue(item.target_price ? item.target_price.toString() : '');
+                              }}
+                            >
+                              {item.target_price ? formatPrice(item.target_price) : <span className="opacity-50 text-xs">Set target</span>}
+                            </div>
+                            {item.target_price && priceData && current > 0 && (
+                              <div className="text-[10px] opacity-60">
+                                {percentToTarget}% • {current <= item.target_price ? 'Hit!' : `Need ${formatPrice(item.target_price - current)} drop`}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
                       <td className="text-right p-4">
-                        {priceData ? formatDelta(priceData.delta_24h) : '—'}
+                        {priceData ? (
+                          <div className="flex items-center justify-end gap-1">
+                            {priceData.delta_24h > 0 && <span className="text-green-500">▲</span>}
+                            {priceData.delta_24h < 0 && <span className="text-red-500">▼</span>}
+                            {formatDelta(priceData.delta_24h)}
+                          </div>
+                        ) : '—'}
                       </td>
                       <td className="text-right p-4">
-                        {priceData ? formatDelta(priceData.delta_7d) : '—'}
+                        {priceData ? (
+                          <div className="flex items-center justify-end gap-1">
+                            {priceData.delta_7d > 0 && <span className="text-green-500">▲</span>}
+                            {priceData.delta_7d < 0 && <span className="text-red-500">▼</span>}
+                            {formatDelta(priceData.delta_7d)}
+                          </div>
+                        ) : '—'}
                       </td>
                       <td className="text-right p-4">
-                        {priceData ? formatDelta(priceData.delta_30d) : '—'}
+                        {priceData ? (
+                          <div className="flex items-center justify-end gap-1">
+                            {priceData.delta_30d > 0 && <span className="text-green-500">▲</span>}
+                            {priceData.delta_30d < 0 && <span className="text-red-500">▼</span>}
+                            {formatDelta(priceData.delta_30d)}
+                          </div>
+                        ) : '—'}
                       </td>
                       <td className="text-right p-4">
-                        <button
-                          onClick={() => removeCard(item.id)}
-                          className="px-2 py-1 text-xs rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await fetch('/api/wishlists/add', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ names: [item.name] })
+                                });
+                                const data = await res.json();
+                                if (data.ok) {
+                                  window.dispatchEvent(new CustomEvent('toast', { detail: `Moved ${item.name} to wishlist` }));
+                                  // Optionally remove from watchlist after moving
+                                  // await removeCard(item.id);
+                                } else {
+                                  setError(data.error || 'Failed to move to wishlist');
+                                }
+                              } catch (e: any) {
+                                setError(e?.message || 'Failed to move to wishlist');
+                              }
+                            }}
+                            className="px-2 py-1 text-xs rounded bg-neutral-800/60 hover:bg-blue-600/80 text-neutral-400 hover:text-white transition-all border border-neutral-700/50 hover:border-blue-500/50"
+                            title="Move to wishlist"
+                          >
+                            📋 Wishlist
+                          </button>
+                          <button
+                            onClick={() => removeCard(item.id)}
+                            className="px-2 py-1 text-xs rounded bg-neutral-800/60 hover:bg-red-600/80 text-neutral-400 hover:text-white transition-all border border-neutral-700/50 hover:border-red-500/50"
+                            title="Remove from watchlist"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -551,6 +714,76 @@ function WatchlistEditor() {
             alt="Card preview"
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />
+        </div>
+      )}
+      
+      {/* Bulk validation modal - for fixing names before adding */}
+      {showBulkValidation && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowBulkValidation(false); setBulkValidationItems([]); }}>
+          <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                Fix Card Name Before Adding
+              </h3>
+            </div>
+            <div className="mb-3 text-xs text-neutral-400">
+              Found a card that needs fixing. Select the correct name from the dropdown:
+            </div>
+            <div className="space-y-2 mb-4">
+              {bulkValidationItems.map((it, idx) => (
+                <div key={`${it.originalName}-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors">
+                  <div className="flex-1">
+                    <div className="font-medium text-neutral-200 truncate">{it.originalName}</div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <select value={it.choice} onChange={e=>setBulkValidationItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
+                    className="bg-neutral-950 border border-neutral-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[180px]">
+                    {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => { setShowBulkValidation(false); setBulkValidationItems([]); setPendingTargetPrice(null); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button onClick={async()=>{
+                try {
+                  const correctedName = bulkValidationItems[0]?.choice || bulkValidationItems[0]?.originalName;
+                  if (!correctedName) return;
+                  
+                  const res = await fetch('/api/watchlist/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: correctedName,
+                      target_price: pendingTargetPrice
+                    })
+                  });
+                  
+                  const data = await res.json();
+                  
+                  if (data.ok) {
+                    setShowBulkValidation(false);
+                    setBulkValidationItems([]);
+                    setPendingTargetPrice(null);
+                    setAddName('');
+                    setTargetPrice('');
+                    await loadWatchlist();
+                  } else {
+                    setError(data.error || 'Failed to add card');
+                  }
+                } catch(e:any) {
+                  alert(e?.message||'Failed to add card');
+                }
+              }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                Apply Fixed Name & Add
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -300,6 +300,33 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             <DeckCardRecommendationsWithHide
               deckId={String(deckId)}
               onAddCard={async (cardName: string) => {
+                // Validate card name before adding
+                try {
+                  const validationRes = await fetch('/api/cards/fuzzy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ names: [cardName] })
+                  });
+                  const validationJson = await validationRes.json().catch(() => ({}));
+                  const fuzzyResults = validationJson?.results || {};
+                  
+                  const suggestion = fuzzyResults[cardName]?.suggestion;
+                  const allSuggestions = Array.isArray(fuzzyResults[cardName]?.all) ? fuzzyResults[cardName].all : [];
+                  
+                  // If name needs fixing, show alert and don't add
+                  if (suggestion && suggestion !== cardName && allSuggestions.length > 0) {
+                    const confirmed = confirm(`Did you mean "${suggestion}" instead of "${cardName}"? Click OK to use "${suggestion}" or Cancel to skip.`);
+                    if (confirmed && suggestion) {
+                      cardName = suggestion;
+                    } else {
+                      return; // User cancelled, don't add
+                    }
+                  }
+                } catch (validationError) {
+                  console.warn('Validation check failed, proceeding anyway:', validationError);
+                  // Continue with adding if validation fails (fallback)
+                }
+                
                 try {
                   const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
                     method: 'POST',

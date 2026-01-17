@@ -81,30 +81,30 @@ export default function HeroLandingPage() {
                   Free AI Commander Deck Builder
                 </span>
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4 max-w-3xl mx-auto italic">
-                Trusted by Commander players to catch colour identity errors, mana curve issues, and missing synergies.
-              </p>
-              <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 mb-4 max-w-3xl mx-auto">
-                Build, analyze, and optimize your Magic: The Gathering Commander decks with AI-powered suggestions
-              </p>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-                Get instant deck analysis, budget swaps, mana curve optimization, and personalized card recommendations. 
-                No signup required—start building better decks in seconds.
+              <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 mb-6 max-w-3xl mx-auto font-semibold">
+                Catch colour identity errors, fix your mana curve, and uncover missing synergies in seconds.
               </p>
               
-              {/* Action buttons: Sample Deck & Find Playstyle */}
-              <DeckBuilderActionButtons />
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              {/* Primary CTA - visually dominant */}
+              <div className="mb-8">
                 <Link
                   href="/my-decks"
-                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                  className="inline-block px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-2xl hover:shadow-purple-500/50 transform hover:-translate-y-1 mb-4"
                 >
                   Start Analyzing Your Deck →
                 </Link>
+              </div>
+              
+              {/* Secondary CTAs - less prominent */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-8">
+                <DeckBuilderActionButtons />
+              </div>
+              
+              {/* Tertiary - de-emphasized */}
+              <div className="mb-12">
                 <Link
                   href="/blog"
-                  className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-bold text-lg border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                  className="text-base text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors underline"
                 >
                   Read Deck Building Guides
                 </Link>
@@ -135,9 +135,12 @@ export default function HeroLandingPage() {
 
         {/* Features Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">
             Why Use an AI Commander Deck Builder?
           </h2>
+          <p className="text-lg text-gray-600 dark:text-gray-400 text-center mb-12 max-w-3xl mx-auto">
+            Most Commander decks lose because of the same hidden problems.
+          </p>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all">
@@ -146,7 +149,7 @@ export default function HeroLandingPage() {
                 AI-Powered Deck Analysis
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Get instant analysis of your Commander deck's mana curve, card synergy, ramp, draw, and removal. 
+                <strong className="text-gray-900 dark:text-white">You're missing core pieces.</strong> Get instant analysis of your Commander deck's mana curve, card synergy, ramp, draw, and removal. 
                 Our AI understands MTG archetypes and suggests improvements tailored to your deck's strategy.
               </p>
             </div>
@@ -157,7 +160,7 @@ export default function HeroLandingPage() {
                 Budget Optimization
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Find cheaper alternatives that maintain your deck's power level. Get budget swaps for expensive 
+                <strong className="text-gray-900 dark:text-white">Your deck is stronger than your wallet.</strong> Find cheaper alternatives that maintain your deck's power level. Get budget swaps for expensive 
                 cards with AI-powered suggestions that keep your strategy intact.
               </p>
             </div>
@@ -168,7 +171,7 @@ export default function HeroLandingPage() {
                 Mana Curve Optimization
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Visualize your deck's mana curve and get suggestions to smooth it out. Build decks that flow 
+                <strong className="text-gray-900 dark:text-white">Your deck doesn't actually cast spells on time.</strong> Visualize your deck's mana curve and get suggestions to smooth it out. Build decks that flow 
                 naturally from early game to victory with proper curve distribution.
               </p>
             </div>
@@ -233,7 +236,7 @@ export default function HeroLandingPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">Get AI Analysis</h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Our AI analyzes your deck's curve, synergy, ramp, draw, removal, and win conditions. 
+                  Our AI analyzes your deck's curve, synergy, ramp, draw, removal, and win conditions <strong>in seconds</strong>. 
                   Identifies problems and suggests improvements.
                 </p>
               </div>
@@ -244,7 +247,7 @@ export default function HeroLandingPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">Optimize & Build</h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Review AI suggestions, apply budget swaps, and optimize your deck. 
+                  Review AI suggestions, apply budget swaps, and optimize your deck <strong>immediately</strong>. 
                   Save your improved decklist and share it with friends.
                 </p>
               </div>
@@ -265,7 +268,7 @@ export default function HeroLandingPage() {
               href="/my-decks"
               className="inline-block px-8 py-4 bg-white text-gray-900 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
-              Start Analyzing Your Deck Now →
+              Analyze My Deck Now →
             </Link>
           </div>
         </div>
@@ -282,7 +285,7 @@ export default function HeroLandingPage() {
                 Is the AI Commander deck builder really free?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Yes! You can analyze unlimited decks for free. No signup required to get started. 
+                <strong className="text-gray-900 dark:text-white">Yes! You can analyze unlimited decks for free.</strong> No signup required to get started. 
                 Pro features like deck version history and advanced analytics are available with a subscription, 
                 but core deck analysis is completely free.
               </p>
@@ -293,7 +296,7 @@ export default function HeroLandingPage() {
                 How does the MTG AI deck builder work?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Our AI understands MTG archetypes, card synergies, and Commander format rules. It analyzes your 
+                <strong className="text-gray-900 dark:text-white">Our AI understands MTG archetypes, card synergies, and Commander format rules.</strong> It analyzes your 
                 deck's mana curve, identifies missing pieces (ramp, draw, removal), and suggests cards that fit 
                 your strategy. The AI learns from thousands of successful decks to provide accurate recommendations.
               </p>
@@ -304,7 +307,7 @@ export default function HeroLandingPage() {
                 Can I use this for formats other than Commander?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                While optimized for Commander (EDH), ManaTap AI also supports Modern and Standard formats. 
+                <strong className="text-gray-900 dark:text-white">While optimized for Commander (EDH), ManaTap AI also supports Modern and Standard formats.</strong> 
                 The AI adapts its analysis based on format-specific rules, banlists, and deck construction requirements.
               </p>
             </div>
@@ -314,7 +317,7 @@ export default function HeroLandingPage() {
                 Does the deck builder suggest budget alternatives?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Yes! Our budget optimization feature finds cheaper alternatives that maintain your deck's power level. 
+                <strong className="text-gray-900 dark:text-white">Yes! Our budget optimization feature finds cheaper alternatives that maintain your deck's power level.</strong> 
                 Set your budget threshold and get AI-powered suggestions for budget swaps that keep your strategy intact.
               </p>
             </div>
@@ -331,8 +334,11 @@ export default function HeroLandingPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Link
                 href="/blog/how-to-build-your-first-commander-deck"
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 transition-all hover:-translate-y-1 border-2 border-transparent hover:border-purple-500/30 relative group"
               >
+                <span className="absolute top-3 right-3 px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-full">
+                  Popular
+                </span>
                 <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
                   How to Build Your First Commander Deck
                 </h3>
@@ -343,7 +349,7 @@ export default function HeroLandingPage() {
 
               <Link
                 href="/blog/the-7-most-common-deckbuilding-mistakes"
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 transition-all hover:-translate-y-1 border-2 border-transparent hover:border-purple-500/30"
               >
                 <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
                   The 7 Most Common Deckbuilding Mistakes
@@ -355,7 +361,7 @@ export default function HeroLandingPage() {
 
               <Link
                 href="/blog/edh-land-count-what-the-community-actually-runs"
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 transition-all hover:-translate-y-1 border-2 border-transparent hover:border-purple-500/30"
               >
                 <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
                   EDH Land Count: What the Community Actually Runs

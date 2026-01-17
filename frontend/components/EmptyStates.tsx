@@ -189,7 +189,16 @@ export function EmptyWishlistState() {
       }
       primaryAction={{
         label: "Add Cards to Wishlist",
-        href: "/wishlist"
+        onClick: () => {
+          // Focus the add card input on the wishlist page
+          // Try to find the CardAutocomplete input within the add card wrapper
+          const addWrapper = document.querySelector('[data-wishlist-add-wrapper]');
+          const addInput = addWrapper?.querySelector('input') as HTMLInputElement;
+          if (addInput) {
+            addInput.focus();
+            addInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
       }}
       secondaryAction={{
         label: "Browse Price Tracker",

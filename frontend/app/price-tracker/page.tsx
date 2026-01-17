@@ -964,20 +964,23 @@ function WatchlistCard({
   item: { id: string; name: string }; 
   onRemove: () => void; 
   onAddToChart: () => void;
-  imgMap: Record<string, { small?: string; normal?: string; price?: number }>;
+  imgMap: Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>;
 }) {
   const [hoverPos, setHoverPos] = React.useState<{ x: number; y: number } | null>(null);
+  
+  const [showHoverDeltas, setShowHoverDeltas] = React.useState(false);
   
   const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
   const key = norm(item.name);
   const img = imgMap[key] || {};
   const price = img.price || 0;
+  const delta24h = img.delta_24h || 0;
+  const delta7d = img.delta_7d || 0;
+  const delta30d = img.delta_30d || 0;
   
-  // Simulate 7-day change (random for demo) - use useMemo to keep it stable
-  const changePercent = React.useMemo(() => (Math.random() - 0.5) * 0.4, [item.id]); // -20% to +20%
-  const previous = price / (1 + changePercent);
-  const change = price - previous;
-  const isSpike = Math.abs(changePercent) > 0.2;
+  // Use 7d delta if available, otherwise 24h, otherwise 30d
+  const primaryDelta = delta7d !== 0 ? delta7d : (delta24h !== 0 ? delta24h : delta30d);
+  const isSpike = Math.abs(primaryDelta) > 5; // > 5% change
 
   return (
     <>
@@ -1021,11 +1024,26 @@ function WatchlistCard({
             </button>
             
             {price > 0 ? (
-              <div className="flex items-center gap-2 mt-0.5">
+              <div 
+                className="flex items-center gap-2 mt-0.5 relative"
+                onMouseEnter={() => setShowHoverDeltas(true)}
+                onMouseLeave={() => setShowHoverDeltas(false)}
+              >
                 <span className="text-sm font-mono text-emerald-400">${price.toFixed(2)}</span>
-                <span className={`text-xs font-mono ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {change >= 0 ? '+' : ''}{change.toFixed(2)} ({(changePercent * 100).toFixed(1)}%)
-                </span>
+                {primaryDelta !== 0 && (
+                  <span className={`text-xs font-mono ${primaryDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {primaryDelta >= 0 ? '▲' : '▼'} {primaryDelta >= 0 ? '+' : ''}{primaryDelta.toFixed(1)}%
+                  </span>
+                )}
+                {showHoverDeltas && (delta24h !== 0 || delta7d !== 0 || delta30d !== 0) && (
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-neutral-900 border border-neutral-700 rounded-lg p-2 shadow-xl text-xs whitespace-nowrap">
+                    <div className="space-y-1">
+                      {delta24h !== 0 && <div>24h: <span className={delta24h >= 0 ? 'text-green-400' : 'text-red-400'}>{delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%</span></div>}
+                      {delta7d !== 0 && <div>7d: <span className={delta7d >= 0 ? 'text-green-400' : 'text-red-400'}>{delta7d >= 0 ? '+' : ''}{delta7d.toFixed(1)}%</span></div>}
+                      {delta30d !== 0 && <div>30d: <span className={delta30d >= 0 ? 'text-green-400' : 'text-red-400'}>{delta30d >= 0 ? '+' : ''}{delta30d.toFixed(1)}%</span></div>}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-xs text-neutral-500 mt-0.5">No price data</div>
@@ -1072,7 +1090,9 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
   const [loading, setLoading] = React.useState(true);
   const [q, setQ] = React.useState('');
   const [adding, setAdding] = React.useState(false);
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; price?: number }>>({});
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>>({});
+  const [showAddValidation, setShowAddValidation] = React.useState(false);
+  const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
 
   const loadWatchlist = async () => {
     try {
@@ -1107,20 +1127,36 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         const imgResponse = await r1.json().catch(() => ({ images: {} }));
         const imgs = imgResponse.images || {}; // Extract images from { ok: true, images: {...} }
         
-        // Fetch prices - use current price API instead of snapshot (which requires historical data)
-        const r2 = await fetch('/api/price', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, currency: 'USD' }) });
-        const priceData = await r2.json().catch(() => ({ prices: {} }));
-        const prices = priceData.prices || {};
+        // Fetch prices and deltas - use GET /api/price for each card to get deltas
+        const pricePromises = names.map(async (name) => {
+          try {
+            const res = await fetch(`/api/price?name=${encodeURIComponent(name)}&currency=USD`, { cache: 'no-store' });
+            const data = await res.json();
+            if (data.ok) {
+              return { name, price: data.price || 0, delta_24h: data.delta_24h || 0, delta_7d: data.delta_7d || 0, delta_30d: data.delta_30d || 0 };
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch price for ${name}:`, e);
+          }
+          return { name, price: 0, delta_24h: 0, delta_7d: 0, delta_30d: 0 };
+        });
+        
+        const priceResults = await Promise.all(pricePromises);
+        const pricesMap = new Map(priceResults.map(r => [r.name, r]));
         
         // Merge into imgMap - imgs is already keyed by normalized name
-        const map: Record<string, { small?: string; normal?: string; price?: number }> = {};
+        const map: Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }> = {};
         for (const name of names) {
           const key = norm(name);
           const imgData = imgs[key] || {}; // Use normalized key to look up images
+          const priceData = pricesMap.get(name) || { price: 0, delta_24h: 0, delta_7d: 0, delta_30d: 0 };
           map[key] = {
             small: imgData.small,
             normal: imgData.normal,
-            price: prices[key] || 0
+            price: priceData.price,
+            delta_24h: priceData.delta_24h,
+            delta_7d: priceData.delta_7d,
+            delta_30d: priceData.delta_30d
           };
         }
         setImgMap(map);
@@ -1135,10 +1171,42 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
     refresh: loadWatchlist
   }));
 
-  const quickAdd = async () => {
+  const quickAdd = async (validatedName?: string) => {
     if (!isPro) { try { showProToast(); } catch {} return; }
-    const name = q.trim();
+    const name = (validatedName || q).trim();
     if (!name) return;
+    
+    // If validatedName is provided, skip validation (already validated)
+    if (!validatedName) {
+      // Validate card name before adding
+      try {
+        const validationRes = await fetch('/api/cards/fuzzy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: [name] })
+        });
+        const validationJson = await validationRes.json().catch(() => ({}));
+        const fuzzyResults = validationJson?.results || {};
+        
+        const suggestion = fuzzyResults[name]?.suggestion;
+        const allSuggestions = Array.isArray(fuzzyResults[name]?.all) ? fuzzyResults[name].all : [];
+        
+        // If name needs fixing, show validation modal
+        if (suggestion && suggestion !== name && allSuggestions.length > 0) {
+          setAddValidationItems([{
+            originalName: name,
+            suggestions: allSuggestions,
+            choice: allSuggestions[0] || suggestion,
+            qty: 1
+          }]);
+          setShowAddValidation(true);
+          return;
+        }
+      } catch (validationError) {
+        console.warn('Validation check failed, proceeding anyway:', validationError);
+        // Continue with adding if validation fails (fallback)
+      }
+    }
     
     try {
       setAdding(true);
@@ -1221,7 +1289,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         </label>
         <button 
           data-watchlist-add
-          onClick={quickAdd} 
+          onClick={() => quickAdd()}
           disabled={adding || !q.trim()}
           className="w-full text-xs border rounded px-2 py-1 disabled:opacity-50 bg-blue-600 hover:bg-blue-500 transition-colors"
         >
@@ -1267,6 +1335,60 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
             </div>
           )}
         </AnimatePresence>
+      )}
+      
+      {/* Pre-add validation modal */}
+      {showAddValidation && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>
+          <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                Fix Card Name Before Adding
+              </h3>
+            </div>
+            <div className="mb-3 text-xs text-neutral-400">
+              Found a card that needs fixing. Select the correct name from the dropdown:
+            </div>
+            <div className="space-y-2 mb-4">
+              {addValidationItems.map((it, idx) => (
+                <div key={`${it.originalName}-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors">
+                  <div className="flex-1">
+                    <div className="font-medium text-neutral-200 truncate">{it.originalName}</div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <select value={it.choice} onChange={e=>setAddValidationItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
+                    className="bg-neutral-950 border border-neutral-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[180px]">
+                    {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button onClick={async()=>{
+                try {
+                  const correctedName = addValidationItems[0]?.choice || addValidationItems[0]?.originalName;
+                  if (!correctedName) return;
+                  
+                  setShowAddValidation(false);
+                  setAddValidationItems([]);
+                  
+                  // Add with corrected name
+                  await quickAdd(correctedName);
+                } catch(e:any) {
+                  alert(e?.message||'Failed to add card');
+                }
+              }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                Apply Fixed Name & Add
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

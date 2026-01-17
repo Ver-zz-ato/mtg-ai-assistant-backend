@@ -256,10 +256,28 @@ export default function HowManaTapAIWorksPage() {
                 const line = lines[i].trim();
                 
                 if (!line) {
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
                   if (currentParagraph.length > 0) {
                     elements.push(`<p>${currentParagraph.join(' ')}</p>`);
                     currentParagraph = [];
                   }
+                  continue;
+                }
+                
+                // Handle horizontal rules
+                if (line === '---' || line === '***' || line === '___') {
+                  if (inList) {
+                    elements.push('</ul>');
+                    inList = false;
+                  }
+                  if (currentParagraph.length > 0) {
+                    elements.push(`<p>${currentParagraph.join(' ')}</p>`);
+                    currentParagraph = [];
+                  }
+                  elements.push('<hr class="my-8 border-gray-300 dark:border-gray-700" />');
                   continue;
                 }
                 
@@ -293,6 +311,8 @@ export default function HowManaTapAIWorksPage() {
                   const idAttr = headingId ? ` id="${headingId}"` : '';
                   const linkRegex = /\[([^\]]+)\]\(([^\)]+)\)/g;
                   headingText = headingText.replace(linkRegex, '<a href="$2">$1</a>');
+                  // Handle bold in headings
+                  headingText = headingText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
                   elements.push(`<h2${idAttr}>${headingText}</h2>`);
                 } else if (line.startsWith('### ')) {
                   if (inList) {
@@ -303,7 +323,10 @@ export default function HowManaTapAIWorksPage() {
                     elements.push(`<p>${currentParagraph.join(' ')}</p>`);
                     currentParagraph = [];
                   }
-                  elements.push(`<h3>${line.substring(4)}</h3>`);
+                  let h3Text = line.substring(4);
+                  // Handle bold in h3 headings
+                  h3Text = h3Text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                  elements.push(`<h3>${h3Text}</h3>`);
                 } else if (line.startsWith('- ')) {
                   if (!inList) {
                     if (currentParagraph.length > 0) {
@@ -321,9 +344,14 @@ export default function HowManaTapAIWorksPage() {
                   // Handle span with id
                   listItem = listItem.replace(/<span id="([^"]+)"><\/span>/g, '<span id="$1"></span>');
                   elements.push(`<li>${listItem}</li>`);
-                } else if (line.startsWith('**') && line.endsWith('**')) {
+                } else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+                  // Only treat standalone bold lines as bold if they're not part of a paragraph
                   const text = line.substring(2, line.length - 2);
-                  currentParagraph.push(`<strong>${text}</strong>`);
+                  if (currentParagraph.length === 0) {
+                    elements.push(`<p><strong>${text}</strong></p>`);
+                  } else {
+                    currentParagraph.push(`<strong>${text}</strong>`);
+                  }
                 } else {
                   if (inList) {
                     elements.push('</ul>');
@@ -341,11 +369,11 @@ export default function HowManaTapAIWorksPage() {
                 }
               }
               
-              if (currentParagraph.length > 0) {
-                elements.push(`<p>${currentParagraph.join(' ')}</p>`);
-              }
               if (inList) {
                 elements.push('</ul>');
+              }
+              if (currentParagraph.length > 0) {
+                elements.push(`<p>${currentParagraph.join(' ')}</p>`);
               }
               
               return elements.join('\n');

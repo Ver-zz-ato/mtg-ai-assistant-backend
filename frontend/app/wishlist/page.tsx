@@ -171,6 +171,10 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const [showRenameWishlist, setShowRenameWishlist] = React.useState(false);
   const [showDeleteWishlist, setShowDeleteWishlist] = React.useState(false);
   const [newWishlistName, setNewWishlistName] = React.useState('');
+  const [bulkValidationItems, setBulkValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
+  const [showBulkValidation, setShowBulkValidation] = React.useState(false);
+  const [pendingValidatedNames, setPendingValidatedNames] = React.useState<Array<{ name: string; qty: number }>>([]);
+  const [pendingBulkMode, setPendingBulkMode] = React.useState<'increment'|'replace'>('increment');
 
   React.useEffect(()=>{ (async()=>{
     try{
@@ -315,8 +319,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const { preview, bind } = useHoverPreview();
   const [fixOpen, setFixOpen] = React.useState(false);
 
-  async function add(){
-    const name = addName.trim(); const q = Math.max(1, Number(addQty||1)); if (!name) return;
+  async function add(cardName?: string){
+    const name = (cardName || addName).trim(); const q = Math.max(1, Number(addQty||1)); if (!name) return;
     
     // Optimistic update - add immediately to UI
     const tempItem = {
@@ -578,15 +582,15 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       <div className="flex flex-wrap gap-2 items-end">
         <label className="text-sm flex-1 min-w-[260px]">
           <div className="opacity-70 mb-1">Add card</div>
-          <div ref={addWrapRef}>
-            <CardAutocomplete value={addName} onChange={setAddName} onPick={(name)=>{ setAddName(name); add(); }} placeholder="Search card…" />
+          <div ref={addWrapRef} data-wishlist-add-wrapper>
+            <CardAutocomplete value={addName} onChange={setAddName} onPick={(name)=>{ setAddName(name); setTimeout(() => add(name), 0); }} placeholder="Search card…" />
           </div>
         </label>
         <label className="text-sm w-24">
           <div className="opacity-70 mb-1">Qty</div>
           <input type="number" min={1} value={addQty} onChange={(e)=>setAddQty(Math.max(1, Number(e.target.value||1)))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
         </label>
-        <button onClick={add} disabled={adding || !addName.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        <button onClick={() => add()} disabled={adding || !addName.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
           <span className="flex items-center gap-1.5">
             <span>➕</span>
             <span>{adding?'Adding…':'Add'}</span>
@@ -604,24 +608,89 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             <select value={collectionId} onChange={(e)=>setCollectionId(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm min-w-[12rem]">
               {collections.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
+            <div className="text-[10px] opacity-60 mt-0.5">See what you already own</div>
           </label>
-          <button onClick={async()=>{
-            if (!wishlistId || !collectionId) return;
-            try{
-              const q = new URLSearchParams({ wishlistId, collectionId, currency });
-              const r = await fetch(`/api/wishlists/compare?${q.toString()}`, { cache:'no-store' });
-              const j = await r.json().catch(()=>({}));
-              if (r.ok && j?.ok) setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: String(j.currency||currency) });
-            } catch{}
-          }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
-            <span className="flex items-center gap-1.5">
-              <span>🔄</span>
-              <span>Compare</span>
-            </span>
-          </button>
         </div>
         <FixNamesModalWishlist wishlistId={wishlistId} open={fixOpen} onClose={()=>setFixOpen(false)} pro={pro} />
       </div>
+      
+      {/* Bulk validation modal - for fixing names before bulk adding */}
+      {showBulkValidation && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowBulkValidation(false); setBulkValidationItems([]); }}>
+          <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                Fix Card Names Before Adding
+              </h3>
+            </div>
+            <div className="mb-3 text-xs text-neutral-400">
+              Found <span className="font-semibold text-orange-400">{bulkValidationItems.length}</span> card{bulkValidationItems.length !== 1 ? 's' : ''} that need fixing. Select the correct name from the dropdown:
+            </div>
+            <div className="space-y-2 max-h-[50vh] overflow-auto pr-2 custom-scrollbar mb-4">
+              {bulkValidationItems.map((it, idx) => (
+                <div key={`${it.originalName}-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors">
+                  <div className="flex-1">
+                    <div className="font-medium text-neutral-200 truncate">{it.originalName}</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">Qty: {it.qty}</div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <select value={it.choice} onChange={e=>setBulkValidationItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
+                    className="bg-neutral-950 border border-neutral-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[180px]">
+                    {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => { setShowBulkValidation(false); setBulkValidationItems([]); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button onClick={async()=>{
+                try {
+                  const correctedNames = bulkValidationItems.map(item => ({ name: item.choice || item.originalName, qty: item.qty }));
+                  const allNames = [...pendingValidatedNames, ...correctedNames];
+                  const mode = pendingBulkMode;
+                  
+                  // Perform bulk add with corrected names
+                  if (mode==='increment'){
+                    const groups: Record<string,string[]> = {};
+                    for (const p of allNames){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
+                    for (const [k, names] of Object.entries(groups)){
+                      const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
+                      const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+                      const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
+                      const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
+                    }
+                  } else {
+                    for (const p of allNames){
+                      const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
+                      const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+                      const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
+                    }
+                  }
+                  // reload
+                  const qs = new URLSearchParams({ wishlistId, currency });
+                  const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
+                  const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
+                  
+                  setShowBulkValidation(false);
+                  setBulkValidationItems([]);
+                  setPendingValidatedNames([]);
+                  setShowBulk(false);
+                  setBulkText('');
+                } catch(e:any) {
+                  alert(e?.message||'Bulk add failed');
+                }
+              }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                Apply Fixed Names & Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {compare && (
         <div className="rounded border border-neutral-800 p-3 text-sm">
@@ -644,7 +713,60 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       {items.length === 0 ? (
         <EmptyWishlistState />
       ) : (
-        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+        <>
+          {/* Total value summary card - prominent */}
+          <div className="sticky top-0 z-30 mb-4 bg-gradient-to-br from-neutral-900/95 to-neutral-950/95 border-2 border-neutral-600 rounded-xl p-5 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+                  <span className="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Wishlist Summary</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <div className="text-xs opacity-70 mb-1">Total Value</div>
+                    <div className="text-2xl font-bold text-cyan-400 tabular-nums">{fmt(total||0)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs opacity-70 mb-1">Cards</div>
+                    <div className="text-xl font-semibold text-white tabular-nums">{items.reduce((s,it)=>s+(it.qty||0),0)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs opacity-70 mb-1">Unique</div>
+                    <div className="text-xl font-semibold text-white tabular-nums">{items.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs opacity-70 mb-1">Largest Item</div>
+                    <div className="text-sm font-medium text-white truncate" title={items.reduce((max,it)=>{ const val=(it.unit||0)*(it.qty||0); const maxVal=(max.unit||0)*(max.qty||0); return val>maxVal?it:max; }, items[0]||{name:'—'})?.name}>
+                      {items.length > 0 ? (() => {
+                        const biggest = items.reduce((max,it)=>{ const val=(it.unit||0)*(it.qty||0); const maxVal=(max.unit||0)*(max.qty||0); return val>maxVal?it:max; }, items[0]);
+                        return `${biggest.name} (${fmt((biggest.unit||0)*(biggest.qty||0))})`;
+                      })() : '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Soft guidance CTA when cards exist */}
+              <div className="flex items-center gap-2">
+                <button onClick={async()=>{
+                  if (!wishlistId || !collectionId) return;
+                  try{
+                    const q = new URLSearchParams({ wishlistId, collectionId, currency });
+                    const r = await fetch(`/api/wishlists/compare?${q.toString()}`, { cache:'no-store' });
+                    const j = await r.json().catch(()=>({}));
+                    if (r.ok && j?.ok) setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: String(j.currency||currency) });
+                  } catch{}
+                }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/80 to-violet-600/80 hover:from-purple-500 hover:to-violet-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
+                  <span className="flex items-center gap-1.5">
+                    <span>🔄</span>
+                    <span>Compare vs Collection</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
           {/* Action bar */}
           <div className="sticky top-0 z-20 bg-neutral-950/90 backdrop-blur border-b border-neutral-800 px-2 py-1 flex items-center gap-2 text-xs">
             <label className="inline-flex items-center gap-2"><input type="checkbox" checked={allSelectedOnPage()} onChange={toggleAll} /> Select all</label>
@@ -669,25 +791,25 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             </thead>
             <tbody>
               {items.map((it, i) => (
-                <tr key={it.name} className={`border-b border-neutral-900 ${sel===i? 'bg-neutral-900/60' : ''}`} onClick={()=>setSel(i)}>
+                <tr key={it.name} className={`border-b border-neutral-900/50 bg-white/[0.02] hover:bg-white/[0.04] transition-colors group hover:border-l-2 hover:border-l-purple-500/50 ${sel===i? 'bg-neutral-900/60' : ''}`} onClick={()=>setSel(i)}>
                   <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
                   <td className="p-2">
                     <div className="flex items-center gap-3">
-                      {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-10 h-14 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-10 h-14 rounded bg-neutral-900 border border-neutral-800" />); })()}
+                      {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-12 h-16 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-12 h-16 rounded bg-neutral-900 border border-neutral-800" />); })()}
                       <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
                     </div>
                   </td>
                   <td className="p-2 text-right tabular-nums">{(it.unit||0)>0 ? fmt(it.unit||0) : (<span className="opacity-60">— <button className="underline" onClick={()=>inlineFix(it.name)}>fix?</button></span>)}</td>
                   <td className="p-2 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) - 1))}>-</button>
-                      <span className="min-w-[2ch] inline-block text-center tabular-nums">{it.qty||0}</span>
-                      <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) + 1))}>+</button>
+                    <div className="inline-flex items-center gap-1.5 bg-neutral-900/40 rounded border border-neutral-800/50 px-1.5 py-1">
+                      <button className="px-2.5 py-1 rounded border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) - 1))}>−</button>
+                      <span className="min-w-[2ch] inline-block text-center tabular-nums font-medium">{it.qty||0}</span>
+                      <button className="px-2.5 py-1 rounded border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) + 1))}>+</button>
                     </div>
                   </td>
-                  <td className="p-2 text-right tabular-nums">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
+                  <td className="p-2 text-right tabular-nums font-medium">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
                   <td className="p-2 text-right">
-                    <button className="px-2 py-1 rounded-lg bg-gradient-to-r from-red-600/80 to-rose-600/80 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-sm hover:shadow-md" onClick={()=>remove(it.name)}>Remove</button>
+                    <button className="px-2 py-1 rounded-lg bg-neutral-800/60 hover:bg-red-600/80 text-neutral-400 hover:text-white text-xs font-medium transition-all shadow-sm hover:shadow-md border border-neutral-700/50 hover:border-red-500/50" onClick={(e)=>{e.stopPropagation(); remove(it.name);}}>Remove</button>
                   </td>
                 </tr>
               ))}
@@ -701,6 +823,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             </tfoot>
           </table>
         </div>
+        </>
       )}
       {preview}
       
@@ -730,31 +853,88 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                     return { qty: 1, name: s.trim() };
                   }
                   const parsed = lines.map(parseLine).filter(p=>!!p.name);
-                  try{
-                    if (bulkMode==='increment'){
-                      // group by qty, call add endpoint in batches
-                      const groups: Record<string,string[]> = {};
-                      for (const p of parsed){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
-                      for (const [k, names] of Object.entries(groups)){
-                        const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
-                        const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                        const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
-                        const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
-                      }
-                    } else {
-                      // replace exact quantities via update route per item
-                      for (const p of parsed){
-                        const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
-                        const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                        const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
+                  
+                  // Validate card names before adding (similar to decks/collections)
+                  try {
+                    const validationRes = await fetch('/api/cards/fuzzy', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ names: parsed.map(p => p.name).slice(0, 100) })
+                    });
+                    const validationJson = await validationRes.json().catch(() => ({}));
+                    const fuzzyResults = validationJson?.results || {};
+                    
+                    // Check which names need fixing
+                    const needsFixing: Array<{ originalName: string; suggestions: string[]; qty: number }> = [];
+                    const validatedNames: Array<{ name: string; qty: number }> = [];
+                    
+                    for (const p of parsed) {
+                      const suggestion = fuzzyResults[p.name]?.suggestion;
+                      const allSuggestions = Array.isArray(fuzzyResults[p.name]?.all) ? fuzzyResults[p.name].all : [];
+                      
+                      // If exact match or no fuzzy needed, use as-is
+                      if (!suggestion || suggestion === p.name || allSuggestions.length === 0) {
+                        validatedNames.push({ name: p.name, qty: p.qty });
+                      } else {
+                        // Needs fixing - show in validation modal
+                        needsFixing.push({
+                          originalName: p.name,
+                          suggestions: allSuggestions.length > 0 ? allSuggestions : [suggestion],
+                          qty: p.qty
+                        });
                       }
                     }
-                    // reload
-                    const qs = new URLSearchParams({ wishlistId, currency });
-                    const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-                    const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-                    setShowBulk(false); setBulkText('');
-                  } catch(e:any){ alert(e?.message||'Bulk action failed'); }
+                    
+                    // If any names need fixing, show validation modal
+                    if (needsFixing.length > 0) {
+                      setBulkValidationItems(needsFixing.map(item => ({ ...item, choice: item.suggestions[0] || item.originalName })));
+                      setPendingValidatedNames(validatedNames);
+                      setPendingBulkMode(bulkMode);
+                      setShowBulkValidation(true);
+                      return;
+                    }
+                    
+                    // All names are valid - proceed with bulk add
+                    await performBulkAdd(validatedNames.length > 0 ? validatedNames : parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
+                    setShowBulk(false);
+                    setBulkText('');
+                  } catch(e:any) {
+                    // If validation fails, try adding anyway (fallback)
+                    console.error('Bulk validation failed:', e);
+                    await performBulkAdd(parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
+                    setShowBulk(false);
+                    setBulkText('');
+                  }
+                  
+                  async function performBulkAdd(validated: Array<{ name: string; qty: number }>, mode: 'increment'|'replace') {
+                    try{
+                      if (mode==='increment'){
+                        // group by qty, call add endpoint in batches
+                        const groups: Record<string,string[]> = {};
+                        for (const p of validated){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
+                        for (const [k, names] of Object.entries(groups)){
+                          const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
+                          const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+                          const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
+                          const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
+                        }
+                      } else {
+                        // replace exact quantities via update route per item
+                        for (const p of validated){
+                          const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
+                          const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+                          const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
+                        }
+                      }
+                      // reload
+                      const qs = new URLSearchParams({ wishlistId, currency });
+                      const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
+                      const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
+                    } catch(e:any) {
+                      alert(e?.message||'Bulk action failed');
+                      throw e;
+                    }
+                  }
                 }}>Apply</button>
               </div>
             </div>

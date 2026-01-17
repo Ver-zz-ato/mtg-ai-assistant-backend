@@ -253,13 +253,76 @@ export const GET = withLogging(async (req: NextRequest) => {
       else if (eurRaw != null) price = +(eurRaw * (1 / USD_EUR) * USD_GBP).toFixed(2);
     }
 
-    // TODO: Fetch deltas from price_snapshots table (for now return 0)
+    // Calculate deltas from price_snapshots table
+    let delta_24h = 0;
+    let delta_7d = 0;
+    let delta_30d = 0;
+    
+    if (price > 0) {
+      try {
+        const supabase = await createClient();
+        
+        // Get latest snapshot date for this currency
+        const { data: latestSnap } = await supabase
+          .from('price_snapshots')
+          .select('snapshot_date')
+          .eq('currency', currency)
+          .order('snapshot_date', { ascending: false })
+          .limit(1);
+        
+        const latestDate = (latestSnap as any[])?.[0]?.snapshot_date;
+        
+        if (latestDate) {
+          const now = new Date();
+          const latest = new Date(latestDate);
+          
+          // Calculate target dates for 24h, 7d, 30d ago
+          const target24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          const target7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const target30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          
+          // Find closest snapshots to target dates
+          const getClosestSnapshot = async (targetDate: Date) => {
+            const targetStr = targetDate.toISOString().slice(0, 10);
+            const { data } = await supabase
+              .from('price_snapshots')
+              .select('snapshot_date, unit')
+              .eq('currency', currency)
+              .eq('name_norm', normName)
+              .lte('snapshot_date', targetStr)
+              .order('snapshot_date', { ascending: false })
+              .limit(1);
+            
+            return (data as any[])?.[0]?.unit ? Number((data as any[])[0].unit) : null;
+          };
+          
+          const price24h = await getClosestSnapshot(target24h);
+          const price7d = await getClosestSnapshot(target7d);
+          const price30d = await getClosestSnapshot(target30d);
+          
+          // Calculate percentage deltas
+          if (price24h && price24h > 0) {
+            delta_24h = ((price - price24h) / price24h) * 100;
+          }
+          if (price7d && price7d > 0) {
+            delta_7d = ((price - price7d) / price7d) * 100;
+          }
+          if (price30d && price30d > 0) {
+            delta_30d = ((price - price30d) / price30d) * 100;
+          }
+        }
+      } catch (e) {
+        console.warn('Delta calculation failed:', e);
+        // Continue with 0 deltas if calculation fails
+      }
+    }
+    
     return NextResponse.json({
       ok: true,
       price: price,
-      delta_24h: 0,
-      delta_7d: 0,
-      delta_30d: 0
+      delta_24h: Math.round(delta_24h * 10) / 10, // Round to 1 decimal
+      delta_7d: Math.round(delta_7d * 10) / 10,
+      delta_30d: Math.round(delta_30d * 10) / 10
     });
   } catch (e: any) {
     console.error('GET /api/price error:', e);
