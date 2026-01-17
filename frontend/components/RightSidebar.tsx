@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import BadgeProgressWidget from "./BadgeProgressWidget";
 import DeckAnalyzerExpandable from "./DeckAnalyzerExpandable";
+import HomepageFAQ from "./HomepageFAQ";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -137,6 +138,11 @@ export default function RightSidebar() {
 
   return (
     <div className={`flex flex-col w-full gap-4 relative z-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`}>
+      {/* FAQ Section - moved to right sidebar above Deck Snapshot */}
+      <div className="w-full">
+        <HomepageFAQ />
+      </div>
+
       {/* Deck Snapshot: Expandable analyzer panel */}
       <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20`}>
         <DeckAnalyzerExpandable />

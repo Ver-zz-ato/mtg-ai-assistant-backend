@@ -135,6 +135,18 @@ const blogPosts = [
     icon: '🤖',
     imageUrl: 'https://cards.scryfall.io/art_crop/front/9/c/9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d.jpg?1594735806', // Teferi, Master of Time
   },
+  {
+    slug: 'how-manatap-ai-works',
+    title: 'How ManaTap\'s MTG AI Deck Builder Works',
+    excerpt: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
+    date: '2025-01-27',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '10 min read',
+    gradient: 'from-blue-600 via-purple-600 to-pink-600',
+    icon: '🔬',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/c/8/c8817585-0d32-4d56-9142-0d29512e86a9.jpg?1598304029', // Jace, the Mind Sculptor
+  },
 ];
 
 export default function BlogPage() {

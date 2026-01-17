@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
+import dynamic from 'next/dynamic';
+
+// Client component for interactive buttons
+const DeckBuilderActionButtons = dynamic(() => import('../../components/DeckBuilderActionButtons'));
 
 export const metadata: Metadata = {
   title: 'Free AI Commander Deck Builder | MTG Deck Analyzer - ManaTap AI',
@@ -77,6 +81,9 @@ export default function HeroLandingPage() {
                   Free AI Commander Deck Builder
                 </span>
               </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4 max-w-3xl mx-auto italic">
+                Trusted by Commander players to catch colour identity errors, mana curve issues, and missing synergies.
+              </p>
               <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 mb-4 max-w-3xl mx-auto">
                 Build, analyze, and optimize your Magic: The Gathering Commander decks with AI-powered suggestions
               </p>
@@ -84,6 +91,9 @@ export default function HeroLandingPage() {
                 Get instant deck analysis, budget swaps, mana curve optimization, and personalized card recommendations. 
                 No signup required—start building better decks in seconds.
               </p>
+              
+              {/* Action buttons: Sample Deck & Find Playstyle */}
+              <DeckBuilderActionButtons />
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
                 <Link
@@ -280,7 +290,7 @@ export default function HeroLandingPage() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
               <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
-                How does the AI deck analyzer work?
+                How does the MTG AI deck builder work?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
                 Our AI understands MTG archetypes, card synergies, and Commander format rules. It analyzes your 

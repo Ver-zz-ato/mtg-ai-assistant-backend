@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type React from 'react';
 
 interface FAQItem {
@@ -15,7 +16,19 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "How does the AI deck analyzer work?",
-    answer: "Our AI understands MTG archetypes, card synergies, and Commander format rules. It analyzes your deck's mana curve, identifies missing pieces (ramp, draw, removal), and suggests cards that fit your strategy."
+    answer: (
+      <>
+        Our AI understands MTG archetypes, card synergies, and Commander format rules. It analyzes your deck's mana curve, identifies missing pieces (ramp, draw, removal), and suggests cards that fit your strategy.
+        {' '}
+        <Link 
+          href="/blog/how-manatap-ai-works#simple" 
+          className="text-blue-500 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-1"
+        >
+          Read how ManaTap's AI works
+          <span>→</span>
+        </Link>
+      </>
+    )
   },
   {
     question: "What ManaTap will not do",
