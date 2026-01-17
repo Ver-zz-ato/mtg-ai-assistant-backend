@@ -81,7 +81,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
     }
   }
 
-  React.useEffect(() => { run(); /* one-time on load */ }, []);
+  // Don't auto-run on mount - let user click "Run" or trigger via events
   React.useEffect(() => {
     const h = () => run();
     window.addEventListener('analyzer:run', h);

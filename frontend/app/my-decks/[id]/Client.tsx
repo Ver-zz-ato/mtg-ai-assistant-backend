@@ -88,7 +88,7 @@ function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{na
 }
 
 function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro: boolean; format?: string }) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
@@ -157,11 +157,8 @@ function DeckCardRecommendationsWithHide({ deckId, onAddCard }: { deckId: string
 }
 
 function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boolean }) {
-  // Start hidden on mobile, open on desktop
-  const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
+  // Start hidden by default
+  const [open, setOpen] = React.useState(false);
   const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
   
   React.useEffect(() => {

@@ -55,7 +55,13 @@ export async function POST(req: Request) {
     ts 
   };
   
-  pushHistory(msg);
-  broadcast(msg);
+  try {
+    pushHistory(msg);
+    broadcast(msg);
+  } catch (err) {
+    console.error('Failed to broadcast shoutbox message:', err);
+    return Response.json({ ok: false, error: 'Failed to broadcast message' }, { status: 500 });
+  }
+  
   return Response.json({ ok: true });
 }

@@ -2,7 +2,7 @@
 import React from "react";
 
 export default function LegalityTokensPanel({ deckId, format }: { deckId: string; format?: string }) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deckText, setDeckText] = React.useState<string>("");

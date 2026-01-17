@@ -93,7 +93,7 @@ export async function GET() {
     
     // If active users count is low, add some placeholder
     if (activeUsers < 3) {
-      activeUsers = Math.floor(Math.random() * 12) + 5; // 5-16 active users
+      activeUsers = Math.floor(Math.random() * 601) + 400; // 400-1000 active users
     }
 
     // Get recent activities from cache (logged via /api/stats/activity/log)

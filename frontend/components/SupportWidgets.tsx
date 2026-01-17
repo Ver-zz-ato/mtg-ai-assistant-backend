@@ -114,7 +114,7 @@ export default function SupportWidgets() {
             className="rounded-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white px-4 py-2 text-sm font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
             title="Support ManaTap"
           >
-            ❤️ Support me
+            ❤️ Support us
           </button>
         ) : (
           /* Expanded panel */
@@ -149,7 +149,7 @@ export default function SupportWidgets() {
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded bg-[#72a4f2] text-black px-3 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
             >
-              ☕ Support me on Ko‑fi
+              ☕ Support us on Ko‑fi
             </a>
           </div>
         )}

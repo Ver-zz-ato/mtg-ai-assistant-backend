@@ -12,6 +12,7 @@ export default function RightSidebar() {
   const [name, setName] = useState<string>("Anon");
   const [text, setText] = useState<string>("");
   const [toast, setToast] = useState<string | null>(null);
+  const [posting, setPosting] = useState<boolean>(false);
   const [debugSpace, setDebugSpace] = useState<boolean>(false);
   const [isCardPanelCollapsed, setIsCardPanelCollapsed] = useState<boolean>(false);
   const evRef = useRef<EventSource | null>(null);
@@ -114,18 +115,40 @@ export default function RightSidebar() {
 
   async function post() {
     const clean = text.trim();
-    if (!clean) return;
+    if (!clean || posting) return;
+    
+    const originalText = text;
+    const originalName = name;
+    
+    setPosting(true);
     setText(""); // optimistic clear
+    
     try {
       const res = await fetch("/api/shout/post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: clean, user: name || "Anon" }),
+        body: JSON.stringify({ text: clean, user: originalName || "Anon" }),
       });
+      
       const j = await res.json().catch(() => ({}));
-      if (!res.ok || j?.ok === false) throw new Error(j?.error || "Post failed");
+      
+      if (!res.ok || j?.ok === false) {
+        // Restore text on error
+        setText(originalText);
+        throw new Error(j?.error || "Post failed");
+      }
+      
+      // Success - message will appear via SSE stream
+      // Clear any existing toast
+      setToast(null);
     } catch (e: any) {
-      setToast(e?.message || "Post failed");
+      // Restore text on error
+      setText(originalText);
+      const errorMsg = e?.message || "Post failed. Please try again.";
+      setToast(errorMsg);
+      console.error("Shoutbox post error:", e);
+    } finally {
+      setPosting(false);
     }
   }
 
@@ -216,14 +239,16 @@ export default function RightSidebar() {
             </div>
           ))}
         </div>
-        <div className="mt-2 flex gap-2 items-center overflow-hidden">
+        <form onSubmit={(e) => { e.preventDefault(); post(); }} className="mt-2 flex gap-2 items-center overflow-hidden">
           <input
+            type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-24 shrink-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm"
             placeholder="Anon"
           />
           <input
+            type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
@@ -231,12 +256,14 @@ export default function RightSidebar() {
             placeholder="Say something…"
           />
           <button
-            onClick={post}
-            className="px-3 py-2 shrink-0 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700"
+            type="submit"
+            onClick={(e) => { e.preventDefault(); post(); }}
+            disabled={posting || !text.trim()}
+            className="px-3 py-2 shrink-0 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Post
+            {posting ? 'Posting...' : 'Post'}
           </button>
-        </div>
+        </form>
         {toast && (
           <div className="mt-2 text-xs text-red-300" aria-live="polite">
             {toast}

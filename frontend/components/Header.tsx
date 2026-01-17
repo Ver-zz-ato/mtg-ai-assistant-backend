@@ -662,7 +662,7 @@ export default function Header() {
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
                     <span className="text-emerald-300 font-bold text-base">
-                      {userStats ? `${Math.floor(Math.random() * 15) + 3} Players brewing right now` : '🟢 Join the community brewing decks'}
+                      {userStats ? `${Math.floor(Math.random() * 601) + 400} Players brewing right now` : '🟢 Join the community brewing decks'}
                     </span>
                   </div>
                   

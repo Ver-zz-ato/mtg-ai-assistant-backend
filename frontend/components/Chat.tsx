@@ -1407,7 +1407,7 @@ function Chat() {
             const valueDesc = budget === 'budget' ? 'budget-friendly' : budget === 'luxury' ? 'luxury' : 'optimized for power and consistency';
             return (
               <div className="mb-2 px-3 py-1.5 bg-neutral-900/60 border border-neutral-700 rounded text-neutral-300 text-xs flex-shrink-0">
-                <span className="opacity-90">You're building a <span className="font-medium">{formatName}</span> deck, <span className="font-medium">{valueDesc}</span>.</span>
+                <span className="opacity-90 break-words">You're building a <span className="font-medium">{formatName}</span> deck, <span className="font-medium">{valueDesc}</span>.</span>
               </div>
             );
           }

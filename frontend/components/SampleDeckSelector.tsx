@@ -378,7 +378,7 @@ export function SampleDeckButton({ className = '' }: { className?: string }) {
         backgroundSize: '200% 200%',
         animation: 'gradient-shift 3s ease infinite, pulse-glow 2s ease-in-out infinite',
         boxShadow: '0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.2)',
-        ...(className.includes('w-') ? {} : { minWidth: '320px', flexGrow: 1.15, flexBasis: '115%' }),
+        ...(className.includes('w-') ? {} : { minWidth: '280px', maxWidth: '90%' }),
       }}
     >
       <span className="relative z-10 flex items-center gap-2">

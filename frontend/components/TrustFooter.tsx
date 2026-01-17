@@ -223,10 +223,10 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
             </div>
           </div>
           
-          {/* Row 2: Support me */}
+          {/* Row 2: Support us */}
           <div className="flex justify-center">
             <div className="flex gap-3 items-center flex-wrap justify-center text-base">
-              <span className="text-gray-300 font-medium">Support me:</span>
+              <span className="text-gray-300 font-medium">Support us:</span>
               {monetizeConfig.kofi && (
                 <a className="hover:text-gray-200 transition-colors text-pink-400 hover:text-pink-300" href="https://ko-fi.com/davydraws7/tip" target="_blank" rel="noreferrer">Ko‑fi</a>
               )}
