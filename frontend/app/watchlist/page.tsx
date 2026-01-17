@@ -412,9 +412,9 @@ function WatchlistEditor() {
     );
   }
 
-  // Calculate alert summary - use items length as dependency proxy for prices Map
-  // (prices Map changes reference but we access by item.name, so we use items as the dependency)
-  const alertSummary = useMemo(() => {
+  // Calculate alert summary - compute directly without memoization
+  // (Simple calculation, Map access is fast, avoids React error #310 from unstable dependencies)
+  const alertSummary = (() => {
     let droppedToday = 0;
     let hitTarget = 0;
     let nearTarget = 0;
@@ -430,8 +430,7 @@ function WatchlistEditor() {
     });
     
     return { droppedToday, hitTarget, nearTarget };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, prices.size]); // Use prices.size as a stable dependency instead of the Map itself
+  })();
 
   return (
     <div className="space-y-6">
