@@ -223,7 +223,7 @@ export default function HowManaTapAIWorksPage() {
             <span className="font-medium">ManaTap Team</span>
             <span>•</span>
             <span>
-              {new Date('2025-01-27').toLocaleDateString('en-US', {
+              {new Date('2026-01-17').toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
@@ -316,6 +316,8 @@ export default function HowManaTapAIWorksPage() {
                   const linkRegex = /\[([^\]]+)\]\(([^\)]+)\)/g;
                   let listItem = line.substring(2);
                   listItem = listItem.replace(linkRegex, '<a href="$2">$1</a>');
+                  // Handle bold text **text** within list items
+                  listItem = listItem.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
                   // Handle span with id
                   listItem = listItem.replace(/<span id="([^"]+)"><\/span>/g, '<span id="$1"></span>');
                   elements.push(`<li>${listItem}</li>`);
@@ -331,6 +333,8 @@ export default function HowManaTapAIWorksPage() {
                   let processedLine = line;
                   processedLine = processedLine.replace(linkRegex, '<a href="$2">$1</a>');
                   processedLine = processedLine.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
+                  // Handle bold text **text** within paragraphs
+                  processedLine = processedLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
                   // Handle span with id
                   processedLine = processedLine.replace(/<span id="([^"]+)"><\/span>/g, '<span id="$1"></span>');
                   currentParagraph.push(processedLine);

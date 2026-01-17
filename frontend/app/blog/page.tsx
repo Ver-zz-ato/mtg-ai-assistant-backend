@@ -139,7 +139,7 @@ const blogPosts = [
     slug: 'how-manatap-ai-works',
     title: 'How ManaTap\'s MTG AI Deck Builder Works',
     excerpt: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
-    date: '2025-01-27',
+    date: '2026-01-17',
     author: 'ManaTap Team',
     category: 'Strategy',
     readTime: '10 min read',
@@ -153,10 +153,11 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Posts');
 
   const filteredPosts = useMemo(() => {
-    if (selectedCategory === 'All Posts') {
-      return blogPosts;
-    }
-    return blogPosts.filter(post => post.category === selectedCategory);
+    let posts = selectedCategory === 'All Posts' 
+      ? blogPosts 
+      : blogPosts.filter(post => post.category === selectedCategory);
+    // Sort by date descending (newest first)
+    return posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [selectedCategory]);
 
   const categories = ['All Posts', 'Budget Building', 'Strategy', 'Commander', 'Announcement'];
