@@ -28,11 +28,11 @@ This page explains how it works in two layers:
 
 ---
 
-## <span id="simple"></span>How ManaTap's MTG AI Deck Builder Works (Simple Explanation)
+## <span id="simple"></span>🔍 How ManaTap's MTG AI Deck Builder Works (Simple Explanation)
 
 When you submit a deck, ManaTap doesn't just look at individual cards in isolation. It looks at the **whole deck**: your commander (if you're in Commander), your colours, your mana curve, and the overall plan your deck seems built around.
 
-### 1) Rules and format checks come first
+### ⚖️ 1) Rules and format checks come first
 Before any suggestions happen, ManaTap checks the fundamentals:
 - Is the deck legal for the selected format (Commander, Standard, Modern)?
 - Does it follow deckbuilding rules (deck size, copy limits, commander rules)?
@@ -40,7 +40,7 @@ Before any suggestions happen, ManaTap checks the fundamentals:
 
 If something is illegal or doesn't match the format you selected, ManaTap flags it clearly instead of guessing.
 
-### 2) Then it checks deck balance
+### 📊 2) Then it checks deck balance
 Next, ManaTap looks at whether the deck has the pieces most decks need to function:
 - Enough mana sources and the right curve
 - Enough card draw / selection
@@ -49,12 +49,12 @@ Next, ManaTap looks at whether the deck has the pieces most decks need to functi
 
 If you're light on removal, short on ramp, or overloaded in one area, it points that out.
 
-### 3) The AI figures out what you're trying to build
+### 🧠 3) The AI figures out what you're trying to build
 Different archetypes need different ingredients. A token deck, a sacrifice deck, a spellslinger deck, and a land-based deck all play very differently.
 
 ManaTap looks for patterns in your cards to infer your strategy and how well the list supports it — and it treats that inference as a working hypothesis, not an absolute truth.
 
-### 4) Only then does it suggest changes
+### 💡 4) Only then does it suggest changes
 ManaTap doesn't just recommend popular or expensive cards. It suggests cards that actually fit:
 - Your format
 - Your colours / colour identity
@@ -65,19 +65,19 @@ The goal isn't to tell you there's one "perfect" deck or to claim it can solve t
 
 ---
 
-## Want the technical details?
+## 🔬 Want the technical details?
 
 The section below explains the analysis pipeline in more depth — including how ManaTap keeps suggestions grounded in real MTG constraints.
 
 ---
 
-## <span id="technical"></span>How ManaTap's AI Works (Technical Deep Dive)
+## <span id="technical"></span>⚙️ How ManaTap's AI Works (Technical Deep Dive)
 
 Artificial intelligence gets thrown around a lot in Magic: The Gathering tools. Sometimes it means a rules engine. Sometimes it means a pile of heuristics. Sometimes it just means autocomplete.
 
 ManaTap is different — not because it's magic, but because it's deliberate about **what AI is good at**, **what it isn't**, and **how MTG actually works as a game**.
 
-### The core problem with MTG deckbuilding AI
+### 🎯 The core problem with MTG deckbuilding AI
 
 Magic decks aren't just lists of cards. They're constrained systems shaped by:
 - format legality
@@ -91,7 +91,7 @@ Most "AI deck builders" fail because they flatten this complexity. They recommen
 
 ManaTap's approach is to model the structure of a deck first, then apply AI on top of that structure.
 
-### Step 1: Deck parsing and rules grounding
+### 📋 Step 1: Deck parsing and rules grounding
 
 When you submit a deck, ManaTap doesn't start by generating suggestions. It starts by understanding the deck as a rules-bound object.
 
@@ -105,7 +105,7 @@ This step is intentionally deterministic. No AI creativity. No guessing.
 
 If a deck is illegal, ManaTap says so — and explains why.
 
-### Step 2: Structural analysis (mana, roles, balance)
+### 🔧 Step 2: Structural analysis (mana, roles, balance)
 
 Next, the system breaks the deck into functional roles, not just card types.
 
@@ -124,7 +124,7 @@ This allows ManaTap to evaluate:
 
 This is the baseline, not the final answer.
 
-### Step 3: Archetype and strategy inference
+### 🎨 Step 3: Archetype and strategy inference
 
 ManaTap looks at:
 - commanders
@@ -138,7 +138,7 @@ Importantly:
 - this is treated as a working hypothesis
 - ManaTap can say "this looks like X, but Y cards pull in another direction"
 
-### Step 4: Synergy chains, not card power
+### 🔗 Step 4: Synergy chains, not card power
 
 ManaTap does not rank cards by raw power. Instead, it looks for synergy chains:
 - cards that enable other cards
@@ -152,7 +152,7 @@ This prevents classic AI mistakes like:
 
 If a suggestion doesn't clearly support the inferred strategy, it's discarded.
 
-### Step 5: Language-model reasoning (LLM layer)
+### 💬 Step 5: Language-model reasoning (LLM layer)
 
 Only after the above does the language model come into play.
 
@@ -169,7 +169,7 @@ Crucially:
 
 This is why ManaTap's responses are designed to be more reliable than generic AI chat.
 
-### Why ManaTap won't "solve the meta"
+### 🚫 Why ManaTap won't "solve the meta"
 
 ManaTap isn't trying to be an oracle. It won't:
 - guarantee the best possible deck
@@ -181,7 +181,7 @@ Magic is a social, evolving game. The "best" deck depends on local metas, table 
 
 ManaTap's job is to make your deck make sense — not make decisions for you.
 
-### Where this is going next
+### 🗓️ Where this is going next
 
 Future improvements focus on:
 - deeper archetype recognition
