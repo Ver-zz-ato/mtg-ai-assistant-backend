@@ -26,6 +26,15 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [promptVersion, setPromptVersion] = React.useState<string | undefined>(undefined);
   const [filteredSummary, setFilteredSummary] = React.useState<string | null>(null);
   const [filteredReasons, setFilteredReasons] = React.useState<string[]>([]);
+  
+  // Store deck context for "Why?" explanations
+  const [storedDeckText, setStoredDeckText] = React.useState<string>('');
+  const [storedCommander, setStoredCommander] = React.useState<string | undefined>(undefined);
+  
+  // "Why?" expander state - respect "Show reasoning" preference (default: off)
+  const [showReasoning, setShowReasoning] = React.useState(false);
+  const [whyLoading, setWhyLoading] = React.useState<Set<string>>(new Set());
+  const [whyMap, setWhyMap] = React.useState<Record<string, string>>({});
 
   async function run() {
     if (busy) {
@@ -48,9 +57,14 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
         setBusy(false);
         return; 
       }
+      
+      // Store deck context for "Why?" explanations
+      setStoredDeckText(deckText);
+      
       // Try to get commander from DB for commander-aware includes
       let commander: string | undefined = undefined;
       try { const sb = createBrowserSupabaseClient(); const { data } = await sb.from('decks').select('commander').eq('id', deckId).maybeSingle(); commander = String((data as any)?.commander||'') || undefined; } catch {}
+      setStoredCommander(commander);
       const payload:any = { deckText, format:'Commander', useScryfall:true };
       if (commander) payload.commander = commander;
       
@@ -95,6 +109,39 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   }
 
   // Don't auto-run on mount - let user click "Run" or trigger via events
+  // Helper function to fetch "Why?" explanation for a suggestion
+  async function fetchWhyExplanation(card: string, existingReason?: string) {
+    const key = card;
+    if (whyLoading.has(key)) return;
+    
+    setWhyLoading(prev => new Set(prev).add(key));
+    try {
+      const r = await fetch('/api/deck/suggestion-why', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          card,
+          deckText: storedDeckText,
+          commander: storedCommander || '',
+          reason: existingReason || ''
+        })
+      });
+      const j = await r.json().catch(() => ({}));
+      const out = (j?.text || '').toString();
+      if (out) {
+        setWhyMap(prev => ({ ...prev, [key]: out }));
+      }
+    } catch (e: any) {
+      console.warn('Failed to fetch "Why?" explanation:', e);
+    } finally {
+      setWhyLoading(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
   React.useEffect(() => {
     const h = () => run();
     window.addEventListener('analyzer:run', h);
@@ -240,7 +287,18 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
           {/* GPT Suggestions */}
           {suggestions.length > 0 && (
             <div className="text-[11px] space-y-2 border-t border-neutral-700 pt-2 mt-2">
-              <div className="font-medium opacity-80">AI Suggestions</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-medium opacity-80">AI Suggestions</div>
+                <label className="inline-flex items-center gap-1.5 text-[10px] cursor-pointer" title="Show 'Why?' expanders for each suggestion">
+                  <input
+                    type="checkbox"
+                    checked={showReasoning}
+                    onChange={(e) => setShowReasoning(e.target.checked)}
+                    className="w-3 h-3 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="opacity-70">Show reasoning</span>
+                </label>
+              </div>
               {(() => {
                 // Group by category
                 const byCategory: Record<string, Array<{ card: string; reason?: string; id?: string; needs_review?: boolean; category?: string; reviewNotes?: string[] }>> = {
@@ -275,7 +333,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && !showReasoning && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                                 {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
                                   <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
                                     {s.reviewNotes.map((note, idx) => (
@@ -286,9 +344,37 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     ))}
                                   </div>
                                 )}
+                                {/* "Why?" explanation (expanded when showReasoning is on and fetched) */}
+                                {showReasoning && s.card !== 'N/A' && whyMap[s.card] && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-neutral-700/50 text-[10px] text-neutral-300 leading-relaxed">
+                                    {whyMap[s.card]}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">
+                                  {showReasoning && (
+                                    <button
+                                      onClick={() => {
+                                        if (whyMap[s.card]) {
+                                          // Toggle hide/show - remove from map to hide
+                                          setWhyMap(prev => {
+                                            const next = { ...prev };
+                                            delete next[s.card];
+                                            return next;
+                                          });
+                                        } else if (!whyLoading.has(s.card)) {
+                                          // Fetch explanation
+                                          fetchWhyExplanation(s.card, s.reason);
+                                        }
+                                      }}
+                                      disabled={whyLoading.has(s.card)}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
+                                    >
+                                      {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
+                                    </button>
+                                  )}
                                   <button onClick={async()=>{
                                     try { 
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
@@ -330,7 +416,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && !showReasoning && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                                 {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
                                   <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
                                     {s.reviewNotes.map((note, idx) => (
@@ -341,9 +427,37 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     ))}
                                   </div>
                                 )}
+                                {/* "Why?" explanation (expanded when showReasoning is on and fetched) */}
+                                {showReasoning && s.card !== 'N/A' && whyMap[s.card] && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-neutral-700/50 text-[10px] text-neutral-300 leading-relaxed">
+                                    {whyMap[s.card]}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">
+                                  {showReasoning && (
+                                    <button
+                                      onClick={() => {
+                                        if (whyMap[s.card]) {
+                                          // Toggle hide/show - remove from map to hide
+                                          setWhyMap(prev => {
+                                            const next = { ...prev };
+                                            delete next[s.card];
+                                            return next;
+                                          });
+                                        } else if (!whyLoading.has(s.card)) {
+                                          // Fetch explanation
+                                          fetchWhyExplanation(s.card, s.reason);
+                                        }
+                                      }}
+                                      disabled={whyLoading.has(s.card)}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
+                                    >
+                                      {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
+                                    </button>
+                                  )}
                                   <button onClick={async()=>{
                                     try { 
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
@@ -385,7 +499,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
                                   )}
                                 </div>
-                                {s.card !== 'N/A' && s.reason && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
+                                {s.card !== 'N/A' && s.reason && !showReasoning && <span className="opacity-70 text-[10px] block">{s.reason}</span>}
                                 {s.card !== 'N/A' && s.reviewNotes && s.reviewNotes.length > 0 && (
                                   <div className="mt-0.5 text-[10px] text-amber-300/80 space-y-0.5">
                                     {s.reviewNotes.map((note, idx) => (
@@ -396,9 +510,37 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     ))}
                                   </div>
                                 )}
+                                {/* "Why?" explanation (expanded when showReasoning is on and fetched) */}
+                                {showReasoning && s.card !== 'N/A' && whyMap[s.card] && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-neutral-700/50 text-[10px] text-neutral-300 leading-relaxed">
+                                    {whyMap[s.card]}
+                                  </div>
+                                )}
                               </div>
                               {s.card !== 'N/A' && (
                                 <div className="flex items-center gap-1">
+                                  {showReasoning && (
+                                    <button
+                                      onClick={() => {
+                                        if (whyMap[s.card]) {
+                                          // Toggle hide/show - remove from map to hide
+                                          setWhyMap(prev => {
+                                            const next = { ...prev };
+                                            delete next[s.card];
+                                            return next;
+                                          });
+                                        } else if (!whyLoading.has(s.card)) {
+                                          // Fetch explanation
+                                          fetchWhyExplanation(s.card, s.reason);
+                                        }
+                                      }}
+                                      disabled={whyLoading.has(s.card)}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
+                                    >
+                                      {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
+                                    </button>
+                                  )}
                                   <button onClick={async()=>{
                                     try { 
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 

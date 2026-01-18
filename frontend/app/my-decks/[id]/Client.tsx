@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { capture } from '@/lib/ph';
 import CardsPane from "./CardsPane";
 import LegalityTokensPanel from "./LegalityTokensPanel";
+import PopularCardsPanel from "./PopularCardsPanel";
 import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
@@ -370,6 +371,60 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
         />
         
         <LegalityTokensPanel deckId={deckId} format={format} />
+        
+        {/* Popular for this Commander - only show for Commander format */}
+        {format?.toLowerCase() === 'commander' && commander && (
+          <PopularCardsPanel
+            commander={commander}
+            deckId={deckId!}
+            onAddCard={async (cardName: string) => {
+              // Validate card name before adding (reuse existing validation pattern)
+              try {
+                const validationRes = await fetch('/api/cards/fuzzy', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ names: [cardName] })
+                });
+                const validationJson = await validationRes.json().catch(() => ({}));
+                const fuzzyResults = validationJson?.results || {};
+                
+                const suggestion = fuzzyResults[cardName]?.suggestion;
+                const allSuggestions = Array.isArray(fuzzyResults[cardName]?.all) ? fuzzyResults[cardName].all : [];
+                
+                // If name needs fixing, show alert and don't add
+                if (suggestion && suggestion !== cardName && allSuggestions.length > 0) {
+                  const confirmed = confirm(`Did you mean "${suggestion}" instead of "${cardName}"? Click OK to use "${suggestion}" or Cancel to skip.`);
+                  if (confirmed && suggestion) {
+                    cardName = suggestion;
+                  } else {
+                    return; // User cancelled, don't add
+                  }
+                }
+              } catch (validationError) {
+                console.warn('Validation check failed, proceeding anyway:', validationError);
+                // Continue with adding if validation fails (fallback)
+              }
+              
+              try {
+                const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: cardName, qty: 1 })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                  window.dispatchEvent(new Event('deck:changed'));
+                  window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
+                } else {
+                  alert(data.error || 'Failed to add card');
+                }
+              } catch (e: any) {
+                alert(e?.message || 'Failed to add card');
+              }
+            }}
+          />
+        )}
+        
         <DeckProbabilityWithHide deckId={deckId} isPro={!!isPro} />
       </aside>
       
