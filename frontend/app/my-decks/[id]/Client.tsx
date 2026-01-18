@@ -10,6 +10,7 @@ import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
 import DeckOverview from "./DeckOverview";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
+import ColorIdentityBanner from "@/components/ColorIdentityBanner";
 import FixNamesModal from "./FixNamesModal";
 
 // Helper components for hide/show functionality
@@ -267,6 +268,16 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             setFixModalOpen(true);
           }} 
         />
+
+        {/* Color Identity Banner - shows if deck has illegal colors */}
+        {format?.toLowerCase() === 'commander' && commander && (colors || []).length > 0 && (
+          <ColorIdentityBanner 
+            deckId={deckId!}
+            commander={commander}
+            allowedColors={colors || []}
+            format={format}
+          />
+        )}
         
         {/* Deck Overview - right above decklist */}
         {format?.toLowerCase() === 'commander' && (

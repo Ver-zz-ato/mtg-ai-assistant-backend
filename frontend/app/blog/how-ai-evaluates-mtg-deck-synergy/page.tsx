@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'How AI Evaluates MTG Deck Synergy | ManaTap AI',
     description: 'Learn how AI evaluates Magic: The Gathering deck synergy and analyzes card interactions.',
-    url: 'https://manatap.ai/blog/how-ai-evaluates-mtg-deck-synergy',
+    url: 'https://www.manatap.ai/blog/how-ai-evaluates-mtg-deck-synergy',
     type: 'article',
   },
 };

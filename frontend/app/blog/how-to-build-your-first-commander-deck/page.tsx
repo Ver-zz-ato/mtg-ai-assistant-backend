@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'How to Build Your First Commander Deck | ManaTap AI',
     description: 'A complete beginner-friendly guide to building your first Magic: The Gathering Commander deck.',
-    url: 'https://manatap.ai/blog/how-to-build-your-first-commander-deck',
+    url: 'https://www.manatap.ai/blog/how-to-build-your-first-commander-deck',
     type: 'article',
   },
 };

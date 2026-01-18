@@ -2,4 +2,4 @@ User-agent: *
 Disallow: /admin/
 Disallow: /api/
 Allow: /
-Sitemap: https://manatap.ai/sitemap.xml
+Sitemap: https://www.manatap.ai/sitemap.xml

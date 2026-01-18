@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap AI',
     description: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
-    url: 'https://manatap.ai/blog/how-manatap-ai-works',
+    url: 'https://www.manatap.ai/blog/how-manatap-ai-works',
     type: 'article',
   },
 };

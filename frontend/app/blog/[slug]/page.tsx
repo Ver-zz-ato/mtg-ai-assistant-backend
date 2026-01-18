@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     openGraph: {
       title: post.title,
       description,
-      url: `https://manatap.ai/blog/${slug}`,
+      url: `https://www.manatap.ai/blog/${slug}`,
       siteName: 'ManaTap AI',
       type: 'article',
       publishedTime: post.date,
@@ -880,7 +880,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
     "@type": "BlogPosting",
     "headline": post.title,
     "description": post.content.split('\n').find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##'))?.trim().slice(0, 160) || `Learn about ${post.title.toLowerCase()}`,
-    "image": `https://manatap.ai/manatap-og-image.png`,
+    "image": `https://www.manatap.ai/manatap-og-image.png`,
     "datePublished": post.date,
     "dateModified": post.date,
     "author": {
@@ -897,7 +897,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://manatap.ai/blog/${slug}`
+      "@id": `https://www.manatap.ai/blog/${slug}`
     }
   });
 }

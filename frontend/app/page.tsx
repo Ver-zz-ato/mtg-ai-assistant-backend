@@ -28,7 +28,7 @@ function jsonLd() {
     "@type": "SoftwareApplication",
     "name": "ManaTap AI",
     "description": "AI-powered Magic: The Gathering deck building assistant with intelligent chat, cost analysis, and budget optimization tools.",
-    "url": "https://manatap.ai",
+    "url": "https://www.manatap.ai",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Web Browser",
     "offers": {

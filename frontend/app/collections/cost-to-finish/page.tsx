@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     description:
       "Estimate the cost to finish a deck. Subtract owned from your collection.",
   },
-  alternates: { canonical: "https://manatap.ai/collections/cost-to-finish" },
+  alternates: { canonical: "https://www.manatap.ai/collections/cost-to-finish" },
 };
 
 export default function Page() {

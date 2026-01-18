@@ -54,9 +54,9 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       const payload:any = { deckText, format:'Commander', useScryfall:true };
       if (commander) payload.commander = commander;
       
-      // Add timeout to prevent hanging (30 seconds)
+      // Add timeout to prevent hanging (60 seconds - deck analysis can be slow)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       
       const res = await fetch('/api/deck/analyze', { 
         method:'POST', 

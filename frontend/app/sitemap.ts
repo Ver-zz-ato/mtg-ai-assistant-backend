@@ -2,7 +2,7 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
 
-const BASE = "https://manatap.ai";
+const BASE = "https://www.manatap.ai";
 const now = new Date();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

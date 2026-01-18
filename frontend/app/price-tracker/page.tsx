@@ -1117,7 +1117,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
   // Load images and prices for all cards at once (like CardsPane)
   React.useEffect(() => {
     (async () => {
-      if (items.length === 0) { setImgMap({}); return; }
+      if (!Array.isArray(items) || items.length === 0) { setImgMap({}); return; }
       try {
         const names = items.map(i => i.name);
         const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -1296,7 +1296,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
           {adding ? 'Adding...' : 'Add to Watchlist'}
         </button>
       </div>
-      {items.length > 0 && (
+      {Array.isArray(items) && items.length > 0 && (
         <a 
           href="/watchlist" 
           className="text-xs text-blue-400 hover:text-blue-300 underline block"
@@ -1306,7 +1306,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
       )}
       {loading ? (
         <div className="text-xs opacity-70">Loading...</div>
-      ) : items.length === 0 ? (
+      ) : (!Array.isArray(items) || items.length === 0) ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1319,7 +1319,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
       ) : (
         <AnimatePresence>
           <ul className="space-y-2 max-h-[500px] overflow-y-auto">
-            {items.slice(0, 10).map((item) => (
+            {(Array.isArray(items) ? items : []).slice(0, 10).map((item) => (
               <WatchlistCard
                 key={item.id}
                 item={item}

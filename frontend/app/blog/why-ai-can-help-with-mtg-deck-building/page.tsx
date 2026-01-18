@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Why AI Can Help With MTG Deck Building | ManaTap AI',
     description: 'Learn how AI is transforming Magic: The Gathering deck building and where it needs improvement.',
-    url: 'https://manatap.ai/blog/why-ai-can-help-with-mtg-deck-building',
+    url: 'https://www.manatap.ai/blog/why-ai-can-help-with-mtg-deck-building',
     type: 'article',
   },
 };

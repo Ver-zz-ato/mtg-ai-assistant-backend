@@ -85,7 +85,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   // Fetch deck art for Open Graph images
   const deckImage = await getDeckArtForMetadata(supabase, id, commander);
   
-  const canonicalUrl = `https://manatap.ai/decks/${id}`;
+  const canonicalUrl = `https://www.manatap.ai/decks/${id}`;
   
   const ogImage = deckImage 
     ? {
@@ -537,7 +537,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               <div className="flex items-center gap-3">
                 <LikeButton deckId={id} />
                 <ShareButton
-                  url={`https://manatap.ai/decks/${id}`}
+                  url={`https://www.manatap.ai/decks/${id}`}
                   title={title}
                   description={commander ? `${format} deck featuring ${commander}` : `${format} deck`}
                   type="deck"

@@ -27,7 +27,7 @@ import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://manatap.ai"),
+  metadataBase: new URL("https://www.manatap.ai"),
   title: "ManaTap AI - MTG Deck Builder & Assistant",
   description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",
   keywords: "MTG, Magic The Gathering, deck builder, AI assistant, card prices, budget analysis",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://manatap.ai",
+    url: "https://www.manatap.ai",
     siteName: "ManaTap AI",
     title: "ManaTap AI - MTG Deck Builder & Assistant",
     description: "Your intelligent Magic: The Gathering deck building assistant with AI chat, cost analysis, and budget optimization.",

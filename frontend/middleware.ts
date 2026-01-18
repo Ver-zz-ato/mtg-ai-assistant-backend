@@ -22,6 +22,39 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   
+  // WWW redirect: Ensure bare domain (manatap.ai) redirects to www.manatap.ai (single hop)
+  // Do NOT redirect other subdomains (e.g., app.manatap.ai)
+  const host = req.headers.get('host') || '';
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('0.0.0.0');
+  
+  // Extract hostname without port
+  const hostname = host.split(':')[0];
+  
+  // Only redirect bare domain (manatap.ai) to www in production
+  if (!isLocalhost && hostname === 'manatap.ai') {
+    const url = req.nextUrl.clone();
+    url.host = 'www.manatap.ai';
+    url.protocol = 'https:';
+    // Preserve pathname and search params
+    
+    // Create redirect response with explicit 308 status
+    // Use manual Response construction to ensure 308 (not 307) is honored
+    const redirectUrl = url.toString();
+    
+    // Build headers object - always include debug header to verify source
+    const headers = new Headers();
+    headers.set('Location', redirectUrl);
+    if (process.env.NODE_ENV === 'development') {
+      headers.set('x-redirect-source', 'middleware-www');
+    }
+    
+    const response = new NextResponse(null, {
+      status: 308, // Permanent Redirect (preserves HTTP method)
+      headers,
+    });
+    return response;
+  }
+  
   // Initialize response (will be modified for guest tokens)
   let response: NextResponse | null = null;
 

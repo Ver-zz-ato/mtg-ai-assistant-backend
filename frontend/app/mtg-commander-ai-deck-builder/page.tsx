@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Free AI Commander Deck Builder | ManaTap AI',
     description: 'Build and analyze Magic: The Gathering Commander decks with AI-powered suggestions and optimization.',
-    url: 'https://manatap.ai/mtg-commander-ai-deck-builder',
+    url: 'https://www.manatap.ai/mtg-commander-ai-deck-builder',
     siteName: 'ManaTap AI',
     images: [
       {
@@ -41,7 +41,7 @@ function jsonLd() {
     "@type": "WebApplication",
     "name": "ManaTap AI - Free AI Commander Deck Builder",
     "description": "AI-powered Magic: The Gathering Commander deck builder and analyzer. Get instant deck analysis, budget optimization, and personalized card suggestions.",
-    "url": "https://manatap.ai/mtg-commander-ai-deck-builder",
+    "url": "https://www.manatap.ai/mtg-commander-ai-deck-builder",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Web Browser",
     "offers": {
