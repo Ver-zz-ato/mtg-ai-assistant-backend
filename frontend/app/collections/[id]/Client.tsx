@@ -207,8 +207,10 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       try {
         const names = Array.from(new Set(items.map(i=>i.name)));
         if (!names.length) { setPriceMap({}); return; }
-        // Direct currency only; GBP requires snapshot rows
-        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ names, currency }) });
+        // Clear price map when currency changes to avoid stale data
+        setPriceMap({});
+        // Direct currency only; GBP requires snapshot rows - use cache: no-store to ensure fresh data
+        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const j1 = await r1.json().catch(()=>({ ok:false }));
         if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
       } catch { setPriceMap({}); }

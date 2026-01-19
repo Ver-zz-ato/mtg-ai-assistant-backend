@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { CachePresets } from "@/lib/api/cache";
 
+/**
+ * Price Cache Depth Documentation:
+ * 
+ * The price_snapshots table stores historical price data with the following characteristics:
+ * - Retention Policy: 60 days (data older than 60 days is automatically deleted)
+ * - Snapshot Frequency: Daily snapshots are created via bulk import jobs
+ * - Currency Support: USD, EUR, GBP (GBP is converted from USD using exchange rates)
+ * 
+ * Historical Data Availability:
+ * - Maximum depth: 60 days (due to retention policy)
+ * - Minimum depth: Depends on when snapshots started (typically available from first snapshot date)
+ * - Missing data: The API gracefully handles missing historical data by finding the closest available snapshot
+ * 
+ * Usage:
+ * - This endpoint returns the most recent snapshot for requested cards
+ * - For historical data, use /api/price/series with a "from" parameter
+ * - For price deltas (24h, 7d, 30d), use /api/price which finds closest snapshots to target dates
+ */
+
 function norm(name: string): string {
   return String(name||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 }

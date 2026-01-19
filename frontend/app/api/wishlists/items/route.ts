@@ -25,11 +25,11 @@ export async function GET(req: NextRequest){
 
     const names = Array.from(new Set((items||[]).map((r:any)=>String(r.name||'')).filter(Boolean)));
 
-    // Price enrichment via existing snapshot API
+    // Price enrichment via existing snapshot API - use cache: no-store to ensure fresh data
     let prices: Record<string, number> = {};
     if (names.length){
       try{
-        const pr = await fetch(''+new URL('/api/price/snapshot', url as any), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
+        const pr = await fetch(''+new URL('/api/price/snapshot', url as any), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const pj = await pr.json().catch(()=>({}));
         prices = pj?.prices || {};
       } catch {}

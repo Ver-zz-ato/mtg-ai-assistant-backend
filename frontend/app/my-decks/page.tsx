@@ -259,12 +259,17 @@ function MyDecksPageContent() {
       ) : decks.length === 0 ? (
         <NoDecksEmptyState />
       ) : (
-        <>
-          <MyDecksList rows={decks} pinnedIds={pinnedIds} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left column: Deck list */}
+          <div className="lg:col-span-2">
+            <MyDecksList rows={decks} pinnedIds={pinnedIds} />
+          </div>
           
-          <CompareDecksWidget />
-          
-          <div className="mt-6 space-y-4">
+          {/* Right column: Panels and widgets */}
+          <div className="lg:col-span-1 space-y-6">
+            <CompareDecksWidget />
+            
+            <div className="space-y-4">
             {/* Start with sample deck */}
             <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -314,8 +319,9 @@ function MyDecksPageContent() {
                 return null; 
               } 
             })()}
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {(()=>{ 

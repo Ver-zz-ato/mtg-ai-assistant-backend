@@ -175,6 +175,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const [showBulkValidation, setShowBulkValidation] = React.useState(false);
   const [pendingValidatedNames, setPendingValidatedNames] = React.useState<Array<{ name: string; qty: number }>>([]);
   const [pendingBulkMode, setPendingBulkMode] = React.useState<'increment'|'replace'>('increment');
+  const [bulkAdding, setBulkAdding] = React.useState<boolean>(false);
 
   React.useEffect(()=>{ (async()=>{
     try{
@@ -200,6 +201,11 @@ function WishlistEditor({ pro }: { pro: boolean }) {
     if (!wishlistId) { setItems([]); setTotal(0); return; }
     try{
       setLoading(true);
+      // Clear items when currency changes to avoid stale price data
+      if (currency) {
+        setItems([]);
+        setTotal(0);
+      }
       const q = new URLSearchParams({ wishlistId, currency });
       const r = await fetch(`/api/wishlists/items?${q.toString()}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({}));
@@ -843,67 +849,82 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                 <label className="flex items-center gap-1"><input type="radio" name="bulkmode" checked={bulkMode==='replace'} onChange={()=>setBulkMode('replace')} /> Set exact quantities</label>
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors" onClick={()=>setBulkText('')}>Clear</button>
-                <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg" onClick={async()=>{
+                <button className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors" onClick={()=>setBulkText('')} disabled={bulkAdding}>Clear</button>
+                <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled={bulkAdding} onClick={async()=>{
                   const lines = (bulkText||'').split(/\r?\n|,/).map(s=>s.trim()).filter(Boolean);
                   if (!lines.length) { setShowBulk(false); return; }
-                  function parseLine(s:string){
-                    const a = s.match(/^\s*(\d+)\s*[xX]?\s+(.+)$/); if (a) return { qty: Math.max(1, Number(a[1]||1)), name: a[2].trim() };
-                    const b = s.match(/^\s*(.+?)\s*[xX]\s*(\d+)\s*$/); if (b) return { qty: Math.max(1, Number(b[2]||1)), name: b[1].trim() };
-                    return { qty: 1, name: s.trim() };
-                  }
-                  const parsed = lines.map(parseLine).filter(p=>!!p.name);
                   
-                  // Validate card names before adding (similar to decks/collections)
+                  setBulkAdding(true);
                   try {
-                    const validationRes = await fetch('/api/cards/fuzzy', {
-                      method: 'POST',
-                      headers: { 'content-type': 'application/json' },
-                      body: JSON.stringify({ names: parsed.map(p => p.name).slice(0, 100) })
-                    });
-                    const validationJson = await validationRes.json().catch(() => ({}));
-                    const fuzzyResults = validationJson?.results || {};
+                    function parseLine(s:string){
+                      const a = s.match(/^\s*(\d+)\s*[xX]?\s+(.+)$/); if (a) return { qty: Math.max(1, Number(a[1]||1)), name: a[2].trim() };
+                      const b = s.match(/^\s*(.+?)\s*[xX]\s*(\d+)\s*$/); if (b) return { qty: Math.max(1, Number(b[2]||1)), name: b[1].trim() };
+                      return { qty: 1, name: s.trim() };
+                    }
+                    const parsed = lines.map(parseLine).filter(p=>!!p.name);
                     
-                    // Check which names need fixing
-                    const needsFixing: Array<{ originalName: string; suggestions: string[]; qty: number }> = [];
-                    const validatedNames: Array<{ name: string; qty: number }> = [];
-                    
-                    for (const p of parsed) {
-                      const suggestion = fuzzyResults[p.name]?.suggestion;
-                      const allSuggestions = Array.isArray(fuzzyResults[p.name]?.all) ? fuzzyResults[p.name].all : [];
+                    // Validate card names before adding (similar to decks/collections)
+                    try {
+                      const validationRes = await fetch('/api/cards/fuzzy', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ names: parsed.map(p => p.name).slice(0, 100) })
+                      });
+                      const validationJson = await validationRes.json().catch(() => ({}));
+                      const fuzzyResults = validationJson?.results || {};
                       
-                      // If exact match or no fuzzy needed, use as-is
-                      if (!suggestion || suggestion === p.name || allSuggestions.length === 0) {
-                        validatedNames.push({ name: p.name, qty: p.qty });
-                      } else {
-                        // Needs fixing - show in validation modal
-                        needsFixing.push({
-                          originalName: p.name,
-                          suggestions: allSuggestions.length > 0 ? allSuggestions : [suggestion],
-                          qty: p.qty
-                        });
+                      // Check which names need fixing
+                      const needsFixing: Array<{ originalName: string; suggestions: string[]; qty: number }> = [];
+                      const validatedNames: Array<{ name: string; qty: number }> = [];
+                      
+                      for (const p of parsed) {
+                        const suggestion = fuzzyResults[p.name]?.suggestion;
+                        const allSuggestions = Array.isArray(fuzzyResults[p.name]?.all) ? fuzzyResults[p.name].all : [];
+                        
+                        // If exact match or no fuzzy needed, use as-is
+                        if (!suggestion || suggestion === p.name || allSuggestions.length === 0) {
+                          validatedNames.push({ name: p.name, qty: p.qty });
+                        } else {
+                          // Needs fixing - show in validation modal
+                          needsFixing.push({
+                            originalName: p.name,
+                            suggestions: allSuggestions.length > 0 ? allSuggestions : [suggestion],
+                            qty: p.qty
+                          });
+                        }
                       }
+                      
+                      // If any names need fixing, show validation modal
+                      if (needsFixing.length > 0) {
+                        setBulkValidationItems(needsFixing.map(item => ({ ...item, choice: item.suggestions[0] || item.originalName })));
+                        setPendingValidatedNames(validatedNames);
+                        setPendingBulkMode(bulkMode);
+                        setShowBulkValidation(true);
+                        setBulkAdding(false);
+                        return;
+                      }
+                      
+                      // All names are valid - proceed with bulk add
+                      await performBulkAdd(validatedNames.length > 0 ? validatedNames : parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
+                      setShowBulk(false);
+                      setBulkText('');
+                      const { toast } = await import('@/lib/toast-client');
+                      toast(`Added ${parsed.length} card${parsed.length !== 1 ? 's' : ''} to wishlist`, 'success');
+                    } catch(e:any) {
+                      // If validation fails, try adding anyway (fallback)
+                      console.error('Bulk validation failed:', e);
+                      await performBulkAdd(parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
+                      setShowBulk(false);
+                      setBulkText('');
+                      const { toast } = await import('@/lib/toast-client');
+                      toast(`Added ${parsed.length} card${parsed.length !== 1 ? 's' : ''} to wishlist`, 'success');
                     }
-                    
-                    // If any names need fixing, show validation modal
-                    if (needsFixing.length > 0) {
-                      setBulkValidationItems(needsFixing.map(item => ({ ...item, choice: item.suggestions[0] || item.originalName })));
-                      setPendingValidatedNames(validatedNames);
-                      setPendingBulkMode(bulkMode);
-                      setShowBulkValidation(true);
-                      return;
-                    }
-                    
-                    // All names are valid - proceed with bulk add
-                    await performBulkAdd(validatedNames.length > 0 ? validatedNames : parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
-                    setShowBulk(false);
-                    setBulkText('');
                   } catch(e:any) {
-                    // If validation fails, try adding anyway (fallback)
-                    console.error('Bulk validation failed:', e);
-                    await performBulkAdd(parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
-                    setShowBulk(false);
-                    setBulkText('');
+                    console.error('Bulk add error:', e);
+                    const { toastError } = await import('@/lib/toast-client');
+                    toastError(e?.message || 'Failed to add cards. Please try again.');
+                  } finally {
+                    setBulkAdding(false);
                   }
                   
                   async function performBulkAdd(validated: Array<{ name: string; qty: number }>, mode: 'increment'|'replace') {
@@ -931,11 +952,12 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                       const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
                       const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
                     } catch(e:any) {
-                      alert(e?.message||'Bulk action failed');
                       throw e;
                     }
                   }
-                }}>Apply</button>
+                }}>
+                  {bulkAdding ? 'Adding...' : 'Apply'}
+                </button>
               </div>
             </div>
           </div>

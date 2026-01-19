@@ -24,7 +24,10 @@ export default function CollectionSnapshotDrawer({ collectionId }: { collectionI
     try{
       const names = Array.from(new Set(cards.map(c=>c.name)));
       if(!names.length){ setValue(0); return; }
-      const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
+      // Clear value when currency changes to avoid stale data
+      setValue(null);
+      // Use cache: no-store to ensure fresh price data
+      const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
       if(!r.ok || j?.ok===false){ setValue(null); return; }
       const prices: Record<string, number> = j.prices||{};

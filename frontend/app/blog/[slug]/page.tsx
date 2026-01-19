@@ -981,7 +981,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* Article */}
         <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl max-w-[1400px] mx-auto">
           {/* Content with enhanced styling */}
-          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-5xl md:prose-h1:text-6xl lg:prose-h1:text-7xl prose-h1:mb-6 prose-h1:mt-8 prose-h1:bg-gradient-to-r prose-h1:from-blue-600 prose-h1:to-purple-600 dark:prose-h1:from-blue-400 dark:prose-h1:to-purple-400 prose-h1:bg-clip-text prose-h1:text-transparent prose-h1:leading-tight prose-h2:text-3xl prose-h2:mt-10 prose-h2:mb-6 prose-h2:text-gray-900 dark:prose-h2:text-white prose-h2:font-extrabold prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4 prose-h3:font-bold prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-6 prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-ul:my-6 prose-li:my-3 prose-ul:space-y-2 prose-img:rounded-xl prose-img:shadow-xl">
+          <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-5xl md:prose-h1:text-6xl lg:prose-h1:text-7xl prose-h1:mb-6 prose-h1:mt-8 prose-h1:bg-gradient-to-r prose-h1:from-blue-600 prose-h1:to-purple-600 dark:prose-h1:from-blue-400 dark:prose-h1:to-purple-400 prose-h1:bg-clip-text prose-h1:text-transparent prose-h1:leading-tight prose-h2:text-3xl prose-h2:mt-10 prose-h2:mb-6 prose-h2:text-gray-900 dark:prose-h2:text-white prose-h2:font-extrabold prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4 prose-h3:font-bold prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0 prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-ul:my-6 prose-li:my-2 prose-ul:space-y-1 prose-ol:my-6 prose-ol:space-y-1 prose-img:rounded-xl prose-img:shadow-xl prose-blockquote:my-6 prose-hr:my-8">
             <div dangerouslySetInnerHTML={{ __html: (() => {
               const lines = post.content.split('\n');
               const elements: string[] = [];
@@ -1001,7 +1001,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
                   // Check if this is the opening paragraph after H1 - make it tighter
                   const isOpeningPara = elements.length > 0 && elements[elements.length - 1]?.includes('<h1>');
-                  elements.push(`<p class="${isOpeningPara ? 'mb-3 text-lg' : 'mb-6'}">${processed}</p>`);
+                  elements.push(`<p class="${isOpeningPara ? 'mb-4 text-lg' : 'mb-4'}">${processed}</p>`);
                   currentParagraph = [];
                 }
               };
@@ -1203,7 +1203,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
                     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
-                  elements.push(`<li class="mb-2">${itemText}</li>`);
+                  elements.push(`<li class="mb-1.5">${itemText}</li>`);
                   continue;
                 }
                 

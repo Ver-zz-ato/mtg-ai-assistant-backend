@@ -36,6 +36,10 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
   const [deckData, setDeckData] = useState<Map<string, DeckData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [comparison, setComparison] = useState<ComparisonStats | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [deckPage, setDeckPage] = useState(1);
+  const decksPerPage = 12;
 
   // Auto-select deck from URL parameter
   useEffect(() => {
@@ -299,8 +303,9 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
       {/* Deck Selector */}
       <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
         <h2 className="text-lg font-semibold mb-4">Select Decks to Compare</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {decks.map(deck => {
+        <div className="max-h-[600px] overflow-y-auto mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {decks.slice((deckPage - 1) * decksPerPage, deckPage * decksPerPage).map(deck => {
             const isSelected = selectedDeckIds.includes(deck.id);
             const selectionIndex = selectedDeckIds.indexOf(deck.id);
             
@@ -332,7 +337,31 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
               </button>
             );
           })}
+          </div>
         </div>
+        
+        {/* Pagination */}
+        {decks.length > decksPerPage && (
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-800">
+            <button
+              onClick={() => setDeckPage(prev => Math.max(1, prev - 1))}
+              disabled={deckPage === 1}
+              className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-400">
+              Page {deckPage} of {Math.ceil(decks.length / decksPerPage)}
+            </span>
+            <button
+              onClick={() => setDeckPage(prev => Math.min(Math.ceil(decks.length / decksPerPage), prev + 1))}
+              disabled={deckPage >= Math.ceil(decks.length / decksPerPage)}
+              className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
 
         {selectedDeckIds.length < 2 && (
           <p className="text-sm text-gray-400 mt-4">
@@ -361,6 +390,78 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
       {loading && (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+        </div>
+      )}
+
+      {/* AI Analysis Button */}
+      {!loading && selectedDeckIds.length >= 2 && comparison && (
+        <div className="flex justify-center">
+          <button
+            onClick={async () => {
+              setLoadingAi(true);
+              setAiAnalysis(null);
+              try {
+                const selectedDecks = Array.from(deckData.values());
+                const deckTexts = selectedDecks.map(deck => 
+                  `${deck.title} (${deck.commander || 'No commander'}):\n${deck.cards.map(c => `${c.qty}x ${c.name}`).join('\n')}`
+                ).join('\n\n---\n\n');
+                
+                const res = await fetch('/api/deck/compare-ai', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    decks: deckTexts,
+                    comparison: {
+                      sharedCards: comparison.sharedCards.map(c => c.name),
+                      uniqueToDecks: comparison.uniqueToDecks.map((d, i) => ({
+                        deckIndex: i,
+                        cards: d.cards.map(c => c.name)
+                      }))
+                    }
+                  })
+                });
+                
+                const json = await res.json();
+                if (json?.ok && json?.analysis) {
+                  setAiAnalysis(json.analysis);
+                } else {
+                  throw new Error(json?.error || 'Failed to generate analysis');
+                }
+              } catch (e: any) {
+                console.error('AI analysis error:', e);
+                setAiAnalysis('Failed to generate AI analysis. Please try again.');
+              } finally {
+                setLoadingAi(false);
+              }
+            }}
+            disabled={loadingAi}
+            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingAi ? (
+              <>
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                <span>Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <span>🤖</span>
+                <span>Get AI Analysis</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* AI Analysis Panel */}
+      {aiAnalysis && (
+        <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-xl border border-purple-500/30 p-6">
+          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-purple-300">
+            <span>🤖</span>
+            AI Comparison Analysis
+          </h3>
+          <div className="prose prose-invert max-w-none text-gray-300 whitespace-pre-wrap">
+            {aiAnalysis}
+          </div>
         </div>
       )}
 
