@@ -4,15 +4,28 @@ import React, { useState, useEffect } from "react";
 import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
-import LegalityTokensPanel from "./LegalityTokensPanel";
-import PopularCardsPanel from "./PopularCardsPanel";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false); // Collapsed by default
   
   React.useEffect(() => {
-    const handler = (e: CustomEvent) => {
+    // Listen for health click or analyzer run to auto-expand
+    const healthHandler = (e: CustomEvent) => {
+      if (e.detail?.context === 'health_warning' || e.detail?.category) {
+        setOpen(true);
+      }
+    };
+    window.addEventListener('ai-assistant:open' as any, healthHandler as EventListener);
+    
+    // Listen for analyzer run
+    const analyzerHandler = () => {
+      setOpen(true);
+    };
+    window.addEventListener('deck:analyzer:ran' as any, analyzerHandler as EventListener);
+    
+    // Listen for toggle all
+    const toggleHandler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {
         const shouldShow = e.detail?.show;
         if (shouldShow !== undefined) {
@@ -20,20 +33,39 @@ function AssistantSection({ deckId, format }: { deckId: string; format?: string 
         }
       }
     };
-    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    return () => window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
+    window.addEventListener('side-panels-toggle' as any, toggleHandler as EventListener);
+    
+    return () => {
+      window.removeEventListener('ai-assistant:open' as any, healthHandler as EventListener);
+      window.removeEventListener('deck:analyzer:ran' as any, analyzerHandler as EventListener);
+      window.removeEventListener('side-panels-toggle' as any, toggleHandler as EventListener);
+    };
   }, []);
-  
-  if (!open) return null;
   
   return (
     <>
-      <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
-        <DeckAssistant deckId={deckId} format={format} />
-      </div>
-      {deckId && (<div>
-        {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
-      </div>)}
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 hover:border-purple-400/50 hover:from-purple-600/30 hover:to-blue-600/30 transition-all text-sm font-medium text-purple-300 hover:text-purple-200 flex items-center justify-center gap-2 group"
+          title="Ask AI about this deck"
+        >
+          <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          Ask AI about this deck
+          <span className="text-xs opacity-60 group-hover:opacity-80">→</span>
+        </button>
+      ) : (
+        <>
+          <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
+            <DeckAssistant deckId={deckId} format={format} />
+          </div>
+          {deckId && (<div>
+            {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
+          </div>)}
+        </>
+      )}
     </>
   );
 }
@@ -298,23 +330,18 @@ export default function DeckSidebar({
         </div>
       </div>
       
-      {/* Secondary tools - collapsed by default */}
-      <DeckAnalyzerWithHide 
-        deckId={deckId}
-        isPro={isPro}
-        format={format}
-      />
-      
-      <LegalityTokensPanel deckId={deckId} format={format} />
-      
-      {/* Popular for this Commander - only show for Commander format */}
-      {format?.toLowerCase() === 'commander' && commander && (
-        <PopularCardsPanel
-          commander={commander}
-          deckId={deckId}
-          onAddCard={handleAddCard}
-        />
-      )}
+      {/* Deck Checks - Merged Analyzer + Legality */}
+      {(() => {
+        try {
+          const DeckChecks = require('./DeckChecksPanel').default;
+          return <DeckChecks deckId={deckId} isPro={isPro} format={format} />;
+        } catch {
+          // Fallback to old panels if new component fails
+          return (
+            <DeckAnalyzerWithHide deckId={deckId} isPro={isPro} format={format} />
+          );
+        }
+      })()}
       
       <DeckProbabilityWithHide deckId={deckId} isPro={isPro} />
     </div>

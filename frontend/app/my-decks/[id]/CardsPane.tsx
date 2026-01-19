@@ -420,13 +420,15 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
   useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
   useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
   const [priceMap, setPriceMap] = useState<Record<string, number>>({});
+  const [priceLoading, setPriceLoading] = useState<boolean>(false);
   useEffect(() => {
     (async () => {
       try {
         const names = Array.from(new Set(rows.map(r => r.name)));
-        if (!names.length) { setPriceMap({}); return; }
+        if (!names.length) { setPriceMap({}); setPriceLoading(false); return; }
         
-        // Clear price map when currency changes to force re-fetch
+        setPriceLoading(true);
+        // Clear price map when currency or cards change to avoid stale data
         setPriceMap({});
         
         // Normalize card names the same way as snapshot API
@@ -538,7 +540,11 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         }
         // Update priceMap with combined snapshot + Scryfall prices
         setPriceMap(prices);
-      } catch { setPriceMap({}); }
+        setPriceLoading(false);
+      } catch { 
+        setPriceMap({}); 
+        setPriceLoading(false);
+      }
     })();
   }, [rows.map(r=>r.name).join('|'), currency]);
   useEffect(() => {
@@ -780,6 +786,12 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                   return (
                     <span className="text-xs opacity-80 w-40 text-right tabular-nums">
                       {sym}{(unit*c.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span>
+                    </span>
+                  );
+                } else if (priceLoading) {
+                  return (
+                    <span className="text-xs opacity-60 w-40 text-right">
+                      Loading...
                     </span>
                   );
                 } else { 

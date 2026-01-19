@@ -68,6 +68,11 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       const payload:any = { deckText, format:'Commander', useScryfall:true };
       if (commander) payload.commander = commander;
       
+      // Dispatch event to auto-expand AI Assistant when analyzer runs
+      try {
+        window.dispatchEvent(new CustomEvent('deck:analyzer:ran'));
+      } catch {}
+      
       // Add timeout to prevent hanging (60 seconds - deck analysis can be slow)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -95,6 +100,11 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setPromptVersion(j?.prompt_version);
       setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
       setFilteredReasons(Array.isArray(j?.filteredReasons) ? j.filteredReasons.filter((r:string)=>typeof r === 'string' && r.trim()).map((r:string)=>r.trim()) : []);
+      
+      // Dispatch event to auto-expand AI Assistant when analyzer completes
+      try {
+        window.dispatchEvent(new CustomEvent('deck:analyzer:ran'));
+      } catch {}
     } catch (e:any) { 
       console.error('Deck Analyzer: Error during analysis:', e);
       if (e.name === 'AbortError') {

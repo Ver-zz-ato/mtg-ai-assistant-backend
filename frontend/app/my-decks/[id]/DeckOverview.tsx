@@ -372,23 +372,53 @@ export default function DeckOverview({
         ];
         
         return (
-          <div className="mt-3 pt-3 border-t border-neutral-800/50">
-            <div className="text-[10px] opacity-70 mb-2 uppercase tracking-wide">Deck Health</div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+          <div className="mt-3 pt-3 border-t border-blue-500/20">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="text-xs font-semibold text-blue-300 uppercase tracking-wide flex items-center gap-1.5">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Deck Health
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               {healthItems.map((item) => (
                 <button
                   key={item.label}
                   onClick={() => {
-                    // Scroll to relevant section or trigger AI fix
+                    // Trigger AI Assistant to expand with suggestion
                     try {
-                      window.dispatchEvent(new CustomEvent('deck:health-click', { detail: { category: item.label.toLowerCase() } }));
+                      window.dispatchEvent(new CustomEvent('deck:health-click', { 
+                        detail: { 
+                          category: item.label.toLowerCase().replace(/\s+/g, '_'),
+                          label: item.label,
+                          status: item.status.label
+                        } 
+                      }));
+                      // Also trigger AI Assistant to open
+                      window.dispatchEvent(new CustomEvent('ai-assistant:open', { 
+                        detail: { 
+                          context: 'health_warning',
+                          category: item.label.toLowerCase().replace(/\s+/g, '_'),
+                          message: `${item.label} ${item.status.label} - Get AI suggestions to improve this`
+                        } 
+                      }));
                     } catch {}
                   }}
-                  className={`flex items-center gap-1.5 ${item.status.color} hover:opacity-80 transition-opacity cursor-pointer`}
-                  title={`Click to fix ${item.label.toLowerCase()}`}
+                  className={`flex flex-col items-start gap-1 p-2 rounded-lg border transition-all cursor-pointer group ${
+                    item.status.icon === '🔴' 
+                      ? 'bg-red-950/30 border-red-500/40 hover:border-red-400/60 hover:bg-red-950/40' 
+                      : item.status.icon === '🟡'
+                      ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-400/50 hover:bg-amber-950/30'
+                      : 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-950/30'
+                  }`}
+                  title={`${item.label}: ${item.status.label}. Click for AI suggestions.`}
                 >
-                  <span>{item.status.icon}</span>
-                  <span>{item.label} — <span className="opacity-90">{item.status.label}</span></span>
+                  <div className="flex items-center gap-1.5 w-full">
+                    <span className="text-base">{item.status.icon}</span>
+                    <span className={`text-xs font-medium ${item.status.color} group-hover:opacity-90`}>{item.label}</span>
+                  </div>
+                  <span className={`text-[10px] ${item.status.color} opacity-80 group-hover:opacity-100`}>{item.status.label}</span>
                 </button>
               ))}
             </div>
