@@ -256,6 +256,45 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     <main className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-8">
       <div className="max-w-[1600px] mx-auto">
         <div className="grid grid-cols-12 gap-6">
+        <section className="col-span-12 md:col-span-9">
+          <header className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xs opacity-70">Deck name:</div>
+              <InlineDeckTitle deckId={id} initial={title} />
+              <div className="mt-2 mb-2">
+                <FormatSelector deckId={id} initialFormat={format} />
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
+                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':t==='Control'?'counter/board wipes, instants/sorceries':t==='Combo'?'tutors, search your library':t==='Midrange'?'creatures at 5+ cmc':t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
+                    {t}
+                  </span>
+                ))}
+              </div>
+              {/* Deck ID removed per request */}
+            </div>
+            <div className="flex items-center gap-2">
+              <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
+              {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
+            </div>
+          </header>
+          {/* Build Assistant (sticky) */}
+          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} />; })()}
+          {/* key forces remount when ?r= changes */}
+          {/* Functions panel */}
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
+          <Client 
+            deckId={id} 
+            isPro={isPro} 
+            format={format} 
+            commander={deck?.commander || null}
+            colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
+            deckAim={(deck as any)?.deck_aim || null}
+            healthMetrics={core}
+            key={r || "_"} 
+          />
+        </section>
+
         <aside className="col-span-12 md:col-span-3 space-y-4">
           {/* Deck Value - FIRST */}
           <PanelWrapper title="Deck Value" colorFrom="emerald-400" colorTo="teal-500">
@@ -322,46 +361,24 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               </div>
             </div>
           </PanelWrapper>
+          
+          {/* AI Assistant and other widgets */}
+          {(() => {
+            try {
+              const DeckSidebar = require('./DeckSidebar').default;
+              return (
+                <DeckSidebar 
+                  deckId={id} 
+                  isPro={isPro} 
+                  format={format}
+                  commander={deck?.commander || null}
+                />
+              );
+            } catch {
+              return null;
+            }
+          })()}
         </aside>
-
-        <section className="col-span-12 md:col-span-9">
-          <header className="mb-4 flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs opacity-70">Deck name:</div>
-              <InlineDeckTitle deckId={id} initial={title} />
-              <div className="mt-2 mb-2">
-                <FormatSelector deckId={id} initialFormat={format} />
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
-                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':t==='Control'?'counter/board wipes, instants/sorceries':t==='Combo'?'tutors, search your library':t==='Midrange'?'creatures at 5+ cmc':t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
-                    {t}
-                  </span>
-                ))}
-              </div>
-              {/* Deck ID removed per request */}
-            </div>
-            <div className="flex items-center gap-2">
-              <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
-              {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
-            </div>
-          </header>
-          {/* Build Assistant (sticky) */}
-          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} />; })()}
-          {/* key forces remount when ?r= changes */}
-          {/* Right column: functions panel, then editor */}
-          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
-          <Client 
-            deckId={id} 
-            isPro={isPro} 
-            format={format} 
-            commander={deck?.commander || null}
-            colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
-            deckAim={(deck as any)?.deck_aim || null}
-            healthMetrics={core}
-            key={r || "_"} 
-          />
-        </section>
         </div>
       </div>
     </main>

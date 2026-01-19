@@ -272,7 +272,7 @@ function MyDecksPageContent() {
             <div className="space-y-4">
             {/* Start with sample deck */}
             <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-col gap-4">
                 <div>
                   <h3 className="text-sm font-semibold mb-1">Want to try a sample deck?</h3>
                   <p className="text-xs text-gray-400">Import a pre-built Commander deck to explore features</p>
@@ -280,7 +280,7 @@ function MyDecksPageContent() {
                 {(()=>{ 
                   try{ 
                     const SampleDeckButton = require('@/components/SampleDeckSelector').SampleDeckButton; 
-                    return <SampleDeckButton className="sm:ml-4" />; 
+                    return <SampleDeckButton className="w-full" />; 
                   } catch { 
                     return null; 
                   } 

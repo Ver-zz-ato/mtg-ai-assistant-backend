@@ -410,7 +410,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                         return (
                           <span
                             key={tag}
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
                           >
                             {tag}
                           </span>
