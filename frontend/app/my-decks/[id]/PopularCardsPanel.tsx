@@ -35,11 +35,14 @@ export default function PopularCardsPanel({ commander, deckId, onAddCard }: { co
     // Only fetch if not already loaded
     if (popularCards.length > 0 || loading) return;
     
+    // Type guard: assign to const to narrow type from string | null to string
+    const commanderName: string = commander;
+    
     async function loadPopularCards() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/deck/popular-cards?commander=${encodeURIComponent(commander)}`, { cache: 'no-store' });
+        const res = await fetch(`/api/deck/popular-cards?commander=${encodeURIComponent(commanderName)}`, { cache: 'no-store' });
         const data = await res.json().catch(() => ({ ok: false }));
         
         if (!res.ok || !data?.ok) {

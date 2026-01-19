@@ -46,10 +46,20 @@ jobs:
 
       - name: Check for service role key in client code (FAIL)
         run: |
-          if grep -r "SERVICE.*ROLE\|service.*role.*key" frontend --exclude-dir=node_modules --exclude="*.md" -i 2>/dev/null | grep -v "NEXT_PUBLIC_SUPABASE_ANON_KEY"; then
-            echo "❌ ERROR: Service role key pattern detected in frontend code"
+          # Only check client-accessible code (components, pages that bundle to browser)
+          # Exclude server-side code (app/api, lib, scripts) where SERVICE_ROLE_KEY is safe
+          # Exclude error message strings like 'missing_service_role_key'
+          # Use find to get all page.tsx and Client.tsx files recursively, then grep each
+          result=$(find frontend/components frontend/app -type f \( -name "*.tsx" -o -name "*.ts" \) ! -path "*/node_modules/*" ! -path "*/api/*" ! -path "*/lib/*" 2>/dev/null | \
+            xargs grep -i "SERVICE.*ROLE\|service.*role.*key" 2>/dev/null | \
+            grep -v "NEXT_PUBLIC_SUPABASE_ANON_KEY" | \
+            grep -v "missing_service_role_key\|missing_service_role" || true)
+          if [ -n "$result" ]; then
+            echo "❌ ERROR: Service role key pattern detected in client-accessible code"
             echo "Service role keys must NEVER be exposed to client"
             echo "See: docs/SECURITY_INVARIANTS.md #9"
+            echo "Matches:"
+            echo "$result"
             exit 1
           fi
           echo "✅ No service role key exposure detected"

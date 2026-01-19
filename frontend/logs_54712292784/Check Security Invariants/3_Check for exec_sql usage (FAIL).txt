@@ -1,0 +1,11 @@
+﻿2026-01-18T23:58:49.8190223Z ##[group]Run if grep -r "\.rpc(['\"]exec_sql" frontend/app/api --exclude-dir=node_modules 2>/dev/null; then
+2026-01-18T23:58:49.8191344Z [36;1mif grep -r "\.rpc(['\"]exec_sql" frontend/app/api --exclude-dir=node_modules 2>/dev/null; then[0m
+2026-01-18T23:58:49.8191927Z [36;1m  echo "❌ ERROR: exec_sql detected in admin routes"[0m
+2026-01-18T23:58:49.8192492Z [36;1m  echo "Use safe purpose-built RPCs instead (vacuum_analyze_table, migrate_cache_schema)"[0m
+2026-01-18T23:58:49.8193245Z [36;1m  echo "See: docs/SECURITY_INVARIANTS.md #3"[0m
+2026-01-18T23:58:49.8193571Z [36;1m  exit 1[0m
+2026-01-18T23:58:49.8193794Z [36;1mfi[0m
+2026-01-18T23:58:49.8194023Z [36;1mecho "✅ No exec_sql usage found"[0m
+2026-01-18T23:58:49.8230163Z shell: /usr/bin/bash -e {0}
+2026-01-18T23:58:49.8230497Z ##[endgroup]
+2026-01-18T23:58:49.8379998Z ✅ No exec_sql usage found
