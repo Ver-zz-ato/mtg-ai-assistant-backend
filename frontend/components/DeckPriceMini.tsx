@@ -20,7 +20,7 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
       const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
       
       // Step 1: Try snapshot prices first
-      const pr = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
+      const pr = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const pj = await pr.json().catch(()=>({}));
       let prices: Record<string, number> = (pj?.ok && pj?.prices) ? pj.prices : {};
       
@@ -125,7 +125,10 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
   }
 
   React.useEffect(()=>{ refresh(); }, [deckId]);
-  React.useEffect(()=>{ if(total!=null) refresh(); }, [currency]);
+  React.useEffect(()=>{ 
+    setTotal(null); // Clear old total to force visual update
+    refresh(); 
+  }, [currency]);
 
   return (
     <div className="text-sm">

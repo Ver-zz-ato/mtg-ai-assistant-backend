@@ -1,11 +1,13 @@
 "use client";
 import React from "react";
+import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 
 export default function PopularCardsPanel({ commander, deckId, onAddCard }: { commander: string | null; deckId: string; onAddCard: (name: string) => Promise<void> }) {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [popularCards, setPopularCards] = React.useState<Array<{ card: string; inclusion_rate: string; deck_count: number }>>([]);
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; setCode?: string; rarity?: string }>>({});
 
   // Listen for hide/show all panels event
   React.useEffect(() => {
@@ -50,6 +52,49 @@ export default function PopularCardsPanel({ commander, deckId, onAddCard }: { co
         }
         
         setPopularCards(Array.isArray(data.cards) ? data.cards : []);
+        
+        // Fetch card images and metadata
+        if (Array.isArray(data.cards) && data.cards.length > 0) {
+          const cardNames = data.cards.map((c: { card: string; inclusion_rate: string; deck_count: number }) => c.card);
+          try {
+            // Fetch images using batch API
+            const imgRes = await fetch('/api/cards/batch-images-chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ names: cardNames })
+            });
+            const imgData = await imgRes.json().catch(() => ({ images: {} }));
+            const images = imgData.images || {};
+            
+            // Fetch metadata (set, rarity) using batch-metadata API
+            const metaRes = await fetch('/api/cards/batch-metadata', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ names: cardNames })
+            });
+            const metaData = await metaRes.json().catch(() => ({ metadata: {} }));
+            const metadata = metaData.metadata || {};
+            
+            // Combine images and metadata
+            const norm = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+            const combined: Record<string, { small?: string; normal?: string; setCode?: string; rarity?: string }> = {};
+            for (const name of cardNames) {
+              const key = norm(name);
+              const img = images[key] || images[name] || {};
+              const meta = metadata[key] || metadata[name] || {};
+              combined[key] = {
+                small: img.small,
+                normal: img.normal || img.small,
+                setCode: meta.set,
+                rarity: meta.rarity
+              };
+            }
+            setImgMap(combined);
+          } catch (imgError) {
+            console.warn('Failed to load card images:', imgError);
+            // Continue without images
+          }
+        }
       } catch (e: any) {
         setError(e?.message || 'Failed to load popular cards');
         setPopularCards([]);
@@ -93,26 +138,37 @@ export default function PopularCardsPanel({ commander, deckId, onAddCard }: { co
             <div className="text-xs text-neutral-400">No popular cards data available yet.</div>
           ) : (
             <ul className="space-y-1 max-h-[400px] overflow-y-auto">
-              {popularCards.map((item, i) => (
-                <li key={`${item.card}-${i}`} className="flex items-center justify-between gap-2 py-1">
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-sm truncate block">{item.card}</span>
-                    <span className="text-[10px] opacity-70">{item.inclusion_rate}</span>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await onAddCard(item.card);
-                      } catch (e: any) {
-                        alert(e?.message || 'Failed to add card');
-                      }
-                    }}
-                    className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap transition-colors"
-                  >
-                    Add
-                  </button>
-                </li>
-              ))}
+              {popularCards.map((item, i) => {
+                const norm = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                const cardKey = norm(item.card);
+                const cardImg = imgMap[cardKey] || imgMap[item.card] || {};
+                return (
+                  <li key={`${item.card}-${i}`} className="flex items-center justify-between gap-2 py-1">
+                    <div className="flex-1 min-w-0">
+                      <CardRowPreviewLeft
+                        name={item.card}
+                        imageSmall={cardImg.small}
+                        imageLarge={cardImg.normal}
+                        setCode={cardImg.setCode}
+                        rarity={cardImg.rarity}
+                      />
+                      <span className="text-[10px] opacity-70">{item.inclusion_rate}</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await onAddCard(item.card);
+                        } catch (e: any) {
+                          alert(e?.message || 'Failed to add card');
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap transition-colors"
+                    >
+                      Add
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -198,8 +198,10 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   }
 
   async function runBalanceCurve(ev?: React.MouseEvent) {
-    const fmt = String(intent?.format || 'Commander');
-    const { deckText } = await getDeckTextAndNames();
+    try {
+      setBusy('curve');
+      const fmt = String(intent?.format || 'Commander');
+      const { deckText } = await getDeckTextAndNames();
     const r = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: fmt, useScryfall: true, colors: Array.isArray(intent?.colors)? intent.colors: [] }) });
     const j = await r.json().catch(()=>({}));
     if (!r.ok) throw new Error(j?.error || 'Analyze failed');
@@ -268,6 +270,11 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
       anchor,
       large: true,
     });
+    } catch (e: any) {
+      await toast(e?.message || 'Balance curve failed', 'error');
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -365,17 +372,18 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
                 onClick={(e)=>checkLegalityAndTokens(e)}
               >
                 <div className="font-semibold text-xs">✓ Check Legality</div>
-                <div className="text-xs opacity-70">Verify format & colors</div>
+                <div className="text-xs opacity-70">{busy==='check' ? 'Computing...' : 'Verify format & colors'}</div>
               </button>
               <button 
-                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-left transition-colors" 
+                disabled={busy==='curve'}
+                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
                 onClick={(e)=>{ if (!proGuard()) return; runBalanceCurve(e); }}
               >
                 <div className="font-semibold text-xs flex items-center gap-1">
                   📊 Balance Curve
                   <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
                 </div>
-                <div className="text-xs opacity-70">Optimize mana curve</div>
+                <div className="text-xs opacity-70">{busy==='curve' ? 'Computing...' : 'Optimize mana curve'}</div>
               </button>
               <button 
                 disabled={busy==='swaps'}
@@ -397,7 +405,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
                   🔄 Re-analyze
                   <span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300">PRO</span>
                 </div>
-                <div className="text-xs opacity-70">{busy==='analyze' ? 'Analyzing...' : 'Update deck stats'}</div>
+                <div className="text-xs opacity-70">{busy==='analyze' ? 'Computing...' : 'Update deck stats'}</div>
               </button>
             </div>
           </div>

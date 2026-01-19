@@ -262,32 +262,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             <DeckPriceMini deckId={id} />
           </PanelWrapper>
 
-          {/* Deck Fundamentals - SECOND */}
-          <PanelWrapper title="Deck Fundamentals" colorFrom="emerald-400" colorTo="teal-500">
-            <div className="space-y-2 text-[11px]">
-              {(() => {
-                // Format-specific targets
-                const targets = format === 'commander' 
-                  ? [['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const
-                  : format === 'standard'
-                  ? [['Lands','lands',23,26],['Ramp','ramp',0,2],['Draw','draw',4,6],['Removal','removal',6,8]] as const
-                  : [['Lands','lands',19,22],['Ramp','ramp',0,4],['Draw','draw',4,6],['Removal','removal',8,10]] as const; // modern
-                
-                return targets.map(([label,key,minT,maxT])=>{  
-                  const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
-                  const ok = v>=minT && v<=maxT; const color = ok? 'bg-emerald-600' : (v<minT? 'bg-amber-500':'bg-red-500');
-                  return (
-                    <div key={String(key)}>
-                      <div className="flex items-center justify-between"><span>{label}</span><span className="font-mono">{v}{maxT?`/${maxT}`:''}</span></div>
-                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden"><div className={`h-1.5 ${color}`} style={{ width: `${pct}%` }} /></div>
-                      <div className="text-[10px] opacity-60">Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}</div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </PanelWrapper>
-
           {/* Mana Curve - THIRD */}
           <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="teal-500" defaultHiddenOnMobile={true}>
             <div className="grid grid-cols-7 gap-1 items-end h-24">
@@ -319,48 +293,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
                   </div>
                 );
               })}
-            </div>
-          </PanelWrapper>
-
-          {/* Deck Trends (Color Balance) - FIFTH */}
-          <PanelWrapper title="Deck Trends" colorFrom="cyan-400" colorTo="blue-500" large defaultCollapsed={true}>
-            <div className="flex flex-col items-center gap-6">
-              <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
-                <div className="text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-1">
-                  <span>⚪</span>
-                  <span title="Shows commander's color identity (only legal colors for Commander format)">Color Balance</span>
-                </div>
-                {hasPie ? (
-                  <>
-                    {pieSvg(pieCounts)}
-                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-neutral-200">
-                      {(['W','U','B','R','G'] as const).map(k => {
-                        const count = (pieCounts as any)[k] || 0;
-                        const colorTotal = Object.values(pieCounts).reduce((a,b)=>a+b,0) || 1;
-                        const percentage = colorTotal > 0 ? Math.round((count / colorTotal) * 100) : 0;
-                        const colorName = k==='W'?'White':k==='U'?'Blue':k==='B'?'Black':k==='R'?'Red':'Green';
-                        const colorBg = k==='W'?'bg-gray-200':k==='U'?'bg-blue-400':k==='B'?'bg-gray-600':k==='R'?'bg-red-500':'bg-green-500';
-                        return (
-                          <div key={`leg-${k}`} className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${colorBg}`}></div>
-                            <span className="font-medium">{colorName}: {count} ({percentage}%)</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-2 text-[10px] text-neutral-400 text-center">
-                      Cards: <span className="font-mono font-semibold text-neutral-300">{totalCards}</span>
-                      {Object.values(pieCounts).reduce((a,b)=>a+b,0) !== totalCards && (
-                        <span className="ml-2" title="Multicolored cards contribute to multiple colors">
-                          • Color instances: <span className="font-mono font-semibold text-neutral-300">{Object.values(pieCounts).reduce((a,b)=>a+b,0)}</span>
-                        </span>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-xs text-neutral-400 text-center py-4">Not enough data to calculate.</div>
-                )}
-              </div>
             </div>
           </PanelWrapper>
 

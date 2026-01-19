@@ -426,11 +426,14 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         const names = Array.from(new Set(rows.map(r => r.name)));
         if (!names.length) { setPriceMap({}); return; }
         
+        // Clear price map when currency changes to force re-fetch
+        setPriceMap({});
+        
         // Normalize card names the same way as snapshot API
         const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
         
-        // Step 1: Try snapshot prices first
-        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }) });
+        // Step 1: Try snapshot prices first (with cache busting for currency changes)
+        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const j1 = await r1.json().catch(()=>({ ok:false }));
         let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
         
