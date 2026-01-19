@@ -73,9 +73,9 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
         window.dispatchEvent(new CustomEvent('deck:analyzer:ran'));
       } catch {}
       
-      // Add timeout to prevent hanging (60 seconds - deck analysis can be slow)
+      // Add timeout to prevent hanging (120 seconds - deck analysis can be slow, especially with large decks)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // Increased to 2 minutes
       
       const res = await fetch('/api/deck/analyze', { 
         method:'POST', 

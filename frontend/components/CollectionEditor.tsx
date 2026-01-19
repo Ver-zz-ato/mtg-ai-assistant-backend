@@ -398,8 +398,10 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const refreshValue = React.useCallback(async ()=>{
     try{
       const names = Array.from(new Set(items.map(i=>i.name)));
-      if(!names.length) { setValueUSD(0); return; }
-      const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
+      if(!names.length) { setValueUSD(0); setPriceMap({}); return; }
+      // Clear price map when currency changes to avoid stale data
+      setPriceMap({});
+      const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
       if(!r.ok || j?.ok===false) throw new Error(j?.error||'snapshot failed');
       const prices: Record<string, number> = j.prices||{};
@@ -407,10 +409,10 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
       const total = items.reduce((acc,it)=> acc + (prices[norm(it.name)]||0)*it.qty, 0);
       setPriceMap(prices);
       setValueUSD(total);
-    }catch(e:any){ showToast(e?.message||'snapshot failed'); }
-  }, [items]);
+    }catch(e:any){ showToast(e?.message||'snapshot failed'); setPriceMap({}); setValueUSD(0); }
+  }, [items, currency]);
 
-  React.useEffect(()=>{ if(items.length) refreshValue(); }, [items, refreshValue, currency]);
+  React.useEffect(()=>{ if(items.length && !loading) refreshValue(); }, [items, refreshValue, currency, loading]);
 
   // Debounce filter input and keyboard shortcuts
   React.useEffect(()=>{ const t = setTimeout(()=> setDebouncedFilter(filterText.trim().toLowerCase()), 200); return ()=> clearTimeout(t); }, [filterText]);
@@ -716,7 +718,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             <div className="rounded border border-neutral-800 p-3">
               <div className="font-medium mb-1">Snapshot value</div>
               <div className="text-sm">Estimate (USD): <b className="font-mono">{valueUSD!=null? `$${valueUSD.toFixed(2)}` : '—'}</b></div>
-              <button onClick={refreshValue} className="mt-2 text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Refresh now</button>
+              <button onClick={refreshValue} className="mt-2 text-xs px-2 py-1 rounded bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-medium transition-all shadow-md hover:shadow-lg">Refresh now</button>
             </div>
             <div className="rounded border border-neutral-800 p-3">
               <div className="font-medium mb-1">Color pie</div>

@@ -393,11 +393,22 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
         </div>
       )}
 
-      {/* AI Analysis Button */}
+      {/* AI Analysis Button - Pro Gated */}
       {!loading && selectedDeckIds.length >= 2 && comparison && (
         <div className="flex justify-center">
           <button
             onClick={async () => {
+              // Check Pro status
+              if (!isPro) {
+                try {
+                  const { showProToast } = await import('@/lib/pro-ux');
+                  showProToast();
+                } catch {
+                  alert('⭐ AI Analysis is a Pro feature. Upgrade to unlock AI-powered deck comparisons!');
+                }
+                return;
+              }
+
               setLoadingAi(true);
               setAiAnalysis(null);
               try {
@@ -434,8 +445,13 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
                 setLoadingAi(false);
               }
             }}
-            disabled={loadingAi}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loadingAi || !isPro}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isPro 
+                ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500'
+                : 'bg-gradient-to-r from-purple-600/50 to-blue-600/50 hover:from-purple-500/50 hover:to-blue-500/50 border border-purple-500/30'
+            }`}
+            title={!isPro ? '⭐ AI Analysis requires a Pro subscription' : 'Get AI-powered deck comparison'}
           >
             {loadingAi ? (
               <>
@@ -446,6 +462,7 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
               <>
                 <span>🤖</span>
                 <span>Get AI Analysis</span>
+                {!isPro && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 ml-1">PRO</span>}
               </>
             )}
           </button>

@@ -202,20 +202,34 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
   useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
   const [priceMap, setPriceMap] = useState<Record<string, number>>({});
+  const [priceLoading, setPriceLoading] = useState<boolean>(false);
   useEffect(() => {
     (async () => {
       try {
         const names = Array.from(new Set(items.map(i=>i.name)));
-        if (!names.length) { setPriceMap({}); return; }
-        // Clear price map when currency changes to avoid stale data
+        if (!names.length) { setPriceMap({}); setPriceLoading(false); return; }
+        
+        // Don't fetch prices if items are still loading
+        if (loading) return;
+        
+        setPriceLoading(true);
+        // Clear price map when currency or items change to avoid stale data
         setPriceMap({});
         // Direct currency only; GBP requires snapshot rows - use cache: no-store to ensure fresh data
         const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const j1 = await r1.json().catch(()=>({ ok:false }));
-        if (r1.ok && j1?.ok) setPriceMap(j1.prices || {}); else setPriceMap({});
-      } catch { setPriceMap({}); }
+        if (r1.ok && j1?.ok) {
+          setPriceMap(j1.prices || {});
+        } else {
+          setPriceMap({});
+        }
+        setPriceLoading(false);
+      } catch { 
+        setPriceMap({}); 
+        setPriceLoading(false);
+      }
     })();
-  }, [items.map(i=>i.name).join('|'), currency]);
+  }, [items.map(i=>i.name).join('|'), currency, loading]);
   useEffect(() => {
     (async () => {
       try {

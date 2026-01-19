@@ -459,16 +459,50 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       const j = await r.json().catch(()=>({}));
       const sugg = j?.results?.[name]?.suggestion || j?.results?.[name]?.all?.[0];
       if (!sugg) { alert('No suggestion found'); return; }
-      if (!confirm(`Rename to "${sugg}"?`)) return;
+      if (!confirm(`Rename "${name}" to "${sugg}"?`)) return;
+      
+      // Find the current item to preserve quantity
+      const currentItem = items.find(it => it.name === name);
+      if (!currentItem) {
+        alert('Card not found in wishlist');
+        return;
+      }
+      
       const rr = await fetch('/api/wishlists/rename', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name, new_name: sugg }) });
       const jj = await rr.json().catch(()=>({}));
       if (!rr.ok || jj?.ok===false) throw new Error(jj?.error||'Rename failed');
-      // reload
+      
+      // Reload items to get updated list with prices
       const qs = new URLSearchParams({ wishlistId, currency });
       const r2 = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
       const j2 = await r2.json().catch(()=>({}));
-      if (r2.ok && j2?.ok){ setItems(Array.isArray(j2.items)?j2.items:[]); setTotal(Number(j2.total||0)); setSel(-1); }
-    } catch(e:any){ alert(e?.message||'Rename failed'); }
+      if (r2.ok && j2?.ok){
+        const newItems = Array.isArray(j2.items) ? j2.items : [];
+        setItems(newItems);
+        setTotal(Number(j2.total||0));
+        setSel(-1);
+        
+        // Check if the renamed card is in the new list
+        const renamedCard = newItems.find((it: { name: string; qty: number; unit: number; thumb?: string }) => it.name === sugg);
+        if (!renamedCard) {
+          console.warn(`Renamed card "${sugg}" not found after reload`);
+        }
+      } else {
+        throw new Error(j2?.error||'Reload failed');
+      }
+    } catch(e:any){ 
+      alert(e?.message||'Rename failed'); 
+      // Reload items anyway to ensure UI is in sync
+      try {
+        const qs = new URLSearchParams({ wishlistId, currency });
+        const r2 = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
+        const j2 = await r2.json().catch(()=>({}));
+        if (r2.ok && j2?.ok){ 
+          setItems(Array.isArray(j2.items)?j2.items:[]); 
+          setTotal(Number(j2.total||0)); 
+        }
+      } catch {}
+    }
   }
 
   if (loading && !items.length && !wishlists.length) return <WishlistSkeleton />;

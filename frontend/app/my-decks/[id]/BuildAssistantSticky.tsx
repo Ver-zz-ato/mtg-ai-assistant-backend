@@ -68,22 +68,41 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
       const { deckText, names } = await getDeckTextAndNames();
       const body:any = { deckText, format: (intent?.format||'Commander'), useScryfall: true };
       if (Array.isArray(intent?.colors) && intent.colors.length>0) body.colors = intent.colors;
-      const r = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok) throw new Error(j?.error || r.statusText);
-      const banned = Number(j?.bannedCount||0);
-      const ci = Number(j?.illegalByCI||0);
-      const legalMsg = (banned>0||ci>0) ? `Issues: ${banned} banned, ${ci} CI conflicts` : 'No legality issues';
-      // prices snapshot
-      const currency = String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase();
-      const r2 = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
-      const j2 = await r2.json().catch(()=>({ ok:false }));
-      const prices: Record<string, number> = (r2.ok && j2?.ok) ? (j2.prices||{}) : {};
-      const pricedCount = Object.values(prices).filter((v:any)=>Number(v)>0).length;
-      const anchor = ev ? { x: (ev as any).clientX||0, y: (ev as any).clientY||0 } : undefined;
-      showPanel({ title: 'Legality check', lines: [ { text: `${legalMsg}` }, { text: `Updated prices for ${pricedCount} cards.` } ], type: (banned||ci)?'warning':'success', anchor, large: true });
-      try { window.dispatchEvent(new Event('analyzer:run')); } catch {}
-      try { window.dispatchEvent(new CustomEvent('legality:open', { detail: { result: j } })); } catch {}
+      
+      // Add timeout to prevent hanging (120 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      
+      try {
+        const r = await fetch('/api/deck/analyze', { 
+          method:'POST', 
+          headers:{'content-type':'application/json'}, 
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const j = await r.json().catch(()=>({}));
+        if (!r.ok) throw new Error(j?.error || r.statusText);
+        const banned = Number(j?.bannedCount||0);
+        const ci = Number(j?.illegalByCI||0);
+        const legalMsg = (banned>0||ci>0) ? `Issues: ${banned} banned, ${ci} CI conflicts` : 'No legality issues';
+        // prices snapshot
+        const currency = String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase();
+        const r2 = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
+        const j2 = await r2.json().catch(()=>({ ok:false }));
+        const prices: Record<string, number> = (r2.ok && j2?.ok) ? (j2.prices||{}) : {};
+        const pricedCount = Object.values(prices).filter((v:any)=>Number(v)>0).length;
+        const anchor = ev ? { x: (ev as any).clientX||0, y: (ev as any).clientY||0 } : undefined;
+        showPanel({ title: 'Legality check', lines: [ { text: `${legalMsg}` }, { text: `Updated prices for ${pricedCount} cards.` } ], type: (banned||ci)?'warning':'success', anchor, large: true });
+        try { window.dispatchEvent(new Event('analyzer:run')); } catch {}
+        try { window.dispatchEvent(new CustomEvent('legality:open', { detail: { result: j } })); } catch {}
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Analysis timed out after 2 minutes. Please try again with a smaller deck or check your connection.');
+        }
+        throw fetchError;
+      }
     } catch (e:any) {
       await toast(e?.message || 'Check failed', 'error');
     } finally { setBusy(null); }

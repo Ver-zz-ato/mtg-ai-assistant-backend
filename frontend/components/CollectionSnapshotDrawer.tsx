@@ -29,15 +29,28 @@ export default function CollectionSnapshotDrawer({ collectionId }: { collectionI
       // Use cache: no-store to ensure fresh price data
       const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
-      if(!r.ok || j?.ok===false){ setValue(null); return; }
+      if(!r.ok || j?.ok===false){ 
+        console.warn('Price snapshot failed:', j?.error || 'Unknown error');
+        setValue(null); 
+        return; 
+      }
       const prices: Record<string, number> = j.prices||{};
       const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
       const total = cards.reduce((acc,it)=> acc + (prices[norm(it.name)]||0)*it.qty, 0);
       setValue(total);
-    }catch{ setValue(null); }
+    }catch(e:any){ 
+      console.error('Refresh value error:', e);
+      setValue(null); 
+    }
   }, [cards, currency]);
 
-  React.useEffect(()=>{ if(cards.length) refreshValue(); }, [cards, currency, refreshValue]);
+  React.useEffect(()=>{ 
+    if(cards.length > 0) {
+      refreshValue(); 
+    } else {
+      setValue(0);
+    }
+  }, [cards, currency, refreshValue]);
 
   React.useEffect(()=>{ (async()=>{
     try{

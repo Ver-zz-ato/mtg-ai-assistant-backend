@@ -211,7 +211,12 @@ export default function BudgetSwapsClient(){
     }
     
     // Track UI click (already done via track helper)
-    setBusy(true); setError(undefined);
+    setBusy(true); 
+    setError(undefined);
+    // Clear previous results immediately to prevent flashing
+    setSugs([]);
+    setMeta({});
+    
     try{
       const body: any = { deckText, currency, budget: threshold, ai: mode==='ai' };
       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });

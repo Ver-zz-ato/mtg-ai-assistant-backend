@@ -49,10 +49,29 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
       const deckFormat = format || 'commander'; // Use provided format or default to commander
       const body: any = { deckText: ensureText, format: deckFormat.charAt(0).toUpperCase() + deckFormat.slice(1), useScryfall: true };
       if (colors.length) body.colors = colors;
-      const r = await fetch('/api/deck/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok) throw new Error(j?.error || r.statusText);
-      setResult(j);
+      
+      // Add timeout to prevent hanging (120 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      
+      try {
+        const r = await fetch('/api/deck/analyze', { 
+          method: 'POST', 
+          headers: { 'content-type': 'application/json' }, 
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const j = await r.json().catch(()=>({}));
+        if (!r.ok) throw new Error(j?.error || r.statusText);
+        setResult(j);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Analysis timed out after 2 minutes. Please try again with a smaller deck or check your connection.');
+        }
+        throw fetchError;
+      }
     } catch (e: any) {
       setError(e?.message || 'Analyze failed');
     } finally { setLoading(false); }

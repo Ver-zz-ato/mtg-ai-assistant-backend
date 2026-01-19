@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
+import TopMovers from './TopMovers';
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 const COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"]; 
@@ -362,11 +363,17 @@ export default function PriceTrackerPage(){
                   )}
                 </LineChart>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs opacity-70">Measuring…</div>
+                <div className="w-full h-full flex flex-col items-center justify-center space-y-3">
+                  <div className="animate-pulse space-y-2 w-full max-w-md">
+                    <div className="h-4 w-3/4 bg-neutral-800 rounded mx-auto" />
+                    <div className="h-4 w-1/2 bg-neutral-800 rounded mx-auto" />
+                  </div>
+                  <div className="text-xs opacity-70 text-center">Enter one or more card names to see price history.</div>
+                </div>
               )}
             </div>
-            {series.length===0 && (
-              <div className="text-xs opacity-70">Enter one or more card names to see price history.</div>
+            {series.length===0 && chartSize.w > 0 && (
+              <div className="text-xs opacity-70 mt-2">Enter one or more card names to see price history.</div>
             )}
             <div className="mt-3 text-[10px] opacity-60">Disclaimer: Prices are sourced from daily snapshots and provided for informational purposes only. We cannot be held responsible for price fluctuations or market availability.</div>
           </motion.section>
@@ -405,11 +412,6 @@ export default function PriceTrackerPage(){
           <section className="rounded border border-neutral-800 p-3">
             <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} />
           </section>
-
-          {/* Price Delta Heatmap - Visual grid showing biggest movers */}
-          <section className="rounded border border-neutral-800 p-3">
-            <PriceDeltaHeatmap currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} />
-          </section>
         </section>
 
         {/* RIGHT: Deck value (Pro) */}
@@ -421,161 +423,33 @@ export default function PriceTrackerPage(){
   );
 }
 
-// Price Delta Heatmap Component - Visual grid showing cards colored by price movement
-function PriceDeltaHeatmap({ currency, onAddToChart }: { currency: 'USD'|'EUR'|'GBP'; onAddToChart?: (name: string) => void }) {
-  const [movers, setMovers] = React.useState<Array<{ name: string; prior: number; latest: number; delta: number; pct: number }>>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [windowDays, setWindowDays] = React.useState(7);
-  const [limit, setLimit] = React.useState(50);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${windowDays}&limit=${limit}`, { cache: 'no-store' });
-        const j = await r.json().catch(() => ({}));
-        if (r.ok && j?.ok) {
-          setMovers(j.rows || []);
-        } else {
-          setMovers([]);
-        }
-      } catch (e) {
-        setMovers([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [currency, windowDays, limit]);
-
-  // Calculate color intensity based on percentage change
-  const getColor = (pct: number, opacity: number = 1.0) => {
-    const absPct = Math.abs(pct);
-    const intensity = Math.min(absPct * 2, 1); // Cap at 100% change = full intensity
-    if (pct > 0) {
-      // Price went up - red shades
-      const red = Math.round(239 + (255 - 239) * intensity); // #ef4444 to #ff0000
-      const green = Math.round(68 - 68 * intensity); // #44 to #00
-      const blue = Math.round(68 - 68 * intensity); // #44 to #00
-      return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
-    } else {
-      // Price went down - green shades
-      const red = Math.round(16 - 16 * intensity); // #10 to #00
-      const green = Math.round(185 + (255 - 185) * intensity); // #b9 to #ff
-      const blue = Math.round(129 - 129 * intensity); // #81 to #00
-      return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
-    }
-  };
-
-  const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
-
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        <div className="font-medium">Price Delta Heatmap</div>
-        <div className="text-sm opacity-70">Loading price movements...</div>
-      </div>
-    );
-  }
-
-  if (movers.length === 0) {
-    return (
-      <div className="space-y-2">
-        <div className="font-medium">Price Delta Heatmap</div>
-        <div className="text-sm opacity-70">No price movement data available. Snapshots may need to be generated.</div>
-      </div>
-    );
-  }
-
-  // Sort by absolute percentage change for heatmap (biggest movers first)
-  const sorted = [...movers].sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="font-medium">Price Delta Heatmap</div>
-        <div className="flex items-center gap-2 text-xs">
-          <label className="inline-flex items-center gap-1">
-            Window
-            <select value={windowDays} onChange={e => setWindowDays(parseInt(e.target.value, 10))} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
-              <option value={7}>7d</option>
-              <option value={30}>30d</option>
-              <option value={90}>90d</option>
-            </select>
-          </label>
-          <label className="inline-flex items-center gap-1">
-            Limit
-            <select value={limit} onChange={e => setLimit(parseInt(e.target.value, 10))} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="text-xs opacity-70 mb-2">
-        Cards colored by price movement: 🔴 Red = price increased, 🟢 Green = price decreased. Intensity = change magnitude.
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {sorted.map((mover) => {
-          const baseColor = getColor(mover.pct, 1.0);
-          const bgColor = getColor(mover.pct, 0.2); // 20% opacity background
-          const borderColor = getColor(mover.pct, 0.6); // 60% opacity border
-          return (
-            <button
-              key={mover.name}
-              onClick={() => onAddToChart?.(mover.name)}
-              className="relative p-3 rounded-lg border hover:border-blue-500 hover:scale-105 transition-all cursor-pointer text-left"
-              style={{
-                backgroundColor: bgColor,
-                borderColor: borderColor,
-              }}
-              title={`${mover.name}: ${currSym}${mover.prior.toFixed(2)} → ${currSym}${mover.latest.toFixed(2)} (${mover.pct >= 0 ? '+' : ''}${(mover.pct * 100).toFixed(1)}%)`}
-            >
-              <div className="text-xs font-medium truncate mb-1">{mover.name}</div>
-              <div className="text-xs font-mono">
-                <div className="text-neutral-400">{currSym}{mover.prior.toFixed(2)}</div>
-                <div className="font-semibold" style={{ color: baseColor }}>
-                  {mover.delta >= 0 ? '+' : ''}{currSym}{Math.abs(mover.delta).toFixed(2)}
-                </div>
-                <div className="text-xs" style={{ color: baseColor }}>
-                  {mover.pct >= 0 ? '+' : ''}{(mover.pct * 100).toFixed(1)}%
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="text-xs opacity-60 mt-2">
-        Showing {sorted.length} cards with the biggest price movements. Click a card to add it to the price chart above.
-      </div>
-    </div>
-  );
-}
 
 function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'|'GBP' }){
   const [hoverIdx, setHoverIdx] = React.useState<number|null>(null);
   const [points, setPoints] = React.useState<Array<{date:string; total:number}>>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true); // Start with loading=true to show skeleton immediately
   const [showMA7, setShowMA7] = React.useState(false); // #12 Moving average 7-day
   const [showMA30, setShowMA30] = React.useState(false); // #12 Moving average 30-day
   const [zoomRange, setZoomRange] = React.useState<[number, number]>([0, 1]); // #11 Zoom state (0-1 normalized)
   
-  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); return; } try{ setLoading(true); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
+  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
   
   if (!deckId) return <div className="text-xs opacity-70">Select a deck to see its total value over time.</div>;
   
   if (loading) {
     return (
-      <div className="space-y-2 animate-pulse">
-        <div className="h-8 w-32 bg-neutral-800 rounded" />
-        <div className="h-6 w-40 bg-neutral-800 rounded" />
-        <div className="h-64 bg-neutral-800 rounded" />
+      <div className="space-y-3 animate-pulse">
+        <div className="h-10 w-40 bg-neutral-800 rounded" />
+        <div className="h-6 w-48 bg-neutral-800 rounded" />
+        <div className="h-64 bg-neutral-800 rounded-lg" />
         <div className="flex justify-between gap-2">
-          <div className="h-3 w-20 bg-neutral-800 rounded" />
-          <div className="h-3 w-20 bg-neutral-800 rounded" />
+          <div className="h-4 w-24 bg-neutral-800 rounded" />
+          <div className="h-4 w-24 bg-neutral-800 rounded" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 w-full bg-neutral-800 rounded" />
+          <div className="h-3 w-3/4 bg-neutral-800 rounded" />
+          <div className="h-3 w-1/2 bg-neutral-800 rounded" />
         </div>
       </div>
     );
@@ -1428,6 +1302,3 @@ function DeckSelect({ deckId, setDeckId }: { deckId: string; setDeckId: (id:stri
     </label>
   );
 }
-
-// TopMovers component moved to separate file
-import TopMovers from './TopMovers';

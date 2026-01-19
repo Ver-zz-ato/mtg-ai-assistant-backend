@@ -85,8 +85,9 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Taken</span>}
           <input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="w-56 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs" />
           <button onClick={copyLink} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
-          <img src={qrSrc()} alt="QR" className="w-10 h-10 bg-white rounded border border-neutral-700" />
-          <button onClick={downloadQR} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">QR</button>
+          <button onClick={downloadQR} title="Download QR code" className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white transition-all shadow-md hover:shadow-lg">
+            <img src={qrSrc()} alt="QR Code - Click to download" className="w-10 h-10 bg-white rounded border border-neutral-700 cursor-pointer" />
+          </button>
         </div>
       )}
 

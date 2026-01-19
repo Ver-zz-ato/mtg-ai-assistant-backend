@@ -59,6 +59,24 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seqRef = React.useRef(0);
   const lastRef = React.useRef<{ msg: string; at: number } | null>(null);
+  
+  // Clear all toasts on navigation
+  React.useEffect(() => {
+    const handleRouteChange = () => {
+      setToasts([]);
+    };
+    
+    // Listen for navigation events
+    window.addEventListener('beforeunload', handleRouteChange);
+    // Also clear on pathname changes (handled via custom event)
+    const handleNavigation = () => handleRouteChange();
+    window.addEventListener('navigation', handleNavigation as EventListener);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleRouteChange);
+      window.removeEventListener('navigation', handleNavigation as EventListener);
+    };
+  }, []);
 
   const newId = () => {
     const now = Date.now();
