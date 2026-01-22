@@ -38,6 +38,12 @@ export async function PUT(req: Request, ctx: { params: Promise<Params> }) {
     return new Response(JSON.stringify({ ok:false, error: 'No fields to update' }), { status: 400, headers: { 'content-type':'application/json' } });
   }
 
+  // If making public and no slug provided, auto-generate from collection ID (guaranteed unique)
+  if (typeof is_public === 'boolean' && is_public === true && typeof public_slug !== 'string') {
+    // Generate unique slug from collection ID (UUID without hyphens)
+    public_slug = `collection-${id.replace(/-/g, '')}`;
+  }
+
   if (typeof public_slug === 'string') {
     const norm = normalizeSlug(public_slug);
     if (!norm || norm.length < 3 || norm.length > 60) {

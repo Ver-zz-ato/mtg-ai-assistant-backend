@@ -36,14 +36,30 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
   }, [slug]);
 
   async function togglePublic(){
-    if (!isPublic && slug && slugOk === false) return;
     setBusy(true);
     try{
       const body:any = { is_public: !isPublic };
-      if(!isPublic){ body.public_slug = slug || `collection-${Date.now()}`; }
+      if(!isPublic){ 
+        // Use current slug if available and valid, otherwise generate from collection ID (guaranteed unique)
+        if (slug && slugOk !== false) {
+          body.public_slug = slug;
+        } else {
+          // Generate unique slug from collection ID (UUID without hyphens)
+          // This ensures every collection has a unique, shareable slug automatically
+          body.public_slug = `collection-${collectionId.replace(/-/g, '')}`;
+        }
+      }
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
-      if(r.ok){ const m=j?.meta??j; setIsPublic(Boolean(m?.is_public)); setSlug(String(m?.public_slug||slug)); }
+      if(r.ok){ 
+        const m=j?.meta??j; 
+        setIsPublic(Boolean(m?.is_public)); 
+        setSlug(String(m?.public_slug||slug||'')); 
+        // Reset slug validation state when toggling
+        if (!m?.is_public) {
+          setSlugOk(undefined);
+        }
+      }
     }catch{}
     finally{ setBusy(false); }
   }
@@ -82,12 +98,26 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           <input aria-invalid={slugOk===false} value={slug} onChange={e=>setSlug(e.target.value)} placeholder="my-binder" className={`w-40 bg-neutral-950 border ${slugOk===false? 'border-red-500':'border-neutral-700'} rounded px-2 py-1 text-xs`} />
           {checking && <span className="text-[11px] opacity-60">Checking…</span>}
           {!checking && slug && slugOk===true && <span className="text-[11px] text-emerald-400">Available</span>}
-          {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Taken</span>}
+          {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Slug already in use</span>}
           <input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="w-56 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs" />
           <button onClick={copyLink} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
-          <button onClick={downloadQR} title="Download QR code" className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white transition-all shadow-md hover:shadow-lg">
-            <img src={qrSrc()} alt="QR Code - Click to download" className="w-10 h-10 bg-white rounded border border-neutral-700 cursor-pointer" />
-          </button>
+          {url && (
+            <button 
+              onClick={downloadQR} 
+              title="Download QR code" 
+              className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white transition-all shadow-md hover:shadow-lg"
+            >
+              <img 
+                src={qrSrc()} 
+                alt="QR Code - Click to download" 
+                className="w-10 h-10 bg-white rounded border border-neutral-700 pointer-events-none" 
+                onError={(e) => {
+                  // Fallback if QR image fails to load
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </button>
+          )}
         </div>
       )}
 

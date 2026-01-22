@@ -272,13 +272,22 @@ export default function DeckSidebar({
       const suggestion = fuzzyResults[cardName]?.suggestion;
       const allSuggestions = Array.isArray(fuzzyResults[cardName]?.all) ? fuzzyResults[cardName].all : [];
       
-      // If name needs fixing, show alert and don't add
+      // If name needs fixing, show alert and don't add — unless the only difference is capitalization
+      // Also skip if the card name (case-insensitive) matches any suggestion exactly
       if (suggestion && suggestion !== cardName && allSuggestions.length > 0) {
-        const confirmed = confirm(`Did you mean "${suggestion}" instead of "${cardName}"? Click OK to use "${suggestion}" or Cancel to skip.`);
-        if (confirmed && suggestion) {
+        const caseOnly = suggestion.toLowerCase() === cardName.toLowerCase();
+        const matchesSuggestion = allSuggestions.some((s: string) => s.toLowerCase() === cardName.toLowerCase());
+        
+        if (caseOnly || matchesSuggestion) {
+          // Same name, different casing, or matches a suggestion exactly — use canonical form, no prompt
           cardName = suggestion;
         } else {
-          return; // User cancelled, don't add
+          const confirmed = confirm(`Did you mean "${suggestion}" instead of "${cardName}"? Click OK to use "${suggestion}" or Cancel to skip.`);
+          if (confirmed && suggestion) {
+            cardName = suggestion;
+          } else {
+            return; // User cancelled, don't add
+          }
         }
       }
     } catch (validationError) {
@@ -286,18 +295,55 @@ export default function DeckSidebar({
     }
     
     try {
+      // Get previous state for undo
+      const prevRes = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`);
+      const prevJson = await prevRes.json().catch(()=>({ ok: false }));
+      const prevCard = prevJson?.ok ? (prevJson.cards || []).find((c: any) => c.name === cardName) : null;
+      const prevQty = prevCard?.qty || 0;
+      
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cardName, qty: 1 })
       });
       const data = await res.json();
-      if (data.ok) {
-        window.dispatchEvent(new Event('deck:changed'));
-        window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${cardName}` }));
-      } else {
+      if (!data.ok) {
         alert(data.error || 'Failed to add card');
+        return;
       }
+      
+      const newQty = data?.qty || 1;
+      const wasMerged = data?.merged || false;
+      const message = wasMerged && prevQty > 0 
+        ? `Added ${cardName} (now ${newQty} total)`
+        : `Added ${cardName}`;
+      
+      window.dispatchEvent(new Event('deck:changed'));
+      
+      // Show undo toast
+      const { undoToastManager } = await import('@/lib/undo-toast');
+      undoToastManager.showUndo({
+        id: `add-recommendation-${deckId}-${cardName}-${Date.now()}`,
+        message,
+        duration: 5000,
+        onUndo: async () => {
+          if (wasMerged && prevQty > 0) {
+            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: cardName, qty: prevQty })
+            });
+          } else {
+            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: cardName, qty: 1 })
+            });
+          }
+          window.dispatchEvent(new Event('deck:changed'));
+        },
+        onExecute: () => {}
+      });
     } catch (e: any) {
       alert(e?.message || 'Failed to add card');
     }

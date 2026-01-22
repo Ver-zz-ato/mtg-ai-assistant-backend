@@ -260,6 +260,7 @@ export async function POST(req: NextRequest) {
   let status = 200;
   let userId: string | null = null;
   let isGuest = false;
+  let guestToken: string | null = null;
   
   try {
     const supabase = await getServerSupabase();
@@ -272,7 +273,7 @@ export async function POST(req: NextRequest) {
       // Allow guest users with server-side enforced message limits
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
-      const guestToken = cookieStore.get('guest_session_token')?.value || null;
+      guestToken = cookieStore.get('guest_session_token')?.value || null;
       
       // Extract IP and User-Agent for token verification/tracking
       const forwarded = req.headers.get('x-forwarded-for');
@@ -390,14 +391,23 @@ export async function POST(req: NextRequest) {
       created = false;
     } else if (!tid) {
       const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
-      // Enforce max 30 threads per user
-      const { count, error: cErr } = await supabase
-        .from("chat_threads")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId!);
-      if (cErr) { status = 500; return err(cErr.message, "db_error", 500); }
-      if ((count ?? 0) >= 30) { status = 400; return err("Thread limit reached (30). Please delete a thread before creating a new one.", "thread_limit", status); }
+      
+      // Enforce thread limits: Free: 30, Pro: unlimited
+      if (!isPro) {
+        const threadLimit = 30;
+        const { count, error: cErr } = await supabase
+          .from("chat_threads")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId!);
+        if (cErr) { status = 500; return err(cErr.message, "db_error", 500); }
+        if ((count ?? 0) >= threadLimit) {
+          status = 400;
+          return err(`Thread limit reached (30). Upgrade to Pro for unlimited threads! Please delete a thread before creating a new one.`, "thread_limit", status);
+        }
+      }
+      // Pro users: no thread limit check (unlimited)
 
+      // Create thread
       const { data, error } = await supabase
         .from("chat_threads")
         .insert({ user_id: userId!, title })
@@ -407,6 +417,7 @@ export async function POST(req: NextRequest) {
       tid = data.id;
       created = true;
     } else {
+      // Verify thread exists and belongs to user
       const { data, error } = await supabase
         .from("chat_threads")
         .select("id")

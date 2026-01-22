@@ -11,13 +11,25 @@ export async function POST(req: Request) {
   if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
   const { title, deckId } = parsed.data;
 
-  // Enforce max 30 threads per user
-  const { count, error: cErr } = await supabase
-    .from("chat_threads")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  if (cErr) return err(cErr.message, "db_error", 500);
-  if ((count ?? 0) >= 30) return err("Thread limit reached (30). Please delete a thread before creating a new one.", "thread_limit", 400);
+  // Check Pro status
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_pro')
+    .eq('id', user.id)
+    .single();
+  const isPro = profile?.is_pro || false;
+
+  // Enforce thread limit: Free users: 30, Pro: unlimited
+  if (!isPro) {
+    const threadLimit = 30;
+    const { count, error: cErr } = await supabase
+      .from("chat_threads")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if (cErr) return err(cErr.message, "db_error", 500);
+    if ((count ?? 0) >= threadLimit) return err(`Thread limit reached (30). Upgrade to Pro for unlimited threads! Please delete a thread before creating a new one.`, "thread_limit", 400);
+  }
+  // Pro users: no thread limit check (unlimited)
 
   const { data, error } = await supabase
     .from("chat_threads")

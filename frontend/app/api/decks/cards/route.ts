@@ -208,11 +208,11 @@ export async function POST(req: NextRequest) {
     const { error: insErr, data } = await supabase
       .from("deck_cards")
       .insert({ deck_id: deckId, name, qty })
-      .select("id")
+      .select("id, qty")
       .single();
 
     if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
-    return NextResponse.json({ ok: true, id: data?.id });
+    return NextResponse.json({ ok: true, id: data?.id, qty: data?.qty || qty, merged: false });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }

@@ -926,7 +926,7 @@ export default function CostToFinishClient() {
             </div>
           )}
           <select
-            className="w-full rounded-md border bg-black/20 px-3 py-2"
+            className="w-full rounded-md border bg-neutral-950 px-3 py-2"
             value={deckId}
             onChange={(e) => setDeckId(e.target.value)}
           >
@@ -1537,17 +1537,50 @@ export default function CostToFinishClient() {
                             </td>
                             <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words">
                               <div className="flex flex-wrap gap-1 min-w-0 max-w-full">
-                                <span className={`px-1.5 py-0.5 rounded text-xs ${src==='Snapshot'?'bg-neutral-800':'bg-neutral-900'} max-w-full`}>{src}</span>
+                                <span 
+                                  className={`px-1.5 py-0.5 rounded text-xs ${src==='Snapshot'?'bg-neutral-800':'bg-neutral-900'} max-w-full cursor-help`}
+                                  title={src === 'Snapshot' ? 'Price from historical snapshot (cached)' : 'Live price from Scryfall API'}
+                                >
+                                  {src}
+                                </span>
+                                {(() => {
+                                  const rarity = rarityMap[name.toLowerCase()] || '';
+                                  if (!rarity) return null;
+                                  const rarityColors: Record<string, string> = {
+                                    'common': 'text-neutral-400',
+                                    'uncommon': 'text-emerald-400',
+                                    'rare': 'text-blue-400',
+                                    'mythic': 'text-amber-400'
+                                  };
+                                  return (
+                                    <span 
+                                      className={`px-1.5 py-0.5 rounded text-xs bg-neutral-800 capitalize cursor-help ${rarityColors[rarity.toLowerCase()] || 'text-neutral-300'}`}
+                                      title={`Rarity: ${rarity.charAt(0).toUpperCase() + rarity.slice(1)}`}
+                                    >
+                                      {rarity.charAt(0).toUpperCase() + rarity.slice(1)}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words">
                               <div className="flex flex-wrap gap-1 min-w-0 max-w-full">
-                                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs max-w-full">{it.role}</span>
+                                <span 
+                                  className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs max-w-full cursor-help"
+                                  title={`Card role: ${it.role || 'Unknown'}`}
+                                >
+                                  {it.role}
+                                </span>
                               </div>
                             </td>
                             <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words">
                               <div className="flex flex-wrap gap-1 min-w-0 max-w-full">
-                                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs capitalize max-w-full">{it.tier.replace(/_/g,' ')}</span>
+                                <span 
+                                  className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs capitalize max-w-full cursor-help"
+                                  title={`Power tier: ${it.tier.replace(/_/g, ' ')}`}
+                                >
+                                  {it.tier.replace(/_/g,' ')}
+                                </span>
                               </div>
                             </td>
                             <td className="hidden 2xl:table-cell py-1 px-3 align-middle whitespace-normal break-words"><a className="text-blue-300 hover:underline" href={it.scryfall_uri || '#'} target="_blank" rel="noreferrer">Scryfall</a></td>

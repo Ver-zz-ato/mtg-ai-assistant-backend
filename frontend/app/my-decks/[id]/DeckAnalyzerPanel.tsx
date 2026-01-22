@@ -26,6 +26,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [promptVersion, setPromptVersion] = React.useState<string | undefined>(undefined);
   const [filteredSummary, setFilteredSummary] = React.useState<string | null>(null);
   const [filteredReasons, setFilteredReasons] = React.useState<string[]>([]);
+  const [progress, setProgress] = React.useState<string | null>(null);
   
   // Store deck context for "Why?" explanations
   const [storedDeckText, setStoredDeckText] = React.useState<string>('');
@@ -73,10 +74,22 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
         window.dispatchEvent(new CustomEvent('deck:analyzer:ran'));
       } catch {}
       
-      // Add timeout to prevent hanging (120 seconds - deck analysis can be slow, especially with large decks)
+      // Add timeout to prevent hanging (240 seconds - deck analysis can be slow, especially with large decks)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // Increased to 2 minutes
+      const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutes for complex decks
       
+      // Show progress updates
+      setProgress('Loading deck...');
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev === 'Loading deck...') return 'Analyzing deck structure...';
+          if (prev === 'Analyzing deck structure...') return 'Checking card legality...';
+          if (prev === 'Checking card legality...') return 'Generating suggestions...';
+          return 'Finalizing analysis...';
+        });
+      }, 30000); // Update every 30 seconds
+      
+      setProgress('Analyzing deck structure...');
       const res = await fetch('/api/deck/analyze', { 
         method:'POST', 
         headers:{'content-type':'application/json'}, 
@@ -84,8 +97,10 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
         signal: controller.signal
       });
       
-      // Clear timeout once fetch completes
+      // Clear timeout and progress interval once fetch completes
       clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      setProgress(null);
       
       const j = await res.json().catch(()=>({}));
       console.log('Deck Analyzer: API response status:', res.ok, 'error:', j?.error);
@@ -108,12 +123,14 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
     } catch (e:any) { 
       console.error('Deck Analyzer: Error during analysis:', e);
       if (e.name === 'AbortError') {
-        setError('Analysis timed out. Please try again.');
+        setError('Analysis timed out after 4 minutes. Large decks can take longer - try again or contact support if this persists.');
       } else {
         setError(e?.message || 'Analyze failed');
       }
+      setProgress(null);
       setBusy(false);
     } finally { 
+      setProgress(null);
       setBusy(false); 
     }
   }
@@ -192,6 +209,15 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
         </div>
         <button onClick={() => run()} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60">{busy?'Analyzing…':'Run'}</button>
       </div>
+      {progress && (
+        <div className="text-xs text-blue-400 flex items-center gap-2">
+          <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {progress}
+        </div>
+      )}
       {error && <div className="text-xs text-red-400">{error}</div>}
       {score!=null && (
         <div className="text-sm">Score: <span className="font-semibold">{score}</span></div>
@@ -470,6 +496,12 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                   )}
                                   <button onClick={async()=>{
                                     try { 
+                                      // Get previous state for undo
+                                      const prevRes = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`);
+                                      const prevJson = await prevRes.json().catch(()=>({ ok: false }));
+                                      const prevCard = prevJson?.ok ? (prevJson.cards || []).find((c: any) => c.name === s.card) : null;
+                                      const prevQty = prevCard?.qty || 0;
+                                      
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
                                         method:'POST', 
                                         headers:{'content-type':'application/json'}, 
@@ -477,8 +509,40 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       }); 
                                       const j = await res.json().catch(()=>({})); 
                                       if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                                      
+                                      const newQty = j?.qty || 1;
+                                      const wasMerged = j?.merged || false;
+                                      const message = wasMerged && prevQty > 0 
+                                        ? `Added ${s.card} (now ${newQty} total)`
+                                        : `Added ${s.card}`;
+                                      
                                       window.dispatchEvent(new Event('deck:changed')); 
-                                      window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
+                                      
+                                      // Show undo toast
+                                      const { undoToastManager } = await import('@/lib/undo-toast');
+                                      undoToastManager.showUndo({
+                                        id: `add-analyzer-${deckId}-${s.card}-${Date.now()}`,
+                                        message,
+                                        duration: 5000,
+                                        onUndo: async () => {
+                                          if (wasMerged && prevQty > 0) {
+                                            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                                              method: 'POST',
+                                              headers: { 'content-type': 'application/json' },
+                                              body: JSON.stringify({ name: s.card, qty: prevQty })
+                                            });
+                                          } else {
+                                            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                                              method: 'DELETE',
+                                              headers: { 'content-type': 'application/json' },
+                                              body: JSON.stringify({ name: s.card, qty: 1 })
+                                            });
+                                          }
+                                          window.dispatchEvent(new Event('deck:changed'));
+                                        },
+                                        onExecute: () => {}
+                                      });
+                                      
                                       // Track suggestion accepted
                                       if (s.id) {
                                         try {
@@ -553,6 +617,12 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                   )}
                                   <button onClick={async()=>{
                                     try { 
+                                      // Get previous state for undo
+                                      const prevRes = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`);
+                                      const prevJson = await prevRes.json().catch(()=>({ ok: false }));
+                                      const prevCard = prevJson?.ok ? (prevJson.cards || []).find((c: any) => c.name === s.card) : null;
+                                      const prevQty = prevCard?.qty || 0;
+                                      
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
                                         method:'POST', 
                                         headers:{'content-type':'application/json'}, 
@@ -560,8 +630,40 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       }); 
                                       const j = await res.json().catch(()=>({})); 
                                       if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
+                                      
+                                      const newQty = j?.qty || 1;
+                                      const wasMerged = j?.merged || false;
+                                      const message = wasMerged && prevQty > 0 
+                                        ? `Added ${s.card} (now ${newQty} total)`
+                                        : `Added ${s.card}`;
+                                      
                                       window.dispatchEvent(new Event('deck:changed')); 
-                                      window.dispatchEvent(new CustomEvent("toast", { detail: `Added ${s.card}` })); 
+                                      
+                                      // Show undo toast
+                                      const { undoToastManager } = await import('@/lib/undo-toast');
+                                      undoToastManager.showUndo({
+                                        id: `add-analyzer-${deckId}-${s.card}-${Date.now()}`,
+                                        message,
+                                        duration: 5000,
+                                        onUndo: async () => {
+                                          if (wasMerged && prevQty > 0) {
+                                            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                                              method: 'POST',
+                                              headers: { 'content-type': 'application/json' },
+                                              body: JSON.stringify({ name: s.card, qty: prevQty })
+                                            });
+                                          } else {
+                                            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                                              method: 'DELETE',
+                                              headers: { 'content-type': 'application/json' },
+                                              body: JSON.stringify({ name: s.card, qty: 1 })
+                                            });
+                                          }
+                                          window.dispatchEvent(new Event('deck:changed'));
+                                        },
+                                        onExecute: () => {}
+                                      });
+                                      
                                       // Track suggestion accepted
                                       if (s.id) {
                                         try {

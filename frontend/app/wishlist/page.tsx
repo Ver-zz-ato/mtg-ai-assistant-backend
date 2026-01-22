@@ -176,6 +176,11 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const [pendingValidatedNames, setPendingValidatedNames] = React.useState<Array<{ name: string; qty: number }>>([]);
   const [pendingBulkMode, setPendingBulkMode] = React.useState<'increment'|'replace'>('increment');
   const [bulkAdding, setBulkAdding] = React.useState<boolean>(false);
+  // Single card validation state
+  const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice: string; qty: number }>>([]);
+  const [showAddValidation, setShowAddValidation] = React.useState(false);
+  const [pendingAddName, setPendingAddName] = React.useState<string>('');
+  const [pendingAddQty, setPendingAddQty] = React.useState<number>(1);
 
   React.useEffect(()=>{ (async()=>{
     try{
@@ -325,8 +330,56 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   const { preview, bind } = useHoverPreview();
   const [fixOpen, setFixOpen] = React.useState(false);
 
-  async function add(cardName?: string){
-    const name = (cardName || addName).trim(); const q = Math.max(1, Number(addQty||1)); if (!name) return;
+  async function add(cardName?: string, validatedName?: string){
+    let name = (cardName || addName).trim(); 
+    const q = Math.max(1, Number(addQty||1)); 
+    if (!name) return;
+    
+    // If validatedName is provided (from autocomplete selection), use it directly
+    // Otherwise, validate card name before adding (skip if only capitalization differs)
+    if (!validatedName && !cardName) {
+      try {
+        const validationRes = await fetch('/api/cards/fuzzy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: [name] })
+        });
+        const validationJson = await validationRes.json().catch(() => ({}));
+        const fuzzyResults = validationJson?.results || {};
+        
+        const suggestion = fuzzyResults[name]?.suggestion;
+        const allSuggestions = Array.isArray(fuzzyResults[name]?.all) ? fuzzyResults[name].all : [];
+        
+        // If name needs fixing, show validation modal — unless the only difference is capitalization
+        if (suggestion && suggestion !== name && allSuggestions.length > 0) {
+          const caseOnly = suggestion.toLowerCase() === name.toLowerCase();
+          const matchesSuggestion = allSuggestions.some((s: string) => s.toLowerCase() === name.toLowerCase());
+          
+          if (caseOnly || matchesSuggestion) {
+            // Same name, different casing, or matches a suggestion exactly — use canonical form, no prompt
+            name = suggestion;
+          } else {
+            // Show validation modal for real mismatches
+            setAddValidationItems([{
+              originalName: name,
+              suggestions: allSuggestions,
+              choice: allSuggestions[0] || suggestion,
+              qty: q
+            }]);
+            setPendingAddName(name);
+            setPendingAddQty(q);
+            setShowAddValidation(true);
+            return;
+          }
+        }
+      } catch (validationError) {
+        console.warn('Validation check failed, proceeding anyway:', validationError);
+        // Continue with adding if validation fails (fallback)
+      }
+    } else if (validatedName) {
+      // Use validated name from autocomplete
+      name = validatedName;
+    }
     
     // Optimistic update - add immediately to UI
     const tempItem = {
@@ -362,11 +415,47 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       const wid = String(j?.wishlist_id||wishlistId||'');
       if (wid && wid !== wishlistId) setWishlistId(wid);
       
+      const newQty = j?.qty || q;
+      const wasMerged = j?.merged || false;
+      const previousItem = items.find(it => it.name === name);
+      const previousQty = previousItem?.qty || 0;
+      const message = wasMerged && previousQty > 0 
+        ? `Added x${q} ${name} (now ${newQty} total)`
+        : `Added x${q} ${name}`;
+      
       // Reload to get accurate prices and sync with server
       const qs = new URLSearchParams({ wishlistId: wid||wishlistId, currency });
       const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
       const jj = await rr.json().catch(()=>({}));
       if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
+      
+      // Show undo toast
+      const { undoToastManager } = await import('@/lib/undo-toast');
+      undoToastManager.showUndo({
+        id: `add-wishlist-${wid||wishlistId}-${name}-${Date.now()}`,
+        message,
+        duration: 5000,
+        onUndo: async () => {
+          if (wasMerged && previousQty > 0) {
+            await fetch('/api/wishlists/update', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ wishlist_id: wid||wishlistId, name, qty: previousQty })
+            });
+          } else {
+            await fetch('/api/wishlists/remove', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ wishlist_id: wid||wishlistId, name })
+            });
+          }
+          const qs2 = new URLSearchParams({ wishlistId: wid||wishlistId, currency });
+          const rr2 = await fetch(`/api/wishlists/items?${qs2.toString()}`, { cache:'no-store' });
+          const jj2 = await rr2.json().catch(()=>({}));
+          if (rr2.ok && jj2?.ok){ setItems(Array.isArray(jj2.items)?jj2.items:[]); setTotal(Number(jj2.total||0)); setSel(-1); }
+        },
+        onExecute: () => {}
+      });
     } catch(e:any){ 
       // Revert on network error
       setItems(prev => prev.filter(it => it !== tempItem));
@@ -623,7 +712,13 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         <label className="text-sm flex-1 min-w-[260px]">
           <div className="opacity-70 mb-1">Add card</div>
           <div ref={addWrapRef} data-wishlist-add-wrapper>
-            <CardAutocomplete value={addName} onChange={setAddName} onPick={(name)=>{ setAddName(name); setTimeout(() => add(name), 0); }} placeholder="Search card…" />
+            <CardAutocomplete 
+              value={addName} 
+              onChange={setAddName} 
+              onPick={(name)=>{ setAddName(name); setTimeout(() => add(name), 0); }} 
+              onPickValidated={(name)=>{ setAddName(name); setTimeout(() => add(name, name), 0); }}
+              placeholder="Search card…" 
+            />
           </div>
         </label>
         <label className="text-sm w-24">
@@ -732,6 +827,63 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         </div>
       )}
 
+      {/* Single card validation modal - for fixing names before adding */}
+      {showAddValidation && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>
+          <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✏️</span>
+              <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                Fix Card Name Before Adding
+              </h3>
+            </div>
+            <div className="mb-3 text-xs text-neutral-400">
+              Found a card that needs fixing. Select the correct name from the dropdown:
+            </div>
+            <div className="space-y-2 mb-4">
+              {addValidationItems.map((it, idx) => (
+                <div key={`${it.originalName}-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors">
+                  <div className="flex-1">
+                    <div className="font-medium text-neutral-200 truncate">{it.originalName}</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">Qty: {it.qty}</div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <select value={it.choice} onChange={e=>setAddValidationItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
+                    className="bg-neutral-950 border border-neutral-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[180px]">
+                    {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button onClick={async()=>{
+                try {
+                  const correctedName = addValidationItems[0]?.choice || addValidationItems[0]?.originalName;
+                  if (!correctedName) return;
+                  
+                  // Add with corrected name
+                  await add(correctedName, correctedName);
+                  
+                  setShowAddValidation(false);
+                  setAddValidationItems([]);
+                  setPendingAddName('');
+                  setPendingAddQty(1);
+                } catch(e: any) {
+                  alert(e?.message||'Add failed');
+                }
+              }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                Apply Fixed Name & Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {compare && (
         <div className="rounded border border-neutral-800 p-3 text-sm">
           <div className="flex items-center justify-between">
@@ -755,7 +907,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       ) : (
         <>
           {/* Total value summary card - prominent */}
-          <div className="sticky top-0 z-30 mb-4 bg-gradient-to-br from-neutral-900/95 to-neutral-950/95 border-2 border-neutral-600 rounded-xl p-5 shadow-xl backdrop-blur-sm">
+          <div className="sticky top-0 z-40 mb-4 bg-gradient-to-br from-neutral-900/95 to-neutral-950/95 border-2 border-neutral-600 rounded-xl p-5 shadow-xl backdrop-blur-sm">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">

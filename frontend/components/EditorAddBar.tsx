@@ -8,7 +8,7 @@ export default function EditorAddBar({
   onAdd,
   placeholder = "Search card...",
 }: {
-  onAdd: (name: string, qty: number) => void | Promise<void>;
+  onAdd: (name: string, qty: number, validatedName?: string) => void | Promise<void>;
   placeholder?: string;
 }) {
   const [value, setValue] = useState("");
@@ -78,9 +78,12 @@ export default function EditorAddBar({
 
   const canSubmit = useMemo(() => term.length > 0 && (Number(qty) || 0) > 0, [term, qty]);
 
+  const [selectedFromDropdown, setSelectedFromDropdown] = useState(false);
+
   function pick(name: string) {
     setValue(name);
     setOpen(false);
+    setSelectedFromDropdown(true); // Mark that this name came from dropdown
     // keep focus in the input for quick Enter to add
     inputRef.current?.focus();
   }
@@ -89,7 +92,10 @@ export default function EditorAddBar({
     const n = value.trim();
     const q = Math.max(1, Number(qty) || 1);
     if (!n) return;
-    await onAdd(n, q);
+    // If name was selected from dropdown, pass it as validatedName to skip validation
+    const wasSelected = selectedFromDropdown;
+    setSelectedFromDropdown(false); // Reset flag
+    await onAdd(n, q, wasSelected ? n : undefined);
     // clear only after onAdd completes successfully
     setValue("");
     setQty(1);
@@ -110,7 +116,10 @@ export default function EditorAddBar({
         <input
           ref={inputRef}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSelectedFromDropdown(false); // Reset flag when user types
+          }}
           onFocus={() => items.length && setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}

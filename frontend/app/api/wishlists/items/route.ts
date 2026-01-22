@@ -23,16 +23,50 @@ export async function GET(req: NextRequest){
       .order('name', { ascending: true });
     if (itErr) return NextResponse.json({ ok:false, error: itErr.message }, { status:500 });
 
-    const names = Array.from(new Set((items||[]).map((r:any)=>String(r.name||'')).filter(Boolean)));
+    const names: string[] = Array.from(new Set((items||[]).map((r:any)=>String(r.name||'')).filter((s: string): s is string => Boolean(s))));
 
-    // Price enrichment via existing snapshot API - use cache: no-store to ensure fresh data
+    // Price enrichment: try snapshot first, fallback to live prices for missing cards
     let prices: Record<string, number> = {};
     if (names.length){
       try{
+        // Step 1: Try snapshot prices first
         const pr = await fetch(''+new URL('/api/price/snapshot', url as any), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const pj = await pr.json().catch(()=>({}));
         prices = pj?.prices || {};
-      } catch {}
+        
+        // Step 2: Check which names are missing from snapshot
+        const missingNames: string[] = [];
+        for (const name of names) {
+          const key = norm(name);
+          if (!prices[key] || prices[key] === 0) {
+            missingNames.push(name);
+          }
+        }
+        
+        // Step 3: Fallback to live prices for missing cards
+        if (missingNames.length > 0) {
+          try {
+            const livePr = await fetch(''+new URL('/api/price', url as any), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: missingNames, currency }), cache: 'no-store' });
+            const livePj = await livePr.json().catch(()=>({}));
+            if (livePr.ok && livePj?.ok && livePj.prices) {
+              // Merge live prices into snapshot prices
+              const livePrices = livePj.prices as Record<string, number> || {};
+              for (const [name, price] of Object.entries(livePrices)) {
+                const priceNum = typeof price === 'number' ? price : Number(price) || 0;
+                if (priceNum > 0) {
+                  prices[norm(name)] = priceNum;
+                }
+              }
+            }
+          } catch (liveErr: any) {
+            console.warn('[wishlists/items] Live price fallback failed:', liveErr);
+            // Continue with snapshot prices only
+          }
+        }
+      } catch (err: any) {
+        console.error('[wishlists/items] Price fetch failed:', err);
+        // Continue without prices
+      }
     }
 
     // Thumbnails via Scryfall collection batch

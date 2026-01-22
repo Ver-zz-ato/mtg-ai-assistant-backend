@@ -1,4 +1,4 @@
-﻿// app/api/collections/cards/route.ts
+// app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,19 +41,22 @@ export async function POST(req: NextRequest) {
   if (selErr) return NextResponse.json({ ok: false, error: selErr.message }, { status: 500 });
 
   if (existing) {
+    const newQty = existing.qty + initialQty;
     const { error: upErr } = await supabase
       .from("collection_cards")
-      .update({ qty: existing.qty + initialQty })
+      .update({ qty: newQty })
       .eq("id", existing.id);
     if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, id: existing.id, qty: newQty, merged: true });
   } else {
-    const { error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await supabase
       .from("collection_cards")
-      .insert([{ collection_id: collectionId, name, qty: initialQty }]);
+      .insert([{ collection_id: collectionId, name, qty: initialQty }])
+      .select("id")
+      .single();
     if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, id: inserted?.id, qty: initialQty, merged: false });
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(req: NextRequest) {

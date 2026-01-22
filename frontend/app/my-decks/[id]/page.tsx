@@ -290,7 +290,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             commander={deck?.commander || null}
             colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
             deckAim={(deck as any)?.deck_aim || null}
-            healthMetrics={core}
+            healthMetrics={isPro ? core : null}
             key={r || "_"} 
           />
         </section>

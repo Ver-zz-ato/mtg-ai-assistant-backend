@@ -5,10 +5,10 @@ import { canonicalize } from "@/lib/cards/canonicalize";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
 import { getPromptVersion } from "@/lib/config/prompts";
+import swapsData from "@/lib/data/budget-swaps.json";
 
 // Very light-weight, research-aware swap suggester.
-// It tries to load optional budget swap hints from the research folders via canonicalize()
-// and falls back to a tiny builtin map for common pricey cards.
+// Loads budget swaps from data file for easy maintenance and expansion.
 
 type Suggestion = {
   from: string;
@@ -20,70 +20,15 @@ type Suggestion = {
   confidence: number; // 0..1
 };
 
-const BUILTIN_SWAPS: Record<string, string[]> = {
-  // Expensive ramp
-  "gaea's cradle": ["Growing Rites of Itlimoc", "Nykthos, Shrine to Nyx", "Circle of Dreams Druid"],
-  "mana crypt": ["Arcane Signet", "Thought Vessel", "Sol Ring"],
-  "chrome mox": ["Mox Amber", "Fellwar Stone", "Arcane Signet"],
-  "mox diamond": ["Lotus Petal", "Arcane Signet", "Chrome Mox"],
-  "ancient tomb": ["Temple of the False God", "Nykthos, Shrine to Nyx"],
-  "city of traitors": ["Ancient Tomb", "Temple of the False God"],
-  
-  // Expensive tutors
-  "imperial seal": ["Vampiric Tutor", "Demonic Tutor", "Grim Tutor"],
-  "vampiric tutor": ["Demonic Tutor", "Diabolic Intent", "Grim Tutor"],
-  "demonic tutor": ["Diabolic Tutor", "Diabolic Intent", "Beseech the Queen"],
-  "enlightened tutor": ["Idyllic Tutor", "Academy Rector", "Three Dreams"],
-  "mystical tutor": ["Merchant Scroll", "Personal Tutor", "Mystical Teachings"],
-  
-  // Expensive counterspells
-  "force of will": ["Force of Negation", "Pact of Negation", "Fierce Guardianship"],
-  "force of negation": ["Pact of Negation", "Counterspell", "Arcane Denial"],
-  "mana drain": ["Counterspell", "Arcane Denial", "Swan Song"],
-  "fierce guardianship": ["Counterspell", "Negate", "Arcane Denial"],
-  "pact of negation": ["Counterspell", "Force of Negation", "Mana Leak"],
-  
-  // Expensive removal/board wipes
-  "cyclonic rift": ["Evacuation", "Aetherize", "Engulf the Shore"],
-  "toxic deluge": ["Black Sun's Zenith", "Damnation", "Languish"],
-  "force of vigor": ["Nature's Claim", "Beast Within", "Krosan Grip"],
-  "deflecting swat": ["Bolt Bend", "Ricochet Trap", "Wild Ricochet"],
-  
-  // Expensive card draw
-  "rhystic study": ["Mystic Remora", "Phyrexian Arena", "Trouble in Pairs"],
-  "smothering tithe": ["Monologue Tax", "Approach of the Second Sun", "Bident of Thassa"],
-  "mystic remora": ["Rhystic Study", "Phyrexian Arena", "Curiosity"],
-  "necropotence": ["Phyrexian Arena", "Dark Tutelage", "Dark Confidant"],
-  
-  // Expensive creatures
-  "craterhoof behemoth": ["End-Raze Forerunners", "Decimator of the Provinces", "Pathbreaker Ibex"],
-  "dockside extortionist": ["Treasure Nabber", "Dire Fleet Daredevil", "Professional Face-Breaker"],
-  "gilded drake": ["Control Magic", "Sower of Temptation", "Agent of Treachery"],
-  "opposition agent": ["Aven Mindcensor", "Leonin Arbiter", "Notion Thief"],
-  
-  // Expensive lands
-  "lion's eye diamond": ["Lotus Petal", "Chromatic Star", "Chromatic Sphere"],
-  "fetchlands": ["Evolving Wilds", "Terramorphic Expanse", "Fabled Passage"],
-  "underground sea": ["Drowned Catacomb", "Sunken Hollow", "Choked Estuary"],
-  "volcanic island": ["Sulfur Falls", "Steam Vents", "Cascade Bluffs"],
-  "tropical island": ["Hinterland Harbor", "Breeding Pool", "Flooded Grove"],
-  "tundra": ["Glacial Fortress", "Hallowed Fountain", "Mystic Gate"],
-  "taiga": ["Rootbound Crag", "Stomping Ground", "Fire-Lit Thicket"],
-  "savannah": ["Sunpetal Grove", "Temple Garden", "Wooded Bastion"],
-  "scrubland": ["Isolated Chapel", "Godless Shrine", "Fetid Heath"],
-  "badlands": ["Dragonskull Summit", "Blood Crypt", "Graven Cairns"],
-  "bayou": ["Woodland Cemetery", "Overgrown Tomb", "Twilight Mire"],
-  "plateau": ["Clifftop Retreat", "Sacred Foundry", "Rugged Prairie"],
-  
-  // Specific Commander staples
-  "sylvan library": ["Abundance", "Mirri's Guile", "Sensei's Divining Top"],
-  "scroll rack": ["Sensei's Divining Top", "Crystal Ball", "Soothsaying"],
-  "mana vault": ["Sol Ring", "Arcane Signet", "Thought Vessel"],
-  "timetwister": ["Time Reversal", "Windfall", "Wheel of Fortune"],
-  "wheel of fortune": ["Reforge the Soul", "Magus of the Wheel", "Wheel of Misfortune"],
-  "survival of the fittest": ["Fauna Shaman", "Survival", "Birthing Pod"],
-  "the tabernacle at pendrell vale": ["Magus of the Tabernacle", "Sphere of Resistance"],
-};
+// Load swaps from JSON data file (converted to lowercase keys for matching)
+const BUILTIN_SWAPS: Record<string, string[]> = (() => {
+  const swaps: Record<string, string[]> = {};
+  const data = swapsData as { swaps: Record<string, string[]> };
+  for (const [key, values] of Object.entries(data.swaps || {})) {
+    swaps[key.toLowerCase()] = values;
+  }
+  return swaps;
+})();
 
 async function scryPrice(name: string, currency = "USD"): Promise<number> {
   try {
@@ -104,11 +49,15 @@ async function scryPrice(name: string, currency = "USD"): Promise<number> {
 
 function parseDeck(text: string): string[] {
   const out: string[] = [];
-  for (const raw of (text || "").split(/\r?\n/)) {
+  // Handle both \n and \\n (escaped newlines)
+  const normalized = (text || "").replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+  for (const raw of normalized.split(/\r?\n/)) {
     const s = raw.trim();
     if (!s) continue;
+    // Match: "1 Card Name" or "1x Card Name" or just "Card Name"
     const m = s.match(/^(\d+)?\s*[xX]?\s*(.+)$/);
-    const name = m ? m[2] : s;
+    const name = m ? m[2].trim() : s.trim();
+    if (!name) continue;
     const { canonicalName } = canonicalize(name);
     if (canonicalName) out.push(canonicalName);
   }
@@ -247,17 +196,20 @@ export async function POST(req: Request) {
     // Built-in fallbacks for common staples
     for (const from of names) {
       const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
-      if (pf <= budget) continue;
       const key = from.toLowerCase();
       const cands = BUILTIN_SWAPS[key] || [];
-      for (const cand of cands) {
-        const toCanon = canonicalize(cand).canonicalName || cand;
-        const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-        if (pt <= 0 || pt >= pf) continue;
-        const delta = pt - pf;
-        const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
-        const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
-        suggestions.push({ from, to: toCanon, price_from: pf, price_to: pt, price_delta: delta, rationale, confidence });
+      
+      if (pf > budget) {
+        for (const cand of cands) {
+          const toCanon = canonicalize(cand).canonicalName || cand;
+          const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
+          if (pt > 0 && pt < pf) {
+            const delta = pt - pf;
+            const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
+            const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
+            suggestions.push({ from, to: toCanon, price_from: pf, price_to: pt, price_delta: delta, rationale, confidence });
+          }
+        }
       }
     }
 

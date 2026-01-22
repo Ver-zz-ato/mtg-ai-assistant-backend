@@ -47,6 +47,14 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   // Card image states
   const [cardImages, setCardImages] = React.useState<Map<string, ImageInfo>>(new Map());
   const [hoverCard, setHoverCard] = React.useState<{ name: string; x: number; y: number; src: string } | null>(null);
+  
+  // Deck Health AI Suggestions modal state
+  const [healthSuggestionsOpen, setHealthSuggestionsOpen] = React.useState(false);
+  const [healthSuggestionsLoading, setHealthSuggestionsLoading] = React.useState(false);
+  const [healthSuggestionsCategory, setHealthSuggestionsCategory] = React.useState<string>('');
+  const [healthSuggestionsLabel, setHealthSuggestionsLabel] = React.useState<string>('');
+  const [healthSuggestions, setHealthSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
+  const [healthSuggestionsError, setHealthSuggestionsError] = React.useState<string | null>(null);
 
   async function deckContext(): Promise<string> {
     try {
@@ -103,6 +111,85 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       setMsgs(arr.map((m:any)=>({ id: m.id, role: m.role, content: m.content })) as Msg[]);
     } catch {}
   }
+  
+  // Listen for deck health click events
+  React.useEffect(() => {
+    const handleHealthClick = async (e: CustomEvent) => {
+      const category = e.detail?.category || '';
+      const label = e.detail?.label || '';
+      const status = e.detail?.status || '';
+      
+      if (!category || !deckId) return;
+      
+      // Pro check - deck health features are Pro-only
+      try {
+        const { showProToast } = await import('@/lib/pro-ux');
+        const sb = createBrowserSupabaseClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) {
+          showProToast();
+          return;
+        }
+        const { data: profile } = await sb.from('profiles').select('is_pro').eq('id', user.id).maybeSingle();
+        if (!profile?.is_pro) {
+          showProToast();
+          return;
+        }
+      } catch (err) {
+        // If check fails, show error
+        try {
+          const { showProToast } = await import('@/lib/pro-ux');
+          showProToast();
+        } catch {
+          alert('Deck Health features are Pro-only. Please upgrade to unlock AI suggestions!');
+        }
+        return;
+      }
+      
+      // Open modal and show loading
+      setHealthSuggestionsOpen(true);
+      setHealthSuggestionsLoading(true);
+      setHealthSuggestionsCategory(category);
+      setHealthSuggestionsLabel(label);
+      setHealthSuggestions([]);
+      setHealthSuggestionsError(null);
+      
+      try {
+        // Use stateless API to avoid thread creation
+        const res = await fetch('/api/deck/health-suggestions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            deckId,
+            category,
+            label
+          })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error?.error || 'Failed to get suggestions');
+        }
+        
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.suggestions)) {
+          setHealthSuggestions(data.suggestions);
+        } else {
+          throw new Error('No suggestions returned');
+        }
+      } catch (e: any) {
+        console.error('Health suggestions error:', e);
+        setHealthSuggestionsError(e?.message || 'Failed to generate suggestions');
+      } finally {
+        setHealthSuggestionsLoading(false);
+      }
+    };
+    
+    window.addEventListener('deck:health-click' as any, handleHealthClick as unknown as EventListener);
+    return () => {
+      window.removeEventListener('deck:health-click' as any, handleHealthClick as unknown as EventListener);
+    };
+  }, [deckId, threadId, commander, fmt, plan, deckCI, teaching]);
   
   // Extract and fetch card images from assistant messages
   React.useEffect(() => {
@@ -523,9 +610,14 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     }
   }
   
-  // Helper function for adding cards
-  async function addCard(name: string, qty: number) {
+  // Helper function for adding cards with undo support
+  async function addCard(name: string, qty: number, showUndo = true) {
     try {
+      // Store previous state for undo
+      const previousCards = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`).then(r => r.json().catch(() => ({ ok: false })));
+      const previousCard = previousCards?.ok ? (previousCards.cards || []).find((c: any) => c.name === name) : null;
+      const previousQty = previousCard?.qty || 0;
+      
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -533,9 +625,49 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j?.ok === false) throw new Error(j?.error || 'Add failed');
+      
+      const newQty = j?.qty || qty;
+      const wasMerged = j?.merged || false;
+      const message = wasMerged && previousQty > 0 
+        ? `Added ${qty}x ${name} (now ${newQty} total)`
+        : `Added ${qty}x ${name}`;
+      
       try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+      
+      // Show undo toast if requested
+      if (showUndo) {
+        const { undoToastManager } = await import('@/lib/undo-toast');
+        undoToastManager.showUndo({
+          id: `add-card-${deckId}-${name}-${Date.now()}`,
+          message,
+          duration: 5000,
+          onUndo: async () => {
+            // Revert: if it was merged, restore previous quantity; otherwise delete
+            if (wasMerged && previousQty > 0) {
+              await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ name, qty: previousQty })
+              });
+            } else {
+              await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+                method: 'DELETE',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ name, qty })
+              });
+            }
+            try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+          },
+          onExecute: () => {
+            // Action already executed, nothing to do
+          }
+        });
+      }
+      
+      return { ok: true, merged: wasMerged, qty: newQty };
     } catch (e: any) {
       alert(e?.message || 'Add failed');
+      throw e;
     }
   }
 
@@ -746,6 +878,82 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             alt={hoverCard.name}
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />
+        </div>
+      )}
+      
+      {/* Deck Health AI Suggestions Modal */}
+      {healthSuggestionsOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setHealthSuggestionsOpen(false)}
+        >
+          <div 
+            className="bg-neutral-900 border-2 border-purple-500 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+                AI Suggestions: {healthSuggestionsLabel}
+              </h3>
+              <button
+                onClick={() => setHealthSuggestionsOpen(false)}
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {healthSuggestionsLoading && (
+              <div className="flex items-center gap-3 py-8">
+                <svg className="animate-spin h-6 w-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-neutral-300">Generating AI suggestions...</span>
+              </div>
+            )}
+            
+            {healthSuggestionsError && (
+              <div className="text-red-400 py-4">{healthSuggestionsError}</div>
+            )}
+            
+            {!healthSuggestionsLoading && !healthSuggestionsError && healthSuggestions.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-neutral-400 mb-4">
+                  Here are AI-suggested cards to improve your deck's {healthSuggestionsLabel.toLowerCase()}:
+                </p>
+                {healthSuggestions.map((suggestion, idx) => (
+                  <div key={idx} className="border border-neutral-700 rounded-lg p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="font-semibold text-white mb-1">{suggestion.card}</div>
+                        <div className="text-sm text-neutral-400">{suggestion.reason}</div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const result = await addCard(suggestion.card, 1, true);
+                            // Toast is handled by undo toast system
+                          } catch (e: any) {
+                            toast(e?.message || 'Failed to add card', 'error');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {!healthSuggestionsLoading && !healthSuggestionsError && healthSuggestions.length === 0 && (
+              <div className="text-neutral-400 py-8 text-center">
+                No suggestions generated. Try again or ask the assistant directly.
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

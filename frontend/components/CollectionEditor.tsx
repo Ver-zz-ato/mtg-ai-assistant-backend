@@ -5,6 +5,7 @@ import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 import { getImagesForNames } from "@/lib/scryfall";
 import Sparkline from "@/components/Sparkline";
+import CollectionPriceHistory from "@/components/CollectionPriceHistory";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
 import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
 import { useProStatus } from "@/hooks/useProStatus";
@@ -196,11 +197,19 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
   }, [slug]);
 
   async function togglePublic(){
-    if (!isPublic && slug && slugOk === false) return; // prevent enabling with invalid slug
     setBusy(true);
     try{
       const body:any = { is_public: !isPublic };
-      if(!isPublic){ body.public_slug = slug || `collection-${Date.now()}`; }
+      if(!isPublic){ 
+        // Use current slug if available and valid, otherwise generate from collection ID (guaranteed unique)
+        if (slug && slugOk !== false) {
+          body.public_slug = slug;
+        } else {
+          // Generate unique slug from collection ID (UUID without hyphens)
+          // This ensures every collection has a unique, shareable slug automatically
+          body.public_slug = `collection-${collectionId.replace(/-/g, '')}`;
+        }
+      }
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
       if(r.ok){
@@ -395,21 +404,78 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   // Pricing (snapshot totals, default USD; currency selectable on page)
   const [valueUSD, setValueUSD] = React.useState<number|null>(null);
   const [priceMap, setPriceMap] = React.useState<Record<string, number>>({});
+  const [priceLoading, setPriceLoading] = React.useState(false);
+  const [priceError, setPriceError] = React.useState<string|null>(null);
   const refreshValue = React.useCallback(async ()=>{
+    const names = Array.from(new Set(items.map(i=>i.name)));
+    if(!names.length) { setValueUSD(0); setPriceMap({}); setPriceError(null); return; }
+    
+    setPriceLoading(true);
+    setPriceError(null);
+    // Clear price map when currency changes to avoid stale data
+    setPriceMap({});
+    
+    const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+    
     try{
-      const names = Array.from(new Set(items.map(i=>i.name)));
-      if(!names.length) { setValueUSD(0); setPriceMap({}); return; }
-      // Clear price map when currency changes to avoid stale data
-      setPriceMap({});
+      // Step 1: Try snapshot prices first
       const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
-      if(!r.ok || j?.ok===false) throw new Error(j?.error||'snapshot failed');
-      const prices: Record<string, number> = j.prices||{};
-      const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+      
+      let prices: Record<string, number> = {};
+      let missingNames: string[] = [];
+      
+      if(r.ok && j?.ok && j.prices) {
+        prices = j.prices || {};
+        // Check which names are missing from snapshot
+        missingNames = names.filter(n => !prices[norm(n)] || prices[norm(n)] === 0);
+      } else {
+        // Snapshot failed or returned no data, try all names as missing
+        missingNames = names;
+      }
+      
+      // Step 2: Fallback to live prices for missing cards
+      if(missingNames.length > 0) {
+        try {
+          const liveR = await fetch('/api/price', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: missingNames, currency }), cache: 'no-store' });
+          const liveJ = await liveR.json().catch(()=>({}));
+          
+          if(liveR.ok && liveJ?.ok && liveJ.prices) {
+            // Merge live prices into snapshot prices
+            const livePrices = (liveJ.prices as Record<string, number>) || {};
+            for(const [normName, price] of Object.entries(livePrices)) {
+              const priceNum = typeof price === 'number' ? price : Number(price) || 0;
+              if(priceNum > 0) {
+                prices[normName] = priceNum;
+              }
+            }
+          }
+        } catch(liveErr: any) {
+          console.warn('Live price fallback failed:', liveErr);
+          // Continue with snapshot prices only
+        }
+      }
+      
+      // Calculate total
       const total = items.reduce((acc,it)=> acc + (prices[norm(it.name)]||0)*it.qty, 0);
       setPriceMap(prices);
       setValueUSD(total);
-    }catch(e:any){ showToast(e?.message||'snapshot failed'); setPriceMap({}); setValueUSD(0); }
+      
+      // Log if many prices are missing
+      const foundCount = Object.keys(prices).filter(k => prices[k] > 0).length;
+      if(foundCount === 0 && names.length > 0) {
+        setPriceError('No prices found. Prices may be loading or unavailable.');
+      } else if(foundCount < names.length) {
+        console.log(`Price loading: Found ${foundCount}/${names.length} prices`);
+      }
+    }catch(e:any){ 
+      console.error('Price refresh error:', e);
+      setPriceError(e?.message||'Failed to load prices');
+      setPriceMap({}); 
+      setValueUSD(0); 
+    } finally {
+      setPriceLoading(false);
+    }
   }, [items, currency]);
 
   React.useEffect(()=>{ if(items.length && !loading) refreshValue(); }, [items, refreshValue, currency, loading]);
@@ -484,10 +550,57 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
       }
     }
     
+    // Get previous state for undo
+    const previousItems = items;
+    const previousCard = previousItems.find(i => i.name === safeName);
+    const previousQty = previousCard?.qty || 0;
+    const previousCardId = previousCard?.id;
+    
     const res = await fetch('/api/collections/cards', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ collectionId, name: safeName, qty }) });
     const j = await res.json();
     if(!res.ok || !j?.ok){ alert(j?.error||'Add failed'); return; }
-    setName(''); setQty(1); reload(); showToast(`Added x${qty} ${safeName}`);
+    
+    const newQty = j?.qty || qty;
+    const wasMerged = j?.merged || false;
+    const cardId = j?.id || previousCardId;
+    const message = wasMerged && previousQty > 0 
+      ? `Added x${qty} ${safeName} (now ${newQty} total)`
+      : `Added x${qty} ${safeName}`;
+    
+    setName(''); setQty(1);
+    
+    // Show undo toast BEFORE reload so we can capture the state
+    const { undoToastManager } = await import('@/lib/undo-toast');
+    undoToastManager.showUndo({
+      id: `add-collection-${collectionId}-${safeName}-${Date.now()}`,
+      message,
+      duration: 5000,
+      onUndo: async () => {
+        if (wasMerged && previousQty > 0 && previousCardId) {
+          // Restore previous quantity
+          await fetch('/api/collections/cards', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id: previousCardId, delta: -qty })
+          });
+        } else if (cardId) {
+          // Delete the newly added card
+          await fetch('/api/collections/cards', {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id: cardId })
+          });
+        }
+        reload();
+      },
+      onExecute: () => {
+        // Reload after action completes
+        reload();
+      }
+    });
+    
+    // Reload after showing toast
+    reload();
   }
   async function bump(it: Item, delta:number){
     const res = await fetch('/api/collections/cards', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id, delta }) });
@@ -692,8 +805,18 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               </div>
               <div className="text-sm">Cards: <b className="font-mono">{totalCards}</b></div>
               <div className="text-sm">Unique: <b className="font-mono">{unique}</b></div>
-              <div className="text-sm">Value ({currency} snapshot): <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD) : '—'}</b></div>
-              <button onClick={refreshValue} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Refresh value</button>
+              <div className="text-sm">
+                Value ({currency}): <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD) : '—'}</b>
+                {priceLoading && <span className="ml-2 text-xs opacity-70">Loading...</span>}
+                {priceError && <span className="ml-2 text-xs text-amber-400">{priceError}</span>}
+              </div>
+              <button 
+                onClick={refreshValue} 
+                disabled={priceLoading}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+              >
+                {priceLoading ? 'Refreshing...' : 'Refresh value'}
+              </button>
             </div>
             <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 space-y-2 shadow-lg">
               <div className="flex items-center gap-2 mb-2">
@@ -716,9 +839,19 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         {tab==='stats' && (
           <div className="space-y-3">
             <div className="rounded border border-neutral-800 p-3">
-              <div className="font-medium mb-1">Snapshot value</div>
-              <div className="text-sm">Estimate (USD): <b className="font-mono">{valueUSD!=null? `$${valueUSD.toFixed(2)}` : '—'}</b></div>
-              <button onClick={refreshValue} className="mt-2 text-xs px-2 py-1 rounded bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-medium transition-all shadow-md hover:shadow-lg">Refresh now</button>
+              <div className="font-medium mb-1">Collection value</div>
+              <div className="text-sm">
+                Estimate ({currency}): <b className="font-mono">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD) : '—'}</b>
+                {priceLoading && <span className="ml-2 text-xs opacity-70">Loading...</span>}
+                {priceError && <div className="mt-1 text-xs text-amber-400">{priceError}</div>}
+              </div>
+              <button 
+                onClick={refreshValue} 
+                disabled={priceLoading}
+                className="mt-2 text-xs px-2 py-1 rounded bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-all shadow-md hover:shadow-lg"
+              >
+                {priceLoading ? 'Refreshing...' : 'Refresh now'}
+              </button>
             </div>
             <div className="rounded border border-neutral-800 p-3">
               <div className="font-medium mb-1">Color pie</div>
@@ -936,7 +1069,13 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         {/* Add row */}
         <div className="flex items-center gap-2 px-0">
           <div className="flex-1">
-            <CardAutocomplete value={name} onChange={setName} onPick={(n)=>{ setName(n); add(); }} placeholder="Add card…" />
+            <CardAutocomplete 
+              value={name} 
+              onChange={setName} 
+              onPick={(n)=>{ setName(n); add(); }} 
+              onPickValidated={(n)=>{ setName(n); add(n); }}
+              placeholder="Add card…" 
+            />
           </div>
           <input type="number" min={1} value={qty} onChange={e=>setQty(Math.max(1, Number(e.target.value||1)))} className="w-20 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm bg-neutral-950" />
           <button onClick={() => add()} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
@@ -974,7 +1113,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                       <CardRowPreviewLeft name={it.name} imageSmall={imagesRef.current[k2]?.small} imageLarge={imagesRef.current[k2]?.normal} setCode={(metaRef.current.get(n(it.name))?.set)||''} rarity={(metaRef.current.get(n(it.name))?.rarity)||''} />
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs opacity-80 tabular-nums w-32 text-right">{unit>0? new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(unit*staged): '—'}</span>
+                      <span className="text-xs opacity-80 tabular-nums w-32 text-right" title={priceLoading ? 'Loading prices...' : unit>0 ? `${new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(unit)} each` : 'Price unavailable'}>
+                        {priceLoading && unit === 0 ? '...' : unit>0? new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(unit*staged): '—'}
+                      </span>
                       <button 
                         className="text-xs text-neutral-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-500/10" 
                         onClick={()=>remove(it)}
@@ -1062,7 +1203,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             })()}
           </div>
         </details>
-        <details open={!!lastSnapshotAt} className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
               <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
@@ -1070,45 +1211,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             </div>
           </summary>
           <div className="p-3 space-y-2">
-            {!lastSnapshotAt ? (
-              <>
-                <p className="text-xs text-neutral-400 mb-3">
-                  No price snapshots yet — track collection value over time.
-                </p>
-                {/* Ghost chart placeholder */}
-                <div className="h-24 bg-neutral-900/50 border border-neutral-800 rounded-lg flex items-center justify-center mb-2">
-                  <div className="text-xs text-neutral-500 italic">Chart will appear here</div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 text-xs opacity-80">
-                  <span>Last snapshot:</span>
-                  <span className="font-mono">{new Date(lastSnapshotAt).toLocaleString()}</span>
-                </div>
-                <Sparkline names={items.map(i=>i.name)} currency={currency} />
-              </>
-            )}
-            {isPro ? (
-              <button onClick={async()=>{ 
-                trackProFeatureUsed('price_snapshot');
-                try{ const r=await fetch('/api/cron/price/snapshot',{ method:'POST' }); if(r.ok){ setLastSnapshotAt(new Date().toISOString()); } }catch{} 
-              }} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Take snapshot now</button>
-            ) : (
-              <button 
-                disabled 
-                onClick={() => {
-                  trackProGateClicked('price_snapshot', 'collection_editor');
-                }}
-                className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-60" 
-                title="PRO only"
-              >
-                Take snapshot now
-                <span className="ml-1 inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1 py-0.5 uppercase tracking-wide">
-                  PRO
-                </span>
-              </button>
-            )}
+            <CollectionPriceHistory collectionId={collectionId} currency={currency} />
           </div>
         </details>
         {/* Analytics (advanced) hidden by default */}

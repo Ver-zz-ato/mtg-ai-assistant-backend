@@ -177,26 +177,38 @@ export default function BudgetSwapsClient(){
   const hasResults = sugs.length > 0;
 
   const compute = async (): Promise<Sug[]|null> => {
+    // Capture deckText at the moment compute() is called
+    const currentDeckText = deckText;
+    
     if (mode === 'ai' && !isProFinal){
-      try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('AI swaps are a Pro feature.'); }
+      try { 
+        const { showProToast } = await import('@/lib/pro-ux'); 
+        showProToast(); 
+      } catch { 
+        setError('AI-Powered Swaps is a Pro feature. Upgrade to unlock intelligent budget alternatives!');
+      }
       return null;
     }
-    if (!deckText.trim()) { setError('Please paste your decklist.'); return null; }
+    
+    if (!currentDeckText.trim()) { 
+      setError('Please paste your decklist.');
+      return null; 
+    }
     
     // If deckText is provided (not from deckId), check names first
-    if (!deckId && String(deckText||'').trim()) {
+    if (!deckId && String(currentDeckText||'').trim()) {
       try {
         const r = await fetch('/api/deck/parse-and-fix-names', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deckText }),
+          body: JSON.stringify({ deckText: currentDeckText }),
         });
         const j = await r.json().catch(() => ({}));
         if (r.ok && j?.ok) {
           if (j.items && j.items.length > 0) {
             // Show modal to fix names
             setFixNamesItems(j.items);
-            setPendingDeckText(deckText);
+            setPendingDeckText(currentDeckText);
             setFixNamesOpen(true);
             return null; // Don't proceed until names are fixed
           } else if (j.cards && j.cards.length > 0) {
@@ -210,7 +222,6 @@ export default function BudgetSwapsClient(){
       }
     }
     
-    // Track UI click (already done via track helper)
     setBusy(true); 
     setError(undefined);
     // Clear previous results immediately to prevent flashing
@@ -218,10 +229,14 @@ export default function BudgetSwapsClient(){
     setMeta({});
     
     try{
-      const body: any = { deckText, currency, budget: threshold, ai: mode==='ai' };
+      const body: any = { deckText: currentDeckText, currency, budget: threshold, ai: mode==='ai' };
+      
       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({ ok:false }));
-      if(!r.ok || j?.ok===false) throw new Error(j?.error||'Failed');
+      const j = await r.json().catch(() => ({ ok:false }));
+      
+      if(!r.ok || j?.ok===false) {
+        throw new Error(j?.error||'Failed');
+      }
       const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
       const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topX));
       setSugs(top);
@@ -251,7 +266,13 @@ export default function BudgetSwapsClient(){
       }
       
       return top;
-    } catch(e:any){ setError(e?.message||'Failed'); return null; } finally{ setBusy(false); }
+    } catch(e:any){
+      const errorMsg = e?.message || String(e) || 'Unknown error';
+      setError(errorMsg);
+      return null;
+    } finally{ 
+      setBusy(false); 
+    }
   };
 
 
@@ -468,7 +489,13 @@ export default function BudgetSwapsClient(){
             </label>
             <label className="text-xs block">
               <div className="opacity-70 mb-1">Paste decklist</div>
-              <textarea value={deckText} onChange={e=>setDeckText(e.target.value)} rows={8} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm font-mono" placeholder={`1 Sol Ring\n1 Cyclonic Rift`} />
+              <textarea 
+                value={deckText} 
+                onChange={e=>setDeckText(e.target.value)} 
+                rows={8} 
+                className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm font-mono" 
+                placeholder={`1 Sol Ring\n1 Cyclonic Rift`} 
+              />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs">
@@ -488,11 +515,20 @@ export default function BudgetSwapsClient(){
               <label className="text-xs">
                 <div className="opacity-70 mb-1">Mode</div>
                 <div className="flex items-center gap-3 text-sm">
-                  <label className="inline-flex items-center gap-1"><input type="radio" checked={mode==='strict'} onChange={()=>setMode('strict')} /> Strict budget</label>
-                  <label className="inline-flex items-center gap-1"><input type="radio" checked={mode==='ai'} onChange={()=>setMode('ai')} /> Loose thematic { !isProFinal && (<span className="ml-1 px-1 rounded bg-amber-300 text-black text-[10px]">Pro</span>)}</label>
+                  <label className="inline-flex items-center gap-1">
+                    <input type="radio" checked={mode==='strict'} onChange={()=>setMode('strict')} /> 
+                    <span>Quick Swaps</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input type="radio" checked={mode==='ai'} onChange={()=>setMode('ai')} /> 
+                    <span>AI-Powered Swaps</span>
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] font-bold">PRO</span>
+                  </label>
                 </div>
                 <div className="mt-1 text-[11px] opacity-70">
-                  Strict budget suggests cheaper near-equivalents with similar effects. Loose thematic (AI) looks for cheaper cards that play a similar role/synergy in your deck — not exact copies — so you keep the theme while saving.
+                  <strong>Quick Swaps</strong> (Free): Fast suggestions from our curated list of budget alternatives for popular expensive cards.
+                  <br />
+                  <strong>AI-Powered Swaps</strong> (<span className="text-amber-400 font-semibold">⭐ Pro</span>): Advanced AI analyzes your entire deck to find cheaper cards that maintain your deck's strategy, synergies, and theme — not just direct replacements.
                 </div>
               </label>
             </div>
@@ -507,7 +543,12 @@ export default function BudgetSwapsClient(){
                   userId: user?.id || null,
                   isPro: isPro,
                 });
-                await compute();
+                
+                try {
+                  await compute();
+                } catch (e: any) {
+                  setError(e?.message || 'Failed to compute swaps');
+                }
               }} disabled={busy} className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black font-semibold disabled:opacity-60">{busy? 'Computing…' : 'Compute'}</button>
             </div>
           </div>

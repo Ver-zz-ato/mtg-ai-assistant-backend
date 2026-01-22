@@ -21,6 +21,7 @@ export default function CardAutocomplete({
   value,
   onChange,
   onPick,
+  onPickValidated,
   placeholder = "Search card…",
   minChars = 2,
   searchUrl = "/api/cards/search",
@@ -29,6 +30,7 @@ export default function CardAutocomplete({
   value: string;
   onChange: (v: string) => void;
   onPick: (name: string) => void;
+  onPickValidated?: (name: string) => void;
   placeholder?: string;
   minChars?: number;
   searchUrl?: string;
@@ -92,22 +94,28 @@ export default function CardAutocomplete({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHi((i) => (i - 1 + items.length) % items.length);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const pick = items[hi];
-      if (pick) {
-        trackCardSelected(pick, q, hi);
-        
-        // Track card in AI memory
-        try {
-          if (localStorage.getItem('ai_memory_consent') === 'true') {
-            aiMemory.addRecentCard(pick);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const pick = items[hi];
+        if (pick) {
+          trackCardSelected(pick, q, hi);
+          
+          // Track card in AI memory
+          try {
+            if (localStorage.getItem('ai_memory_consent') === 'true') {
+              aiMemory.addRecentCard(pick);
+            }
+          } catch {}
+          
+          // If onPickValidated is provided, use it (name came from validated dropdown)
+          // Otherwise use regular onPick
+          if (onPickValidated) {
+            onPickValidated(pick);
+          } else {
+            onPick(pick);
           }
-        } catch {}
-        
-        onPick(pick);
-        setOpen(false);
-      }
+          setOpen(false);
+        }
     } else if (e.key === "Escape") {
       setOpen(false);
     }
@@ -124,7 +132,7 @@ export default function CardAutocomplete({
         className="w-full rounded border border-gray-600 bg-transparent px-2 py-1 outline-none"
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded border border-gray-700 bg-black/90 shadow-lg backdrop-blur">
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded border border-gray-700 bg-black/90 shadow-lg backdrop-blur">
           {loading && (
             <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>
           )}
@@ -145,7 +153,13 @@ export default function CardAutocomplete({
                   } catch {}
                   
                   onChange(name);
-                  onPick(name);
+                  // If onPickValidated is provided, use it (name came from validated dropdown)
+                  // Otherwise use regular onPick
+                  if (onPickValidated) {
+                    onPickValidated(name);
+                  } else {
+                    onPick(name);
+                  }
                   setOpen(false);
                 }}
                 onMouseEnter={() => setHi(i)}

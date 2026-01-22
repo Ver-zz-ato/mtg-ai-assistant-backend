@@ -289,6 +289,7 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             initialAim={deckAim || null}
             format={format}
             healthMetrics={healthMetrics || null}
+            isPro={isPro || false}
           />
         )}
         <CardsPane deckId={deckId} format={format} allowedColors={colors || []} />

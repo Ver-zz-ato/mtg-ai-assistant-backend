@@ -117,11 +117,18 @@ export default function DeckAnalyzerExpandable() {
         useScryfall: true,
       };
 
+      // Add timeout to prevent hanging (240 seconds for complex decks)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutes
+      
       const res = await fetch("/api/deck/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j?.error) {
@@ -134,7 +141,11 @@ export default function DeckAnalyzerExpandable() {
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0, 12) : []);
     } catch (e: any) {
-      setError(e?.message || "Analysis failed");
+      if (e.name === 'AbortError') {
+        setError('Analysis timed out after 4 minutes. Large decks can take longer - try again or contact support if this persists.');
+      } else {
+        setError(e?.message || "Analysis failed");
+      }
       setScore(null);
       setBands(null);
       setRawCounts(null);

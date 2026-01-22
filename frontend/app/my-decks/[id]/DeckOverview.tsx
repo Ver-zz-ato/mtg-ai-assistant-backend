@@ -11,6 +11,7 @@ type DeckOverviewProps = {
   format?: string;
   readOnly?: boolean; // If true, don't show edit buttons (for public deck pages)
   healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null;
+  isPro?: boolean; // Pro status for gating deck health features
 };
 
 export default function DeckOverview({ 
@@ -20,7 +21,8 @@ export default function DeckOverview({
   initialAim,
   format,
   readOnly = false,
-  healthMetrics = null
+  healthMetrics = null,
+  isPro = false
 }: DeckOverviewProps) {
   const [commander, setCommander] = React.useState(initialCommander || "");
   const [colors, setColors] = React.useState(initialColors || []);
@@ -342,8 +344,8 @@ export default function DeckOverview({
         </div>
       </div>
       
-      {/* Deck Health - Thin strip below Deck Identity */}
-      {healthMetrics && format?.toLowerCase() === 'commander' && (() => {
+      {/* Deck Health - Thin strip below Deck Identity (Pro only) */}
+      {isPro && healthMetrics && format?.toLowerCase() === 'commander' && (() => {
         const { lands, ramp, draw, removal } = healthMetrics;
         const formatTargets = {
           lands: { min: 34, max: 38, current: lands },
@@ -386,6 +388,17 @@ export default function DeckOverview({
                 <button
                   key={item.label}
                   onClick={() => {
+                    // Pro check - should already be gated by isPro on parent, but double-check
+                    if (!isPro) {
+                      try {
+                        import('@/lib/pro-ux').then(({ showProToast }) => showProToast()).catch(() => {
+                          alert('Deck Health features are Pro-only. Upgrade to unlock AI suggestions!');
+                        });
+                      } catch {
+                        alert('Deck Health features are Pro-only. Upgrade to unlock AI suggestions!');
+                      }
+                      return;
+                    }
                     // Trigger AI Assistant to expand with suggestion
                     try {
                       window.dispatchEvent(new CustomEvent('deck:health-click', { 

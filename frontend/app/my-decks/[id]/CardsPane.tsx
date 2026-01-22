@@ -51,8 +51,10 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     if (!n) return;
     try { const { containsProfanity } = await import("@/lib/profanity"); if (containsProfanity(n)) { alert('Please choose a different name.'); return; } } catch {}
 
-    // If validatedName is provided, skip validation (already validated)
-    if (!validatedName) {
+    // If validatedName is provided, skip validation (already validated from autocomplete selection)
+    // Also skip if the name exactly matches one of the search results (it's already valid)
+    const isFromAutocomplete = validatedName === n;
+    if (!isFromAutocomplete) {
       // Validate card name before adding
       try {
         const validationRes = await fetch('/api/cards/fuzzy', {
@@ -111,6 +113,11 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       }
     }
 
+    // Get previous state for undo
+    const previousCards = cards;
+    const previousCard = previousCards.find(c => c.name === n);
+    const previousQty = previousCard?.qty || 0;
+    
     // Optimistic update - add card immediately to UI
     const tempId = `temp-${Date.now()}`;
     const optimisticCard: CardRow = {
@@ -122,7 +129,6 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     };
     
     setCards(prev => [...prev, optimisticCard]);
-    window.dispatchEvent(new CustomEvent("toast", { detail: `Added x${q} ${n}` }));
 
     try {
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
@@ -143,6 +149,12 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         return;
       }
 
+      const newQty = json?.qty || q;
+      const wasMerged = json?.merged || false;
+      const message = wasMerged && previousQty > 0 
+        ? `Added x${q} ${n} (now ${newQty} total)`
+        : `Added x${q} ${n}`;
+
       // Track successful card addition
       capture('deck_card_added', {
         deck_id: deckId,
@@ -154,6 +166,32 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       // Replace temp card with real card from server
       await load();
       try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+      
+      // Show undo toast
+      const { undoToastManager } = await import('@/lib/undo-toast');
+      undoToastManager.showUndo({
+        id: `add-deck-card-${deckId}-${n}-${Date.now()}`,
+        message,
+        duration: 5000,
+        onUndo: async () => {
+          if (wasMerged && previousQty > 0) {
+            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: n, qty: previousQty })
+            });
+          } else {
+            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: n, qty: q })
+            });
+          }
+          await load();
+          try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+        },
+        onExecute: () => {}
+      });
     } catch (err) {
       // Revert on network error
       setCards(prev => prev.filter(c => c.id !== tempId));

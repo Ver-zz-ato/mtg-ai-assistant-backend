@@ -425,7 +425,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                         e.preventDefault();
                         setTagModalOpen(r.id);
                       }}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      className="px-4 py-1.5 rounded-full text-xs font-medium border border-blue-600/30 text-blue-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
                       aria-label="Edit tags"
                     >
                       {deckTags.get(r.id)?.length ? '✏️' : '+ Tags'}
@@ -435,11 +435,11 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
                   {/* Main stats - improved chip distinction */}
                   <div className="flex flex-wrap gap-2 text-xs">
                     {/* Cards: Badge style */}
-                    <span className="px-2.5 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
+                    <span className="px-4 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
                       <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
                     </span>
                     {/* Visibility: Pill style */}
-                    <span className={`px-2.5 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
+                    <span className={`px-4 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
                       {r.is_public ? '🌐 Public' : '🔒 Private'}
                     </span>
                   </div>

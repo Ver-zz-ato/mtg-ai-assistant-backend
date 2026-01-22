@@ -21,6 +21,7 @@ export default function AdminHub() {
       <nav className="flex flex-wrap gap-2">
         <Pill href="/admin/ops">Ops & Safety</Pill>
         <Pill href="/admin/data">Data & Pricing</Pill>
+        <Pill href="/admin/budget-swaps">Budget Swaps</Pill>
         <Pill href="/admin/ai">AI & Chat Quality</Pill>
         <Pill href="/admin/support">User Support</Pill>
         <Pill href="/admin/obs">Observability</Pill>
@@ -40,6 +41,10 @@ export default function AdminHub() {
         <Link href="/admin/data" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">Data & Pricing</div>
           <p className="text-sm opacity-80">Scryfall cache inspector, bulk jobs monitor, price delta heatmap.</p>
+        </Link>
+        <Link href="/admin/budget-swaps" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
+          <div className="font-medium mb-1">Budget Swaps</div>
+          <p className="text-sm opacity-80">Manage the Quick Swaps map - add, edit, or remove budget alternatives for expensive cards.</p>
         </Link>
         <Link href="/admin/ai" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">AI & Chat Quality</div>

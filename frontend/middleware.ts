@@ -66,8 +66,16 @@ export async function middleware(req: NextRequest) {
     try {
       const supabase = createMiddlewareClient({ req, res: response as NextResponse });
       await supabase.auth.getSession();
-    } catch (e) {
-      console.error('Supabase middleware getSession error:', e);
+    } catch (e: any) {
+      // Suppress cookie parsing errors - these are warnings from Supabase's cookie format
+      // The error "Failed to parse cookie string" is expected when cookies have base64- prefix
+      if (e?.message?.includes('Failed to parse cookie string') || e?.message?.includes('base64-')) {
+        // Silently ignore - this is a known Supabase auth helper quirk
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Supabase middleware getSession error:', e);
+        }
+      }
     }
 
     const method = req.method.toUpperCase();
