@@ -95,10 +95,10 @@ export async function POST(req: NextRequest) {
         },
       ],
       success_url: successUrl || (process.env.NODE_ENV === 'production' 
-        ? 'https://app.manatap.ai/pricing?status=success'
+        ? 'https://www.manatap.ai/pricing?status=success'
         : 'http://localhost:3000/pricing?status=success'),
       cancel_url: cancelUrl || (process.env.NODE_ENV === 'production'
-        ? 'https://app.manatap.ai/pricing?status=cancel' 
+        ? 'https://www.manatap.ai/pricing?status=cancel' 
         : 'http://localhost:3000/pricing?status=cancel'),
       allow_promotion_codes: true,
       metadata: {

@@ -148,8 +148,14 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   const plan = PRODUCT_TO_PLAN[productId];
   
   if (!plan) {
-    console.error('Unknown product ID:', productId);
-    return;
+    console.error('Unknown product ID:', productId, {
+      availableProducts: Object.keys(PRODUCT_TO_PLAN),
+      subscriptionId: subscription.id,
+      customerId: session.customer,
+      sessionId: session.id,
+    });
+    // Don't return - try to continue with fallback
+    // This allows the webhook to still update the user even if plan detection fails
   }
 
   // Find user by customer ID and update their profile
@@ -186,25 +192,47 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   }
 
   if (!profile) {
-    console.error('Failed to find user profile for customer:', session.customer, findError);
+    console.error('Failed to find user profile for customer:', {
+      customerId: session.customer,
+      sessionId: session.id,
+      subscriptionId: subscription.id,
+      metadata: session.metadata,
+      findError,
+      findByIdError: (session.metadata as any)?.app_user_id ? 'User ID in metadata but profile not found' : 'No user ID in metadata',
+    });
     return;
   }
 
   // Update user profile with Pro status
+  const updateData = {
+    is_pro: true,
+    pro_plan: plan || null, // Allow null if plan detection failed
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: session.customer as string,
+    pro_since: new Date().toISOString(),
+    pro_until: null, // Clear any previous end date
+  };
+
+  console.info('Updating user profile with Pro status', {
+    userId: profile.id,
+    updateData,
+    productId,
+    plan,
+  });
+
   const { error: updateError } = await supabase
     .from('profiles')
-    .update({
-      is_pro: true,
-      pro_plan: plan,
-      stripe_subscription_id: subscription.id,
-      stripe_customer_id: session.customer,
-      pro_since: new Date().toISOString(),
-      pro_until: null, // Clear any previous end date
-    })
+    .update(updateData)
     .eq('id', profile.id);
 
   if (updateError) {
-    console.error('Failed to update user profile:', updateError);
+    console.error('Failed to update user profile:', {
+      error: updateError,
+      userId: profile.id,
+      updateData,
+      productId,
+      plan,
+    });
     throw updateError;
   }
 
@@ -267,18 +295,41 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     const productId = subscriptionItem?.price?.product as string;
     const plan = productId ? PRODUCT_TO_PLAN[productId] : null;
 
+    if (!plan && productId) {
+      console.error('Unknown product ID in subscription.updated:', productId, {
+        availableProducts: Object.keys(PRODUCT_TO_PLAN),
+        subscriptionId: subscription.id,
+        customerId: subscription.customer,
+      });
+    }
+
+    const updateData = {
+      is_pro: true,
+      pro_plan: plan,
+      stripe_subscription_id: subscription.id,
+      pro_until: null, // Clear any end date
+    };
+
+    console.info('Updating subscription to active', {
+      userId: profile.id,
+      updateData,
+      productId,
+      plan,
+    });
+
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({
-        is_pro: true,
-        pro_plan: plan,
-        stripe_subscription_id: subscription.id,
-        pro_until: null, // Clear any end date
-      })
+      .update(updateData)
       .eq('id', profile.id);
 
     if (updateError) {
-      console.error('Failed to update user profile to active:', updateError);
+      console.error('Failed to update user profile to active:', {
+        error: updateError,
+        userId: profile.id,
+        updateData,
+        productId,
+        plan,
+      });
       throw updateError;
     }
 
