@@ -70,7 +70,7 @@ export default function SupportPage() {
             About ManaTap.ai
           </h2>
           <p className="text-gray-300 mb-4">
-            ManaTap.ai is an independent, community-built project created by Davy Seits — a long-time Magic: The Gathering player and tinkerer who wanted smarter, more transparent deck tools.
+            ManaTap.ai is an independent, community-built project created by the ManaTap team — long-time Magic: The Gathering players and tinkerers who wanted smarter, more transparent deck tools.
           </p>
           <p className="text-gray-300">
             The app uses AI to analyse deck costs, simulate draws, and suggest budget swaps — helping players understand and refine their decks rather than replace their creativity. ManaTap is not affiliated with or endorsed by Wizards of the Coast; it's a personal project made for the player community.

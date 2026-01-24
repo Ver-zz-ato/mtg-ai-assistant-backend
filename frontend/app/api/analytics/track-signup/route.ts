@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { captureServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
+import { generateMTGUsername } from '@/lib/mtg-username-generator';
+import { getAdmin } from '@/app/api/_lib/supa';
 
 export const runtime = 'nodejs';
 
 /**
  * Server-side signup tracking endpoint
  * This bypasses cookie consent requirements since it runs on the server
+ * Also sets a random MTG-themed username if user doesn't have one
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,14 +18,79 @@ export async function POST(req: NextRequest) {
 
     // Get the user if we have a session but no userId provided
     let finalUserId = userId;
+    let user = null;
     if (!finalUserId) {
       try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          finalUserId = user.id;
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          finalUserId = authUser.id;
+          user = authUser;
         }
       } catch {}
+    } else {
+      // If userId provided, fetch user to check username
+      try {
+        const admin = getAdmin();
+        if (admin) {
+          const { data: userData } = await admin.auth.admin.getUserById(finalUserId);
+          user = userData?.user || null;
+        }
+      } catch {}
+    }
+
+    // Set random MTG-themed username if user doesn't have one
+    if (user && (!user.user_metadata?.username || user.user_metadata?.username === 'Testingz')) {
+      try {
+        const admin = getAdmin();
+        if (admin) {
+          // Generate unique username (check if it exists)
+          let newUsername = generateMTGUsername();
+          let attempts = 0;
+          const maxAttempts = 10;
+          
+          // Check if username exists by querying profiles
+          const supabase = await createClient();
+          while (attempts < maxAttempts) {
+            const { data: existing } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('username', newUsername)
+              .maybeSingle();
+            
+            if (!existing) {
+              // Username is unique, use it
+              break;
+            }
+            
+            // Regenerate if taken
+            newUsername = generateMTGUsername();
+            attempts++;
+          }
+          
+          // If all attempts failed, add timestamp
+          if (attempts >= maxAttempts) {
+            newUsername = `${generateMTGUsername()}${Date.now().toString().slice(-4)}`;
+          }
+          
+          // Update user metadata with new username
+          const currentMetadata = user.user_metadata || {};
+          await admin.auth.admin.updateUserById(user.id, {
+            user_metadata: {
+              ...currentMetadata,
+              username: newUsername,
+            }
+          });
+          
+          console.info('Set random MTG username for new user', {
+            userId: user.id,
+            username: newUsername,
+          });
+        }
+      } catch (usernameError) {
+        // Non-fatal - log but don't fail the request
+        console.error('Failed to set random username (non-fatal):', usernameError);
+      }
     }
 
     // Track signup server-side (no cookie consent needed)

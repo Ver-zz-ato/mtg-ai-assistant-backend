@@ -174,6 +174,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         setUserEmail(u?.email || "");
         
         // Query profiles table for accurate pro status and data
+        // Use standardized Pro check (check both profiles.is_pro AND user_metadata.pro/is_pro)
         const profileQueryStart = performance.now();
         const { data: profileData } = await sb
           .from('profiles')
@@ -181,7 +182,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           .eq('id', u.id)
           .single();
         
-        const isProUser = profileData?.is_pro || false;
+        const isProFromProfile = profileData?.is_pro === true;
+        const isProFromMetadata = u?.user_metadata?.is_pro === true || u?.user_metadata?.pro === true;
+        const isProUser = isProFromProfile || isProFromMetadata; // OR logic for consistency
         setPro(isProUser);
         
         const md: any = u?.user_metadata || {};

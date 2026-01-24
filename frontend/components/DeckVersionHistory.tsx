@@ -146,25 +146,25 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-sm font-semibold transition-colors"
+          className="flex items-center gap-2 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
         >
           <span>⏱️</span>
           <span>Version History</span>
-          <span className="text-xs bg-amber-600/30 text-amber-300 px-1.5 py-0.5 rounded-full">PRO</span>
-          <span className="ml-2">{open ? '▼' : '▶'}</span>
+          <span className="text-[9px] bg-amber-600/30 text-amber-300 px-1 py-0.5 rounded">PRO</span>
+          <span className="ml-1 text-[10px]">{open ? '▼' : '▶'}</span>
         </button>
         
         <button
           onClick={() => saveVersion()}
           disabled={saving}
-          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-700 disabled:cursor-not-allowed border border-blue-500 rounded-lg text-sm font-semibold transition-colors"
+          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-700 disabled:cursor-not-allowed border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
         >
           {saving ? 'Saving...' : 'Save Version'}
         </button>
         
         <button
           onClick={() => setChangelogOpen(true)}
-          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-sm font-semibold transition-colors"
+          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
         >
           📝 View Changelog
         </button>

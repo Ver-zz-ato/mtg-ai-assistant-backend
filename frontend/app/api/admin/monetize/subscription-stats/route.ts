@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { stripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Get current Pro subscription stats
+    // Include stripe_subscription_id to properly identify Stripe subscribers
     const { data: allProUsers, error: proError } = await admin
       .from('profiles')
-      .select('id, is_pro, pro_plan, pro_since, created_at')
+      .select('id, is_pro, pro_plan, pro_since, created_at, stripe_subscription_id, stripe_customer_id')
       .eq('is_pro', true);
 
     if (proError) {
@@ -36,10 +38,62 @@ export async function GET(req: NextRequest) {
     }
 
     // Calculate breakdown
+    // Primary method: Use pro_plan (set by webhook/confirm-payment)
+    // Fallback: For users with stripe_subscription_id but missing pro_plan, check Stripe
     const totalPro = allProUsers?.length || 0;
-    const monthly = allProUsers?.filter(p => p.pro_plan === 'monthly').length || 0;
-    const yearly = allProUsers?.filter(p => p.pro_plan === 'yearly').length || 0;
-    const manual = allProUsers?.filter(p => p.pro_plan === 'manual').length || 0;
+    
+    // Count users with Stripe subscriptions (for diagnostics)
+    const usersWithStripe = allProUsers?.filter(p => !!p.stripe_subscription_id) || [];
+    const stripeSubscribers = usersWithStripe.length;
+    
+    // For users with stripe_subscription_id but missing pro_plan, check Stripe
+    const usersNeedingStripeCheck = usersWithStripe.filter(p => !p.pro_plan || (p.pro_plan !== 'monthly' && p.pro_plan !== 'yearly' && p.pro_plan !== 'manual'));
+    const monthlyStripeIds = new Set<string>();
+    const yearlyStripeIds = new Set<string>();
+    
+    // Only check Stripe for users missing pro_plan (should be rare)
+    if (usersNeedingStripeCheck.length > 0) {
+      await Promise.all(usersNeedingStripeCheck.map(async (p) => {
+        try {
+          if (!p.stripe_subscription_id) return;
+          const subscription = await stripe.subscriptions.retrieve(p.stripe_subscription_id);
+          const items = subscription.items.data;
+          if (items.length > 0) {
+            const interval = items[0].price.recurring?.interval;
+            if (interval === 'month') {
+              monthlyStripeIds.add(p.id);
+            } else if (interval === 'year') {
+              yearlyStripeIds.add(p.id);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch Stripe subscription ${p.stripe_subscription_id}:`, err);
+        }
+      }));
+    }
+    
+    // Monthly: pro_plan is monthly OR has monthly Stripe subscription (fallback)
+    const monthly = allProUsers?.filter(p => {
+      if (p.pro_plan === 'monthly') return true;
+      if (monthlyStripeIds.has(p.id)) return true;
+      return false;
+    }).length || 0;
+    
+    // Yearly: pro_plan is yearly OR has yearly Stripe subscription (fallback)
+    const yearly = allProUsers?.filter(p => {
+      if (p.pro_plan === 'yearly') return true;
+      if (yearlyStripeIds.has(p.id)) return true;
+      return false;
+    }).length || 0;
+    
+    // Manual: no stripe_subscription_id OR pro_plan is manual
+    const manual = allProUsers?.filter(p => {
+      // Manual if explicitly set to manual
+      if (p.pro_plan === 'manual') return true;
+      // Manual if is_pro is true but no Stripe subscription
+      if (p.is_pro && !p.stripe_subscription_id) return true;
+      return false;
+    }).length || 0;
 
     // Calculate recent signups (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -98,6 +152,7 @@ export async function GET(req: NextRequest) {
       }
     ];
 
+    // Enhanced stats with Stripe subscriber count
     return NextResponse.json({
       ok: true,
       stats: {
@@ -105,6 +160,7 @@ export async function GET(req: NextRequest) {
         monthly_subscriptions: monthly,
         yearly_subscriptions: yearly,
         manual_pro: manual,
+        stripe_subscribers: stripeSubscribers, // Total users with Stripe subscriptions
         recent_signups_30d: recentPro
       },
       chart_data: cumulativeData,

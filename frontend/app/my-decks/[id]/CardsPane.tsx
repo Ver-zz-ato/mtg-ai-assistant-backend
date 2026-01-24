@@ -821,9 +821,11 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                 
                 if (unit>0) { 
                   const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); 
+                  const total = (unit*c.qty).toFixed(2);
+                  const each = unit.toFixed(2);
                   return (
                     <span className="text-xs opacity-80 w-40 text-right tabular-nums">
-                      {sym}{(unit*c.qty).toFixed(2)} <span className="opacity-60">• {sym}{unit.toFixed(2)} each</span>
+                      {sym}{total}{c.qty > 1 && <span className="opacity-60"> • {sym}{each} each</span>}
                     </span>
                   );
                 } else if (priceLoading) {

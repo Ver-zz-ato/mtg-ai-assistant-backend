@@ -2,6 +2,7 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
+import AIDeckScanModal from "@/components/AIDeckScanModal";
 
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
 function decodeIntentParam(i?: string | null): any {
@@ -24,7 +25,7 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
   catch { try { window.dispatchEvent(new CustomEvent('toast', { detail: msg })); } catch { alert(msg); } }
 }
 
-export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: { deckId: string; encodedIntent?: string | null; isPro: boolean }){
+export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string }){
   const router = useRouter();
   const sp = useSearchParams();
   const initial = React.useMemo(()=> decodeIntentParam(encodedIntent), [encodedIntent]);
@@ -34,6 +35,14 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [swapThreshold, setSwapThreshold] = React.useState<{budget: number; currency: string} | null>(null);
   const { showPanel, removeToast } = useToast();
+  
+  // AI Deck Scan modal state
+  const [aiScanModalOpen, setAiScanModalOpen] = React.useState(false);
+  const [aiScanCategory, setAiScanCategory] = React.useState<string>('');
+  const [aiScanLabel, setAiScanLabel] = React.useState<string>('');
+  const [aiScanLoading, setAiScanLoading] = React.useState(false);
+  const [aiScanSuggestions, setAiScanSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
+  const [aiScanError, setAiScanError] = React.useState<string | null>(null);
 
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
 
@@ -315,6 +324,137 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
       </div>
       {expanded && (
         <div className="mt-2 space-y-3">
+          {/* AI Deck Scan - Nested inside Build Assistant */}
+          {healthMetrics && format?.toLowerCase() === 'commander' && (() => {
+            const { lands, ramp, draw, removal } = healthMetrics;
+            const formatTargets = {
+              lands: { min: 34, max: 38, current: lands },
+              ramp: { min: 8, max: 8, current: ramp },
+              draw: { min: 8, max: 8, current: draw },
+              removal: { min: 5, max: 5, current: removal }
+            };
+            
+            const getHealthStatus = (key: keyof typeof formatTargets) => {
+              const t = formatTargets[key];
+              if (t.current >= t.min && t.current <= t.max) return { icon: '🟢', label: 'solid', color: 'text-emerald-400' };
+              if (t.current < t.min * 0.7) return { icon: '🔴', label: 'needs work', color: 'text-red-400' };
+              return { icon: '🟡', label: 'slightly low', color: 'text-amber-400' };
+            };
+            
+            const manaBase = getHealthStatus('lands');
+            const interaction = getHealthStatus('removal');
+            const cardDraw = getHealthStatus('draw');
+            const winCondition = { icon: '🟢', label: 'clear', color: 'text-emerald-400' };
+            
+            const healthItems = [
+              { label: 'Mana base', status: manaBase, category: 'mana_base' },
+              { label: 'Interaction', status: interaction, category: 'interaction' },
+              { label: 'Card draw', status: cardDraw, category: 'card_draw' },
+              { label: 'Win condition', status: winCondition, category: 'win_condition' }
+            ];
+
+            const handleHealthClick = async (item: typeof healthItems[0]) => {
+              // Free users can see status, but AI suggestions are Pro-only
+              if (!isPro) {
+                try {
+                  const { showProToast } = await import('@/lib/pro-ux');
+                  showProToast();
+                  // Show friendly upgrade message
+                  const upgradeMsg = `AI suggestions for ${item.label} are a Pro feature. Upgrade to Pro for just £1.99/month to unlock AI-powered deck improvements and more!`;
+                  setTimeout(() => {
+                    try {
+                      const { toast } = require('@/lib/toast-client');
+                      toast(upgradeMsg, 'info');
+                    } catch {
+                      alert(upgradeMsg);
+                    }
+                  }, 500);
+                } catch {
+                  alert(`AI suggestions are a Pro feature. Upgrade to unlock!`);
+                }
+                return;
+              }
+
+              // Pro users: Show AI suggestions modal
+              setAiScanCategory(item.category);
+              setAiScanLabel(item.label);
+              setAiScanModalOpen(true);
+              setAiScanLoading(true);
+              setAiScanError(null);
+              setAiScanSuggestions([]);
+
+              try {
+                const res = await fetch('/api/deck/health-suggestions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    deckId,
+                    category: item.category,
+                    label: item.label,
+                  }),
+                });
+
+                const data = await res.json().catch(() => ({ ok: false, error: 'Failed to parse response' }));
+
+                if (!res.ok || !data.ok) {
+                  throw new Error(data.error || 'Failed to generate suggestions');
+                }
+
+                setAiScanSuggestions(data.suggestions || []);
+              } catch (err: any) {
+                setAiScanError(err?.message || 'Failed to generate AI suggestions');
+              } finally {
+                setAiScanLoading(false);
+              }
+            };
+
+            return (
+              <div className="rounded-lg border border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-pink-950/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">✨</span>
+                    <div>
+                      <div className="text-xs font-semibold text-purple-300 uppercase tracking-wide">AI Deck Scan</div>
+                      <div className="text-[10px] text-neutral-400 mt-0.5">Click any category to see AI suggestions</div>
+                    </div>
+                  </div>
+                  {!isPro && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 font-bold">PRO</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {healthItems.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => handleHealthClick(item)}
+                      className={`flex flex-col items-start gap-1 p-2 rounded-lg border transition-all cursor-pointer group text-left ${
+                        item.status.icon === '🔴' 
+                          ? 'bg-red-950/30 border-red-500/40 hover:border-red-400/60 hover:bg-red-950/40' 
+                          : item.status.icon === '🟡'
+                          ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-400/50 hover:bg-amber-950/30'
+                          : 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-950/30'
+                      }`}
+                      title={`${item.label}: ${item.status.label}. ${isPro ? 'Click for AI suggestions' : 'Upgrade to Pro for AI suggestions'}`}
+                    >
+                      <div className="flex items-center gap-1.5 w-full">
+                        <span className="text-base">{item.status.icon}</span>
+                        <span className={`text-xs font-medium ${item.status.color} group-hover:opacity-90`}>{item.label}</span>
+                        {!isPro && item.status.icon !== '🟢' && (
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300 ml-auto">PRO</span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] ${item.status.color} opacity-80 group-hover:opacity-100`}>
+                        {item.status.label}
+                        {item.status.icon !== '🟢' && isPro && ' → Fix'}
+                        {item.status.icon === '🟢' && isPro && ' → Explore'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Constraints */}
           <div className="text-[11px]">
             <div className="opacity-80 mb-1">Constraints</div>
@@ -390,7 +530,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
                 className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
                 onClick={(e)=>checkLegalityAndTokens(e)}
               >
-                <div className="font-semibold text-xs">✓ Check Legality</div>
+                <div className="font-semibold text-xs">✓ Legality and Colour Check</div>
                 <div className="text-xs opacity-70">{busy==='check' ? 'Computing...' : 'Verify format & colors'}</div>
               </button>
               <button 
@@ -440,6 +580,36 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro }: {
           </div>
         </div>
       )}
+
+      {/* AI Deck Scan Modal */}
+      <AIDeckScanModal
+        isOpen={aiScanModalOpen}
+        category={aiScanCategory}
+        label={aiScanLabel}
+        isLoading={aiScanLoading}
+        suggestions={aiScanSuggestions}
+        error={aiScanError}
+        onClose={() => {
+          setAiScanModalOpen(false);
+          setAiScanCategory('');
+          setAiScanLabel('');
+          setAiScanSuggestions([]);
+          setAiScanError(null);
+        }}
+        onAddCard={async (cardName: string) => {
+          try {
+            await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ name: cardName, qty: 1 })
+            });
+            try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+            await toast(`Added ${cardName}`, 'success');
+          } catch (e: any) {
+            throw new Error(e?.message || 'Failed to add card');
+          }
+        }}
+      />
 
       {/* Budget Swaps Threshold Popup */}
       {swapThreshold && (

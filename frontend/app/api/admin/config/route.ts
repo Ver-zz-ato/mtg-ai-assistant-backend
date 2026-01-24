@@ -15,6 +15,11 @@ function isAdmin(user: any): boolean {
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Check admin status
+    const userIsAdmin = user ? isAdmin(user) : false;
+    
     const url = new URL(req.url);
     const keys = url.searchParams.getAll('key');
     let q = supabase.from('app_config').select('key, value');
@@ -23,7 +28,11 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.json({ ok:false, error: error.message }, { status: 500 });
     const map: Record<string, any> = {};
     for (const row of (data || [])) map[(row as any).key] = (row as any).value;
-    return NextResponse.json({ ok:true, config: map }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ 
+      ok: true, 
+      config: map,
+      is_admin: userIsAdmin // Return admin status for client-side checks
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e:any) {
     return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status: 500 });
   }

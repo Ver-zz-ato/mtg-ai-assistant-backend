@@ -2,6 +2,8 @@
 import React from 'react';
 import { ELI5, HelpTip } from '@/components/AdminHelp';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '@/lib/auth-context';
+import { useRouter } from 'next/navigation';
 
 function isAllowedHost() {
   try { return location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'; } catch { return true; }
@@ -21,7 +23,44 @@ export default function AdminMonetizePage() {
   const [showInactive, setShowInactive] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
 
+  // Admin check state (handled by AdminGuard in layout, but we keep this for data loading)
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+  const [checking, setChecking] = React.useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Check admin access
   React.useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user) {
+      router.push('/');
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/config', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.ok && data.is_admin) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+          router.push('/');
+        }
+      } catch (err) {
+        console.error('Admin check failed:', err);
+        setIsAdmin(false);
+        router.push('/');
+      } finally {
+        setChecking(false);
+      }
+    })();
+  }, [user, authLoading, router]);
+
+  React.useEffect(() => {
+    if (!isAdmin) return; // Don't load data if not admin
+    
     (async () => {
       try { const r = await fetch('/api/config', { cache: 'no-store' }); const j = await r.json(); if (j?.ok && j?.monetize) setCfg(j.monetize); } catch {}
     })();
@@ -36,7 +75,7 @@ export default function AdminMonetizePage() {
       loadSubscribers();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   async function loadStats() {
     setStatsLoading(true);
@@ -102,6 +141,28 @@ export default function AdminMonetizePage() {
     } catch (e:any) { alert(e?.message || 'Save failed'); } finally { setSaving(false); }
   }
 
+  if (authLoading || checking || isAdmin === null) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-neutral-400">Checking admin access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-xl mb-2">Access Denied</p>
+          <p className="text-neutral-400">Admin access required</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
       <h1 className="text-xl font-semibold">Admin • Monetization</h1>
@@ -131,7 +192,7 @@ export default function AdminMonetizePage() {
         ) : stats ? (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Total Pro Users</div>
                 <div className="text-2xl font-bold">{stats.stats?.total_pro || 0}</div>
@@ -147,6 +208,11 @@ export default function AdminMonetizePage() {
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Manual</div>
                 <div className="text-2xl font-bold">{stats.stats?.manual_pro || 0}</div>
+              </div>
+              <div className="rounded border border-blue-700 p-3 bg-blue-900/20">
+                <div className="text-xs text-blue-400 mb-1">Stripe Subscribers</div>
+                <div className="text-2xl font-bold text-blue-300">{stats.stats?.stripe_subscribers || 0}</div>
+                <div className="text-[10px] text-blue-500 mt-1">Users with stripe_subscription_id</div>
               </div>
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Last 30 Days</div>

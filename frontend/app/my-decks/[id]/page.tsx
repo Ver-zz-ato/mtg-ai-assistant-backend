@@ -30,7 +30,12 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const { r, i } = await searchParams;
   const supabase = await createClient();
   const { data: ures } = await supabase.auth.getUser();
-  const isPro = Boolean((ures?.user as any)?.user_metadata?.pro);
+  // Use standardized Pro check that checks both database and metadata
+  let isPro = false;
+  if (ures?.user) {
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    isPro = await checkProStatus(ures.user.id);
+  }
   const { data: deck } = await supabase.from("decks").select("title, is_public, commander, format, colors, deck_aim").eq("id", id).maybeSingle();
   const title = deck?.title || "Untitled Deck";
   const format = String(deck?.format || "commander").toLowerCase();
@@ -279,7 +284,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
           </header>
           {/* Build Assistant (sticky) */}
-          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} />; })()}
+          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} healthMetrics={core} format={format} />; })()}
           {/* key forces remount when ?r= changes */}
           {/* Functions panel */}
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
@@ -290,7 +295,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             commander={deck?.commander || null}
             colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
             deckAim={(deck as any)?.deck_aim || null}
-            healthMetrics={isPro ? core : null}
+            healthMetrics={core} // Always pass health metrics - Pro gating happens in component
             key={r || "_"} 
           />
         </section>
