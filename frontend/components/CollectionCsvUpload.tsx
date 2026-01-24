@@ -179,12 +179,18 @@ export default function CollectionCsvUpload({
         const batchResults = await Promise.all(
           batch.map(async (card) => {
             try {
+              // Use suggestedName if fuzzy match was found, otherwise use originalName
+              // If user accepted suggestion, originalName was updated to suggestedName
+              const finalName = card.matchStatus === 'fuzzy' && card.suggestedName 
+                ? card.suggestedName 
+                : card.originalName;
+              
               const res = await fetch(`/api/collections/cards`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   collectionId,
-                  name: card.originalName,
+                  name: finalName,
                   qty: card.quantity,
                 }),
               });
@@ -272,12 +278,18 @@ export default function CollectionCsvUpload({
         const batchResults = await Promise.all(
           batch.map(async (card) => {
             try {
+              // Use suggestedName if fuzzy match was found, otherwise use originalName
+              // If user accepted suggestion, originalName was updated to suggestedName
+              const finalName = card.matchStatus === 'fuzzy' && card.suggestedName 
+                ? card.suggestedName 
+                : card.originalName;
+              
               const res = await fetch(`/api/collections/cards`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   collectionId: targetCollectionId,
-                  name: card.originalName,
+                  name: finalName,
                   qty: card.quantity,
                 }),
               });

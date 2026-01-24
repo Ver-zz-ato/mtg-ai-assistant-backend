@@ -176,11 +176,31 @@ export async function POST(req: NextRequest) {
       return await importDeckText(supabase, deckId, deckText);
     }
 
-    const name = String(body?.name ?? "").trim();
+    let name = String(body?.name ?? "").trim();
     const qty = Math.max(1, Number(body?.qty ?? 1) || 1);
 
     if (!name) {
       return NextResponse.json({ ok: false, error: "name required" }, { status: 400 });
+    }
+    
+    // Validate and fix card name before adding (unless skipValidation is true)
+    if (!body.skipValidation) {
+      try {
+        const fuzzyRes = await fetch(`${req.nextUrl.origin}/api/cards/fuzzy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: [name] })
+        });
+        const fuzzyData = await fuzzyRes.json().catch(() => ({}));
+        const suggestion = fuzzyData?.results?.[name]?.suggestion;
+        // Use suggestion if it exists and is different (case-insensitive check)
+        if (suggestion && suggestion.toLowerCase() !== name.toLowerCase()) {
+          name = suggestion; // Auto-fix the name
+        }
+      } catch (e) {
+        // Continue with original name if validation fails
+        console.warn('[decks/cards] Name validation failed, using original name:', e);
+      }
     }
 
     // If unique(deck_id,name) is enforced, merge by incrementing when it already exists.

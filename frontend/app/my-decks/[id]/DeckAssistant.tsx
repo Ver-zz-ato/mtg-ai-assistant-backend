@@ -402,14 +402,26 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     
     setBusy(true);
     try {
-      const ctx = await deckContext();
-      const prompt = (ctx?`[Deck context] ${ctx}\n\n`:'') + text;
-      const pm = await postMessage({ text: prompt, threadId });
+      // Pass deckId via context parameter (not as text) so chat route can fetch deck properly
+      const pm = await postMessage({ text, threadId });
       const tid = (pm as any)?.threadId || threadId;
       if (tid && tid !== threadId) setThreadId(tid);
-      // Trigger assistant reply (single-shot) with prefs
+      
+      // Link thread to deck if not already linked
+      if (tid && deckId) {
+        try {
+          await fetch('/api/chat/threads/link', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ threadId: tid, deckId })
+          }).catch(() => {}); // Non-blocking
+        } catch {}
+      }
+      
+      // Trigger assistant reply (single-shot) with prefs and context
       const prefs: any = { format: fmt, budget: plan, colors: Array.isArray(deckCI)?deckCI:[], teaching };
-      await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text: prompt, threadId: tid || null, noUserInsert: true, prefs }) });
+      const context = { deckId }; // Pass deckId via context, not as text
+      await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text, threadId: tid || null, noUserInsert: true, prefs, context }) });
       if (tid) await refresh(tid);
       // Try quick-add intents from the last assistant message (prefill only, do not add automatically)
       const lastAssistant = msgs.slice().reverse().find(m => m.role === 'assistant');

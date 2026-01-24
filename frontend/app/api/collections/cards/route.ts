@@ -24,11 +24,32 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
-  const { collectionId, name, qty } = body;
+  let { collectionId, name, qty } = body;
 
   if (!collectionId || !name) {
     return NextResponse.json({ ok: false, error: "collectionId and name are required" }, { status: 400 });
   }
+  
+  // Validate and fix card name before adding (unless skipValidation is true)
+  if (!body.skipValidation) {
+    try {
+      const fuzzyRes = await fetch(`${req.nextUrl.origin}/api/cards/fuzzy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: [name] })
+      });
+      const fuzzyData = await fuzzyRes.json().catch(() => ({}));
+      const suggestion = fuzzyData?.results?.[name]?.suggestion;
+      // Use suggestion if it exists and is different (case-insensitive check)
+      if (suggestion && suggestion.toLowerCase() !== name.toLowerCase()) {
+        name = suggestion; // Auto-fix the name
+      }
+    } catch (e) {
+      // Continue with original name if validation fails
+      console.warn('[collections/cards] Name validation failed, using original name:', e);
+    }
+  }
+  
   const initialQty = Number.isFinite(qty) ? Math.max(1, parseInt(String(qty), 10)) : 1;
 
   const { data: existing, error: selErr } = await supabase

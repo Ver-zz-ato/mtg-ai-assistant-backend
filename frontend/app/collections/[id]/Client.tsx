@@ -237,7 +237,13 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
         if (!names.length) { setImgMap({}); return; }
         const { getImagesForNames } = await import("@/lib/scryfall");
         const m = await getImagesForNames(names);
-        const obj: any = {}; m.forEach((v: any, k: string) => { obj[k] = { small: v.small, normal: v.normal }; });
+        // Normalize keys to match lookup logic (normalize NFKD, lowercase, trim spaces)
+        const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+        const obj: any = {}; 
+        m.forEach((v: any, k: string) => { 
+          // Store with normalized key for consistent lookup
+          obj[normalize(k)] = { small: v.small, normal: v.normal }; 
+        });
         setImgMap(obj);
       } catch { setImgMap({}); }
     })();
@@ -347,7 +353,11 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
                   <input type="number" min={0} step={1} value={it.qty}
                     className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"
                     onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - it.qty; if (d!==0) bump(it, d); }} />
-                  {(() => { const key = it.name.toLowerCase(); const src = (imgMap as any)?.[key]?.small; return src ? (
+                  {(() => { 
+                    const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                    const key = normalize(it.name); 
+                    const src = (imgMap as any)?.[key]?.small; 
+                    return src ? (
                     <img src={src} alt={it.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
 onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: (imgMap as any)?.[key]?.normal || src, x, y, shown: true, below }); }}
                       onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}

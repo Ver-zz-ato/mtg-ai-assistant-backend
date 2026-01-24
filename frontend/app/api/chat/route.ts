@@ -466,6 +466,11 @@ export async function POST(req: NextRequest) {
             }
             
             if (msg.role === 'user' && msg.content) {
+              // Skip messages that are clearly deck context strings (not pasted decklists)
+              if (msg.content.includes('[Deck context]') || msg.content.includes('== DECK CONTEXT ==')) {
+                continue;
+              }
+              
               const isDeck = isDecklist(msg.content);
               
               if (isDeck) {
@@ -770,15 +775,17 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     if (teachingFlag) {
       sys += `\n\nTeaching mode: Answer in 3 parts: 1) Concept/explanation, 2) Categorized examples (land ramp, rocks, dorks), 3) Application to deck. Define jargon first time (ETB=enters battlefield). Match examples to format.`;
     }
-    // Add inference when deck is linked
+    // Add inference when deck is linked (from thread OR context parameter)
     let inferredContext: any = null;
     try {
       const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid!).maybeSingle();
       const deckIdLinked = th?.deck_id as string | null;
-      if (deckIdLinked) {
+      // Use context.deckId if provided, otherwise use thread's linked deck
+      const deckIdToUse = context?.deckId || deckIdLinked;
+      if (deckIdToUse) {
         // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
-        const { data: d } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdLinked).maybeSingle();
-        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+        const { data: d } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdToUse).maybeSingle();
+        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdToUse).limit(400);
         
         let deckText = "";
         let entries: Array<{ count: number; name: string }> = [];
@@ -800,7 +807,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
           deckContextParts.push(`Cards: ${cardList}`);
         } else {
           // Fallback to deck_text field for backward compatibility
-          const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdLinked).maybeSingle();
+          const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdToUse).maybeSingle();
           deckText = String(dFallback?.deck_text || "");
           if (deckText) {
             // Parse into entries
@@ -819,6 +826,13 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
         
         if (deckContextParts.length > 0) {
           sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${deckContextParts.join('. ')}`;
+        }
+        
+        // Link thread to deck if context.deckId was provided and thread isn't already linked
+        if (context?.deckId && tid && !deckIdLinked) {
+          try {
+            await supabase.from("chat_threads").update({ deck_id: context.deckId }).eq("id", tid);
+          } catch {}
         }
         
         // Run inference if we have deck entries

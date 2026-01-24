@@ -592,7 +592,12 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         if (!names.length) { setImgMap({}); return; }
         const { getImagesForNames } = await import("@/lib/scryfall");
         const m = await getImagesForNames(names);
-        const obj: any = {}; m.forEach((v: any, k: string) => { obj[k] = { small: v.small, normal: v.normal }; });
+        // getImagesForNames returns Map with normalized keys (NFKD normalized, lowercase, trimmed)
+        // Store with same normalized keys for consistent lookup
+        const obj: any = {}; 
+        m.forEach((v: any, k: string) => { 
+          obj[k] = { small: v.small, normal: v.normal }; 
+        });
         setImgMap(obj);
       } catch { setImgMap({}); }
     })();
@@ -736,13 +741,15 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                 onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); const d = v - c.qty; if (d!==0) delta(c.id, d); }}
               />
               {(() => { 
-                let key = c.name.toLowerCase(); 
+                // Normalize key to match getImagesForNames output (NFKD normalized, lowercase, trimmed)
+                const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                let key = normalize(c.name); 
                 let src = imgMap[key]?.small;
                 let normalSrc = imgMap[key]?.normal;
                 
                 // For DFCs, try to find any DFC with the same front face
                 if (!src && c.name.includes('//')) {
-                  const frontFace = c.name.split('//')[0].trim().toLowerCase();
+                  const frontFace = normalize(c.name.split('//')[0].trim());
                   
                   // Try simple front face match
                   src = imgMap[frontFace]?.small;
@@ -779,18 +786,19 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
 
             <div className="flex items-center gap-2">
               {(() => { try { 
-                const key = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); 
+                const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                const key = normalize(c.name); 
                 let unit = priceMap[key];
-                let hasImg = !!imgMap[c.name.toLowerCase()]?.small;
+                let hasImg = !!imgMap[key]?.small;
                 
                 // For DFCs, try matching any DFC with the same front face
                 if (!unit && !hasImg && c.name.includes('//')) {
                   const frontFace = c.name.split('//')[0].trim();
-                  const frontKey = frontFace.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+                  const frontKey = normalize(frontFace);
                   
                   // Try simple front face match first
                   unit = priceMap[frontKey];
-                  hasImg = !!imgMap[frontFace.toLowerCase()]?.small;
+                  hasImg = !!imgMap[frontKey]?.small;
                   
                   // If still no match, search priceMap for valid DFCs starting with this front face
                   if (!unit) {
@@ -808,7 +816,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                   // Same for images - prefer valid DFCs
                   if (!hasImg) {
                     const imgKeys = Object.keys(imgMap).filter(k => {
-                      if (!k.includes('//') || !k.startsWith(frontFace.toLowerCase() + ' //')) return false;
+                      if (!k.includes('//') || !k.startsWith(frontKey + ' //')) return false;
                       // Filter out invalid DFCs
                       const parts = k.split('//').map((p: string) => p.trim());
                       return parts[0] !== parts[1];

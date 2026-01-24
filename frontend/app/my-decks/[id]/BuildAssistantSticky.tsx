@@ -384,6 +384,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               setAiScanSuggestions([]);
 
               try {
+                console.log('[AI Deck Scan] Fetching suggestions for', { deckId, category: item.category, label: item.label });
                 const res = await fetch('/api/deck/health-suggestions', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -396,12 +397,21 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
 
                 const data = await res.json().catch(() => ({ ok: false, error: 'Failed to parse response' }));
 
+                console.log('[AI Deck Scan] Response:', { ok: res.ok, dataOk: data.ok, suggestionsCount: data.suggestions?.length || 0, error: data.error });
+
                 if (!res.ok || !data.ok) {
                   throw new Error(data.error || 'Failed to generate suggestions');
                 }
 
-                setAiScanSuggestions(data.suggestions || []);
+                if (!Array.isArray(data.suggestions) || data.suggestions.length === 0) {
+                  console.warn('[AI Deck Scan] No suggestions returned');
+                  setAiScanError('No suggestions generated. The AI may not have found suitable cards for this category.');
+                  return;
+                }
+
+                setAiScanSuggestions(data.suggestions);
               } catch (err: any) {
+                console.error('[AI Deck Scan] Error:', err);
                 setAiScanError(err?.message || 'Failed to generate AI suggestions');
               } finally {
                 setAiScanLoading(false);
