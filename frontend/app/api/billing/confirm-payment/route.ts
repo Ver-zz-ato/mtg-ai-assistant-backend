@@ -49,18 +49,16 @@ export async function GET(req: NextRequest) {
         expand: ['subscription', 'customer'],
       });
       
-      // Log session details (dev only)
-      if (isDev) {
-        console.info('[confirm-payment] Session retrieved', {
-          sessionId: session.id,
-          sessionStatus: session.status,
-          paymentStatus: session.payment_status,
-          customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-          metadata: session.metadata,
-          subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
-          sessionMode: sessionId.startsWith('cs_test_') ? 'test' : sessionId.startsWith('cs_live_') ? 'live' : 'unknown',
-        });
-      }
+      // Log session details (always log for debugging)
+      console.log('[confirm-payment] 🔍 Session retrieved', {
+        sessionId: session.id,
+        sessionStatus: session.status,
+        paymentStatus: session.payment_status,
+        customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+        metadata: session.metadata,
+        subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+        sessionMode: sessionId.startsWith('cs_test_') ? 'test' : sessionId.startsWith('cs_live_') ? 'live' : 'unknown',
+      });
     } catch (stripeError: any) {
       console.error('Failed to retrieve checkout session:', stripeError);
       const errorResponse = {
@@ -138,18 +136,16 @@ export async function GET(req: NextRequest) {
     const customerMatches = profile.stripe_customer_id === customerId;
     const userMatches = sessionUserId === user.id;
 
-    // Log ownership check details (dev only)
-    if (isDev) {
-      console.info('[confirm-payment] Ownership check', {
-        authenticatedUserId: user.id,
-        sessionCustomerId: customerId,
-        profileCustomerId: profile.stripe_customer_id,
-        sessionUserId,
-        customerMatches,
-        userMatches,
-        ownershipVerified: customerMatches || userMatches,
-      });
-    }
+    // Log ownership check details (always log for debugging)
+    console.log('[confirm-payment] 🔍 Ownership check', {
+      authenticatedUserId: user.id,
+      sessionCustomerId: customerId,
+      profileCustomerId: profile.stripe_customer_id,
+      sessionUserId,
+      customerMatches,
+      userMatches,
+      ownershipVerified: customerMatches || userMatches,
+    });
 
     if (!customerMatches && !userMatches) {
       console.error('Session ownership mismatch', {

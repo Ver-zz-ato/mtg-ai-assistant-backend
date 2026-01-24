@@ -22,28 +22,26 @@ function ThankYouContent() {
   useEffect(() => {
     if (authLoading) return;
     
-    // Log diagnostic info (dev only)
+    // Log diagnostic info (always log for debugging - not suppressed)
     const isDev = process.env.NODE_ENV !== 'production';
-    if (isDev) {
-      console.info('[thank-you] Page loaded', {
-        currentHost: window.location.host,
-        currentUrl: window.location.href,
-        isAuthenticated: !!user,
-        userId: user?.id,
-        sessionId,
-        plan,
-      });
-    }
+    console.log('[thank-you] 🔍 Page loaded', {
+      currentHost: window.location.host,
+      currentUrl: window.location.href,
+      isAuthenticated: !!user,
+      userId: user?.id,
+      sessionId,
+      plan,
+      isDev,
+      nodeEnv: process.env.NODE_ENV,
+    });
     
     if (!user) {
-      // Log auth issue (dev only)
-      if (isDev) {
-        console.warn('[thank-you] User not authenticated', {
-          currentHost: window.location.host,
-          expectedHost: 'www.manatap.ai',
-          domainMismatch: !window.location.host.includes('www.manatap.ai') && !window.location.host.includes('localhost'),
-        });
-      }
+      // Log auth issue (always log for debugging)
+      console.warn('[thank-you] ⚠️ User not authenticated', {
+        currentHost: window.location.host,
+        expectedHost: 'www.manatap.ai',
+        domainMismatch: !window.location.host.includes('www.manatap.ai') && !window.location.host.includes('localhost'),
+      });
       // Redirect to pricing if not logged in
       router.push('/pricing');
       return;
@@ -62,16 +60,15 @@ function ThankYouContent() {
           });
           const data = await res.json();
           
-          // Log response (dev only)
-          if (isDev) {
-            console.info('[thank-you] confirm-payment response', {
-              status: res.status,
-              ok: data.ok,
-              code: data.code,
-              error: data.error,
-              isPro: data.isPro,
-            });
-          }
+          // Log response (always log for debugging)
+          console.log('[thank-you] 🔍 confirm-payment response', {
+            status: res.status,
+            ok: data.ok,
+            code: data.code,
+            error: data.error,
+            isPro: data.isPro,
+            fullResponse: data, // Include full response for debugging
+          });
           
           if (data.ok && data.isPro) {
             setSynced(true);
