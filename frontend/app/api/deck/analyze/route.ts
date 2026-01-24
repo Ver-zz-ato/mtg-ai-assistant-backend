@@ -21,6 +21,7 @@ import roleBaselines from "@/lib/data/role_baselines.json";
 import colorIdentityMap from "@/lib/data/color_identity_map.json";
 import commanderProfiles from "@/lib/data/commander_profiles.json";
 import knownBad from "@/lib/data/known_bad.json";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 type RoleBaselineEntry = {
   min?: number;
@@ -456,21 +457,22 @@ async function callOpenAI(
 
   const { maxTokens = 400 } = opts;
 
+  const payload = prepareOpenAIBody({
+    model: OPENAI_MODEL,
+    input: [
+      { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+      { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+    ],
+    max_output_tokens: maxTokens,
+  } as Record<string, unknown>);
+
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      input: [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
-      ],
-      // Note: temperature parameter removed - not supported by this model
-      max_output_tokens: maxTokens,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const runtime = "nodejs";
@@ -56,27 +58,28 @@ Please provide a comprehensive analysis covering:
 
 Keep the analysis concise but insightful (300-500 words). Format with clear sections.`;
 
+    const requestBody = prepareOpenAIBody({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_completion_tokens: 1000,
+    });
+
     const response = await fetch(OPENAI_URL, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_completion_tokens: 1000,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

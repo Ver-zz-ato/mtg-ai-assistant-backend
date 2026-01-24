@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 export const runtime = "nodejs";
 
@@ -56,21 +57,23 @@ Generate ${count} test cases.`;
       ? `Generate ${count} diverse test cases covering various MTG scenarios. Mix chat and deck_analysis types. Cover: ramp questions, color identity, format legality, budget constraints, archetype suggestions, card recommendations, and common player questions.`
       : `Generate test cases for: ${finalDescription}\n\nType: ${type}`;
 
+    const requestBody = prepareOpenAIBody({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_completion_tokens: 3000,
+      response_format: { type: "json_object" },
+    } as Record<string, unknown>);
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_completion_tokens: 3000,
-        response_format: { type: "json_object" },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

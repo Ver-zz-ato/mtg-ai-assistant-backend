@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
 import { getPromptVersion } from '@/lib/config/prompts';
+import { prepareOpenAIBody } from '@/lib/ai/openai-params';
 
 export async function POST(req: Request){
   try{
@@ -41,18 +42,19 @@ export async function POST(req: Request){
     
     const user = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- If synergy is involved, name the enabler and payoff cards and explain the sequence (e.g., "Card A enables X; Card B pays off with Y").\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
 
+    const payload = prepareOpenAIBody({
+      model: process.env.OPENAI_MODEL || 'gpt-5',
+      input: [
+        { role:'system', content:[{ type:'input_text', text: system }] },
+        { role:'user', content:[{ type:'input_text', text: user }] },
+      ],
+      max_output_tokens: 80,
+    } as Record<string, unknown>);
+
     const r = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { 'content-type':'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-5',
-        input: [
-          { role:'system', content:[{ type:'input_text', text: system }] },
-          { role:'user', content:[{ type:'input_text', text: user }] },
-        ],
-        max_output_tokens: 80,
-        // Note: temperature removed - not supported by this model
-      }),
+      body: JSON.stringify(payload),
     }).catch(()=>null as any);
 
     const j:any = await r?.json().catch(()=>({}));

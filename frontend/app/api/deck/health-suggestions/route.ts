@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
 import { COMPLETION_LIMITS, getMaxTokenParam } from '@/lib/ai/completion-limits';
+import { prepareOpenAIBody } from '@/lib/ai/openai-params';
 
 export const runtime = 'nodejs';
 
@@ -107,17 +108,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'AI service unavailable' }, { status: 503 });
     }
 
-    // Build request body - always use max_completion_tokens for current models
-    const requestBody: any = {
+    // Build request body - max_completion_tokens only; no temperature/top_p
+    const requestBody = prepareOpenAIBody({
       model: MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: fullPrompt }
       ],
-      temperature: 0.7,
       ...getMaxTokenParam(MODEL, COMPLETION_LIMITS.scan)
-    };
-    
+    });
+
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: {

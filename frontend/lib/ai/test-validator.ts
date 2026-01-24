@@ -2,6 +2,8 @@
  * Validation functions for AI test responses
  */
 
+import { prepareOpenAIBody } from "./openai-params";
+
 export type ValidationResult = {
   passed: boolean;
   score: number; // 0-100
@@ -931,21 +933,23 @@ Penalize heavily for:
   const userPrompt = `AI Response to fact-check:\n\n${response}`;
 
   try {
+    const requestBody = prepareOpenAIBody({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_completion_tokens: 800,
+      response_format: { type: "json_object" },
+    } as Record<string, unknown>);
+
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_completion_tokens: 800,
-        response_format: { type: "json_object" },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!res.ok) {

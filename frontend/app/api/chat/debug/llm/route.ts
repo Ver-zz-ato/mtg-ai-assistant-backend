@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -9,11 +10,11 @@ export async function GET() {
     return NextResponse.json({ ok: true, provider: "fallback", reason: "no_api_key", model }, { status: 200 });
   }
   try {
-    const body: any = {
+    const body = prepareOpenAIBody({
       model,
       messages: [{ role: "user", content: "ping" }],
       max_completion_tokens: 32,
-    };
+    } as Record<string, unknown>);
     const res = await fetch(OPENAI_URL, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
@@ -26,7 +27,7 @@ export async function GET() {
         const r2 = await fetch(OPENAI_URL, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ ...body, model: fb }),
+          body: JSON.stringify(prepareOpenAIBody({ ...body, model: fb } as Record<string, unknown>)),
         });
         if (r2.ok) return NextResponse.json({ ok: true, provider: "openai", model: fb, sample: "pong" }, { status: 200 });
         const j2 = await r2.json().catch(()=>({}));

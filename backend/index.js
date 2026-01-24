@@ -142,7 +142,7 @@ app.post('/api/ask', async (req, res) => {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7,
+      max_completion_tokens: 1000,
     });
 
     const reply = completion.choices[0].message.content;

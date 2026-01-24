@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,14 +40,14 @@ export async function POST(req: Request) {
     if (apiKey && uniq.length > 0) {
       const system = "You are an MTG finance assistant. Rate the reprint risk for the next 90 days for each card as 'low', 'medium', or 'high'. Consider recent reprints, set cycles, and Commander precon patterns. Respond ONLY JSON: [{\"name\":\"Card Name\",\"risk\":\"low|medium|high\",\"reason\":\"<=90 chars\"}]";
       const user = `Cards:\n${uniq.map(n => `- ${n}`).join("\n")}`;
-      const payload = {
+      const payload = prepareOpenAIBody({
         model,
         input: [
           { role: "system", content: [{ type: "input_text", text: system }] },
           { role: "user", content: [{ type: "input_text", text: user }] },
         ],
         max_output_tokens: 600,
-      } as any;
+      } as Record<string, unknown>);
       const r = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },

@@ -191,9 +191,7 @@ def api():
                 {"role": "system", "content": mode_to_system_prompt(mode)},
                 {"role": "user", "content": prompt},
             ],
-            temperature=TEMP,
             max_completion_tokens=MAXTOK,
-            top_p=1.0,
         )
         reply = completion.choices[0].message.content
         return jsonify({"ok": True, "reply": reply}), 200

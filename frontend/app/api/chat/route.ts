@@ -7,6 +7,7 @@ import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import { logger } from "@/lib/logger";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { deduplicatedFetch } from "@/lib/api/deduplicator";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 // Model configuration: Use mini for simple queries, gpt-5 for complex analysis
 const MODEL_MINI = "gpt-4o-mini"; // For simple queries: card parsing, legality checks, fast previews
@@ -149,11 +150,11 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
     }
     messages.push({ role: "user", content: userText });
     
-    const body: any = {
+    const body = prepareOpenAIBody({
       model,
       messages,
-      max_completion_tokens: Math.max(16, tokens|0),
-    };
+      max_completion_tokens: Math.max(16, tokens | 0),
+    } as Record<string, unknown>);
     // Task 4: Add request deduplication for OpenAI calls
     const res = await deduplicatedFetch(OPENAI_URL, {
       method: "POST",

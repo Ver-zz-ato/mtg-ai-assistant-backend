@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 export const runtime = "nodejs";
 
@@ -114,21 +115,23 @@ Return JSON with:
     const userPrompt = `Analyze these test failures and suggest prompt improvements:\n\n${failureSummaries.join("\n")}`;
 
     try {
+      const requestBody = prepareOpenAIBody({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_completion_tokens: 2000,
+        response_format: { type: "json_object" },
+      } as Record<string, unknown>);
+
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_completion_tokens: 2000,
-          response_format: { type: "json_object" },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) {

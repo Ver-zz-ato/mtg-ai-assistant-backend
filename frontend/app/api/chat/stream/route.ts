@@ -3,6 +3,7 @@ import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import type { SfCard } from "@/lib/deck/inference";
 import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 export const runtime = "nodejs";
 
@@ -316,12 +317,12 @@ export async function POST(req: NextRequest) {
     // Use gpt-4o-mini for streaming (no verification required)
     const tokenLimit = Math.min(MAX_TOKENS_STREAM, 1000);
     
-    const openAIBody = {
+    const openAIBody = prepareOpenAIBody({
       model: MODEL,
       messages,
       stream: true,
       max_completion_tokens: tokenLimit
-    };
+    } as Record<string, unknown>);
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
 
@@ -362,12 +363,12 @@ export async function POST(req: NextRequest) {
             // Try fallback model if primary model fails
             const isGPT5Primary = MODEL.toLowerCase().includes('gpt-5');
             if (isGPT5Primary) {
-              const fallbackBody = {
+              const fallbackBody = prepareOpenAIBody({
                 model: "gpt-4o-mini",
                 messages,
                 max_completion_tokens: tokenLimit,
                 stream: true
-              };
+              } as Record<string, unknown>);
               
               const fallbackResponse = await fetch(OPENAI_URL, {
                 method: "POST",

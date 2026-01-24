@@ -1,6 +1,8 @@
 // lib/ai/openai-client.ts
 // Shared OpenAI API client
 
+import { prepareOpenAIBody } from "./openai-params";
+
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -15,20 +17,22 @@ export async function callOpenAI(
 
   const { maxTokens = 400 } = opts;
 
+  const payload = prepareOpenAIBody({
+    model: OPENAI_MODEL,
+    input: [
+      { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+      { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+    ],
+    max_output_tokens: maxTokens,
+  } as Record<string, unknown>);
+
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      input: [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
-      ],
-      max_output_tokens: maxTokens,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

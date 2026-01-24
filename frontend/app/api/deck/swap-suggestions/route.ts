@@ -6,6 +6,7 @@ import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
 import { getPromptVersion } from "@/lib/config/prompts";
 import swapsData from "@/lib/data/budget-swaps.json";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -128,19 +129,18 @@ async function aiSuggest(deckText: string, currency: string, budget: number): Pr
   ].join("\n");
   
   const input = `Currency: ${currency}\nThreshold: ${budget}\nDeck:\n${deckText}`;
-  const body: any = {
+  const payload = prepareOpenAIBody({
     model,
     input: [
       { role: "system", content: [{ type: "input_text", text: system }] },
       { role: "user", content: [{ type: "input_text", text: input }] },
     ],
     max_output_tokens: 512,
-    // Note: temperature removed - not supported by this model
-  };
+  } as Record<string, unknown>);
   const r = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   }).catch(() => null as any);
   if (!r) return [];
   const j: any = await r.json().catch(() => ({}));
