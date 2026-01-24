@@ -192,7 +192,7 @@ def api():
                 {"role": "user", "content": prompt},
             ],
             temperature=TEMP,
-            max_tokens=MAXTOK,
+            max_completion_tokens=MAXTOK,
             top_p=1.0,
         )
         reply = completion.choices[0].message.content

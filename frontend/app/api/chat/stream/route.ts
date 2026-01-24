@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       messages,
       stream: true,
-      max_tokens: tokenLimit // gpt-4o-mini uses max_tokens
+      max_completion_tokens: tokenLimit
     };
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
@@ -365,7 +365,7 @@ export async function POST(req: NextRequest) {
               const fallbackBody = {
                 model: "gpt-4o-mini",
                 messages,
-                max_tokens: tokenLimit, // GPT-4o-mini uses max_tokens
+                max_completion_tokens: tokenLimit,
                 stream: true
               };
               

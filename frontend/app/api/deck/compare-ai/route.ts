@@ -75,7 +75,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           }
         ],
         temperature: 0.7,
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
       }),
     });
 

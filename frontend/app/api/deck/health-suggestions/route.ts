@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
+import { COMPLETION_LIMITS, getMaxTokenParam } from '@/lib/ai/completion-limits';
 
 export const runtime = 'nodejs';
 
@@ -106,31 +107,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'AI service unavailable' }, { status: 503 });
     }
 
-    // Build request body - use max_completion_tokens for newer models, max_tokens for older ones
+    // Build request body - always use max_completion_tokens for current models
     const requestBody: any = {
       model: MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: fullPrompt }
       ],
-      temperature: 0.7
+      temperature: 0.7,
+      ...getMaxTokenParam(MODEL, COMPLETION_LIMITS.scan)
     };
-    
-    // Only add max tokens parameter if model supports it
-    // Newer models (gpt-4o, gpt-4-turbo, o1, etc.) use max_completion_tokens
-    // Older models (gpt-3.5, gpt-4) use max_tokens
-    // If model name contains 'o1' or 'o3', skip the parameter entirely as it's not supported
-    const modelLower = MODEL.toLowerCase();
-    if (modelLower.includes('o1') || modelLower.includes('o3')) {
-      // O1/O3 models don't support max tokens parameters
-      // Don't add any max tokens parameter
-    } else if (modelLower.includes('gpt-4o') || modelLower.includes('gpt-4-turbo') || modelLower.includes('gpt-4o-2024')) {
-      // Newer models use max_completion_tokens
-      requestBody.max_completion_tokens = 512;
-    } else {
-      // Older models use max_tokens
-      requestBody.max_tokens = 512;
-    }
     
     const res = await fetch(OPENAI_URL, {
       method: 'POST',

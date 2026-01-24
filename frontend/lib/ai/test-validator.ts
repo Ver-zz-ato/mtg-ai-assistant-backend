@@ -943,7 +943,7 @@ Penalize heavily for:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 800,
+        max_completion_tokens: 800,
         response_format: { type: "json_object" },
       }),
     });

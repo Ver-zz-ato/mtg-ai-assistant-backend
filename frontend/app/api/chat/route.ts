@@ -152,7 +152,7 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
     const body: any = {
       model,
       messages,
-      max_tokens: Math.max(16, tokens|0),
+      max_completion_tokens: Math.max(16, tokens|0),
     };
     // Task 4: Add request deduplication for OpenAI calls
     const res = await deduplicatedFetch(OPENAI_URL, {

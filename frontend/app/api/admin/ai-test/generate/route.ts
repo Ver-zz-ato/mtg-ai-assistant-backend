@@ -68,7 +68,7 @@ Generate ${count} test cases.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 3000,
+        max_completion_tokens: 3000,
         response_format: { type: "json_object" },
       }),
     });

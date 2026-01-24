@@ -110,7 +110,7 @@ Generate ${count} diverse test cases that would catch similar issues to the fail
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          max_tokens: 2000,
+          max_completion_tokens: 2000,
           response_format: { type: "json_object" },
         }),
       });

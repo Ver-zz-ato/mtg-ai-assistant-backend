@@ -12,7 +12,7 @@ export async function GET() {
     const body: any = {
       model,
       messages: [{ role: "user", content: "ping" }],
-      max_tokens: 32,
+      max_completion_tokens: 32,
     };
     const res = await fetch(OPENAI_URL, {
       method: "POST",
