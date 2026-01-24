@@ -47,8 +47,19 @@ function ThankYouContent() {
       return;
     }
 
-    // If we have a session_id, immediately sync Pro status
-    if (sessionId && !synced) {
+    // Check if we've already synced this session (prevent infinite loop)
+    const syncKey = sessionId ? `pro_synced_${sessionId}` : null;
+    const alreadySynced = syncKey ? sessionStorage.getItem(syncKey) === 'true' : false;
+    
+    // Also check if user is already Pro (no need to sync again)
+    if (isPro && !sessionId) {
+      console.log('[thank-you] ✅ User already Pro, no sync needed');
+      setSyncing(false);
+      return;
+    }
+
+    // If we have a session_id and haven't synced yet, immediately sync Pro status
+    if (sessionId && !synced && !alreadySynced) {
       const syncProStatus = async () => {
         try {
           setSyncing(true);
@@ -71,12 +82,21 @@ function ThankYouContent() {
           });
           
           if (data.ok && data.isPro) {
+            // Mark as synced in sessionStorage to prevent re-syncing on refresh
+            if (syncKey) {
+              sessionStorage.setItem(syncKey, 'true');
+            }
             setSynced(true);
-            // Force hard refresh after a short delay to ensure all components recognize Pro status
-            setTimeout(() => {
-              // Hard refresh: clear cache and reload
-              window.location.href = window.location.pathname + window.location.search;
-            }, 1000);
+            setSyncing(false);
+            
+            // Remove session_id from URL to prevent re-syncing on refresh
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('session_id');
+            window.history.replaceState({}, '', newUrl.toString());
+            
+            // No hard refresh needed - Pro status is already updated in DB
+            // The useProStatus hook will pick it up via real-time subscription
+            console.log('[thank-you] ✅ Pro status synced successfully, showing success page');
           } else {
             // Enhanced error handling with specific messages
             let errorMessage = data.error || 'Failed to sync Pro status';
@@ -104,11 +124,16 @@ function ThankYouContent() {
       };
       
       syncProStatus();
+    } else if (alreadySynced) {
+      // Already synced - just show success
+      console.log('[thank-you] ✅ Already synced this session, showing success');
+      setSynced(true);
+      setSyncing(false);
     } else if (!sessionId) {
       // No session_id - just check if already Pro
       setSyncing(false);
     }
-  }, [user, authLoading, sessionId, synced, router]);
+  }, [user, authLoading, sessionId, synced, isPro, router]);
 
   // Show loading state while syncing
   if (authLoading || syncing) {
