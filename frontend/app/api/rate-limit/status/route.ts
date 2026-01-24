@@ -12,14 +12,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is Pro
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
-
-    const isPro = profile?.is_pro || false;
+    // Check if user is Pro - use standardized check
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
     const status = getRateLimitStatus(req, user.id, isPro);
 
     return NextResponse.json({

@@ -11,14 +11,11 @@ export const POST = withLogging(async (req: NextRequest) => {
       return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
     }
 
-    // Check Pro status
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
+    // Check Pro status - use standardized check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
 
-    if (!profile?.is_pro) {
+    if (!isPro) {
       return NextResponse.json({ ok: false, error: 'pro_required' }, { status: 403 });
     }
 

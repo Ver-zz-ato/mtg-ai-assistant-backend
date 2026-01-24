@@ -42,13 +42,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Check Pro status (single source of truth: profiles.is_pro)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
+    // Use standardized Pro check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
 
-    if (!profile?.is_pro) {
+    if (!isPro) {
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
@@ -102,13 +100,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
 
     // Check Pro status (single source of truth: profiles.is_pro)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
+    // Use standardized Pro check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
 
-    if (!profile?.is_pro) {
+    if (!isPro) {
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
@@ -239,13 +235,11 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Check Pro status (single source of truth: profiles.is_pro)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
+    // Use standardized Pro check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
 
-    if (!profile?.is_pro) {
+    if (!isPro) {
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }

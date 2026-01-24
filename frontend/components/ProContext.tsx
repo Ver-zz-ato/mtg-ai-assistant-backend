@@ -35,19 +35,20 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           .eq('id', user.id)
           .single();
         
-        if (error) {
-          // Fallback to metadata if database query fails
-          const md: any = user.user_metadata || {};
-          const fallbackPro = Boolean(md?.is_pro || md?.pro);
-          setIsPro(fallbackPro);
-          return;
-        }
+        // Check both database and metadata for consistency (same as useProStatus)
+        const isProFromProfile = profile?.is_pro === true;
+        const isProFromMetadata = 
+          user.user_metadata?.is_pro === true || 
+          user.user_metadata?.pro === true;
         
-        // Database is the single source of truth
-        const profileIsPro = Boolean(profile?.is_pro);
-        setIsPro(profileIsPro);
+        // Use OR logic - true if either source says Pro
+        const isProUser = isProFromProfile || isProFromMetadata;
+        setIsPro(isProUser);
       } catch (err) {
-        setIsPro(false);
+        // Fallback to metadata if database query fails
+        const md: any = user.user_metadata || {};
+        const fallbackPro = Boolean(md?.is_pro || md?.pro);
+        setIsPro(fallbackPro);
       }
     };
     

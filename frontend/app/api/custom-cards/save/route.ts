@@ -15,8 +15,9 @@ export async function POST(req: NextRequest){
     const title = String(body?.title || (Array.isArray(value?.nameParts)? value.nameParts.join(' ') : 'Custom Card'));
     const makePublic = String(req.nextUrl.searchParams.get('public')||'') === '1';
 
-    // Determine Pro flag from user metadata
-    const isPro = !!(user.user_metadata && (user.user_metadata as any).pro);
+    // Determine Pro flag - use standardized check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
     const max = isPro ? 20 : 5;
 
     // Enforce quota

@@ -64,15 +64,20 @@ export default function Header() {
       // Fetch Pro status
       (async () => {
         try {
+          // Check both database and metadata for consistency
           const { data: profile } = await supabase
             .from('profiles')
             .select('is_pro')
             .eq('id', u.id)
             .single();
           
-          setIsPro(profile?.is_pro || false);
+          const isProFromProfile = profile?.is_pro === true;
+          const isProFromMetadata = u.user_metadata?.is_pro === true || u.user_metadata?.pro === true;
+          setIsPro(isProFromProfile || isProFromMetadata);
         } catch {
-          setIsPro(false);
+          // Fallback to metadata if database query fails
+          const isProFromMetadata = u.user_metadata?.is_pro === true || u.user_metadata?.pro === true;
+          setIsPro(isProFromMetadata);
         }
       })();
     } else {

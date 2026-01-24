@@ -25,12 +25,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Check Pro status - deck health features are Pro-only
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single();
-    const isPro = profile?.is_pro || false;
+    // Use standardized Pro check that checks both database and metadata
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
     
     if (!isPro) {
       return NextResponse.json({ ok: false, error: 'Deck Health features are Pro-only. Upgrade to unlock AI suggestions!' }, { status: 403 });

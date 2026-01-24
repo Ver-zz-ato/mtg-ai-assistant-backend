@@ -307,15 +307,11 @@ export async function POST(req: NextRequest) {
       userId = user.id;
     }
 
-    // Check Pro status (only for authenticated users)
+    // Check Pro status (only for authenticated users) - use standardized check
     let isPro = false;
     if (userId) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_pro')
-        .eq('id', userId)
-        .single();
-      isPro = profile?.is_pro || false;
+      const { checkProStatus } = await import('@/lib/server-pro-check');
+      isPro = await checkProStatus(userId);
     }
 
     // Durable rate limiting (database-backed, persists across restarts)

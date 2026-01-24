@@ -1337,12 +1337,9 @@ export async function POST(req: Request) {
     
     if (user) {
       // Authenticated user
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_pro')
-        .eq('id', user.id)
-        .single();
-      isPro = profile?.is_pro || false;
+      // Use standardized Pro check
+      const { checkProStatus } = await import('@/lib/server-pro-check');
+      isPro = await checkProStatus(user.id);
       keyHash = `user:${await hashString(user.id)}`;
       dailyLimit = isPro ? 200 : 20; // Analyze is expensive - lower limits
     } else {

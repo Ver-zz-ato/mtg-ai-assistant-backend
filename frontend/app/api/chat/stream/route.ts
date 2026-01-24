@@ -134,12 +134,8 @@ export async function POST(req: NextRequest) {
       // Check Pro status
       let isPro = false;
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_pro')
-          .eq('id', userId)
-          .single();
-        isPro = profile?.is_pro || false;
+        const { checkProStatus } = await import('@/lib/server-pro-check');
+        isPro = await checkProStatus(userId);
       } catch {}
 
       // Durable rate limiting (database-backed)

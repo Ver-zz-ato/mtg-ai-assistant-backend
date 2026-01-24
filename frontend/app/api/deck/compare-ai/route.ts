@@ -14,6 +14,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check Pro status - AI deck comparison is Pro-only
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    const isPro = await checkProStatus(user.id);
+    
+    if (!isPro) {
+      return NextResponse.json({ 
+        ok: false, 
+        error: "AI deck comparison is a Pro feature. Upgrade to unlock AI-powered deck analysis!" 
+      }, { status: 403 });
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "OpenAI API key not configured" }, { status: 500 });

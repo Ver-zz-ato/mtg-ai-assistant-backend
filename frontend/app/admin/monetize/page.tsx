@@ -13,15 +13,28 @@ export default function AdminMonetizePage() {
   const [stats, setStats] = React.useState<any>(null);
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null);
+  const [webhookStatus, setWebhookStatus] = React.useState<any>(null);
+  const [webhookLoading, setWebhookLoading] = React.useState(false);
+  const [subscribers, setSubscribers] = React.useState<any[]>([]);
+  const [subscribersLoading, setSubscribersLoading] = React.useState(false);
+  const [subscriberStats, setSubscriberStats] = React.useState<any>(null);
+  const [showInactive, setShowInactive] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     (async () => {
       try { const r = await fetch('/api/config', { cache: 'no-store' }); const j = await r.json(); if (j?.ok && j?.monetize) setCfg(j.monetize); } catch {}
     })();
     loadStats();
+    loadWebhookStatus();
+    loadSubscribers();
     
     // Auto-refresh every 30 seconds
-    const interval = setInterval(loadStats, 30000);
+    const interval = setInterval(() => {
+      loadStats();
+      loadWebhookStatus();
+      loadSubscribers();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -40,6 +53,44 @@ export default function AdminMonetizePage() {
       setStatsLoading(false);
     }
   }
+
+  async function loadWebhookStatus() {
+    setWebhookLoading(true);
+    try {
+      const r = await fetch('/api/admin/stripe/webhook-status', { cache: 'no-store' });
+      const j = await r.json();
+      if (r.ok && j?.ok) {
+        setWebhookStatus(j.diagnostics);
+      }
+    } catch (e) {
+      console.error('Failed to load webhook status:', e);
+    } finally {
+      setWebhookLoading(false);
+    }
+  }
+
+  async function loadSubscribers() {
+    setSubscribersLoading(true);
+    try {
+      const r = await fetch(`/api/admin/stripe/subscribers?include_inactive=${showInactive}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (r.ok && j?.ok) {
+        setSubscribers(j.subscribers || []);
+        setSubscriberStats(j.stats || null);
+      }
+    } catch (e) {
+      console.error('Failed to load subscribers:', e);
+    } finally {
+      setSubscribersLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (!subscribersLoading) {
+      loadSubscribers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInactive]);
 
   async function save() {
     setSaving(true);
@@ -161,6 +212,295 @@ export default function AdminMonetizePage() {
           </>
         ) : (
           <div className="text-center py-8 text-neutral-500">Failed to load stats</div>
+        )}
+      </section>
+
+      {/* Stripe Webhook Status */}
+      <section className="rounded border border-neutral-800 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">Stripe Webhook Status</div>
+          <button
+            onClick={loadWebhookStatus}
+            disabled={webhookLoading}
+            className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-xs"
+          >
+            {webhookLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+
+        {webhookLoading && !webhookStatus ? (
+          <div className="text-center py-4 text-neutral-500">Loading webhook status...</div>
+        ) : webhookStatus ? (
+          <>
+            {/* Configuration Status */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Webhook Secret</div>
+                <div className={`text-sm font-mono ${webhookStatus.webhook_config?.secret_configured ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {webhookStatus.webhook_config?.secret_configured ? '✅ Configured' : '❌ Missing'}
+                </div>
+                {webhookStatus.webhook_config?.endpoint_url && (
+                  <div className="text-xs text-neutral-500 mt-1">{webhookStatus.webhook_config.endpoint_url}</div>
+                )}
+              </div>
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Stripe Connection</div>
+                <div className={`text-sm ${webhookStatus.stripe_connection?.connected ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {webhookStatus.stripe_connection?.connected ? '✅ Connected' : '❌ Failed'}
+                </div>
+                {webhookStatus.stripe_connection?.account_id && (
+                  <div className="text-xs text-neutral-500 mt-1">
+                    {webhookStatus.stripe_connection.livemode ? '🔴 Live Mode' : '🧪 Test Mode'}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Potential Issues */}
+            {webhookStatus.potential_issues?.subscriptions_without_pro > 0 && (
+              <div className="rounded border border-yellow-700 bg-yellow-900/20 p-3">
+                <div className="text-sm font-medium text-yellow-400 mb-2">
+                  ⚠️ {webhookStatus.potential_issues.subscriptions_without_pro} subscription(s) without Pro status
+                </div>
+                <div className="text-xs text-neutral-400 space-y-1">
+                  {webhookStatus.potential_issues.out_of_sync_users?.slice(0, 5).map((u: any, i: number) => (
+                    <div key={i} className="font-mono">
+                      {u.email || u.user_id} - {u.stripe_subscription_id?.slice(0, 20)}...
+                    </div>
+                  ))}
+                  {webhookStatus.potential_issues.out_of_sync_users?.length > 5 && (
+                    <div className="text-neutral-500">...and {webhookStatus.potential_issues.out_of_sync_users.length - 5} more</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Recent Subscriptions */}
+            {webhookStatus.recent_subscriptions && webhookStatus.recent_subscriptions.length > 0 && (
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-sm font-medium mb-2">Recent Subscriptions (Last 20)</div>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {webhookStatus.recent_subscriptions.slice(0, 10).map((sub: any, i: number) => (
+                    <div key={i} className="text-xs border-b border-neutral-800 pb-1">
+                      <div className="flex items-center justify-between">
+                        <span className={sub.is_pro ? 'text-emerald-400' : 'text-red-400'}>
+                          {sub.is_pro ? '✅' : '❌'} {sub.email || sub.user_id?.slice(0, 8)}
+                        </span>
+                        <span className="text-neutral-500">{sub.pro_plan || '—'}</span>
+                      </div>
+                      {sub.last_updated && (
+                        <div className="text-neutral-600 text-[10px] mt-0.5">
+                          Updated: {new Date(sub.last_updated).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-4 text-neutral-500">Failed to load webhook status</div>
+        )}
+      </section>
+
+      {/* All Subscribers Overview */}
+      <section className="rounded border border-neutral-800 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">All Subscribers Overview</div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search by email or username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="px-2 py-1 rounded bg-neutral-900 border border-neutral-700 text-sm w-64"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              <span>Show inactive</span>
+            </label>
+            <button
+              onClick={loadSubscribers}
+              disabled={subscribersLoading}
+              className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-xs"
+            >
+              {subscribersLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        {subscriberStats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="rounded border border-neutral-700 p-2 bg-neutral-900 text-center">
+              <div className="text-xs text-neutral-400">Total</div>
+              <div className="text-lg font-bold">{subscriberStats.total}</div>
+            </div>
+            <div className="rounded border border-neutral-700 p-2 bg-neutral-900 text-center">
+              <div className="text-xs text-neutral-400">Active</div>
+              <div className="text-lg font-bold text-emerald-400">{subscriberStats.active}</div>
+            </div>
+            <div className="rounded border border-neutral-700 p-2 bg-neutral-900 text-center">
+              <div className="text-xs text-neutral-400">With Pro</div>
+              <div className="text-lg font-bold text-emerald-400">{subscriberStats.with_pro}</div>
+            </div>
+            <div className="rounded border border-neutral-700 p-2 bg-neutral-900 text-center">
+              <div className="text-xs text-neutral-400">Without Pro</div>
+              <div className="text-lg font-bold text-red-400">{subscriberStats.without_pro}</div>
+            </div>
+            <div className="rounded border border-neutral-700 p-2 bg-neutral-900 text-center">
+              <div className="text-xs text-neutral-400">Canceled</div>
+              <div className="text-lg font-bold text-yellow-400">{subscriberStats.canceled}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Subscribers Table */}
+        {subscribersLoading && subscribers.length === 0 ? (
+          <div className="text-center py-8 text-neutral-500">Loading subscribers...</div>
+        ) : subscribers.length > 0 ? (
+          <div className="rounded border border-neutral-700 bg-neutral-900 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-700 bg-neutral-800">
+                  <th className="text-left py-2 px-3">User</th>
+                  <th className="text-left py-2 px-3">Pro Status</th>
+                  <th className="text-left py-2 px-3">Plan</th>
+                  <th className="text-left py-2 px-3">Stripe Status</th>
+                  <th className="text-left py-2 px-3">Period End</th>
+                  <th className="text-left py-2 px-3">Subscription ID</th>
+                  <th className="text-left py-2 px-3">Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscribers
+                  .filter((sub: any) => {
+                    if (!searchQuery) return true;
+                    const query = searchQuery.toLowerCase();
+                    return (
+                      sub.email?.toLowerCase().includes(query) ||
+                      sub.username?.toLowerCase().includes(query) ||
+                      sub.stripe_subscription_id?.toLowerCase().includes(query) ||
+                      sub.stripe_customer_id?.toLowerCase().includes(query)
+                    );
+                  })
+                  .map((sub: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/50">
+                      <td className="py-2 px-3">
+                        <div className="flex flex-col">
+                          <div className="font-medium">{sub.email || '—'}</div>
+                          {sub.username && (
+                            <div className="text-xs text-neutral-500">@{sub.username}</div>
+                          )}
+                          <div className="text-xs text-neutral-600 font-mono mt-0.5">
+                            {sub.user_id?.slice(0, 8)}...
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                          {sub.is_pro ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-900/50 text-emerald-400 text-xs font-medium">
+                              ✅ Pro
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-red-900/50 text-red-400 text-xs font-medium">
+                              ❌ Not Pro
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className="text-xs">
+                          {sub.pro_plan ? (
+                            <span className="px-2 py-0.5 rounded bg-blue-900/50 text-blue-400 uppercase">
+                              {sub.pro_plan}
+                            </span>
+                          ) : (
+                            <span className="text-neutral-500">—</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            sub.stripe.status === 'active' ? 'bg-emerald-900/50 text-emerald-400' :
+                            sub.stripe.status === 'trialing' ? 'bg-blue-900/50 text-blue-400' :
+                            sub.stripe.status === 'canceled' ? 'bg-yellow-900/50 text-yellow-400' :
+                            sub.stripe.status === 'past_due' ? 'bg-red-900/50 text-red-400' :
+                            'bg-neutral-800 text-neutral-400'
+                          }`}>
+                            {sub.stripe.status || 'unknown'}
+                          </span>
+                          {sub.stripe.cancel_at_period_end && (
+                            <span className="text-xs text-yellow-400">Cancels at period end</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        {sub.stripe.current_period_end ? (
+                          <div className="text-xs">
+                            <div>{new Date(sub.stripe.current_period_end).toLocaleDateString()}</div>
+                            <div className="text-neutral-500">
+                              {new Date(sub.stripe.current_period_end).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-neutral-500 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="font-mono text-xs text-neutral-400">
+                          {sub.stripe_subscription_id ? (
+                            <div className="flex flex-col">
+                              <div>{sub.stripe_subscription_id.slice(0, 20)}...</div>
+                              <div className="text-[10px] text-neutral-600 mt-0.5">
+                                {sub.stripe_customer_id?.slice(0, 20)}...
+                              </div>
+                            </div>
+                          ) : (
+                            '—'
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="text-xs text-neutral-500">
+                          {sub.last_updated ? (
+                            <>
+                              <div>{new Date(sub.last_updated).toLocaleDateString()}</div>
+                              <div>{new Date(sub.last_updated).toLocaleTimeString()}</div>
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {searchQuery && (
+              <div className="p-3 text-xs text-neutral-500 border-t border-neutral-800">
+                Showing {subscribers.filter((sub: any) => {
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    sub.email?.toLowerCase().includes(query) ||
+                    sub.username?.toLowerCase().includes(query) ||
+                    sub.stripe_subscription_id?.toLowerCase().includes(query) ||
+                    sub.stripe_customer_id?.toLowerCase().includes(query)
+                  );
+                }).length} of {subscribers.length} subscribers
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-neutral-500">No subscribers found</div>
         )}
       </section>
 

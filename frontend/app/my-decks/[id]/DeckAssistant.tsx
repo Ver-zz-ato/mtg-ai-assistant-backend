@@ -122,16 +122,22 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       if (!category || !deckId) return;
       
       // Pro check - deck health features are Pro-only
+      // Use standardized Pro check that checks both database and metadata
       try {
         const { showProToast } = await import('@/lib/pro-ux');
+        const { useProStatus } = await import('@/hooks/useProStatus');
         const sb = createBrowserSupabaseClient();
         const { data: { user } } = await sb.auth.getUser();
         if (!user) {
           showProToast();
           return;
         }
-        const { data: profile } = await sb.from('profiles').select('is_pro').eq('id', user.id).maybeSingle();
-        if (!profile?.is_pro) {
+        
+        // Use API endpoint that checks both sources consistently
+        const proStatusRes = await fetch('/api/user/pro-status');
+        const proStatusData = await proStatusRes.json().catch(() => ({ ok: false, isPro: false }));
+        
+        if (!proStatusData.ok || !proStatusData.isPro) {
           showProToast();
           return;
         }

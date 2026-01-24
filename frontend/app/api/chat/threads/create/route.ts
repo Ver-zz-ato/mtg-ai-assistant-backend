@@ -12,12 +12,9 @@ export async function POST(req: Request) {
   const { title, deckId } = parsed.data;
 
   // Check Pro status
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_pro')
-    .eq('id', user.id)
-    .single();
-  const isPro = profile?.is_pro || false;
+  // Use standardized Pro check that checks both database and metadata
+  const { checkProStatus } = await import('@/lib/server-pro-check');
+  const isPro = await checkProStatus(user.id);
 
   // Enforce thread limit: Free users: 30, Pro: unlimited
   if (!isPro) {
