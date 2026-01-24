@@ -22,7 +22,28 @@ function ThankYouContent() {
   useEffect(() => {
     if (authLoading) return;
     
+    // Log diagnostic info (dev only)
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev) {
+      console.info('[thank-you] Page loaded', {
+        currentHost: window.location.host,
+        currentUrl: window.location.href,
+        isAuthenticated: !!user,
+        userId: user?.id,
+        sessionId,
+        plan,
+      });
+    }
+    
     if (!user) {
+      // Log auth issue (dev only)
+      if (isDev) {
+        console.warn('[thank-you] User not authenticated', {
+          currentHost: window.location.host,
+          expectedHost: 'www.manatap.ai',
+          domainMismatch: !window.location.host.includes('www.manatap.ai') && !window.location.host.includes('localhost'),
+        });
+      }
       // Redirect to pricing if not logged in
       router.push('/pricing');
       return;
@@ -35,8 +56,22 @@ function ThankYouContent() {
           setSyncing(true);
           setSyncError(null);
           
-          const res = await fetch(`/api/billing/confirm-payment?session_id=${sessionId}`);
+          // Use cache: 'no-store' to prevent Next.js caching
+          const res = await fetch(`/api/billing/confirm-payment?session_id=${sessionId}`, {
+            cache: 'no-store',
+          });
           const data = await res.json();
+          
+          // Log response (dev only)
+          if (isDev) {
+            console.info('[thank-you] confirm-payment response', {
+              status: res.status,
+              ok: data.ok,
+              code: data.code,
+              error: data.error,
+              isPro: data.isPro,
+            });
+          }
           
           if (data.ok && data.isPro) {
             setSynced(true);
@@ -46,7 +81,22 @@ function ThankYouContent() {
               window.location.href = window.location.pathname + window.location.search;
             }, 1000);
           } else {
-            setSyncError(data.error || 'Failed to sync Pro status');
+            // Enhanced error handling with specific messages
+            let errorMessage = data.error || 'Failed to sync Pro status';
+            let showDomainHelp = false;
+            
+            if (res.status === 401 || res.status === 403) {
+              if (data.code === 'AUTH_REQUIRED' || data.code === 'OWNERSHIP_MISMATCH') {
+                errorMessage = 'Authentication issue detected. You may be logged out on this domain.';
+                showDomainHelp = true;
+              }
+            }
+            
+            setSyncError(errorMessage);
+            if (showDomainHelp) {
+              // Store domain help flag for UI
+              (window as any).__proSyncDomainIssue = true;
+            }
             setSyncing(false);
           }
         } catch (error: any) {
@@ -78,16 +128,38 @@ function ThankYouContent() {
 
   // Show error state
   if (syncError) {
+    const showDomainHelp = (window as any).__proSyncDomainIssue;
+    const canonicalUrl = `https://www.manatap.ai/thank-you?session_id=${sessionId}&plan=${plan}`;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center text-white">
           <div className="text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold mb-4">Payment Confirmed</h1>
           <p className="text-blue-200 mb-6">
-            Your payment was successful, but we encountered an issue syncing your Pro status.
+            {syncError}
           </p>
+          
+          {showDomainHelp && (
+            <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm text-amber-200 mb-2 font-semibold">Domain/Cookie Issue Detected</p>
+              <p className="text-xs text-amber-300 mb-3">
+                You appear logged out on this domain. This can happen if you're on a different subdomain (www vs non-www).
+              </p>
+              <p className="text-xs text-amber-300 mb-3">
+                Try opening this link in the same browser session:
+              </p>
+              <a
+                href={canonicalUrl}
+                className="text-xs text-blue-300 underline break-all block"
+              >
+                {canonicalUrl}
+              </a>
+            </div>
+          )}
+          
           <p className="text-sm text-blue-300 mb-6">
-            Don't worry - your Pro access will be activated automatically within a few minutes.
+            Don't worry - your Pro access will be activated automatically within a few minutes via webhook.
             If you continue to see this message, please contact support.
           </p>
           <div className="space-y-3">

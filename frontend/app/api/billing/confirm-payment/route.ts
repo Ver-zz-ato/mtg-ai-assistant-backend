@@ -4,6 +4,7 @@ import { stripe } from '@/lib/stripe';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // Disable caching
 
 /**
  * Immediate Pro status sync endpoint
@@ -26,11 +27,19 @@ export async function GET(req: NextRequest) {
     const supabase = await getServerSupabase();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    const isDev = process.env.NODE_ENV !== 'production';
+    
     if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: 'Authentication required' },
-        { status: 401 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'AUTH_REQUIRED',
+        error: 'Authentication required',
+        ...(isDev && { authError: authError?.message }),
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Retrieve checkout session from Stripe
@@ -39,20 +48,49 @@ export async function GET(req: NextRequest) {
       session = await stripe.checkout.sessions.retrieve(sessionId, {
         expand: ['subscription', 'customer'],
       });
+      
+      // Log session details (dev only)
+      if (isDev) {
+        console.info('[confirm-payment] Session retrieved', {
+          sessionId: session.id,
+          sessionStatus: session.status,
+          paymentStatus: session.payment_status,
+          customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+          metadata: session.metadata,
+          subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+          sessionMode: sessionId.startsWith('cs_test_') ? 'test' : sessionId.startsWith('cs_live_') ? 'live' : 'unknown',
+        });
+      }
     } catch (stripeError: any) {
       console.error('Failed to retrieve checkout session:', stripeError);
-      return NextResponse.json(
-        { ok: false, error: 'Invalid session ID' },
-        { status: 400 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'INVALID_SESSION',
+        error: 'Invalid session ID',
+        ...(isDev && { 
+          stripeError: stripeError.message,
+          sessionId,
+        }),
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Verify payment was successful
     if (session.payment_status !== 'paid' || session.status !== 'complete') {
-      return NextResponse.json(
-        { ok: false, error: 'Payment not completed', payment_status: session.payment_status, status: session.status },
-        { status: 400 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'PAYMENT_NOT_COMPLETE',
+        error: 'Payment not completed',
+        payment_status: session.payment_status,
+        status: session.status,
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Verify this session belongs to the authenticated user
@@ -61,29 +99,57 @@ export async function GET(req: NextRequest) {
     const sessionUserId = (session.metadata as any)?.app_user_id;
 
     if (!customerId && !sessionUserId) {
-      return NextResponse.json(
-        { ok: false, error: 'Session missing customer/user info' },
-        { status: 400 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'SESSION_MISSING_INFO',
+        error: 'Session missing customer/user info',
+        ...(isDev && {
+          sessionCustomer: session.customer,
+          sessionMetadata: session.metadata,
+        }),
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Verify user matches
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, stripe_customer_id')
       .eq('id', user.id)
       .single();
 
     if (!profile) {
-      return NextResponse.json(
-        { ok: false, error: 'User profile not found' },
-        { status: 404 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'PROFILE_NOT_FOUND',
+        error: 'User profile not found',
+        ...(isDev && { profileError: profileError?.message, userId: user.id }),
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 404,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Verify ownership: either customer ID matches OR metadata user ID matches
     const customerMatches = profile.stripe_customer_id === customerId;
     const userMatches = sessionUserId === user.id;
+
+    // Log ownership check details (dev only)
+    if (isDev) {
+      console.info('[confirm-payment] Ownership check', {
+        authenticatedUserId: user.id,
+        sessionCustomerId: customerId,
+        profileCustomerId: profile.stripe_customer_id,
+        sessionUserId,
+        customerMatches,
+        userMatches,
+        ownershipVerified: customerMatches || userMatches,
+      });
+    }
 
     if (!customerMatches && !userMatches) {
       console.error('Session ownership mismatch', {
@@ -92,10 +158,21 @@ export async function GET(req: NextRequest) {
         sessionUserId,
         authenticatedUserId: user.id,
       });
-      return NextResponse.json(
-        { ok: false, error: 'Session does not belong to authenticated user' },
-        { status: 403 }
-      );
+      const errorResponse = {
+        ok: false,
+        code: 'OWNERSHIP_MISMATCH',
+        error: 'Session does not belong to authenticated user',
+        ...(isDev && {
+          sessionCustomerId: customerId,
+          profileCustomerId: profile.stripe_customer_id,
+          sessionUserId,
+          authenticatedUserId: user.id,
+        }),
+      };
+      return NextResponse.json(errorResponse, { 
+        status: 403,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // Get subscription details
@@ -188,13 +265,24 @@ export async function GET(req: NextRequest) {
       plan,
       subscriptionId,
       message: 'Pro status updated successfully',
+    }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
 
   } catch (error: any) {
     console.error('Confirm payment error:', error);
+    const isDev = process.env.NODE_ENV !== 'production';
     return NextResponse.json(
-      { ok: false, error: error.message || 'Failed to confirm payment' },
-      { status: 500 }
+      { 
+        ok: false,
+        code: 'INTERNAL_ERROR',
+        error: error.message || 'Failed to confirm payment',
+        ...(isDev && { stack: error.stack }),
+      },
+      { 
+        status: 500,
+        headers: { 'Cache-Control': 'no-store' },
+      }
     );
   }
 }

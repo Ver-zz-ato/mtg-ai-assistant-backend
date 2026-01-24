@@ -84,6 +84,16 @@ export async function POST(req: NextRequest) {
     const productId = getProductIdForPlan(plan);
     const priceId = await getPriceIdForProduct(productId);
 
+    // Build URLs from canonical domain ONLY (never from req.headers.host)
+    // This prevents www/non-www cookie mismatch issues
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+      (process.env.NODE_ENV === 'production' 
+        ? 'https://www.manatap.ai'
+        : 'http://localhost:3000');
+
+    const successUrlFinal = successUrl || `${siteUrl}/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`;
+    const cancelUrlFinal = cancelUrl || `${siteUrl}/pricing?status=cancel`;
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -94,12 +104,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: successUrl || (process.env.NODE_ENV === 'production' 
-        ? 'https://www.manatap.ai/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=' + plan
-        : 'http://localhost:3000/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=' + plan),
-      cancel_url: cancelUrl || (process.env.NODE_ENV === 'production'
-        ? 'https://www.manatap.ai/pricing?status=cancel' 
-        : 'http://localhost:3000/pricing?status=cancel'),
+      success_url: successUrlFinal,
+      cancel_url: cancelUrlFinal,
       allow_promotion_codes: true,
       metadata: {
         app_user_id: user.id,
@@ -107,12 +113,19 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Log with diagnostic info (dev only)
+    const isDev = process.env.NODE_ENV !== 'production';
     console.info('Checkout session created', {
       sessionId: session.id,
       customerId,
       userId: user.id,
       plan,
       priceId,
+      ...(isDev && {
+        success_url_host: new URL(successUrlFinal).host,
+        cancel_url_host: new URL(cancelUrlFinal).host,
+        site_url: siteUrl,
+      }),
     });
 
     return NextResponse.json({
