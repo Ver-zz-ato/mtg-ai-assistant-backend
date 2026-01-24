@@ -61,9 +61,6 @@ function AssistantSection({ deckId, format }: { deckId: string; format?: string 
           <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
             <DeckAssistant deckId={deckId} format={format} />
           </div>
-          {deckId && (<div>
-            {(() => { const QA = require('./QuickAdd').default; return <QA deckId={deckId} />; })()}
-          </div>)}
         </>
       )}
     </>

@@ -384,36 +384,64 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               setAiScanSuggestions([]);
 
               try {
-                console.log('[AI Deck Scan] Fetching suggestions for', { deckId, category: item.category, label: item.label });
+                // Always log to console (even in production) for debugging
+                console.log('🔍 [AI Deck Scan] Starting fetch...', { 
+                  deckId, 
+                  category: item.category, 
+                  label: item.label,
+                  timestamp: new Date().toISOString()
+                });
+                
+                const requestBody = {
+                  deckId,
+                  category: item.category,
+                  label: item.label,
+                };
+                
+                console.log('📤 [AI Deck Scan] Request body:', JSON.stringify(requestBody, null, 2));
+                
                 const res = await fetch('/api/deck/health-suggestions', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    deckId,
-                    category: item.category,
-                    label: item.label,
-                  }),
+                  body: JSON.stringify(requestBody),
                 });
 
-                const data = await res.json().catch(() => ({ ok: false, error: 'Failed to parse response' }));
+                console.log('📥 [AI Deck Scan] Response status:', res.status, res.statusText);
+                console.log('📥 [AI Deck Scan] Response headers:', Object.fromEntries(res.headers.entries()));
 
-                console.log('[AI Deck Scan] Response:', { ok: res.ok, dataOk: data.ok, suggestionsCount: data.suggestions?.length || 0, error: data.error });
+                const data = await res.json().catch((parseErr) => {
+                  console.error('❌ [AI Deck Scan] JSON parse error:', parseErr);
+                  return { ok: false, error: 'Failed to parse response' };
+                });
+
+                console.log('✅ [AI Deck Scan] Response data:', { 
+                  ok: data.ok, 
+                  suggestionsCount: data.suggestions?.length || 0, 
+                  error: data.error,
+                  suggestions: data.suggestions?.slice(0, 3) || 'none'
+                });
 
                 if (!res.ok || !data.ok) {
-                  throw new Error(data.error || 'Failed to generate suggestions');
+                  const errorMsg = data.error || `HTTP ${res.status}: Failed to generate suggestions`;
+                  console.error('❌ [AI Deck Scan] API error:', errorMsg);
+                  throw new Error(errorMsg);
                 }
 
                 if (!Array.isArray(data.suggestions) || data.suggestions.length === 0) {
-                  console.warn('[AI Deck Scan] No suggestions returned');
+                  console.warn('⚠️ [AI Deck Scan] No suggestions returned. Full response:', data);
                   setAiScanError('No suggestions generated. The AI may not have found suitable cards for this category.');
                   return;
                 }
 
+                console.log('🎉 [AI Deck Scan] Success! Setting suggestions:', data.suggestions.length);
                 setAiScanSuggestions(data.suggestions);
               } catch (err: any) {
-                console.error('[AI Deck Scan] Error:', err);
+                console.error('💥 [AI Deck Scan] Exception caught:', err);
+                console.error('💥 [AI Deck Scan] Error stack:', err?.stack);
+                console.error('💥 [AI Deck Scan] Error message:', err?.message);
                 setAiScanError(err?.message || 'Failed to generate AI suggestions');
               } finally {
+                console.log('🏁 [AI Deck Scan] Finally block - setting loading to false');
                 setAiScanLoading(false);
               }
             };

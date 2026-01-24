@@ -100,10 +100,11 @@ function guessFormatHint(input: string | null | undefined): string | undefined {
   return undefined;
 }
 
-function enforceChatGuards(outText: string, ctx: GuardContext = {}): string {
+function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckContext: boolean = false): string {
   let text = outText || "";
 
-  if (!/^this looks like|^since you said|^format unclear/i.test(text.trim())) {
+  // Skip format guard if we have deck context (format is already known from deck)
+  if (!hasDeckContext && !/^this looks like|^since you said|^format unclear/i.test(text.trim())) {
     const line = ctx.formatHint
       ? `This looks like ${ctx.formatHint}, so I’ll judge it on that.\n\n`
       : `Format unclear — I’ll assume Commander (EDH) for now.\n\n`;
@@ -161,7 +162,32 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
       headers: { "content-type": "application/json", "authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(body),
     });
-    const json = await res.json().catch(() => ({}));
+    
+    // CRITICAL: Ensure we parse JSON properly - use .text() first then parse
+    let json: any = {};
+    try {
+      const responseText = await res.text();
+      if (responseText) {
+        json = JSON.parse(responseText);
+      }
+    } catch (e) {
+      console.error('❌ [callOpenAI] Failed to parse JSON response:', e);
+      console.error('❌ [callOpenAI] Response status:', res.status);
+      console.error('❌ [callOpenAI] Response headers:', Object.fromEntries(res.headers.entries()));
+      json = {};
+    }
+    
+    // Ensure we're not accidentally returning the Response object or any function properties
+    if (json && typeof json === 'object') {
+      // Remove any function properties that might have leaked in
+      for (const key in json) {
+        if (typeof json[key] === 'function') {
+          console.error(`❌ [callOpenAI] Found function property '${key}' in JSON response! Removing it.`);
+          delete json[key];
+        }
+      }
+    }
+    
     return { ok: res.ok, json, status: res.status } as const;
   }
 
@@ -211,11 +237,37 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
     return { fallback: true, text: `Echo: ${userText}`, error: msg };
   }
   const json = attempt.json;
-  if (DEV) console.log("[responses.json]", JSON.stringify(json).slice(0, 2000));
+  // Always log for debugging (even in production)
+  console.log("🔍 [callOpenAI] Response received:", {
+    ok: attempt.ok,
+    status: attempt.status,
+    hasJson: !!json,
+    jsonKeys: json ? Object.keys(json) : [],
+    hasChoices: !!json?.choices,
+    choicesLength: json?.choices?.length || 0,
+    hasMessage: !!json?.choices?.[0]?.message,
+    hasContent: !!json?.choices?.[0]?.message?.content,
+    contentType: typeof json?.choices?.[0]?.message?.content,
+    contentPreview: typeof json?.choices?.[0]?.message?.content === 'string' ? json.choices[0].message.content.substring(0, 200) : 'not a string',
+    jsonPreview: json ? JSON.stringify(json).slice(0, 500) : 'null'
+  });
 
   let out = firstOutputText(json) ?? "";
+  console.log("🔍 [callOpenAI] Extracted text:", {
+    hasOut: !!out,
+    outLength: out?.length || 0,
+    outPreview: out?.substring(0, 200) || 'empty',
+    outType: typeof out
+  });
+  
   if (!out || out.trim() === userText.trim()) {
     out = "";
+  }
+  
+  // CRITICAL: Ensure out is a string, not a function
+  if (typeof out !== 'string') {
+    console.error('❌ [callOpenAI] out is not a string! Type:', typeof out, 'Value:', out);
+    out = '';
   }
 
   const usage = (() => {
@@ -227,7 +279,52 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
     } catch { return { input_tokens: 0, output_tokens: 0 }; }
   })();
 
-  return { fallback: false, text: String(out || "").trim(), usage } as any;
+  // CRITICAL: Ensure we return a string, not a function
+  const textResult = String(out || "").trim();
+  if (typeof textResult !== 'string') {
+    console.error('❌ [callOpenAI] textResult is not a string!', typeof textResult, textResult);
+    return { fallback: false, text: '', usage } as any;
+  }
+  
+  // Create a plain object to ensure no function properties leak through
+  const result = {
+    fallback: false,
+    text: textResult,
+    usage: usage || { input_tokens: 0, output_tokens: 0 }
+  };
+  
+  // Verify the result object doesn't have any function properties
+  for (const key in result) {
+    if (typeof (result as any)[key] === 'function') {
+      console.error(`❌ [callOpenAI] Result has function property '${key}'! Removing it.`);
+      delete (result as any)[key];
+    }
+  }
+  
+  // CRITICAL: Create a completely fresh plain object to avoid any prototype pollution
+  const cleanResult: { fallback: boolean; text: string; usage: any } = {
+    fallback: false,
+    text: String(result.text || ''),
+    usage: result.usage || { input_tokens: 0, output_tokens: 0 }
+  };
+  
+  // Final verification - ensure text is definitely a string
+  if (typeof cleanResult.text !== 'string') {
+    console.error('❌ [callOpenAI] cleanResult.text is STILL not a string!', typeof cleanResult.text);
+    cleanResult.text = '';
+  }
+  
+  console.log("✅ [callOpenAI] Returning clean result:", {
+    textLength: cleanResult.text.length,
+    textPreview: cleanResult.text.substring(0, 200),
+    hasUsage: !!cleanResult.usage,
+    resultKeys: Object.keys(cleanResult),
+    resultType: typeof cleanResult,
+    textType: typeof cleanResult.text,
+    textIsFunction: typeof cleanResult.text === 'function'
+  });
+  
+  return cleanResult as any;
 }
 
 // Guest mode constants
@@ -433,6 +530,10 @@ export async function POST(req: NextRequest) {
     let threadHistory: Array<{ role: string; content: string }> = [];
     let pastedDecklistContext = '';
     let ragContext = '';
+    let deckIdToUse: string | null = null; // Declare here for use later
+    let d: any = null; // Deck data
+    let entries: Array<{ count: number; name: string }> = []; // Deck entries
+    let deckText = ""; // Deck text for inference
     
     if (tid && !isGuest) {
       try {
@@ -529,6 +630,69 @@ export async function POST(req: NextRequest) {
     }
 
     // If this thread is linked to a deck, include a compact summary as context
+    // Get deck context if available
+    if (tid && !isGuest) {
+      try {
+        const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
+        const deckIdLinked = th?.deck_id as string | null;
+        deckIdToUse = context?.deckId || deckIdLinked;
+        
+        if (deckIdToUse) {
+          // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
+          const { data: deckData } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdToUse).maybeSingle();
+          d = deckData;
+          const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdToUse).limit(400);
+          
+          if (allCards && Array.isArray(allCards) && allCards.length > 0) {
+            // Use deck_cards table (full database, proper structure)
+            entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
+            deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
+          } else {
+            // Fallback to deck_text field for backward compatibility
+            const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdToUse).maybeSingle();
+            deckText = String(dFallback?.deck_text || "");
+            if (deckText) {
+              // Parse into entries
+              const lines = deckText.replace(/\r/g, "").split("\n").map((s: string) => s.trim()).filter(Boolean);
+              const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
+              const map = new Map<string, number>();
+              for (const l of lines) {
+                const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2];
+                map.set(n, (map.get(n)||0)+q);
+              }
+              entries = Array.from(map.entries()).map(([name, count]) => ({ count, name }));
+            }
+          }
+          
+          // Link thread to deck if context.deckId was provided and thread isn't already linked
+          if (context?.deckId && tid && !deckIdLinked) {
+            try {
+              await supabase.from("chat_threads").update({ deck_id: context.deckId }).eq("id", tid);
+            } catch {}
+          }
+          
+          // Build deck context for system prompt
+          const deckContextParts: string[] = [];
+          if (d?.commander) {
+            deckContextParts.push(`Commander: ${d.commander}`);
+          }
+          if (d?.deck_aim) {
+            deckContextParts.push(`Deck aim/goal: ${d.deck_aim}`);
+          }
+          if (entries.length > 0) {
+            const cardList = entries.map(e => `${e.count}x ${e.name}`).join("; ");
+            deckContextParts.push(`Cards: ${cardList}`);
+          }
+          if (deckContextParts.length > 0) {
+            // Will be added to sys prompt after it's initialized
+            (globalThis as any).__deckContextForPrompt = `\n\nDeck context (title: ${d?.title || "linked"}): ${deckContextParts.join('. ')}`;
+          }
+        }
+      } catch (error) {
+        console.warn('[chat] Failed to fetch deck context:', error);
+      }
+    }
+    
     // Load prompt version from prompt_versions table
     let promptVersionId: string | null = null;
     let sys = `You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.
@@ -654,6 +818,12 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       console.warn("[chat] Failed to load prompt version, using default:", e);
     }
     
+    // Add deck context if available (from linked deck or context parameter)
+    if ((globalThis as any).__deckContextForPrompt) {
+      sys += (globalThis as any).__deckContextForPrompt;
+      delete (globalThis as any).__deckContextForPrompt;
+    }
+    
     // Add pasted decklist context if found (Task 1)
     // IMPORTANT: Always include decklist context if found, even without RAG trigger
     if (pastedDecklistContext) {
@@ -777,140 +947,79 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     }
     // Add inference when deck is linked (from thread OR context parameter)
     let inferredContext: any = null;
-    try {
-      const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid!).maybeSingle();
-      const deckIdLinked = th?.deck_id as string | null;
-      // Use context.deckId if provided, otherwise use thread's linked deck
-      const deckIdToUse = context?.deckId || deckIdLinked;
-      if (deckIdToUse) {
-        // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
-        const { data: d } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdToUse).maybeSingle();
-        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdToUse).limit(400);
+    if (deckIdToUse && entries.length > 0 && deckText) {
+      try {
+        const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
+        const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+        // Use commander from database (already fetched above)
+        const commander = d?.commander || null;
+        const deckAim = d?.deck_aim || null;
+        const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
         
-        let deckText = "";
-        let entries: Array<{ count: number; name: string }> = [];
-        
-        // Build deck context with commander and aim
-        const deckContextParts: string[] = [];
-        if (d?.commander) {
-          deckContextParts.push(`Commander: ${d.commander}`);
-        }
-        if (d?.deck_aim) {
-          deckContextParts.push(`Deck aim/goal: ${d.deck_aim}`);
+        // Build card name map for inference
+        const byName = new Map<string, SfCard>();
+        const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 160);
+        const looked = await Promise.all(unique.map(name => fetchCard(name)));
+        for (const c of looked) {
+          if (c) byName.set(c.name.toLowerCase(), c);
         }
         
-        if (allCards && Array.isArray(allCards) && allCards.length > 0) {
-          // Use deck_cards table (full database, proper structure)
-          entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
-          deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
-          const cardList = allCards.map((c: any) => `${c.qty}x ${c.name}`).join("; ");
-          deckContextParts.push(`Cards: ${cardList}`);
+        // Infer deck context
+        const planPref = typeof prefs?.budget === 'string' ? prefs.budget : (typeof prefs?.plan === 'string' ? prefs.plan : undefined);
+        const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
+        const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
+        inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName, { plan: planOption, currency: currencyPref });
+        
+        // Use deck_aim from database if available (user-specified or AI-inferred)
+        if (deckAim) {
+          sys += `\n\nDeck aim/goal (user-specified): ${deckAim}. Use this to guide recommendations and ensure suggestions align with this strategy.`;
+        }
+        
+        const commanderProfile = inferredContext.commander ? COMMANDER_PROFILES[inferredContext.commander] : undefined;
+        if (commanderProfile?.archetypeHint) {
+          sys += `\n\nCommander plan: ${commanderProfile.archetypeHint}`;
+        }
+        
+        // Add inferred context to system prompt
+        sys += `\n\nINFERRED DECK ANALYSIS:\n`;
+        sys += `- Format: ${inferredContext.format}\n`;
+        sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
+        if (inferredContext.commander) {
+          sys += `- Commander: ${inferredContext.commander}\n`;
+          if (inferredContext.commanderProvidesRamp) {
+            sys += `- Commander provides ramp - do NOT suggest generic ramp like Cultivate/Kodama's Reach unless for synergy.\n`;
+          }
+        }
+        if (inferredContext.powerLevel) {
+          sys += `- Power level: ${inferredContext.powerLevel}\n`;
+          if (inferredContext.powerLevel === 'casual' || inferredContext.powerLevel === 'battlecruiser') {
+            sys += `- This is a ${inferredContext.powerLevel} deck - respect the power level and don't optimize too aggressively.\n`;
+          }
+        }
+        if (inferredContext.format !== "Commander") {
+          sys += `- WARNING: This is NOT Commander format. Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
+          sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
         } else {
-          // Fallback to deck_text field for backward compatibility
-          const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdToUse).maybeSingle();
-          deckText = String(dFallback?.deck_text || "");
-          if (deckText) {
-            // Parse into entries
-            const lines = deckText.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
-            const rx = /^(\d+)\s*[xX]?\s*(.+)$/;
-            const map = new Map<string, number>();
-            for (const l of lines) {
-              const m = l.match(rx); if (!m) continue; const q = Math.max(1, parseInt(m[1]||"1",10)); const n = m[2];
-              map.set(n, (map.get(n)||0)+q);
-            }
-            entries = Array.from(map.entries()).map(([name, count]) => ({ count, name }));
-            const summary = entries.map(e => `${e.count} ${e.name}`).join(", ");
-            deckContextParts.push(`Cards: ${summary}`);
-          }
+          sys += `- This is Commander format (100 cards singleton) - do NOT suggest narrow 4-of-y cards. Suggest singleton-viable cards only.\n`;
         }
-        
-        if (deckContextParts.length > 0) {
-          sys += `\n\nDeck context (title: ${d?.title || "linked"}): ${deckContextParts.join('. ')}`;
+        sys += `- Do NOT suggest cards that are already in the decklist.\n`;
+        if (inferredContext.archetype && inferredContext.protectedRoles) {
+          sys += `- Archetype: ${inferredContext.archetype}\n`;
+          sys += `- Protected cards (do NOT suggest cutting): ${inferredContext.protectedRoles.slice(0, 5).join(', ')}\n`;
         }
-        
-        // Link thread to deck if context.deckId was provided and thread isn't already linked
-        if (context?.deckId && tid && !deckIdLinked) {
-          try {
-            await supabase.from("chat_threads").update({ deck_id: context.deckId }).eq("id", tid);
-          } catch {}
+        if (inferredContext.manabaseAnalysis?.isAcceptable) {
+          sys += `- Manabase is acceptable - only comment if colors are imbalanced by more than 15%.\n`;
         }
-        
-        // Run inference if we have deck entries
-        if (entries.length > 0) {
-          try {
-            const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
-            const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
-            // Use commander from database (already fetched above)
-            const commander = d?.commander || null;
-            const deckAim = d?.deck_aim || null;
-            const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
-            
-            // Build card name map for inference
-            const byName = new Map<string, SfCard>();
-            const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 160);
-            const looked = await Promise.all(unique.map(name => fetchCard(name)));
-            for (const c of looked) {
-              if (c) byName.set(c.name.toLowerCase(), c);
-            }
-            
-            // Infer deck context
-            const planPref = typeof prefs?.budget === 'string' ? prefs.budget : (typeof prefs?.plan === 'string' ? prefs.plan : undefined);
-            const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
-            const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
-            inferredContext = await inferDeckContext(deckText, text, entries, format, commander, selectedColors, byName, { plan: planOption, currency: currencyPref });
-            
-            // Use deck_aim from database if available (user-specified or AI-inferred)
-            if (deckAim) {
-              sys += `\n\nDeck aim/goal (user-specified): ${deckAim}. Use this to guide recommendations and ensure suggestions align with this strategy.`;
-            }
-            
-            const commanderProfile = inferredContext.commander ? COMMANDER_PROFILES[inferredContext.commander] : undefined;
-            if (commanderProfile?.archetypeHint) {
-              sys += `\n\nCommander plan: ${commanderProfile.archetypeHint}`;
-            }
-            
-            // Add inferred context to system prompt
-            sys += `\n\nINFERRED DECK ANALYSIS:\n`;
-            sys += `- Format: ${inferredContext.format}\n`;
-            sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
-            if (inferredContext.commander) {
-              sys += `- Commander: ${inferredContext.commander}\n`;
-              if (inferredContext.commanderProvidesRamp) {
-                sys += `- Commander provides ramp - do NOT suggest generic ramp like Cultivate/Kodama's Reach unless for synergy.\n`;
-              }
-            }
-            if (inferredContext.powerLevel) {
-              sys += `- Power level: ${inferredContext.powerLevel}\n`;
-              if (inferredContext.powerLevel === 'casual' || inferredContext.powerLevel === 'battlecruiser') {
-                sys += `- This is a ${inferredContext.powerLevel} deck - respect the power level and don't optimize too aggressively.\n`;
-              }
-            }
-            if (inferredContext.format !== "Commander") {
-              sys += `- WARNING: This is NOT Commander format. Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
-              sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
-            } else {
-              sys += `- This is Commander format - do NOT suggest narrow 4-of-y cards. Suggest singleton-viable cards only.\n`;
-            }
-            sys += `- Do NOT suggest cards that are already in the decklist.\n`;
-            if (inferredContext.archetype && inferredContext.protectedRoles) {
-              sys += `- Archetype: ${inferredContext.archetype}\n`;
-              sys += `- Protected cards (do NOT suggest cutting): ${inferredContext.protectedRoles.slice(0, 5).join(', ')}\n`;
-            }
-            if (inferredContext.manabaseAnalysis?.isAcceptable) {
-              sys += `- Manabase is acceptable - only comment if colors are imbalanced by more than 15%.\n`;
-            }
-            if (inferredContext.format) {
-              guardCtx.formatHint = inferredContext.format === "Commander"
-                ? "Commander (EDH)"
-                : `${inferredContext.format} 60-card`;
-            }
-          } catch (error) {
-            console.warn('[chat] Failed to infer deck context:', error);
-            // Continue without inference - graceful degradation
-          }
+        if (inferredContext.format) {
+          guardCtx.formatHint = inferredContext.format === "Commander"
+            ? "Commander (EDH)"
+            : `${inferredContext.format} 60-card`;
         }
+      } catch (error) {
+        console.warn('[chat] Failed to infer deck context:', error);
+        // Continue without inference - graceful degradation
       }
-    } catch {}
+    }
 
     // If prefs exist, short-circuit with an acknowledgement to avoid any fallback question flicker
     // BUT skip this if streaming is being used (to prevent duplicate messages)
@@ -992,12 +1101,17 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     const cachedResponse = memoGet<{ text: string; usage?: any; fallback?: boolean }>(cacheKey);
     if (cachedResponse) {
       if (DEV) console.log(`[chat] Cache HIT for query: ${text.slice(0, 50)}...`);
-      // Return cached response immediately
-      const outText = cachedResponse.text || '';
-      if (!suppressInsert && !isGuest && tid) {
-        await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: outText });
+      // Validate cached response - ensure text is a string, not a function
+      let cachedText = cachedResponse.text || '';
+      if (typeof cachedText !== 'string') {
+        console.error('❌ [chat] Cached response has non-string text! Type:', typeof cachedText);
+        cachedText = '';
       }
-      return ok({ text: outText, threadId: tid, provider: "cached" });
+      // Return cached response immediately
+      if (!suppressInsert && !isGuest && tid) {
+        await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: cachedText });
+      }
+      return ok({ text: cachedText, threadId: tid, provider: "cached" });
     }
     
     const stage1T = Date.now();
@@ -1017,7 +1131,93 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     }
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_answer', { ms: Date.now()-stage1T, persona_id }); } catch {}
 
-    let outText = typeof (out1 as any)?.text === "string" ? (out1 as any).text : String(out1 || "");
+    // Extract text from response, handling various response formats (prevents "[object Response]")
+    console.log("🔍 [chat] Extracting outText from out1:", {
+      out1Type: typeof out1,
+      out1Constructor: (out1 as any)?.constructor?.name,
+      out1IsResponse: out1 instanceof Response,
+      out1Keys: out1 && typeof out1 === 'object' ? Object.keys(out1) : [],
+      out1OwnPropertyNames: out1 && typeof out1 === 'object' ? Object.getOwnPropertyNames(out1).slice(0, 10) : [],
+      hasText: !!(out1 as any)?.text,
+      textType: typeof (out1 as any)?.text,
+      textIsFunction: typeof (out1 as any)?.text === 'function',
+      textPreview: typeof (out1 as any)?.text === 'string' ? (out1 as any).text.substring(0, 200) : 'not a string',
+      out1Stringified: JSON.stringify(out1, (key, value) => {
+        if (typeof value === 'function') return '[Function]';
+        if (value instanceof Response) return '[Response]';
+        return value;
+      }, 2).substring(0, 500)
+    });
+    
+    let outText = '';
+    
+    // CRITICAL FIX: Create a completely clean object copy to avoid prototype pollution
+    // If out1 has a function text property, it might be from Response.prototype
+    let cleanOut1: any = null;
+    if (out1 && typeof out1 === 'object') {
+      try {
+        // Create a plain object with Object.create(null) to avoid any prototype
+        cleanOut1 = Object.create(null);
+        // Only copy enumerable, non-function properties
+        for (const key in out1) {
+          if (Object.prototype.hasOwnProperty.call(out1, key)) {
+            const value = (out1 as any)[key];
+            if (typeof value !== 'function') {
+              cleanOut1[key] = value;
+            }
+          }
+        }
+        // Also try JSON serialization/deserialization to get a completely clean copy
+        try {
+          const serialized = JSON.parse(JSON.stringify(out1, (key, value) => {
+            if (typeof value === 'function') return undefined;
+            return value;
+          }));
+          if (serialized && typeof serialized === 'object') {
+            cleanOut1 = serialized;
+          }
+        } catch {}
+      } catch (e) {
+        console.error('❌ [chat] Failed to create clean copy:', e);
+      }
+    }
+    
+    // Use clean copy if available, otherwise original
+    const source = cleanOut1 || out1;
+    
+    // Now extract text from the clean source
+    if (typeof (source as any)?.text === "string") {
+      outText = (source as any).text;
+    } else if (source && typeof source === 'object' && 'text' in source) {
+      const textValue = (source as any).text;
+      if (typeof textValue === 'function') {
+        console.error('❌ [chat] textValue is STILL a function after cleaning! This is a critical bug.');
+        outText = '';
+      } else {
+        outText = String(textValue || '');
+      }
+    } else if (typeof source === 'string') {
+      outText = source;
+    } else {
+      console.warn('⚠️ [chat] Unexpected out1 structure, using empty string');
+      outText = '';
+    }
+    
+    // Ensure outText is a string, not an object or function
+    if (typeof outText !== 'string') {
+      console.error('❌ [chat] outText is not a string after extraction:', typeof outText, outText);
+      outText = String(outText || '');
+    }
+    
+    console.log("✅ [chat] Final outText:", {
+      length: outText.length,
+      preview: outText.substring(0, 300),
+      containsConsumeBody: outText.includes('consumeBody'),
+      containsUtf8Decode: outText.includes('utf8DecodeBytes')
+    });
+    
+    // Check if we have deck context BEFORE review (so review doesn't add format unclear)
+    const hasLinkedDeckContextBeforeReview = !!deckIdToUse || (!!d && !!d.format);
     
     // Add confidence scoring (non-blocking, runs in parallel with review)
     // Note: Confidence scoring is lightweight and can run async
@@ -1034,9 +1234,82 @@ Enforce these checks and fix the text before returning it:
 - If the user flagged a custom/homebrew card and the draft didn’t state that, add "Since this is a custom/homebrew card, I’ll evaluate it hypothetically."
 - If the user asked about platform features (Pro access, combo finder, Pioneer support, custom testing, etc.), normalize the wording to: available / Pro-only / coming soon / not a separate tool right now / still rough.
 Return the corrected answer with concise, user-facing tone.`;
+    console.log("🔍 [chat] Calling review with outText:", {
+      outTextLength: outText.length,
+      outTextPreview: outText.substring(0, 200),
+      reviewPromptLength: reviewPrompt.length
+    });
+    
     const review = await callOpenAI(outText, reviewPrompt);
+    
+    console.log("🔍 [chat] Review response:", {
+      reviewType: typeof review,
+      reviewKeys: review && typeof review === 'object' ? Object.keys(review) : [],
+      hasText: !!(review as any)?.text,
+      textType: typeof (review as any)?.text,
+      textIsFunction: typeof (review as any)?.text === 'function',
+      textPreview: typeof (review as any)?.text === 'string' ? (review as any).text.substring(0, 200) : 'not a string'
+    });
+    
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer('stage_time_review', { ms: Date.now()-stage2T, persona_id }); } catch {}
-    if (typeof (review as any)?.text === 'string' && (review as any).text.trim()) outText = (review as any).text.trim();
+    
+    // CRITICAL FIX: Create clean copy of review response to avoid function properties
+    let cleanReview: any = null;
+    if (review && typeof review === 'object') {
+      try {
+        cleanReview = JSON.parse(JSON.stringify(review, (key, value) => {
+          if (typeof value === 'function') return undefined;
+          return value;
+        }));
+      } catch {
+        // If JSON serialization fails, create manual copy
+        cleanReview = {};
+        for (const key in review) {
+          if (Object.prototype.hasOwnProperty.call(review, key)) {
+            const value = (review as any)[key];
+            if (typeof value !== 'function') {
+              cleanReview[key] = value;
+            }
+          }
+        }
+      }
+    }
+    
+    const reviewSource = cleanReview || review;
+    
+    // CRITICAL FIX: Check if text is a function (Response object) before using it
+    if (typeof (reviewSource as any)?.text === 'function') {
+      console.error('❌ [chat] Review returned text as a function even after cleaning! This should not happen.');
+      console.warn("⚠️ [chat] Review did not return valid text, keeping original outText");
+    } else if (typeof (reviewSource as any)?.text === 'string' && (reviewSource as any).text.trim()) {
+      const reviewText = (reviewSource as any).text.trim();
+      console.log("✅ [chat] Using review text:", {
+        length: reviewText.length,
+        preview: reviewText.substring(0, 300),
+        containsConsumeBody: reviewText.includes('consumeBody'),
+        containsUtf8Decode: reviewText.includes('utf8DecodeBytes')
+      });
+      outText = reviewText;
+    } else {
+      console.warn("⚠️ [chat] Review did not return valid text, keeping original outText");
+    }
+    
+    // Ensure outText is still a string after review
+    if (typeof outText !== 'string') {
+      console.error('❌ [chat] outText after review is not a string:', typeof outText, outText);
+      outText = String(outText || '');
+    }
+    
+    // Final check for Response object code
+    if (outText.includes('consumeBody') || outText.includes('utf8DecodeBytes') || outText.includes('text() {')) {
+      console.error('❌ [chat] DETECTED Response object code in outText! Attempting to clean...');
+      // Try to extract just the actual response text before the code
+      const codeStart = outText.search(/text\(\)\s*\{|consumeBody|utf8DecodeBytes/);
+      if (codeStart > 0) {
+        outText = outText.substring(0, codeStart).trim();
+        console.log("✅ [chat] Cleaned outText, removed Response object code");
+      }
+    }
 
     // If model produced a preference question, replace it with a neutral acknowledgement
     if (/what format is the deck and roughly what budget/i.test(outText || "")) {
@@ -1054,13 +1327,43 @@ Return the corrected answer with concise, user-facing tone.`;
     if ((out1 as any)?.fallback || isEcho) {
       outText = "Sorry — the AI service is temporarily unavailable in this environment. I can still help with search helpers and deck tools. Try again later or ask a specific question.";
     }
-    outText = enforceChatGuards(outText, guardCtx);
+    // Check if we have deck context (format is known from deck, not guessed)
+    // Use deckIdToUse OR check if format was inferred from deck (not from pasted text)
+    const hasLinkedDeckContext = !!deckIdToUse || (!!d && !!d.format);
+    outText = enforceChatGuards(outText, guardCtx, hasLinkedDeckContext);
+    
+    // Debug logging for local dev
+    if (DEV) {
+      console.log('[chat] Response:', {
+        hasDeckContext,
+        hasLinkedDeckContext,
+        deckIdToUse,
+        format: d?.format || 'unknown',
+        cardCount: entries.length,
+        outTextLength: outText.length,
+        outTextPreview: outText.substring(0, 200)
+      });
+    }
     
     // Task 1: Cache successful responses for 1 hour
-    if (outText && !(out1 as any)?.fallback) {
+    // CRITICAL: Only cache if outText is a valid string (not a function or empty)
+    if (outText && typeof outText === 'string' && outText.length > 0 && !(out1 as any)?.fallback) {
       const usage = (out1 as any)?.usage || {};
-      memoSet(cacheKey, { text: outText, usage, fallback: false }, CACHE_TTL_MS);
+      // Ensure we're caching a clean object with only string values
+      const cacheValue = {
+        text: String(outText),
+        usage: usage || {},
+        fallback: false
+      };
+      memoSet(cacheKey, cacheValue, CACHE_TTL_MS);
       if (DEV) console.log(`[chat] Cached response for query: ${text.slice(0, 50)}...`);
+    } else {
+      console.warn('⚠️ [chat] Skipping cache - outText invalid:', {
+        hasOutText: !!outText,
+        outTextType: typeof outText,
+        outTextLength: typeof outText === 'string' ? outText.length : 0,
+        isFallback: !!(out1 as any)?.fallback
+      });
     }
     
     // Inject prices into card mentions (cache-first, Scryfall fallback)

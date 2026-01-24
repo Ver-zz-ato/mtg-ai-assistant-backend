@@ -114,7 +114,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
 
       {/* Expanded Content */}
       {!hidePanel && expanded && (
-        <div className="border-t border-neutral-800 p-3 space-y-3 max-h-96 overflow-y-auto bg-neutral-900/30">
+        <div className="border-t border-neutral-800 p-3 space-y-3 bg-neutral-900/30">
           {recommendations.map((rec, index) => (
             <div
               key={index}

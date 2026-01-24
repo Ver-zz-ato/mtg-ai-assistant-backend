@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { listMessages, postMessage } from "@/lib/threads";
+import { listMessages, postMessage, postMessageStream } from "@/lib/threads";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 // Enhanced chat functionality
 import { 
@@ -43,6 +43,9 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [teaching, setTeaching] = React.useState<boolean>(false);
   const [isListening, setIsListening] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
+  const [isStreaming, setIsStreaming] = React.useState(false);
+  const [streamingContent, setStreamingContent] = React.useState<string>("");
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
   
   // Card image states
   const [cardImages, setCardImages] = React.useState<Map<string, ImageInfo>>(new Map());
@@ -109,8 +112,26 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const { messages } = await listMessages(tid);
       const arr = Array.isArray(messages) ? messages : [];
       setMsgs(arr.map((m:any)=>({ id: m.id, role: m.role, content: m.content })) as Msg[]);
+      // Auto-scroll to bottom after refresh
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+      });
     } catch {}
   }
+  
+  // Auto-scroll when messages change or streaming content updates
+  React.useEffect(() => {
+    if (msgs.length > 0 || isStreaming || streamingContent) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 50);
+      });
+    }
+  }, [msgs.length, isStreaming, streamingContent]);
   
   // Listen for deck health click events
   React.useEffect(() => {
@@ -400,10 +421,44 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       }
     }
     
+    // Clear input immediately (optimistic UI)
+    const messageText = text;
+    setText('');
     setBusy(true);
+    
+    // Add user message to UI immediately
+    const userMsgId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setMsgs((prev: any) => [
+      ...prev,
+      {
+        id: userMsgId,
+        thread_id: threadId || "",
+        role: "user",
+        content: messageText,
+        created_at: new Date().toISOString()
+      } as any
+    ]);
+    
+    // Create streaming message placeholder
+    const streamingMsgId = `streaming_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setMsgs((prev: any) => [
+      ...prev,
+      {
+        id: streamingMsgId,
+        thread_id: threadId || "",
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString()
+      } as any
+    ]);
+    
+    let accumulatedContent = '';
+    setIsStreaming(true);
+    setStreamingContent('');
+    
     try {
       // Pass deckId via context parameter (not as text) so chat route can fetch deck properly
-      const pm = await postMessage({ text, threadId });
+      const pm = await postMessage({ text: messageText, threadId });
       const tid = (pm as any)?.threadId || threadId;
       if (tid && tid !== threadId) setThreadId(tid);
       
@@ -418,58 +473,61 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         } catch {}
       }
       
-      // Trigger assistant reply (single-shot) with prefs and context
+      // Stream assistant reply with prefs and context
       const prefs: any = { format: fmt, budget: plan, colors: Array.isArray(deckCI)?deckCI:[], teaching };
       const context = { deckId }; // Pass deckId via context, not as text
-      await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text, threadId: tid || null, noUserInsert: true, prefs, context }) });
-      if (tid) await refresh(tid);
-      // Try quick-add intents from the last assistant message (prefill only, do not add automatically)
-      const lastAssistant = msgs.slice().reverse().find(m => m.role === 'assistant');
-      if (lastAssistant) prefillQuickAddFromReply(lastAssistant.content || '');
-
-      // Helper packs: NL search, combos, rules (best-effort)
-      if (tid) {
-        const helper: any = { nl: null, combos: null, combos_detect: null, rules: null };
-        try {
-          const looksSearch = /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(text.trim());
-          if (looksSearch) {
-            const r = await fetch(`/api/search/scryfall-nl?q=${encodeURIComponent(text)}`, { cache:'no-store' });
-            const j = await r.json().catch(()=>({}));
-            if (j?.ok) helper.nl = j;
-          }
-        } catch {}
-        try {
-          if (commander) {
-            const cr = await fetch(`/api/combos?commander=${encodeURIComponent(commander)}`, { cache:'no-store' });
-            const cj = await cr.json().catch(()=>({}));
-            const combos = Array.isArray(cj?.combos) ? cj.combos.slice(0,3) : [];
-            if (combos.length) helper.combos = { commander, combos };
-          }
-        } catch {}
-        try {
-          const dr = await fetch(`/api/deck/combos`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckId }) });
-          const dj2 = await dr.json().catch(()=>({}));
-          if (dj2?.ok) helper.combos_detect = { present: dj2.present||[], missing: dj2.missing||[] };
-        } catch {}
-        try {
-          const rulesy = /\b(rule|stack|priority|lifelink|flying|trample|hexproof|ward|legendary|commander|state[- ]based)\b/i.test(text);
-          if (rulesy) {
-            const baseQ = (text.match(/\b(lifelink|flying|trample|hexproof|ward|legendary|commander|state[- ]based)\b/i)?.[1] || 'rules');
-            const r = await fetch(`/api/rules/search?q=${encodeURIComponent(baseQ)}`, { cache: 'no-store' });
-            const j = await r.json().catch(()=>({}));
-            if (j?.ok) helper.rules = j;
-          }
-        } catch {}
-        try {
-          if (helper.nl || helper.combos || helper.combos_detect || helper.rules) {
-            const content = JSON.stringify({ type:'helpers', data: helper });
-            await appendAssistant(tid, content);
-            await refresh(tid);
-          }
-        } catch {}
-      }
-    } catch (e:any) { alert(e?.message || 'Assistant failed'); }
-    finally { setBusy(false); setText(''); }
+      
+      await postMessageStream(
+        { text: messageText, threadId: tid || null, context, prefs },
+        (token: string) => {
+          accumulatedContent += token;
+          setStreamingContent(accumulatedContent);
+          // Auto-scroll during streaming as content arrives
+          requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          });
+        },
+        () => {
+          // Streaming complete - update message with final content
+          setMsgs((m: any) => {
+            const existingIndex = m.findIndex((msg: any) => msg.id === streamingMsgId);
+            if (existingIndex !== -1) {
+              const newMessages = [...m];
+              newMessages[existingIndex] = {
+                ...newMessages[existingIndex],
+                content: accumulatedContent
+              };
+              return newMessages;
+            }
+            return m;
+          });
+          setIsStreaming(false);
+          setStreamingContent('');
+          if (tid) refresh(tid);
+          
+          // Scroll to bottom after streaming completes
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 100);
+          });
+        },
+        (error: Error) => {
+          setIsStreaming(false);
+          setStreamingContent('');
+          // Remove streaming message on error
+          setMsgs((m: any) => m.filter((msg: any) => msg.id !== streamingMsgId));
+          alert(error.message || 'Failed to get response');
+        }
+      );
+      
+      // Don't show helper messages - keep it simple like main chat
+    } catch (e:any) { 
+      alert(e?.message || 'Assistant failed');
+      // Restore text if error occurred
+      setText(messageText);
+    }
+    finally { setBusy(false); }
   }
 
   // Card image hover handlers
@@ -800,7 +858,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           Deck Assistant
         </h3>
       </div>
-      <div className="h-56 overflow-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar">
+      <div className="h-[112rem] overflow-y-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar">
         {msgs.length===0 && (
           <div className="text-neutral-400 text-center py-8">
             <p className="mb-2">💬 Ask me anything about your deck!</p>
@@ -808,79 +866,114 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           </div>
         )}
         {msgs.map(m => {
+          // Skip empty streaming placeholder
+          if (m.id.toString().startsWith('streaming_') && !m.content && !isStreaming) return null;
+          
           try {
             const obj = JSON.parse(m.content);
             if (obj && obj.type === 'helpers') {
               return (
-                <div key={m.id}>
+                <div key={m.id} className="text-left">
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">assistant</div>
                   {renderHelpers(obj)}
                 </div>
               );
             }
           } catch {}
+          
+          const isAssistant = m.role === 'assistant';
           return (
-            <div key={m.id} className={m.role==='assistant'?"":"opacity-80"}>
-              <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">{m.role==='assistant'? 'assistant' : 'you'}</div>
-              <div className="whitespace-pre-wrap">{renderMessageContent(m.content, m.role === 'assistant')}</div>
-              {m.role==='assistant' && (() => {
-                // Generate enhanced features for assistant responses
-                const sources = generateSourceAttribution(m.content, { deckId });
-                const actionChips = generateActionChips(m.content, deckId, { format: fmt, colors: deckCI || [] });
-                
-                return (
-                  <>
-                    <SourceReceipts sources={sources} />
-                    <ActionChipsComponent chips={actionChips} />
-                    <SuggestionButtons rawText={m.content} />
-                  </>
-                );
-              })()}
+            <div key={m.id} className={isAssistant ? "text-left" : "text-right"}>
+              <div
+                className={
+                  "group inline-block max-w-[95%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
+                  (isAssistant ? "bg-neutral-800" : "bg-blue-900/40")
+                }
+              >
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
+                  <span>{isAssistant ? 'assistant' : 'you'}</span>
+                  {isAssistant && m.content && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(String(m.content || ''));
+                        } catch (err) {
+                          // Silently fail
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
+                      title="Copy message"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
+              </div>
             </div>
           );
         })}
+        
+        {/* Show streaming content */}
+        {isStreaming && streamingContent && (
+          <div className="text-left">
+            <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
+              <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
+                <span>assistant</span>
+                <span className="ml-2 animate-pulse">•••</span>
+              </div>
+              <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
+            </div>
+          </div>
+        )}
+        
+        {/* Scroll anchor */}
+        <div ref={messagesEndRef} className="h-px" />
       </div>
-      <div className="mt-4 space-y-3">
-        <label className="inline-flex items-center gap-2 text-xs cursor-pointer group">
-          <input 
-            type="checkbox" 
-            checked={!!teaching} 
-            onChange={e=>setTeaching(e.target.checked)}
-            className="w-4 h-4 rounded border-neutral-600 text-purple-500 focus:ring-purple-500 focus:ring-offset-neutral-900"
-          />
-          <span className="text-neutral-300 group-hover:text-white transition-colors">
-            <span className="font-medium">Teaching mode</span>
-            <span className="opacity-70"> - explain in more detail</span>
-          </span>
-        </label>
-        <div className="flex items-center gap-2">
-          <input 
-            value={text} 
-            onChange={e=>setText(e.target.value)} 
-            placeholder="Ask the assistant…"
-            onKeyDown={e=>{ if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            className="flex-1 bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-neutral-500"
-          />
-          <button 
-            onClick={toggleVoiceInput} 
-            className={`px-3 py-2 rounded-lg border text-white transition-all ${
-              isListening 
-                ? 'bg-red-600 border-red-500 animate-pulse shadow-lg shadow-red-500/50' 
-                : 'bg-neutral-700 border-neutral-600 hover:bg-neutral-600'
-            }`}
-            title={isListening ? 'Stop voice input (recording...)' : 'Start voice input'}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </button>
+      <div className="mt-4 border-t border-neutral-800 pt-4">
+        <div className="flex gap-2 flex-col sm:flex-row">
+          <div className="relative flex-1">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Ask me anything about your deck…"
+              rows={3}
+              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              style={{
+                WebkitAppearance: 'none',
+                fontSize: '16px' // Prevents zoom on iOS
+              }}
+            />
+            {/* Voice input button - positioned inside textarea */}
+            <button 
+              onClick={toggleVoiceInput} 
+              className={`absolute right-2 top-2 p-2 rounded-full border text-white transition-all ${
+                isListening 
+                  ? 'bg-red-600 border-red-500 animate-pulse scale-110' 
+                  : 'bg-neutral-700 border-neutral-600 hover:bg-neutral-600 active:scale-95'
+              }`}
+              title={isListening ? 'Stop voice input (recording...)' : 'Start voice input'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </button>
+          </div>
           <button 
             onClick={send} 
-            disabled={busy || !text.trim()} 
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={busy || !text.trim() || isStreaming} 
+            className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {busy ? 'Sending...' : 'Send'}
+            {busy || isStreaming ? 'Sending...' : 'Send'}
           </button>
         </div>
       </div>

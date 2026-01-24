@@ -4,7 +4,7 @@
  * Legacy models (gpt-3.5, early gpt-4) are deprecated and should not be used
  */
 export const COMPLETION_LIMITS = {
-  scan: 512,           // AI Deck Scan suggestions
+  scan: 2048,          // AI Deck Scan suggestions (increased for gpt-5 reasoning tokens)
   suggestions: 800,    // General card suggestions
   chat: 1200,          // Chat responses
   stream: 1000,        // Streaming chat responses

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
-import { COMPLETION_LIMITS, getMaxTokenParam } from '@/lib/ai/completion-limits';
 import { prepareOpenAIBody } from '@/lib/ai/openai-params';
 
 export const runtime = 'nodejs';
@@ -10,13 +9,26 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = process.env.OPENAI_MODEL || "gpt-5";
 
 export async function POST(req: NextRequest) {
+  // Always log entry (even in production) for debugging
+  const DEBUG = true; // Force debugging on
+  console.log('🚀 [health-suggestions] ==========================================');
+  console.log('🚀 [health-suggestions] API route called at', new Date().toISOString());
+  console.log('🚀 [health-suggestions] ==========================================');
+  
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch((e) => {
+      console.error('❌ [health-suggestions] JSON parse error:', e);
+      return {};
+    });
+    
     const deckId = String(body?.deckId || '');
     const category = String(body?.category || '');
     const label = String(body?.label || '');
 
+    console.log('📋 [health-suggestions] Request params:', { deckId, category, label });
+
     if (!deckId || !category) {
+      console.error('❌ [health-suggestions] Missing required params');
       return NextResponse.json({ ok: false, error: 'deckId and category required' }, { status: 400 });
     }
 
@@ -108,16 +120,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'AI service unavailable' }, { status: 503 });
     }
 
-    // Build request body - max_completion_tokens only; no temperature/top_p
+    // Build request body - no token limit for deck scan; no temperature/top_p
     const requestBody = prepareOpenAIBody({
       model: MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: fullPrompt }
-      ],
-      ...getMaxTokenParam(MODEL, COMPLETION_LIMITS.scan)
+      ]
+      // No token limit - let the model generate as much as needed
     });
 
+    console.log('📤 [health-suggestions] Sending request to OpenAI:', {
+      url: OPENAI_URL,
+      model: MODEL,
+      hasApiKey: !!apiKey,
+      requestBodyKeys: Object.keys(requestBody),
+      messagesCount: requestBody.messages?.length || 0,
+      systemPromptLength: requestBody.messages?.[0]?.content?.length || 0,
+      userPromptLength: requestBody.messages?.[1]?.content?.length || 0
+    });
+    
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: {
@@ -127,44 +149,137 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(requestBody)
     });
 
+    console.log('📥 [health-suggestions] OpenAI response status:', res.status, res.statusText);
+    console.log('📥 [health-suggestions] Response headers:', Object.fromEntries(res.headers.entries()));
+
     if (!res.ok) {
-      const error = await res.json().catch(() => ({}));
-      return NextResponse.json({ ok: false, error: error?.error?.message || 'AI request failed' }, { status: 500 });
+      const errorText = await res.text().catch(() => '');
+      console.error('❌ [health-suggestions] OpenAI error response:', errorText);
+      let error: any = {};
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { message: errorText || 'AI request failed' };
+      }
+      console.error('❌ [health-suggestions] Parsed error:', error);
+      return NextResponse.json({ ok: false, error: error?.error?.message || error?.message || 'AI request failed' }, { status: 500 });
     }
 
-    const json = await res.json();
-    const content = json?.choices?.[0]?.message?.content || '';
+    // CRITICAL: Parse JSON properly - use .text() first to avoid issues
+    let json: any = {};
+    try {
+      const responseText = await res.text();
+      console.log('📥 [health-suggestions] Raw response text length:', responseText.length);
+      console.log('📥 [health-suggestions] Raw response text preview:', responseText.substring(0, 500));
+      
+      json = JSON.parse(responseText);
+    } catch (e) {
+      console.error('❌ [health-suggestions] Failed to parse JSON response:', e);
+      return NextResponse.json({ ok: false, error: 'Failed to parse OpenAI response' }, { status: 500 });
+    }
+    
+    console.log('📥 [health-suggestions] Parsed JSON response:', {
+      hasChoices: !!json?.choices,
+      choicesLength: json?.choices?.length || 0,
+      hasMessage: !!json?.choices?.[0]?.message,
+      hasContent: !!json?.choices?.[0]?.message?.content,
+      contentType: typeof json?.choices?.[0]?.message?.content,
+      contentValue: json?.choices?.[0]?.message?.content,
+      messageKeys: json?.choices?.[0]?.message ? Object.keys(json.choices[0].message) : [],
+      fullMessage: json?.choices?.[0]?.message ? JSON.stringify(json.choices[0].message, null, 2) : 'no message',
+      fullResponseKeys: Object.keys(json),
+      fullResponsePreview: JSON.stringify(json, null, 2).substring(0, 2000)
+    });
+    
+    let content = json?.choices?.[0]?.message?.content || '';
+    
+    // Check if content is actually empty or if it's in a different field
+    if (!content || content.length === 0) {
+      console.warn('⚠️ [health-suggestions] Content is empty, checking alternative fields...');
+      console.warn('⚠️ [health-suggestions] Full choice structure:', JSON.stringify(json.choices?.[0], null, 2));
+      
+      // Try alternative content fields
+      const altContent = json?.choices?.[0]?.delta?.content || 
+                        json?.choices?.[0]?.text || 
+                        json?.output_text ||
+                        json?.content ||
+                        '';
+      if (altContent) {
+        console.log('✅ [health-suggestions] Found content in alternative field:', altContent.substring(0, 200));
+        content = altContent;
+      } else {
+        console.error('❌ [health-suggestions] No content found in any field!');
+        console.error('❌ [health-suggestions] Full response:', JSON.stringify(json, null, 2));
+        return NextResponse.json({ ok: false, error: 'OpenAI returned empty response' }, { status: 500 });
+      }
+    }
 
-    // Extract card suggestions from response
+    // Always log AI response (even in production) for debugging
+    console.log('🤖 [health-suggestions] OpenAI response received');
+    console.log('🤖 [health-suggestions] Response length:', content.length);
+    console.log('🤖 [health-suggestions] First 500 chars:', content.substring(0, 500));
+    if (content.length > 500) {
+      console.log('🤖 [health-suggestions] Last 500 chars:', content.substring(content.length - 500));
+    }
+
+    // Extract card suggestions from response - more flexible parsing
     const suggestions: Array<{ card: string; reason: string }> = [];
     
-    // Try numbered list format: "1. Card Name - reason"
-    const numberedMatches = content.match(/(?:^|\n)\d+\.\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?)(?:\s*[-–—]\s*([^\n]+))?/g) || [];
-    for (const match of numberedMatches.slice(0, 7)) {
-      const parts = match.match(/\d+\.\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?)(?:\s*[-–—]\s*([^\n]+))?/);
-      if (parts && parts[1]) {
-        const cardName = parts[1].trim();
-        const reason = parts[2]?.trim() || 'Recommended for this deck';
-        if (cardName.length > 2 && cardName.length < 100) {
+    // Split content into lines for easier parsing
+    const lines = content.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+    
+    for (const line of lines) {
+      // Try numbered list format: "1. Card Name - reason" or "1) Card Name - reason"
+      const numberedMatch = line.match(/^\d+[\.\)]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
+      if (numberedMatch && numberedMatch[1]) {
+        const cardName = numberedMatch[1].trim();
+        const reason = numberedMatch[2]?.trim() || 'Recommended for this deck';
+        if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
           suggestions.push({ card: cardName, reason });
+          if (suggestions.length >= 7) break;
+          continue;
         }
+      }
+      
+      // Try bullet points: "- Card Name - reason" or "* Card Name - reason"
+      const bulletMatch = line.match(/^[-*•]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
+      if (bulletMatch && bulletMatch[1]) {
+        const cardName = bulletMatch[1].trim();
+        const reason = bulletMatch[2]?.trim() || 'Recommended for this deck';
+        if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
+          suggestions.push({ card: cardName, reason });
+          if (suggestions.length >= 7) break;
+          continue;
+        }
+      }
+      
+      // Try simple card name on its own line (if it looks like a card name)
+      if (line.match(/^[A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*$/) && 
+          line.length > 2 && line.length < 100 &&
+          !line.match(/^(Card|Name|Suggestion|Here|These|Consider|Try|Add)/i)) {
+        suggestions.push({ card: line, reason: 'Recommended for this deck' });
+        if (suggestions.length >= 7) break;
       }
     }
 
-    // Fallback: try bullet points
+    // Always log extraction results (even in production) for debugging
+    console.log('📊 [health-suggestions] Extraction complete');
+    console.log('📊 [health-suggestions] Extracted suggestions:', suggestions.length);
+    console.log('📊 [health-suggestions] Suggestions:', JSON.stringify(suggestions, null, 2));
+    console.log('📊 [health-suggestions] All lines checked:', lines.length);
+    
     if (suggestions.length === 0) {
-      const bulletMatches = content.match(/(?:^|\n)[-*]\s*([A-Z][A-Za-z\s,'-]+)/g) || [];
-      for (const match of bulletMatches.slice(0, 7)) {
-        const cardName = match.replace(/^[\n\s]*[-*]\s*/, '').trim();
-        if (cardName.length > 2 && cardName.length < 100) {
-          suggestions.push({ card: cardName, reason: 'Recommended for this deck' });
-        }
-      }
+      console.warn('⚠️ [health-suggestions] No suggestions extracted!');
+      console.warn('⚠️ [health-suggestions] Sample lines:', lines.slice(0, 20));
+      console.warn('⚠️ [health-suggestions] Full content for debugging:', content);
     }
 
+    console.log('✅ [health-suggestions] Returning response with', suggestions.length, 'suggestions');
     return NextResponse.json({ ok: true, suggestions });
   } catch (e: any) {
-    console.error('[health-suggestions] Error:', e);
+    console.error('💥 [health-suggestions] Exception caught:', e);
+    console.error('💥 [health-suggestions] Error message:', e?.message);
+    console.error('💥 [health-suggestions] Error stack:', e?.stack);
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' }, { status: 500 });
   }
 }
