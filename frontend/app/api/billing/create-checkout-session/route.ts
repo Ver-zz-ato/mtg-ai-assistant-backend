@@ -95,8 +95,8 @@ export async function POST(req: NextRequest) {
         },
       ],
       success_url: successUrl || (process.env.NODE_ENV === 'production' 
-        ? 'https://www.manatap.ai/pricing?status=success'
-        : 'http://localhost:3000/pricing?status=success'),
+        ? 'https://www.manatap.ai/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=' + plan
+        : 'http://localhost:3000/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=' + plan),
       cancel_url: cancelUrl || (process.env.NODE_ENV === 'production'
         ? 'https://www.manatap.ai/pricing?status=cancel' 
         : 'http://localhost:3000/pricing?status=cancel'),

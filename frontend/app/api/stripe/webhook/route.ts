@@ -170,7 +170,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     .eq('stripe_customer_id', session.customer)
     .single();
 
-  if (profileByCustomer) {
+  if (!findError && profileByCustomer) {
     profile = profileByCustomer;
   } else {
     // Fallback: Look up by user ID from session metadata (in case customer ID wasn't saved yet)
@@ -182,7 +182,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
         .eq('id', userId)
         .single();
       
-      if (profileById) {
+      if (!findByIdError && profileById) {
         profile = profileById;
         console.info('Found user by metadata.app_user_id fallback', { userId, customerId: session.customer });
       } else {

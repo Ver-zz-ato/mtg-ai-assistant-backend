@@ -819,6 +819,10 @@ export default function Header() {
                             <span>{/[0-9]/.test(signupPassword) ? '✓' : '○'}</span>
                             <span>One number (recommended)</span>
                           </div>
+                          <div className={`text-xs flex items-center gap-1.5 ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(signupPassword) ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            <span>{/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(signupPassword) ? '✓' : '○'}</span>
+                            <span>One special character (recommended)</span>
+                          </div>
                         </div>
                       )}
                     </div>
