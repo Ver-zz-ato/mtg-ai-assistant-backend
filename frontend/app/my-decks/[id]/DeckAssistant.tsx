@@ -851,21 +851,24 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   }
 
   return (
-    <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg h-[min(75vh,56rem)] flex flex-col">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
         <h3 className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
           Deck Assistant
         </h3>
       </div>
-      <div className="h-[112rem] overflow-y-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar">
-        {msgs.length===0 && (
-          <div className="text-neutral-400 text-center py-8">
-            <p className="mb-2">💬 Ask me anything about your deck!</p>
-            <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
+      <div className="flex-1 overflow-y-auto min-h-0 rounded-lg border border-neutral-700 p-3 bg-black/30 custom-scrollbar">
+        {msgs.length === 0 ? (
+          <div className="h-full grid place-items-center opacity-70 text-sm text-neutral-400">
+            <div className="text-center">
+              <p className="mb-2">💬 Ask me anything about your deck!</p>
+              <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
+            </div>
           </div>
-        )}
-        {msgs.map(m => {
+        ) : (
+          <div className="space-y-3">
+            {msgs.map(m => {
           // Skip empty streaming placeholder
           if (m.id.toString().startsWith('streaming_') && !m.content && !isStreaming) return null;
           
@@ -914,30 +917,39 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
               </div>
             </div>
           );
-        })}
-        
-        {/* Show streaming content */}
-        {isStreaming && streamingContent && (
-          <div className="text-left">
-            <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
-              <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
-                <span>assistant</span>
-                <span className="ml-2 animate-pulse">•••</span>
+            })}
+            
+            {/* Show streaming content */}
+            {isStreaming && streamingContent && (
+              <div className="text-left">
+                <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
+                  <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
+                    <span>assistant</span>
+                    <span className="ml-2 animate-pulse">•••</span>
+                  </div>
+                  <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
+                </div>
               </div>
-              <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
-            </div>
+            )}
+            
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} className="h-px" />
           </div>
         )}
-        
-        {/* Scroll anchor */}
-        <div ref={messagesEndRef} className="h-px" />
       </div>
-      <div className="mt-4 border-t border-neutral-800 pt-4">
+      <div className="shrink-0 border-t border-neutral-800 pt-4">
         <div className="flex gap-2 flex-col sm:flex-row">
           <div className="relative flex-1">
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                // Auto-resize textarea up to max height
+                const textarea = e.target;
+                textarea.style.height = 'auto';
+                const newHeight = Math.min(textarea.scrollHeight, 128); // max-h-32 = 8rem = 128px
+                textarea.style.height = `${Math.max(44, newHeight)}px`; // min-h-[44px] = 44px
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -945,11 +957,12 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 }
               }}
               placeholder="Ask me anything about your deck…"
-              rows={3}
-              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              rows={1}
+              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[44px] max-h-32 overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               style={{
                 WebkitAppearance: 'none',
-                fontSize: '16px' // Prevents zoom on iOS
+                fontSize: '16px', // Prevents zoom on iOS
+                height: '44px' // Initial height
               }}
             />
             {/* Voice input button - positioned inside textarea */}
