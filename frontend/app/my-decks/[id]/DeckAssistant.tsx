@@ -858,7 +858,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           Deck Assistant
         </h3>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 p-3 bg-black/30">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 p-3 bg-black/30" style={{ scrollbarGutter: 'auto' }}>
         {msgs.length === 0 ? (
           <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
             <div className="text-center">
