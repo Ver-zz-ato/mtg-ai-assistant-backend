@@ -46,6 +46,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [streamingContent, setStreamingContent] = React.useState<string>("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
   
   // Card image states
   const [cardImages, setCardImages] = React.useState<Map<string, ImageInfo>>(new Map());
@@ -112,26 +113,38 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const { messages } = await listMessages(tid);
       const arr = Array.isArray(messages) ? messages : [];
       setMsgs(arr.map((m:any)=>({ id: m.id, role: m.role, content: m.content })) as Msg[]);
-      // Auto-scroll to bottom after refresh
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 100);
-      });
+      // Auto-scroll to bottom after refresh (only if near bottom)
+      if (shouldAutoScroll()) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }, 100);
+        });
+      }
     } catch {}
   }
   
-  // Auto-scroll when messages change or streaming content updates
+  // Smart auto-scroll: only scroll if user is near the bottom
+  const shouldAutoScroll = React.useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return false;
+    const threshold = 100; // pixels from bottom
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceFromBottom < threshold;
+  }, []);
+
+  // Auto-scroll when messages change or streaming content updates (only if near bottom)
   React.useEffect(() => {
     if (msgs.length > 0 || isStreaming || streamingContent) {
-      // Use requestAnimationFrame for smoother scrolling
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 50);
-      });
+      if (shouldAutoScroll()) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }, 50);
+        });
+      }
     }
-  }, [msgs.length, isStreaming, streamingContent]);
+  }, [msgs.length, isStreaming, streamingContent, shouldAutoScroll]);
   
   // Listen for deck health click events
   React.useEffect(() => {
@@ -482,10 +495,12 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         (token: string) => {
           accumulatedContent += token;
           setStreamingContent(accumulatedContent);
-          // Auto-scroll during streaming as content arrives
-          requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          });
+          // Auto-scroll during streaming only if user is near bottom
+          if (shouldAutoScroll()) {
+            requestAnimationFrame(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            });
+          }
         },
         () => {
           // Streaming complete - update message with final content
@@ -505,12 +520,14 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           setStreamingContent('');
           if (tid) refresh(tid);
           
-          // Scroll to bottom after streaming completes
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 100);
-          });
+          // Scroll to bottom after streaming completes (only if near bottom)
+          if (shouldAutoScroll()) {
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+              }, 100);
+            });
+          }
         },
         (error: Error) => {
           setIsStreaming(false);
@@ -851,14 +868,17 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   }
 
   return (
-    <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg flex flex-col h-[min(70vh,48rem)] min-h-[28rem]">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
         <h3 className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
           Deck Assistant
         </h3>
       </div>
-      <div className="h-[112rem] overflow-y-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto rounded-lg border border-neutral-700 p-3 bg-black/30 space-y-3 custom-scrollbar min-h-0"
+      >
         {msgs.length===0 && (
           <div className="text-neutral-400 text-center py-8">
             <p className="mb-2">💬 Ask me anything about your deck!</p>
@@ -932,12 +952,19 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         {/* Scroll anchor */}
         <div ref={messagesEndRef} className="h-px" />
       </div>
-      <div className="mt-4 border-t border-neutral-800 pt-4">
+      <div className="shrink-0 mt-4 border-t border-neutral-800 pt-4 sticky bottom-0 bg-gradient-to-b from-neutral-900 to-neutral-950">
         <div className="flex gap-2 flex-col sm:flex-row">
           <div className="relative flex-1">
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                // Auto-resize textarea up to max height
+                const textarea = e.target;
+                textarea.style.height = 'auto';
+                const newHeight = Math.min(textarea.scrollHeight, 128); // max-h-32 = 8rem = 128px
+                textarea.style.height = `${newHeight}px`;
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -945,11 +972,12 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 }
               }}
               placeholder="Ask me anything about your deck…"
-              rows={3}
-              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              rows={1}
+              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[60px] max-h-32 overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               style={{
                 WebkitAppearance: 'none',
-                fontSize: '16px' // Prevents zoom on iOS
+                fontSize: '16px', // Prevents zoom on iOS
+                height: '60px' // Initial height
               }}
             />
             {/* Voice input button - positioned inside textarea */}

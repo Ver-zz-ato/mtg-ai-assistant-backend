@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
 import { prepareOpenAIBody } from '@/lib/ai/openai-params';
+import { fetchCard, inferDeckContext } from '@/lib/deck/inference';
+import { isWithinColorIdentity, isLegalForFormat, normalizeCardName } from '@/lib/deck/mtgValidators';
 
 export const runtime = 'nodejs';
 
@@ -72,7 +74,43 @@ export async function POST(req: NextRequest) {
 
     const commander = String(deck.commander || '');
     const title = String(deck.title || 'Untitled');
-    const format = String(deck.format || 'Commander');
+    const format = String(deck.format || 'Commander') as 'Commander' | 'Modern' | 'Pioneer' | 'Standard';
+    
+    // Fetch commander color identity for validation
+    let allowedColors: string[] = [];
+    if (commander && format === 'Commander') {
+      try {
+        const commanderCard = await fetchCard(commander);
+        if (commanderCard?.color_identity) {
+          allowedColors = Array.isArray(commanderCard.color_identity) 
+            ? commanderCard.color_identity.map((c: string) => c.toUpperCase())
+            : [];
+        }
+      } catch (e) {
+        console.warn('[health-suggestions] Failed to fetch commander color identity:', e);
+      }
+    }
+    
+    // If no commander or not Commander format, infer colors from deck
+    if (allowedColors.length === 0) {
+      try {
+        const deckText = String(deck.deck_text || '');
+        const entries = Array.isArray(deckCards) 
+          ? deckCards.map((c: any) => ({ count: c.qty, name: c.name }))
+          : [];
+        const inferred = await inferDeckContext(deckText, '', entries, format, commander || null, [], new Map());
+        allowedColors = inferred.colors.map((c: string) => c.toUpperCase());
+      } catch (e) {
+        console.warn('[health-suggestions] Failed to infer colors:', e);
+        // Default to allowing all colors if inference fails
+        allowedColors = ['W', 'U', 'B', 'R', 'G', 'C'];
+      }
+    }
+    
+    // If still no colors, allow colorless at minimum
+    if (allowedColors.length === 0) {
+      allowedColors = ['C'];
+    }
 
     // Generate category-specific prompt
     const categoryPrompts: Record<string, string> = {
@@ -265,17 +303,64 @@ export async function POST(req: NextRequest) {
     // Always log extraction results (even in production) for debugging
     console.log('📊 [health-suggestions] Extraction complete');
     console.log('📊 [health-suggestions] Extracted suggestions:', suggestions.length);
-    console.log('📊 [health-suggestions] Suggestions:', JSON.stringify(suggestions, null, 2));
-    console.log('📊 [health-suggestions] All lines checked:', lines.length);
+    console.log('📊 [health-suggestions] Allowed colors:', allowedColors);
+    console.log('📊 [health-suggestions] Format:', format);
     
-    if (suggestions.length === 0) {
-      console.warn('⚠️ [health-suggestions] No suggestions extracted!');
-      console.warn('⚠️ [health-suggestions] Sample lines:', lines.slice(0, 20));
-      console.warn('⚠️ [health-suggestions] Full content for debugging:', content);
+    // Validate suggestions: check color identity and format legality
+    const validatedSuggestions: Array<{ card: string; reason: string }> = [];
+    const filteredCount = { colorIdentity: 0, format: 0, notFound: 0 };
+    
+    for (const suggestion of suggestions) {
+      try {
+        // Fetch card data from Scryfall
+        const card = await fetchCard(suggestion.card);
+        if (!card) {
+          console.warn(`⚠️ [health-suggestions] Card not found: ${suggestion.card}`);
+          filteredCount.notFound++;
+          continue;
+        }
+        
+        // Check color identity
+        const colorCheck = allowedColors.length > 0 ? allowedColors : ['C'];
+        if (!isWithinColorIdentity(card, colorCheck)) {
+          console.warn(`⚠️ [health-suggestions] Card ${suggestion.card} is off-color. Allowed: ${allowedColors.join(', ')}, Card colors: ${card.color_identity?.join(', ') || 'none'}`);
+          filteredCount.colorIdentity++;
+          continue;
+        }
+        
+        // Check format legality
+        if (!isLegalForFormat(card, format)) {
+          console.warn(`⚠️ [health-suggestions] Card ${suggestion.card} is illegal in ${format}`);
+          filteredCount.format++;
+          continue;
+        }
+        
+        // Card passed all checks
+        validatedSuggestions.push(suggestion);
+      } catch (e) {
+        console.error(`❌ [health-suggestions] Error validating card ${suggestion.card}:`, e);
+        // On error, include the card anyway (fail open) but log it
+        validatedSuggestions.push(suggestion);
+      }
+    }
+    
+    console.log('✅ [health-suggestions] Validation complete:', {
+      original: suggestions.length,
+      validated: validatedSuggestions.length,
+      filtered: {
+        colorIdentity: filteredCount.colorIdentity,
+        format: filteredCount.format,
+        notFound: filteredCount.notFound
+      }
+    });
+    
+    if (validatedSuggestions.length === 0 && suggestions.length > 0) {
+      console.warn('⚠️ [health-suggestions] All suggestions were filtered out!');
+      console.warn('⚠️ [health-suggestions] Original suggestions:', JSON.stringify(suggestions, null, 2));
     }
 
-    console.log('✅ [health-suggestions] Returning response with', suggestions.length, 'suggestions');
-    return NextResponse.json({ ok: true, suggestions });
+    console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'validated suggestions');
+    return NextResponse.json({ ok: true, suggestions: validatedSuggestions });
   } catch (e: any) {
     console.error('💥 [health-suggestions] Exception caught:', e);
     console.error('💥 [health-suggestions] Error message:', e?.message);
