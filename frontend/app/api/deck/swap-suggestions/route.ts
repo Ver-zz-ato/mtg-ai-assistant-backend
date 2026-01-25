@@ -147,7 +147,7 @@ async function aiSuggest(
         route: '/api/deck/swap-suggestions',
         feature: 'swap_suggestions',
         model: process.env.OPENAI_MODEL || "gpt-5",
-        timeout: 20000,
+        timeout: 300000, // 5 minutes - interactive suggestions
         maxTokens: 512,
         apiType: 'responses',
         userId: userId || null,

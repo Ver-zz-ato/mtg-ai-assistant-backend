@@ -164,7 +164,7 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
         feature: 'chat',
         model: baseModel,
         fallbackModel,
-        timeout: 15000,
+        timeout: 30000, // 30 seconds - interactive chat
         maxTokens,
         apiType: 'chat',
         userId: userId || null,

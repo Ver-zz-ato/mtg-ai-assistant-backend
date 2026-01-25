@@ -480,7 +480,7 @@ async function callOpenAI(
         route: '/api/deck/analyze',
         feature: 'deck_analyze',
         model: OPENAI_MODEL,
-        timeout: 30000,
+        timeout: 300000, // 5 minutes - comprehensive deck analysis
         maxTokens,
         apiType: 'responses',
         userId: opts.userId || null,

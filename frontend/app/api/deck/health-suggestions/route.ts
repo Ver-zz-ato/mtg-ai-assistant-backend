@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
           route: '/api/deck/health-suggestions',
           feature: 'deck_scan',
           model: MODEL,
-          timeout: 25000,
+          timeout: 300000, // 5 minutes - complex deck analysis needs more time
           maxTokens: undefined, // No token limit for deck scan
           apiType: 'chat',
           userId: user.id,
@@ -217,7 +217,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, suggestions });
     } catch (e: any) {
       console.error('💥 [health-suggestions] OpenAI call failed:', e);
-      return NextResponse.json({ ok: false, error: e?.message || 'AI service error' }, { status: 500 });
+      console.error('💥 [health-suggestions] Error details:', {
+        message: e?.message,
+        name: e?.name,
+        stack: e?.stack,
+        cause: e?.cause
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = e?.message || 'AI service error';
+      if (errorMessage.includes('busy') || errorMessage.includes('timeout')) {
+        errorMessage = 'The AI service is currently busy or timed out. Please try again in a moment.';
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        errorMessage = 'Rate limit exceeded. Please try again later.';
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        errorMessage = 'Authentication error. Please refresh the page and try again.';
+      }
+      
+      return NextResponse.json({ ok: false, error: errorMessage }, { status: 500 });
     }
   } catch (e: any) {
     console.error('💥 [health-suggestions] Exception caught:', e);

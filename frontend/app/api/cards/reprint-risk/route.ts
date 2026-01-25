@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
             route: '/api/cards/reprint-risk',
             feature: 'reprint_risk',
             model,
-            timeout: 20000,
+            timeout: 300000, // 5 minutes - interactive check
             maxTokens: 600,
             apiType: 'responses',
             userId: user?.id || null,

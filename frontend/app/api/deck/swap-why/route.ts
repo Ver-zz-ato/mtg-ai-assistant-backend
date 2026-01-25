@@ -74,7 +74,7 @@ export async function POST(req: NextRequest){
           route: '/api/deck/swap-why',
           feature: 'swap_why',
           model: process.env.OPENAI_MODEL || 'gpt-5',
-          timeout: 20000,
+          timeout: 300000, // 5 minutes - interactive explanation
           maxTokens: 80,
           apiType: 'responses',
           userId: currentUser?.id || null,

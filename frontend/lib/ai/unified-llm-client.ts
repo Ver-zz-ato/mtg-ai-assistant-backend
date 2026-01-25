@@ -39,12 +39,13 @@ export type LLMResponse = {
 
 // Default timeout values by route type (UX-based: interactive UI actions timeout faster)
 const DEFAULT_TIMEOUTS: Record<string, number> = {
-  chat: 15000,           // 15 seconds - interactive chat
-  'deck_analyze': 30000, // 30 seconds - background analysis (can be longer)
-  'deck_scan': 20000,    // 20 seconds - modal/interactive (faster for UX)
-  'swap_suggestions': 20000, // 20 seconds - interactive suggestions
-  'swap_why': 20000,     // 20 seconds - interactive explanation
-  'reprint_risk': 20000, // 20 seconds - interactive check
+  chat: 30000,           // 30 seconds - interactive chat
+  'deck_analyze': 300000, // 5 minutes - comprehensive deck analysis (complex, can take time)
+  'deck_scan': 300000,   // 5 minutes - AI Deck Scan (complex deck analysis needs more time)
+  'deck_compare': 300000, // 5 minutes - deck comparison analysis (complex analysis)
+  'swap_suggestions': 300000, // 5 minutes - interactive suggestions
+  'swap_why': 300000,     // 5 minutes - interactive explanation
+  'reprint_risk': 300000, // 5 minutes - interactive check
   'debug_ping': 10000,   // 10 seconds - quick health check
   default: 20000,        // 20 seconds default
 };
@@ -265,13 +266,37 @@ export async function callLLM(
 
   // Handle final failure
   if (!attempt.ok || !text) {
-    const errorMsg = attempt.json?.error?.message || `HTTP ${attempt.status}`;
+    const errorMsg = attempt.json?.error?.message || attempt.json?.error?.code || `HTTP ${attempt.status}`;
+    
+    // Log detailed error for debugging
+    console.error(`[callLLM] Request failed:`, {
+      route: config.route,
+      feature: config.feature,
+      model: actualModel,
+      status: attempt.status,
+      error: attempt.json?.error,
+      hasText: !!text,
+      textLength: text?.length || 0
+    });
     
     if (attempt.status === 408) {
       throw new Error('AI is busy, please try again');
     }
     
-    throw new Error(errorMsg);
+    // Provide more descriptive error messages
+    if (attempt.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    
+    if (attempt.status === 401 || attempt.status === 403) {
+      throw new Error('Authentication error. Please check your API configuration.');
+    }
+    
+    if (attempt.status >= 500) {
+      throw new Error('AI service temporarily unavailable. Please try again in a moment.');
+    }
+    
+    throw new Error(errorMsg || 'AI request failed');
   }
 
   return {

@@ -91,7 +91,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           route: '/api/deck/compare-ai',
           feature: 'deck_compare',
           model: "gpt-4o-mini",
-          timeout: 25000,
+          timeout: 300000, // 5 minutes - complex deck comparison analysis
           maxTokens: 1000,
           apiType: 'chat',
           userId: user.id,
