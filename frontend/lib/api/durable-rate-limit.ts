@@ -14,6 +14,7 @@ export interface DurableRateLimitResult {
   remaining: number;
   limit: number;
   count: number;
+  resetAt?: string; // ISO timestamp when the limit resets (midnight of next day for daily limits)
 }
 
 /**
@@ -45,6 +46,20 @@ export async function checkDurableRateLimit(
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     
+    // Calculate reset time (midnight of next day for daily limits)
+    // For daily limits (windowDays = 1), this is midnight of tomorrow
+    // For per-minute limits (windowDays < 1), this is the end of the window
+    const resetDate = new Date();
+    if (windowDays >= 1) {
+      // Daily limit: reset at midnight of next day
+      resetDate.setDate(resetDate.getDate() + 1);
+      resetDate.setHours(0, 0, 0, 0);
+    } else {
+      // Per-minute or other short windows: reset at end of window
+      resetDate.setTime(resetDate.getTime() + (windowDays * 24 * 60 * 60 * 1000));
+    }
+    const resetAt = resetDate.toISOString();
+    
     // Try atomic RPC function first (requires migration 026_atomic_rate_limit_increment.sql)
     try {
       const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_rate_limit', {
@@ -72,6 +87,7 @@ export async function checkDurableRateLimit(
           remaining: result.remaining ?? 0,
           limit: result.limit_count ?? maxRequests,
           count: result.count_after ?? 0,
+          resetAt,
         };
       }
 
@@ -102,7 +118,10 @@ export async function checkDurableRateLimit(
     if (fetchError) {
       console.error('[checkDurableRateLimit] Database error:', fetchError);
       // Fail open - allow request if DB check fails (prevents outages from blocking users)
-      return { allowed: true, remaining: maxRequests, limit: maxRequests, count: 0 };
+      const resetDate = new Date();
+      resetDate.setDate(resetDate.getDate() + Math.ceil(windowDays));
+      resetDate.setHours(0, 0, 0, 0);
+      return { allowed: true, remaining: maxRequests, limit: maxRequests, count: 0, resetAt: resetDate.toISOString() };
     }
 
     const currentCount = existing?.request_count || 0;
@@ -122,6 +141,7 @@ export async function checkDurableRateLimit(
           remaining: 0,
           limit: maxRequests,
           count: currentCount,
+          resetAt,
         };
       }
 
@@ -141,7 +161,7 @@ export async function checkDurableRateLimit(
     if (updateError) {
       console.error('[checkDurableRateLimit] Failed to update rate limit:', updateError);
       // Fail open - allow request if update fails
-      return { allowed: true, remaining: maxRequests - currentCount, limit: maxRequests, count: currentCount };
+      return { allowed: true, remaining: maxRequests - currentCount, limit: maxRequests, count: currentCount, resetAt };
     }
 
     return {
@@ -149,11 +169,15 @@ export async function checkDurableRateLimit(
       remaining: maxRequests - (currentCount + 1),
       limit: maxRequests,
       count: currentCount + 1,
+      resetAt,
     };
   } catch (error) {
     console.error('[checkDurableRateLimit] Exception:', error);
     // Fail open - allow request on error
-    return { allowed: true, remaining: maxRequests, limit: maxRequests, count: 0 };
+    const resetDate = new Date();
+    resetDate.setDate(resetDate.getDate() + Math.ceil(windowDays));
+    resetDate.setHours(0, 0, 0, 0);
+    return { allowed: true, remaining: maxRequests, limit: maxRequests, count: 0, resetAt: resetDate.toISOString() };
   }
 }
 

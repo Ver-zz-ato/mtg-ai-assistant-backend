@@ -1,12 +1,15 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
 import { getPromptVersion } from "@/lib/config/prompts";
 import swapsData from "@/lib/data/budget-swaps.json";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
+import { checkProStatus } from "@/lib/server-pro-check";
+import { hashString } from "@/lib/guest-tracking";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -77,11 +80,13 @@ export async function GET() {
   });
 }
 
-async function aiSuggest(deckText: string, currency: string, budget: number): Promise<Array<{ from: string; to: string; reason?: string }>> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || "gpt-5";
-  if (!apiKey) return [];
-  
+async function aiSuggest(
+  deckText: string, 
+  currency: string, 
+  budget: number,
+  userId?: string | null,
+  isPro?: boolean
+): Promise<Array<{ from: string; to: string; reason?: string }>> {
   // Load the deck_analysis prompt as the base, then add budget swap instructions
   let basePrompt = "You are ManaTap AI, an expert Magic: The Gathering assistant.";
   try {
@@ -129,23 +134,39 @@ async function aiSuggest(deckText: string, currency: string, budget: number): Pr
   ].join("\n");
   
   const input = `Currency: ${currency}\nThreshold: ${budget}\nDeck:\n${deckText}`;
-  const payload = prepareOpenAIBody({
-    model,
-    input: [
-      { role: "system", content: [{ type: "input_text", text: system }] },
-      { role: "user", content: [{ type: "input_text", text: input }] },
-    ],
-    max_output_tokens: 512,
-  } as Record<string, unknown>);
-  const r = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(payload),
-  }).catch(() => null as any);
-  if (!r) return [];
-  const j: any = await r.json().catch(() => ({}));
-  const text = (j?.output_text || "").trim();
-  try { return JSON.parse(text); } catch { return []; }
+  
+  try {
+    const { callLLM } = await import('@/lib/ai/unified-llm-client');
+    
+    const response = await callLLM(
+      [
+        { role: "system", content: [{ type: "input_text", text: system }] },
+        { role: "user", content: [{ type: "input_text", text: input }] },
+      ],
+      {
+        route: '/api/deck/swap-suggestions',
+        feature: 'swap_suggestions',
+        model: process.env.OPENAI_MODEL || "gpt-5",
+        timeout: 20000,
+        maxTokens: 512,
+        apiType: 'responses',
+        userId: userId || null,
+        isPro: isPro || false,
+      }
+    );
+
+    const text = response.text.trim();
+    try {
+      // Remove markdown code blocks if present
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      return JSON.parse(cleaned);
+    } catch {
+      return [];
+    }
+  } catch (e) {
+    console.warn("[swap-suggestions] AI call failed:", e);
+    return [];
+  }
 }
 
 async function snapOrScryPrice(name: string, currency: string, useSnapshot: boolean, snapshotDate: string, supabase: any): Promise<number> {
@@ -161,7 +182,7 @@ async function snapOrScryPrice(name: string, currency: string, useSnapshot: bool
   return await scryPrice(proper, currency);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const deckText = String(body.deckText || body.deck_text || "");
@@ -171,14 +192,34 @@ export async function POST(req: Request) {
     const useSnapshot = Boolean(body.useSnapshot || body.use_snapshot);
     const snapshotDate = String(body.snapshotDate || body.snapshot_date || new Date().toISOString().slice(0,10)).slice(0,10);
 
-    const supabase = createClient();
+    const supabase = await createClient();
+    
+    // Rate limiting: Free users 10/day, Pro users 100/day
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const isPro = await checkProStatus(user.id);
+      const dailyLimit = isPro ? 100 : 10;
+      const userKeyHash = `user:${await hashString(user.id)}`;
+      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-suggestions', dailyLimit, 1);
+      
+      if (!rateLimit.allowed) {
+        return NextResponse.json({ 
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
+          error: `You've reached your daily limit of ${dailyLimit} swap suggestions. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 100 suggestions/day!'}`,
+          resetAt: rateLimit.resetAt
+        }, { status: 429 });
+      }
+    }
 
     const names = parseDeck(deckText);
     const suggestions: Suggestion[] = [];
 
-    // If AI requested and we have a key, try it first
+    // If AI requested, try it first
     if (useAI) {
-      const ai = await aiSuggest(deckText, currency, budget);
+      const { data: { user } } = await supabase.auth.getUser();
+      const isPro = user ? await checkProStatus(user.id) : false;
+      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;

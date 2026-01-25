@@ -1,5 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { createClient } from "@/lib/server-supabase";
+import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
+import { checkProStatus } from "@/lib/server-pro-check";
+import { hashString } from "@/lib/guest-tracking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,35 +31,62 @@ function heuristicRiskFromPrints(prints: number): "low" | "medium" | "high" {
   return "high";
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const cards = Array.isArray(body?.cards) ? body.cards as Array<{ name: string; set?: string }> : [];
     const uniq = Array.from(new Set(cards.map(c => (c?.name || "").trim()).filter(Boolean)));
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Rate limiting: Free users 10/day, Pro users 100/day
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const isPro = await checkProStatus(user.id);
+      const dailyLimit = isPro ? 100 : 10;
+      const userKeyHash = `user:${await hashString(user.id)}`;
+      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/cards/reprint-risk', dailyLimit, 1);
+      
+      if (!rateLimit.allowed) {
+        return NextResponse.json({ 
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
+          error: `You've reached your daily limit of ${dailyLimit} reprint risk checks. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 100 checks/day!'}`,
+          resetAt: rateLimit.resetAt
+        }, { status: 429 });
+      }
+    }
+
     const model = process.env.OPENAI_MODEL || "gpt-5";
     let aiMap: Record<string, { risk: "low"|"medium"|"high"; reason: string }> = {};
 
-    if (apiKey && uniq.length > 0) {
-      const system = "You are an MTG finance assistant. Rate the reprint risk for the next 90 days for each card as 'low', 'medium', or 'high'. Consider recent reprints, set cycles, and Commander precon patterns. Respond ONLY JSON: [{\"name\":\"Card Name\",\"risk\":\"low|medium|high\",\"reason\":\"<=90 chars\"}]";
-      const user = `Cards:\n${uniq.map(n => `- ${n}`).join("\n")}`;
-      const payload = prepareOpenAIBody({
-        model,
-        input: [
-          { role: "system", content: [{ type: "input_text", text: system }] },
-          { role: "user", content: [{ type: "input_text", text: user }] },
-        ],
-        max_output_tokens: 600,
-      } as Record<string, unknown>);
-      const r = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify(payload),
-      }).catch(() => null as any);
-      if (r && r.ok) {
-        const j: any = await r.json().catch(() => ({}));
-        const text = (j?.output_text || "").trim();
+    if (uniq.length > 0) {
+      try {
+        const { callLLM } = await import('@/lib/ai/unified-llm-client');
+        const { checkProStatus } = await import('@/lib/server-pro-check');
+        
+        const isPro = user ? await checkProStatus(user.id) : false;
+        
+        const system = "You are an MTG finance assistant. Rate the reprint risk for the next 90 days for each card as 'low', 'medium', or 'high'. Consider recent reprints, set cycles, and Commander precon patterns. Respond ONLY JSON: [{\"name\":\"Card Name\",\"risk\":\"low|medium|high\",\"reason\":\"<=90 chars\"}]";
+        const userPrompt = `Cards:\n${uniq.map(n => `- ${n}`).join("\n")}`;
+        
+        const response = await callLLM(
+          [
+            { role: "system", content: [{ type: "input_text", text: system }] },
+            { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+          ],
+          {
+            route: '/api/cards/reprint-risk',
+            feature: 'reprint_risk',
+            model,
+            timeout: 20000,
+            maxTokens: 600,
+            apiType: 'responses',
+            userId: user?.id || null,
+            isPro,
+          }
+        );
+
+        const text = response.text.trim();
         try {
           const arr = JSON.parse(text);
           if (Array.isArray(arr)) {
@@ -69,6 +100,9 @@ export async function POST(req: Request) {
             }
           }
         } catch {}
+      } catch (e) {
+        // Fail silently - will use heuristic fallback
+        console.warn('[reprint-risk] AI call failed, using heuristics:', e);
       }
     }
 

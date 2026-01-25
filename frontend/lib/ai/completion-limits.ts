@@ -8,7 +8,7 @@ export const COMPLETION_LIMITS = {
   suggestions: 800,    // General card suggestions
   chat: 1200,          // Chat responses
   stream: 1000,        // Streaming chat responses
-  analyze: 2000,       // Deck analysis
+  analyze: 2000,       // Deck analysis (dynamic: 800-1500 based on deck size)
   compare: 1000,       // Deck comparison
   debug: 32,           // Debug/test calls
   admin: 3000,         // Admin AI tests

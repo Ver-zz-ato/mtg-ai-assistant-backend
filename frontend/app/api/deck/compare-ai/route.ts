@@ -58,42 +58,56 @@ Please provide a comprehensive analysis covering:
 
 Keep the analysis concise but insightful (300-500 words). Format with clear sections.`;
 
-    const requestBody = prepareOpenAIBody({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_completion_tokens: 1000,
-    });
-
-    const response = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      const errorMsg = errorBody?.error?.message || `HTTP ${response.status}`;
-      throw new Error(errorMsg);
+    // Add Pro-only daily cap (20/day) to prevent abuse
+    const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+    const { hashString } = await import('@/lib/guest-tracking');
+    const userKeyHash = `user:${await hashString(user.id)}`;
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/compare-ai', 20, 1);
+    
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ 
+        ok: false,
+        code: 'RATE_LIMIT_DAILY',
+        error: "You've reached your daily limit of 20 deck comparisons. Contact support if you need higher limits.",
+        resetAt: rateLimit.resetAt
+      }, { status: 429 });
     }
 
-    const json = await response.json().catch(() => ({}));
-    const analysis = json?.choices?.[0]?.message?.content || "Unable to generate analysis.";
+    try {
+      const { callLLM } = await import('@/lib/ai/unified-llm-client');
+      
+      const response = await callLLM(
+        [
+          {
+            role: "system",
+            content: "You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        {
+          route: '/api/deck/compare-ai',
+          feature: 'deck_compare',
+          model: "gpt-4o-mini",
+          timeout: 25000,
+          maxTokens: 1000,
+          apiType: 'chat',
+          userId: user.id,
+          isPro: true, // This route is Pro-only
+        }
+      );
 
-    return NextResponse.json({ ok: true, analysis });
+      const analysis = response.text || "Unable to generate analysis.";
+
+      return NextResponse.json({ ok: true, analysis });
+    } catch (e: any) {
+      console.error("AI comparison error:", e);
+      return NextResponse.json({ ok: false, error: e?.message || "Failed to generate analysis" }, { status: 500 });
+    }
   } catch (e: any) {
-    console.error("AI comparison error:", e);
-    return NextResponse.json({ ok: false, error: e?.message || "Failed to generate analysis" }, { status: 500 });
+    console.error("Compare AI route error:", e);
+    return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }
 }

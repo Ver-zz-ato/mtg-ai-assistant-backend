@@ -149,9 +149,12 @@ export async function POST(req: NextRequest) {
       
       if (!durableLimit.allowed) {
         return new Response(JSON.stringify({ 
+          ok: false,
+          code: "RATE_LIMIT_DAILY",
           fallback: true,
           reason: "durable_rate_limited",
-          message: `You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`
+          message: `You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`,
+          resetAt: durableLimit.resetAt
         }), {
           status: 429,
           headers: { "Content-Type": "application/json" }

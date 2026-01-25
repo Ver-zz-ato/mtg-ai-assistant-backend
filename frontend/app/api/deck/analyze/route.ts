@@ -446,43 +446,52 @@ type FilterSummary = {
   summaryText: string | null;
 };
 
+/**
+ * Calculate dynamic token limit based on deck size
+ * Small deck (<60 cards): 800 tokens
+ * Medium deck (60-100 cards): 1200 tokens
+ * Large deck (>100 cards): 1500 tokens
+ */
+export function calculateDynamicTokens(deckSize: number): number {
+  if (deckSize < 60) return 800;
+  if (deckSize <= 100) return 1200;
+  return 1500;
+}
+
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
-  opts: { maxTokens?: number } = {}
+  opts: { maxTokens?: number; deckSize?: number; userId?: string | null; isPro?: boolean } = {}
 ): Promise<string> {
-  if (!OPENAI_API_KEY) {
-    throw new Error("OpenAI API key not configured");
+  // Use dynamic token calculation if deckSize provided, otherwise use provided maxTokens or default
+  const maxTokens = opts.deckSize !== undefined 
+    ? calculateDynamicTokens(opts.deckSize)
+    : (opts.maxTokens || 400);
+
+  try {
+    const { callLLM } = await import('@/lib/ai/unified-llm-client');
+    
+    const response = await callLLM(
+      [
+        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+      ],
+      {
+        route: '/api/deck/analyze',
+        feature: 'deck_analyze',
+        model: OPENAI_MODEL,
+        timeout: 30000,
+        maxTokens,
+        apiType: 'responses',
+        userId: opts.userId || null,
+        isPro: opts.isPro || false,
+      }
+    );
+
+    return response.text;
+  } catch (error: any) {
+    throw new Error(error?.message || 'OpenAI API call failed');
   }
-
-  const { maxTokens = 400 } = opts;
-
-  const payload = prepareOpenAIBody({
-    model: OPENAI_MODEL,
-    input: [
-      { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-      { role: "user", content: [{ type: "input_text", text: userPrompt }] },
-    ],
-    max_output_tokens: maxTokens,
-  } as Record<string, unknown>);
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    const message = errorBody?.error?.message || `HTTP ${response.status}`;
-    throw new Error(message);
-  }
-
-  const body = await response.json().catch(() => ({}));
-  return String(body?.output_text ?? "").trim();
 }
 
 function extractJsonObject(raw: string): any | null {
@@ -499,7 +508,9 @@ async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
   context: InferredDeckContext,
-  deckAnalysisSystemPrompt: string | null
+  deckAnalysisSystemPrompt: string | null,
+  userId?: string | null,
+  isPro?: boolean
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
@@ -550,7 +561,9 @@ async function planSuggestionSlots(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 380 });
+    // Calculate deck size from deckText for dynamic token allocation
+    const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
+    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
     return slots.slice(0, 8).map((slot: any) => ({
@@ -573,7 +586,9 @@ async function fetchSlotCandidates(
   deckText: string,
   userMessage: string | undefined,
   mode: "normal" | "strict" = "normal",
-  deckAnalysisSystemPrompt: string | null
+  deckAnalysisSystemPrompt: string | null,
+  userId?: string | null,
+  isPro?: boolean
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
@@ -628,7 +643,9 @@ async function fetchSlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 320 });
+    // Calculate deck size from deckText for dynamic token allocation
+    const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
+    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -646,7 +663,9 @@ async function retrySlotCandidates(
   deckText: string,
   userMessage: string | undefined,
   mode: "normal" | "strict" = "normal",
-  deckAnalysisSystemPrompt: string | null
+  deckAnalysisSystemPrompt: string | null,
+  userId?: string | null,
+  isPro?: boolean
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
   const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
@@ -693,7 +712,9 @@ async function retrySlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    const raw = await callOpenAI(systemPrompt, userPrompt, { maxTokens: 260 });
+    // Calculate deck size from deckText for dynamic token allocation
+    const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
+    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -714,7 +735,9 @@ async function validateSlots(
   userMessage: string | undefined,
   locked: Set<string>,
   strict: boolean,
-  deckAnalysisSystemPrompt: string | null
+  deckAnalysisSystemPrompt: string | null,
+  userId?: string | null,
+  isPro?: boolean
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -729,7 +752,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -808,7 +831,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro);
       await attempt(retry, "retry");
     }
   }
@@ -1323,25 +1346,29 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
 }
 
 export async function POST(req: Request) {
+  // Get user and supabase first (needed throughout the function)
+  const { getServerSupabase } = await import('@/lib/server-supabase');
+  const supabase = await getServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Get Pro status early (needed throughout the function)
+  let isPro = false;
+  if (user) {
+    const { checkProStatus } = await import('@/lib/server-pro-check');
+    isPro = await checkProStatus(user.id);
+  }
+  
   // Durable rate limiting (expensive AI operation - limit abuse)
   try {
-    const { getServerSupabase } = await import('@/lib/server-supabase');
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const { cookies } = await import('next/headers');
     
     let keyHash: string;
     let dailyLimit: number;
-    let isPro = false;
     
     if (user) {
       // Authenticated user
-      // Use standardized Pro check
-      const { checkProStatus } = await import('@/lib/server-pro-check');
-      isPro = await checkProStatus(user.id);
       keyHash = `user:${await hashString(user.id)}`;
       dailyLimit = isPro ? 200 : 20; // Analyze is expensive - lower limits
     } else {
@@ -1366,9 +1393,10 @@ export async function POST(req: Request) {
     if (!durableLimit.allowed) {
       return new Response(
         JSON.stringify({ 
-          ok: false, 
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
           error: `Rate limit exceeded. ${user ? (isPro ? 'You\'ve reached the limit of 200 analyses per day. Contact support if you need higher limits.' : 'Free users are limited to 20 analyses per day. Upgrade to Pro for 200/day!') : 'Unauthenticated users are limited to 5 analyses per day. Sign up for free to get 20/day!'}`,
-          rate_limited: true
+          resetAt: durableLimit.resetAt
         }),
         { status: 429, headers: { "content-type": "application/json" } }
       );
@@ -1572,8 +1600,8 @@ export async function POST(req: Request) {
   }
 
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1586,7 +1614,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1624,14 +1652,18 @@ export async function POST(req: Request) {
     try {
       const { generateValidatedDeckAnalysis } = await import("@/lib/deck/analysis-with-validation");
 
+      // Calculate dynamic token limit based on deck size
+      const deckSize = entries.length;
+      const dynamicMaxTokens = calculateDynamicTokens(deckSize);
+      
       const analysisOptions = {
         systemPrompt: deckAnalysisSystemPrompt,
         deckText,
         context,
         userMessage: body.userMessage,
         commanderProfile,
-        // Note: temperature removed - not supported by this model
-        maxTokens: 2000,
+        // Dynamic token allocation based on deck size
+        maxTokens: dynamicMaxTokens,
       };
 
       const validationContext = {

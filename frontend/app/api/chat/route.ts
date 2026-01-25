@@ -134,7 +134,7 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   return text;
 }
 
-async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = false) {
+async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = false, userId?: string | null, isPro?: boolean) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return { fallback: true, text: `Echo: ${userText}` };
@@ -144,187 +144,62 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
   const baseModel = useMidTier ? MODEL_MID.trim() : MODEL_MINI;
   const fallbackModel = MODEL_MINI; // Always fallback to mini on error
 
-  async function invoke(model: string, tokens: number) {
+  // Use unified wrapper for consistent error handling, fallback, and logging
+  try {
+    const { callLLM } = await import('@/lib/ai/unified-llm-client');
+    
     const messages: any[] = [];
     if (sys && sys.trim()) {
       messages.push({ role: "system", content: sys });
     }
     messages.push({ role: "user", content: userText });
     
-    const body = prepareOpenAIBody({
-      model,
+    // Task 3: Reduce max tokens for simple queries
+    const maxTokens = useMidTier ? 384 : 256;
+    
+    const response = await callLLM(
       messages,
-      max_completion_tokens: Math.max(16, tokens | 0),
-    } as Record<string, unknown>);
-    // Task 4: Add request deduplication for OpenAI calls
-    const res = await deduplicatedFetch(OPENAI_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json", "authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify(body),
-    });
-    
-    // CRITICAL: Ensure we parse JSON properly - use .text() first then parse
-    let json: any = {};
-    try {
-      const responseText = await res.text();
-      if (responseText) {
-        json = JSON.parse(responseText);
+      {
+        route: '/api/chat',
+        feature: 'chat',
+        model: baseModel,
+        fallbackModel,
+        timeout: 15000,
+        maxTokens,
+        apiType: 'chat',
+        userId: userId || null,
+        isPro: isPro || false,
+        retryOn429: false, // Chat doesn't retry on 429
+        retryOn5xx: false,
       }
-    } catch (e) {
-      console.error('❌ [callOpenAI] Failed to parse JSON response:', e);
-      console.error('❌ [callOpenAI] Response status:', res.status);
-      console.error('❌ [callOpenAI] Response headers:', Object.fromEntries(res.headers.entries()));
-      json = {};
-    }
-    
-    // Ensure we're not accidentally returning the Response object or any function properties
-    if (json && typeof json === 'object') {
-      // Remove any function properties that might have leaked in
-      for (const key in json) {
-        if (typeof json[key] === 'function') {
-          console.error(`❌ [callOpenAI] Found function property '${key}' in JSON response! Removing it.`);
-          delete json[key];
+    );
+
+    // Return in the format expected by existing code
+    return {
+      ok: true,
+      json: {
+        choices: [{
+          message: {
+            content: response.text
+          }
+        }],
+        usage: {
+          prompt_tokens: response.inputTokens,
+          completion_tokens: response.outputTokens,
         }
-      }
-    }
-    
-    return { ok: res.ok, json, status: res.status } as const;
+      },
+      status: 200,
+      fallback: response.fallback,
+    };
+  } catch (error: any) {
+    // Fallback to echo on error
+    return { 
+      ok: false, 
+      json: { error: { message: error?.message || 'OpenAI API call failed' } }, 
+      status: 500,
+      fallback: true,
+    };
   }
-
-  // Budget caps enforcement (simple): optional config llm_budget { daily_usd?, weekly_usd? }
-  try {
-    const supabase = await getServerSupabase();
-    const { data: cfg } = await supabase.from('app_config').select('value').eq('key','llm_budget').maybeSingle();
-    const caps: any = (cfg as any)?.value || null;
-    if (caps && (caps.daily_usd || caps.weekly_usd)) {
-      const now = new Date();
-      const sinceDay = new Date(now.getTime() - 24*60*60*1000).toISOString();
-      const sinceWeek = new Date(now.getTime() - 7*24*60*60*1000).toISOString();
-      let day = 0, week = 0;
-      try { const { data } = await getServerSupabase().then(s=>s.from('ai_usage').select('cost_usd, created_at').gte('created_at', sinceDay)); day = (data||[]).reduce((s,r)=>s+Number((r as any).cost_usd||0),0); } catch {}
-      try { const { data } = await getServerSupabase().then(s=>s.from('ai_usage').select('cost_usd, created_at').gte('created_at', sinceWeek)); week = (data||[]).reduce((s,r)=>s+Number((r as any).cost_usd||0),0); } catch {}
-      if ((caps.daily_usd && day >= Number(caps.daily_usd)) || (caps.weekly_usd && week >= Number(caps.weekly_usd))) {
-        return err('llm_budget_exceeded', 'budget_exceeded', 429);
-      }
-    }
-  } catch {}
-
-  // Task 3: Reduce max tokens for simple queries
-  const maxTokens = useMidTier ? 384 : 256;
-  
-  // First attempt with configured model
-  let attempt = await invoke(baseModel, maxTokens);
-
-  // If failed, examine error and retry once with adjusted params or fallback model
-  if (!attempt.ok) {
-    const msg = String(attempt.json?.error?.message || attempt.json?.message || "").toLowerCase();
-    const tokenErr = /max_output_tokens|minimum value|below minimum|at least 16/.test(msg);
-    const modelErr = /model|not found|access|does not exist|invalid/.test(msg);
-    if (tokenErr) {
-      attempt = await invoke(baseModel, 64);
-    }
-    // Retry once with fallback model if first attempt (or token retry) failed
-    if (!attempt.ok) {
-      const different = fallbackModel && fallbackModel !== baseModel;
-      if (different) {
-        attempt = await invoke(fallbackModel, 256);
-      }
-    }
-  }
-
-  if (!attempt.ok) {
-    const msg = attempt.json?.error?.message || attempt.json?.message || `OpenAI error (${attempt.status})`;
-    return { fallback: true, text: `Echo: ${userText}`, error: msg };
-  }
-  const json = attempt.json;
-  // Always log for debugging (even in production)
-  console.log("🔍 [callOpenAI] Response received:", {
-    ok: attempt.ok,
-    status: attempt.status,
-    hasJson: !!json,
-    jsonKeys: json ? Object.keys(json) : [],
-    hasChoices: !!json?.choices,
-    choicesLength: json?.choices?.length || 0,
-    hasMessage: !!json?.choices?.[0]?.message,
-    hasContent: !!json?.choices?.[0]?.message?.content,
-    contentType: typeof json?.choices?.[0]?.message?.content,
-    contentPreview: typeof json?.choices?.[0]?.message?.content === 'string' ? json.choices[0].message.content.substring(0, 200) : 'not a string',
-    jsonPreview: json ? JSON.stringify(json).slice(0, 500) : 'null'
-  });
-
-  let out = firstOutputText(json) ?? "";
-  console.log("🔍 [callOpenAI] Extracted text:", {
-    hasOut: !!out,
-    outLength: out?.length || 0,
-    outPreview: out?.substring(0, 200) || 'empty',
-    outType: typeof out
-  });
-  
-  if (!out || out.trim() === userText.trim()) {
-    out = "";
-  }
-  
-  // CRITICAL: Ensure out is a string, not a function
-  if (typeof out !== 'string') {
-    console.error('❌ [callOpenAI] out is not a string! Type:', typeof out, 'Value:', out);
-    out = '';
-  }
-
-  const usage = (() => {
-    try {
-      const u = (json as any)?.usage || {};
-      const i = Number(u.prompt_tokens ?? u.input_tokens ?? 0);
-      const o = Number(u.completion_tokens ?? u.output_tokens ?? 0);
-      return { input_tokens: isFinite(i) ? i : 0, output_tokens: isFinite(o) ? o : 0 };
-    } catch { return { input_tokens: 0, output_tokens: 0 }; }
-  })();
-
-  // CRITICAL: Ensure we return a string, not a function
-  const textResult = String(out || "").trim();
-  if (typeof textResult !== 'string') {
-    console.error('❌ [callOpenAI] textResult is not a string!', typeof textResult, textResult);
-    return { fallback: false, text: '', usage } as any;
-  }
-  
-  // Create a plain object to ensure no function properties leak through
-  const result = {
-    fallback: false,
-    text: textResult,
-    usage: usage || { input_tokens: 0, output_tokens: 0 }
-  };
-  
-  // Verify the result object doesn't have any function properties
-  for (const key in result) {
-    if (typeof (result as any)[key] === 'function') {
-      console.error(`❌ [callOpenAI] Result has function property '${key}'! Removing it.`);
-      delete (result as any)[key];
-    }
-  }
-  
-  // CRITICAL: Create a completely fresh plain object to avoid any prototype pollution
-  const cleanResult: { fallback: boolean; text: string; usage: any } = {
-    fallback: false,
-    text: String(result.text || ''),
-    usage: result.usage || { input_tokens: 0, output_tokens: 0 }
-  };
-  
-  // Final verification - ensure text is definitely a string
-  if (typeof cleanResult.text !== 'string') {
-    console.error('❌ [callOpenAI] cleanResult.text is STILL not a string!', typeof cleanResult.text);
-    cleanResult.text = '';
-  }
-  
-  console.log("✅ [callOpenAI] Returning clean result:", {
-    textLength: cleanResult.text.length,
-    textPreview: cleanResult.text.substring(0, 200),
-    hasUsage: !!cleanResult.usage,
-    resultKeys: Object.keys(cleanResult),
-    resultType: typeof cleanResult,
-    textType: typeof cleanResult.text,
-    textIsFunction: typeof cleanResult.text === 'function'
-  });
-  
-  return cleanResult as any;
 }
 
 // Guest mode constants
@@ -426,7 +301,7 @@ export async function POST(req: NextRequest) {
       
       if (!durableLimit.allowed) {
         status = 429;
-        return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`, "durable_rate_limited", status);
+        return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`, "RATE_LIMIT_DAILY", status, { resetAt: durableLimit.resetAt });
       }
       
       // Task 6: Add per-minute rate limiting (10 requests per minute per user)
@@ -437,7 +312,7 @@ export async function POST(req: NextRequest) {
       const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1/1440); // 1 minute = 1/1440 days
       if (!minuteLimit.allowed) {
         status = 429;
-        return err(`Too many requests. Please slow down (10 requests per minute limit).`, "rate_limited_per_minute", status);
+        return err(`Too many requests. Please slow down (10 requests per minute limit).`, "RATE_LIMIT_PER_MINUTE", status, { resetAt: minuteLimit.resetAt });
       }
       
       // In-memory rate limiting (complements durable limit - handles short-term bursts)
@@ -863,7 +738,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
             try {
               const { buildSummaryPrompt, parseSummary, formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
               const summaryPrompt = buildSummaryPrompt(threadHistory);
-              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.");
+              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro);
               const summary = parseSummary(typeof summaryResponse === 'string' ? summaryResponse : (summaryResponse as any)?.text || '');
               
               if (summary) {
@@ -1117,7 +992,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     const stage1T = Date.now();
     let out1: any;
     try {
-      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis);
+      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis, userId, isPro);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -1240,7 +1115,7 @@ Return the corrected answer with concise, user-facing tone.`;
       reviewPromptLength: reviewPrompt.length
     });
     
-    const review = await callOpenAI(outText, reviewPrompt);
+    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro);
     
     console.log("🔍 [chat] Review response:", {
       reviewType: typeof review,

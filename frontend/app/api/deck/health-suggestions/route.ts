@@ -47,6 +47,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Deck Health features are Pro-only. Upgrade to unlock AI suggestions!' }, { status: 403 });
     }
 
+    // Add Pro-only daily cap (50/day) to prevent abuse
+    const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+    const { hashString } = await import('@/lib/guest-tracking');
+    const userKeyHash = `user:${await hashString(user.id)}`;
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/health-suggestions', 50, 1);
+    
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ 
+        ok: false,
+        code: 'RATE_LIMIT_DAILY',
+        error: "You've reached your daily limit of 50 AI Deck Scans. Contact support if you need higher limits.",
+        resetAt: rateLimit.resetAt
+      }, { status: 429 });
+    }
+
     // Verify deck ownership
     const { data: deck } = await supabase
       .from('decks')
@@ -114,168 +129,96 @@ export async function POST(req: NextRequest) {
       '- Are commonly played and effective',
     ].join('\n');
 
-    // Call OpenAI
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: 'AI service unavailable' }, { status: 503 });
-    }
-
-    // Build request body - no token limit for deck scan; no temperature/top_p
-    const requestBody = prepareOpenAIBody({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: fullPrompt }
-      ]
-      // No token limit - let the model generate as much as needed
-    });
-
-    console.log('📤 [health-suggestions] Sending request to OpenAI:', {
-      url: OPENAI_URL,
-      model: MODEL,
-      hasApiKey: !!apiKey,
-      requestBodyKeys: Object.keys(requestBody),
-      messagesCount: requestBody.messages?.length || 0,
-      systemPromptLength: requestBody.messages?.[0]?.content?.length || 0,
-      userPromptLength: requestBody.messages?.[1]?.content?.length || 0
-    });
-    
-    const res = await fetch(OPENAI_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    console.log('📥 [health-suggestions] OpenAI response status:', res.status, res.statusText);
-    console.log('📥 [health-suggestions] Response headers:', Object.fromEntries(res.headers.entries()));
-
-    if (!res.ok) {
-      const errorText = await res.text().catch(() => '');
-      console.error('❌ [health-suggestions] OpenAI error response:', errorText);
-      let error: any = {};
-      try {
-        error = JSON.parse(errorText);
-      } catch {
-        error = { message: errorText || 'AI request failed' };
-      }
-      console.error('❌ [health-suggestions] Parsed error:', error);
-      return NextResponse.json({ ok: false, error: error?.error?.message || error?.message || 'AI request failed' }, { status: 500 });
-    }
-
-    // CRITICAL: Parse JSON properly - use .text() first to avoid issues
-    let json: any = {};
+    // Call OpenAI using unified wrapper
     try {
-      const responseText = await res.text();
-      console.log('📥 [health-suggestions] Raw response text length:', responseText.length);
-      console.log('📥 [health-suggestions] Raw response text preview:', responseText.substring(0, 500));
+      const { callLLM } = await import('@/lib/ai/unified-llm-client');
       
-      json = JSON.parse(responseText);
-    } catch (e) {
-      console.error('❌ [health-suggestions] Failed to parse JSON response:', e);
-      return NextResponse.json({ ok: false, error: 'Failed to parse OpenAI response' }, { status: 500 });
-    }
-    
-    console.log('📥 [health-suggestions] Parsed JSON response:', {
-      hasChoices: !!json?.choices,
-      choicesLength: json?.choices?.length || 0,
-      hasMessage: !!json?.choices?.[0]?.message,
-      hasContent: !!json?.choices?.[0]?.message?.content,
-      contentType: typeof json?.choices?.[0]?.message?.content,
-      contentValue: json?.choices?.[0]?.message?.content,
-      messageKeys: json?.choices?.[0]?.message ? Object.keys(json.choices[0].message) : [],
-      fullMessage: json?.choices?.[0]?.message ? JSON.stringify(json.choices[0].message, null, 2) : 'no message',
-      fullResponseKeys: Object.keys(json),
-      fullResponsePreview: JSON.stringify(json, null, 2).substring(0, 2000)
-    });
-    
-    let content = json?.choices?.[0]?.message?.content || '';
-    
-    // Check if content is actually empty or if it's in a different field
-    if (!content || content.length === 0) {
-      console.warn('⚠️ [health-suggestions] Content is empty, checking alternative fields...');
-      console.warn('⚠️ [health-suggestions] Full choice structure:', JSON.stringify(json.choices?.[0], null, 2));
-      
-      // Try alternative content fields
-      const altContent = json?.choices?.[0]?.delta?.content || 
-                        json?.choices?.[0]?.text || 
-                        json?.output_text ||
-                        json?.content ||
-                        '';
-      if (altContent) {
-        console.log('✅ [health-suggestions] Found content in alternative field:', altContent.substring(0, 200));
-        content = altContent;
-      } else {
-        console.error('❌ [health-suggestions] No content found in any field!');
-        console.error('❌ [health-suggestions] Full response:', JSON.stringify(json, null, 2));
-        return NextResponse.json({ ok: false, error: 'OpenAI returned empty response' }, { status: 500 });
+      const response = await callLLM(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: fullPrompt }
+        ],
+        {
+          route: '/api/deck/health-suggestions',
+          feature: 'deck_scan',
+          model: MODEL,
+          timeout: 25000,
+          maxTokens: undefined, // No token limit for deck scan
+          apiType: 'chat',
+          userId: user.id,
+          isPro: true, // This route is Pro-only
+        }
+      );
+
+      const content = response.text;
+
+      // Always log AI response (even in production) for debugging
+      console.log('🤖 [health-suggestions] OpenAI response received');
+      console.log('🤖 [health-suggestions] Response length:', content.length);
+      console.log('🤖 [health-suggestions] Fallback used:', response.fallback);
+      if (content.length > 500) {
+        console.log('🤖 [health-suggestions] First 500 chars:', content.substring(0, 500));
+        console.log('🤖 [health-suggestions] Last 500 chars:', content.substring(content.length - 500));
       }
-    }
 
-    // Always log AI response (even in production) for debugging
-    console.log('🤖 [health-suggestions] OpenAI response received');
-    console.log('🤖 [health-suggestions] Response length:', content.length);
-    console.log('🤖 [health-suggestions] First 500 chars:', content.substring(0, 500));
-    if (content.length > 500) {
-      console.log('🤖 [health-suggestions] Last 500 chars:', content.substring(content.length - 500));
-    }
-
-    // Extract card suggestions from response - more flexible parsing
-    const suggestions: Array<{ card: string; reason: string }> = [];
-    
-    // Split content into lines for easier parsing
-    const lines = content.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
-    
-    for (const line of lines) {
-      // Try numbered list format: "1. Card Name - reason" or "1) Card Name - reason"
-      const numberedMatch = line.match(/^\d+[\.\)]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
-      if (numberedMatch && numberedMatch[1]) {
-        const cardName = numberedMatch[1].trim();
-        const reason = numberedMatch[2]?.trim() || 'Recommended for this deck';
-        if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
-          suggestions.push({ card: cardName, reason });
+      // Extract card suggestions from response - more flexible parsing
+      const suggestions: Array<{ card: string; reason: string }> = [];
+      
+      // Split content into lines for easier parsing
+      const lines = content.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+      
+      for (const line of lines) {
+        // Try numbered list format: "1. Card Name - reason" or "1) Card Name - reason"
+        const numberedMatch = line.match(/^\d+[\.\)]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
+        if (numberedMatch && numberedMatch[1]) {
+          const cardName = numberedMatch[1].trim();
+          const reason = numberedMatch[2]?.trim() || 'Recommended for this deck';
+          if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
+            suggestions.push({ card: cardName, reason });
+            if (suggestions.length >= 7) break;
+            continue;
+          }
+        }
+        
+        // Try bullet points: "- Card Name - reason" or "* Card Name - reason"
+        const bulletMatch = line.match(/^[-*•]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
+        if (bulletMatch && bulletMatch[1]) {
+          const cardName = bulletMatch[1].trim();
+          const reason = bulletMatch[2]?.trim() || 'Recommended for this deck';
+          if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
+            suggestions.push({ card: cardName, reason });
+            if (suggestions.length >= 7) break;
+            continue;
+          }
+        }
+        
+        // Try simple card name on its own line (if it looks like a card name)
+        if (line.match(/^[A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*$/) && 
+            line.length > 2 && line.length < 100 &&
+            !line.match(/^(Card|Name|Suggestion|Here|These|Consider|Try|Add)/i)) {
+          suggestions.push({ card: line, reason: 'Recommended for this deck' });
           if (suggestions.length >= 7) break;
-          continue;
         }
       }
-      
-      // Try bullet points: "- Card Name - reason" or "* Card Name - reason"
-      const bulletMatch = line.match(/^[-*•]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
-      if (bulletMatch && bulletMatch[1]) {
-        const cardName = bulletMatch[1].trim();
-        const reason = bulletMatch[2]?.trim() || 'Recommended for this deck';
-        if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
-          suggestions.push({ card: cardName, reason });
-          if (suggestions.length >= 7) break;
-          continue;
-        }
-      }
-      
-      // Try simple card name on its own line (if it looks like a card name)
-      if (line.match(/^[A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*$/) && 
-          line.length > 2 && line.length < 100 &&
-          !line.match(/^(Card|Name|Suggestion|Here|These|Consider|Try|Add)/i)) {
-        suggestions.push({ card: line, reason: 'Recommended for this deck' });
-        if (suggestions.length >= 7) break;
-      }
-    }
 
-    // Always log extraction results (even in production) for debugging
-    console.log('📊 [health-suggestions] Extraction complete');
-    console.log('📊 [health-suggestions] Extracted suggestions:', suggestions.length);
-    console.log('📊 [health-suggestions] Suggestions:', JSON.stringify(suggestions, null, 2));
-    console.log('📊 [health-suggestions] All lines checked:', lines.length);
-    
-    if (suggestions.length === 0) {
-      console.warn('⚠️ [health-suggestions] No suggestions extracted!');
-      console.warn('⚠️ [health-suggestions] Sample lines:', lines.slice(0, 20));
-      console.warn('⚠️ [health-suggestions] Full content for debugging:', content);
-    }
+      // Always log extraction results (even in production) for debugging
+      console.log('📊 [health-suggestions] Extraction complete');
+      console.log('📊 [health-suggestions] Extracted suggestions:', suggestions.length);
+      console.log('📊 [health-suggestions] Suggestions:', JSON.stringify(suggestions, null, 2));
+      console.log('📊 [health-suggestions] All lines checked:', lines.length);
+      
+      if (suggestions.length === 0) {
+        console.warn('⚠️ [health-suggestions] No suggestions extracted!');
+        console.warn('⚠️ [health-suggestions] Sample lines:', lines.slice(0, 20));
+        console.warn('⚠️ [health-suggestions] Full content for debugging:', content);
+      }
 
-    console.log('✅ [health-suggestions] Returning response with', suggestions.length, 'suggestions');
-    return NextResponse.json({ ok: true, suggestions });
+      console.log('✅ [health-suggestions] Returning response with', suggestions.length, 'suggestions');
+      return NextResponse.json({ ok: true, suggestions });
+    } catch (e: any) {
+      console.error('💥 [health-suggestions] OpenAI call failed:', e);
+      return NextResponse.json({ ok: false, error: e?.message || 'AI service error' }, { status: 500 });
+    }
   } catch (e: any) {
     console.error('💥 [health-suggestions] Exception caught:', e);
     console.error('💥 [health-suggestions] Error message:', e?.message);
