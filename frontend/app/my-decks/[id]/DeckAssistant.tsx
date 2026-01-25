@@ -860,7 +860,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 p-3 bg-black/30">
         {msgs.length === 0 ? (
-          <div className="h-full grid place-items-center opacity-70 text-sm text-neutral-400">
+          <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
             <div className="text-center">
               <p className="mb-2">💬 Ask me anything about your deck!</p>
               <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>

@@ -41,6 +41,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [aiScanCategory, setAiScanCategory] = React.useState<string>('');
   const [aiScanLabel, setAiScanLabel] = React.useState<string>('');
   const [aiScanLoading, setAiScanLoading] = React.useState(false);
+  const [aiScanProgressStage, setAiScanProgressStage] = React.useState<string>('analyzing');
   const [aiScanSuggestions, setAiScanSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
   const [aiScanError, setAiScanError] = React.useState<string | null>(null);
 
@@ -382,6 +383,19 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               setAiScanLoading(true);
               setAiScanError(null);
               setAiScanSuggestions([]);
+              setAiScanProgressStage('analyzing');
+
+              // Simulate progress stages
+              const progressInterval = setInterval(() => {
+                setAiScanProgressStage((current) => {
+                  const stages = ['analyzing', 'processing', 'generating', 'finalizing'];
+                  const currentIndex = stages.indexOf(current);
+                  if (currentIndex < stages.length - 1) {
+                    return stages[currentIndex + 1];
+                  }
+                  return current;
+                });
+              }, 30000); // Change stage every 30 seconds (roughly 2 minutes total for 4 stages)
 
               try {
                 // Always log to console (even in production) for debugging
@@ -430,10 +444,14 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 if (!Array.isArray(data.suggestions) || data.suggestions.length === 0) {
                   console.warn('⚠️ [AI Deck Scan] No suggestions returned. Full response:', data);
                   setAiScanError('No suggestions generated. The AI may not have found suitable cards for this category.');
+                  clearInterval(progressInterval);
+                  setAiScanLoading(false);
+                  setAiScanProgressStage('analyzing');
                   return;
                 }
 
                 console.log('🎉 [AI Deck Scan] Success! Setting suggestions:', data.suggestions.length);
+                setAiScanProgressStage('finalizing');
                 setAiScanSuggestions(data.suggestions);
               } catch (err: any) {
                 console.error('💥 [AI Deck Scan] Exception caught:', err);
@@ -442,7 +460,9 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 setAiScanError(err?.message || 'Failed to generate AI suggestions');
               } finally {
                 console.log('🏁 [AI Deck Scan] Finally block - setting loading to false');
+                clearInterval(progressInterval);
                 setAiScanLoading(false);
+                setAiScanProgressStage('analyzing');
               }
             };
 
@@ -625,6 +645,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
         category={aiScanCategory}
         label={aiScanLabel}
         isLoading={aiScanLoading}
+        progressStage={aiScanProgressStage}
         suggestions={aiScanSuggestions}
         error={aiScanError}
         onClose={() => {
@@ -633,6 +654,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
           setAiScanLabel('');
           setAiScanSuggestions([]);
           setAiScanError(null);
+          setAiScanProgressStage('analyzing');
         }}
         onAddCard={async (cardName: string) => {
           try {
