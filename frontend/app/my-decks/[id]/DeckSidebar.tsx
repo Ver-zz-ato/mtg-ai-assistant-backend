@@ -58,7 +58,7 @@ function AssistantSection({ deckId, format }: { deckId: string; format?: string 
         </button>
       ) : (
         <>
-          <div className="max-h-[360px] overflow-auto rounded border border-neutral-800">
+          <div className="rounded border border-neutral-800 overflow-hidden">
             <DeckAssistant deckId={deckId} format={format} />
           </div>
         </>

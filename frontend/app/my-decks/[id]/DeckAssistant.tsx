@@ -858,16 +858,17 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           Deck Assistant
         </h3>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 p-3 bg-black/30" style={{ scrollbarGutter: 'auto' }}>
-        {msgs.length === 0 ? (
-          <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
-            <div className="text-center">
-              <p className="mb-2">💬 Ask me anything about your deck!</p>
-              <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 bg-black/30" style={{ scrollbarGutter: 'auto' }}>
+        <div className="p-3">
+          {msgs.length === 0 ? (
+            <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
+              <div className="text-center">
+                <p className="mb-2">💬 Ask me anything about your deck!</p>
+                <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
+          ) : (
+            <div className="space-y-3">
             {msgs.map(m => {
           // Skip empty streaming placeholder
           if (m.id.toString().startsWith('streaming_') && !m.content && !isStreaming) return null;
@@ -934,8 +935,9 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             
             {/* Scroll anchor */}
             <div ref={messagesEndRef} className="h-px" />
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
       <div className="shrink-0 border-t border-neutral-800 pt-4">
         <div className="flex gap-2 flex-col sm:flex-row">
