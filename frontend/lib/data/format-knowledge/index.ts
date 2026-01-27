@@ -5,6 +5,8 @@
 import commanderKnowledge from './commander.json';
 import modernKnowledge from './modern.json';
 import standardKnowledge from './standard.json';
+import pioneerKnowledge from './pioneer.json';
+import pauperKnowledge from './pauper.json';
 
 export type FormatKnowledge = {
   format: string;
@@ -19,6 +21,8 @@ const formatKnowledgeMap: Record<string, FormatKnowledge> = {
   commander: commanderKnowledge as FormatKnowledge,
   modern: modernKnowledge as FormatKnowledge,
   standard: standardKnowledge as FormatKnowledge,
+  pioneer: pioneerKnowledge as FormatKnowledge,
+  pauper: pauperKnowledge as FormatKnowledge,
 };
 
 /**

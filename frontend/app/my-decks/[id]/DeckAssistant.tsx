@@ -38,9 +38,16 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [busy, setBusy] = React.useState(false);
   const [deckCI, setDeckCI] = React.useState<string[] | null>(null);
   const [commander, setCommander] = React.useState<string>("");
-  const [fmt, setFmt] = React.useState<string>(initialFormat || "commander");
+  const [fmt, setFmt] = React.useState<string>(initialFormat?.toLowerCase() || "commander");
   const [plan, setPlan] = React.useState<string>("optimized");
   const [teaching, setTeaching] = React.useState<boolean>(false);
+  
+  // Sync format with prop changes
+  React.useEffect(() => {
+    if (initialFormat) {
+      setFmt(initialFormat.toLowerCase());
+    }
+  }, [initialFormat]);
   const [isListening, setIsListening] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
   const [isStreaming, setIsStreaming] = React.useState(false);

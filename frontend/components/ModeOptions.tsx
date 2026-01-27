@@ -39,7 +39,7 @@ const pill = (active: boolean) =>
         {mode === "deck" && (
           <>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
-            {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
+            {(["Commander", "Standard", "Modern", "Pioneer", "Pauper"] as const).map((f) => (
               <button key={f} className={pill(format === f)} onClick={() => {
                 safeSetFormat(f);
                 track('ui_click', {
@@ -97,7 +97,7 @@ const pill = (active: boolean) =>
         {mode === "rules" && (
           <>
             <span className="text-gray-400 mr-1 text-xs sm:text-sm">Format</span>
-            {(["Commander", "Modern", "Pioneer"] as const).map((f) => (
+            {(["Commander", "Standard", "Modern", "Pioneer", "Pauper"] as const).map((f) => (
               <button key={f} className={pill(format === f)} onClick={() => {
                 safeSetFormat(f);
                 track('ui_click', {

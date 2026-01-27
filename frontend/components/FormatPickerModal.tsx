@@ -2,7 +2,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-type Format = "commander" | "standard" | "modern";
+type Format = "commander" | "standard" | "modern" | "pioneer" | "pauper";
 
 interface FormatPickerModalProps {
   isOpen: boolean;
@@ -37,6 +37,18 @@ export default function FormatPickerModal({ isOpen, onSelect, onClose }: FormatP
       label: "Modern",
       description: "60-card format with cards from 2003 onwards",
       icon: "🔮",
+    },
+    {
+      value: "pioneer",
+      label: "Pioneer",
+      description: "60-card format with cards from Return to Ravnica onwards",
+      icon: "🗺️",
+    },
+    {
+      value: "pauper",
+      label: "Pauper",
+      description: "60-card format with only common rarity cards",
+      icon: "🪙",
     },
   ];
 

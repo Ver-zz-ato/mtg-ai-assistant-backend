@@ -100,7 +100,7 @@ function Chat() {
   const [busy, setBusy] = useState(false);
   const [histKey, setHistKey] = useState(0);
   const [lastDeck, setLastDeck] = useState<string>("");
-  const [fmt, setFmt] = useState<'commander'|'standard'|'modern'>('commander');
+  const [fmt, setFmt] = useState<'commander'|'standard'|'modern'|'pioneer'|'pauper'>('commander');
   const [colors, setColors] = useState<{[k in 'W'|'U'|'B'|'R'|'G']: boolean}>({W:false,U:false,B:false,R:false,G:false});
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
@@ -1279,7 +1279,7 @@ function Chat() {
             <div className="border border-neutral-700/50 bg-neutral-800/40 rounded-lg px-3 py-3 space-y-3">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <span className="opacity-90 text-xs sm:text-sm font-bold">Format:</span>
-                {(['commander','standard','modern'] as const).map(f => (
+                {(['commander','standard','modern','pioneer','pauper'] as const).map(f => (
                   <button
                     key={f}
                     onClick={()=>setFmt(f)}

@@ -1,0 +1,54 @@
+{
+  "format": "Pauper",
+  "description": "60-card format with only common rarity cards",
+  "popularArchetypes": [
+    "Affinity",
+    "Kuldotha Red",
+    "Azorius Familiars",
+    "Jund Gardens",
+    "Dimir Terror",
+    "Boros Bully",
+    "Elves",
+    "Tron",
+    "Burn",
+    "Pestilence Control"
+  ],
+  "staples": [
+    "Lightning Bolt",
+    "Counterspell",
+    "Preordain",
+    "Ponder",
+    "Brainstorm",
+    "Snuff Out",
+    "Galvanic Blast",
+    "Atog",
+    "Myr Enforcer",
+    "Gurmag Angler"
+  ],
+  "banList": [
+    "Chatterstorm",
+    "Cloudpost",
+    "Cranial Plating",
+    "Empty the Warrens",
+    "Fall from Favor",
+    "Frantic Search",
+    "Gush",
+    "High Tide",
+    "Hymn to Tourach",
+    "Invigorate",
+    "Mystic Sanctuary",
+    "Peregrine Drake",
+    "Prophetic Prism",
+    "Sinkhole",
+    "Sojourner's Companion",
+    "Temporal Fissure",
+    "Treasure Cruise"
+  ],
+  "metaTrends": [
+    "Affinity and artifact strategies prominent",
+    "Efficient removal and counterspells",
+    "Aggressive red decks common",
+    "Combo decks require setup",
+    "Budget-friendly format with accessible cards"
+  ]
+}

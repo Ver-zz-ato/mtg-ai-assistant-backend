@@ -212,8 +212,10 @@ export default function DeckAnalyzerExpandable() {
               onClick={(e) => e.stopPropagation()}
             >
               <option value="Commander">Commander</option>
+              <option value="Standard">Standard</option>
               <option value="Modern">Modern</option>
               <option value="Pioneer">Pioneer</option>
+              <option value="Pauper">Pauper</option>
             </select>
           </div>
 

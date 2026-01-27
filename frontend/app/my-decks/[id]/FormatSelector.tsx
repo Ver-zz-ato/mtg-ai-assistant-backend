@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 
-type Format = "commander" | "standard" | "modern";
+type Format = "commander" | "standard" | "modern" | "pioneer" | "pauper";
 
 export default function FormatSelector({
   deckId,
@@ -45,6 +45,8 @@ export default function FormatSelector({
     { value: "commander", label: "Commander" },
     { value: "standard", label: "Standard" },
     { value: "modern", label: "Modern" },
+    { value: "pioneer", label: "Pioneer" },
+    { value: "pauper", label: "Pauper" },
   ];
 
   return (

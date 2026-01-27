@@ -3,7 +3,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import FormatPickerModal from "@/components/FormatPickerModal";
 
-type Format = "commander" | "standard" | "modern";
+type Format = "commander" | "standard" | "modern" | "pioneer" | "pauper";
 
 export default function NewDeckClient() {
   const router = useRouter();

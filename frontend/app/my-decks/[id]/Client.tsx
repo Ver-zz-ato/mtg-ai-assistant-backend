@@ -12,6 +12,9 @@ import HandTestingWidget from "@/components/HandTestingWidget";
 import DeckOverview from "./DeckOverview";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
 import ColorIdentityBanner from "@/components/ColorIdentityBanner";
+import FormatCardCountBanner from "@/components/FormatCardCountBanner";
+import SingletonViolationBanner from "@/components/SingletonViolationBanner";
+import BannedCardsBanner from "@/components/BannedCardsBanner";
 import FixNamesModal from "./FixNamesModal";
 
 // Helper components for hide/show functionality
@@ -267,6 +270,17 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
           }} 
         />
 
+        {/* Format-specific warning banners */}
+        {format && (
+          <>
+            <FormatCardCountBanner deckId={deckId!} format={format} />
+            {format.toLowerCase() === 'commander' && (
+              <SingletonViolationBanner deckId={deckId!} />
+            )}
+            <BannedCardsBanner deckId={deckId!} format={format} />
+          </>
+        )}
+        
         {/* Color Identity Banner - shows if deck has illegal colors */}
         {format?.toLowerCase() === 'commander' && commander && (colors || []).length > 0 && (
           <ColorIdentityBanner 

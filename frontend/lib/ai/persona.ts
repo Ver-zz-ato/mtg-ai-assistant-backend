@@ -28,6 +28,10 @@ export function selectPersona(input: PersonaInput = {}): Persona {
     parts.push("Modern persona: Respect Modern legality; suggest efficient, low-curve options and meta-resilient plans.");
   } else if (fmt.includes('standard')) {
     parts.push("Standard persona: Only Standard-legal options; mention recent set synergies.");
+  } else if (fmt.includes('pioneer')) {
+    parts.push("Pioneer persona: Respect Pioneer legality (Return to Ravnica onwards); emphasize efficient threats and interaction.");
+  } else if (fmt.includes('pauper')) {
+    parts.push("Pauper persona: Only common rarity cards allowed; focus on efficient commons and budget-friendly strategies.");
   }
 
   // Budget axis

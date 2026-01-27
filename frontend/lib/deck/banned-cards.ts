@@ -8,6 +8,7 @@ type BannedCardsData = {
   Modern?: string[];
   Pioneer?: string[];
   Standard?: string[];
+  Pauper?: string[];
   Brawl?: string[];
 };
 
@@ -26,6 +27,7 @@ export const COMMANDER_BANNED = createLookupMap(data.Commander);
 export const MODERN_BANNED = createLookupMap(data.Modern);
 export const PIONEER_BANNED = createLookupMap(data.Pioneer);
 export const STANDARD_BANNED = createLookupMap(data.Standard);
+export const PAUPER_BANNED = createLookupMap(data.Pauper);
 export const BRAWL_BANNED = createLookupMap(data.Brawl);
 
 export const BANNED_LISTS: Record<string, Record<string, true>> = {
@@ -33,6 +35,7 @@ export const BANNED_LISTS: Record<string, Record<string, true>> = {
   Modern: MODERN_BANNED,
   Pioneer: PIONEER_BANNED,
   Standard: STANDARD_BANNED,
+  Pauper: PAUPER_BANNED,
   Brawl: BRAWL_BANNED,
 };
 
