@@ -18,6 +18,7 @@ export default function CollectionPriceHistory({
   const [points, setPoints] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFullScreen, setShowFullScreen] = useState(false);
+  const [hoveredPoint, setHoveredPoint] = useState<{ index: number; svgX: number; svgY: number } | null>(null);
 
   useEffect(() => {
     if (!collectionId) return;
@@ -159,30 +160,107 @@ export default function CollectionPriceHistory({
   };
 
   const ChartContent = ({ isFullScreen = false }: { isFullScreen?: boolean }) => {
-    // Enhanced graph rendering with date labels
-    const width = isFullScreen ? 800 : 200;
-    const height = isFullScreen ? 400 : 80;
-    const padding = isFullScreen ? 40 : 10;
+    // Auto-expand: use larger size by default for better visibility
+    const width = isFullScreen ? 900 : 300;
+    const height = isFullScreen ? 500 : 120; // Increased from 80 to 120 for better visibility
+    const padding = isFullScreen ? 50 : 15;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
     
-    // Add padding to y-axis range to prevent compression of small variations
-    // Use 10% padding on top and bottom, but ensure we don't go below 0
-    const rawRange = maxValue - minValue;
-    const paddingAmount = rawRange * 0.1; // 10% padding
-    const adjustedMin = Math.max(0, minValue - paddingAmount);
-    const adjustedMax = maxValue + paddingAmount;
+    // Smart y-axis scaling: handle outliers and focus on data range
+    // Detect outliers using IQR (Interquartile Range) method
+    const sortedValues = [...points.map(p => p.total)].sort((a, b) => a - b);
+    const q1Index = Math.floor(sortedValues.length * 0.25);
+    const q3Index = Math.floor(sortedValues.length * 0.75);
+    const q1 = sortedValues[q1Index] || minValue;
+    const q3 = sortedValues[q3Index] || maxValue;
+    const iqr = q3 - q1;
+    const outlierThreshold = q3 + (iqr * 1.5); // Standard outlier detection
+    
+    // Use percentile-based range to exclude outliers
+    // Use 5th to 95th percentile for better scaling, but include max if it's not too extreme
+    const p5Index = Math.floor(sortedValues.length * 0.05);
+    const p95Index = Math.floor(sortedValues.length * 0.95);
+    const p5 = sortedValues[p5Index] || minValue;
+    const p95 = sortedValues[p95Index] || maxValue;
+    
+    // Determine if maxValue is an outlier - be more aggressive
+    // Check if max is more than 3x the median or 2x the 95th percentile
+    const median = sortedValues[Math.floor(sortedValues.length * 0.5)] || q3;
+    const isMaxOutlier = maxValue > outlierThreshold || maxValue > p95 * 2 || maxValue > median * 3;
+    const isMinOutlier = minValue < (q1 - iqr * 1.5) && minValue < p5 * 0.5;
+    
+    // Use percentile-based range, completely exclude outliers from scaling
+    // For outliers, use p95 as the effective max (with small padding), not the actual max
+    const effectiveMin = isMinOutlier ? p5 : minValue;
+    const effectiveMax = isMaxOutlier ? p95 : maxValue; // Use p95 directly if outlier, don't include the spike
+    
+    const rawRange = effectiveMax - effectiveMin;
+    
+    // Calculate padding based on the data characteristics
+    const relativeVariation = effectiveMax > 0 ? rawRange / effectiveMax : 0;
+    let paddingAmount: number;
+    
+    if (relativeVariation < 0.2) {
+      // Small variations (<20%): use 30% of effective max value as padding
+      paddingAmount = effectiveMax * 0.30;
+    } else if (relativeVariation < 0.5) {
+      // Medium variations: use 20% of range
+      paddingAmount = rawRange * 0.20;
+    } else {
+      // Large variations: use 15% of range
+      paddingAmount = rawRange * 0.15;
+    }
+    
+    // Don't force minimum to 0 - focus on actual data range
+    const adjustedMin = effectiveMin < effectiveMax * 0.05
+      ? Math.max(0, effectiveMin - paddingAmount)
+      : effectiveMin - paddingAmount;
+    const adjustedMax = effectiveMax + paddingAmount;
     const range = adjustedMax - adjustedMin || 1;
+    
+    // Find which data points are outliers for debugging
+    const outlierPoints = points.filter(p => p.total > p95 * 2 || p.total > median * 3);
+    
+    // Debug logging for scaling calculations - expanded
+    console.log('[PriceHistory] Scaling debug:', {
+      dataPoints: points.length,
+      minValue: minValue.toFixed(2),
+      maxValue: maxValue.toFixed(2),
+      median: median.toFixed(2),
+      q1: q1.toFixed(2),
+      q3: q3.toFixed(2),
+      iqr: iqr.toFixed(2),
+      p5: p5.toFixed(2),
+      p95: p95.toFixed(2),
+      outlierThreshold: outlierThreshold.toFixed(2),
+      isMaxOutlier,
+      isMinOutlier,
+      outlierCount: outlierPoints.length,
+      outlierValues: outlierPoints.map(p => ({ date: p.date, total: p.total.toFixed(2) })),
+      effectiveMin: effectiveMin.toFixed(2),
+      effectiveMax: effectiveMax.toFixed(2),
+      rawRange: rawRange.toFixed(2),
+      relativeVariation: (relativeVariation * 100).toFixed(1) + '%',
+      paddingAmount: paddingAmount.toFixed(2),
+      adjustedMin: adjustedMin.toFixed(2),
+      adjustedMax: adjustedMax.toFixed(2),
+      finalRange: range.toFixed(2),
+      samplePoints: points.slice(0, 5).map(p => ({ date: p.date, total: p.total.toFixed(2) })),
+      latestValue: latestValue.toFixed(2)
+    });
     
     const pathData = points.map((p, i) => {
       const x = padding + (i / (points.length - 1 || 1)) * chartWidth;
-      const y = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
+      // Clamp Y to chart bounds - outliers will be drawn at top edge
+      const rawY = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
+      const y = Math.max(padding, Math.min(padding + chartHeight, rawY));
       return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
     }).join(' ');
 
     return (
     <div className={isFullScreen ? "w-full h-full" : "relative"}>
-      <div className={`${isFullScreen ? 'h-[400px]' : 'h-32'} rounded border border-neutral-800 bg-neutral-950/50 relative overflow-hidden`}>
+      <div className={`${isFullScreen ? 'h-[500px]' : 'h-[120px]'} rounded border border-neutral-800 bg-neutral-950/50 relative overflow-hidden`}>
         <svg 
           width={isFullScreen ? "100%" : width} 
           height={isFullScreen ? "100%" : height} 
@@ -216,8 +294,9 @@ export default function CollectionPriceHistory({
                       x={padding - 8}
                       y={y + 4}
                       textAnchor="end"
-                      fill="rgba(255,255,255,0.4)"
-                      fontSize="10"
+                      fill="rgba(255,255,255,0.5)"
+                      fontSize="11"
+                      fontWeight="500"
                     >
                       {formatCurrency(value)}
                     </text>
@@ -226,9 +305,9 @@ export default function CollectionPriceHistory({
               })}
             </>
           )}
-          {/* Area under curve - use adjustedMin for baseline */}
+          {/* Area under curve - use adjustedMin for baseline (not 0) */}
           <path
-            d={`${pathData} L ${width - padding} ${padding + chartHeight - ((0 - adjustedMin) / range) * chartHeight} L ${padding} ${padding + chartHeight - ((0 - adjustedMin) / range) * chartHeight} Z`}
+            d={`${pathData} L ${width - padding} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`}
             fill={`url(#priceGradient${isFullScreen ? 'Full' : ''})`}
           />
           {/* Line */}
@@ -240,21 +319,51 @@ export default function CollectionPriceHistory({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {/* Data points */}
+          {/* Data points with hover tooltips */}
           {points.map((p, i) => {
             const x = padding + (i / (points.length - 1 || 1)) * chartWidth;
-            const y = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
+            // Clamp Y position to chart bounds - outliers will be drawn at the top edge
+            const rawY = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
+            const y = Math.max(padding, Math.min(padding + chartHeight, rawY));
+            const isOutlier = p.total > effectiveMax;
             const is30d = point30d && Math.abs(new Date(p.date).getTime() - new Date(point30d.date).getTime()) < 2 * 24 * 60 * 60 * 1000; // within 2 days
             const is60d = point60d && Math.abs(new Date(p.date).getTime() - new Date(point60d.date).getTime()) < 2 * 24 * 60 * 60 * 1000; // within 2 days
+            const isHovered = hoveredPoint?.index === i;
             return (
               <g key={i}>
+                {/* Invisible larger hit area for easier hovering */}
                 <circle
                   cx={x}
                   cy={y}
-                  r={isFullScreen ? (is30d || is60d ? 6 : 4) : (is30d || is60d ? 3 : 2)}
-                  fill={is30d ? "rgb(34, 197, 94)" : is60d ? "rgb(59, 130, 246)" : "rgb(251, 191, 36)"}
-                  stroke={is30d ? "rgb(34, 197, 94)" : is60d ? "rgb(59, 130, 246)" : "rgb(251, 191, 36)"}
+                  r={isFullScreen ? 8 : 6}
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => {
+                    setHoveredPoint({ index: i, svgX: x, svgY: y });
+                  }}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                />
+                {/* Outlier indicator - show a warning icon or different color */}
+                {isOutlier && isFullScreen && (
+                  <text
+                    x={x}
+                    y={padding - 5}
+                    textAnchor="middle"
+                    fill="rgb(239, 68, 68)"
+                    fontSize="10"
+                    fontWeight="bold"
+                  >
+                    ⚠
+                  </text>
+                )}
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={isHovered ? (isFullScreen ? (is30d || is60d ? 8 : 6) : (is30d || is60d ? 5 : 4)) : (isFullScreen ? (is30d || is60d ? 6 : 4) : (is30d || is60d ? 3 : 2))}
+                  fill={isOutlier ? "rgb(239, 68, 68)" : (is30d ? "rgb(34, 197, 94)" : is60d ? "rgb(59, 130, 246)" : "rgb(251, 191, 36)")}
+                  stroke={isOutlier ? "rgb(239, 68, 68)" : (is30d ? "rgb(34, 197, 94)" : is60d ? "rgb(59, 130, 246)" : "rgb(251, 191, 36)")}
                   strokeWidth={isFullScreen ? (is30d || is60d ? 3 : 2) : (is30d || is60d ? 2 : 1)}
+                  style={{ transition: 'r 0.2s', pointerEvents: 'none' }}
                 />
                 {(is30d || is60d) && isFullScreen && (
                   <text
@@ -271,6 +380,40 @@ export default function CollectionPriceHistory({
               </g>
             );
           })}
+          {/* Tooltip for hovered point */}
+          {hoveredPoint !== null && points[hoveredPoint.index] && (
+            <g>
+              <rect
+                x={hoveredPoint.svgX - 80}
+                y={hoveredPoint.svgY - 50}
+                width={160}
+                height={40}
+                fill="rgba(0, 0, 0, 0.9)"
+                stroke="rgb(251, 191, 36)"
+                strokeWidth="1"
+                rx="4"
+              />
+              <text
+                x={hoveredPoint.svgX}
+                y={hoveredPoint.svgY - 30}
+                textAnchor="middle"
+                fill="rgb(251, 191, 36)"
+                fontSize="12"
+                fontWeight="bold"
+              >
+                {formatCurrency(points[hoveredPoint.index].total)}
+              </text>
+              <text
+                x={hoveredPoint.svgX}
+                y={hoveredPoint.svgY - 15}
+                textAnchor="middle"
+                fill="rgba(255, 255, 255, 0.7)"
+                fontSize="10"
+              >
+                {formatDate(points[hoveredPoint.index].date, isFullScreen)}
+              </text>
+            </g>
+          )}
           {/* Date labels for full screen */}
           {isFullScreen && points.length > 1 && (
             <>
@@ -299,7 +442,7 @@ export default function CollectionPriceHistory({
               onClick={() => setShowFullScreen(true)}
               className="px-2 py-1 rounded bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-xs"
             >
-              Expand
+              Full Screen
             </button>
           </div>
         )}

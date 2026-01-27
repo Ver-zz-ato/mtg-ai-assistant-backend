@@ -64,50 +64,30 @@ export default function BinderClient({ collectionId }: { collectionId: string })
         console.log(`Price loading: Found ${cachedCount}/${names.length} prices from cache`);
       }
       
-      // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)
+      // Step 2: Find missing cards and fetch from Scryfall via /api/price (which caches automatically)
       if (missingNames.length > 0) {
         try {
-          // Process in batches of 75 (Scryfall's limit)
-          for (let i = 0; i < missingNames.length; i += 75) {
-            const batch = missingNames.slice(i, i + 75);
-            const identifiers = batch.map(n=>({ name: n }));
-            const r2 = await fetch('https://api.scryfall.com/cards/collection', {
+          // Use /api/price endpoint which handles batch fetching and caching automatically
+          // Process in batches to avoid overwhelming the API
+          for (let i = 0; i < missingNames.length; i += 100) {
+            const batch = missingNames.slice(i, i + 100);
+            const r2 = await fetch('/api/price', {
               method:'POST',
               headers:{'content-type':'application/json'},
-              body: JSON.stringify({ identifiers })
+              body: JSON.stringify({ names: batch, currency }),
+              cache: 'no-store'
             });
-            const j2:any = await r2.json().catch(()=>({}));
-            const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
-            
-            for (const c of arr) {
-              const nm = norm(c?.name||'');
-              const cardPrices = c?.prices || {};
-              const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
-              
-              let v = cardPrices?.[key];
-              
-              // For GBP, convert from USD if needed
-              if ((!v || v === null || v === 0) && currency === 'GBP' && cardPrices?.usd) {
-                try {
-                  const { getRates } = await import('@/lib/currency/rates');
-                  const rates = await getRates();
-                  const usdValue = Number(cardPrices.usd);
-                  if (usdValue > 0) {
-                    v = Number((usdValue * rates.usd_gbp).toFixed(2));
-                  }
-                } catch (fxError) {
-                  const usdValue = Number(cardPrices.usd);
-                  if (usdValue > 0) {
-                    v = Number((usdValue * 0.78).toFixed(2));
-                  }
+            const j2:any = await r2.json().catch(()=>({ ok:false }));
+            if (r2.ok && j2?.ok && j2.prices) {
+              // Merge fetched prices (already normalized by API)
+              for (const [name, price] of Object.entries(j2.prices)) {
+                if (price && Number(price) > 0) {
+                  prices[name] = Number(price);
                 }
-              }
-              
-              if (v!=null && v > 0 && !isNaN(Number(v))) {
-                prices[nm] = Number(v);
               }
             }
           }
+          console.log(`[BinderClient] Fetched ${Object.keys(prices).length - cachedCount} missing prices from Scryfall (cached for future use)`);
         } catch (scryfallError) {
           // Continue with whatever prices we have from cache
           console.warn('[BinderClient] Scryfall price fetch failed:', scryfallError);
