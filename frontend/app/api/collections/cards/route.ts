@@ -11,7 +11,40 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "collectionId is required" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  // Use service role client to check if collection is public (bypasses RLS)
+  // This allows us to check public status even for anonymous users
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  
+  // Use service role if available, otherwise anon key
+  const metaClient = serviceKey 
+    ? createServiceClient(url, serviceKey, { auth: { persistSession: false } })
+    : createServiceClient(url, anonKey, { auth: { persistSession: false } });
+  
+  // Check if collection is public - use service role to bypass RLS
+  const { data: meta } = await metaClient
+    .from("collection_meta")
+    .select("is_public, visibility")
+    .eq("collection_id", collectionId)
+    .maybeSingle();
+  
+  // If collection is public, use service role client to bypass RLS for fetching cards
+  let client = supabase;
+  if (meta && (meta.is_public === true || meta.visibility === 'public')) {
+    if (serviceKey) {
+      client = createServiceClient(url, serviceKey, { auth: { persistSession: false } }) as any;
+    }
+  } else {
+    // If not public, require authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
+  const { data, error } = await client
     .from("collection_cards")
     .select("id, name, qty, created_at")
     .eq("collection_id", collectionId)

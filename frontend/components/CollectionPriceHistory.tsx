@@ -165,11 +165,18 @@ export default function CollectionPriceHistory({
     const padding = isFullScreen ? 40 : 10;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
-    const range = maxValue - minValue || 1;
+    
+    // Add padding to y-axis range to prevent compression of small variations
+    // Use 10% padding on top and bottom, but ensure we don't go below 0
+    const rawRange = maxValue - minValue;
+    const paddingAmount = rawRange * 0.1; // 10% padding
+    const adjustedMin = Math.max(0, minValue - paddingAmount);
+    const adjustedMax = maxValue + paddingAmount;
+    const range = adjustedMax - adjustedMin || 1;
     
     const pathData = points.map((p, i) => {
       const x = padding + (i / (points.length - 1 || 1)) * chartWidth;
-      const y = padding + chartHeight - ((p.total - minValue) / range) * chartHeight;
+      const y = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
       return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
     }).join(' ');
 
@@ -189,28 +196,39 @@ export default function CollectionPriceHistory({
               <stop offset="100%" stopColor="rgba(251, 191, 36, 0.05)" />
             </linearGradient>
           </defs>
-          {/* Grid lines for full screen */}
+          {/* Grid lines for full screen with value labels */}
           {isFullScreen && points.length > 1 && (
             <>
               {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
                 const y = padding + chartHeight - (ratio * chartHeight);
+                const value = adjustedMax - (ratio * range);
                 return (
-                  <line
-                    key={ratio}
-                    x1={padding}
-                    y1={y}
-                    x2={width - padding}
-                    y2={y}
-                    stroke="rgba(255,255,255,0.05)"
-                    strokeWidth="1"
-                  />
+                  <g key={ratio}>
+                    <line
+                      x1={padding}
+                      y1={y}
+                      x2={width - padding}
+                      y2={y}
+                      stroke="rgba(255,255,255,0.05)"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={padding - 8}
+                      y={y + 4}
+                      textAnchor="end"
+                      fill="rgba(255,255,255,0.4)"
+                      fontSize="10"
+                    >
+                      {formatCurrency(value)}
+                    </text>
+                  </g>
                 );
               })}
             </>
           )}
-          {/* Area under curve */}
+          {/* Area under curve - use adjustedMin for baseline */}
           <path
-            d={`${pathData} L ${width - padding} ${height - padding} L ${padding} ${height - padding} Z`}
+            d={`${pathData} L ${width - padding} ${padding + chartHeight - ((0 - adjustedMin) / range) * chartHeight} L ${padding} ${padding + chartHeight - ((0 - adjustedMin) / range) * chartHeight} Z`}
             fill={`url(#priceGradient${isFullScreen ? 'Full' : ''})`}
           />
           {/* Line */}
@@ -225,7 +243,7 @@ export default function CollectionPriceHistory({
           {/* Data points */}
           {points.map((p, i) => {
             const x = padding + (i / (points.length - 1 || 1)) * chartWidth;
-            const y = padding + chartHeight - ((p.total - minValue) / range) * chartHeight;
+            const y = padding + chartHeight - ((p.total - adjustedMin) / range) * chartHeight;
             const is30d = point30d && Math.abs(new Date(p.date).getTime() - new Date(point30d.date).getTime()) < 2 * 24 * 60 * 60 * 1000; // within 2 days
             const is60d = point60d && Math.abs(new Date(p.date).getTime() - new Date(point60d.date).getTime()) < 2 * 24 * 60 * 60 * 1000; // within 2 days
             return (

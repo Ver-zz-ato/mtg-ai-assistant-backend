@@ -22,13 +22,37 @@ export async function GET(
     }
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    
+    // Check if collection is public - if so, allow anonymous access
+    const { data: meta } = await supabase
+      .from("collection_meta")
+      .select("is_public, visibility")
+      .eq("collection_id", collectionId)
+      .maybeSingle();
+    
+    const isPublic = meta && (meta.is_public === true || meta.visibility === 'public');
+    
+    // If not public, require authentication
+    if (!isPublic) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
+    }
+    
+    // Use service role client for public collections to bypass RLS
+    let client = supabase;
+    if (isPublic) {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+      if (serviceKey) {
+        client = createServiceClient(url, serviceKey, { auth: { persistSession: false } }) as any;
+      }
     }
 
     // Get collection cards
-    const { data: items, error: itemsErr } = await supabase
+    const { data: items, error: itemsErr } = await client
       .from("collection_cards")
       .select("name, qty")
       .eq("collection_id", collectionId);
@@ -76,7 +100,7 @@ export async function GET(
     
     // Query with date filter first (uses index on snapshot_date), then filter by card names
     // This is more efficient than filtering by name first
-    const { data: snapshots, error: snapshotsErr } = await supabase
+    const { data: snapshots, error: snapshotsErr } = await client
       .from("price_snapshots")
       .select("name_norm, snapshot_date, unit")
       .eq("currency", currency)

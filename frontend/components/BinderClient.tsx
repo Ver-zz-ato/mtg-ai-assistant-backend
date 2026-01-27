@@ -3,6 +3,7 @@
 import React from "react";
 import CollectionPriceHistory from "@/components/CollectionPriceHistory";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
+import { DualRange } from "@/components/shared/DualRange";
 
 // Read-only binder client matching owner view styling and layout
 export default function BinderClient({ collectionId }: { collectionId: string }){
@@ -56,9 +57,14 @@ export default function BinderClient({ collectionId }: { collectionId: string })
       const j1 = await r1.json().catch(()=>({ ok:false }));
       let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
       
-      // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)
+      // Log cache statistics
+      const cachedCount = Object.keys(prices).filter(k => prices[k] > 0).length;
       const missingNames = names.filter(name => !prices[norm(name)] || prices[norm(name)] === 0);
+      if (missingNames.length > 0 || cachedCount > 0) {
+        console.log(`Price loading: Found ${cachedCount}/${names.length} prices from cache`);
+      }
       
+      // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)
       if (missingNames.length > 0) {
         try {
           // Process in batches of 75 (Scryfall's limit)
@@ -104,39 +110,77 @@ export default function BinderClient({ collectionId }: { collectionId: string })
           }
         } catch (scryfallError) {
           // Continue with whatever prices we have from cache
+          console.warn('[BinderClient] Scryfall price fetch failed:', scryfallError);
         }
       }
       
       const total = items.reduce((acc,it)=> acc + (prices[norm(it.name)]||0)*it.qty, 0);
       setPriceMap(prices);
       setValueUSD(total);
-    }catch{ setPriceMap({}); setValueUSD(0); }
+    }catch(err){ 
+      console.error('[BinderClient] Price loading error:', err);
+      setPriceMap({}); 
+      setValueUSD(0); 
+    }
   })(); }, [items.map(i=>i.name).join('|'), currency]);
 
   React.useEffect(()=>{ (async()=>{
     try{
       const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 400);
       if(!names.length) { imagesRef.current = {}; return; }
-      const { getImagesForNames } = await import("@/lib/scryfall");
-      const m = await getImagesForNames(names);
+      
+      // Use cached image API instead of direct Scryfall calls
+      const chunked: string[][] = []; 
+      for(let i=0;i<names.length;i+=100) chunked.push(names.slice(i,i+100));
+      
       const obj: any = {}; 
-      m.forEach((v: any, k: string) => { 
-        obj[norm(k)] = { small: v.small, normal: v.normal }; 
-      });
+      for(const part of chunked){
+        try {
+          // Use batch-images API which uses scryfall_cache database
+          const rr = await fetch('/api/cards/batch-images', { 
+            method:'POST', 
+            headers:{'content-type':'application/json'}, 
+            body: JSON.stringify({ names: part }),
+            cache: 'no-store'
+          });
+          const jj:any = rr.ok? await rr.json().catch(()=>({})) : {};
+          const data:any[] = Array.isArray(jj?.data)? jj.data : [];
+          
+          for(const c of data){
+            const key = norm(c?.name||'');
+            if(c?.image_uris){
+              obj[key] = { 
+                small: c.image_uris.small, 
+                normal: c.image_uris.normal,
+                art_crop: c.image_uris.art_crop
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('[BinderClient] Image fetch error for batch:', err);
+        }
+      }
+      
       imagesRef.current = obj;
       
       // Also fetch metadata
-      const chunked: string[][] = []; for(let i=0;i<names.length;i+=75) chunked.push(names.slice(i,i+75));
       for(const part of chunked){
-        const rr = await fetch('/api/cards/batch-metadata', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: part }) });
-        const jj:any = rr.ok? await rr.json().catch(()=>({})) : {};
-        const data:any[] = Array.isArray(jj?.data)? jj.data : [];
-        for(const c of data){
-          const key = norm(c?.name||'');
-          metaRef.current.set(key, { set: String(c?.set||'').toUpperCase(), rarity: String(c?.rarity||'').toLowerCase(), type_line: String(c?.type_line||''), colors: Array.isArray(c?.color_identity)? c.color_identity: [] });
+        try {
+          const rr = await fetch('/api/cards/batch-metadata', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: part }) });
+          const jj:any = rr.ok? await rr.json().catch(()=>({})) : {};
+          const data:any[] = Array.isArray(jj?.data)? jj.data : [];
+          for(const c of data){
+            const key = norm(c?.name||'');
+            metaRef.current.set(key, { set: String(c?.set||'').toUpperCase(), rarity: String(c?.rarity||'').toLowerCase(), type_line: String(c?.type_line||''), colors: Array.isArray(c?.color_identity)? c.color_identity: [] });
+          }
+        } catch (err) {
+          console.warn('[BinderClient] Metadata fetch error for batch:', err);
         }
       }
-    }catch{ imagesRef.current = {}; }
+    }catch(err){ 
+      console.error('[BinderClient] Image loading error:', err);
+      imagesRef.current = {}; 
+    }
   })(); }, [items.map(i=>i.name).join('|')]);
 
   // Color pie
@@ -193,6 +237,13 @@ export default function BinderClient({ collectionId }: { collectionId: string })
   const [fQtyMin, setFQtyMin] = React.useState<number>(0);
   const [pMin, setPMin] = React.useState<number|''>('');
   const [pMax, setPMax] = React.useState<number|''>('');
+  const [filtersExpanded, setFiltersExpanded] = React.useState(false);
+  
+  // Calculate active filter count
+  const activeFilterCount = React.useMemo(() => {
+    return fColors.length + fRarity.length + fSets.length + fTypes.length + 
+           (fPrice ? 1 : 0) + (fQtyMin > 0 ? 1 : 0) + (pMin !== '' || pMax !== '' ? 1 : 0);
+  }, [fColors, fRarity, fSets, fTypes, fPrice, fQtyMin, pMin, pMax]);
 
   const filtered = React.useMemo(()=>{
     let arr = items.slice();
@@ -267,34 +318,127 @@ export default function BinderClient({ collectionId }: { collectionId: string })
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-10 gap-6">
       <div className="lg:col-span-2 xl:col-span-7 flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-sm">Search<input value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"/></label>
-          <div className="text-sm inline-flex items-center gap-2">
-            <span className="opacity-70">Colors:</span>
-            {['W','U','B','R','G','C'].map(k=> (
-              <label key={k} className="inline-flex items-center gap-1"><input type="checkbox" checked={fColors.includes(k)} onChange={(e)=> setFColors(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))}/> {k}</label>
-            ))}
+        {/* Sticky Search + Currency */}
+        <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-2 border-b border-neutral-900">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-sm font-medium">🔍 Search<input value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+            </div>
           </div>
-          <div className="text-sm inline-flex items-center gap-2">
-            <span className="opacity-70">Rarity:</span>
-            {['common','uncommon','rare','mythic'].map(k=> (
-              <label key={k} className="inline-flex items-center gap-1"><input type="checkbox" checked={fRarity.includes(k)} onChange={(e)=> setFRarity(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))}/> {k}</label>
-            ))}
-          </div>
-          <div className="text-sm inline-flex items-center gap-2">
-            <span className="opacity-70">Price:</span>
-            {['','<1','1-5','5-20','20+'].map(k=> (
-              <label key={k} className="inline-flex items-center gap-1"><input type="radio" name="priceband" checked={fPrice===k} onChange={()=>setFPrice(k)} /> {k||'Any'}</label>
-            ))}
-            <span className="opacity-70 ml-2">Min</span>
-            <input type="number" value={pMin as any} onChange={e=>setPMin(e.target.value===''? '': Number(e.target.value))} className="w-20 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-            <span className="opacity-70">Max</span>
-            <input type="number" value={pMax as any} onChange={e=>setPMax(e.target.value===''? '': Number(e.target.value))} className="w-20 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-          </div>
-          <label className="text-sm">Qty ≥<input type="number" min={0} value={fQtyMin} onChange={e=>setFQtyMin(Math.max(0, Number(e.target.value||0)))} className="ml-2 w-20 bg-neutral-950 border border-neutral-700 rounded px-2 py-1"/></label>
-          <div className="ml-auto text-xs inline-flex items-center gap-2">
-            <span>Currency</span>
-            <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1"><option>USD</option><option>EUR</option><option>GBP</option></select>
+          {/* Filters Row - Collapsible */}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            {/* Filters pill/button - shows when collapsed */}
+            {!filtersExpanded && (
+              <button 
+                onClick={() => setFiltersExpanded(true)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+                  activeFilterCount > 0
+                    ? 'bg-neutral-800 border-neutral-700 hover:bg-neutral-700'
+                    : 'bg-neutral-900/50 border-neutral-700/50 hover:bg-neutral-800 text-neutral-400'
+                }`}
+              >
+                {activeFilterCount > 0 ? `Filters active (${activeFilterCount})` : 'Filters'}
+              </button>
+            )}
+            
+            {filtersExpanded && (
+              <>
+                {/* Active chips */}
+                <div className="w-full flex flex-wrap gap-1">
+                  {fColors.map(c=> (<button key={'c-'+c} onClick={()=>setFColors(p=>p.filter(x=>x!==c))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Color: {c} ✕</button>))}
+                  {fTypes.map(t=> (<button key={'t-'+t} onClick={()=>setFTypes(p=>p.filter(x=>x!==t))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Type: {t} ✕</button>))}
+                  {!!fPrice && (<button onClick={()=>setFPrice('')} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Price: {fPrice} ✕</button>)}
+                  {fQtyMin>0 && (<button onClick={()=>setFQtyMin(0)} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Qty ≥ {fQtyMin} ✕</button>)}
+                  {fRarity.map(r=> (<button key={'r-'+r} onClick={()=>setFRarity(p=>p.filter(x=>x!==r))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Rarity: {r} ✕</button>))}
+                  {fSets.map(s=> (<button key={'s-'+s} onClick={()=>setFSets(p=>p.filter(x=>x!==s))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Set: {s} ✕</button>))}
+                  {(fColors.length||fTypes.length||fPrice||fQtyMin>0||fRarity.length||fSets.length)? (
+                    <button onClick={()=>{ setFColors([]); setFRarity([]); setFTypes([]); setFPrice(''); setFSets([]); setFQtyMin(0); setPMin(''); setPMax(''); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
+                  ) : null}
+                </div>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <span className="font-semibold text-sm bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">🎨 Colors:</span>
+              {[
+                {k:'W', color:'bg-gray-100', border:'border-gray-300', text:'text-gray-900', name:'White'},
+                {k:'U', color:'bg-blue-500', border:'border-blue-400', text:'text-white', name:'Blue'},
+                {k:'B', color:'bg-gray-900', border:'border-gray-700', text:'text-white', name:'Black'},
+                {k:'R', color:'bg-red-600', border:'border-red-500', text:'text-white', name:'Red'},
+                {k:'G', color:'bg-green-600', border:'border-green-500', text:'text-white', name:'Green'},
+                {k:'C', color:'bg-neutral-500', border:'border-neutral-400', text:'text-white', name:'Colorless'}
+              ].map(({k, color, border, text, name})=> (
+                <label key={k} className={`inline-flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-lg transition-all ${fColors.includes(k) ? `${color} ${border} border-2 shadow-md` : 'bg-neutral-800/50 border border-neutral-700 hover:bg-neutral-700/50'}`} title={name}>
+                  <input type="checkbox" checked={fColors.includes(k)} onChange={(e)=> setFColors(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="hidden"/>
+                  <span className={`font-bold text-sm ${fColors.includes(k) ? text : 'text-neutral-300'}`}>{k}</span>
+                </label>
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <span className="font-semibold text-sm bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">🃏 Type:</span>
+              {['creature','instant','sorcery','land','artifact','enchantment'].map(k=> (
+                <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
+                  <input type="checkbox" checked={fTypes.includes(k)} onChange={(e)=> setFTypes(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"/>
+                  <span className="font-medium capitalize">{k}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">💲 Price Range</span>
+                <span className="text-xs text-emerald-400 font-mono">{currency} {pMin || 0} - {pMax || 500}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400 min-w-[40px]">{sym}{pMin || 0}</span>
+                <div className="flex-1">
+                  <DualRange min={0} max={500} valueMin={pMin} valueMax={pMax} onChange={(lo,hi)=>{ setPMin(lo); setPMax(hi); setFPrice(''); }} />
+                </div>
+                <span className="text-xs text-neutral-400 min-w-[40px] text-right">{sym}{pMax || 500}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {label:'Any', min:0, max:500},
+                  {label:`< ${sym}1`, min:0, max:1},
+                  {label:`${sym}1-5`, min:1, max:5},
+                  {label:`${sym}5-20`, min:5, max:20},
+                  {label:`${sym}20-50`, min:20, max:50},
+                  {label:`${sym}50-100`, min:50, max:100},
+                  {label:`${sym}100+`, min:100, max:500}
+                ].map(({label, min, max})=> {
+                  const isActive = pMin === min && pMax === max;
+                  return (
+                    <button 
+                      key={label} 
+                      onClick={()=>{ setPMin(min); setPMax(max); setFPrice(''); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                        isActive 
+                          ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-md' 
+                          : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <details className="ml-auto px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <summary className="cursor-pointer select-none text-xs font-semibold bg-gradient-to-r from-violet-400 to-indigo-500 bg-clip-text text-transparent">⚙️ Advanced filters</summary>
+              <div className="mt-3 flex flex-wrap items-center gap-3 p-2 rounded-lg bg-neutral-950/50 border border-neutral-700/30">
+                <label className="text-sm font-medium">Qty ≥<input type="number" min={0} value={fQtyMin} onChange={e=>setFQtyMin(Math.max(0, Number(e.target.value||0)))} className="ml-2 w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"/></label>
+                <label className="text-sm font-medium">Sets<select multiple value={fSets} onChange={(e)=>{ const opts=Array.from(e.currentTarget.selectedOptions).map(o=>o.value); setFSets(opts); }} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 min-w-40 max-h-24 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">{allSets.map(s=> (<option key={s.set} value={s.set}>{s.set} ({s.count})</option>))}</select></label>
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-sm font-medium">💎 Rarity:</span>
+                  {['common','uncommon','rare','mythic'].map(k=> (
+                    <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
+                      <input type="checkbox" checked={fRarity.includes(k)} onChange={(e)=> setFRarity(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"/>
+                      <span className="font-medium capitalize">{k}</span>
+                    </label>
+                  ))}
+                </div>
+                <button onClick={()=>{ setFColors([]); setFRarity([]); setFTypes([]); setFPrice(''); setFSets([]); setFQtyMin(0); setFilterText(''); }} className="ml-auto px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">🗑️ Clear All</button>
+              </div>
+            </details>
+              </>
+            )}
           </div>
         </div>
 
