@@ -15,15 +15,17 @@ export default function SingletonViolationBanner({ deckId }: SingletonViolationB
   const [violations, setViolations] = React.useState<Array<{ name: string; qty: number }>>([]);
   const [dismissed, setDismissed] = React.useState(false);
 
-  // Legal exceptions to singleton rule
+  // Basic lands — always allow multiple copies
+  const BASIC_LANDS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest']);
+
+  // Cards that explicitly ignore the singleton rule ("you can run as many as you like")
   const LEGAL_EXCEPTIONS = new Set([
     'Relentless Rats',
-    'Shadowborn Apostle',
     'Rat Colony',
+    'Shadowborn Apostle',
     'Persistent Petitioners',
     "Dragon's Approach",
-    'Seven Dwarves',
-    'Amoeboid Changeling', // Edge case - technically legal but rare
+    'Nazgûl',
   ]);
 
   // Check for singleton violations
@@ -58,12 +60,14 @@ export default function SingletonViolationBanner({ deckId }: SingletonViolationB
         
         for (const card of cards) {
           const cardName = String(card.name || '').trim();
+          const cardNameLower = cardName.toLowerCase();
           const qty = Number(card.qty || 0);
           
-          // Check if card has multiple copies and is not a legal exception
-          if (qty > 1 && !LEGAL_EXCEPTIONS.has(cardName)) {
-            violationsList.push({ name: cardName, qty });
-          }
+          if (qty <= 1) continue;
+          if (BASIC_LANDS.has(cardNameLower)) continue; // basic lands OK
+          if (LEGAL_EXCEPTIONS.has(cardName)) continue; // explicit "run as many as you like" cards
+          
+          violationsList.push({ name: cardName, qty });
         }
         
         if (mounted) {
