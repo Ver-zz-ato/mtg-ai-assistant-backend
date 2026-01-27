@@ -371,8 +371,8 @@ export default function MTGAIDeckBuilderPage() {
                 Is the MTG AI deck builder really free?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Yes! You can analyze unlimited decks for free. No signup required to get started. Pro features like deck version history 
-                and advanced analytics are available with a subscription, but core AI deck analysis is completely free.
+                Yes! Core deck analysis is free, but you need a free account signup to start analyzing decks. Some core features are available for free users, 
+                while advanced features like deck version history and advanced analytics require a Pro subscription.
               </p>
             </div>
 

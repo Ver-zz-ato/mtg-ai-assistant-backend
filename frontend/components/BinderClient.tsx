@@ -1,30 +1,37 @@
 "use client";
 
 import React from "react";
+import CollectionPriceHistory from "@/components/CollectionPriceHistory";
+import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 
-// Read-only binder client with search, filters, hover previews, and a right sidebar with basic stats
+// Read-only binder client matching owner view styling and layout
 export default function BinderClient({ collectionId }: { collectionId: string }){
   const [items, setItems] = React.useState<Array<{ id?: string; name: string; qty: number }>>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string|undefined>(undefined);
 
   const [filterText, setFilterText] = React.useState("");
-  const [debounced, setDebounced] = React.useState("");
-  React.useEffect(()=>{ const t=setTimeout(()=>setDebounced(filterText.trim().toLowerCase()), 200); return ()=>clearTimeout(t); }, [filterText]);
+  const [debouncedFilter, setDebouncedFilter] = React.useState("");
+  React.useEffect(()=>{ const t=setTimeout(()=>setDebouncedFilter(filterText.trim().toLowerCase()), 200); return ()=>clearTimeout(t); }, [filterText]);
 
   // Metadata via Scryfall: set, rarity, type_line, color_identity
   const metaRef = React.useRef<Map<string, { set?: string; rarity?: string; type_line?: string; colors?: string[] }>>(new Map());
+  const imagesRef = React.useRef<Record<string, { small?: string; normal?: string }>>({});
 
-  // Prices snapshot per unit
+  // Prices - use cache first
   const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>('USD');
   React.useEffect(()=>{ try{ const saved = localStorage.getItem('price_currency') as any; if(saved && (saved==='USD'||saved==='EUR'||saved==='GBP')) setCurrency(saved); }catch{} }, []);
   React.useEffect(()=>{ try{ localStorage.setItem('price_currency', currency); }catch{} }, [currency]);
   const [priceMap, setPriceMap] = React.useState<Record<string, number>>({});
+  const [valueUSD, setValueUSD] = React.useState<number | null>(null);
 
-  // Hover preview via shared hook
-  const { useHoverPreview } = require("@/components/shared/HoverPreview");
-  const { preview, bind } = (useHoverPreview && typeof useHoverPreview === 'function') ? useHoverPreview() : { preview: null, bind: (_:string)=>({}) };
-  const [imgMap, setImgMap] = React.useState<Record<string,{ small?: string; normal?: string }>>({});
+  // Hover preview
+  const [pv, setPv] = React.useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ 
+    src: "", x: 0, y: 0, shown: false, below: false 
+  });
+
+  const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const n = norm;
 
   React.useEffect(()=>{ (async()=>{
     setLoading(true); setError(undefined);
@@ -32,62 +39,164 @@ export default function BinderClient({ collectionId }: { collectionId: string })
       const r = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({}));
       if(!r.ok || j?.ok===false) throw new Error(j?.error||'load failed');
-      const arr = (j.items||[]).map((it:any)=>({ name: it.name, qty: Number(it.qty)||0 }));
+      const arr = (j.items||[]).map((it:any)=>({ id: it.id, name: it.name, qty: Number(it.qty)||0 }));
       setItems(arr);
     }catch(e:any){ setError(e?.message||'load failed'); }
     finally{ setLoading(false); }
   })(); }, [collectionId]);
 
+  // Price fetching - use cache first
   React.useEffect(()=>{ (async()=>{
     try{
       const names = Array.from(new Set(items.map(i=>i.name)));
-      if(!names.length){ setPriceMap({}); return; }
-      const r = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
-      const j = await r.json().catch(()=>({}));
-      if(!r.ok || j?.ok===false){ setPriceMap({}); return; }
-      setPriceMap(j.prices||{});
-    }catch{ setPriceMap({}); }
+      if(!names.length){ setPriceMap({}); setValueUSD(0); return; }
+      
+      // Step 1: Try cache first (via /api/price which uses price_cache table)
+      const r1 = await fetch('/api/price', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
+      const j1 = await r1.json().catch(()=>({ ok:false }));
+      let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
+      
+      // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)
+      const missingNames = names.filter(name => !prices[norm(name)] || prices[norm(name)] === 0);
+      
+      if (missingNames.length > 0) {
+        try {
+          // Process in batches of 75 (Scryfall's limit)
+          for (let i = 0; i < missingNames.length; i += 75) {
+            const batch = missingNames.slice(i, i + 75);
+            const identifiers = batch.map(n=>({ name: n }));
+            const r2 = await fetch('https://api.scryfall.com/cards/collection', {
+              method:'POST',
+              headers:{'content-type':'application/json'},
+              body: JSON.stringify({ identifiers })
+            });
+            const j2:any = await r2.json().catch(()=>({}));
+            const arr:any[] = Array.isArray(j2?.data)? j2.data: [];
+            
+            for (const c of arr) {
+              const nm = norm(c?.name||'');
+              const cardPrices = c?.prices || {};
+              const key = currency==='EUR' ? 'eur' : currency==='GBP' ? 'gbp' : 'usd';
+              
+              let v = cardPrices?.[key];
+              
+              // For GBP, convert from USD if needed
+              if ((!v || v === null || v === 0) && currency === 'GBP' && cardPrices?.usd) {
+                try {
+                  const { getRates } = await import('@/lib/currency/rates');
+                  const rates = await getRates();
+                  const usdValue = Number(cardPrices.usd);
+                  if (usdValue > 0) {
+                    v = Number((usdValue * rates.usd_gbp).toFixed(2));
+                  }
+                } catch (fxError) {
+                  const usdValue = Number(cardPrices.usd);
+                  if (usdValue > 0) {
+                    v = Number((usdValue * 0.78).toFixed(2));
+                  }
+                }
+              }
+              
+              if (v!=null && v > 0 && !isNaN(Number(v))) {
+                prices[nm] = Number(v);
+              }
+            }
+          }
+        } catch (scryfallError) {
+          // Continue with whatever prices we have from cache
+        }
+      }
+      
+      const total = items.reduce((acc,it)=> acc + (prices[norm(it.name)]||0)*it.qty, 0);
+      setPriceMap(prices);
+      setValueUSD(total);
+    }catch{ setPriceMap({}); setValueUSD(0); }
   })(); }, [items.map(i=>i.name).join('|'), currency]);
 
   React.useEffect(()=>{ (async()=>{
     try{
-      const names = Array.from(new Set(items.map(i=>i.name)));
-      if(!names.length) { setImgMap({}); return; }
-      // Scryfall images
-      const m = await (await import("@/lib/scryfall")).getImagesForNames(names);
-      const obj: any = {}; m.forEach((v: any, k: string) => { obj[k] = { small: v.small, normal: v.normal||v.large }; });
-      setImgMap(obj);
-      // Scryfall metadata (set, rarity, type_line, color_identity) - use cached API route
+      const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 400);
+      if(!names.length) { imagesRef.current = {}; return; }
+      const { getImagesForNames } = await import("@/lib/scryfall");
+      const m = await getImagesForNames(names);
+      const obj: any = {}; 
+      m.forEach((v: any, k: string) => { 
+        obj[norm(k)] = { small: v.small, normal: v.normal }; 
+      });
+      imagesRef.current = obj;
+      
+      // Also fetch metadata
       const chunked: string[][] = []; for(let i=0;i<names.length;i+=75) chunked.push(names.slice(i,i+75));
       for(const part of chunked){
         const rr = await fetch('/api/cards/batch-metadata', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names: part }) });
         const jj:any = rr.ok? await rr.json().catch(()=>({})) : {};
         const data:any[] = Array.isArray(jj?.data)? jj.data : [];
         for(const c of data){
-          const key = String(c?.name||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+          const key = norm(c?.name||'');
           metaRef.current.set(key, { set: String(c?.set||'').toUpperCase(), rarity: String(c?.rarity||'').toLowerCase(), type_line: String(c?.type_line||''), colors: Array.isArray(c?.color_identity)? c.color_identity: [] });
         }
       }
-    }catch{}
+    }catch{ imagesRef.current = {}; }
   })(); }, [items.map(i=>i.name).join('|')]);
 
-  const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  // Color pie
+  const [colorCounts, setColorCounts] = React.useState<Record<string, number>>({ W:0, U:0, B:0, R:0, G:0 });
+  React.useEffect(()=>{ (async()=>{
+    try{
+      const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 300);
+      if(!names.length) { setColorCounts({W:0,U:0,B:0,R:0,G:0}); return; }
+      const chunks: string[][] = [];
+      for(let i=0;i<names.length;i+=75) chunks.push(names.slice(i,i+75));
+      const counts = { W:0,U:0,B:0,R:0,G:0 } as Record<string, number>;
+      for(const part of chunks){
+        const body = { identifiers: part.map(n=>({ name:n })) };
+        const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+        const j:any = r.ok ? await r.json().catch(()=>({})) : {};
+        const data:any[] = Array.isArray(j?.data)? j.data : [];
+        for(const c of data){
+          const ci: string[] = Array.isArray(c?.color_identity)? c.color_identity : [];
+          if(ci.length){ const share = 1/ci.length; for(const k of ci){ if(counts[k]!=null) counts[k]+=share; } }
+        }
+      }
+      setColorCounts(counts);
+    }catch{ setColorCounts({W:0,U:0,B:0,R:0,G:0}); }
+  })(); }, [items]);
+
+  // Sets and rarity
+  const [allSets, setAllSets] = React.useState<Array<{ set: string; count: number }>>([]);
+  React.useEffect(()=>{ (async()=>{
+    try{
+      const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 300);
+      if(!names.length){ setAllSets([]); return; }
+      const chunks: string[][] = []; for(let i=0;i<names.length;i+=75) chunks.push(names.slice(i,i+75));
+      const counts = new Map<string, number>();
+      for(const part of chunks){
+        const body = { identifiers: part.map(n=>({ name:n })) };
+        const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+        const j:any = r.ok? await r.json().catch(()=>({})) : {};
+        const data:any[] = Array.isArray(j?.data)? j.data : [];
+        for(const c of data){
+          const code = String(c?.set||'').toUpperCase(); if(code) counts.set(code, (counts.get(code)||0)+1);
+        }
+      }
+      const all = Array.from(counts.entries()).map(([set,count])=>({ set, count })).sort((a,b)=>b.count-a.count);
+      setAllSets(all);
+    }catch{ setAllSets([]); }
+  })(); }, [items]);
 
   // Filters
-  const [fColors, setFColors] = React.useState<string[]>([]); // W U B R G C
+  const [fColors, setFColors] = React.useState<string[]>([]);
   const [fRarity, setFRarity] = React.useState<string[]>([]);
   const [fSets, setFSets] = React.useState<string[]>([]);
   const [fTypes, setFTypes] = React.useState<string[]>([]);
   const [fPrice, setFPrice] = React.useState<string>('');
   const [fQtyMin, setFQtyMin] = React.useState<number>(0);
-
-  // Price slider (min/max) with presets fallback
   const [pMin, setPMin] = React.useState<number|''>('');
   const [pMax, setPMax] = React.useState<number|''>('');
 
   const filtered = React.useMemo(()=>{
     let arr = items.slice();
-    if(debounced) arr = arr.filter(i=> i.name.toLowerCase().includes(debounced));
+    if(debouncedFilter) arr = arr.filter(i=> i.name.toLowerCase().includes(debouncedFilter));
     if(fQtyMin>0) arr = arr.filter(i=> i.qty >= fQtyMin);
     if(fSets.length) arr = arr.filter(i=> fSets.includes((metaRef.current.get(norm(i.name))?.set||'').toUpperCase()));
     if(fRarity.length) arr = arr.filter(i=> fRarity.includes((metaRef.current.get(norm(i.name))?.rarity||'').toLowerCase()));
@@ -96,21 +205,62 @@ export default function BinderClient({ collectionId }: { collectionId: string })
     if(fPrice){ arr = arr.filter(i=>{ const unit = priceMap[norm(i.name)]||0; switch(fPrice){ case '<1': return unit<1; case '1-5': return unit>=1 && unit<5; case '5-20': return unit>=5 && unit<20; case '20+': return unit>=20; default: return true; } }); }
     if(pMin!=='' || pMax!==''){ const lo = pMin===''? -Infinity : Number(pMin); const hi = pMax===''? Infinity : Number(pMax); arr = arr.filter(i=>{ const u=priceMap[norm(i.name)]||0; return u>=lo && u<=hi; }); }
     return arr;
-  }, [items, debounced, fQtyMin, fSets.join('|'), fRarity.join('|'), fTypes.join('|'), fColors.join('|'), fPrice, pMin, pMax, priceMap]);
+  }, [items, debouncedFilter, fQtyMin, fSets.join('|'), fRarity.join('|'), fTypes.join('|'), fColors.join('|'), fPrice, pMin, pMax, priceMap]);
 
   const calcPos = (e: MouseEvent | any) => {
     try{ const vw=window.innerWidth, vh=window.innerHeight, margin=12, boxW=320, boxH=460, half=boxW/2; const rawX=e.clientX as number, rawY=e.clientY as number; const below = rawY - boxH - margin < 0; const x=Math.min(vw-margin-half, Math.max(margin+half, rawX)); const y = below ? Math.min(vh - margin, rawY + margin) : Math.max(margin + 1, rawY - margin); return { x, y, below }; } catch { return { x: (e as any).clientX||0, y: (e as any).clientY||0, below:false }; }
   };
 
-  // Sidebar stats (basic)
   const totalCards = filtered.reduce((s,i)=>s+i.qty,0);
   const unique = filtered.length;
-  const estTotal = filtered.reduce((acc,it)=> acc + (priceMap[norm(it.name)]||0)*it.qty, 0);
+  const estTotal = valueUSD !== null ? valueUSD : filtered.reduce((acc,it)=> acc + (priceMap[norm(it.name)]||0)*it.qty, 0);
 
-  // Sets and rarity breakdown from metaRef
+  // Sets and rarity breakdown
   const setsTop = React.useMemo(()=>{ const m = new Map<string, number>(); for(const it of filtered){ const code=(metaRef.current.get(norm(it.name))?.set||''); if(!code) continue; m.set(code, (m.get(code)||0)+it.qty); } return Array.from(m.entries()).map(([set,count])=>({ set, count })).sort((a,b)=>b.count-a.count).slice(0,10); }, [filtered]);
   const rarityHist = React.useMemo(()=>{ const m = new Map<string, number>(); for(const it of filtered){ const r=(metaRef.current.get(norm(it.name))?.rarity||''); if(!r) continue; m.set(r, (m.get(r)||0)+it.qty); } return Array.from(m.entries()).map(([label,value])=>({ label, value })); }, [filtered]);
   const typeHist = React.useMemo(()=>{ const buckets=['creature','instant','sorcery','land','artifact','enchantment']; const m = new Map<string, number>(); for(const b of buckets) m.set(b,0); for(const it of filtered){ const tl=(metaRef.current.get(norm(it.name))?.type_line||'').toLowerCase(); for(const b of buckets){ if(tl.includes(b)) m.set(b, (m.get(b)||0)+it.qty); } } return Array.from(m.entries()).map(([label,value])=>({ label, value })); }, [filtered]);
+
+  // Price buckets
+  const [buckets, setBuckets] = React.useState<Array<{ label:string; value:number }>>([]);
+  React.useEffect(()=>{ (async()=>{
+    try{
+      const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/price-buckets?currency=${encodeURIComponent(currency)}`, { cache:'no-store' });
+      const j = await r.json().catch(()=>({ ok:false }));
+      if(j?.ok !== false){ setBuckets((j.buckets||[]).map((b:any)=>({ label:b.bucket, value:Number(b.count||0) }))); }
+    }catch{}
+  })(); }, [collectionId, currency]);
+
+  function ColorPie(){
+    const order:[keyof typeof colorCounts, string][] = [['W','#f3f2e1'],['U','#70a0d0'],['B','#6a5c6a'],['R','#d2756a'],['G','#6db07b']];
+    const sum = Object.values(colorCounts).reduce((a,b)=>a+b,0) || 1;
+    const segs = order.map(([k,col])=> ({ k, col, pct: (colorCounts[k]/sum)*100 }));
+    let grad = "conic-gradient(";
+    let acc = 0;
+    segs.forEach((s,i)=>{ const start = acc; acc += s.pct; grad += `${s.col} ${start}% ${acc}%${i<segs.length-1?',':''}`; });
+    grad += ")";
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-16 h-16 rounded-full border border-neutral-700" style={{ background: grad }} aria-label="color pie" />
+        <div className="text-xs space-y-0.5">
+          {order.map(([k,col])=> { const sum = Object.values(colorCounts).reduce((a,b)=>a+b,0)||1; const pct = Math.round(((colorCounts[k]||0)/sum)*100); return (<div key={k} className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded" style={{ background: col }}></span>{k}: {pct}%</div>); })}
+        </div>
+      </div>
+    );
+  }
+
+  function BarList({ data, total }: { data: Array<{ label:string; value:number }>; total?: number }){
+    const sum = (total ?? data.reduce((s,d)=>s+d.value,0)) || 1;
+    return (
+      <div className="space-y-1">
+        {data.map((d)=> (
+          <div key={d.label} className="text-xs">
+            <div className="flex items-center justify-between"><span className="opacity-80">{d.label}</span><span className="font-mono">{d.value}</span></div>
+            <div className="h-2 rounded bg-neutral-900 overflow-hidden"><div className="h-2" style={{ width: `${Math.max(2, (d.value/sum)*100)}%`, background: '#4ade80' }} /></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$');
 
@@ -154,12 +304,22 @@ export default function BinderClient({ collectionId }: { collectionId: string })
         {!loading && !error && (
           <ul className="divide-y divide-neutral-900 rounded border border-neutral-800 overflow-hidden">
             {filtered.map((it, idx)=>{
-              const k = norm(it.name); const img = imgMap[k]?.small; const unit = priceMap[k]||0;
+              const k = norm(it.name); const img = imagesRef.current[k]?.small; const unit = priceMap[k]||0;
               return (
-                <li key={idx} className="flex items-center gap-3 px-3 py-2">
+                <li key={idx} className="flex items-center gap-3 px-3 py-2 hover:bg-neutral-900/30 transition-colors">
                   <span className="w-10 text-right font-mono text-sm">{it.qty}</span>
                   {img ? (
-                    <img src={img} alt={it.name} className="w-[24px] h-[34px] object-cover rounded" {...(bind(imgMap[k]?.normal || img) as any)} />
+                    <img src={img} alt={it.name} className="w-[24px] h-[34px] object-cover rounded cursor-pointer" 
+                      onMouseEnter={(e) => { 
+                        const { x, y, below } = calcPos(e as any); 
+                        setPv({ src: imagesRef.current[k]?.normal || img, x, y, shown: true, below }); 
+                      }}
+                      onMouseMove={(e) => { 
+                        const { x, y, below } = calcPos(e as any); 
+                        setPv(p => p.shown ? { ...p, x, y, below } : p); 
+                      }}
+                      onMouseLeave={() => setPv(p => ({ ...p, shown: false }))}
+                    />
                   ) : <div className="w-[24px] h-[34px] bg-neutral-900 rounded" />}
                   <div className="flex-1 min-w-0">
                     <div className="truncate text-sm">{it.name}</div>
@@ -176,27 +336,130 @@ export default function BinderClient({ collectionId }: { collectionId: string })
       </div>
 
       <aside className="lg:col-span-1 xl:col-span-3 space-y-3">
-        <div className="rounded border border-neutral-800 p-3">
-          <div className="font-medium mb-1">Overview</div>
-          <div className="text-sm">Cards: <b className="font-mono">{totalCards}</b></div>
-          <div className="text-sm">Unique: <b className="font-mono">{unique}</b></div>
-          <div className="text-sm">Value: <b className="font-mono" suppressHydrationWarning>{new Intl.NumberFormat(undefined, { style:'currency', currency }).format(estTotal)}</b></div>
+        {/* Overview */}
+        <div className="rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
+          <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
+              <span className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Overview</span>
+            </div>
+            <div className="text-base font-semibold">Cards: <b className="font-mono text-cyan-400">{totalCards}</b></div>
+            <div className="text-base font-semibold">Unique: <b className="font-mono text-cyan-400">{unique}</b></div>
+            <div className="text-base font-semibold flex items-center gap-2">Value: <b className="font-mono text-cyan-400">{estTotal!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(estTotal): '—'}</b>
+              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+            </div>
+          </div>
         </div>
-        <div className="rounded border border-neutral-800 p-3">
-          <div className="font-medium mb-1">Sets represented</div>
-          <div className="flex flex-wrap gap-1 text-[11px]">{setsTop.length? setsTop.map(s=> (<span key={s.set} className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800">{s.set} • {s.count}</span>)) : <span className="text-xs opacity-70">—</span>}</div>
-        </div>
-        <div className="rounded border border-neutral-800 p-3">
-          <div className="font-medium mb-1">Rarity breakdown</div>
-          <div className="space-y-1 text-xs">{rarityHist.map(r=> (<div key={r.label} className="flex items-center justify-between"><span className="opacity-80">{r.label}</span><span className="font-mono">{r.value}</span></div>))}</div>
-        </div>
-        <div className="rounded border border-neutral-800 p-3">
-          <div className="font-medium mb-1">Type histogram</div>
-          <div className="space-y-1 text-xs">{typeHist.map(r=> (<div key={r.label} className="flex items-center justify-between"><span className="opacity-80">{r.label}</span><span className="font-mono">{r.value}</span></div>))}</div>
-        </div>
+        
+        {/* Color pie */}
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Color pie</span>
+            </div>
+          </summary>
+          <div className="p-3 space-y-2">
+            <ColorPie />
+            {(() => {
+              const sum = Object.values(colorCounts).reduce((a,b)=>a+b,0) || 1;
+              const order:[keyof typeof colorCounts, string][] = [['W','White'],['U','Blue'],['B','Black'],['R','Red'],['G','Green']];
+              const topColors = order
+                .map(([k]) => ({ k, val: (colorCounts[k]||0)/sum }))
+                .filter(({val}) => val > 0)
+                .sort((a,b) => b.val - a.val)
+                .slice(0, 2);
+              
+              if (topColors.length >= 2 && topColors[0].val > 0.25 && topColors[1].val > 0.25) {
+                const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+                return (
+                  <p className="text-xs text-neutral-400 italic mt-2">
+                    {colorNames[topColors[0].k]} and {colorNames[topColors[1].k]} dominate this collection
+                  </p>
+                );
+              } else if (topColors.length > 0 && topColors[0].val > 0.4) {
+                const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+                return (
+                  <p className="text-xs text-neutral-400 italic mt-2">
+                    Heavily skewed toward {colorNames[topColors[0].k]}
+                  </p>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        </details>
+        
+        {/* Price history */}
+        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Price history</span>
+            </div>
+          </summary>
+          <div className="p-3 space-y-2">
+            <CollectionPriceHistory collectionId={collectionId} currency={currency} />
+          </div>
+        </details>
+        
+        {/* Type histogram */}
+        <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+          <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-sky-400/70 animate-pulse shadow-sm shadow-sky-400/30"></div>
+              <span className="text-sm font-semibold text-neutral-300">Type histogram</span>
+            </div>
+          </summary>
+          <div className="p-3"><BarList data={typeHist} /></div>
+        </details>
+        
+        {/* Price distribution */}
+        <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+          <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-green-400/70 animate-pulse shadow-sm shadow-green-400/30"></div>
+              <span className="text-sm font-semibold text-neutral-300">Price distribution</span>
+            </div>
+          </summary>
+          <div className="p-3"><BarList data={buckets} /></div>
+        </details>
+        
+        {/* Sets */}
+        <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+          <summary className="cursor-pointer select-none px-4 py-3 list-none">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-indigo-400 animate-pulse shadow-lg shadow-indigo-400/50"></div>
+              <span className="text-base font-bold bg-gradient-to-r from-indigo-400 to-violet-500 bg-clip-text text-transparent">Sets</span>
+            </div>
+          </summary>
+          <div className="p-3">
+            <div className="flex flex-wrap gap-1 text-[11px]">{allSets.length? allSets.map(s=> (
+              <span key={s.set} className="px-2 py-1 rounded-lg bg-gradient-to-r from-neutral-800 to-neutral-700 border border-neutral-600">{s.set} • {s.count}</span>
+            )) : <span className="text-xs opacity-70">—</span>}</div>
+          </div>
+        </details>
       </aside>
 
-      {preview}
+      {/* Hover preview */}
+      {pv.shown && typeof window !== 'undefined' && (
+        <div 
+          className="fixed z-[9999] pointer-events-none" 
+          style={{ 
+            left: pv.x, 
+            top: pv.y, 
+            transform: `translate(-50%, ${pv.below ? '0%' : '-100%'})` 
+          }}
+        >
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl w-72 md:w-80 transition-opacity duration-150 ease-out opacity-100" style={{ minWidth: '18rem' }}>
+            <img 
+              src={pv.src} 
+              alt="preview" 
+              className="block w-full h-auto max-h-[70vh] max-w-none object-contain rounded" 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

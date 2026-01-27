@@ -19,13 +19,13 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
       
       const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
       
-      // Step 1: Try snapshot prices first
-      const pr = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
+      // Step 1: Try cache first (via /api/price which uses price_cache table)
+      const pr = await fetch('/api/price', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const pj = await pr.json().catch(()=>({}));
-      let prices: Record<string, number> = (pj?.ok && pj?.prices) ? pj.prices : {};
+      let prices: Record<string, number> = (pr.ok && pj?.ok && pj?.prices) ? pj.prices : {};
       
-      // Step 2: Fallback to Scryfall live prices for missing cards
-      const missingNames = names.filter(name => !prices[norm(name)]);
+      // Step 2: Fallback to Scryfall live prices for missing cards (only if cache didn't have them)
+      const missingNames = names.filter(name => !prices[norm(name)] || prices[norm(name)] === 0);
       
       if (missingNames.length > 0) {
         try {
@@ -60,9 +60,26 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
                 priceValue = cardPrices?.eur_foil || cardPrices?.eur;
               }
               
-              // For GBP, try foil fallback
+              // For GBP, try foil fallback, then convert from USD if needed
               if ((!priceValue || priceValue === null || priceValue === 0) && currency === 'GBP') {
                 priceValue = cardPrices?.gbp_foil || cardPrices?.gbp;
+                // If still no GBP price, convert from USD (Scryfall often doesn't have direct GBP)
+                if ((!priceValue || priceValue === null || priceValue === 0) && cardPrices?.usd) {
+                  try {
+                    const { getRates } = await import('@/lib/currency/rates');
+                    const rates = await getRates();
+                    const usdValue = Number(cardPrices.usd);
+                    if (usdValue > 0) {
+                      priceValue = Number((usdValue * rates.usd_gbp).toFixed(2));
+                    }
+                  } catch (fxError) {
+                    // Fallback to static rate if FX fetch fails
+                    const usdValue = Number(cardPrices.usd);
+                    if (usdValue > 0) {
+                      priceValue = Number((usdValue * 0.78).toFixed(2));
+                    }
+                  }
+                }
               }
               
               if (priceValue != null && priceValue > 0 && !isNaN(Number(priceValue))) {
@@ -90,6 +107,24 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
                       // Fallback to foil if needed (for USD)
                       if ((!pv || pv === null || pv === 0) && currency === 'USD') {
                         pv = printPrices?.usd_foil || printPrices?.usd_etched || printPrices?.usd;
+                      }
+                      
+                      // For GBP, convert from USD if needed
+                      if ((!pv || pv === null || pv === 0) && currency === 'GBP' && printPrices?.usd) {
+                        try {
+                          const { getRates } = await import('@/lib/currency/rates');
+                          const rates = await getRates();
+                          const usdValue = Number(printPrices.usd);
+                          if (usdValue > 0) {
+                            pv = Number((usdValue * rates.usd_gbp).toFixed(2));
+                          }
+                        } catch (fxError) {
+                          // Fallback to static rate
+                          const usdValue = Number(printPrices.usd);
+                          if (usdValue > 0) {
+                            pv = Number((usdValue * 0.78).toFixed(2));
+                          }
+                        }
                       }
                       
                       if (pv != null && pv > 0 && !isNaN(Number(pv))) {

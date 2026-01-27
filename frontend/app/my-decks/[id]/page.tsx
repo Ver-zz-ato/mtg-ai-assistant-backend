@@ -301,12 +301,29 @@ export default async function Page({ params, searchParams }: { params: Promise<P
         </section>
 
         <aside className="col-span-12 md:col-span-3 space-y-4">
-          {/* Deck Value - FIRST */}
+          {/* Deck Value - FIRST (default showing) */}
           <PanelWrapper title="Deck Value" colorFrom="emerald-400" colorTo="teal-500">
             <DeckPriceMini deckId={id} />
           </PanelWrapper>
 
-          {/* Mana Curve - THIRD */}
+          {/* AI Assistant - SECOND (default showing, chatbox hidden until button clicked) */}
+          {(() => {
+            try {
+              const DeckSidebar = require('./DeckSidebar').default;
+              return (
+                <DeckSidebar 
+                  deckId={id} 
+                  isPro={isPro} 
+                  format={format}
+                  commander={deck?.commander || null}
+                />
+              );
+            } catch {
+              return null;
+            }
+          })()}
+
+          {/* Mana Curve - THIRD (default showing) */}
           <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="teal-500" defaultHiddenOnMobile={true}>
             <div className="grid grid-cols-7 gap-1 items-end h-24">
               {(['1','2','3','4','5','6','7+'] as const).map(k => {
@@ -324,7 +341,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
           </PanelWrapper>
 
-          {/* Card Types - FOURTH */}
+          {/* Card Types - FOURTH (default hidden) */}
           <PanelWrapper title="Card Types" colorFrom="emerald-400" colorTo="teal-500" defaultCollapsed={true}>
             <div className="space-y-1 text-[11px]">
               {(Object.keys(types) as Array<keyof typeof types>).map((k) => {
@@ -340,7 +357,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
           </PanelWrapper>
 
-          {/* Playstyle Radar - SIXTH */}
+          {/* Playstyle Radar - FIFTH (default hidden) */}
           <PanelWrapper title="Playstyle Radar" colorFrom="emerald-400" colorTo="teal-500" large defaultCollapsed={true}>
             <div className="flex flex-col items-center gap-6">
               <div className="flex flex-col items-center w-full p-4 bg-neutral-800/30 rounded-lg border border-neutral-700/50">
@@ -366,23 +383,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               </div>
             </div>
           </PanelWrapper>
-          
-          {/* AI Assistant and other widgets */}
-          {(() => {
-            try {
-              const DeckSidebar = require('./DeckSidebar').default;
-              return (
-                <DeckSidebar 
-                  deckId={id} 
-                  isPro={isPro} 
-                  format={format}
-                  commander={deck?.commander || null}
-                />
-              );
-            } catch {
-              return null;
-            }
-          })()}
         </aside>
         </div>
       </div>

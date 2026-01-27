@@ -246,7 +246,7 @@ export default function DeckAnalyzerExpandable() {
                 setError(null);
               }}
               onClick={(e) => e.stopPropagation()}
-              placeholder="1 Sol Ring&#10;2 Lightning Bolt&#10;3 Counterspell&#10;..."
+              placeholder="Paste your decklist here (one card per line)&#10;Example:&#10;1 Sol Ring&#10;1 Arcane Signet&#10;2 Lightning Bolt"
               className="w-full h-32 px-3 py-2 rounded bg-neutral-900 border border-neutral-700 text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-600 resize-none"
             />
           </div>

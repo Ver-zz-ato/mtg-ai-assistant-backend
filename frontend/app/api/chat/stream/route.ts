@@ -214,11 +214,23 @@ export async function POST(req: NextRequest) {
     }
     
     // Add inference when deck is linked (lightweight for streaming)
-    if (tid && !isGuest) {
+    // Check both thread-linked deck and context.deckId (passed directly from DeckAssistant)
+    const contextDeckId = typeof raw?.context === 'object' && raw.context !== null && 'deckId' in raw.context
+      ? (raw.context as any).deckId
+      : null;
+    
+    if ((tid && !isGuest) || contextDeckId) {
       try {
-        // Check if thread is linked to a deck
-        const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
-        const deckIdLinked = th?.deck_id as string | null;
+        // Check if thread is linked to a deck, or use context.deckId
+        let deckIdLinked: string | null = null;
+        if (tid && !isGuest) {
+          const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
+          deckIdLinked = th?.deck_id as string | null;
+        }
+        // Prefer context.deckId if provided (more direct)
+        if (contextDeckId) {
+          deckIdLinked = contextDeckId;
+        }
         
         if (deckIdLinked) {
           try {
@@ -233,40 +245,50 @@ export async function POST(req: NextRequest) {
               deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
             }
             
-            // Run lightweight inference (skip expensive Scryfall lookups for streaming)
-            if (entries.length > 0) {
-              try {
-                const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
-                const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
-                const commander = d?.commander || null;
-                
-                // Build minimal card map (only fetch first 50 cards for speed)
-                const byName = new Map<string, SfCard>();
-                const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 50);
-                const looked = await Promise.all(unique.map(name => fetchCard(name)));
-                for (const c of looked) {
-                  if (c) byName.set(c.name.toLowerCase(), c);
+            // Always add decklist to system prompt if we have it
+            if (deckText && deckText.trim()) {
+              const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+              const commander = d?.commander || null;
+              
+              // Try to infer context for better analysis, but don't fail if inference fails
+              let inferredContext: any = { format, colors: [], commander };
+              if (entries.length > 0) {
+                try {
+                  const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
+                  
+                  // Build minimal card map (only fetch first 50 cards for speed)
+                  const byName = new Map<string, SfCard>();
+                  const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 50);
+                  const looked = await Promise.all(unique.map(name => fetchCard(name)));
+                  for (const c of looked) {
+                    if (c) byName.set(c.name.toLowerCase(), c);
+                  }
+                  
+                  // Infer deck context
+                  inferredContext = await inferDeckContext(deckText, text, entries, format, commander, [], byName);
+                } catch (error) {
+                  console.warn("[stream] Failed to infer deck context:", error);
+                  // Use basic info if inference fails
+                  inferredContext = { format, colors: [], commander };
                 }
-                
-                // Infer deck context
-                const inferredContext = await inferDeckContext(deckText, text, entries, format, commander, [], byName);
-                
-                // Add key inferred context to system prompt
-                sys += `\n\nINFERRED DECK ANALYSIS:\n`;
-                sys += `- Format: ${inferredContext.format}\n`;
-                sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
-                if (inferredContext.commander) {
-                  sys += `- Commander: ${inferredContext.commander}\n`;
-                }
-                if (inferredContext.format !== "Commander") {
-                  sys += `- WARNING: Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
-                  sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
-                }
-                sys += `- Do NOT suggest cards already in the decklist.\n`;
-                sys += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
-              } catch (error) {
-                console.warn("[stream] Failed to infer deck context:", error);
               }
+              
+              // Add key inferred context to system prompt - make it explicit so AI doesn't assume format
+              sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
+              sys += `- Format: ${inferredContext.format} (this is the deck's format, do NOT say "Format unclear" or "I'll assume")\n`;
+              sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
+              if (inferredContext.commander) {
+                sys += `- Commander: ${inferredContext.commander}\n`;
+              }
+              sys += `- Deck Title: ${d?.title || 'Untitled Deck'}\n`;
+              sys += `- Full Decklist:\n${deckText}\n`;
+              sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to "share the decklist" or "provide a decklist" - you already have it. The format, commander, color identity, and full decklist are all known. Do NOT include messages like "Format unclear — I'll assume Commander (EDH) for now" or "I'll need to see the decklist" - start directly with your analysis or suggestions.\n`;
+              if (inferredContext.format !== "Commander") {
+                sys += `- WARNING: Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
+                sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
+              }
+              sys += `- Do NOT suggest cards already in the decklist above.\n`;
+              sys += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
             }
           } catch (error) {
             console.warn("[stream] Failed to fetch deck for inference:", error);

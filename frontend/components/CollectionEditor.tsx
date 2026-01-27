@@ -71,8 +71,29 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick }: 
     try{
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/price-buckets?currency=${encodeURIComponent(currency)}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({ ok:false }));
-      if(j?.ok !== false){ setBuckets((j.buckets||[]).map((b:any)=>({ label:b.bucket, value:Number(b.count||0) }))); }
-    } catch{}
+      
+      // Define all expected price brackets
+      const allBrackets = ['<$1', '$1–5', '$5–20', '$20–50', '$50–100', '$100+'];
+      
+      if(j?.ok !== false){
+        const fetched = (j.buckets||[]).map((b:any)=>({ label:b.bucket, value:Number(b.count||0) }));
+        // Create a map for quick lookup
+        const fetchedMap = new Map(fetched.map((b: { label: string; value: number }) => [b.label, b.value]));
+        // Ensure all brackets are present, even with 0 count
+        const complete = allBrackets.map(label => ({
+          label,
+          value: Number(fetchedMap.get(label) || 0)
+        }));
+        setBuckets(complete);
+      } else {
+        // If API fails, show all brackets with 0
+        setBuckets(allBrackets.map(label => ({ label, value: 0 })));
+      }
+    } catch{
+      // On error, show all brackets with 0
+      const allBrackets = ['<$1', '$1–5', '$5–20', '$20–50', '$50–100', '$100+'];
+      setBuckets(allBrackets.map(label => ({ label, value: 0 })));
+    }
   })(); }, [collectionId, currency]);
   return (
     <>
@@ -109,10 +130,15 @@ function WishlistCompareCard({ collectionId, currency }: { collectionId: string;
     let alive = true;
     (async()=>{
       try{
-        const r = await fetch('/api/wishlists', { cache:'no-store' });
+        const r = await fetch('/api/wishlists/list', { cache:'no-store' });
         const j = await r.json().catch(()=>({}));
-        if(alive && r.ok){ setWishlists(Array.isArray(j?.wishlists)? j.wishlists : (Array.isArray(j)? j : [])); }
-      }catch{}
+        if(alive && r.ok){ 
+          const wls = Array.isArray(j?.wishlists)? j.wishlists : (Array.isArray(j)? j : []);
+          setWishlists(wls);
+        }
+      }catch(e){
+        console.error('[WishlistCompareCard] Failed to load wishlists:', e);
+      }
     })();
     return ()=>{ alive=false; };
   }, []);

@@ -503,7 +503,8 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           });
           setIsStreaming(false);
           setStreamingContent('');
-          if (tid) refresh(tid);
+          // Don't refresh here - it causes duplicate messages since we already have them in state
+          // The server has saved the messages, but we don't need to refetch them
           
           // Scroll to bottom after streaming completes
           requestAnimationFrame(() => {
@@ -949,8 +950,8 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 // Auto-resize textarea up to max height
                 const textarea = e.target;
                 textarea.style.height = 'auto';
-                const newHeight = Math.min(textarea.scrollHeight, 128); // max-h-32 = 8rem = 128px
-                textarea.style.height = `${Math.max(44, newHeight)}px`; // min-h-[44px] = 44px
+                const newHeight = Math.min(textarea.scrollHeight, 400); // max-h-[400px] = 400px
+                textarea.style.height = `${Math.max(200, newHeight)}px`; // min-h-[200px] = 200px
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -960,11 +961,11 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
               }}
               placeholder="Ask me anything about your deck…"
               rows={1}
-              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[44px] max-h-32 overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[200px] max-h-[400px] overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               style={{
                 WebkitAppearance: 'none',
                 fontSize: '16px', // Prevents zoom on iOS
-                height: '44px' // Initial height
+                height: '200px' // Initial height - doubled from 44px
               }}
             />
             {/* Voice input button - positioned inside textarea */}

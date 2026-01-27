@@ -373,19 +373,7 @@ export default function DeckSidebar({
         </div>
       </div>
       
-      {/* Deck Checks - Merged Analyzer + Legality */}
-      {(() => {
-        try {
-          const DeckChecks = require('./DeckChecksPanel').default;
-          return <DeckChecks deckId={deckId} isPro={isPro} format={format} />;
-        } catch {
-          // Fallback to old panels if new component fails
-          return (
-            <DeckAnalyzerWithHide deckId={deckId} isPro={isPro} format={format} />
-          );
-        }
-      })()}
-      
+      {/* Probability Calculator - SIXTH (default hidden) */}
       <DeckProbabilityWithHide deckId={deckId} isPro={isPro} />
     </div>
   );

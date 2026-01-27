@@ -285,9 +285,8 @@ export default function HeroLandingPage() {
                 Is the AI Commander deck builder really free?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                <strong className="text-gray-900 dark:text-white">Yes! You can analyze unlimited decks for free.</strong> No signup required to get started. 
-                Pro features like deck version history and advanced analytics are available with a subscription, 
-                but core deck analysis is completely free.
+                <strong className="text-gray-900 dark:text-white">Yes! Core deck analysis is free, but you need a free account signup to start analyzing decks.</strong> 
+                Some core features are available for free users, while advanced features like deck version history and advanced analytics require a Pro subscription.
               </p>
             </div>
 

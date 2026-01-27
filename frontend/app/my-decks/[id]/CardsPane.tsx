@@ -469,15 +469,15 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         // Clear price map when currency or cards change to avoid stale data
         setPriceMap({});
         
-        // Normalize card names the same way as snapshot API
+        // Normalize card names the same way as price API
         const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
         
-        // Step 1: Try snapshot prices first (with cache busting for currency changes)
-        const r1 = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
+        // Step 1: Try cache first (via /api/price which uses price_cache table)
+        const r1 = await fetch('/api/price', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const j1 = await r1.json().catch(()=>({ ok:false }));
         let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
         
-        // Step 2: Find missing cards and fetch from Scryfall
+        // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)
         const normalizedNames = Array.from(new Set(rows.map(r => norm(r.name))));
         const missingNames = normalizedNames.filter(n => !prices[n] || prices[n] === 0);
         
@@ -520,9 +520,26 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                     v = cardPrices?.eur_foil || cardPrices?.eur;
                   }
                   
-                  // For GBP, try foil fallback
+                  // For GBP, try foil fallback, then convert from USD if needed
                   if ((!v || v === null || v === 0) && currency === 'GBP') {
                     v = cardPrices?.gbp_foil || cardPrices?.gbp;
+                    // If still no GBP price, convert from USD (Scryfall often doesn't have direct GBP)
+                    if ((!v || v === null || v === 0) && cardPrices?.usd) {
+                      try {
+                        const usdValue = Number(cardPrices.usd);
+                        if (usdValue > 0) {
+                          const { getRates } = await import('@/lib/currency/rates');
+                          const rates = await getRates();
+                          v = Number((usdValue * rates.usd_gbp).toFixed(2));
+                        }
+                      } catch (fxError) {
+                        // Fallback to static rate if FX fetch fails
+                        const usdValue = Number(cardPrices.usd);
+                        if (usdValue > 0) {
+                          v = Number((usdValue * 0.78).toFixed(2));
+                        }
+                      }
+                    }
                   }
                   
                   if (v!=null && v > 0 && !isNaN(Number(v))) {
@@ -550,6 +567,24 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                           // Fallback to foil if needed (for USD)
                           if ((!pv || pv === null || pv === 0) && currency === 'USD') {
                             pv = printPrices?.usd_foil || printPrices?.usd_etched || printPrices?.usd;
+                          }
+                          
+                          // For GBP, convert from USD if needed
+                          if ((!pv || pv === null || pv === 0) && currency === 'GBP' && printPrices?.usd) {
+                            try {
+                              const { getRates } = await import('@/lib/currency/rates');
+                              const rates = await getRates();
+                              const usdValue = Number(printPrices.usd);
+                              if (usdValue > 0) {
+                                pv = Number((usdValue * rates.usd_gbp).toFixed(2));
+                              }
+                            } catch (fxError) {
+                              // Fallback to static rate
+                              const usdValue = Number(printPrices.usd);
+                              if (usdValue > 0) {
+                                pv = Number((usdValue * 0.78).toFixed(2));
+                              }
+                            }
                           }
                           
                           if (pv != null && pv > 0 && !isNaN(Number(pv))) {

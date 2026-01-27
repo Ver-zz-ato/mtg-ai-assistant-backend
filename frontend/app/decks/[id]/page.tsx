@@ -565,7 +565,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             <div className="flex items-center gap-2 mb-4">
               <div className="h-1 w-1 rounded-full bg-violet-400 animate-pulse shadow-lg shadow-violet-400/50"></div>
               <h2 className="text-base font-bold bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent">
-                Decklist ({(cards || []).length} cards)
+                Decklist ({((cards || []).reduce((sum, c) => sum + (c.qty || 1), 0))} cards)
               </h2>
             </div>
             <PublicDeckCardList cards={cards || []} priceMap={priceMap} />
@@ -613,42 +613,44 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             </div>
           </div>
 
-          {/* Core needs */}
-          <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
-              <h2 className="text-base font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Deck Fundamentals
-              </h2>
-            </div>
-            <div className="space-y-3 text-xs">
-              {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
-                const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
-                const ok = v>=minT && v<=maxT; const color = ok? 'from-emerald-500 to-green-500' : (v<minT? 'from-amber-500 to-orange-500':'from-red-500 to-rose-500');
-                const icon = label==='Lands'?'🏔️':label==='Ramp'?'⚡':label==='Draw'?'📚':'💥';
-                return (
-                  <div key={String(key)} className="group">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-neutral-200 flex items-center gap-1.5">
-                        <span>{icon}</span>
-                        <span>{label}</span>
-                      </span>
-                      <span className="font-mono font-semibold text-amber-400">{v}/{maxT}</span>
+          {/* Core needs - Only show for owner */}
+          {isOwner && (
+            <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50"></div>
+                <h2 className="text-base font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                  Deck Fundamentals
+                </h2>
+              </div>
+              <div className="space-y-3 text-xs">
+                {([['Lands','lands',34,38],['Ramp','ramp',8,8],['Draw','draw',8,8],['Removal','removal',5,5]] as const).map(([label,key,minT,maxT])=>{
+                  const v = (core as any)[key] || 0; const target = maxT; const pct = Math.max(0, Math.min(100, Math.round((v/target)*100)));
+                  const ok = v>=minT && v<=maxT; const color = ok? 'from-emerald-500 to-green-500' : (v<minT? 'from-amber-500 to-orange-500':'from-red-500 to-rose-500');
+                  const icon = label==='Lands'?'🏔️':label==='Ramp'?'⚡':label==='Draw'?'📚':'💥';
+                  return (
+                    <div key={String(key)} className="group">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-neutral-200 flex items-center gap-1.5">
+                          <span>{icon}</span>
+                          <span>{label}</span>
+                        </span>
+                        <span className="font-mono font-semibold text-amber-400">{v}/{maxT}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-neutral-800 overflow-hidden shadow-inner">
+                        <div className={`h-2 bg-gradient-to-r ${color} transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-xs opacity-70 mt-0.5 text-neutral-400">
+                        {ok ? '✓ Good' : v<minT ? '⚠️ Need more' : '⚠️ Too many'} • Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}
+                      </div>
                     </div>
-                    <div className="h-2 rounded-full bg-neutral-800 overflow-hidden shadow-inner">
-                      <div className={`h-2 bg-gradient-to-r ${color} transition-all`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="text-xs opacity-70 mt-0.5 text-neutral-400">
-                      {ok ? '✓ Good' : v<minT ? '⚠️ Need more' : '⚠️ Too many'} • Target: {minT===maxT? `${maxT}`:`${minT}–${maxT}`}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              <div className="mt-4 text-xs text-neutral-400 text-center px-2 py-2 bg-neutral-800/20 rounded border border-neutral-700/30">
+                🎯 Essential cards every deck needs
+              </div>
             </div>
-            <div className="mt-4 text-xs text-neutral-400 text-center px-2 py-2 bg-neutral-800/20 rounded border border-neutral-700/30">
-              🎯 Essential cards every deck needs
-            </div>
-          </div>
+          )}
 
           {/* Pricing mini */}
           <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
