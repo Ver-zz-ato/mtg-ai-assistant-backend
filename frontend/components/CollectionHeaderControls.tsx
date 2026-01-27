@@ -40,24 +40,50 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
     try{
       const body:any = { is_public: !isPublic };
       if(!isPublic){ 
-        // Use current slug if available and valid, otherwise generate from collection ID (guaranteed unique)
-        if (slug && slugOk !== false) {
+        // When making public: use current slug if available and valid, otherwise generate from collection ID (guaranteed unique)
+        if (slug && slugOk === true) {
           body.public_slug = slug;
         } else {
           // Generate unique slug from collection ID (UUID without hyphens)
           // This ensures every collection has a unique, shareable slug automatically
           body.public_slug = `collection-${collectionId.replace(/-/g, '')}`;
         }
+      } else {
+        // When making private: clear the slug to avoid conflicts
+        body.public_slug = null;
       }
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
       if(r.ok){ 
         const m=j?.meta??j; 
         setIsPublic(Boolean(m?.is_public)); 
-        setSlug(String(m?.public_slug||slug||'')); 
-        // Reset slug validation state when toggling
+        const newSlug = String(m?.public_slug||'');
+        setSlug(newSlug);
+        // Reset slug validation state when toggling to private
         if (!m?.is_public) {
           setSlugOk(undefined);
+        } else if (newSlug) {
+          // When making public, re-validate the slug
+          setSlugOk(undefined);
+          // Trigger validation check
+          const checkR = await fetch(`/api/collections/slug?slug=${encodeURIComponent(newSlug)}`, { cache:'no-store' });
+          const checkJ = await checkR.json().catch(()=>({}));
+          if(checkR.ok){ setSlugOk(Boolean(checkJ?.available)); }
+        }
+      } else {
+        // Handle error response
+        const errorMsg = j?.error || 'Failed to update';
+        if (errorMsg.includes('Slug already taken') || errorMsg.includes('already in use')) {
+          // If slug conflict, regenerate and retry
+          const retryBody = { is_public: true, public_slug: `collection-${collectionId.replace(/-/g, '')}` };
+          const retryR = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(retryBody) });
+          const retryJ = await retryR.json().catch(()=>({}));
+          if(retryR.ok){
+            const m=retryJ?.meta??retryJ;
+            setIsPublic(Boolean(m?.is_public));
+            setSlug(String(m?.public_slug||''));
+            setSlugOk(true);
+          }
         }
       }
     }catch{}

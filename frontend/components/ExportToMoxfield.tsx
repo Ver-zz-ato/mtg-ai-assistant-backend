@@ -19,10 +19,10 @@ export default function ExportToMoxfield({ deckId, className }: { deckId: string
       await navigator.clipboard.writeText(json.text || "");
       
       // Show success message
-      alert(`✓ Decklist copied to clipboard!\n\nNow opening Moxfield's import tool where you can paste it.`);
+      alert(`✓ Decklist copied to clipboard!\n\nOpening Moxfield - create a new deck and paste the decklist there.`);
       
-      // Open Moxfield import page in new tab
-      window.open("https://www.moxfield.com/tools/import", "_blank");
+      // Open Moxfield deck creation page (users can paste the decklist when creating a new deck)
+      window.open("https://www.moxfield.com/decks/new", "_blank");
     } catch (e: any) {
       console.error(e);
       alert(`Export failed: ${e.message || "Unknown error"}`);

@@ -67,8 +67,16 @@ export async function PUT(req: Request, ctx: { params: Promise<Params> }) {
 
   // Upsert meta row
   const patch: any = {};
-  if (typeof is_public === 'boolean') patch.is_public = is_public;
-  if (typeof public_slug === 'string') patch.public_slug = public_slug || null;
+  if (typeof is_public === 'boolean') {
+    patch.is_public = is_public;
+    // When making private, clear the slug
+    if (is_public === false) {
+      patch.public_slug = null;
+    }
+  }
+  if (typeof public_slug === 'string') {
+    patch.public_slug = public_slug || null;
+  }
 
   const { error: upErr, data: upData } = await supabase
     .from('collection_meta')
