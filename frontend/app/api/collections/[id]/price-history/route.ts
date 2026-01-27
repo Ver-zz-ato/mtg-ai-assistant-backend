@@ -42,11 +42,17 @@ export async function GET(
     }
 
     // Normalize card names
-    const cardNames = Array.from(new Set(items.map((i: any) => norm(i.name))));
+    const cardNames = Array.from(new Set(items.map((i: any) => norm(i.name)).filter(Boolean)));
     const cardQuantities = new Map<string, number>();
     for (const item of items) {
       const key = norm(item.name);
-      cardQuantities.set(key, (cardQuantities.get(key) || 0) + (item.qty || 1));
+      if (key) {
+        cardQuantities.set(key, (cardQuantities.get(key) || 0) + (item.qty || 1));
+      }
+    }
+
+    if (cardNames.length === 0) {
+      return NextResponse.json({ ok: true, currency, points: [] });
     }
 
     // Calculate date range (last N days, but also ensure we get data from 30d and 60d ago if available)
@@ -60,37 +66,57 @@ export async function GET(
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
     const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
 
-    // Get all snapshots in date range for these cards
-    // We fetch a wider range to ensure we get 30d/60d data even if it's slightly outside the requested days
-    const extendedFromDate = new Date(Math.min(fromDate.getTime(), sixtyDaysAgo.getTime() - 7 * 24 * 60 * 60 * 1000)); // 7 days before 60d to catch nearby snapshots
-    const extendedFromStr = extendedFromDate.toISOString().slice(0, 10);
+    // Get snapshots for these cards - limit to last 60 days (retention policy)
+    // This matches the retention policy and avoids querying too much data
+    const maxDaysBack = 60;
+    const cutoffDate = new Date(toDate.getTime() - maxDaysBack * 24 * 60 * 60 * 1000);
+    const cutoffDateStr = cutoffDate.toISOString().slice(0, 10);
     
+    console.log(`[PriceHistory] Querying snapshots for ${cardNames.length} cards (currency: ${currency}) from ${cutoffDateStr} onwards`);
+    
+    // Query with date filter first (uses index on snapshot_date), then filter by card names
+    // This is more efficient than filtering by name first
     const { data: snapshots, error: snapshotsErr } = await supabase
       .from("price_snapshots")
       .select("name_norm, snapshot_date, unit")
-      .in("name_norm", cardNames)
       .eq("currency", currency)
-      .gte("snapshot_date", extendedFromStr)
-      .order("snapshot_date", { ascending: true });
+      .gte("snapshot_date", cutoffDateStr) // Filter by date first (uses index)
+      .in("name_norm", cardNames) // Then filter by card names
+      .order("snapshot_date", { ascending: true })
+      .limit(50000); // Safety limit
 
     if (snapshotsErr) {
-      return NextResponse.json({ ok: false, error: snapshotsErr.message }, { status: 500 });
+      console.error(`[PriceHistory] Database error:`, snapshotsErr);
+      console.error(`[PriceHistory] Query details: ${cardNames.length} card names, currency: ${currency}`);
+      return NextResponse.json({ ok: false, error: `Database error: ${snapshotsErr.message}` }, { status: 500 });
     }
 
+    // Debug: Log snapshot data availability
+    const uniqueSnapshotDates = new Set((snapshots || []).map((s: any) => String(s.snapshot_date)));
+    console.log(`[PriceHistory] Collection ${collectionId}: ${cardNames.length} cards, ${snapshots?.length || 0} snapshot rows, ${uniqueSnapshotDates.size} unique dates`);
+
     // Group by date and sum total value
+    // For each date, sum up (price * quantity) for all cards that have a snapshot on that date
     const byDate = new Map<string, number>();
     for (const row of (snapshots || []) as any[]) {
       const date = String(row.snapshot_date);
-      const qty = cardQuantities.get(row.name_norm) || 0;
-      const value = Number(row.unit) * qty;
+      const cardName = String(row.name_norm);
+      const qty = cardQuantities.get(cardName) || 0;
+      const price = Number(row.unit) || 0;
+      const value = price * qty;
       byDate.set(date, (byDate.get(date) || 0) + value);
     }
+    
+    // Log what dates we found
+    const datesFound = Array.from(byDate.keys()).sort();
+    console.log(`[PriceHistory] Dates with data: ${datesFound.length} dates (${datesFound.slice(0, 5).join(', ')}${datesFound.length > 5 ? '...' : ''})`);
 
     // Calculate 30d and 60d ago totals by finding closest snapshot for each card
     // This ensures we get accurate totals even if not all cards have snapshots on exact dates
-    const calculateTotalForDate = (targetDate: Date, toleranceDays: number = 7): number => {
+    const calculateTotalForDate = (targetDate: Date, toleranceDays: number = 7): { total: number; date: string | null } => {
       let total = 0;
       const toleranceMs = toleranceDays * 24 * 60 * 60 * 1000;
+      const foundDates = new Set<string>();
       
       // For each card in collection, find its price on or near target date
       for (const [cardName, qty] of cardQuantities.entries()) {
@@ -114,58 +140,76 @@ export async function GET(
         
         if (closestSnapshot) {
           total += closestSnapshot.price * qty;
+          foundDates.add(closestSnapshot.date);
         }
       }
       
-      return total;
+      // Find the most common date among found snapshots (or closest to target)
+      let bestDate: string | null = null;
+      if (foundDates.size > 0) {
+        // Use the date closest to target date
+        let minDateDiff = Infinity;
+        for (const dateStr of foundDates) {
+          const dateObj = new Date(dateStr);
+          const diff = Math.abs(dateObj.getTime() - targetDate.getTime());
+          if (diff < minDateDiff) {
+            minDateDiff = diff;
+            bestDate = dateStr;
+          }
+        }
+      }
+      
+      return { total, date: bestDate };
     };
 
     // Calculate 30d and 60d totals
-    const total30d = calculateTotalForDate(thirtyDaysAgo, 7);
-    const total60d = calculateTotalForDate(sixtyDaysAgo, 7);
+    const result30d = calculateTotalForDate(thirtyDaysAgo, 7);
+    const result60d = calculateTotalForDate(sixtyDaysAgo, 7);
     
-    // Find closest snapshot dates to 30d/60d for display
-    const findClosestSnapshotDate = (targetDate: Date): string | null => {
-      const allDates = Array.from(new Set((snapshots || []).map((r: any) => String(r.snapshot_date))));
-      let closest: string | null = null;
-      let minDiff = Infinity;
-      const toleranceMs = 7 * 24 * 60 * 60 * 1000;
-      
-      for (const dateStr of allDates) {
-        const dateObj = new Date(dateStr);
-        const diff = Math.abs(dateObj.getTime() - targetDate.getTime());
-        if (diff < minDiff && diff <= toleranceMs) {
-          minDiff = diff;
-          closest = dateStr;
-        }
-      }
-      return closest;
-    };
-
-    const closest30dDate = findClosestSnapshotDate(thirtyDaysAgo);
-    const closest60dDate = findClosestSnapshotDate(sixtyDaysAgo);
+    // Debug: Log 30d/60d calculation results
+    console.log(`[PriceHistory] 30d calculation: total=${result30d.total}, date=${result30d.date}`);
+    console.log(`[PriceHistory] 60d calculation: total=${result60d.total}, date=${result60d.date}`);
     
-    // Add 30d and 60d points if we calculated totals for them
-    if (total30d > 0 && closest30dDate) {
-      byDate.set(closest30dDate, total30d);
+    // Add 30d and 60d points if we calculated totals for them (even if total is 0, we want to show the date)
+    if (result30d.total > 0 && result30d.date) {
+      byDate.set(result30d.date, result30d.total);
     }
-    if (total60d > 0 && closest60dDate) {
-      byDate.set(closest60dDate, total60d);
+    if (result60d.total > 0 && result60d.date) {
+      byDate.set(result60d.date, result60d.total);
     }
 
-    // Convert to array of points and filter to requested date range
+    // Convert to array of points
     const allPoints = Array.from(byDate.entries())
       .map(([date, total]) => ({ date, total: Number(total.toFixed(2)) }))
       .sort((a, b) => a.date.localeCompare(b.date));
     
-    // Filter to requested date range (last N days)
-    const points = allPoints.filter(p => p.date >= fromStr);
+    // Filter to requested date range (last N days), but ALWAYS include 30d and 60d points if they exist
+    const points30d = result30d.date && result30d.total > 0 ? result30d.date : null;
+    const points60d = result60d.date && result60d.total > 0 ? result60d.date : null;
+    
+    // Include all points within the requested range, plus 30d/60d markers if calculated
+    const points = allPoints.filter(p => {
+      // Always include points within the requested range
+      if (p.date >= fromStr) return true;
+      // Also include 30d and 60d points even if outside range (for graph display)
+      if (points30d && p.date === points30d) return true;
+      if (points60d && p.date === points60d) return true;
+      return false;
+    });
+    
+    console.log(`[PriceHistory] Final points: ${points.length} (from ${allPoints.length} total dates)`);
 
     return NextResponse.json(
       { ok: true, currency, points },
       { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=300" } }
     );
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
+    console.error(`[PriceHistory] Unexpected error:`, e);
+    console.error(`[PriceHistory] Stack:`, e?.stack);
+    return NextResponse.json({ 
+      ok: false, 
+      error: e?.message || "server_error",
+      details: process.env.NODE_ENV === 'development' ? String(e?.stack) : undefined
+    }, { status: 500 });
   }
 }

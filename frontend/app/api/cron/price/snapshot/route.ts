@@ -52,8 +52,19 @@ async function runSnapshot(req: NextRequest) {
     if (!url || !sr) return NextResponse.json({ ok:false, error:'missing_service_role' }, { status:500 });
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
-    const { data: deckNames } = await supabase.from('deck_cards').select('name').limit(50000);
-    const names = Array.from(new Set(((deckNames||[]) as any[]).map(r=>String(r.name))));
+    // Fetch card names from both deck_cards AND collection_cards
+    const [deckResult, collectionResult] = await Promise.all([
+      supabase.from('deck_cards').select('name').limit(50000),
+      supabase.from('collection_cards').select('name').limit(50000)
+    ]);
+    
+    const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
+    const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
+    
+    // Combine and deduplicate
+    const allNames = Array.from(new Set([...deckNames, ...collectionNames]));
+    const names = allNames.filter(Boolean);
+    
     if (names.length === 0) return NextResponse.json({ ok:true, inserted:0, snapshot_date: new Date().toISOString().slice(0,10) });
 
     const prices = await scryfallBatch(names);
@@ -137,12 +148,21 @@ export async function POST(req: NextRequest) {
     }
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
-    console.log("🗄️ Fetching deck card names...");
-    const { data: deckNames } = await supabase.from('deck_cards').select('name').limit(50000);
-    const names = Array.from(new Set(((deckNames||[]) as any[]).map(r=>String(r.name))));
+    console.log("🗄️ Fetching card names from decks and collections...");
+    const [deckResult, collectionResult] = await Promise.all([
+      supabase.from('deck_cards').select('name').limit(50000),
+      supabase.from('collection_cards').select('name').limit(50000)
+    ]);
+    
+    const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
+    const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
+    
+    // Combine and deduplicate
+    const allNames = Array.from(new Set([...deckNames, ...collectionNames]));
+    const names = allNames.filter(Boolean);
     
     if (names.length === 0) {
-      console.log("⚠️ No deck cards found");
+      console.log("⚠️ No cards found in decks or collections");
       return NextResponse.json({ 
         ok:true, 
         inserted:0, 
@@ -150,7 +170,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(`🎯 Found ${names.length} unique card names`);
+    console.log(`🎯 Found ${names.length} unique card names (${deckNames.length} from decks, ${collectionNames.length} from collections)`);
     console.log("💰 Fetching prices from Scryfall...");
     
     const prices = await scryfallBatch(names);

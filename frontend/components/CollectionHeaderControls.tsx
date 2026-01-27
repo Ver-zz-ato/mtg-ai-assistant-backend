@@ -23,17 +23,19 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
 
   React.useEffect(()=>{
     if (!slug) { setSlugOk(undefined); return; }
+    // Don't validate slug if we're currently toggling (busy state)
+    if (busy) return;
     const h = setTimeout(async ()=>{
       setChecking(true);
       try{
-        const r = await fetch(`/api/collections/slug?slug=${encodeURIComponent(slug)}`, { cache:'no-store' });
+        const r = await fetch(`/api/collections/slug?slug=${encodeURIComponent(slug)}&exclude=${encodeURIComponent(collectionId)}`, { cache:'no-store' });
         const j = await r.json().catch(()=>({}));
         if(r.ok){ setSlugOk(Boolean(j?.available)); } else { setSlugOk(false); }
       }catch{ setSlugOk(false); }
       finally{ setChecking(false); }
     }, 250);
     return ()=> clearTimeout(h);
-  }, [slug]);
+  }, [slug, busy]);
 
   async function togglePublic(){
     setBusy(true);
@@ -59,12 +61,12 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
         setIsPublic(Boolean(m?.is_public)); 
         const newSlug = String(m?.public_slug||'');
         setSlug(newSlug);
-        // Reset slug validation state
-        if (!m?.is_public) {
-          setSlugOk(undefined);
-        } else {
-          // When making public, the generated slug should always be available
-          setSlugOk(true);
+        // Reset slug validation state - clear any errors
+        setSlugOk(undefined);
+        // If making public, the generated slug should always be available, so mark it as valid
+        if (m?.is_public && newSlug) {
+          // Small delay to ensure state updates, then mark as available
+          setTimeout(() => setSlugOk(true), 100);
         }
       } else {
         // Handle error response

@@ -213,7 +213,7 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
     const h = setTimeout(async ()=>{
       setChecking(true);
       try{
-        const r = await fetch(`/api/collections/slug?slug=${encodeURIComponent(slug)}`, { cache:'no-store' });
+        const r = await fetch(`/api/collections/slug?slug=${encodeURIComponent(slug)}&exclude=${encodeURIComponent(collectionId)}`, { cache:'no-store' });
         const j = await r.json().catch(()=>({}));
         if(r.ok){ setSlugOk(Boolean(j?.available)); } else { setSlugOk(false); }
       }catch{ setSlugOk(false); }
