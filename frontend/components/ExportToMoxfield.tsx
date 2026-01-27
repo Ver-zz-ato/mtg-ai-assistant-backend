@@ -21,8 +21,8 @@ export default function ExportToMoxfield({ deckId, className }: { deckId: string
       // Show success message
       alert(`✓ Decklist copied to clipboard!\n\nOpening Moxfield - create a new deck and paste the decklist there.`);
       
-      // Open Moxfield deck creation page (users can paste the decklist when creating a new deck)
-      window.open("https://www.moxfield.com/decks/new", "_blank");
+      // Open Moxfield homepage (users can navigate to create a deck and paste)
+      window.open("https://www.moxfield.com", "_blank");
     } catch (e: any) {
       console.error(e);
       alert(`Export failed: ${e.message || "Unknown error"}`);

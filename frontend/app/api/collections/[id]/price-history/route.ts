@@ -86,55 +86,71 @@ export async function GET(
       byDate.set(date, (byDate.get(date) || 0) + value);
     }
 
-    // Ensure we have points for 30d and 60d ago (find closest if exact date doesn't exist)
-    const findClosestSnapshot = (targetDate: Date): string | null => {
+    // Calculate 30d and 60d ago totals by finding closest snapshot for each card
+    // This ensures we get accurate totals even if not all cards have snapshots on exact dates
+    const calculateTotalForDate = (targetDate: Date, toleranceDays: number = 7): number => {
+      let total = 0;
+      const toleranceMs = toleranceDays * 24 * 60 * 60 * 1000;
+      
+      // For each card in collection, find its price on or near target date
+      for (const [cardName, qty] of cardQuantities.entries()) {
+        // Find closest snapshot for this card within tolerance
+        let closestSnapshot: { date: string; price: number } | null = null;
+        let minDiff = Infinity;
+        
+        for (const row of (snapshots || []) as any[]) {
+          if (row.name_norm === cardName) {
+            const snapshotDate = new Date(String(row.snapshot_date));
+            const diff = Math.abs(snapshotDate.getTime() - targetDate.getTime());
+            if (diff < minDiff && diff <= toleranceMs) {
+              minDiff = diff;
+              closestSnapshot = {
+                date: String(row.snapshot_date),
+                price: Number(row.unit) || 0
+              };
+            }
+          }
+        }
+        
+        if (closestSnapshot) {
+          total += closestSnapshot.price * qty;
+        }
+      }
+      
+      return total;
+    };
+
+    // Calculate 30d and 60d totals
+    const total30d = calculateTotalForDate(thirtyDaysAgo, 7);
+    const total60d = calculateTotalForDate(sixtyDaysAgo, 7);
+    
+    // Find closest snapshot dates to 30d/60d for display
+    const findClosestSnapshotDate = (targetDate: Date): string | null => {
+      const allDates = Array.from(new Set((snapshots || []).map((r: any) => String(r.snapshot_date))));
       let closest: string | null = null;
       let minDiff = Infinity;
-      for (const date of byDate.keys()) {
-        const dateObj = new Date(date);
+      const toleranceMs = 7 * 24 * 60 * 60 * 1000;
+      
+      for (const dateStr of allDates) {
+        const dateObj = new Date(dateStr);
         const diff = Math.abs(dateObj.getTime() - targetDate.getTime());
-        // Accept snapshots within 7 days of target
-        if (diff < minDiff && diff <= 7 * 24 * 60 * 60 * 1000) {
+        if (diff < minDiff && diff <= toleranceMs) {
           minDiff = diff;
-          closest = date;
+          closest = dateStr;
         }
       }
       return closest;
     };
 
-    // Add 30d and 60d points if they exist (within 7 days tolerance)
-    const closest30d = findClosestSnapshot(thirtyDaysAgo);
-    const closest60d = findClosestSnapshot(sixtyDaysAgo);
+    const closest30dDate = findClosestSnapshotDate(thirtyDaysAgo);
+    const closest60dDate = findClosestSnapshotDate(sixtyDaysAgo);
     
-    // If we found close snapshots but they're not in our date range, ensure they're included
-    if (closest30d && !byDate.has(closest30d)) {
-      // Recalculate for this date
-      const date30d = closest30d;
-      let total30d = 0;
-      for (const row of (snapshots || []) as any[]) {
-        if (String(row.snapshot_date) === date30d) {
-          const qty = cardQuantities.get(row.name_norm) || 0;
-          total30d += Number(row.unit) * qty;
-        }
-      }
-      if (total30d > 0) {
-        byDate.set(date30d, total30d);
-      }
+    // Add 30d and 60d points if we calculated totals for them
+    if (total30d > 0 && closest30dDate) {
+      byDate.set(closest30dDate, total30d);
     }
-    
-    if (closest60d && !byDate.has(closest60d)) {
-      // Recalculate for this date
-      const date60d = closest60d;
-      let total60d = 0;
-      for (const row of (snapshots || []) as any[]) {
-        if (String(row.snapshot_date) === date60d) {
-          const qty = cardQuantities.get(row.name_norm) || 0;
-          total60d += Number(row.unit) * qty;
-        }
-      }
-      if (total60d > 0) {
-        byDate.set(date60d, total60d);
-      }
+    if (total60d > 0 && closest60dDate) {
+      byDate.set(closest60dDate, total60d);
     }
 
     // Convert to array of points and filter to requested date range

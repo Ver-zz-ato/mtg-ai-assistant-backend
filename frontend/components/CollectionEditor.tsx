@@ -227,17 +227,17 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
     try{
       const body:any = { is_public: !isPublic };
       if(!isPublic){ 
-        // When making public: use current slug if available and valid, otherwise generate from collection ID (guaranteed unique)
-        if (slug && slugOk === true) {
-          body.public_slug = slug;
-        } else {
-          // Generate unique slug from collection ID (UUID without hyphens)
-          // This ensures every collection has a unique, shareable slug automatically
-          body.public_slug = `collection-${collectionId.replace(/-/g, '')}`;
-        }
+        // When making public: ALWAYS regenerate slug to avoid conflicts
+        // Don't use the current slug even if it seems valid - force regeneration
+        body.public_slug = `collection-${collectionId.replace(/-/g, '')}`;
+        // Clear the slug input so user sees the new generated slug
+        setSlug('');
+        setSlugOk(undefined);
       } else {
         // When making private: clear the slug to avoid conflicts
         body.public_slug = null;
+        setSlug('');
+        setSlugOk(undefined);
       }
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
@@ -246,16 +246,20 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
         setIsPublic(Boolean(meta?.is_public));
         const newSlug = String(meta?.public_slug||'');
         setSlug(newSlug);
-        // Reset slug validation state when toggling to private
+        // Reset slug validation state
         if (!meta?.is_public) {
           setSlugOk(undefined);
+        } else {
+          // When making public, the generated slug should always be available
+          setSlugOk(true);
         }
       } else {
         // Handle error response
         const errorMsg = j?.error || 'Failed to update';
         if (errorMsg.includes('Slug already taken') || errorMsg.includes('already in use')) {
-          // If slug conflict, regenerate and retry
-          const retryBody = { is_public: true, public_slug: `collection-${collectionId.replace(/-/g, '')}` };
+          // If slug conflict (shouldn't happen with collection-{id} format, but handle it), add timestamp
+          const timestamp = Date.now().toString(36);
+          const retryBody = { is_public: true, public_slug: `collection-${collectionId.replace(/-/g, '')}-${timestamp}` };
           const retryR = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/meta`, { method:'PUT', headers:{ 'content-type':'application/json' }, body: JSON.stringify(retryBody) });
           const retryJ = await retryR.json().catch(()=>({}));
           if(retryR.ok){
