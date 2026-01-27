@@ -12,10 +12,10 @@ export async function POST(
     const format = String(body?.format || "").toLowerCase().trim();
 
     // Validate format
-    const validFormats = ["commander", "standard", "modern"];
+    const validFormats = ["commander", "standard", "modern", "pioneer", "pauper"];
     if (!validFormats.includes(format)) {
       return NextResponse.json(
-        { ok: false, error: "Invalid format. Must be commander, standard, or modern" },
+        { ok: false, error: "Invalid format. Must be commander, standard, modern, pioneer, or pauper" },
         { status: 400 }
       );
     }
