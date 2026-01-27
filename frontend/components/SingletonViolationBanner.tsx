@@ -10,10 +10,13 @@ type SingletonViolationBannerProps = {
  * Banner that checks for singleton violations in Commander decks
  * Shows cards with qty > 1, excluding legal exceptions
  */
+const INITIAL_VISIBLE = 10;
+
 export default function SingletonViolationBanner({ deckId }: SingletonViolationBannerProps) {
   const [checking, setChecking] = React.useState(true);
   const [violations, setViolations] = React.useState<Array<{ name: string; qty: number }>>([]);
   const [dismissed, setDismissed] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
 
   // Basic lands — always allow multiple copies
   const BASIC_LANDS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest']);
@@ -120,11 +123,21 @@ export default function SingletonViolationBanner({ deckId }: SingletonViolationB
             <div className="text-sm text-orange-200/80 mb-2">
               This Commander deck has <strong>{violations.length} card{violations.length !== 1 ? 's' : ''}</strong> with multiple copies. Commander is a singleton format (one copy per card, except for basic lands and legal exceptions).
             </div>
-            <div className="text-xs text-orange-200/70 font-mono max-h-32 overflow-y-auto">
-              {violations.slice(0, 10).map(v => (
+            <div className={`text-xs text-orange-200/70 font-mono overflow-y-auto ${expanded ? 'max-h-64' : 'max-h-32'}`}>
+              {(expanded ? violations : violations.slice(0, INITIAL_VISIBLE)).map(v => (
                 <div key={v.name} className="truncate">• {v.name} ({v.qty}x)</div>
               ))}
-              {violations.length > 10 && <div className="text-orange-300/60">... and {violations.length - 10} more</div>}
+              {violations.length > INITIAL_VISIBLE && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(!expanded)}
+                  className="mt-1 text-orange-300/80 hover:text-orange-200 font-medium underline underline-offset-1 focus:outline-none focus:ring-1 focus:ring-orange-400 rounded"
+                >
+                  {expanded
+                    ? 'Show less'
+                    : `... and ${violations.length - INITIAL_VISIBLE} more`}
+                </button>
+              )}
             </div>
           </div>
         </div>
