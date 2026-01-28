@@ -5,6 +5,8 @@ import '@/styles/ph-toolbar-fix.css';
 import Providers from "@/components/Providers";
 import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
 import AnalyticsProvider from "@/components/AnalyticsProvider";
+import AnalyticsIdentity from "@/components/AnalyticsIdentity";
+import WorkflowAbandonOnRouteChange from "@/components/WorkflowAbandonOnRouteChange";
 import SupportWidgets from "@/components/SupportWidgets";
 import CookieConsentModal from "@/components/CookieConsentModal";
 import { CookieConsentProvider } from "@/components/CookieConsentContext";
@@ -105,6 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <TopLoadingBar />
                 <FirstVisitTracker />
                 <AnalyticsProvider />
+                <AnalyticsIdentity />
+                <WorkflowAbandonOnRouteChange />
                 <PromoBar />
                 <MaintenanceBanner />
                 <ErrorBoundary>

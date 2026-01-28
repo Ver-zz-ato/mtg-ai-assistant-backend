@@ -1,6 +1,7 @@
 // frontend/lib/server/analytics.ts
 // Server-side PostHog helper (safe no-op if keys are missing)
 import type { PostHog } from 'posthog-node';
+import { randomUUID } from 'crypto';
 
 let ph: PostHog | null = null;
 
@@ -22,18 +23,13 @@ export function serverAnalyticsEnabled() {
 
 /**
  * Capture a server-side analytics event
- * 
+ *
+ * Use visitor_id as distinctId when anonymous; user_id when authenticated.
+ * Include visitor_id in properties when available for joining funnels.
+ *
  * @param event - Event name (prefer AnalyticsEvents constants from '@/lib/analytics/events')
- * @param properties - Event properties
- * @param distinctId - Optional distinct ID (defaults to 'anon' or properties.user_id)
- * 
- * @example
- *   import { AnalyticsEvents } from '@/lib/analytics/events';
- *   await captureServer(AnalyticsEvents.DECK_SAVED, { deck_id: '123' }, userId);
- * 
- * @example
- *   // Legacy string usage still works
- *   await captureServer('custom_event', { custom_prop: 'value' });
+ * @param properties - Event properties (should include visitor_id when available)
+ * @param distinctId - distinct_id: visitor_id (anon) or user_id (auth). Defaults to properties.user_id || properties.visitor_id || 'anon'
  */
 export async function captureServer(event: string, properties: Record<string, any> = {}, distinctId?: string | null) {
   try {
@@ -43,7 +39,9 @@ export async function captureServer(event: string, properties: Record<string, an
       const { PostHog } = await import('posthog-node');
       ph = new PostHog(key, { host: getHost(), flushAt: 1, flushInterval: 100 });
     }
-    ph!.capture({ event, distinctId: distinctId || properties.user_id || 'anon', properties });
+    let id = distinctId ?? properties.user_id ?? properties.visitor_id ?? properties.anonymous_fallback_id;
+    if (!id || id === 'anon') id = `fallback_${randomUUID()}`;
+    ph!.capture({ event, distinctId: id, properties });
   } catch {}
 }
 

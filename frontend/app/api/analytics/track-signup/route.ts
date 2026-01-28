@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { captureServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { generateMTGUsername } from '@/lib/mtg-username-generator';
 import { getAdmin } from '@/app/api/_lib/supa';
@@ -93,14 +92,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Track signup server-side (no cookie consent needed)
-    await captureServer('signup_completed', {
-      method,
-      user_id: finalUserId || null,
-      user_email: userEmail || null,
-      timestamp: new Date().toISOString(),
-      source: 'server_side_tracking'
-    });
+    // Signup funnel events (signup_completed / login_completed) are sent via
+    // POST /api/analytics/auth-event from client on SIGNED_IN. This route
+    // only handles username setup.
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

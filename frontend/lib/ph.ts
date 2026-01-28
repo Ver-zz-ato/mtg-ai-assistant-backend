@@ -5,6 +5,7 @@
 
 import { getConsentStatus } from '@/lib/consent';
 import { getSessionContext } from '@/lib/analytics/session-bootstrap';
+import { pushCaptureEvent } from '@/lib/analytics/capture-buffer';
 
 type Props = Record<string, any> | undefined;
 
@@ -75,6 +76,9 @@ export function capture(
     }
     
     ph.capture(event, enrichedProps);
+    try {
+      pushCaptureEvent(event, enrichedProps ?? {});
+    } catch {}
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.debug('[analytics] %s', event, enrichedProps ?? {});
@@ -122,15 +126,56 @@ export function identify(distinctId: string, props?: Props): void {
 }
 
 /**
+ * Alias the current distinct_id to another (e.g. merge visitor_id into user_id).
+ * Call after identify(userId) on login so pre-login events join the user.
+ */
+export function alias(aliasId: string): void {
+  if (!hasWindow() || !hasConsent()) return;
+  try {
+    (window as any).posthog?.alias?.(aliasId);
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.debug('[analytics] alias', aliasId);
+    }
+  } catch {}
+}
+
+/**
+ * Get current PostHog distinct_id (client-only). Returns null if PostHog not loaded.
+ */
+export function getDistinctId(): string | null {
+  if (!hasWindow()) return null;
+  try {
+    const ph = (window as any).posthog;
+    if (!ph?._loaded) return null;
+    return (ph.get_distinct_id?.() ?? (ph as any).getDistinctId?.()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read visitor_id from document.cookie (client-only). visitor_id is not HttpOnly.
+ */
+export function getVisitorIdFromCookie(): string | null {
+  if (!hasWindow()) return null;
+  try {
+    const match = document.cookie.match(/\bvisitor_id=([^;]+)/);
+    return match ? decodeURIComponent(match[1].trim()) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Reset PostHog (clears user identification and properties)
- * 
+ *
  * Typically called when user logs out or consent is declined.
  */
 export function reset(): void {
   if (!hasWindow() || !hasConsent()) return;
   try {
-    // @ts-ignore
-    window.posthog?.reset?.();
+    (window as any).posthog?.reset?.();
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.debug('[analytics] reset');

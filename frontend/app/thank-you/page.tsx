@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
 import Link from 'next/link';
+import { captureProEvent } from '@/lib/analytics-pro';
+import { clearActiveWorkflow, getCurrentWorkflowRunId } from '@/lib/analytics/workflow-abandon';
 
 function ThankYouContent() {
   const router = useRouter();
@@ -82,20 +84,36 @@ function ThankYouContent() {
           });
           
           if (data.ok && data.isPro) {
-            // Mark as synced in sessionStorage to prevent re-syncing on refresh
-            if (syncKey) {
-              sessionStorage.setItem(syncKey, 'true');
-            }
+            if (syncKey) sessionStorage.setItem(syncKey, 'true');
             setSynced(true);
             setSyncing(false);
-            
-            // Remove session_id from URL to prevent re-syncing on refresh
+            const runId = getCurrentWorkflowRunId();
+            clearActiveWorkflow();
+            try {
+              captureProEvent('pro_upgrade_completed', {
+                plan_suggested: plan || 'monthly',
+                gate_location: 'thank_you_page',
+                workflow_run_id: runId ?? undefined,
+              } as any);
+            } catch {}
+            try {
+              await fetch('/api/analytics/track-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event: 'pro_upgrade_completed',
+                  properties: {
+                    plan: plan || 'monthly',
+                    session_id: sessionId,
+                    source: 'thank_you_page',
+                    workflow_run_id: runId ?? undefined,
+                  },
+                }),
+              });
+            } catch {}
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.delete('session_id');
             window.history.replaceState({}, '', newUrl.toString());
-            
-            // No hard refresh needed - Pro status is already updated in DB
-            // The useProStatus hook will pick it up via real-time subscription
             console.log('[thank-you] ✅ Pro status synced successfully, showing success page');
           } else {
             // Enhanced error handling with specific messages

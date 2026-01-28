@@ -2,6 +2,7 @@
 // Enhanced analytics for PRO feature funnel tracking
 
 import { capture } from './ph';
+import { setActiveWorkflow } from './analytics/workflow-abandon';
 
 export type ProEventType = 
   | 'pro_gate_viewed'      // User sees PRO badge/gate
@@ -20,6 +21,7 @@ export interface ProEventProps {
   subscription_tier?: string; // Current user tier
   upgrade_source?: string;    // What prompted upgrade attempt ('gate' | 'pricing')
   user_tenure_days?: number;  // Days since user registered
+  workflow_run_id?: string;   // UUID for pro_upgrade run; links started/completed/abandoned
 }
 
 export function captureProEvent(event: ProEventType, props?: ProEventProps) {
@@ -79,17 +81,19 @@ export function trackProGateClicked(
 }
 
 export function trackProUpgradeStarted(
-  source: 'gate' | 'pricing', 
+  source: 'gate' | 'pricing',
   options?: {
     feature?: string;
     location?: string;
   }
 ) {
-  captureProEvent('pro_upgrade_started', { 
+  const runId = setActiveWorkflow('pro_upgrade');
+  captureProEvent('pro_upgrade_started', {
     upgrade_source: source,
     feature: options?.feature,
     gate_location: options?.location,
     location: options?.location,
+    workflow_run_id: runId,
   });
 }
 

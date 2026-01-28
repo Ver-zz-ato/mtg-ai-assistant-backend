@@ -11,6 +11,7 @@ export type WorkflowEventType =
 
 export interface WorkflowEventProps {
   workflow_name: string;      // 'deck_creation', 'collection_import', etc.
+  workflow_run_id?: string;   // UUID for this run; links started/step/completed/abandoned in PostHog
   step_name?: string;         // Current step in workflow
   total_steps?: number;       // Total steps in workflow
   current_step?: number;      // Current step number

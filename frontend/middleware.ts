@@ -3,6 +3,18 @@ import { NextResponse } from 'next/server';
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { captureServer } from './lib/server/analytics';
 import { validateEnv } from './lib/env';
+import {
+  isExcludedPath,
+  isBot,
+  isRealHtmlNavigation,
+  getDeviceTypeFromUA,
+  getUtmFromUrl,
+  PV_LAST_COOKIE,
+  PV_LAST_MAX_AGE,
+  PV_RATE_LIMIT_MS,
+  parsePvLast,
+  formatPvLast,
+} from './lib/analytics/middleware-helpers';
 
 // Validate environment variables at startup (fail fast)
 try {
@@ -99,29 +111,82 @@ export async function middleware(req: NextRequest) {
       }
     }
   } else {
-    // Handle page routes (first visit tracking)
+    // Handle page routes (first visit + pageview_server)
     response = NextResponse.next();
-    const visitorId = req.cookies.get('visitor_id')?.value;
-    
-    if (!visitorId) {
-      const newVisitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      response.cookies.set('visitor_id', newVisitorId, {
-        path: '/',
-        maxAge: 60 * 60 * 24 * 365,
-        httpOnly: false,
-        sameSite: 'lax',
-      });
-      
-      // Track via PostHog SDK (no cookie consent needed for server-side tracking)
-      try {
-        await captureServer('user_first_visit', {
-          landing_page: path,
-          referrer: req.headers.get('referer') || undefined,
-          user_agent: req.headers.get('user-agent')?.slice(0, 200) || undefined,
+    const method = req.method.toUpperCase();
+    const accept = req.headers.get('accept');
+    const secFetchDest = req.headers.get('sec-fetch-dest');
+    const userAgent = req.headers.get('user-agent') || '';
+    const referrer = req.headers.get('referer') || undefined;
+    const fullPath = path + (req.nextUrl.search || '');
+    const utm = getUtmFromUrl(req.nextUrl.search || '');
+    const deviceType = getDeviceTypeFromUA(userAgent);
+
+    const excluded = isExcludedPath(path);
+    const realHtml = isRealHtmlNavigation(method, accept, secFetchDest);
+    const bot = isBot(userAgent);
+    const shouldSetVisitor = !excluded && !bot;
+    const shouldTrack = shouldSetVisitor && realHtml;
+
+    if (shouldSetVisitor) {
+      let visitorId = req.cookies.get('visitor_id')?.value;
+      const isFirstVisit = !visitorId;
+      if (isFirstVisit) {
+        visitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        response.cookies.set('visitor_id', visitorId, {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 365,
+          httpOnly: false,
+          sameSite: 'lax',
+        });
+      }
+
+      if (shouldTrack) {
+        const hasAuthCookie = req.cookies.getAll().some(
+          (c) => c.name.startsWith('sb-') && c.name.includes('auth-token')
+        );
+        const firstVisitProps = {
+          is_bot: false,
+          path: fullPath,
+          landing_page: fullPath,
+          referrer,
+          user_agent: userAgent.slice(0, 200),
           timestamp: new Date().toISOString(),
-        }, newVisitorId);
-      } catch (error) {
-        console.error('Failed to track first visit:', error);
+          device_type: deviceType,
+          ...utm,
+        };
+        if (isFirstVisit) {
+          try {
+            await captureServer('user_first_visit', firstVisitProps, visitorId);
+          } catch (e) {
+            if (process.env.NODE_ENV === 'development') console.error('Failed to track first visit:', e);
+          }
+        }
+        const pvLastRaw = req.cookies.get(PV_LAST_COOKIE)?.value;
+        const pvLast = parsePvLast(pvLastRaw);
+        const now = Date.now();
+        const skipPv = pvLast && pvLast.path === fullPath && now - pvLast.ts < PV_RATE_LIMIT_MS;
+        if (!skipPv) {
+          try {
+            await captureServer('pageview_server', {
+              path: fullPath,
+              referrer,
+              visitor_id: visitorId,
+              is_authenticated: !!hasAuthCookie,
+              timestamp: new Date().toISOString(),
+              ...utm,
+            }, visitorId);
+            response.cookies.set(PV_LAST_COOKIE, formatPvLast(fullPath, now), {
+              path: '/',
+              maxAge: PV_LAST_MAX_AGE,
+              httpOnly: true,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            });
+          } catch (e) {
+            if (process.env.NODE_ENV === 'development') console.error('Failed to track pageview_server:', e);
+          }
+        }
       }
     }
   }

@@ -90,6 +90,7 @@ export default function AdminHub() {
         <Pill href="/admin/deploy">Deployment Awareness</Pill>
         <Pill href="/admin/chat-levers">Chat Levers</Pill>
         <Pill href="/admin/changelog">Changelog</Pill>
+        <Pill href="/admin/analytics-debug">Analytics Debug</Pill>
       </nav>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -148,6 +149,10 @@ export default function AdminHub() {
         <Link href="/admin/changelog" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
           <div className="font-medium mb-1">Changelog Manager</div>
           <p className="text-sm opacity-80">Manage what's new entries, version releases, and public changelog content.</p>
+        </Link>
+        <Link href="/admin/analytics-debug" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
+          <div className="font-medium mb-1">Analytics Debug</div>
+          <p className="text-sm opacity-80">Consent, PostHog loaded, distinct_id, last capture events buffer.</p>
         </Link>
       </section>
     </div>

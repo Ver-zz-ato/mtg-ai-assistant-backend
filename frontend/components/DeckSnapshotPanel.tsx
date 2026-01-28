@@ -2,8 +2,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import PublicTrustFooter from "@/components/PublicTrustFooter";
-import { capture } from "@/lib/ph"
+import { capture } from "@/lib/ph";
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
+import { setActiveWorkflow, clearActiveWorkflow, getCurrentWorkflowRunId } from '@/lib/analytics/workflow-abandon';
 import { trackApiCall, trackError } from '@/lib/analytics-performance';
 import { trackProGateViewed, trackProGateClicked, trackProUpgradeStarted } from '@/lib/analytics-pro';
 import { useProStatus } from '@/hooks/useProStatus';
@@ -46,60 +47,75 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
 
   const analyzeWithText = useCallback(async (text: string) => {
     if (!text?.trim()) return;
-    setLoading(true); setError(null);
-    
-    await trackApiCall("/analyze", "deck_analysis", async () => {
-      const res = await fetch("/analyze", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          deckText: text,
-          format, plan, colors, currency,
-          useScryfall: true,
-        }),
-      });
-      const body = await res.text();
-      let json: any = null;
-      try { json = JSON.parse(body); } catch { json = null; }
-      if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Analyze failed");
-      setResult(json?.result ?? json);
-      
-      // Track successful analysis
-      capture('deck_analyzed', {
-        format,
-        plan,
-        colors: colors.join(','),
-        score: json?.result?.score || json?.score,
-        card_count: text.split('\n').filter(Boolean).length,
-        prompt_version: json?.prompt_version || json?.prompt_version_id || null,
-        // deck_id: not available in this component (standalone analysis)
-        // commander: would need to extract from deckText or pass as prop
-      });
-      
-      // Track guest value moment for deck analysis (check if user is guest)
-      try {
-        const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
-        const sb = createBrowserSupabaseClient();
-        const { data: { user } } = await sb.auth.getUser();
-        if (!user) {
-          // Guest user - track value moment
-          const { capture: captureEvent } = await import('@/lib/ph');
-          const { AnalyticsEvents } = await import('@/lib/analytics/events');
-          captureEvent(AnalyticsEvents.GUEST_VALUE_MOMENT, {
-            value_moment_type: 'deck_analyzed',
-            score: json?.result?.score || json?.score,
-            card_count: text.split('\n').filter(Boolean).length,
-          }, { isAuthenticated: false });
+    setLoading(true);
+    setError(null);
+    const runId = setActiveWorkflow('deck_analyze');
+    capture('deck_analyze_started', {
+      format,
+      plan,
+      colors: colors.join(','),
+      card_count: text.split('\n').filter(Boolean).length,
+      workflow_run_id: runId,
+    });
+
+    try {
+      await trackApiCall("/analyze", "deck_analysis", async () => {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            deckText: text,
+            format,
+            plan,
+            colors,
+            currency,
+            useScryfall: true,
+          }),
+        });
+        const body = await res.text();
+        let json: any = null;
+        try {
+          json = JSON.parse(body);
+        } catch {
+          json = null;
         }
-      } catch {}
-      
-      return json;
-    }).catch((e: any) => {
+        if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Analyze failed");
+        setResult(json?.result ?? json);
+
+        const runIdDone = getCurrentWorkflowRunId();
+        clearActiveWorkflow();
+        capture('deck_analyzed', {
+          workflow_run_id: runIdDone ?? undefined,
+          format,
+          plan,
+          colors: colors.join(','),
+          score: json?.result?.score || json?.score,
+          card_count: text.split('\n').filter(Boolean).length,
+          prompt_version: json?.prompt_version || json?.prompt_version_id || null,
+        });
+        try {
+          const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
+          const sb = createBrowserSupabaseClient();
+          const { data: { user } } = await sb.auth.getUser();
+          if (!user) {
+            const { capture: captureEvent } = await import('@/lib/ph');
+            const { AnalyticsEvents } = await import('@/lib/analytics/events');
+            captureEvent(AnalyticsEvents.GUEST_VALUE_MOMENT, {
+              value_moment_type: 'deck_analyzed',
+              score: json?.result?.score || json?.score,
+              card_count: text.split('\n').filter(Boolean).length,
+            }, { isAuthenticated: false });
+          }
+        } catch {}
+        return json;
+      });
+    } catch (e: any) {
+      clearActiveWorkflow();
       setError(e?.message ?? "Analyze failed");
       throw e;
-    }).finally(() => {
+    } finally {
       setLoading(false);
-    });
+    }
   }, [format, plan, colors, currency]);
 
   async function analyze() {
@@ -107,8 +123,9 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
   }
 
   async function saveDeck() {
-    trackDeckCreationWorkflow('started', { source: 'analysis_panel' });
-    
+    const runId = setActiveWorkflow('deck_create');
+    trackDeckCreationWorkflow('started', { source: 'analysis_panel', workflow_run_id: runId });
+
     try {
       const res = await trackApiCall('/api/decks/create', 'deck_creation', async () => {
         return fetch("/api/decks/create", {
@@ -125,28 +142,31 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
       
       const json = await res.json();
       if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Save failed");
-      
-      // Enhanced deck creation tracking
-      trackDeckCreationWorkflow('saved', { 
-        deck_id: json?.id, 
+
+      const runIdDone = getCurrentWorkflowRunId();
+      clearActiveWorkflow();
+      trackDeckCreationWorkflow('saved', {
+        deck_id: json?.id,
         source: 'analysis_panel',
         has_analysis: !!result,
-        analysis_score: result?.score
+        analysis_score: result?.score,
+        workflow_run_id: runIdDone ?? undefined,
       });
-      
-      capture('deck_created', { 
-        deck_id: (json?.id ?? null), 
+      capture('deck_created', {
+        deck_id: (json?.id ?? null),
         format,
         source: 'analysis_panel',
-        analysis_score: result?.score
+        analysis_score: result?.score,
       });
-      
       alert("Saved! Check My Decks.");
     } catch (e: any) {
-      trackDeckCreationWorkflow('abandoned', { 
-        current_step: 2, 
+      const runIdAbandon = getCurrentWorkflowRunId();
+      clearActiveWorkflow();
+      trackDeckCreationWorkflow('abandoned', {
+        current_step: 2,
         abandon_reason: 'save_failed',
-        error_message: e?.message 
+        error_message: e?.message,
+        workflow_run_id: runIdAbandon ?? undefined,
       });
       alert(e?.message ?? "Save failed");
     }

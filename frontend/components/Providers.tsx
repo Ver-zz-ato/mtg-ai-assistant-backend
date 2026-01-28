@@ -100,6 +100,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           (posthog as any)?.capture?.(AnalyticsEvents.APP_OPEN);
           sessionStorage.setItem('analytics:app_open_sent','1');
         }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('analytics:ready'));
+        }
       } catch {}
     };
 

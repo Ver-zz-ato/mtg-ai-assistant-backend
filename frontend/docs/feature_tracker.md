@@ -79,7 +79,7 @@ Homepage / Global
 - [x] Polish account creation flow — Social proof in signup modal (user count + activity) <!-- id:auth.social_proof -->
 
 Chat & Threads
-- [x] Guest Message Limits — Warnings at 15/20, 18/20, modal at 20/20 with benefits <!-- id:chat.guest_limits -->
+- [x] Guest Message Limits — Warnings at 5, 7, 9; modal at 10 with sign-up/sign-in CTAs (server-enforced via `guest_sessions`) <!-- id:chat.guest_limits -->
 - [x] Guest Chat Persistence — Auto-save to localStorage, restore on reload <!-- id:chat.guest_persistence -->
 - [x] Guest Exit Warning — Modal when navigating away with active chat <!-- id:chat.guest_exit_warning -->
 - [ ] Fix "Like this deck" heart hover (top-layer z-index)
@@ -111,7 +111,7 @@ Performance & Infrastructure
 - [x] Query Performance Logging — Logs slow queries (>100ms) to admin_audit table <!-- id:perf.query_logging -->
 - [x] API Rate Limiting — Tiered limits (Free: 100/hr, Pro: 1000/hr) with standard headers <!-- id:rate_limit.tiers -->
 - [x] Rate Limit Headers — X-RateLimit-Limit, Remaining, Reset, Retry-After <!-- id:rate_limit.headers -->
-- [x] Rate Limit Status API — GET /api/rate-limit/status endpoint for Pro users <!-- id:rate_limit.status_api -->
+- [x] Rate Limit Status API — GET /api/rate-limit/status endpoint for logged-in users (Free + Pro; shows tier and usage) <!-- id:rate_limit.status_api -->
 - [x] Rate Limit UI Warnings — Toast at 90% usage, color-coded indicator <!-- id:rate_limit.warnings -->
 
 User Experience
@@ -512,7 +512,7 @@ Navigation
   - Compatible with existing app_config usage throughout codebase
 
 ☐ Advanced performance monitoring <!-- id:analytics.performance_monitoring -->
-  - Page load performance tracking with Core Web Vitals
+  - ☑ Page load performance: Core Web Vitals (CLS, FCP, FID, INP, LCP, TTFB) via `webVitals.ts` → PostHog when consented (see Recent Additions).
   - Slow query detection for database operations
   - API endpoint latency monitoring with percentiles
   - Client-side error monitoring with stack traces
@@ -643,6 +643,50 @@ Navigation
   - Appears 30 seconds after page load (non-intrusive timing)
   - Automatically disabled on mobile phones
   - localStorage persistence to respect skip preference
+
+---
+
+## Recent Additions (2025–2026)
+
+### Format handling (Pioneer, Pauper, banners)
+☑ Pioneer and Pauper formats added everywhere <!-- id:formats.pioneer_pauper -->
+  - Format selectors: `FormatSelector`, `FormatPickerModal`, `ModeOptions`, `Chat`, `DeckAnalyzerExpandable`; create-deck flow; deck format API.
+  - Format knowledge: `lib/data/format-knowledge/pioneer.json`, `pauper.json`; AI persona and format-knowledge injection.
+  - Banned cards: `banned_cards.json` + `lib/deck/banned-cards.ts` include Pauper; format-aware checks.
+☑ Format-specific deck banners on deck page <!-- id:formats.banners -->
+  - **FormatCardCountBanner** — Warns if deck count ≠ format requirement (Commander 100, 60-card formats 60).
+  - **ColorIdentityBanner** — Commander-only; warns if deck runs colours outside commander identity (when set).
+  - **SingletonViolationBanner** — Commander-only; flags duplicates except basics (Plains, Island, Swamp, Mountain, Forest) and legal exceptions: Relentless Rats, Rat Colony, Shadowborn Apostle, Persistent Petitioners, Dragon's Approach, Nazgûl. List expandable ("Show X more" / "Show less").
+  - **BannedCardsBanner** — Warns when deck contains cards banned in the selected format. Dismissible.
+  - All banners conditional on deck format; integrated in `app/my-decks/[id]/Client.tsx`.
+
+### Price history & collection snapshots
+☑ Collection price history graph fixes <!-- id:price_history.graph -->
+  - Y-axis scaling: IQR/percentile-based outlier detection, p95 cap when max is outlier, clamping so points stay in bounds.
+  - Tooltips on hover; optional full-screen chart; outlier points visually marked (e.g. ⚠ in full-screen).
+  - Debug logging for scaling (dev) in `CollectionPriceHistory.tsx`.
+  - Price history API: `/api/collections/[id]/price-history`; uses `price_snapshots`. Snapshot diagnostics: `/api/collections/[id]/snapshot-diagnostic`, `/api/snapshots/check`.
+☑ Price snapshots for collections <!-- id:price_history.collections -->
+  - Collection cards can be snapshotted (e.g. Collection Editor, Snapshot Drawer, Cost-to-Finish). Bulk jobs feed `price_snapshots`; collection price history consumes them.
+
+### Public binder / collection sharing
+☑ Public binder view and sharing fixes <!-- id:binder.public -->
+  - Slug-based lookup: `/binder/[slug]` resolves `collection-{id}` (and similar) via `collection_meta.public_slug`; service-role client for public-only reads when needed.
+  - RLS/API: public collection cards, meta, price-history use service role or explicit public paths where appropriate; filters and card list UI updated.
+  - Binder page: `BinderClient`; cards, images (from cache), prices; filter UI overhaul.
+  - Sharing: generate public link → open `/binder/collection-{id}` (or slug). "Binder not found" / empty states addressed via slug resolution and case-insensitive fallback.
+
+### Deck format sync and AI
+☑ Deck format → AI and UI <!-- id:deck.format_ai -->
+  - Deck format stored and editable via FormatSelector; `DeckAssistant` syncs with `initialFormat` (useEffect) and uses it in chat context.
+  - AI persona and format-knowledge injection consider selected format (Commander, Standard, Modern, Pioneer, Pauper).
+
+### Documentation and analytics
+☑ Analytics and Pro documentation <!-- id:docs.analytics_pro -->
+  - **`docs/ANALYTICS_OVERVIEW.md`** — What we collect without vs with cookie consent; server-side vs PostHog; `track()` vs `capture()`; DNT and feature flags; event taxonomy; config.
+  - **`docs/PRO_IMPLEMENTATION_OVERVIEW.md`** — Access levels (Guest / Free / Pro); Pro resolution; limits (chat, analyze, swap, health, etc.); Pro-only APIs; Pro-gated UI per page; rate limits; file reference.
+☑ Core Web Vitals tracking <!-- id:analytics.web_vitals -->
+  - `lib/analytics/webVitals.ts`: CLS, FCP, FID, INP, LCP, TTFB sent as `web_vital_*` via `capture()` when PostHog initialised (consent-gated). `Providers` calls `initWebVitals` after PostHog ready.
 
 ---
 
