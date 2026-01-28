@@ -3,13 +3,37 @@ import { getServerSupabase } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 
+const TRACKER_ROUTE = "/api/price/tracker";
+
 /*
   GET /api/price/movers?currency=USD&window_days=7&limit=50
-  Returns cards with largest absolute pct change between the latest snapshot and the closest snapshot >= (latest - window_days).
+  Returns cards with largest absolute pct change.
+  Rate limited with deck-series via /api/price/tracker: 5/day free, 50/day Pro.
 */
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    const { checkProStatus } = await import("@/lib/server-pro-check");
+    const isPro = await checkProStatus(user.id);
+    const dailyCap = isPro ? 50 : 5;
+    const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
+    const { hashString } = await import("@/lib/guest-tracking");
+    const userKeyHash = `user:${await hashString(user.id)}`;
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, TRACKER_ROUTE, dailyCap, 1);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        ok: false,
+        code: "RATE_LIMIT_DAILY",
+        proUpsell: !isPro,
+        error: isPro
+          ? "You've reached your daily limit of 50 Price Tracker runs. Contact support if you need higher limits."
+          : "You've used your 5 free Price Tracker runs today. Upgrade to Pro for 50/day!",
+        resetAt: rateLimit.resetAt,
+      }, { status: 429 });
+    }
+
     const url = new URL(req.url);
     const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
     const windowDays = Math.max(1, Math.min(90, parseInt(url.searchParams.get("window_days") || "7", 10)));

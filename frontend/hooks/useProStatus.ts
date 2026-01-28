@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 
 export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
+  const [hasBillingAccount, setHasBillingAccount] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   
@@ -13,6 +14,7 @@ export function useProStatus() {
     
     if (!user) {
       setIsPro(false);
+      setHasBillingAccount(false);
       setLoading(false);
       return;
     }
@@ -25,16 +27,15 @@ export function useProStatus() {
         // Try browser client first
         const { data: profile, error: profileError } = await sb
           .from('profiles')
-          .select('is_pro')
+          .select('is_pro, stripe_customer_id')
           .eq('id', user.id)
           .single();
-        
-        // Check multiple sources for Pro status (same logic as SupportForm - OR between profile and metadata)
+
         const isProFromProfile = profile?.is_pro === true;
         const isProFromMetadata = user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
         let isProUser = isProFromProfile || isProFromMetadata;
-        
-        // If browser query failed, try server-side API fallback (uses same auth, may bypass RLS issues)
+        let hasBilling = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+
         if (profileError) {
           try {
             const apiRes = await fetch('/api/user/pro-status');
@@ -43,17 +44,21 @@ export function useProStatus() {
               if (apiData.ok && apiData.isPro !== undefined) {
                 isProUser = apiData.isPro;
               }
+              if (apiData.ok && apiData.hasBillingAccount !== undefined) {
+                hasBilling = apiData.hasBillingAccount;
+              }
             }
-          } catch (apiErr) {
+          } catch {
             // Fallback to metadata
           }
         }
-        
+
         setIsPro(isProUser);
+        setHasBillingAccount(hasBilling);
       } catch (err) {
-        // Last resort fallback to metadata
         const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
         setIsPro(metadataIsPro);
+        setHasBillingAccount(false);
       } finally {
         setLoading(false);
       }
@@ -77,11 +82,11 @@ export function useProStatus() {
             filter: `id=eq.${user.id}`,
           },
           (payload) => {
-            // Profile was updated - refresh Pro status (check both profile and metadata)
             const profileIsPro = Boolean((payload.new as any)?.is_pro);
             const metadataIsPro = Boolean(user?.user_metadata?.is_pro || user?.user_metadata?.pro);
-            const newIsPro = profileIsPro || metadataIsPro;
-            setIsPro(newIsPro);
+            setIsPro(profileIsPro || metadataIsPro);
+            const sid = (payload.new as any)?.stripe_customer_id;
+            if (sid !== undefined) setHasBillingAccount(!!sid);
             setLoading(false);
           }
         )
@@ -127,8 +132,8 @@ export function useProStatus() {
       }
     };
   }, [user, authLoading]);
-  
-  return { isPro, loading };
+
+  return { isPro, hasBillingAccount, loading };
 }
 
 

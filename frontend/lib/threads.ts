@@ -173,15 +173,23 @@ export async function postMessageStream(
     }
   });
   
-  try {
-    const response = await fetch("/api/chat/stream", {
+  const doFetch = (): Promise<Response> =>
+    fetch("/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal
     });
 
-    // Check if it's a JSON response (fallback or error)
+  let response = await doFetch();
+  if (response.status === 405) {
+    response = await doFetch();
+  }
+  if (response.status === 405) {
+    throw new Error("Chat request was rejected (405). Please refresh the page and try again.");
+  }
+
+  try {
     const contentType = response.headers.get('content-type');
     if (contentType?.includes('application/json')) {
       try {
@@ -192,7 +200,6 @@ export async function postMessageStream(
         if (json.fallback) {
           throw new Error("fallback");
         }
-        // Other error case
         throw new Error(json.message || `HTTP ${response.status}`);
       } catch (e) {
         if (e instanceof Error && e.message === 'guest_limit_exceeded') {
@@ -201,13 +208,15 @@ export async function postMessageStream(
         if (e instanceof Error && e.message === 'fallback') {
           throw e;
         }
-        // JSON parsing failed or other issues
         throw new Error(`HTTP ${response.status}`);
       }
     }
-    
+
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      const msg = response.status === 405
+        ? "Chat request was rejected (405). Please refresh the page and try again."
+        : `HTTP ${response.status}`;
+      throw new Error(msg);
     }
 
     if (!response.body) {

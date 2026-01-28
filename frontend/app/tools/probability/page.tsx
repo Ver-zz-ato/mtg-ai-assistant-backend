@@ -124,8 +124,6 @@ export default function ProbabilityHelpersPage() {
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(); params.set('N', String(deckSize)); params.set('K', String(successCards)); params.set('H', String(openingHand)); params.set('T', String(turns)); params.set('k', String(atLeast)); params.set('draw', onDraw? '1':'0'); params.set('xpt', String(extraPerTurn));
-      // Track usage for Mathlete badge
-      try{ fetch('/api/events/tools',{ method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ type:'prob_run' }) }); } catch{}
       // Color solver params
       params.set('w', String(srcW)); params.set('u', String(srcU)); params.set('b', String(srcB)); params.set('r', String(srcR)); params.set('g', String(srcG));
       params.set('rw', String(reqW)); params.set('ru', String(reqU)); params.set('rb', String(reqB)); params.set('rr', String(reqR)); params.set('rg', String(reqG)); params.set('rt', String(reqTurn));
@@ -584,6 +582,24 @@ export default function ProbabilityHelpersPage() {
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2">
+          <motion.button
+            onClick={async () => {
+              try {
+                const r = await fetch('/api/events/tools', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'prob_run' }) });
+                if (r.status === 429) {
+                  const j = await r.json().catch(() => ({}));
+                  if (j?.proUpsell) {
+                    const { showProToast } = await import('@/lib/pro-ux');
+                    showProToast();
+                  }
+                  return;
+                }
+              } catch {}
+            }}
+            className="px-2 py-1 rounded text-xs bg-neutral-800 hover:bg-neutral-700 transition-colors"
+          >
+            Run
+          </motion.button>
           <motion.button
             onClick={copySummary}
             animate={copiedSummary ? { scale: [1, 1.05, 1] } : {}}

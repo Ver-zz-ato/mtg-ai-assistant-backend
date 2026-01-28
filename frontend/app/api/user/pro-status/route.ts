@@ -12,24 +12,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, isPro: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check Pro status from profile table (authoritative source)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('is_pro')
+      .select('is_pro, stripe_customer_id')
       .eq('id', user.id)
       .single();
-    
-    // Check multiple sources for Pro status (same logic as SupportForm and useProStatus)
+
     const isProFromProfile = profile?.is_pro === true;
     const isProFromMetadata = user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
     const isPro = isProFromProfile || isProFromMetadata;
-    
-    return NextResponse.json({ 
-      ok: true, 
+    const hasBillingAccount = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+
+    return NextResponse.json({
+      ok: true,
       isPro,
+      hasBillingAccount,
       fromProfile: isProFromProfile,
       fromMetadata: isProFromMetadata,
-      profileError: profileError ? profileError.message : null
+      profileError: profileError ? profileError.message : null,
     }, {
       headers: { 'Cache-Control': 'no-store' },
     });

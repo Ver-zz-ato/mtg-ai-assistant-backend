@@ -12,8 +12,9 @@ import PricingTestimonials from '@/components/PricingTestimonials';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
 
 export default function PricingPage() {
-  const { isPro } = useProStatus();
-  const { user, loading } = useAuth(); // NEW: Get auth state from context
+  const { isPro, hasBillingAccount } = useProStatus();
+  const { user, loading } = useAuth();
+  const showManageUI = isPro && hasBillingAccount;
 
   useEffect(() => {
     if (loading) return; // Wait for auth to be ready
@@ -336,7 +337,7 @@ export default function PricingPage() {
 
           {/* Pro Tier */}
           <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-8 text-white relative overflow-hidden">
-            {isPro ? (
+            {showManageUI ? (
               <div className="absolute top-4 right-4 bg-emerald-400 text-black text-xs font-bold px-3 py-1 rounded-full">
                 ✓ ACTIVE
               </div>
@@ -430,7 +431,7 @@ export default function PricingPage() {
               </div>
             </div>
 
-            {isPro ? (
+            {showManageUI ? (
               <button
                 onClick={handleManageBilling}
                 disabled={managingBilling}
@@ -529,7 +530,7 @@ export default function PricingPage() {
             Join thousands of players who are already using ManaTap AI Pro to improve their decks and win more games.
           </p>
           
-          {!isPro && (
+          {!showManageUI && (
             <button 
               onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
               disabled={upgrading}
@@ -542,7 +543,7 @@ export default function PricingPage() {
             </button>
           )}
 
-          {isPro && (
+          {showManageUI && (
             <div className="space-y-4">
               <div className="text-xl font-bold">
                 🎉 You're already a Pro member! Thanks for your support!

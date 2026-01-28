@@ -559,8 +559,14 @@ export default function CostToFinishClient() {
       
       clearTimeout(slowToastTimer);
 
-      const j = await res.json();
+      const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
+        if (res.status === 429 && j?.proUpsell) {
+          try {
+            const { showProToast } = await import('@/lib/pro-ux');
+            showProToast();
+          } catch {}
+        }
         throw new Error(j?.error || res.statusText);
       }
       const nextRows: ResultRow[] = j.rows ?? [];

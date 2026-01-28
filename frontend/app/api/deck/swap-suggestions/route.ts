@@ -194,20 +194,22 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createClient();
     
-    // Rate limiting: Free users 10/day, Pro users 100/day
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const isPro = await checkProStatus(user.id);
-      const dailyLimit = isPro ? 100 : 10;
+      const dailyCap = isPro ? 50 : 5;
       const userKeyHash = `user:${await hashString(user.id)}`;
-      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-suggestions', dailyLimit, 1);
-      
+      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-suggestions', dailyCap, 1);
+
       if (!rateLimit.allowed) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           ok: false,
           code: 'RATE_LIMIT_DAILY',
-          error: `You've reached your daily limit of ${dailyLimit} swap suggestions. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 100 suggestions/day!'}`,
-          resetAt: rateLimit.resetAt
+          proUpsell: !isPro,
+          error: isPro
+            ? "You've reached your daily limit of 50 Budget Swap runs. Contact support if you need higher limits."
+            : "You've used your 5 free Budget Swap runs today. Upgrade to Pro for 50/day!",
+          resetAt: rateLimit.resetAt,
         }, { status: 429 });
       }
     }

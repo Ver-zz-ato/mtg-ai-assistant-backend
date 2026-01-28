@@ -174,7 +174,12 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       const { deckText } = await getDeckTextAndNames();
       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, currency, budget, useSnapshot: true, snapshotDate: new Date().toISOString().slice(0,10) }) });
       const j = await r.json().catch(()=>({ ok:false }));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Swap suggestions failed');
+      if (!r.ok || j?.ok===false) {
+        if (r.status === 429 && j?.proUpsell) {
+          try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {}
+        }
+        throw new Error(j?.error || 'Swap suggestions failed');
+      }
       const sugs: Array<{ from:string; to:string; price_from?: number; price_to?: number; price_delta?: number }>= Array.isArray(j?.suggestions)? j.suggestions: [];
       if (!sugs.length) { await toast(`No swaps under ${currency} ${budget} threshold`, 'info'); return; }
 
@@ -355,28 +360,6 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
             ];
 
             const handleHealthClick = async (item: typeof healthItems[0]) => {
-              // Free users can see status, but AI suggestions are Pro-only
-              if (!isPro) {
-                try {
-                  const { showProToast } = await import('@/lib/pro-ux');
-                  showProToast();
-                  // Show friendly upgrade message
-                  const upgradeMsg = `AI suggestions for ${item.label} are a Pro feature. Upgrade to Pro for just £1.99/month to unlock AI-powered deck improvements and more!`;
-                  setTimeout(() => {
-                    try {
-                      const { toast } = require('@/lib/toast-client');
-                      toast(upgradeMsg, 'info');
-                    } catch {
-                      alert(upgradeMsg);
-                    }
-                  }, 500);
-                } catch {
-                  alert(`AI suggestions are a Pro feature. Upgrade to unlock!`);
-                }
-                return;
-              }
-
-              // Pro users: Show AI suggestions modal
               setAiScanCategory(item.category);
               setAiScanLabel(item.label);
               setAiScanModalOpen(true);
@@ -385,7 +368,6 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               setAiScanSuggestions([]);
               setAiScanProgressStage('analyzing');
 
-              // Simulate progress stages
               const progressInterval = setInterval(() => {
                 setAiScanProgressStage((current) => {
                   const stages = ['analyzing', 'processing', 'generating', 'finalizing'];
@@ -395,54 +377,38 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                   }
                   return current;
                 });
-              }, 30000); // Change stage every 30 seconds (roughly 2 minutes total for 4 stages)
+              }, 30000);
 
               try {
-                // Always log to console (even in production) for debugging
-                console.log('🔍 [AI Deck Scan] Starting fetch...', { 
-                  deckId, 
-                  category: item.category, 
-                  label: item.label,
-                  timestamp: new Date().toISOString()
-                });
-                
                 const requestBody = {
                   deckId,
                   category: item.category,
                   label: item.label,
                 };
-                
-                console.log('📤 [AI Deck Scan] Request body:', JSON.stringify(requestBody, null, 2));
-                
+
                 const res = await fetch('/api/deck/health-suggestions', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(requestBody),
                 });
 
-                console.log('📥 [AI Deck Scan] Response status:', res.status, res.statusText);
-                console.log('📥 [AI Deck Scan] Response headers:', Object.fromEntries(res.headers.entries()));
-
-                const data = await res.json().catch((parseErr) => {
-                  console.error('❌ [AI Deck Scan] JSON parse error:', parseErr);
-                  return { ok: false, error: 'Failed to parse response' };
-                });
-
-                console.log('✅ [AI Deck Scan] Response data:', { 
-                  ok: data.ok, 
-                  suggestionsCount: data.suggestions?.length || 0, 
-                  error: data.error,
-                  suggestions: data.suggestions?.slice(0, 3) || 'none'
-                });
+                const data = await res.json().catch(() => ({ ok: false, error: 'Failed to parse response' }));
 
                 if (!res.ok || !data.ok) {
-                  const errorMsg = data.error || `HTTP ${res.status}: Failed to generate suggestions`;
-                  console.error('❌ [AI Deck Scan] API error:', errorMsg);
-                  throw new Error(errorMsg);
+                  if (res.status === 429 && data.proUpsell) {
+                    setAiScanModalOpen(false);
+                    setAiScanError(null);
+                    clearInterval(progressInterval);
+                    setAiScanLoading(false);
+                    setAiScanProgressStage('analyzing');
+                    const { showProToast } = await import('@/lib/pro-ux');
+                    showProToast();
+                    return;
+                  }
+                  throw new Error(data.error || `HTTP ${res.status}: Failed to generate suggestions`);
                 }
 
                 if (!Array.isArray(data.suggestions) || data.suggestions.length === 0) {
-                  console.warn('⚠️ [AI Deck Scan] No suggestions returned. Full response:', data);
                   setAiScanError('No suggestions generated. The AI may not have found suitable cards for this category.');
                   clearInterval(progressInterval);
                   setAiScanLoading(false);
@@ -450,16 +416,11 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                   return;
                 }
 
-                console.log('🎉 [AI Deck Scan] Success! Setting suggestions:', data.suggestions.length);
                 setAiScanProgressStage('finalizing');
                 setAiScanSuggestions(data.suggestions);
               } catch (err: any) {
-                console.error('💥 [AI Deck Scan] Exception caught:', err);
-                console.error('💥 [AI Deck Scan] Error stack:', err?.stack);
-                console.error('💥 [AI Deck Scan] Error message:', err?.message);
                 setAiScanError(err?.message || 'Failed to generate AI suggestions');
               } finally {
-                console.log('🏁 [AI Deck Scan] Finally block - setting loading to false');
                 clearInterval(progressInterval);
                 setAiScanLoading(false);
                 setAiScanProgressStage('analyzing');
@@ -492,7 +453,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                           ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-400/50 hover:bg-amber-950/30'
                           : 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-950/30'
                       }`}
-                      title={`${item.label}: ${item.status.label}. ${isPro ? 'Click for AI suggestions' : 'Upgrade to Pro for AI suggestions'}`}
+                      title={`${item.label}: ${item.status.label}. Click for AI suggestions${!isPro ? ' (5/day free, 50/day Pro)' : ''}`}
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <span className="text-base">{item.status.icon}</span>
@@ -503,8 +464,8 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                       </div>
                       <span className={`text-[10px] ${item.status.color} opacity-80 group-hover:opacity-100`}>
                         {item.status.label}
-                        {item.status.icon !== '🟢' && isPro && ' → Fix'}
-                        {item.status.icon === '🟢' && isPro && ' → Explore'}
+                        {item.status.icon !== '🟢' && ' → Fix'}
+                        {item.status.icon === '🟢' && ' → Explore'}
                       </span>
                     </button>
                   ))}

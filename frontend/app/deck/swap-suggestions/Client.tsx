@@ -233,9 +233,15 @@ export default function BudgetSwapsClient(){
       
       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(() => ({ ok:false }));
-      
-      if(!r.ok || j?.ok===false) {
-        throw new Error(j?.error||'Failed');
+
+      if (!r.ok || j?.ok === false) {
+        if (r.status === 429 && j?.proUpsell) {
+          try {
+            const { showProToast } = await import('@/lib/pro-ux');
+            showProToast();
+          } catch {}
+        }
+        throw new Error(j?.error || 'Failed');
       }
       const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
       const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topX));

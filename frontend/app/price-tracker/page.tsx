@@ -432,7 +432,7 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   const [showMA30, setShowMA30] = React.useState(false); // #12 Moving average 30-day
   const [zoomRange, setZoomRange] = React.useState<[number, number]>([0, 1]); // #11 Zoom state (0-1 normalized)
   
-  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
+  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.status === 429 && j?.proUpsell) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {} } if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
   
   if (!deckId) return <div className="text-xs opacity-70">Select a deck to see its total value over time.</div>;
   

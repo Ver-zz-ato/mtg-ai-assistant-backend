@@ -58,6 +58,9 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
         setLoading(true);
         const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${windowDays}&limit=100`, { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
+        if (r.status === 429 && j?.proUpsell) {
+          try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {}
+        }
         if (r.ok && j?.ok) setRows(j.rows || []);
         else setRows([]);
       } finally {

@@ -38,27 +38,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check Pro status - deck health features are Pro-only
-    // Use standardized Pro check that checks both database and metadata
     const { checkProStatus } = await import('@/lib/server-pro-check');
     const isPro = await checkProStatus(user.id);
-    
-    if (!isPro) {
-      return NextResponse.json({ ok: false, error: 'Deck Health features are Pro-only. Upgrade to unlock AI suggestions!' }, { status: 403 });
-    }
+    const dailyCap = isPro ? 50 : 5;
 
-    // Add Pro-only daily cap (50/day) to prevent abuse
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString } = await import('@/lib/guest-tracking');
     const userKeyHash = `user:${await hashString(user.id)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/health-suggestions', 50, 1);
-    
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/health-suggestions', dailyCap, 1);
+
     if (!rateLimit.allowed) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         ok: false,
         code: 'RATE_LIMIT_DAILY',
-        error: "You've reached your daily limit of 50 AI Deck Scans. Contact support if you need higher limits.",
-        resetAt: rateLimit.resetAt
+        proUpsell: !isPro,
+        error: isPro
+          ? "You've reached your daily limit of 50 AI Deck Scans. Contact support if you need higher limits."
+          : "You've used your 5 free AI Deck Scans today. Upgrade to Pro for 50/day!",
+        resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }
 
@@ -146,7 +143,7 @@ export async function POST(req: NextRequest) {
           maxTokens: undefined, // No token limit for deck scan
           apiType: 'chat',
           userId: user.id,
-          isPro: true, // This route is Pro-only
+          isPro,
         }
       );
 

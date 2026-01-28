@@ -126,11 +126,27 @@ export default function MulliganSimulatorPage() {
     setBusy(true);
     await new Promise(r => setTimeout(r, 0)); // yield to paint
 
+    const iters = Math.max(1, iterations);
+    try {
+      const r = await fetch('/api/events/tools', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'mull_run', iters }) });
+      if (r.status === 429) {
+        const j = await r.json().catch(() => ({}));
+        if (j?.proUpsell) {
+          const { showProToast } = await import('@/lib/pro-ux');
+          showProToast();
+        }
+        setBusy(false);
+        return;
+      }
+    } catch {
+      setBusy(false);
+      return;
+    }
+
     let keep7 = 0, keep6 = 0, keep5 = 0, ok = 0, seen7=0;
     let sumLandsKept = 0, keptCount = 0;
     const examplesKeep: Array<{succ:number;lands:number}> = [];
     const examplesShip: Array<{succ:number;lands:number}> = [];
-    const iters = Math.max(1, iterations);
 
     for (let i = 0; i < iters; i++) {
       // London mulligan with optional one free 7
@@ -162,7 +178,6 @@ export default function MulliganSimulatorPage() {
     const avgLandsKept = keptCount ? (sumLandsKept/keptCount) : 0;
     setResult({ keep7, keep7Hands: seen7, keep6, keep5, successRate: p, ciLow, ciHigh } as any);
     (window as any)._mull_examples = { keep: examplesKeep, ship: examplesShip, avgLandsKept };
-    try{ fetch('/api/events/tools',{ method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ type:'mull_run', iters }) }); } catch{}
     setBusy(false);
   }
 
