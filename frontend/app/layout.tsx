@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import "./globals.css";
 import Header from "@/components/Header";
 import '@/styles/ph-toolbar-fix.css';
@@ -28,7 +27,6 @@ import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
-import OAuthRedirectHandler from "@/components/OAuthRedirectHandler";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.manatap.ai"),
@@ -111,9 +109,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <AnalyticsProvider />
                 <AnalyticsIdentity />
                 <WorkflowAbandonOnRouteChange />
-                <Suspense fallback={null}>
-                  <OAuthRedirectHandler />
-                </Suspense>
                 <PromoBar />
                 <MaintenanceBanner />
                 <ErrorBoundary>
