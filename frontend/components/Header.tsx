@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
+import { useAuth } from '@/lib/auth-context';
+import { useActiveUsers } from '@/lib/active-users-context';
 import { capture, identify } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
@@ -30,8 +31,7 @@ export default function Header() {
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement>(null);
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
-  const [displayBrewerCount, setDisplayBrewerCount] = useState<number | null>(null);
-  const brewerCountUpdatedAtRef = useRef<number>(0);
+  const { activeUsers } = useActiveUsers();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -302,28 +302,6 @@ export default function Header() {
         .catch(() => {});
     }
   }, [showSignUp, userStats]);
-
-  const BREWER_COUNT_TTL_MS = 60_000;
-
-  // Stable "Players brewing" count: same value when opening/closing modal; refresh at most every 1 min
-  useEffect(() => {
-    if (!userStats) return;
-    const now = Date.now();
-    if (now - brewerCountUpdatedAtRef.current > BREWER_COUNT_TTL_MS) {
-      const next = Math.floor(Math.random() * 601) + 400;
-      setDisplayBrewerCount(next);
-      brewerCountUpdatedAtRef.current = now;
-    }
-    const interval = setInterval(() => {
-      const t = Date.now();
-      if (t - brewerCountUpdatedAtRef.current > BREWER_COUNT_TTL_MS) {
-        const next = Math.floor(Math.random() * 601) + 400;
-        setDisplayBrewerCount(next);
-        brewerCountUpdatedAtRef.current = t;
-      }
-    }, BREWER_COUNT_TTL_MS);
-    return () => clearInterval(interval);
-  }, [userStats]);
 
   // Listen for auth modal open events from guest components
   useEffect(() => {
@@ -735,8 +713,8 @@ export default function Header() {
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
                     <span className="text-emerald-300 font-bold text-base">
-                      {userStats && displayBrewerCount != null
-                        ? `${displayBrewerCount} Players brewing right now`
+                      {activeUsers
+                        ? `${activeUsers} Players brewing right now`
                         : '🟢 Join the community brewing decks'}
                     </span>
                   </div>

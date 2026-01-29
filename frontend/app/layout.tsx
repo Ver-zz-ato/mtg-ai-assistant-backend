@@ -27,6 +27,7 @@ import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
+import { ActiveUsersProvider } from "@/lib/active-users-context";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.manatap.ai"),
@@ -102,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <CookieConsentProvider>
             <AuthProvider>
+              <ActiveUsersProvider>
               <KeyboardShortcutsProvider>
                 <SecureConnectionsGuard />
                 <TopLoadingBar />
@@ -127,6 +129,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* <IOSInstallPrompt /> */} {/* DISABLED: Remove install popup per user request */}
                 <EmailVerificationReminder />
               </KeyboardShortcutsProvider>
+              </ActiveUsersProvider>
             </AuthProvider>
           </CookieConsentProvider>
         </Providers>
