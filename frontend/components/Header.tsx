@@ -259,10 +259,8 @@ export default function Header() {
   useEffect(() => {
     const handleOpenAuth = (e: any) => {
       const mode = e.detail?.mode;
-      if (mode === 'signup') {
+      if (mode === 'signup' || mode === 'signin') {
         setShowSignUp(true);
-      } else if (mode === 'signin') {
-        // Could add sign in modal here if needed
       }
     };
 

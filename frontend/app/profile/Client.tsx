@@ -1036,7 +1036,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       if (confirmation === 'DELETE') {
                         if (confirm('Are you absolutely sure? This action is irreversible.')) {
                           try {
-                            const r = await fetch('/api/profile/delete-account', { method: 'POST' });
+                            const r = await fetch('/api/profile/delete-account', { method: 'POST', credentials: 'include' });
                             const j = await r.json().catch(() => ({}));
                             if (r.ok && j?.ok) {
                               alert('Account deleted. You will be logged out.');
