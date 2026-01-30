@@ -161,18 +161,6 @@ export default function RightSidebar() {
 
   return (
     <div className={`flex flex-col w-full gap-4 relative z-0 ${debugSpace ? 'bg-yellow-900/5' : ''}`}>
-      {/* Top CTA: Analyze any deck */}
-      <div className="w-full bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 border-2 border-blue-500/30 rounded-xl p-4 text-center">
-        <h3 className="text-lg font-bold text-white mb-2">Analyze any deck</h3>
-        <p className="text-sm text-neutral-300 mb-3">Paste your decklist or ask about a Commander</p>
-        <a 
-          href="/my-decks" 
-          className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-all hover:scale-105 shadow-lg"
-        >
-          Start Analyzing →
-        </a>
-      </div>
-
       {/* FAQ Section - collapsed by default */}
       <div className="w-full">
         <HomepageFAQ defaultCollapsed={true} />

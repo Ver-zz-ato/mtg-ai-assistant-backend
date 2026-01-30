@@ -13,8 +13,6 @@ export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
   const supabase = useMemo(() => createBrowserSupabaseClient(), []); // Use singleton
   const { user: authUser, loading: authLoading } = useAuth(); // NEW: Get auth state from context
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [sessionUser, setSessionUser] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [avatar, setAvatar] = useState<string>("");
@@ -146,99 +144,6 @@ export default function Header() {
     } catch (e: unknown) {
       capture('auth_login_failed', { method: 'oauth', provider, error_type: 'other' });
       alert(e instanceof Error ? e.message : 'Sign-in failed');
-    }
-  }
-
-  async function signIn(e: React.FormEvent) {
-    e.preventDefault();
-    capture('auth_login_attempt', { method: 'email_password' });
-    
-    if (!supabase) {
-      alert('Authentication not ready. Please refresh the page.');
-      return;
-    }
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        const errorType = error.message.toLowerCase().includes('invalid') ? 'invalid_credentials' : 
-                         error.message.toLowerCase().includes('network') ? 'network' : 'other';
-        capture('auth_login_failed', { method: 'email_password', error_type: errorType });
-        alert(error.message);
-        return;
-      }
-      
-      capture('auth_login_success', { method: 'email_password' });
-      
-      // Identify user in PostHog for filtering internal/test users
-      const user = data?.user;
-      if (user) {
-        const userEmail = user.email || '';
-        // Mark as internal if it's the site owner/admin (you can configure this email)
-        const internalEmails = (process.env.NEXT_PUBLIC_INTERNAL_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-        const isInternal = internalEmails.includes(userEmail.toLowerCase());
-        
-        identify(user.id, {
-          email: userEmail,
-          is_internal: isInternal,
-          is_test_user: isInternal, // PostHog can filter on this property
-        });
-      }
-      
-      // Also track server-side (always works, no cookie consent needed)
-      try {
-        await fetch('/api/analytics/track-event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: 'auth_login_success',
-            properties: { 
-              method: 'email_password',
-              user_id: data?.user?.id,
-              user_email: data?.user?.email
-            }
-          })
-        });
-      } catch (trackError) {
-        // Silent fail - server-side tracking is best effort
-      }
-      
-      trackSignupCompleted('email'); // This could be login or signup completion
-      
-      // Store signup time for tenure tracking
-      try {
-        if (!localStorage.getItem('user_signup_time')) {
-          localStorage.setItem('user_signup_time', Date.now().toString());
-        }
-      } catch {}
-      
-      // Check if email is verified
-      if (user && !user.email_confirmed_at) {
-        // Email not verified - show resend option
-        const resend = confirm(
-          `⚠️ Email Not Verified\n\n` +
-          `Your email (${user.email}) hasn't been verified yet.\n\n` +
-          `Would you like us to resend the verification email?`
-        );
-        
-        if (resend) {
-          try {
-            await supabase.auth.resend({
-              type: 'signup',
-              email: user.email!,
-            });
-            alert('✅ Verification email sent! Please check your inbox and spam folder.');
-            capture('email_verification_resent_on_login', { email: user.email });
-          } catch (resendErr: any) {
-            alert(`❌ Failed to resend: ${resendErr.message}`);
-          }
-        }
-      }
-      
-      window.location.reload();
-    } catch (err) {
-      alert('Login failed. Please try again.');
     }
   }
 
@@ -460,45 +365,17 @@ export default function Header() {
             </div>
           ) : (
             // Guest mode - no profile button shown
-            // Social presence indicator + auth forms
-            <>
-              <form onSubmit={signIn} className="flex items-center gap-2">
-                <input
-                  type="email"
-                  placeholder="email"
-                  className="rounded-lg border px-2 py-1 text-sm w-24"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="password"
-                  className="rounded-lg border px-2 py-1 text-sm w-24"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-                >
-                  Sign in
-                </button>
-              </form>
-              <button
-                type="button"
-                onClick={() => {
-                  trackSignupStarted('email', 'header_button');
-                  setShowSignUp(true);
-                }}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-              >
-                Sign up
-              </button>
-            </>
+            // Single entry point opens modal (handles both sign in and sign up)
+            <button
+              type="button"
+              onClick={() => {
+                trackSignupStarted('email', 'header_button');
+                setShowSignUp(true);
+              }}
+              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+            >
+              Sign in / Sign up
+            </button>
           )}
         </div>
 
@@ -628,37 +505,11 @@ export default function Header() {
               </>
             ) : (
               <div className="border-t pt-3 space-y-2">
-                <form onSubmit={(e) => { signIn(e); setMobileMenuOpen(false); }} className="space-y-2">
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    required
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
-                  >
-                    Sign in
-                  </button>
-                </form>
                 <button
                   onClick={() => { setShowSignUp(true); setMobileMenuOpen(false); }}
-                  className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
                 >
-                  Create account
+                  Sign in / Sign up
                 </button>
                 <button
                   onClick={() => { setShowForgot(true); setMobileMenuOpen(false); }}

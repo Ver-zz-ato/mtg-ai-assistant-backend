@@ -1414,10 +1414,10 @@ function Chat() {
           return null;
         })()}
         
-        <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border-2 border-neutral-700 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[400px] md:min-h-[800px] max-h-[60vh] md:max-h-none shadow-inner">
+        <div className="flex-1 space-y-3 bg-neutral-950 text-neutral-100 border-2 border-neutral-700 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[800px] md:min-h-[1600px] max-h-[75vh] md:max-h-none shadow-inner">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
+            <div className="flex flex-col items-center justify-center min-h-[800px] p-8 text-center">
               <div className="text-8xl mb-6 opacity-80">💬</div>
               <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-3">
                 Paste a decklist or name a Commander.
