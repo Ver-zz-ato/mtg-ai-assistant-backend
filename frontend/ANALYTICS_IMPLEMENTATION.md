@@ -54,6 +54,13 @@ trackProFeatureUsed('price_snapshot')
 trackProFeatureUsed('set_to_playset')
 ```
 
+### Source path & “which page makes money”
+- **signup_completed / login_completed**: Sent only via `POST /api/analytics/auth-event` (from `AnalyticsIdentity` on SIGNED_IN or first-load session). Always include `source_path` (pathname + search) so you can answer “which page led to signup/login”.
+- **pro_upgrade_completed**: Includes `source_path` (thank-you page or `stripe_webhook` when fired from Stripe). Pro funnel events (`pro_gate_viewed`, `pro_upgrade_started`, `pro_upgrade_completed`) are also sent server-side so they show in PostHog even if client capture is blocked.
+
+### PostHog dashboard: avoid double counts
+When debugging funnels, **filter LIBRARY = posthog-node** so you see one event per action (server-side). Otherwise you may see both client and server events for the same action.
+
 ## 🔄 Phase 2: Workflow & User Journey Tracking
 
 ### Implementation Highlights

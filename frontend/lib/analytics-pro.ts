@@ -55,6 +55,13 @@ export interface ProEventProps {
   visitor_id?: string | null;
 }
 
+/** Pro funnel events we also send server-side so they show in PostHog even if client is blocked. */
+const PRO_EVENTS_ALSO_SERVER = new Set<ProEventType>([
+  'pro_gate_viewed',
+  'pro_upgrade_started',
+  'pro_upgrade_completed',
+]);
+
 export function captureProEvent(event: ProEventType, props?: ProEventProps) {
   try {
     const base = {
@@ -83,6 +90,16 @@ export function captureProEvent(event: ProEventType, props?: ProEventProps) {
     }
 
     capture(event, base);
+
+    if (PRO_EVENTS_ALSO_SERVER.has(event)) {
+      const sourcePath = props?.source_path ?? (typeof window !== 'undefined' ? window.location.pathname + window.location.search : undefined);
+      const enrichedProps = { ...base, source_path: sourcePath };
+      fetch('/api/analytics/track-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, properties: enrichedProps }),
+      }).catch(() => {});
+    }
   } catch {}
 }
 

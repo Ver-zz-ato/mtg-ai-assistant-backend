@@ -58,7 +58,7 @@ async function fireAuthEventIfNotRecorded(user: { id: string; created_at?: strin
       type,
       method,
       provider,
-      source_path: typeof window !== 'undefined' ? window.location.pathname : null,
+      source_path: typeof window !== 'undefined' ? window.location.pathname + window.location.search : null,
       visitor_id: visitorId,
     }),
   }).catch(() => {});

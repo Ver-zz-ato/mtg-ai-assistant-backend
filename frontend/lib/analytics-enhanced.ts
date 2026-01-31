@@ -44,18 +44,13 @@ export function trackSignupStarted(method: 'email' | 'oauth' | 'guest', source?:
   } catch {}
 }
 
-export function trackSignupCompleted(method: 'email' | 'oauth', userId?: string) {
-  const startTime = sessionStorage.getItem('signup_started_at');
-  const activationTime = startTime ? Math.round((Date.now() - parseInt(startTime)) / (1000 * 60)) : null;
-  
-  capture('signup_completed', {
-    method,
-    user_id: userId,
-    activation_time_minutes: activationTime,
-    timestamp: new Date().toISOString()
-  });
-  
-  // Clean up
+/**
+ * Called after signup success in UI. Does NOT fire signup_completed here.
+ * signup_completed / login_completed are sent only via POST /api/analytics/auth-event
+ * from AnalyticsIdentity (on SIGNED_IN or first-load session). That ensures source_path,
+ * provider, and server-side mirror for OAuth and email signups.
+ */
+export function trackSignupCompleted(_method: 'email' | 'oauth', _userId?: string) {
   try {
     sessionStorage.removeItem('signup_started_at');
   } catch {}

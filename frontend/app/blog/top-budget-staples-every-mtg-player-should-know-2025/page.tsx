@@ -1,5 +1,10 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
+import BlogPostBody from './BlogPostBody';
+import {
+  injectCardPlaceholders,
+  splitByCardPlaceholders,
+} from '@/lib/blog-card-placeholders';
 
 export const metadata: Metadata = {
   title: 'Top Budget Staples Every MTG Player Should Know in 2025 | ManaTap AI',
@@ -9,6 +14,46 @@ export const metadata: Metadata = {
     canonical: '/blog/top-budget-staples-every-mtg-player-should-know-2025',
   },
 };
+
+/** Card names that appear in **bold** in the article and get a small image + hover enlarge. */
+const CARD_NAMES = [
+  'Sol Ring',
+  'Arcane Signet',
+  'Cultivate',
+  "Kodama's Reach",
+  'Fellwar Stone',
+  'Phyrexian Arena',
+  'Harmonize',
+  'Mystic Remora',
+  'Windfall',
+  'Fact or Fiction',
+  'Beast Within',
+  'Swords to Plowshares',
+  'Chaos Warp',
+  'Vandalblast',
+  'Generous Gift',
+  'Blasphemous Act',
+  'Wrath of God',
+  'Cyclonic Rift',
+  'Command Tower',
+  'Exotic Orchard',
+  'Reliquary Tower',
+  'Bojuka Bog',
+];
+
+function processMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-4xl font-bold mb-6 mt-8">$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-3xl font-bold mb-4 mt-10">$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-2xl font-bold mb-3 mt-8">$1</h3>')
+    .replace(/^\d+\. (.+)$/gm, '<li class="mb-2">$1</li>')
+    .replace(/^\- (.+)$/gm, '<li class="mb-2">$1</li>')
+    .replace(/\n\n/g, '</p><p class="mb-6">')
+    .replace(/^(.+)$/gm, '<p class="mb-6">$1</p>');
+}
 
 const content = `
 # Top Budget Staples Every MTG Player Should Know in 2025
@@ -215,6 +260,17 @@ Budget staples are the foundation of every Commander collection. These cards wor
 `;
 
 export default function BlogPost() {
+  const withPlaceholders = injectCardPlaceholders(content, CARD_NAMES);
+  const segments = splitByCardPlaceholders(withPlaceholders);
+  const blocks: ({ type: 'html'; html: string } | { type: 'card'; name: string })[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (i % 2 === 0) {
+      blocks.push({ type: 'html', html: processMarkdown(segments[i] || '') });
+    } else {
+      blocks.push({ type: 'card', name: segments[i] || '' });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-4xl mx-auto px-4 py-12">
@@ -227,18 +283,7 @@ export default function BlogPost() {
 
         <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl">
           <div className="prose prose-lg dark:prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: content
-              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-              .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-              .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
-              .replace(/^# (.+)$/gm, '<h1 class="text-4xl font-bold mb-6 mt-8">$1</h1>')
-              .replace(/^## (.+)$/gm, '<h2 class="text-3xl font-bold mb-4 mt-10">$1</h2>')
-              .replace(/^### (.+)$/gm, '<h3 class="text-2xl font-bold mb-3 mt-8">$1</h3>')
-              .replace(/^\d+\. (.+)$/gm, '<li class="mb-2">$1</li>')
-              .replace(/^\- (.+)$/gm, '<li class="mb-2">$1</li>')
-              .replace(/\n\n/g, '</p><p class="mb-6">')
-              .replace(/^(.+)$/gm, '<p class="mb-6">$1</p>')
-            }} />
+            <BlogPostBody blocks={blocks} />
           </div>
         </article>
       </div>
