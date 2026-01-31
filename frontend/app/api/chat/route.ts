@@ -100,6 +100,18 @@ function guessFormatHint(input: string | null | undefined): string | undefined {
   return undefined;
 }
 
+/** Map UI-selected format (e.g. "commander") to the same hint string used in responses. */
+function prefsFormatToHint(format: string | null | undefined): string | undefined {
+  if (!format || typeof format !== "string") return undefined;
+  const lower = format.toLowerCase();
+  if (lower === "commander") return "Commander (EDH)";
+  if (lower === "standard") return "Standard 60-card";
+  if (lower === "modern") return "Modern 60-card";
+  if (lower === "pioneer") return "Pioneer 60-card";
+  if (lower === "pauper") return "Pauper 60-card";
+  return format.charAt(0).toUpperCase() + format.slice(1);
+}
+
 function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckContext: boolean = false): string {
   let text = outText || "";
 
@@ -343,7 +355,7 @@ export async function POST(req: NextRequest) {
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
     const { text, threadId } = parse.data;
     const guardCtx: GuardContext = {
-      formatHint: guessFormatHint(text),
+      formatHint: prefsFormatToHint(prefs?.format) ?? guessFormatHint(text),
       mentionedBudget: /\b(budget|cheap|afford|under\s?\$|under\s?£|kid|price)\b/i.test(String(text || '')),
       isCustom: /\b(custom|homebrew|not a real card)\b/i.test(String(text || '')),
       askedExternal: /\b(crawl|sync|upload|camera|tcgplayer|arena|export|scryfall|tcg player)\b/i.test(String(text || '')),
@@ -812,7 +824,9 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
       const colors = cols && cols.length ? cols.join(',') : 'any';
       sys += `\n\nUser preferences: Format=${fmt || 'unspecified'}, Value=${plan || 'optimized'}, Colors=${colors}. If relevant, assume these without asking.`;
-      
+      if (fmt) {
+        sys += ` Do NOT say "Format unclear" or "I'll assume Commander/Standard/…" — the user has already selected a format in the UI; use it.`;
+      }
       // Add specific guidance for snapshot requests
       sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
     }

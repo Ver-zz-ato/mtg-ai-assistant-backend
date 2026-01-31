@@ -372,7 +372,7 @@ export default function Header() {
                 trackSignupStarted('email', 'header_button');
                 setShowSignUp(true);
               }}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
+              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5 whitespace-nowrap flex-shrink-0"
             >
               Sign in / Sign up
             </button>
@@ -507,7 +507,7 @@ export default function Header() {
               <div className="border-t pt-3 space-y-2">
                 <button
                   onClick={() => { setShowSignUp(true); setMobileMenuOpen(false); }}
-                  className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
+                  className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700 whitespace-nowrap"
                 >
                   Sign in / Sign up
                 </button>

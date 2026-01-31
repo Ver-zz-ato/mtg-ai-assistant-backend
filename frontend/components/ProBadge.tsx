@@ -1,7 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePro } from '@/components/ProContext';
 import { capture } from '@/lib/ph';
+import { trackProGateViewed, trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
 
 interface ProBadgeProps {
   showUpgradeTooltip?: boolean;
@@ -11,6 +12,11 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
   const { isPro } = usePro();
   const [showTooltip, setShowTooltip] = useState(false);
 
+  useEffect(() => {
+    if (showUpgradeTooltip && !isPro) {
+      trackProGateViewed('header_upgrade', 'header', { is_pro: false });
+    }
+  }, [showUpgradeTooltip, isPro]);
 
   // For Pro users, show Pro badge
   if (isPro) {
@@ -30,6 +36,8 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
           onClick={() => {
+            setActiveProFeature('header_upgrade');
+            trackProUpgradeStarted('gate', { feature: 'header_upgrade', location: 'header' });
             try {
               capture('pro_badge_upgrade_clicked', { source: 'pro_badge' });
             } catch {}

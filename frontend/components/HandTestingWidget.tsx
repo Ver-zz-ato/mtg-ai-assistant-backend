@@ -359,7 +359,7 @@ export default function HandTestingWidget({
   // Track PRO gate view for non-PRO users who have exhausted free runs
   useEffect(() => {
     if (!isPro && freeRunsRemaining !== null && freeRunsRemaining === 0) {
-      trackProGateViewed('hand_testing', 'widget_display');
+      trackProGateViewed('hand_testing', 'widget_display', { is_pro: false });
     }
   }, [isPro, freeRunsRemaining, proLoading]);
 

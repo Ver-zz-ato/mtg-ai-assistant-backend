@@ -41,6 +41,7 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
       trackProGateViewed('export_deck_analysis', 'analysis_workflow', {
         plan_suggested: 'monthly',
         reason: 'feature_required',
+        is_pro: false,
       });
     }
   }, [result, isPro]);

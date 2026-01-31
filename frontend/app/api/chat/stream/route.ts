@@ -213,6 +213,19 @@ export async function POST(req: NextRequest) {
       sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
     }
     
+    // User-selected format/prefs from UI — use it so we never say "Format unclear" when they've already chosen
+    const prefs = raw?.prefs || raw?.preferences || null;
+    if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
+      const fmt = typeof prefs.format === "string" ? prefs.format : undefined;
+      const plan = typeof prefs.budget === "string" ? prefs.budget : (typeof prefs.plan === "string" ? prefs.plan : undefined);
+      const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
+      const colors = cols && cols.length ? cols.join(",") : "any";
+      sys += `\n\nUser preferences: Format=${fmt || "unspecified"}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking.`;
+      if (fmt) {
+        sys += ` Do NOT say "Format unclear" or "I'll assume Commander/Standard/…" — the user has already selected a format in the UI; use it.`;
+      }
+    }
+    
     // Add inference when deck is linked (lightweight for streaming)
     // Check both thread-linked deck and context.deckId (passed directly from DeckAssistant)
     const contextDeckId = typeof raw?.context === 'object' && raw.context !== null && 'deckId' in raw.context

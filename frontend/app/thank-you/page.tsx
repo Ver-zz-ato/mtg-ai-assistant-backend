@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
 import Link from 'next/link';
-import { captureProEvent } from '@/lib/analytics-pro';
+import { captureProEvent, getActiveProFeature } from '@/lib/analytics-pro';
 import { clearActiveWorkflow, getCurrentWorkflowRunId } from '@/lib/analytics/workflow-abandon';
 
 function ThankYouContent() {
@@ -90,26 +90,14 @@ function ThankYouContent() {
             const runId = getCurrentWorkflowRunId();
             clearActiveWorkflow();
             try {
+              const proFeature = getActiveProFeature();
               captureProEvent('pro_upgrade_completed', {
+                pro_feature: proFeature ?? undefined,
+                source_path: window.location.pathname + window.location.search,
                 plan_suggested: plan || 'monthly',
                 gate_location: 'thank_you_page',
                 workflow_run_id: runId ?? undefined,
               } as any);
-            } catch {}
-            try {
-              await fetch('/api/analytics/track-event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  event: 'pro_upgrade_completed',
-                  properties: {
-                    plan: plan || 'monthly',
-                    session_id: sessionId,
-                    source: 'thank_you_page',
-                    workflow_run_id: runId ?? undefined,
-                  },
-                }),
-              });
             } catch {}
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.delete('session_id');
