@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
+import { captureServer } from '@/lib/server/analytics';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -264,6 +265,24 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     plan,
     subscriptionId: subscription.id,
   });
+
+  // Fire pro_upgrade_completed server-side so we count conversions even if thank-you page never loads
+  try {
+    await captureServer(
+      'pro_upgrade_completed',
+      {
+        user_id: profile.id,
+        pro_feature: 'checkout',
+        source_path: 'stripe_webhook',
+        plan: plan ?? undefined,
+        stripe_subscription_id: subscription.id,
+        event_category: 'pro_funnel',
+      },
+      profile.id
+    );
+  } catch (e) {
+    console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
+  }
 }
 
 async function handleSubscriptionUpdated(event: Stripe.Event) {
@@ -350,6 +369,24 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     }
 
     console.info('Subscription activated', { userId: profile.id, plan });
+
+    // Fire pro_upgrade_completed when subscription becomes active (e.g. reactivation, or delayed webhook)
+    try {
+      await captureServer(
+        'pro_upgrade_completed',
+        {
+          user_id: profile.id,
+          pro_feature: 'subscription_updated',
+          source_path: 'stripe_webhook',
+          plan: plan ?? undefined,
+          stripe_subscription_id: subscription.id,
+          event_category: 'pro_funnel',
+        },
+        profile.id
+      );
+    } catch (e) {
+      console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
+    }
 
   } else if (subscription.status === 'canceled') {
     // Subscription cancelled - remove Pro status

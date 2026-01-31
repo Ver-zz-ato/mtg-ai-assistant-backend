@@ -23,6 +23,7 @@ export default function Header() {
   const [signupEmailError, setSignupEmailError] = useState("");
   const [signupPasswordError, setSignupPasswordError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [emailFormMode, setEmailFormMode] = useState<'signup' | 'login'>('signup');
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -537,6 +538,7 @@ export default function Header() {
                     setSignupEmailError('');
                     setSignupPasswordError('');
                     setSignupSuccess(false);
+                    setEmailFormMode('signup');
                   }}
                   className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl leading-none"
                   aria-label="Close"
@@ -544,7 +546,7 @@ export default function Header() {
                   ×
                 </button>
                 <div className="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Create account
+                  Sign in or Create account
                 </div>
                 <div className="text-sm text-neutral-300 mb-2">
                   Save decks, track collections, and explore <span className="text-yellow-400 font-semibold">Pro features</span> ✨
@@ -640,69 +642,76 @@ export default function Header() {
                 <form onSubmit={async (e) => { 
                   e.preventDefault(); 
                   
-                  // Validate email
                   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                   if (!emailRegex.test(signupEmail)) {
                     setSignupEmailError('Please enter a valid email address');
                     return;
                   }
                   setSignupEmailError('');
+                  setSignupPasswordError('');
                   
-                  // Validate password
+                  if (emailFormMode === 'login') {
+                    if (!signupPassword.length) {
+                      setSignupPasswordError('Enter your password');
+                      return;
+                    }
+                    try {
+                      const { data, error } = await supabase.auth.signInWithPassword({ email: signupEmail, password: signupPassword });
+                      if (error) {
+                        setSignupPasswordError(error.message);
+                        return;
+                      }
+                      capture('auth_login_success', { method: 'email_password' });
+                      if (data?.user) identify(data.user.id, { email: data.user.email ?? undefined });
+                      setShowSignUp(false);
+                      setSignupEmail('');
+                      setSignupPassword('');
+                      setEmailFormMode('signup');
+                      window.location.reload();
+                    } catch (err: any) {
+                      setSignupPasswordError(err?.message || 'Sign in failed');
+                    }
+                    return;
+                  }
+                  
                   if (signupPassword.length < 8) {
                     setSignupPasswordError('Password must be at least 8 characters');
                     return;
                   }
-                  setSignupPasswordError('');
                   
                   try { 
                     trackSignupStarted('email');
                     const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); 
                     if (error) {
-                      setSignupPasswordError(error.message);
+                      const msg = error.message || '';
+                      const alreadyRegistered = /already registered|already been registered|user already exists/i.test(msg);
+                      if (alreadyRegistered) {
+                        setEmailFormMode('login');
+                        setSignupPasswordError('This email is already registered. Sign in with your password above.');
+                      } else {
+                        setSignupPasswordError(msg);
+                      }
                       return;
                     }
                     
-                    // Track client-side (may fail if no cookie consent)
                     trackSignupCompleted('email', data?.user?.id);
-                    
-                    // Also track server-side (always works, no cookie consent needed)
                     try {
                       await fetch('/api/analytics/track-signup', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                          method: 'email', 
-                          userId: data?.user?.id,
-                          userEmail: signupEmail 
-                        })
+                        body: JSON.stringify({ method: 'email', userId: data?.user?.id, userEmail: signupEmail })
                       });
-                    } catch (trackError) {
-                      // Silent fail - server-side tracking is best effort
-                    }
-                    
-                    // Log activity for live presence banner with varied messages
+                    } catch {}
                     try {
-                      const signupMessages = [
-                        'New player joined!',
-                        'Someone just signed up!',
-                        'New member joined the community',
-                        'Welcome, new brewer!',
-                        'Another player arrived!'
-                      ];
-                      const randomMessage = signupMessages[Math.floor(Math.random() * signupMessages.length)];
+                      const signupMessages = ['New player joined!', 'Someone just signed up!', 'New member joined the community', 'Welcome, new brewer!', 'Another player arrived!'];
                       await fetch('/api/stats/activity/log', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          type: 'user_joined',
-                          message: randomMessage,
-                        }),
+                        body: JSON.stringify({ type: 'user_joined', message: signupMessages[Math.floor(Math.random() * signupMessages.length)] }),
                       });
                     } catch {}
-                    
                     setSignupSuccess(true);
-                  } catch (e:any) { 
+                  } catch (e: any) { 
                     setSignupPasswordError(e?.message || 'Sign up failed');
                   } 
                 }}>
@@ -735,18 +744,18 @@ export default function Header() {
                           setSignupPasswordError('');
                         }} 
                         type="password" 
-                        placeholder="Min 8 characters" 
+                        placeholder={emailFormMode === 'login' ? 'Your password' : 'Min 8 characters'} 
                         className={`w-full bg-neutral-950 text-white border rounded px-3 py-2 ${signupPasswordError ? 'border-red-500' : 'border-neutral-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                        autoComplete="new-password"
-                        minLength={8}
+                        autoComplete={emailFormMode === 'login' ? 'current-password' : 'new-password'}
+                        minLength={emailFormMode === 'signup' ? 8 : undefined}
                         required 
                       />
                       {signupPasswordError && (
                         <div className="text-xs text-red-400 mt-1">{signupPasswordError}</div>
                       )}
                       
-                      {/* Password Requirements Checklist */}
-                      {signupPassword.length > 0 && (
+                      {/* Password Requirements Checklist - only for signup */}
+                      {emailFormMode === 'signup' && signupPassword.length > 0 && (
                         <div className="mt-2 space-y-1">
                           <div className="text-xs font-medium text-neutral-400 mb-1">Password requirements:</div>
                           <div className={`text-xs flex items-center gap-1.5 ${signupPassword.length >= 8 ? 'text-emerald-400' : 'text-neutral-500'}`}>
@@ -770,32 +779,57 @@ export default function Header() {
                     </div>
                   </div>
                   
-                  <div className="flex justify-center gap-2 mt-6">
-                    <button 
-                      type="button" 
-                      onClick={()=>{
-                        setShowSignUp(false);
-                        setSignupEmail('');
-                        setSignupPassword('');
-                        setSignupEmailError('');
-                        setSignupPasswordError('');
-                        setSignupSuccess(false);
-                      }} 
-                      className="px-4 py-2 rounded border border-neutral-700 hover:bg-neutral-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold transition-all shadow-lg hover:shadow-xl"
-                    >
-                      Create Account
-                    </button>
+                  <div className="flex flex-col items-center gap-3 mt-6">
+                    <div className="flex justify-center gap-2 w-full">
+                      <button 
+                        type="button" 
+                        onClick={()=>{
+                          setShowSignUp(false);
+                          setSignupEmail('');
+                          setSignupPassword('');
+                          setSignupEmailError('');
+                          setSignupPasswordError('');
+                          setSignupSuccess(false);
+                          setEmailFormMode('signup');
+                        }} 
+                        className="px-4 py-2 rounded border border-neutral-700 hover:bg-neutral-800 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold transition-all shadow-lg hover:shadow-xl"
+                      >
+                        {emailFormMode === 'login' ? 'Sign in' : 'Create account'}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmailFormMode(m => m === 'signup' ? 'login' : 'signup');
+                          setSignupEmailError('');
+                          setSignupPasswordError('');
+                        }}
+                        className="text-xs text-blue-400 hover:text-blue-300 underline"
+                      >
+                        {emailFormMode === 'signup' ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
+                      </button>
+                      {emailFormMode === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowSignUp(false); setShowForgot(true); setForgotEmail(signupEmail); }}
+                          className="text-xs text-neutral-400 hover:text-neutral-300 underline"
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Privacy & Terms */}
                   <div className="mt-4 pt-4 border-t border-neutral-700 text-center text-xs text-neutral-400">
-                    By creating an account, you agree to our{' '}
+                    By signing in or creating an account, you agree to our{' '}
                     <a 
                       href="/terms" 
                       target="_blank"
