@@ -1688,16 +1688,22 @@ export async function POST(req: Request) {
       let analysisText = result.text;
       if (entries.length > 0 && analysisText) {
         try {
-          const { applyValidators } = await import("@/lib/chat/responseValidators");
           const formatKeyAnalyze = (body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander") as string;
-          const validatorsResult = await applyValidators(analysisText, {
-            deckCards: entries.map((e) => ({ name: e.name })),
-            formatKey: formatKeyAnalyze,
+          const formatKeyVal = (formatKeyAnalyze === "modern" || formatKeyAnalyze === "pioneer" ? formatKeyAnalyze : "commander") as "commander" | "modern" | "pioneer";
+          const { validateRecommendations } = await import("@/lib/chat/validateRecommendations");
+          const result = await validateRecommendations({
+            deckCards: entries.map((e) => ({ name: e.name, count: e.count })),
+            formatKey: formatKeyVal,
+            colorIdentity: context.colors?.length ? context.colors : null,
+            commanderName: context.commander || null,
+            rawText: analysisText,
           });
-          analysisText = validatorsResult.repairedText;
-          if (process.env.NODE_ENV === "development" && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
-            console.warn("[deck/analyze] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+          if (!result.valid && result.issues.length > 0 && process.env.NODE_ENV === "development") {
+            console.warn("[deck/analyze] Recommendation validation issues:", result.issues.map((i) => i.message));
           }
+          analysisText = result.repairedText;
+          const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+          analysisText = applyOutputCleanupFilter(analysisText);
         } catch (_) {}
       }
       validatedAnalysis = {

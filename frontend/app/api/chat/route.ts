@@ -1243,30 +1243,55 @@ Return the corrected answer with concise, user-facing tone.`;
     const hasLinkedDeckContext = !!deckIdToUse || (!!d && !!d.format);
     outText = enforceChatGuards(outText, guardCtx, hasLinkedDeckContext);
 
-    // Runtime validation: strip invalid ADD suggestions (off-color, already-in-deck)
+    // Runtime validation: format-aware recommendation validator + output cleanup
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
     if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
       try {
-        const { validateAddSuggestions } = await import("@/lib/chat/validateAddSuggestions");
         const formatKeyForValidate = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
-        const result = await validateAddSuggestions(outText, {
-          deckCards: deckCardsForValidate,
+        const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer" ? formatKeyForValidate : "commander") as "commander" | "modern" | "pioneer";
+        const { validateRecommendations, REPAIR_SYSTEM_MESSAGE } = await import("@/lib/chat/validateRecommendations");
+        let result = await validateRecommendations({
+          deckCards: deckCardsForValidate.map((c) => ({ name: c.name })),
+          formatKey: formatKeyVal,
           colorIdentity: null,
           commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
-          formatKey: formatKeyForValidate,
+          rawText: outText,
         });
-        if (!result.valid && result.invalidAdds.length > 0) {
-          if (DEV) console.warn("[chat] Invalid ADD suggestions stripped:", result.invalidAdds);
+        if (!result.valid && result.issues.length > 0) {
+          if (DEV) console.warn("[chat] Recommendation validation issues:", result.issues.map((i) => i.message));
           outText = result.repairedText;
         }
-        const { applyValidators } = await import("@/lib/chat/responseValidators");
-        const validatorsResult = await applyValidators(outText, { deckCards: deckCardsForValidate, formatKey: formatKeyForValidate });
-        outText = validatorsResult.repairedText;
-        if (DEV && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
-          console.warn("[chat] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+        // Max 1 retry: re-invoke with repair message when needsRegeneration (atomic replace, no streaming)
+        if (result.needsRegeneration) {
+          console.log("[chat] regeneration (needsRegeneration) triggered");
+          try {
+            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro);
+            const regenText = firstOutputText((regenOut as any)?.json);
+            if (typeof regenText === "string" && regenText.trim()) {
+              outText = regenText.trim();
+              result = await validateRecommendations({
+                deckCards: deckCardsForValidate.map((c) => ({ name: c.name })),
+                formatKey: formatKeyVal,
+                colorIdentity: null,
+                commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
+                rawText: outText,
+              });
+              if (!result.valid && result.issues.length > 0) outText = result.repairedText;
+            }
+          } catch (regenErr) {
+            if (DEV) console.warn("[chat] regeneration request failed:", regenErr);
+          }
+        }
+        const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+        outText = applyOutputCleanupFilter(outText);
+        if (DEV) {
+          const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
+          const flags = humanSanityCheck(outText);
+          if (!flags.feelsHuman || flags.instructionalPhrases.length > 0)
+            console.warn("[chat] humanSanityCheck flags:", flags);
         }
       } catch (e) {
-        if (DEV) console.warn("[chat] validateAddSuggestions/applyValidators error:", e);
+        if (DEV) console.warn("[chat] validateRecommendations/cleanup error:", e);
       }
     }
 

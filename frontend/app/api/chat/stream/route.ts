@@ -458,25 +458,66 @@ export async function POST(req: NextRequest) {
           const deckCards = deckContextForCompose?.deckCards ?? [];
           if (deckCards.length > 0 && outputText) {
             try {
-              const { validateAddSuggestions } = await import("@/lib/chat/validateAddSuggestions");
-              const result = await validateAddSuggestions(outputText, {
-                deckCards,
+              const formatKeyVal = (formatKey === "modern" || formatKey === "pioneer" ? formatKey : "commander") as "commander" | "modern" | "pioneer";
+              const { validateRecommendations, REPAIR_SYSTEM_MESSAGE } = await import("@/lib/chat/validateRecommendations");
+              let result = await validateRecommendations({
+                deckCards: deckCards.map((c) => ({ name: c.name })),
+                formatKey: formatKeyVal,
                 colorIdentity: deckContextForCompose?.colorIdentity ?? null,
                 commanderName: deckContextForCompose?.commanderName ?? null,
-                formatKey,
+                rawText: outputText,
               });
-              if (!result.valid && result.invalidAdds.length > 0) {
-                if (DEV) console.warn("[stream] Invalid ADD suggestions stripped:", result.invalidAdds);
+              if (!result.valid && result.issues.length > 0) {
+                if (DEV) console.warn("[stream] Recommendation validation issues:", result.issues.map((i) => i.message));
                 outputText = result.repairedText;
               }
-              const { applyValidators } = await import("@/lib/chat/responseValidators");
-              const validatorsResult = await applyValidators(outputText, { deckCards, formatKey });
-              outputText = validatorsResult.repairedText;
-              if (DEV && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
-                console.warn("[stream] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+              // Max 1 retry: re-invoke with repair message when needsRegeneration (no streaming on second pass)
+              if (result.needsRegeneration) {
+                console.log("[stream] regeneration (needsRegeneration) triggered");
+                try {
+                  const repairBody = prepareOpenAIBody({
+                    model: MODEL,
+                    messages: [
+                      { role: "system", content: sys + "\n\n" + REPAIR_SYSTEM_MESSAGE },
+                      { role: "user", content: text },
+                    ],
+                    stream: false,
+                    max_completion_tokens: Math.min(MAX_TOKENS_STREAM, 1000),
+                  } as Record<string, unknown>);
+                  const regenRes = await fetch(OPENAI_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                    body: JSON.stringify(repairBody),
+                  });
+                  if (regenRes.ok) {
+                    const regenJson = await regenRes.json();
+                    const regenContent = regenJson?.choices?.[0]?.message?.content;
+                    if (typeof regenContent === "string" && regenContent.trim()) {
+                      outputText = regenContent.trim();
+                      result = await validateRecommendations({
+                        deckCards: deckCards.map((c) => ({ name: c.name })),
+                        formatKey: formatKeyVal,
+                        colorIdentity: deckContextForCompose?.colorIdentity ?? null,
+                        commanderName: deckContextForCompose?.commanderName ?? null,
+                        rawText: outputText,
+                      });
+                      if (!result.valid && result.issues.length > 0) outputText = result.repairedText;
+                    }
+                  }
+                } catch (regenErr) {
+                  if (DEV) console.warn("[stream] regeneration request failed:", regenErr);
+                }
+              }
+              const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+              outputText = applyOutputCleanupFilter(outputText);
+              if (DEV) {
+                const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
+                const flags = humanSanityCheck(outputText);
+                if (!flags.feelsHuman || flags.instructionalPhrases.length > 0)
+                  console.warn("[stream] humanSanityCheck flags:", flags);
               }
             } catch (e) {
-              if (DEV) console.warn("[stream] validateAddSuggestions/applyValidators error:", e);
+              if (DEV) console.warn("[stream] validateRecommendations/cleanup error:", e);
             }
           }
 
