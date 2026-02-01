@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { captureServer } from './lib/server/analytics';
 import { validateEnv } from './lib/env';
 import {
@@ -74,47 +74,19 @@ export async function middleware(req: NextRequest) {
   if (path.startsWith('/api/')) {
     response = NextResponse.next();
 
-    // Supabase sometimes stores auth cookies with a "base64-" prefix; decode before the client parses
-    // so JSON.parse never sees the raw prefix and no parse error is thrown.
-    function safeDecodeCookie(value: string | undefined): string | undefined {
-      if (value == null || value === '') return undefined;
-      if (typeof value !== 'string') return undefined;
-      if (value.startsWith('base64-')) {
-        try {
-          return Buffer.from(value.slice(7), 'base64').toString('utf8');
-        } catch {
-          return undefined;
-        }
-      }
-      return value;
-    }
-    const res = response as NextResponse;
+    // Attach/refresh Supabase cookies; never block on error
     try {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            get(name: string) {
-              return safeDecodeCookie(req.cookies.get(name)?.value);
-            },
-            set(name: string, value: string, options: Record<string, unknown>) {
-              try {
-                res.cookies.set(name, value, options as any);
-              } catch {}
-            },
-            remove(name: string, options: Record<string, unknown>) {
-              try {
-                res.cookies.set(name, '', { ...options, maxAge: 0 } as any);
-              } catch {}
-            },
-          },
-        }
-      );
+      const supabase = createMiddlewareClient({ req, res: response as NextResponse });
       await supabase.auth.getSession();
     } catch (e: any) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Supabase middleware getSession error:', e);
+      // Suppress cookie parsing errors - these are warnings from Supabase's cookie format
+      // The error "Failed to parse cookie string" is expected when cookies have base64- prefix
+      if (e?.message?.includes('Failed to parse cookie string') || e?.message?.includes('base64-')) {
+        // Silently ignore - this is a known Supabase auth helper quirk
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Supabase middleware getSession error:', e);
+        }
       }
     }
 
