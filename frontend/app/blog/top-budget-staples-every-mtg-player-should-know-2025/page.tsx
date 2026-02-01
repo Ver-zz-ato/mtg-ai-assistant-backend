@@ -43,6 +43,7 @@ const CARD_NAMES = [
 
 function processMarkdown(text: string): string {
   return text
+    .replace(/\u0000CARD:[^\u0000]*\u0000/g, '') // strip any stray placeholders so "CARD:" never renders
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
@@ -282,7 +283,7 @@ export default function BlogPost() {
         </Link>
 
         <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl">
-          <div className="prose prose-lg dark:prose-invert max-w-none">
+          <div className="prose prose-lg dark:prose-invert max-w-none overflow-visible">
             <BlogPostBody blocks={blocks} />
           </div>
         </article>

@@ -53,14 +53,16 @@ export default function BlogCardImage({ name }: { name: string }) {
         className="w-[70px] h-[98px] rounded border border-gray-300 dark:border-gray-600 shadow-sm cursor-pointer object-cover"
       />
       <span
-        className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-50 pointer-events-none"
+        className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-50 pointer-events-none overflow-visible"
         aria-hidden
       >
-        <img
-          src={img.normal}
-          alt={name}
-          className="w-[223px] h-[311px] rounded-lg shadow-xl border-2 border-gray-300 dark:border-gray-600 object-cover"
-        />
+        <span className="inline-block rounded-lg shadow-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 p-0.5">
+          <img
+            src={img.normal}
+            alt={name}
+            className="w-[244px] h-[340px] rounded-md object-contain"
+          />
+        </span>
       </span>
     </span>
   );

@@ -198,7 +198,7 @@ export async function postMessageStream(
           throw new Error('guest_limit_exceeded');
         }
         if (json.fallback) {
-          throw new Error("fallback");
+          throw new Error(json.message || "fallback");
         }
         throw new Error(json.message || `HTTP ${response.status}`);
       } catch (e) {

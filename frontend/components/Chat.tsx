@@ -962,10 +962,11 @@ function Chat() {
         // Fall back to regular post message (no streaming)
         res = await postMessage({ 
           text: val, 
-          threadId, 
+          threadId: currentThreadId ?? threadId, 
           context,
+          prefs,
           guestMessageCount: !isLoggedIn ? guestMessageCount : undefined 
-        }, threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
+        }, currentThreadId ?? threadId).catch(e => ({ ok: false, error: { message: String(e.message) } } as any));
       }
     } else {
       // Streaming succeeded - don't call postMessage again to avoid duplicates
@@ -979,8 +980,16 @@ function Chat() {
       if (tid !== threadId) setThreadId(tid);
       setHistKey(k => k + 1);
       
-      // Don't refresh messages after streaming to avoid duplicates
-      // The streamed message is already in the UI
+      // When stream failed but postMessage (non-stream) succeeded, add the assistant response to the UI
+      // so the user sees it without refreshing (fixes "response doesn't show until refresh")
+      const responseText = (res as any)?.text ?? (res as any)?.message?.content;
+      if (streamFailed && !guestLimitExceeded && responseText && typeof responseText === 'string') {
+        const assistantMsgId = `fallback_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        setMessages((m: any) => [
+          ...m,
+          { id: assistantMsgId, thread_id: tid || "", role: "assistant", content: responseText, created_at: new Date().toISOString() } as any,
+        ]);
+      }
     } else {
       const errorMsg = res?.error?.message || "Chat failed";
       try { 
