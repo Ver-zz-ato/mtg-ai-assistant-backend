@@ -5,8 +5,25 @@
 import React from 'react';
 
 /**
+ * Fix common AI concatenations (Step1 -> Step 1, StyleArchetype -> Style Archetype, etc.)
+ * and insert space before capital letters when preceded by lowercase (camelCase glue).
+ */
+function normalizeAiSpacing(line: string): string {
+  let out = line
+    .replace(/\bStep(\d)\b/gi, 'Step $1')
+    .replace(/\bStyleArchetype\b/gi, 'Style Archetype')
+    .replace(/\bAnalysisThe\b/gi, 'Analysis The')
+    .replace(/\bSimulationSimulating\b/gi, 'Simulation Simulating')
+    .replace(/\bFilterRecommendations\b/gi, 'Filter Recommendations')
+    .replace(/\bRecommendations\s*(\d)/gi, 'Recommendations $1');
+  // Insert space before capital letter when preceded by lowercase (e.g. "StyleArchetype" -> "Style Archetype")
+  out = out.replace(/([a-z])([A-Z])/g, '$1 $2');
+  return out;
+}
+
+/**
  * Parse and render basic markdown in chat messages
- * Supports: bold, italic, inline code, lists
+ * Supports: ### headers, bold, italic, inline code, lists
  */
 export function renderMarkdown(text: string): React.ReactNode {
   if (!text) return null;
@@ -29,11 +46,34 @@ export function renderMarkdown(text: string): React.ReactNode {
   }
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
+    line = normalizeAiSpacing(line);
     
     // Skip empty lines
     if (!line.trim()) {
       elements.push(<br key={`br-${i}`} />);
+      continue;
+    }
+    
+    // ### heading (e.g. ### Step 1: Identify Deck Style)
+    const h3Match = line.match(/^###\s+(.+)$/);
+    if (h3Match) {
+      elements.push(
+        <div key={i} className="mt-4 mb-2 text-base font-semibold text-neutral-100 first:mt-0">
+          {parseInlineMarkdown(h3Match[1].trim())}
+        </div>
+      );
+      continue;
+    }
+    
+    // ## heading
+    const h2Match = line.match(/^##\s+(.+)$/);
+    if (h2Match) {
+      elements.push(
+        <div key={i} className="mt-5 mb-2 text-lg font-semibold text-neutral-100 first:mt-0">
+          {parseInlineMarkdown(h2Match[1].trim())}
+        </div>
+      );
       continue;
     }
     
@@ -42,19 +82,19 @@ export function renderMarkdown(text: string): React.ReactNode {
     const isNumbered = /^\d+[\.\)]\s+/.test(line);
     
     if (isBullet || isNumbered) {
-      // Render as list item
+      // Render as list item with spacing
       const content = line.replace(/^[\-\*\•]\s+/, '').replace(/^\d+[\.\)]\s+/, '');
       elements.push(
-        <div key={i} className="ml-4">
+        <div key={i} className="ml-4 mb-1">
           {isBullet && <span className="mr-2">•</span>}
           {isNumbered && <span className="mr-2">{line.match(/^(\d+)/)?.[1]}.</span>}
           {parseInlineMarkdown(content)}
         </div>
       );
     } else {
-      // Regular line
+      // Regular paragraph with spacing
       elements.push(
-        <div key={i}>
+        <div key={i} className="mb-2 leading-relaxed">
           {parseInlineMarkdown(line)}
         </div>
       );

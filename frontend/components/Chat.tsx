@@ -131,6 +131,8 @@ function Chat() {
   const recognitionRef = useRef<any>(null);
   const streamStartTimeRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const userAtBottomRef = useRef<boolean>(true);
   const chatSessionStartRef = useRef<number>(0);
   const messageCountRef = useRef<number>(0);
   const isExecutingRef = useRef<boolean>(false); // Guard against React Strict Mode double execution
@@ -188,22 +190,30 @@ function Chat() {
     };
   }, []);
   
-  // Auto-scroll to bottom when new messages arrive or when streaming
-  // Only scroll the messages container, not the entire page
+  // Auto-scroll to bottom only when user was already at bottom (like ChatGPT – don’t lock scroll while streaming)
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto');
-      if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
   };
-  
+  const AT_BOTTOM_THRESHOLD_PX = 120;
+  const checkAtBottom = (el: HTMLElement) =>
+    el.scrollHeight - el.scrollTop - el.clientHeight <= AT_BOTTOM_THRESHOLD_PX;
+
   useEffect(() => {
-    // Use requestAnimationFrame to ensure smooth scrolling without page jumps
-    requestAnimationFrame(() => {
-      scrollToBottom();
-    });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      userAtBottomRef.current = checkAtBottom(container);
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!userAtBottomRef.current) return;
+    requestAnimationFrame(() => scrollToBottom());
   }, [messages, streamingContent]);
 
   // Initialize flags and user info
@@ -1423,7 +1433,7 @@ function Chat() {
           return null;
         })()}
         
-        <div className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border-2 border-neutral-700 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[200px] shadow-inner">
+        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border-2 border-neutral-700 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[200px] shadow-inner">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center">

@@ -834,6 +834,8 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     if (teachingFlag) {
       sys += `\n\nTeaching mode: Answer in 3 parts: 1) Concept/explanation, 2) Categorized examples (land ramp, rocks, dorks), 3) Application to deck. Define jargon first time (ETB=enters battlefield). Match examples to format.`;
     }
+    // Formatting: clear spacing and concise output so the UI reads well
+    sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     // Add inference when deck is linked (from thread OR context parameter)
     let inferredContext: any = null;
     if (deckIdToUse && entries.length > 0 && deckText) {

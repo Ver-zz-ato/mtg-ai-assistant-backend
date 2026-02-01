@@ -346,6 +346,8 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
+    
     // Create OpenAI streaming request
     const messages: any[] = [
       { role: "system", content: sys },
