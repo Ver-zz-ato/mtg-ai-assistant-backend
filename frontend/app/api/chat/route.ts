@@ -416,6 +416,7 @@ export async function POST(req: NextRequest) {
     // Task 1 & 3: Fetch conversation history for RAG and decklist extraction
     let threadHistory: Array<{ role: string; content: string }> = [];
     let pastedDecklistContext = '';
+    let pastedDecklistForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: null; deckId?: undefined } | null = null;
     let ragContext = '';
     let deckIdToUse: string | null = null; // Declare here for use later
     let d: any = null; // Deck data
@@ -438,8 +439,9 @@ export async function POST(req: NextRequest) {
           
           // Task 1: Extract and analyze pasted decklists from thread history
           // ALWAYS check for decklists, not just when RAG is triggered
-          const { isDecklist } = await import("@/lib/chat/decklistDetector");
+          const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+          const { parseDeckText } = await import("@/lib/deck/parseDeckText");
           
           // Find the most recent decklist in conversation history
           // Check all messages, but skip the current message if it's not a decklist
@@ -468,6 +470,12 @@ export async function POST(req: NextRequest) {
                 pastedDecklistContext = generateDeckContext(problems, 'Pasted Decklist', msg.content);
                 if (pastedDecklistContext) {
                   foundDecklist = true;
+                  // So MODULE_GRAVEYARD_RECURSION etc. can attach when no deck linked
+                  const parsedEntries = parseDeckText(msg.content).map((e) => ({ name: e.name, count: e.qty }));
+                  const commanderName = extractCommanderFromDecklistText(msg.content, text);
+                  if (parsedEntries.length >= 6) {
+                    pastedDecklistForCompose = { deckCards: parsedEntries, commanderName, colorIdentity: null, deckId: undefined };
+                  }
                   break; // Use the most recent decklist
                 }
               }
@@ -678,14 +686,21 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     
     const deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
     const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
-    const deckContextForCompose = entries.length && d ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined } : null;
+    const deckContextForCompose = entries.length && d
+      ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined }
+      : (pastedDecklistForCompose ?? null);
 
     try {
       const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-      const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+      const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
       sys = composed;
+      if (process.env.NODE_ENV === "development") {
+        console.log("[prompt_layers] source=composed route=chat", { formatKey, modulesAttached: modulesAttached ?? [] });
+      }
     } catch (e) {
-      if (process.env.NODE_ENV === "development") console.warn("[chat] prompt_layers_fallback_used", e);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[prompt_layers] source=fallback route=chat prompt_layers_fallback_used", e);
+      }
       try {
         const { getPromptVersion } = await import("@/lib/config/prompts");
         const promptVersion = await getPromptVersion("chat", supabase);
@@ -814,11 +829,20 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
         sys += `\n\nClient context: ${ctx}`; 
       } catch {}
     }
+    // User preferences: Commander must never use "Colors=any" (enforce color identity)
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
       const fmt = typeof prefs.format === 'string' ? prefs.format : undefined;
       const plan = typeof prefs.budget === 'string' ? prefs.budget : (typeof prefs.plan === 'string' ? prefs.plan : undefined);
       const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
-      const colors = cols && cols.length ? cols.join(',') : 'any';
+      const formatKeyForColors = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+      let colors: string;
+      if (formatKeyForColors === "commander") {
+        colors = cols?.length
+          ? `${cols.join(",")} (fixed; do NOT violate)`
+          : "commander color identity (infer from commander; do NOT treat as any)";
+      } else {
+        colors = "not applicable";
+      }
       sys += `\n\nUser preferences: Format=${fmt || 'unspecified'}, Value=${plan || 'optimized'}, Colors=${colors}. If relevant, assume these without asking.`;
       if (fmt) {
         sys += ` Do NOT say "Format unclear" or "I'll assume Commander/Standard/…" — the user has already selected a format in the UI; use it.`;

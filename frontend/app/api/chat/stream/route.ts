@@ -217,16 +217,36 @@ export async function POST(req: NextRequest) {
 
     let sys = "";
     let promptVersionId: string | null = null;
-    const deckContextForCompose = deckData?.entries?.length
+    let deckContextForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: string[] | null; deckId?: string } | null = deckData?.entries?.length
       ? { deckCards: deckData.entries, commanderName: deckData.d?.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdLinked ?? undefined }
       : null;
 
+    // Homepage chat: pasted decklist — extract commander + entries so MODULE_GRAVEYARD_RECURSION etc. can attach
+    if (!deckContextForCompose?.deckCards?.length) {
+      try {
+        const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+        const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+        if (isDecklist(text)) {
+          const entries = parseDeckText(text).map((e) => ({ name: e.name, count: e.qty }));
+          const commanderName = extractCommanderFromDecklistText(text, text);
+          if (entries.length >= 6) {
+            deckContextForCompose = { deckCards: entries, commanderName, colorIdentity: null, deckId: undefined };
+          }
+        }
+      } catch (_) {}
+    }
+
     try {
       const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-      const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+      const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
       sys = composed;
+      if (process.env.NODE_ENV === "development") {
+        console.log("[prompt_layers] source=composed route=chat/stream", { formatKey, modulesAttached: modulesAttached ?? [] });
+      }
     } catch (e) {
-      if (process.env.NODE_ENV === "development") console.warn("[chat/stream] prompt_layers_fallback_used", e);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[prompt_layers] source=fallback route=chat/stream prompt_layers_fallback_used", e);
+      }
       try {
         const { getPromptVersion } = await import("@/lib/config/prompts");
         const promptVersion = await getPromptVersion("chat", supabase);
@@ -240,10 +260,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // User preferences: Commander must never use "Colors=any" (enforce color identity)
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
       const plan = typeof prefs.budget === "string" ? prefs.budget : (typeof prefs.plan === "string" ? prefs.plan : undefined);
-      const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
-      const colors = cols?.length ? cols.join(",") : "any";
+      let colors: string;
+      if (formatKey === "commander") {
+        const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
+        colors = cols?.length
+          ? `${cols.join(",")} (fixed; do NOT violate)`
+          : "commander color identity (infer from commander; do NOT treat as any)";
+      } else {
+        colors = "not applicable";
+      }
       sys += `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
     }
 

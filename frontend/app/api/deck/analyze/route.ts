@@ -1594,11 +1594,16 @@ export async function POST(req: Request) {
   let deckAnalysisSystemPrompt: string | null = null;
   try {
     const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-    const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+    const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
     const suffix = "\n\nOutput structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
     deckAnalysisSystemPrompt = composed + suffix;
+    if (process.env.NODE_ENV === "development") {
+      console.log("[prompt_layers] source=composed route=deck/analyze", { formatKey, modulesAttached: modulesAttached ?? [] });
+    }
   } catch (e) {
-    if (process.env.NODE_ENV === "development") console.warn("[deck/analyze] prompt_layers_fallback_used", e);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[prompt_layers] source=fallback route=deck/analyze prompt_layers_fallback_used", e);
+    }
     try {
       const promptVersion = await getPromptVersion("deck_analysis", supabase);
       if (promptVersion) deckAnalysisSystemPrompt = promptVersion.system_prompt;
