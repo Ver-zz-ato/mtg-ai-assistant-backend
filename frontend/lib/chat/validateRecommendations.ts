@@ -52,11 +52,13 @@ export type ValidateRecommendationsResult = {
   needsRegeneration: boolean;
 };
 
-const RE_ADD_COMMANDER = /ADD\s*\[\[([^\]]+)\]\]/gi;
-const RE_ADD_60 = /ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/gi;
-const RE_CUT = /CUT\s*\[\[([^\]]+)\]\]/gi;
-/** Commander bare-name: "ADD X / CUT Y" or "1.ADD X / CUT Y, Fixes P1" on one line */
-const RE_ADD_CUT_BARE_COMMANDER = /ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/gi;
+/** Optional list/bullet prefix: "1. ", "1) ", "• ", "- " (multiline ^ for full-text parse). */
+const LIST_PREFIX = String.raw`^\s*(?:\d+[.)]\s*|[-•]\s*)?`;
+const RE_ADD_COMMANDER = new RegExp(`${LIST_PREFIX}ADD\\s*\\[\\[([^\\]]+)\\]\\]`, "gim");
+const RE_ADD_60 = new RegExp(`${LIST_PREFIX}ADD\\s*\\+\\d+\\s*\\[\\[([^\\]]+)\\]\\]`, "gim");
+const RE_CUT = new RegExp(`${LIST_PREFIX}CUT\\s*\\[\\[([^\\]]+)\\]\\]`, "gim");
+/** Commander bare-name: "ADD X / CUT Y", "1. ADD X / CUT Y", "• ADD X / CUT Y, Fixes P1" on one line */
+const RE_ADD_CUT_BARE_COMMANDER = new RegExp(`${LIST_PREFIX}ADD\\s+([^/\\n\\[\\]]+?)\\s*\\/\\s*CUT\\s+([^\\n\\[\\]]+?)(?=,|\\s*$|\\s*\\n)`, "gim");
 
 /** Strip trailing " (anything)" for comparison with deck list. */
 function baseCardName(s: string): string {
@@ -81,7 +83,7 @@ function parseAddNames(text: string, formatKey: string): string[] {
     const re = new RegExp(RE_ADD_60.source, RE_ADD_60.flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
-      const name = (m[2] || "").trim();
+      const name = (m[1] || "").trim();
       if (name && !names.some((n) => norm(n) === norm(name))) names.push(name);
     }
   }
@@ -99,16 +101,18 @@ function parseCutNames(text: string): string[] {
   return names;
 }
 
-/** Upgrade block: lines from ADD line to next ADD or end of block. Commander also matches bare "ADD X / CUT Y" on one line. */
+/** Upgrade block: lines from ADD line to next ADD or end of block. Commander also matches bare "ADD X / CUT Y" on one line. Supports "1. ADD ...", "• ADD ...". */
 function findUpgradeBlocks(
   text: string,
   formatKey: string
 ): Array<{ start: number; end: number; addCard: string; cutCard: string | null }> {
   const lines = text.split("\n");
   const blocks: Array<{ start: number; end: number; addCard: string; cutCard: string | null }> = [];
-  const addReBracket = formatKey === "commander" ? /ADD\s*\[\[([^\]]+)\]\]/i : /ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/i;
-  const addReBareCommander = /ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/i;
-  const cutRe = /CUT\s*\[\[([^\]]+)\]\]/i;
+  const addReBracket = formatKey === "commander"
+    ? /(?:\d+[.)]\s*|[-•]\s*)?ADD\s*\[\[([^\]]+)\]\]/i
+    : /(?:\d+[.)]\s*|[-•]\s*)?ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/i;
+  const addReBareCommander = /(?:\d+[.)]\s*|[-•]\s*)?ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/i;
+  const cutRe = /(?:\d+[.)]\s*|[-•]\s*)?CUT\s*\[\[([^\]]+)\]\]/i;
 
   let i = 0;
   while (i < lines.length) {
@@ -194,12 +198,17 @@ export async function validateRecommendations(
   const blocksToRemove = new Set<number>();
 
   // 1) ADD already in deck (or commander)
+  const alreadyInDeckCards: string[] = [];
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     if (allPresentCards.has(norm(b.addCard))) {
+      alreadyInDeckCards.push(b.addCard);
       issues.push({ kind: "add_already_in_deck", card: b.addCard, message: `ADD ${b.addCard} is already in the deck` });
       blocksToRemove.add(i);
     }
+  }
+  if (alreadyInDeckCards.length > 0) {
+    console.warn("[validateRecommendations] Stripped ADD-already-in-deck blocks:", alreadyInDeckCards);
   }
 
   // 2) CUT not in deck

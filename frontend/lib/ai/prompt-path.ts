@@ -47,6 +47,7 @@ export async function buildSystemPromptForRequest(opts: BuildSystemPromptOpts): 
     const { composed, modulesAttached } = await composeSystemPrompt({
       formatKey,
       deckContext: deckContextForCompose ?? undefined,
+      kind,
       supabase,
     });
     return {

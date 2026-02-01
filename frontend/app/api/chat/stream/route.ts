@@ -327,6 +327,19 @@ export async function POST(req: NextRequest) {
       sys += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
     }
 
+    // Few-shot learning (format anchoring): same as non-stream for consistent quality
+    if (userId && !isGuest) {
+      try {
+        const { findSimilarExamples, formatExamplesForPrompt } = await import("@/lib/ai/few-shot-learning");
+        const examples = await findSimilarExamples(text, undefined, undefined, 2);
+        if (examples.length > 0) {
+          sys += formatExamplesForPrompt(examples);
+        }
+      } catch (err) {
+        console.warn("[chat/stream] Few-shot learning failed:", err instanceof Error ? err.message : String(err));
+      }
+    }
+
     if (tid) {
       try {
         const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);

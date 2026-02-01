@@ -40,14 +40,17 @@ export type ComposeResult = {
 
 /**
  * Compose system prompt from layers: BASE + FORMAT_* + relevant MODULE_*.
+ * When kind === 'deck_analysis', appends DECK_ANALYSIS_EXEMPLARS if present (tiny posture exemplar).
  * Does NOT inject decklist/commander/colorIdentity; the chat route adds a separate DECK CONTEXT block.
  */
 export async function composeSystemPrompt(options: {
   formatKey: string;
   deckContext?: DeckContextForCompose | null;
+  /** When 'deck_analysis', append DECK_ANALYSIS_EXEMPLARS layer if present (posture only, ~10 lines). */
+  kind?: "chat" | "deck_analysis";
   supabase?: any;
 }): Promise<ComposeResult> {
-  const { formatKey, deckContext, supabase: passedSupabase } = options;
+  const { formatKey, deckContext, kind, supabase: passedSupabase } = options;
   const db = await getDbForLayers(passedSupabase);
   const fmt = normalizeFormatKey(formatKey);
   const formatLayerKey = `FORMAT_${fmt.toUpperCase()}` as const;
@@ -91,6 +94,16 @@ export async function composeSystemPrompt(options: {
         modulesAttached.push(key);
       }
     }
+  }
+
+  // 4) Deck analysis only: tiny exemplar layer (posture, not content). Keep ~10–12 lines.
+  if (kind === "deck_analysis") {
+    const { data: exemplarRow } = await db
+      .from("prompt_layers")
+      .select("body")
+      .eq("key", "DECK_ANALYSIS_EXEMPLARS")
+      .maybeSingle();
+    if (exemplarRow?.body?.trim()) parts.push("\n\n" + exemplarRow.body.trim());
   }
 
   const composed = parts.join("");

@@ -473,6 +473,7 @@ async function callOpenAI(
     isGuest: !opts.userId,
     userId: opts.userId ?? null,
     isPro: opts.isPro ?? false,
+    useCase: 'deck_analysis',
   });
 
   try {
@@ -1582,7 +1583,7 @@ export async function POST(req: Request) {
   const deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
 
-  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false });
+  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: 'deck_analysis' });
   let promptLogged = false;
   if (!promptLogged) {
     promptLogged = true;
@@ -1691,41 +1692,50 @@ export async function POST(req: Request) {
         deckText,
       };
 
-      const result = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
-      let analysisText = result.text;
+      const analysisResult = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
+      let analysisText = analysisResult.text;
       if (entries.length > 0 && analysisText) {
         try {
           const formatKeyAnalyze = (body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander") as string;
           const formatKeyVal = (formatKeyAnalyze === "modern" || formatKeyAnalyze === "pioneer" ? formatKeyAnalyze : "commander") as "commander" | "modern" | "pioneer";
           const { validateRecommendations } = await import("@/lib/chat/validateRecommendations");
-          const result = await validateRecommendations({
+          const valResult = await validateRecommendations({
             deckCards: entries.map((e) => ({ name: e.name, count: e.count })),
             formatKey: formatKeyVal,
             colorIdentity: context.colors?.length ? context.colors : null,
             commanderName: context.commander || null,
             rawText: analysisText,
           });
-          if (!result.valid && result.issues.length > 0 && process.env.NODE_ENV === "development") {
-            console.warn("[deck/analyze] Recommendation validation issues:", result.issues.map((i) => i.message));
+          if (!valResult.valid && valResult.issues.length > 0) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[deck/analyze] Recommendation validation issues:", valResult.issues.map((i) => i.message));
+            }
           }
-          analysisText = result.repairedText;
+          analysisText = valResult.repairedText;
           const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
           analysisText = stripIncompleteSynergyChains(analysisText);
           analysisText = stripIncompleteTruncation(analysisText);
           analysisText = applyOutputCleanupFilter(analysisText);
           analysisText = applyBracketEnforcement(analysisText);
-        } catch (_) {}
+          if (valResult.issues.length > 0) {
+            analysisText = (analysisText || "").trim();
+            const repairNotice = "Some suggestions were removed because they weren't valid for this deck. You can run analysis again for a fresh set.";
+            analysisText = analysisText ? `${analysisText}\n\n---\n\n${repairNotice}` : repairNotice;
+          }
+        } catch (valErr) {
+          console.warn("[deck/analyze] validateRecommendations failed, using unrepaired text:", valErr instanceof Error ? valErr.message : String(valErr));
+          // analysisText stays as analysisResult.text; do not overwrite with unrepaired
+        }
       }
       validatedAnalysis = {
         text: analysisText,
-        json: result.json,
-        validationErrors: result.validationErrors,
-        validationWarnings: result.validationWarnings,
+        json: analysisResult.json,
+        validationErrors: analysisResult.validationErrors,
+        validationWarnings: analysisResult.validationWarnings,
       };
 
-      // If validation failed completely, log it but don't fail the request
-      if (result.validationErrors.length > 0) {
-        console.warn("[deck/analyze] Validation errors:", result.validationErrors);
+      if (analysisResult.validationErrors.length > 0) {
+        console.warn("[deck/analyze] Validation errors:", analysisResult.validationErrors);
       }
     } catch (error) {
       console.error("[deck/analyze] Failed to generate validated analysis:", error);
