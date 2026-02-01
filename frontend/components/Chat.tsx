@@ -44,6 +44,7 @@ import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 import { useProStatus } from "@/hooks/useProStatus";
 import { getBulkPrices } from "@/lib/chat/actions/bulk-prices";
 import { isDecklist } from "@/lib/chat/decklistDetector";
+import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT } from "@/lib/limits";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -537,26 +538,26 @@ function Chat() {
     // Reset the flag when done (in finally block)
     try {
     
-    // Check guest message limits (lowered from 20 to 10)
-    if (!isLoggedIn && guestMessageCount >= 10) {
-      trackFeatureLimitHit('guest_chat', guestMessageCount, 10);
+    // Check guest message limits
+    if (!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT) {
+      trackFeatureLimitHit('guest_chat', guestMessageCount, GUEST_MESSAGE_LIMIT);
       setShowGuestLimitModal(true);
       return;
     }
     
     // Show warnings at 5, 7, and 9 messages (earlier soft prompts)
     if (!isLoggedIn) {
-      if (guestMessageCount === 4) {
+      if (guestMessageCount === GUEST_MESSAGE_LIMIT - 6) {
         // 5th message - early soft prompt
         const { toast } = await import('@/lib/toast-client');
         toast('💡 Enjoying the chat? Sign up to save your progress!', 'info');
         capture('guest_limit_warning_5');
-      } else if (guestMessageCount === 6) {
+      } else if (guestMessageCount === GUEST_MESSAGE_LIMIT - 4) {
         // 7th message - reminder warning
         const { toast } = await import('@/lib/toast-client');
         toast('⚠️ 3 messages left - Sign up to continue chatting!', 'warning');
         capture('guest_limit_warning_7');
-      } else if (guestMessageCount === 8) {
+      } else if (guestMessageCount === GUEST_MESSAGE_LIMIT - 2) {
         // 9th message - urgent warning
         const { toast } = await import('@/lib/toast-client');
         toast('🚨 Only 1 message left! Create a free account to keep chatting.', 'warning');
@@ -895,7 +896,7 @@ function Chat() {
                 id: errorMsgId, 
                 thread_id: threadId || "", 
                 role: "assistant", 
-                content: "You've reached the guest message limit of 10 messages. Please sign in to continue chatting!", 
+                content: `You've reached the guest message limit of ${GUEST_MESSAGE_LIMIT} messages. Please sign in to continue chatting!`, 
                 created_at: new Date().toISOString() 
               } as any,
             ]);
@@ -1218,20 +1219,20 @@ function Chat() {
                       }));
                     }}
                     className={`text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
-                      guestMessageCount >= 7 
-                        ? 'bg-red-900 text-red-200 animate-pulse' 
-                        : guestMessageCount >= 5
+                      guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
+                        ? 'bg-red-900 text-red-200 animate-pulse'
+                        : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
                         ? 'bg-amber-900 text-amber-200'
                         : 'bg-yellow-900 text-yellow-200'
                     }`}
-                    title={guestMessageCount >= 7 
+                    title={guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
                       ? 'Only a few messages left! Sign up to continue'
-                      : guestMessageCount >= 5
+                      : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
                       ? 'Sign up to save your chat history'
                       : 'Click to sign up and save your progress'
                     }
                   >
-                    Guest Mode ({guestMessageCount}/10)
+                    Guest Mode ({guestMessageCount}/{GUEST_MESSAGE_LIMIT})
                   </button>
                 )}
               </div>
@@ -1241,13 +1242,13 @@ function Chat() {
                   <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-300 ${
-                        guestMessageCount >= 7 
-                          ? 'bg-red-500' 
-                          : guestMessageCount >= 5
+                        guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
+                          ? 'bg-red-500'
+                          : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
                           ? 'bg-amber-500'
                           : 'bg-yellow-500'
                       }`}
-                      style={{ width: `${(guestMessageCount / 10) * 100}%` }}
+                      style={{ width: `${(guestMessageCount / GUEST_MESSAGE_LIMIT) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -1577,8 +1578,8 @@ function Chat() {
           ))}
         </div>
 
-          {/* Model tier reminder for non-Pro users - above text box (always show for guest/free so it's visible without waiting for upgradeMessage) */}
-          {(modelTier === 'guest' || modelTier === 'free') && (
+          {/* Model tier reminder for non-Pro users - above text box (include isLoggedIn && !isPro so free users always see it) */}
+          {(modelTier === 'guest' || modelTier === 'free' || (isLoggedIn === true && !isPro)) && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
               {modelTier === 'guest' && isLoggedIn === false && (
                 <button
@@ -1593,31 +1594,34 @@ function Chat() {
                     }));
                   }}
                   className={`shrink-0 text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
-                    guestMessageCount >= 7
+                    guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
                       ? 'bg-red-900 text-red-200 animate-pulse'
-                      : guestMessageCount >= 5
+                      : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
                         ? 'bg-amber-900 text-amber-200'
                         : 'bg-yellow-900 text-yellow-200'
                   }`}
-                  title={guestMessageCount >= 7
+                  title={guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
                     ? 'Only a few messages left! Sign up to continue'
-                    : guestMessageCount >= 5
+                    : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
                       ? 'Sign up to save your chat history'
                       : 'Click to sign up and save your progress'
                   }
                 >
-                  Guest Mode ({guestMessageCount}/10)
+                  Guest Mode ({guestMessageCount}/{GUEST_MESSAGE_LIMIT})
                 </button>
               )}
               <span>
-                Using {modelLabel} model.{' '}
+                Using {(modelTier === 'free' || (isLoggedIn && !isPro)) ? (modelLabel || 'Standard') : modelLabel} model.
+                {(modelTier === 'free' || (isLoggedIn && !isPro)) && (
+                  <> {FREE_DAILY_MESSAGE_LIMIT} messages/day.{' '}</>
+                )}{' '}
                 {upgradeMessage ? (
                   <a href="/pricing" className="text-blue-400 hover:underline">
                     {upgradeMessage}
                   </a>
                 ) : (
                   <a href="/pricing" className="text-blue-400 hover:underline">
-                    {modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : 'Upgrade to Pro for the best model.'}
+                    {(modelTier === 'free' || (isLoggedIn && !isPro)) ? 'Upgrade to Pro for more!' : (modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : 'Upgrade to Pro for the best model.')}
                   </a>
                 )}
               </span>

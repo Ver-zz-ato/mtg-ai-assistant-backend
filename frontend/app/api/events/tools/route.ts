@@ -1,6 +1,7 @@
 // app/api/events/tools/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { MULLIGAN_FREE, MULLIGAN_PRO, PROBABILITY_FREE, PROBABILITY_PRO } from "@/lib/feature-limits";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,28 +17,18 @@ export async function POST(req: NextRequest) {
     if (type === "mull_run" || type === "prob_run") {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       const isPro = await checkProStatus(user.id);
-      const dailyCap = isPro ? 50 : 5;
+      const dailyCap = type === "mull_run" ? (isPro ? MULLIGAN_PRO : MULLIGAN_FREE) : (isPro ? PROBABILITY_PRO : PROBABILITY_FREE);
       const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
       const { hashString } = await import("@/lib/guest-tracking");
       const userKeyHash = `user:${await hashString(user.id)}`;
       const route = type === "mull_run" ? "/api/events/tools-mulligan" : "/api/events/tools-probability";
       const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, route, dailyCap, 1);
       if (!rateLimit.allowed) {
+        const errMsg = type === "mull_run"
+          ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${MULLIGAN_FREE} free Mulligan runs today. Upgrade to Pro for more!`)
+          : (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${PROBABILITY_FREE} free Probability runs today. Upgrade to Pro for more!`);
         return NextResponse.json(
-          {
-            ok: false,
-            code: "RATE_LIMIT_DAILY",
-            proUpsell: !isPro,
-            error:
-              type === "mull_run"
-                ? isPro
-                  ? "You've reached your daily limit of 50 Mulligan runs. Contact support if you need higher limits."
-                  : "You've used your 5 free Mulligan runs today. Upgrade to Pro for 50/day!"
-                : isPro
-                  ? "You've reached your daily limit of 50 Probability runs. Contact support if you need higher limits."
-                  : "You've used your 5 free Probability runs today. Upgrade to Pro for 50/day!",
-            resetAt: rateLimit.resetAt,
-          },
+          { ok: false, code: "RATE_LIMIT_DAILY", proUpsell: !isPro, error: errMsg, resetAt: rateLimit.resetAt },
           { status: 429 }
         );
       }

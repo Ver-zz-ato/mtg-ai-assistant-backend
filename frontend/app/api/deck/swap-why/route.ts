@@ -8,7 +8,8 @@ import { getModelForTier } from '@/lib/ai/model-by-tier';
 import { createClient } from '@/lib/server-supabase';
 import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
-import { hashString } from '@/lib/guest-tracking';
+import { hashString, hashGuestToken } from '@/lib/guest-tracking';
+import { GUEST_DAILY_FEATURE_LIMIT, SWAP_WHY_FREE, SWAP_WHY_PRO } from '@/lib/feature-limits';
 
 export async function POST(req: NextRequest){
   try{
@@ -20,20 +21,36 @@ export async function POST(req: NextRequest){
     const from = canonicalize(fromRaw).canonicalName || fromRaw;
     const to = canonicalize(toRaw).canonicalName || toRaw;
 
-    // Rate limiting: Free users 10/day, Pro users 100/day
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const isPro = await checkProStatus(user.id);
-      const dailyLimit = isPro ? 100 : 10;
+      const dailyLimit = isPro ? SWAP_WHY_PRO : SWAP_WHY_FREE;
       const userKeyHash = `user:${await hashString(user.id)}`;
       const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-why', dailyLimit, 1);
-      
       if (!rateLimit.allowed) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           ok: false,
           code: 'RATE_LIMIT_DAILY',
-          error: `You've reached your daily limit of ${dailyLimit} swap explanations. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 100 explanations/day!'}`,
+          error: isPro
+            ? "You've reached your daily limit. Contact support if you need higher limits."
+            : `You've used your ${SWAP_WHY_FREE} free swap explanations today. Upgrade to Pro for more!`,
+          resetAt: rateLimit.resetAt
+        }, { status: 429 });
+      }
+    } else {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const guestToken = cookieStore.get('guest_session_token')?.value;
+      const keyHash = guestToken
+        ? `guest:${await hashGuestToken(guestToken)}`
+        : `ip:${await hashString((req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown')}`;
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/swap-why', GUEST_DAILY_FEATURE_LIMIT, 1);
+      if (!rateLimit.allowed) {
+        return NextResponse.json({
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
+          error: `You've used your ${GUEST_DAILY_FEATURE_LIMIT} free swap explanations today. Sign in for more!`,
           resetAt: rateLimit.resetAt
         }, { status: 429 });
       }

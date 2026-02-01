@@ -4,7 +4,8 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { createClient } from "@/lib/server-supabase";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
-import { hashString } from "@/lib/guest-tracking";
+import { hashString, hashGuestToken } from "@/lib/guest-tracking";
+import { GUEST_DAILY_FEATURE_LIMIT, REPRINT_RISK_FREE, REPRINT_RISK_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,20 +39,36 @@ export async function POST(req: NextRequest) {
     const cards = Array.isArray(body?.cards) ? body.cards as Array<{ name: string; set?: string }> : [];
     const uniq = Array.from(new Set(cards.map(c => (c?.name || "").trim()).filter(Boolean)));
 
-    // Rate limiting: Free users 10/day, Pro users 100/day
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const isPro = await checkProStatus(user.id);
-      const dailyLimit = isPro ? 100 : 10;
+      const dailyLimit = isPro ? REPRINT_RISK_PRO : REPRINT_RISK_FREE;
       const userKeyHash = `user:${await hashString(user.id)}`;
       const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/cards/reprint-risk', dailyLimit, 1);
-      
       if (!rateLimit.allowed) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           ok: false,
           code: 'RATE_LIMIT_DAILY',
-          error: `You've reached your daily limit of ${dailyLimit} reprint risk checks. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 100 checks/day!'}`,
+          error: isPro
+            ? "You've reached your daily limit. Contact support if you need higher limits."
+            : `You've used your ${REPRINT_RISK_FREE} free reprint risk checks today. Upgrade to Pro for more!`,
+          resetAt: rateLimit.resetAt
+        }, { status: 429 });
+      }
+    } else {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const guestToken = cookieStore.get('guest_session_token')?.value;
+      const keyHash = guestToken
+        ? `guest:${await hashGuestToken(guestToken)}`
+        : `ip:${await hashString((req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown')}`;
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/cards/reprint-risk', GUEST_DAILY_FEATURE_LIMIT, 1);
+      if (!rateLimit.allowed) {
+        return NextResponse.json({
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
+          error: `You've used your ${GUEST_DAILY_FEATURE_LIMIT} free reprint risk checks today. Sign in for more!`,
           resetAt: rateLimit.resetAt
         }, { status: 429 });
       }

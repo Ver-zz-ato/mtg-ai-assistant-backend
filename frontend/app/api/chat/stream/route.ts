@@ -6,6 +6,7 @@ import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/li
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
+import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 
 export const runtime = "nodejs";
 
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
         return new Response(JSON.stringify({
           fallback: true,
           reason: "guest_limit_exceeded",
-          message: "Please sign in to continue chatting. You've reached the 10 message limit for guest users.",
+          message: `Please sign in to continue chatting. You've reached the ${GUEST_MESSAGE_LIMIT} message limit for guest users.`,
           guestLimitReached: true
         }), {
           status: 200,
@@ -144,7 +145,7 @@ export async function POST(req: NextRequest) {
       const { hashString } = await import('@/lib/guest-tracking');
       const userKeyHash = `user:${await hashString(userId)}`;
       
-      const dailyLimit = isPro ? 500 : 50;
+      const dailyLimit = isPro ? PRO_DAILY_MESSAGE_LIMIT : FREE_DAILY_MESSAGE_LIMIT;
       const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat/stream', dailyLimit, 1);
       
       if (!durableLimit.allowed) {
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
           code: "RATE_LIMIT_DAILY",
           fallback: true,
           reason: "durable_rate_limited",
-          message: `You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`,
+          message: `You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for more!'}`,
           resetAt: durableLimit.resetAt
         }), {
           status: 429,

@@ -24,6 +24,7 @@ import knownBad from "@/lib/data/known_bad.json";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
+import { DECK_ANALYZE_FREE, DECK_ANALYZE_GUEST, DECK_ANALYZE_PRO } from "@/lib/feature-limits";
 
 type RoleBaselineEntry = {
   min?: number;
@@ -1375,36 +1376,28 @@ export async function POST(req: Request) {
     let dailyLimit: number;
     
     if (user) {
-      // Authenticated user
       keyHash = `user:${await hashString(user.id)}`;
-      dailyLimit = isPro ? 200 : 20; // Analyze is expensive - lower limits
+      dailyLimit = isPro ? DECK_ANALYZE_PRO : DECK_ANALYZE_FREE;
     } else {
-      // Unauthenticated - use guest token or IP
       const cookieStore = await cookies();
       const guestToken = cookieStore.get('guest_session_token')?.value;
-      
       if (guestToken) {
         const tokenHash = await hashGuestToken(guestToken);
         keyHash = `guest:${tokenHash}`;
       } else {
-        // Fallback to IP hash (less reliable but better than nothing)
         const forwarded = (req as any).headers?.get?.('x-forwarded-for');
         const ip = forwarded ? forwarded.split(',')[0].trim() : (req as any).headers?.get?.('x-real-ip') || 'unknown';
         keyHash = `ip:${await hashString(ip)}`;
       }
-      dailyLimit = 5; // Very strict for unauthenticated (expensive operation)
+      dailyLimit = DECK_ANALYZE_GUEST;
     }
-    
     const durableLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/analyze', dailyLimit, 1);
-    
     if (!durableLimit.allowed) {
+      const errMsg = user
+        ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${DECK_ANALYZE_FREE} free analyses today. Upgrade to Pro for more!`)
+        : `You've used your ${DECK_ANALYZE_GUEST} free analyses today. Sign in for more!`;
       return new Response(
-        JSON.stringify({ 
-          ok: false,
-          code: 'RATE_LIMIT_DAILY',
-          error: `Rate limit exceeded. ${user ? (isPro ? 'You\'ve reached the limit of 200 analyses per day. Contact support if you need higher limits.' : 'Free users are limited to 20 analyses per day. Upgrade to Pro for 200/day!') : 'Unauthenticated users are limited to 5 analyses per day. Sign up for free to get 20/day!'}`,
-          resetAt: durableLimit.resetAt
-        }),
+        JSON.stringify({ ok: false, code: 'RATE_LIMIT_DAILY', error: errMsg, resetAt: durableLimit.resetAt }),
         { status: 429, headers: { "content-type": "application/json" } }
       );
     }

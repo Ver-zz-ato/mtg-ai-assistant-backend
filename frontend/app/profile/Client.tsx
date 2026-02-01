@@ -1091,7 +1091,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                           <span className="text-blue-400 text-2xl flex-shrink-0">🤖</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Unlimited AI Analysis</div>
-                            <div className="text-xs text-neutral-400 mt-0.5">No daily limits on deck analysis & AI chat</div>
+                            <div className="text-xs text-neutral-400 mt-0.5">Higher limits on deck analysis & AI chat</div>
                           </div>
                         </div>
                       </div>
@@ -1188,7 +1188,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <ul className="text-sm text-neutral-300 space-y-1.5 ml-4">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">•</span>
-                        <span>Unlimited AI deck analysis (Free: 50/day limit)</span>
+                        <span>Higher limits on AI deck analysis (Free tier has daily limits)</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">•</span>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
 import { prepareOpenAIBody } from '@/lib/ai/openai-params';
 import { getModelForTier } from '@/lib/ai/model-by-tier';
+import { HEALTH_SCAN_FREE, HEALTH_SCAN_PRO } from '@/lib/feature-limits';
 
 export const runtime = 'nodejs';
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const { checkProStatus } = await import('@/lib/server-pro-check');
     const isPro = await checkProStatus(user.id);
-    const dailyCap = isPro ? 50 : 5;
+    const dailyCap = isPro ? HEALTH_SCAN_PRO : HEALTH_SCAN_FREE;
 
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString } = await import('@/lib/guest-tracking');
@@ -53,8 +54,8 @@ export async function POST(req: NextRequest) {
         code: 'RATE_LIMIT_DAILY',
         proUpsell: !isPro,
         error: isPro
-          ? "You've reached your daily limit of 50 AI Deck Scans. Contact support if you need higher limits."
-          : "You've used your 5 free AI Deck Scans today. Upgrade to Pro for 50/day!",
+          ? "You've reached your daily limit. Contact support if you need higher limits."
+          : `You've used your ${HEALTH_SCAN_FREE} free AI Deck Scans today. Upgrade to Pro for more!`,
         resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }

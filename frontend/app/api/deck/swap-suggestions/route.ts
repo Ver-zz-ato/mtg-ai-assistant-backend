@@ -10,7 +10,8 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
-import { hashString } from "@/lib/guest-tracking";
+import { hashString, hashGuestToken } from "@/lib/guest-tracking";
+import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -197,22 +198,38 @@ export async function POST(req: NextRequest) {
     const snapshotDate = String(body.snapshotDate || body.snapshot_date || new Date().toISOString().slice(0,10)).slice(0,10);
 
     const supabase = await createClient();
-    
     const { data: { user } } = await supabase.auth.getUser();
+
     if (user) {
       const isPro = await checkProStatus(user.id);
-      const dailyCap = isPro ? 50 : 5;
+      const dailyCap = isPro ? SWAP_SUGGESTIONS_PRO : SWAP_SUGGESTIONS_FREE;
       const userKeyHash = `user:${await hashString(user.id)}`;
       const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-suggestions', dailyCap, 1);
-
       if (!rateLimit.allowed) {
         return NextResponse.json({
           ok: false,
           code: 'RATE_LIMIT_DAILY',
           proUpsell: !isPro,
           error: isPro
-            ? "You've reached your daily limit of 50 Budget Swap runs. Contact support if you need higher limits."
-            : "You've used your 5 free Budget Swap runs today. Upgrade to Pro for 50/day!",
+            ? "You've reached your daily limit. Contact support if you need higher limits."
+            : `You've used your ${SWAP_SUGGESTIONS_FREE} free Budget Swap runs today. Upgrade to Pro for more!`,
+          resetAt: rateLimit.resetAt,
+        }, { status: 429 });
+      }
+    } else {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const guestToken = cookieStore.get('guest_session_token')?.value;
+      const keyHash = guestToken
+        ? `guest:${await hashGuestToken(guestToken)}`
+        : `ip:${await hashString((req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown')}`;
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/swap-suggestions', GUEST_DAILY_FEATURE_LIMIT, 1);
+      if (!rateLimit.allowed) {
+        return NextResponse.json({
+          ok: false,
+          code: 'RATE_LIMIT_DAILY',
+          proUpsell: true,
+          error: `You've used your ${GUEST_DAILY_FEATURE_LIMIT} free runs today. Sign in for more!`,
           resetAt: rateLimit.resetAt,
         }, { status: 429 });
       }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { PRICE_TRACKER_FREE, PRICE_TRACKER_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 
@@ -8,7 +9,7 @@ const TRACKER_ROUTE = "/api/price/tracker";
 /*
   GET /api/price/movers?currency=USD&window_days=7&limit=50
   Returns cards with largest absolute pct change.
-  Rate limited with deck-series via /api/price/tracker: 5/day free, 50/day Pro.
+  Rate limited with deck-series via TRACKER_ROUTE.
 */
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     const { checkProStatus } = await import("@/lib/server-pro-check");
     const isPro = await checkProStatus(user.id);
-    const dailyCap = isPro ? 50 : 5;
+    const dailyCap = isPro ? PRICE_TRACKER_PRO : PRICE_TRACKER_FREE;
     const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
     const { hashString } = await import("@/lib/guest-tracking");
     const userKeyHash = `user:${await hashString(user.id)}`;
@@ -28,8 +29,8 @@ export async function GET(req: NextRequest) {
         code: "RATE_LIMIT_DAILY",
         proUpsell: !isPro,
         error: isPro
-          ? "You've reached your daily limit of 50 Price Tracker runs. Contact support if you need higher limits."
-          : "You've used your 5 free Price Tracker runs today. Upgrade to Pro for 50/day!",
+          ? "You've reached your daily limit. Contact support if you need higher limits."
+          : `You've used your ${PRICE_TRACKER_FREE} free Price Tracker runs today. Upgrade to Pro for more!`,
         resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }

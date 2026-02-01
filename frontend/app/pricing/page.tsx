@@ -381,7 +381,7 @@ export default function PricingPage() {
                   }
                   featureName="Unlimited AI Analysis"
                   benefits={[
-                    'No daily limits on deck analysis',
+                    'Higher limits on deck analysis',
                     'Advanced AI-powered suggestions',
                     'Real-time optimization recommendations',
                     'Access to latest AI models and improvements'

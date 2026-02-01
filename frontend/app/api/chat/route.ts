@@ -10,6 +10,7 @@ import { deduplicatedFetch } from "@/lib/api/deduplicator";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
+import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -221,9 +222,6 @@ async function callOpenAI(
   }
 }
 
-// Guest mode constants
-const FREE_USER_DAILY_LIMIT = 50;
-
 // Check if free user has exceeded daily limit
 async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allowed: boolean; count: number }> {
   try {
@@ -240,7 +238,7 @@ async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allo
     }
     
     const messageCount = count || 0;
-    return { allowed: messageCount < FREE_USER_DAILY_LIMIT, count: messageCount };
+    return { allowed: messageCount < FREE_DAILY_MESSAGE_LIMIT, count: messageCount };
   } catch (err) {
     logger.error('[checkFreeUserLimit] Exception:', err);
     return { allowed: true, count: 0 };
@@ -291,7 +289,7 @@ export async function POST(req: NextRequest) {
       const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
       if (!guestCheck.allowed) {
         status = 401;
-        return err(`Please sign in to continue chatting. You've reached the 10 message limit for guest users.`, "guest_limit_reached", 401);
+        return err(`Please sign in to continue chatting. You've reached the ${GUEST_MESSAGE_LIMIT} message limit for guest users.`, "guest_limit_reached", 401);
       }
       isGuest = true;
       userId = null;
@@ -314,13 +312,13 @@ export async function POST(req: NextRequest) {
       const { hashString } = await import('@/lib/guest-tracking');
       const userKeyHash = `user:${await hashString(userId)}`;
       
-      // Rate limits: Free users: 50/day, Pro: 500/day
-      const dailyLimit = isPro ? 500 : 50;
+      // Rate limits: Free users: 50/day, Pro: 500/day (from shared limits)
+      const dailyLimit = isPro ? PRO_DAILY_MESSAGE_LIMIT : FREE_DAILY_MESSAGE_LIMIT;
       const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat', dailyLimit, 1);
       
       if (!durableLimit.allowed) {
         status = 429;
-        return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for 500 messages/day!'}`, "RATE_LIMIT_DAILY", status, { resetAt: durableLimit.resetAt });
+        return err(`You've reached your daily limit of ${dailyLimit} messages. ${isPro ? 'Contact support if you need higher limits.' : 'Upgrade to Pro for more!'}`, "RATE_LIMIT_DAILY", status, { resetAt: durableLimit.resetAt });
       }
       
       // Task 6: Add per-minute rate limiting (10 requests per minute per user)
@@ -346,7 +344,7 @@ export async function POST(req: NextRequest) {
         const freeCheck = await checkFreeUserLimit(supabase, userId);
         if (!freeCheck.allowed) {
           status = 429;
-          return err(`You've reached your daily limit of ${FREE_USER_DAILY_LIMIT} messages. Upgrade to Pro for unlimited messages!`, "free_user_limit", 429);
+          return err(`You've reached your daily limit of ${FREE_DAILY_MESSAGE_LIMIT} messages. Upgrade to Pro for more!`, "free_user_limit", 429);
         }
       }
     }

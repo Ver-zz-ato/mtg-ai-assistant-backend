@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { DECK_COMPARE_PRO } from "@/lib/feature-limits";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -58,17 +58,15 @@ Please provide a comprehensive analysis covering:
 
 Keep the analysis concise but insightful (300-500 words). Format with clear sections.`;
 
-    // Add Pro-only daily cap (20/day) to prevent abuse
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString } = await import('@/lib/guest-tracking');
     const userKeyHash = `user:${await hashString(user.id)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/compare-ai', 20, 1);
-    
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/compare-ai', DECK_COMPARE_PRO, 1);
     if (!rateLimit.allowed) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         ok: false,
         code: 'RATE_LIMIT_DAILY',
-        error: "You've reached your daily limit of 20 deck comparisons. Contact support if you need higher limits.",
+        error: "You've reached your daily limit. Contact support if you need higher limits.",
         resetAt: rateLimit.resetAt
       }, { status: 429 });
     }

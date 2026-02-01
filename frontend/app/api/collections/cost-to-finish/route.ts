@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { convert } from "@/lib/currency/rates";
+import { COST_TO_FINISH_FREE, COST_TO_FINISH_PRO } from "@/lib/feature-limits";
 
 type RawRow = {
   card?: string; name?: string; card_name?: string; cardName?: string; title?: string;
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     }
     const { checkProStatus } = await import("@/lib/server-pro-check");
     const isPro = await checkProStatus(user.id);
-    const dailyCap = isPro ? 50 : 5;
+    const dailyCap = isPro ? COST_TO_FINISH_PRO : COST_TO_FINISH_FREE;
     const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
     const { hashString } = await import("@/lib/guest-tracking");
     const userKeyHash = `user:${await hashString(user.id)}`;
@@ -60,8 +61,8 @@ export async function POST(req: Request) {
         code: "RATE_LIMIT_DAILY",
         proUpsell: !isPro,
         error: isPro
-          ? "You've reached your daily limit of 50 Cost to Finish runs. Contact support if you need higher limits."
-          : "You've used your 5 free Cost to Finish runs today. Upgrade to Pro for 50/day!",
+          ? "You've reached your daily limit. Contact support if you need higher limits."
+          : `You've used your ${COST_TO_FINISH_FREE} free Cost to Finish runs today. Upgrade to Pro for more!`,
         resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }

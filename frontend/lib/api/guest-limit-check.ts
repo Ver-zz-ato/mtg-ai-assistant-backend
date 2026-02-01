@@ -4,8 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-const GUEST_MESSAGE_LIMIT = 10;
+import { GUEST_MESSAGE_LIMIT } from '@/lib/limits';
 
 interface GuestLimitResult {
   allowed: boolean;
