@@ -3,28 +3,34 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 
+export type ModelTier = 'guest' | 'free' | 'pro';
+
 export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
   const [hasBillingAccount, setHasBillingAccount] = useState(false);
+  const [modelTier, setModelTier] = useState<ModelTier>('guest');
+  const [modelLabel, setModelLabel] = useState<string>('Guest');
+  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
-  
+
   useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       setIsPro(false);
       setHasBillingAccount(false);
+      setModelTier('guest');
+      setModelLabel('Guest');
+      setUpgradeMessage('Sign in for a better model. Upgrade to Pro for the best.');
       setLoading(false);
       return;
     }
-    
+
     const sb = createBrowserSupabaseClient();
-    
-    // Initial check + real-time subscription for Pro status updates
+
     const checkProStatus = async () => {
       try {
-        // Try browser client first
         const { data: profile, error: profileError } = await sb
           .from('profiles')
           .select('is_pro, stripe_customer_id')
@@ -35,6 +41,9 @@ export function useProStatus() {
         const isProFromMetadata = user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
         let isProUser = isProFromProfile || isProFromMetadata;
         let hasBilling = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+        let tier: ModelTier = isProUser ? 'pro' : 'free';
+        let label = isProUser ? 'Pro' : 'Standard';
+        let message: string | null = isProUser ? null : 'Upgrade to Pro for the best model.';
 
         if (profileError) {
           try {
@@ -47,18 +56,43 @@ export function useProStatus() {
               if (apiData.ok && apiData.hasBillingAccount !== undefined) {
                 hasBilling = apiData.hasBillingAccount;
               }
+              if (apiData.ok && apiData.modelTier != null) {
+                tier = apiData.modelTier;
+                label = apiData.modelLabel ?? label;
+                message = apiData.upgradeMessage ?? message;
+              }
             }
           } catch {
             // Fallback to metadata
           }
+        } else {
+          try {
+            const apiRes = await fetch('/api/user/pro-status');
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.ok && apiData.modelTier != null) {
+                tier = apiData.modelTier;
+                label = apiData.modelLabel ?? label;
+                message = apiData.upgradeMessage ?? message;
+              }
+            }
+          } catch {
+            // Keep tier/label/message from profile
+          }
         }
 
+        setModelTier(tier);
+        setModelLabel(label);
+        setUpgradeMessage(message);
         setIsPro(isProUser);
         setHasBillingAccount(hasBilling);
       } catch (err) {
         const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
         setIsPro(metadataIsPro);
         setHasBillingAccount(false);
+        setModelTier(metadataIsPro ? 'pro' : 'free');
+        setModelLabel(metadataIsPro ? 'Pro' : 'Standard');
+        setUpgradeMessage(metadataIsPro ? null : 'Upgrade to Pro for the best model.');
       } finally {
         setLoading(false);
       }
@@ -133,7 +167,7 @@ export function useProStatus() {
     };
   }, [user, authLoading]);
 
-  return { isPro, hasBillingAccount, loading };
+  return { isPro, hasBillingAccount, modelTier, modelLabel, upgradeMessage, loading };
 }
 
 

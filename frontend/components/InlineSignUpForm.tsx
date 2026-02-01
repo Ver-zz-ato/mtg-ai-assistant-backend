@@ -45,7 +45,20 @@ export default function InlineSignUpForm() {
       });
       
       if (error) {
-        setPasswordError(error.message);
+        const msg = error.message || '';
+        const alreadyRegistered = /already registered|already been registered|user already exists/i.test(msg);
+        if (alreadyRegistered) {
+          setEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord.');
+        } else {
+          setPasswordError(msg);
+        }
+        return;
+      }
+      // Supabase often returns success (no error) when email already exists (e.g. from OAuth);
+      // it does not create a new identity, so identities is empty — treat as "already in use".
+      const identities = (data?.user as { identities?: unknown[] } | undefined)?.identities;
+      if (!identities || identities.length === 0) {
+        setEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord.');
         return;
       }
       

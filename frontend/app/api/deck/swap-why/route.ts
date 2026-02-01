@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
 import { getPromptVersion } from '@/lib/config/prompts';
 import { prepareOpenAIBody } from '@/lib/ai/openai-params';
+import { getModelForTier } from '@/lib/ai/model-by-tier';
 import { createClient } from '@/lib/server-supabase';
 import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest){
       
       const currentUser = user;
       const isPro = currentUser ? await checkProStatus(currentUser.id) : false;
+      const tierRes = getModelForTier({ isGuest: !currentUser, userId: currentUser?.id ?? null, isPro });
       
       const response = await callLLM(
         [
@@ -73,8 +75,9 @@ export async function POST(req: NextRequest){
         {
           route: '/api/deck/swap-why',
           feature: 'swap_why',
-          model: process.env.OPENAI_MODEL || 'gpt-5',
-          timeout: 300000, // 5 minutes - interactive explanation
+          model: tierRes.model,
+          fallbackModel: tierRes.fallbackModel,
+          timeout: 300000,
           maxTokens: 80,
           apiType: 'responses',
           userId: currentUser?.id || null,

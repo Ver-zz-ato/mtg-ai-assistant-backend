@@ -3,7 +3,7 @@
 
 import { prepareOpenAIBody } from "./openai-params";
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2-codex";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export async function callOpenAI(

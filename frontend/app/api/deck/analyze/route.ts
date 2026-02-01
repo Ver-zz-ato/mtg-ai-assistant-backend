@@ -22,6 +22,8 @@ import colorIdentityMap from "@/lib/data/color_identity_map.json";
 import commanderProfiles from "@/lib/data/commander_profiles.json";
 import knownBad from "@/lib/data/known_bad.json";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 
 type RoleBaselineEntry = {
   min?: number;
@@ -68,7 +70,6 @@ type KnownBadConfig = {
   colorCombos?: Record<string, string[]>;
 };
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const roleBaselineData = roleBaselines as RoleBaselines;
@@ -463,14 +464,19 @@ async function callOpenAI(
   userPrompt: string,
   opts: { maxTokens?: number; deckSize?: number; userId?: string | null; isPro?: boolean } = {}
 ): Promise<string> {
-  // Use dynamic token calculation if deckSize provided, otherwise use provided maxTokens or default
-  const maxTokens = opts.deckSize !== undefined 
+  const maxTokens = opts.deckSize !== undefined
     ? calculateDynamicTokens(opts.deckSize)
     : (opts.maxTokens || 400);
 
+  const tierRes = getModelForTier({
+    isGuest: !opts.userId,
+    userId: opts.userId ?? null,
+    isPro: opts.isPro ?? false,
+  });
+
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
-    
+
     const response = await callLLM(
       [
         { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
@@ -479,8 +485,9 @@ async function callOpenAI(
       {
         route: '/api/deck/analyze',
         feature: 'deck_analyze',
-        model: OPENAI_MODEL,
-        timeout: 300000, // 5 minutes - comprehensive deck analysis
+        model: tierRes.model,
+        fallbackModel: tierRes.fallbackModel,
+        timeout: 300000,
         maxTokens,
         apiType: 'responses',
         userId: opts.userId || null,
@@ -1419,28 +1426,6 @@ export async function POST(req: Request) {
     lockCards?: string[];
   };
 
-  // Load prompt version for deck analysis
-  // NOTE: This prompt version is tracked for logging/analytics, but deck analysis uses
-  // internal helper prompts (planSuggestionSlots, fetchSlotCandidates, etc.) rather than
-  // a single main system prompt like chat does. The helper prompts are specialized for
-  // the multi-stage deck analysis pipeline (planning -> candidate fetching -> validation).
-  // If you want to apply prompt patches to deck analysis, you would need to modify
-  // the system prompts in those helper functions (planSuggestionSlots, fetchSlotCandidates, etc.)
-  // to incorporate the deck_analysis prompt version's system_prompt.
-  let promptVersionId: string | null = null;
-  try {
-    const promptVersion = await getPromptVersion("deck_analysis");
-    if (promptVersion) {
-      promptVersionId = promptVersion.id;
-      if (process.env.NODE_ENV === "development") {
-        console.log(`[deck/analyze] ✅ Loaded prompt version ${promptVersion.version} (${promptVersion.id}) for tracking`);
-        console.log(`[deck/analyze] ⚠️ NOTE: Deck analysis uses internal helper prompts, not the main system_prompt from this version`);
-      }
-    }
-  } catch (e) {
-    console.warn("[deck/analyze] Failed to load prompt version:", e);
-  }
-
   let deckText = String(body.deckText || "").trim();
   const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
   const useScryfall = Boolean(body.useScryfall ?? true);
@@ -1588,25 +1573,54 @@ export async function POST(req: Request) {
   const suggestionDebugReasons = new Set<string>();
   let postFilteredCount = 0;
 
-  // Compose deck analysis system prompt from 3-layer system (BASE + FORMAT + MODULES), or fallback to prompt_versions
+  const DECK_ANALYSIS_HARDCODED_DEFAULT = "You are ManaTap AI, an expert Magic: The Gathering deck analysis assistant. Output structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
   const formatKey = body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander";
   const deckContextForCompose = { deckCards: entries, commanderName: context.commander ?? null, colorIdentity: context.colors ?? null, deckId: undefined as string | undefined };
-  let deckAnalysisSystemPrompt: string | null = null;
-  try {
-    const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-    const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
-    const suffix = "\n\nOutput structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
-    deckAnalysisSystemPrompt = composed + suffix;
-    if (process.env.NODE_ENV === "development") {
-      console.log("[prompt_layers] source=composed route=deck/analyze", { formatKey, modulesAttached: modulesAttached ?? [] });
-    }
-  } catch (e) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[prompt_layers] source=fallback route=deck/analyze prompt_layers_fallback_used", e);
-    }
+  const deckAnalyzeExtraSuffix = "\n\nOutput structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
+  const promptRequestId = generatePromptRequestId();
+  const promptResult = await buildSystemPromptForRequest({
+    kind: "deck_analysis",
+    formatKey,
+    deckContextForCompose,
+    supabase,
+    hardcodedDefaultPrompt: DECK_ANALYSIS_HARDCODED_DEFAULT,
+    extraSuffix: deckAnalyzeExtraSuffix,
+  });
+  const deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
+  const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
+
+  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false });
+  let promptLogged = false;
+  if (!promptLogged) {
+    promptLogged = true;
+    console.log(JSON.stringify({
+      tag: "prompt",
+      requestId: promptRequestId,
+      promptPath: promptResult.promptPath,
+      kind: "deck_analysis",
+      formatKey: promptResult.formatKey ?? formatKey,
+      modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
+      promptVersionId: promptResult.promptVersionId ?? null,
+      tier: deckTierRes.tier,
+      model: deckTierRes.model,
+      route: "/api/deck/analyze",
+      ...(promptResult.error && { compose_failed: true, error_name: promptResult.error.name, error_message: promptResult.error.message }),
+    }));
     try {
-      const promptVersion = await getPromptVersion("deck_analysis", supabase);
-      if (promptVersion) deckAnalysisSystemPrompt = promptVersion.system_prompt;
+      const { captureServer } = await import("@/lib/server/analytics");
+      if (typeof captureServer === "function") {
+        await captureServer("ai_prompt_path", {
+          prompt_path: promptResult.promptPath,
+          kind: "deck_analysis",
+          formatKey: promptResult.formatKey ?? formatKey,
+          modules_attached_count: promptResult.modulesAttached?.length ?? 0,
+          prompt_version_id: promptResult.promptVersionId ?? null,
+          tier: deckTierRes.tier,
+          model: deckTierRes.model,
+          route: "/api/deck/analyze",
+          request_id: promptRequestId,
+        });
+      }
     } catch (_) {}
   }
 
@@ -1702,8 +1716,11 @@ export async function POST(req: Request) {
             console.warn("[deck/analyze] Recommendation validation issues:", result.issues.map((i) => i.message));
           }
           analysisText = result.repairedText;
-          const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+          const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
+          analysisText = stripIncompleteSynergyChains(analysisText);
+          analysisText = stripIncompleteTruncation(analysisText);
           analysisText = applyOutputCleanupFilter(analysisText);
+          analysisText = applyBracketEnforcement(analysisText);
         } catch (_) {}
       }
       validatedAnalysis = {
@@ -1745,8 +1762,8 @@ export async function POST(req: Request) {
         filteredCandidates: filtered,
         filterReasons: Array.from(suggestionDebugReasons),
       },
-      prompt_version: useGPT ? (promptVersionId || getActivePromptVersion()) : undefined,
-      prompt_version_id: promptVersionId || undefined,
+      prompt_version: useGPT ? (deckAnalyzePromptVersionId || getActivePromptVersion()) : undefined,
+      prompt_version_id: deckAnalyzePromptVersionId || undefined,
       // Add name fixing info if cards were corrected
       ...(nameFixInfo ? {
         nameFixes: nameFixInfo.items,

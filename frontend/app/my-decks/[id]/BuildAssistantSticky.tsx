@@ -1,8 +1,10 @@
 "use client";
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import AIDeckScanModal from "@/components/AIDeckScanModal";
+import { useProStatus } from "@/hooks/useProStatus";
 
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
 function decodeIntentParam(i?: string | null): any {
@@ -28,6 +30,7 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
 export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string }){
   const router = useRouter();
   const sp = useSearchParams();
+  const { modelTier, modelLabel, upgradeMessage } = useProStatus();
   const initial = React.useMemo(()=> decodeIntentParam(encodedIntent), [encodedIntent]);
   const [intent, setIntent] = React.useState<any>(initial || {});
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
@@ -321,6 +324,17 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               Build Assistant
             </div>
             <div className="text-xs text-gray-400 font-medium">AI suggestions available</div>
+            {(modelTier === 'guest' || modelTier === 'free') && upgradeMessage && (
+              <div className="text-[10px] text-neutral-400 mt-0.5">
+                Using {modelLabel} model.{' '}
+                <Link href="/pricing" className="text-blue-400 hover:underline">{upgradeMessage}</Link>
+              </div>
+            )}
+            {modelTier === 'pro' && (
+              <div className="text-[10px] text-emerald-400/90 mt-0.5">
+                You're on the best model — thank you!
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

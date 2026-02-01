@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { createClient } from "@/lib/server-supabase";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
@@ -56,15 +57,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const model = process.env.OPENAI_MODEL || "gpt-5";
+    const isPro = user ? await checkProStatus(user.id) : false;
+    const tierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro });
     let aiMap: Record<string, { risk: "low"|"medium"|"high"; reason: string }> = {};
 
     if (uniq.length > 0) {
       try {
         const { callLLM } = await import('@/lib/ai/unified-llm-client');
-        const { checkProStatus } = await import('@/lib/server-pro-check');
-        
-        const isPro = user ? await checkProStatus(user.id) : false;
         
         const system = "You are an MTG finance assistant. Rate the reprint risk for the next 90 days for each card as 'low', 'medium', or 'high'. Consider recent reprints, set cycles, and Commander precon patterns. Respond ONLY JSON: [{\"name\":\"Card Name\",\"risk\":\"low|medium|high\",\"reason\":\"<=90 chars\"}]";
         const userPrompt = `Cards:\n${uniq.map(n => `- ${n}`).join("\n")}`;
@@ -77,8 +76,9 @@ export async function POST(req: NextRequest) {
           {
             route: '/api/cards/reprint-risk',
             feature: 'reprint_risk',
-            model,
-            timeout: 300000, // 5 minutes - interactive check
+            model: tierRes.model,
+            fallbackModel: tierRes.fallbackModel,
+            timeout: 300000,
             maxTokens: 600,
             apiType: 'responses',
             userId: user?.id || null,

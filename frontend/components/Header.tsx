@@ -693,6 +693,14 @@ export default function Header() {
                       }
                       return;
                     }
+                    // Supabase often returns success (no error) when email already exists (e.g. from OAuth);
+                    // it does not create a new identity, so identities is empty — treat as "already in use".
+                    const identities = (data?.user as { identities?: unknown[] } | undefined)?.identities;
+                    if (!identities || identities.length === 0) {
+                      setEmailFormMode('login');
+                      setSignupEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord above.');
+                      return;
+                    }
                     
                     trackSignupCompleted('email', data?.user?.id);
                     try {

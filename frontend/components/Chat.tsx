@@ -118,7 +118,7 @@ function Chat() {
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   const [hasDeckAnalyzed, setHasDeckAnalyzed] = useState<boolean>(false);
   const [showReasoning, setShowReasoning] = useState<boolean>(false);
-  const { isPro } = useProStatus();
+  const { isPro, modelTier, modelLabel, upgradeMessage } = useProStatus();
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
   const capture = useCapture();
@@ -895,7 +895,7 @@ function Chat() {
                 id: errorMsgId, 
                 thread_id: threadId || "", 
                 role: "assistant", 
-                content: "You've reached the guest message limit of 20 messages. Please sign in to continue chatting!", 
+                content: "You've reached the guest message limit of 10 messages. Please sign in to continue chatting!", 
                 created_at: new Date().toISOString() 
               } as any,
             ]);
@@ -1576,6 +1576,60 @@ function Chat() {
             </button>
           ))}
         </div>
+
+          {/* Model tier reminder for non-Pro users - above text box (always show for guest/free so it's visible without waiting for upgradeMessage) */}
+          {(modelTier === 'guest' || modelTier === 'free') && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
+              {modelTier === 'guest' && isLoggedIn === false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
+                      source: 'guest_mode_badge_input',
+                      message_count: guestMessageCount
+                    });
+                    window.dispatchEvent(new CustomEvent('open-auth-modal', {
+                      detail: { mode: 'signup' }
+                    }));
+                  }}
+                  className={`shrink-0 text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
+                    guestMessageCount >= 7
+                      ? 'bg-red-900 text-red-200 animate-pulse'
+                      : guestMessageCount >= 5
+                        ? 'bg-amber-900 text-amber-200'
+                        : 'bg-yellow-900 text-yellow-200'
+                  }`}
+                  title={guestMessageCount >= 7
+                    ? 'Only a few messages left! Sign up to continue'
+                    : guestMessageCount >= 5
+                      ? 'Sign up to save your chat history'
+                      : 'Click to sign up and save your progress'
+                  }
+                >
+                  Guest Mode ({guestMessageCount}/10)
+                </button>
+              )}
+              <span>
+                Using {modelLabel} model.{' '}
+                {upgradeMessage ? (
+                  <a href="/pricing" className="text-blue-400 hover:underline">
+                    {upgradeMessage}
+                  </a>
+                ) : (
+                  <a href="/pricing" className="text-blue-400 hover:underline">
+                    {modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : 'Upgrade to Pro for the best model.'}
+                  </a>
+                )}
+              </span>
+            </div>
+          )}
+
+          {/* Pro thank-you message - above text box */}
+          {modelTier === 'pro' && (
+            <div className="mb-2 text-[11px] text-emerald-400/90">
+              You're on the best model — thank you!
+            </div>
+          )}
 
           {/* Input area */}
           <div className="flex gap-2 flex-col sm:flex-row">

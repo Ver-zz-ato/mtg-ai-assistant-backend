@@ -72,7 +72,8 @@ export async function composeSystemPrompt(options: {
     .maybeSingle();
   if (formatRow?.body) parts.push("\n\n" + formatRow.body);
 
-  // 3) MODULE layers (only if deckContext and we have cached card data for detection)
+  // 3) MODULE layers (only if deckContext and we have cached card data for detection).
+  // Empty deckCards is intentional: return BASE + FORMAT only (no modules); do not throw.
   if (deckContext?.deckCards?.length) {
     const names = Array.from(new Set(deckContext.deckCards.map((c) => c.name))).slice(0, 200);
     const cached = await getDetailsForNamesCacheOnly(names);

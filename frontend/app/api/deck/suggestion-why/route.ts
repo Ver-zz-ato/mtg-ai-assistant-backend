@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-5',
+        model: process.env.OPENAI_MODEL || 'gpt-5.2-codex',
         input: [
           { role: 'system', content: [{ type: 'input_text', text: system }] },
           { role: 'user', content: [{ type: 'input_text', text: user }] },

@@ -4,11 +4,13 @@ import { ChatPostSchema } from "@/lib/validate";
 import type { SfCard } from "@/lib/deck/inference";
 import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 
 export const runtime = "nodejs";
 
-// Force streaming to use gpt-4o-mini to avoid org verification issues
-const MODEL = "gpt-4o-mini";
+const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
+
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -29,15 +31,20 @@ export async function POST(req: NextRequest) {
   let status = 200;
   let userId: string | null = null;
   let isGuest = false;
-  
+  let isPro = false;
+
   try {
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
       isGuest = true;
     } else {
       userId = user.id;
+      try {
+        const { checkProStatus } = await import('@/lib/server-pro-check');
+        isPro = await checkProStatus(userId);
+      } catch {}
     }
 
     // Accept { text } and legacy { prompt }
@@ -132,13 +139,6 @@ export async function POST(req: NextRequest) {
 
     // Rate limiting for authenticated users
     if (!isGuest && userId) {
-      // Check Pro status
-      let isPro = false;
-      try {
-        const { checkProStatus } = await import('@/lib/server-pro-check');
-        isPro = await checkProStatus(userId);
-      } catch {}
-
       // Durable rate limiting (database-backed)
       const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
       const { hashString } = await import('@/lib/guest-tracking');
@@ -174,6 +174,8 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+
+    const modelTierRes = getModelForTier({ isGuest, userId, isPro });
 
     // Save user message to database FIRST (if thread exists and user is logged in)
     // This ensures it's in the DB when we fetch messages for RAG
@@ -215,8 +217,6 @@ export async function POST(req: NextRequest) {
     const deckFormat = deckData?.d?.format ? String(deckData.d.format).toLowerCase().replace(/\s+/g, "") : null;
     const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
 
-    let sys = "";
-    let promptVersionId: string | null = null;
     let deckContextForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: string[] | null; deckId?: string } | null = deckData?.entries?.length
       ? { deckCards: deckData.entries, commanderName: deckData.d?.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdLinked ?? undefined }
       : null;
@@ -236,28 +236,49 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    try {
-      const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-      const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
-      sys = composed;
-      if (process.env.NODE_ENV === "development") {
-        console.log("[prompt_layers] source=composed route=chat/stream", { formatKey, modulesAttached: modulesAttached ?? [] });
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[prompt_layers] source=fallback route=chat/stream prompt_layers_fallback_used", e);
-      }
+    const promptRequestId = generatePromptRequestId();
+    const promptResult = await buildSystemPromptForRequest({
+      kind: "chat",
+      formatKey,
+      deckContextForCompose,
+      supabase,
+      hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+    });
+    let sys = promptResult.systemPrompt;
+    const promptVersionId = promptResult.promptVersionId ?? null;
+
+    let promptLogged = false;
+    if (!promptLogged) {
+      promptLogged = true;
+      console.log(JSON.stringify({
+        tag: "prompt",
+        requestId: promptRequestId,
+        promptPath: promptResult.promptPath,
+        kind: "chat",
+        formatKey: promptResult.formatKey ?? formatKey,
+        modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
+        promptVersionId: promptResult.promptVersionId ?? null,
+        tier: modelTierRes.tier,
+        model: modelTierRes.model,
+        route: "/api/chat/stream",
+        ...(promptResult.error && { compose_failed: true, error_name: promptResult.error.name, error_message: promptResult.error.message }),
+      }));
       try {
-        const { getPromptVersion } = await import("@/lib/config/prompts");
-        const promptVersion = await getPromptVersion("chat", supabase);
-        if (promptVersion) {
-          sys = promptVersion.system_prompt;
-          promptVersionId = promptVersion.id;
+        const { captureServer } = await import("@/lib/server/analytics");
+        if (typeof captureServer === "function") {
+          await captureServer("ai_prompt_path", {
+            prompt_path: promptResult.promptPath,
+            kind: "chat",
+            formatKey: promptResult.formatKey ?? formatKey,
+            modules_attached_count: promptResult.modulesAttached?.length ?? 0,
+            prompt_version_id: promptResult.promptVersionId ?? null,
+            tier: modelTierRes.tier,
+            model: modelTierRes.model,
+            route: "/api/chat/stream",
+            request_id: promptRequestId,
+          });
         }
       } catch (_) {}
-      if (!sys) {
-        sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
-      }
     }
 
     // User preferences: Commander must never use "Colors=any" (enforce color identity)
@@ -325,17 +346,16 @@ export async function POST(req: NextRequest) {
 
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     
-    // Create OpenAI streaming request
+    // Create OpenAI streaming request (model by user tier: guest/free/pro)
     const messages: any[] = [
       { role: "system", content: sys },
       { role: "user", content: text }
     ];
     
-    // Use gpt-4o-mini for streaming (no verification required)
-    const tokenLimit = Math.min(MAX_TOKENS_STREAM, 1000);
+    const tokenLimit = MAX_TOKENS_STREAM;
     
     const openAIBody = prepareOpenAIBody({
-      model: MODEL,
+      model: modelTierRes.model,
       messages,
       stream: true,
       max_completion_tokens: tokenLimit
@@ -378,10 +398,10 @@ export async function POST(req: NextRequest) {
             console.log(`[stream] OpenAI API error ${openAIResponse.status}:`, errorText);
             
             // Try fallback model if primary model fails
-            const isGPT5Primary = MODEL.toLowerCase().includes('gpt-5');
+            const isGPT5Primary = modelTierRes.model.toLowerCase().includes('gpt-5');
             if (isGPT5Primary) {
               const fallbackBody = prepareOpenAIBody({
-                model: "gpt-4o-mini",
+                model: modelTierRes.fallbackModel,
                 messages,
                 max_completion_tokens: tokenLimit,
                 stream: true
@@ -400,7 +420,7 @@ export async function POST(req: NextRequest) {
                 openAIResponse = fallbackResponse;
               } else {
                 const fallbackError = await fallbackResponse.text();
-                throw new Error(`Both models failed - GPT-5: ${errorText}, GPT-4o-mini: ${fallbackError}`);
+                throw new Error(`Both models failed - primary: ${errorText}, fallback: ${fallbackError}`);
               }
             } else {
               throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`);
@@ -476,13 +496,13 @@ export async function POST(req: NextRequest) {
                 console.log("[stream] regeneration (needsRegeneration) triggered");
                 try {
                   const repairBody = prepareOpenAIBody({
-                    model: MODEL,
+                    model: modelTierRes.model,
                     messages: [
                       { role: "system", content: sys + "\n\n" + REPAIR_SYSTEM_MESSAGE },
                       { role: "user", content: text },
                     ],
                     stream: false,
-                    max_completion_tokens: Math.min(MAX_TOKENS_STREAM, 1000),
+                    max_completion_tokens: MAX_TOKENS_STREAM,
                   } as Record<string, unknown>);
                   const regenRes = await fetch(OPENAI_URL, {
                     method: "POST",
@@ -500,6 +520,7 @@ export async function POST(req: NextRequest) {
                         colorIdentity: deckContextForCompose?.colorIdentity ?? null,
                         commanderName: deckContextForCompose?.commanderName ?? null,
                         rawText: outputText,
+                        isRegenPass: true,
                       });
                       if (!result.valid && result.issues.length > 0) outputText = result.repairedText;
                     }
@@ -508,8 +529,11 @@ export async function POST(req: NextRequest) {
                   if (DEV) console.warn("[stream] regeneration request failed:", regenErr);
                 }
               }
-              const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+              const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
+              outputText = stripIncompleteSynergyChains(outputText);
+              outputText = stripIncompleteTruncation(outputText);
               outputText = applyOutputCleanupFilter(outputText);
+              outputText = applyBracketEnforcement(outputText);
               if (DEV) {
                 const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
                 const flags = humanSanityCheck(outputText);
@@ -551,6 +575,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
+        "X-Model-Tier": modelTierRes.tier,
       },
     });
 

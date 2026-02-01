@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase/server';
+import { getModelForTier } from '@/lib/ai/model-by-tier';
 
 export const dynamic = 'force-dynamic'; // Disable caching
 
@@ -23,6 +24,8 @@ export async function GET(req: NextRequest) {
     const isPro = isProFromProfile || isProFromMetadata;
     const hasBillingAccount = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
 
+    const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro });
+
     return NextResponse.json({
       ok: true,
       isPro,
@@ -30,6 +33,9 @@ export async function GET(req: NextRequest) {
       fromProfile: isProFromProfile,
       fromMetadata: isProFromMetadata,
       profileError: profileError ? profileError.message : null,
+      modelTier: tierRes.tier,
+      modelLabel: tierRes.tierLabel,
+      ...(tierRes.upgradeMessage != null && { upgradeMessage: tierRes.upgradeMessage }),
     }, {
       headers: { 'Cache-Control': 'no-store' },
     });

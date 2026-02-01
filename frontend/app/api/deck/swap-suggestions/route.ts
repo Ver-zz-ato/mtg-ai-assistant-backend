@@ -7,6 +7,7 @@ import { createClient } from "@/lib/server-supabase";
 import { getPromptVersion } from "@/lib/config/prompts";
 import swapsData from "@/lib/data/budget-swaps.json";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString } from "@/lib/guest-tracking";
@@ -138,6 +139,8 @@ async function aiSuggest(
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
     
+    const tierRes = getModelForTier({ isGuest: !userId, userId: userId ?? null, isPro: isPro ?? false });
+
     const response = await callLLM(
       [
         { role: "system", content: [{ type: "input_text", text: system }] },
@@ -146,8 +149,9 @@ async function aiSuggest(
       {
         route: '/api/deck/swap-suggestions',
         feature: 'swap_suggestions',
-        model: process.env.OPENAI_MODEL || "gpt-5",
-        timeout: 300000, // 5 minutes - interactive suggestions
+        model: tierRes.model,
+        fallbackModel: tierRes.fallbackModel,
+        timeout: 300000,
         maxTokens: 512,
         apiType: 'responses',
         userId: userId || null,

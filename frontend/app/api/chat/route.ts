@@ -8,12 +8,12 @@ import { logger } from "@/lib/logger";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { deduplicatedFetch } from "@/lib/api/deduplicator";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 
-// Model configuration: Use mini for simple queries, gpt-5 for complex analysis
-const MODEL_MINI = "gpt-4o-mini"; // For simple queries: card parsing, legality checks, fast previews
-const MODEL_MID = process.env.OPENAI_MODEL || "gpt-5"; // For complex analysis: deck analysis, synergy, "why this works"
-const MODEL = MODEL_MINI; // Default fallback (most chat queries are simple)
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+
+const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
 const DEV = process.env.NODE_ENV !== "production";
 
 const COMMANDER_BANNED: Record<string, true> = {
@@ -146,47 +146,53 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   return text;
 }
 
-async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = false, userId?: string | null, isPro?: boolean) {
+async function callOpenAI(
+  userText: string,
+  sys?: string,
+  useMidTier: boolean = false,
+  userId?: string | null,
+  isPro?: boolean,
+  isGuest?: boolean
+) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return { fallback: true, text: `Echo: ${userText}` };
+    return { fallback: true, text: `Echo: ${userText}`, actualModel: undefined };
   }
 
-  // Use mid-tier model (gpt-5) for complex analysis, mini (gpt-4o-mini) for simple queries
-  const baseModel = useMidTier ? MODEL_MID.trim() : MODEL_MINI;
-  const fallbackModel = MODEL_MINI; // Always fallback to mini on error
+  const tierRes = getModelForTier({
+    isGuest: isGuest ?? !userId,
+    userId: userId ?? null,
+    isPro: isPro ?? false,
+  });
 
-  // Use unified wrapper for consistent error handling, fallback, and logging
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
-    
+
     const messages: any[] = [];
     if (sys && sys.trim()) {
       messages.push({ role: "system", content: sys });
     }
     messages.push({ role: "user", content: userText });
-    
-    // Task 3: Reduce max tokens for simple queries
+
     const maxTokens = useMidTier ? 384 : 256;
-    
+
     const response = await callLLM(
       messages,
       {
         route: '/api/chat',
         feature: 'chat',
-        model: baseModel,
-        fallbackModel,
-        timeout: 30000, // 30 seconds - interactive chat
+        model: tierRes.model,
+        fallbackModel: tierRes.fallbackModel,
+        timeout: 30000,
         maxTokens,
         apiType: 'chat',
         userId: userId || null,
         isPro: isPro || false,
-        retryOn429: false, // Chat doesn't retry on 429
+        retryOn429: false,
         retryOn5xx: false,
       }
     );
 
-    // Return in the format expected by existing code
     return {
       ok: true,
       json: {
@@ -202,14 +208,15 @@ async function callOpenAI(userText: string, sys?: string, useMidTier: boolean = 
       },
       status: 200,
       fallback: response.fallback,
+      actualModel: response.actualModel,
     };
   } catch (error: any) {
-    // Fallback to echo on error
-    return { 
-      ok: false, 
-      json: { error: { message: error?.message || 'OpenAI API call failed' } }, 
+    return {
+      ok: false,
+      json: { error: { message: error?.message || 'OpenAI API call failed' } },
       status: 500,
       fallback: true,
+      actualModel: tierRes.model,
     };
   }
 }
@@ -573,143 +580,56 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Load prompt version from prompt_versions table
-    let promptVersionId: string | null = null;
-    let sys = `You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.
-
-IMPORTANT: Format every Magic card name in bold markdown like **Sol Ring** so the UI can auto-link it. Do not bold other text. Wrap the name in double brackets elsewhere is no longer required.
-
-15. RULES Q&A WITH CITATIONS (Judge Persona)
-- When answering rules questions (questions about how Magic rules work, not deckbuilding advice), include citations at the end of your answer.
-- Format citations as: (CR 707.10) for Comprehensive Rules, or (Oracle ruling) for Oracle text interpretations.
-- Examples of rules questions: "Can I respond to this?", "Does this trigger twice?", "If I copy a spell, do I pay costs again?", "How do layers work?", "What happens when...?"
-- Example answer format: "No. Copying a spell copies it on the stack. You don't pay costs again. (CR 707.10)"
-- If a rules question depends on board state, layers, or replacement effects, give the most likely outcome and cite the relevant rule, then remind the user to verify with an official judge for tournaments.
-- Use a calm, precise judge-like tone for rules questions. Be accurate, not confident—if you're uncertain, cite what you know and recommend checking Oracle text or consulting a judge.
-
-Maintain a friendly mentor tone. Avoid overconfident words like 'auto-include' or 'must-run'; prefer 'commonly used', 'strong option', or 'fits well if…'.
-
-When MTG communities disagree on guidelines (land counts, ramp density, etc.), share the common range and note that it can be tuned to taste. For Commander, treat 33–37 lands as the normal range for an average curve and 8–12 ramp sources, then mention when you'd go higher or lower.
-
-Global behavioral guardrails (always apply):
-
-1. FORMAT SELF-TAG
-- Start the very first line with the format you're assuming. Examples:
-  - "This looks like a Commander (EDH) list, so I'll judge it on EDH pillars."
-  - "Since you said Modern 60-card, I'll focus on curve and efficiency."
-  - "Format unclear — I'll assume Commander (EDH), but tell me if it isn't."
-
-2. COMMANDER PILLARS
-- For Commander/EDH decks, always speak to ramp, card draw, interaction/removal, and win conditions.
-- When recommending improvements, name at least one EDH-appropriate card per pillar you flag.
-
-3. BUDGET LANGUAGE
-- If the user mentions budget/cheap/price/kid/under-$, explicitly say "budget-friendly", "cheaper option", or "affordable alternative" while staying in-color.
-
-4. SYNERGY NARRATION
-- Frame swaps around the deck's plan (tokens, lifegain, aristocrats, elfball, spellslinger, voltron, graveyard, etc.).
-- Always restate the deck's plan in the first or second sentence of your analysis, e.g. "This looks like a +1/+1 counters midrange deck…" or "Your plan is a Rakdos sacrifice/aristocrats shell…".
-- Use wording like "Cut X — it's off-plan for your +1/+1 counters strategy."
-
-5. PROBABILITY ANSWERS
-- For odds/hand/draw questions, end with a plain-English percentage line, e.g., "So that's roughly about 12% with normal draws."
-- Default to 99–100 cards for Commander, 60 for Standard/Modern unless the user specifies otherwise.
-
-6. CUSTOM/HOMEBREW
-- If the user says the card is custom/not real/homebrew, begin with "Since this is a custom/homebrew card, I'll evaluate it hypothetically."
-- Never claim you found the card in Scryfall/EDHREC or any database.
-
-7. UNKNOWN OR MISSPELLED CARDS
-- If a card name doesn't appear to be recognised or looks misspelled, treat it as a likely real but unknown card and evaluate it generically based on what the user says it does (role, mana value, effect).
-- Do not claim it exists in any database if you're not sure; use generic role language instead (removal spell, finisher, ramp piece, etc.).
-
-8. OUT-OF-SCOPE / INTEGRATIONS
-- If asked to crawl/sync/upload/fetch external data/export directly, the first sentence must be: "I can't do that directly here, but here's the closest workflow…"
-- Then guide them using paste/import/export instructions.
-
-9. PRO FEATURE SURFACING (static map)
-- Commander, Modern, Standard analysis: available today.
-- Pioneer, Historic, Pauper EDH and other formats: coming soon / planned.
-- Hand tester & probability panel: available but Pro-gated in the UI.
-- Collection & price tracking: available but still improving.
-- Standalone combo finder: not a separate tool right now (rolled into analysis).
-- Custom cards: you can create/share them; full in-deck testing is still coming.
-- When in doubt, say "coming soon" or "still a bit rough" instead of guaranteeing access.
-
-10. INTERNAL CONSISTENCY
-- If you mention a number or guideline, keep it consistent across your explanation and lists. Example: if you say 8–12 ramp cards, do not list 4 or 20 in the same answer.
-
-11. NO DUPLICATE CATEGORIES
-- If a card appears in one category, do not repeat it elsewhere.
-
-12. COMMANDER SINGLETON & LANDS
-- For Commander/EDH, assume singleton unless the user clearly shows legal exceptions (e.g. **Relentless Rats**, **Shadowborn Apostle**) or specifies a special rule.
-- Do not recommend running multiple copies of the same non-exception card in Commander.
-- When giving high-level land guidance, treat 33–37 lands as the normal range for a typical Commander deck, then explicitly say when a deck might want more or less (e.g. very low curve, very high ramp, landfall-heavy, etc.).
-
-13. STAPLE POWER CARDS
-- Only suggest very popular staples like **Smothering Tithe**, **Rhystic Study**, or similar high-impact cards if they actually fit the deck's stated plan and power level.
-- Prefer on-theme, synergistic options over generic staples when giving examples.
-
-14. FAST MANA GUIDANCE (CASUAL VS POWERED LEVELS)
-- Never recommend fast mana like **Mana Crypt**, **Mox Diamond**, **Chrome Mox**, **Jeweled Lotus**, or similar high-powered acceleration in casual/budget decks unless the user explicitly asks for high-power, optimized, or cEDH.
-- When evaluating a casual deck, explicitly mention that you're avoiding fast mana because it raises the power level beyond typical kitchen-table expectations.
-
-Format-specific guidance:
-- Commander: emphasize synergy, politics, and fun factor.
-- Modern / Pioneer: emphasize efficiency and curve.
-- Standard: emphasize current meta awareness and rotation safety.
-
-When the user asks about 'how much ramp' or 'what ramp to run', use this structure:
-Default Commander ramp range: 8–12 ramp sources.
-Categories:
-- Land-based ramp (**Cultivate**, **Kodama's Reach**, **Nature's Lore**, **Three Visits**)
-- Mana rocks (**Sol Ring**, **Arcane Signet**, Talismans, **Commander's Sphere**)
-- Mana dorks (**Llanowar Elves**, **Elvish Mystic**, **Birds of Paradise**) — only if green is in the deck.
-Do NOT call sorceries 'creature ramp'.
-Do NOT list the same category twice.
-Only suggest high-power fast mana (**Mana Crypt**, etc.) if the user asks for cEDH/high power.
-Do NOT present lands like **Command Tower** or **Fabled Passage** as ramp.
-
-If a card is banned or restricted in the user's chosen format, explicitly mention that it's banned and suggest a legal alternative.
-
-If the commander profile indicates a specific archetype, preserve the deck's flavour and mechanical identity; never recommend cards that contradict its theme unless the user explicitly asks for variety.
-
-16. RULES Q&A WITH CITATIONS (Judge Persona)
-- When answering rules questions (questions about how Magic rules work, interactions, legality, or game mechanics—NOT deckbuilding advice), always include citations at the end of your answer.
-- Format citations as: (CR 707.10) for Comprehensive Rules references, or (Oracle ruling) for Oracle text interpretations.
-- Examples of rules questions: "Can I respond to this?", "Does this trigger twice?", "If I copy a spell, do I pay costs again?", "How do layers work?", "What happens when...?", "Is this legal in Commander?"
-- Example answer format: "No. Copying a spell copies it on the stack. You don't pay costs again. (CR 707.10)"
-- If a rules question depends on board state, layers, or replacement effects, give the most likely outcome and cite the relevant rule (e.g., CR 613 for layers, CR 614 for replacement effects), then remind the user to verify with an official judge for tournament play.
-- Use a calm, precise judge-like tone for rules questions. Be accurate, not overconfident—if you're uncertain about complex interactions, cite what you know and recommend checking Oracle text or consulting a judge for final confirmation.
-- This does not replace tournament judges or provide official rulings, but helps users understand the rules with proper citations.`;
-    
     const deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
     const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
     const deckContextForCompose = entries.length && d
       ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined }
       : (pastedDecklistForCompose ?? null);
 
-    try {
-      const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
-      const { composed, modulesAttached } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
-      sys = composed;
-      if (process.env.NODE_ENV === "development") {
-        console.log("[prompt_layers] source=composed route=chat", { formatKey, modulesAttached: modulesAttached ?? [] });
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[prompt_layers] source=fallback route=chat prompt_layers_fallback_used", e);
-      }
+    const promptRequestId = generatePromptRequestId();
+    const promptResult = await buildSystemPromptForRequest({
+      kind: "chat",
+      formatKey,
+      deckContextForCompose,
+      supabase,
+      hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+    });
+    let sys = promptResult.systemPrompt;
+    let promptVersionId: string | null = promptResult.promptVersionId ?? null;
+
+    const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
+    let promptLogged = false;
+    if (!promptLogged) {
+      promptLogged = true;
+      console.log(JSON.stringify({
+        tag: "prompt",
+        requestId: promptRequestId,
+        promptPath: promptResult.promptPath,
+        kind: "chat",
+        formatKey: promptResult.formatKey ?? formatKey,
+        modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
+        promptVersionId: promptResult.promptVersionId ?? null,
+        tier: chatTierRes.tier,
+        model: chatTierRes.model,
+        route: "/api/chat",
+        ...(promptResult.error && { compose_failed: true, error_name: promptResult.error.name, error_message: promptResult.error.message }),
+      }));
       try {
-        const { getPromptVersion } = await import("@/lib/config/prompts");
-        const promptVersion = await getPromptVersion("chat", supabase);
-        if (promptVersion) {
-          sys = promptVersion.system_prompt;
-          promptVersionId = promptVersion.id;
+        const { captureServer } = await import("@/lib/server/analytics");
+        if (typeof captureServer === "function") {
+          await captureServer("ai_prompt_path", {
+            prompt_path: promptResult.promptPath,
+            kind: "chat",
+            formatKey: promptResult.formatKey ?? formatKey,
+            modules_attached_count: promptResult.modulesAttached?.length ?? 0,
+            prompt_version_id: promptResult.promptVersionId ?? null,
+            tier: chatTierRes.tier,
+            model: chatTierRes.model,
+            route: "/api/chat",
+            request_id: promptRequestId,
+          });
         }
       } catch (_) {}
-      if (!sys) sys = `You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.`;
     }
 
     if (d && deckText && deckText.trim()) {
@@ -761,7 +681,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
             try {
               const { buildSummaryPrompt, parseSummary, formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
               const summaryPrompt = buildSummaryPrompt(threadHistory);
-              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro);
+              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro, isGuest);
               const summary = parseSummary(typeof summaryResponse === 'string' ? summaryResponse : (summaryResponse as any)?.text || '');
               
               if (summary) {
@@ -1028,7 +948,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     const stage1T = Date.now();
     let out1: any;
     try {
-      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis, userId, isPro);
+      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis, userId, isPro, isGuest);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -1151,7 +1071,7 @@ Return the corrected answer with concise, user-facing tone.`;
       reviewPromptLength: reviewPrompt.length
     });
     
-    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro);
+    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro, isGuest);
     
     console.log("🔍 [chat] Review response:", {
       reviewType: typeof review,
@@ -1265,7 +1185,7 @@ Return the corrected answer with concise, user-facing tone.`;
         if (result.needsRegeneration) {
           console.log("[chat] regeneration (needsRegeneration) triggered");
           try {
-            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro);
+            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro, isGuest);
             const regenText = firstOutputText((regenOut as any)?.json);
             if (typeof regenText === "string" && regenText.trim()) {
               outText = regenText.trim();
@@ -1275,6 +1195,7 @@ Return the corrected answer with concise, user-facing tone.`;
                 colorIdentity: null,
                 commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
                 rawText: outText,
+                isRegenPass: true,
               });
               if (!result.valid && result.issues.length > 0) outText = result.repairedText;
             }
@@ -1282,8 +1203,11 @@ Return the corrected answer with concise, user-facing tone.`;
             if (DEV) console.warn("[chat] regeneration request failed:", regenErr);
           }
         }
-        const { applyOutputCleanupFilter } = await import("@/lib/chat/outputCleanupFilter");
+        const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
+        outText = stripIncompleteSynergyChains(outText);
+        outText = stripIncompleteTruncation(outText);
         outText = applyOutputCleanupFilter(outText);
+        outText = applyBracketEnforcement(outText);
         if (DEV) {
           const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
           const flags = humanSanityCheck(outText);
@@ -1406,12 +1330,25 @@ Return the corrected answer with concise, user-facing tone.`;
       }
       const { costUSD } = await import("@/lib/ai/pricing");
       // Use the model that was actually used (gpt-5 for complex analysis, gpt-4o-mini for simple queries)
-      const actualModel = isComplexAnalysis ? MODEL_MID : MODEL_MINI;
+      const actualModel = out1?.actualModel ?? getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false }).model;
       const cost = costUSD(actualModel, it, ot);
+      const usagePayload: Record<string, unknown> = {
+        user_id: userId,
+        thread_id: tid,
+        model: actualModel,
+        input_tokens: it,
+        output_tokens: ot,
+        cost_usd: cost,
+        prompt_path: promptResult.promptPath,
+        prompt_version_id: promptResult.promptVersionId ?? null,
+        modules_attached_count: promptResult.modulesAttached?.length ?? null,
+        format_key: promptResult.formatKey ?? null,
+        model_tier: chatTierRes.tier,
+      };
       try {
-        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: actualModel, input_tokens: it, output_tokens: ot, cost_usd: cost, persona_id, teaching: teachingFlag });
+        await supabase.from("ai_usage").insert({ ...usagePayload, persona_id, teaching: teachingFlag });
       } catch {
-        await supabase.from("ai_usage").insert({ user_id: userId, thread_id: tid, model: actualModel, input_tokens: it, output_tokens: ot, cost_usd: cost });
+        await supabase.from("ai_usage").insert(usagePayload);
       }
     } catch {}
 
@@ -1419,13 +1356,15 @@ Return the corrected answer with concise, user-facing tone.`;
     try {
       const { captureServer } = await import("@/lib/server/analytics");
       if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
-      await captureServer("chat_sent", { 
-        provider, 
-        ms: Date.now() - t0, 
-        thread_id: tid, 
-        user_id: userId, 
+      await captureServer("chat_sent", {
+        provider,
+        ms: Date.now() - t0,
+        thread_id: tid,
+        user_id: userId,
         persona: persona_id,
         prompt_version: promptVersionId || null,
+        prompt_path: promptResult.promptPath,
+        format_key: promptResult.formatKey ?? null,
         user_message: text ? text.slice(0, 200) : null,
         assistant_message: outText ? outText.slice(0, 200) : null,
         format: typeof prefs?.format === 'string' ? prefs.format : null,

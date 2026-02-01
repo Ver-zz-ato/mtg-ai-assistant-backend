@@ -6,6 +6,7 @@ export function costUSD(model: string, inputTokens: number, outputTokens: number
 
   // Pricing per 1K tokens
   const table: Record<string, { inPerK: number; outPerK: number }> = {
+    "gpt-5.2-codex": { inPerK: 0.5, outPerK: 1.5 },
     "gpt-5": { inPerK: 0.5, outPerK: 1.5 },
     "gpt-4o-mini": { inPerK: 0.15, outPerK: 0.6 },
     "gpt-4o": { inPerK: 0.25, outPerK: 1.0 },

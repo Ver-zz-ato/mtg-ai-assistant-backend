@@ -31,6 +31,8 @@ export type ValidateRecommendationsInput = {
   commanderName?: string | null;
   /** Raw LLM output text. */
   rawText: string;
+  /** When true, never set needsRegeneration (used when validating regen response; max 1 retry). */
+  isRegenPass?: boolean;
 };
 
 export type ValidationIssue = {
@@ -53,15 +55,35 @@ export type ValidateRecommendationsResult = {
 const RE_ADD_COMMANDER = /ADD\s*\[\[([^\]]+)\]\]/gi;
 const RE_ADD_60 = /ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/gi;
 const RE_CUT = /CUT\s*\[\[([^\]]+)\]\]/gi;
+/** Commander bare-name: "ADD X / CUT Y" or "1.ADD X / CUT Y, Fixes P1" on one line */
+const RE_ADD_CUT_BARE_COMMANDER = /ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/gi;
+
+/** Strip trailing " (anything)" for comparison with deck list. */
+function baseCardName(s: string): string {
+  return s.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
 
 function parseAddNames(text: string, formatKey: string): string[] {
-  const re = formatKey === "commander" ? RE_ADD_COMMANDER : RE_ADD_60;
   const names: string[] = [];
-  let m: RegExpExecArray | null;
-  const regex = new RegExp(re.source, re.flags);
-  while ((m = regex.exec(text)) !== null) {
-    const name = (m[1] || "").trim();
-    if (name && !names.some((n) => norm(n) === norm(name))) names.push(name);
+  if (formatKey === "commander") {
+    const reBracket = new RegExp(RE_ADD_COMMANDER.source, RE_ADD_COMMANDER.flags);
+    let m: RegExpExecArray | null;
+    while ((m = reBracket.exec(text)) !== null) {
+      const name = (m[1] || "").trim();
+      if (name && !names.some((n) => norm(n) === norm(name))) names.push(name);
+    }
+    const reBare = new RegExp(RE_ADD_CUT_BARE_COMMANDER.source, RE_ADD_CUT_BARE_COMMANDER.flags);
+    while ((m = reBare.exec(text)) !== null) {
+      const name = baseCardName((m[1] || "").trim());
+      if (name && !names.some((n) => norm(n) === norm(name))) names.push(name);
+    }
+  } else {
+    const re = new RegExp(RE_ADD_60.source, RE_ADD_60.flags);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const name = (m[2] || "").trim();
+      if (name && !names.some((n) => norm(n) === norm(name))) names.push(name);
+    }
   }
   return names;
 }
@@ -77,30 +99,39 @@ function parseCutNames(text: string): string[] {
   return names;
 }
 
-/** Upgrade block: lines from ADD line to next ADD or end of block. */
+/** Upgrade block: lines from ADD line to next ADD or end of block. Commander also matches bare "ADD X / CUT Y" on one line. */
 function findUpgradeBlocks(
   text: string,
   formatKey: string
 ): Array<{ start: number; end: number; addCard: string; cutCard: string | null }> {
   const lines = text.split("\n");
   const blocks: Array<{ start: number; end: number; addCard: string; cutCard: string | null }> = [];
-  const addRe = formatKey === "commander" ? /ADD\s*\[\[([^\]]+)\]\]/i : /ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/i;
+  const addReBracket = formatKey === "commander" ? /ADD\s*\[\[([^\]]+)\]\]/i : /ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/i;
+  const addReBareCommander = /ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/i;
   const cutRe = /CUT\s*\[\[([^\]]+)\]\]/i;
 
   let i = 0;
   while (i < lines.length) {
-    const addMatch = lines[i].match(addRe);
-    if (addMatch) {
-      const addCard = (addMatch[1] || "").trim();
+    const line = lines[i];
+    const addMatchBracket = line.match(addReBracket);
+    const addMatchBare = formatKey === "commander" ? line.match(addReBareCommander) : null;
+
+    if (addMatchBracket) {
+      const addCard = (addMatchBracket[1] || "").trim();
       let cutCard: string | null = null;
       let end = i + 1;
-      while (end < lines.length && !lines[end].match(addRe)) {
+      while (end < lines.length && !lines[end].match(addReBracket) && !lines[end].match(addReBareCommander)) {
         const cutMatch = lines[end].match(cutRe);
         if (cutMatch) cutCard = (cutMatch[1] || "").trim();
         end++;
       }
       blocks.push({ start: i, end, addCard, cutCard });
       i = end;
+    } else if (addMatchBare) {
+      const addCard = baseCardName((addMatchBare[1] || "").trim());
+      const cutCard = baseCardName((addMatchBare[2] || "").trim());
+      blocks.push({ start: i, end: i + 1, addCard, cutCard: cutCard || null });
+      i++;
     } else {
       i++;
     }
@@ -138,6 +169,11 @@ export async function validateRecommendations(
 ): Promise<ValidateRecommendationsResult> {
   const { deckCards, formatKey, colorIdentity, commanderName, rawText } = input;
   const deckSet = new Set(deckCards.map((c) => norm(c.name)));
+  /** For Commander: ADD checks use deck + commander; CUT checks use deck only (99). */
+  const allPresentCards = new Set(deckSet);
+  if (formatKey === "commander" && commanderName) {
+    allPresentCards.add(norm(commanderName));
+  }
   const deckCounts = new Map<string, number>();
   for (const c of deckCards) {
     const n = norm(c.name);
@@ -157,10 +193,10 @@ export async function validateRecommendations(
   const blocks = findUpgradeBlocks(rawText, formatKey);
   const blocksToRemove = new Set<number>();
 
-  // 1) ADD already in deck
+  // 1) ADD already in deck (or commander)
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
-    if (deckSet.has(norm(b.addCard))) {
+    if (allPresentCards.has(norm(b.addCard))) {
       issues.push({ kind: "add_already_in_deck", card: b.addCard, message: `ADD ${b.addCard} is already in the deck` });
       blocksToRemove.add(i);
     }
@@ -201,20 +237,29 @@ export async function validateRecommendations(
     }
   }
 
-  // 4) Commander: ADD off-color
+  // 4) Commander: ADD off-color or unknown identity (do not assume colorless when cache has no color_identity)
   if (formatKey === "commander" && allowedColors.length > 0) {
     for (let i = 0; i < blocks.length; i++) {
       if (blocksToRemove.has(i)) continue;
       const b = blocks[i];
       const key = cacheNorm(b.addCard);
       const entry = cardMap.get(key) ?? Array.from(cardMap.entries()).find(([k]) => cacheNorm(k) === key)?.[1];
-      if (entry?.color_identity?.length) {
-        const ok = isWithinColorIdentity(
-          { color_identity: entry.color_identity } as any,
-          allowedColors
-        );
-        if (!ok) {
-          issues.push({ kind: "off_color", card: b.addCard, message: `ADD ${b.addCard} is off-color for commander` });
+      if (entry) {
+        if (entry.color_identity?.length) {
+          const ok = isWithinColorIdentity(
+            { color_identity: entry.color_identity } as any,
+            allowedColors
+          );
+          if (!ok) {
+            issues.push({ kind: "off_color", card: b.addCard, message: `ADD ${b.addCard} is off-color for commander` });
+            blocksToRemove.add(i);
+          }
+        } else {
+          issues.push({
+            kind: "off_color",
+            card: b.addCard,
+            message: `ADD ${b.addCard} has no color_identity in cache; removing for Commander`,
+          });
           blocksToRemove.add(i);
         }
       }
@@ -269,7 +314,10 @@ export async function validateRecommendations(
   const repairedLines = lines.filter((_, idx) => !dropLines.has(idx));
   const repairedText = repairedLines.join("\n");
   const upgradeBlocksRemaining = blocks.length - blocksToRemove.size;
-  const needsRegeneration = upgradeBlocksRemaining < MIN_UPGRADES_FOR_REGENERATION && blocks.length > 0;
+  const needsRegeneration =
+    !input.isRegenPass &&
+    upgradeBlocksRemaining < MIN_UPGRADES_FOR_REGENERATION &&
+    blocks.length > 0;
 
   return {
     valid: issues.length === 0,

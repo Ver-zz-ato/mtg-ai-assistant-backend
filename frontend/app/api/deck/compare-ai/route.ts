@@ -75,6 +75,8 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
+      const { getModelForTier } = await import('@/lib/ai/model-by-tier');
+      const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro: true });
       
       const response = await callLLM(
         [
@@ -90,12 +92,13 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
         {
           route: '/api/deck/compare-ai',
           feature: 'deck_compare',
-          model: "gpt-4o-mini",
-          timeout: 300000, // 5 minutes - complex deck comparison analysis
+          model: tierRes.model,
+          fallbackModel: tierRes.fallbackModel,
+          timeout: 300000,
           maxTokens: 1000,
           apiType: 'chat',
           userId: user.id,
-          isPro: true, // This route is Pro-only
+          isPro: true,
         }
       );
 

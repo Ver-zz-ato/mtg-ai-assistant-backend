@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { getPromptVersion } from '@/lib/config/prompts';
 import { prepareOpenAIBody } from '@/lib/ai/openai-params';
+import { getModelForTier } from '@/lib/ai/model-by-tier';
 
 export const runtime = 'nodejs';
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = process.env.OPENAI_MODEL || "gpt-5";
 
 export async function POST(req: NextRequest) {
   // Always log entry (even in production) for debugging
@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
       '- Are commonly played and effective',
     ].join('\n');
 
+    const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro });
+
     // Call OpenAI using unified wrapper
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
@@ -138,9 +140,10 @@ export async function POST(req: NextRequest) {
         {
           route: '/api/deck/health-suggestions',
           feature: 'deck_scan',
-          model: MODEL,
-          timeout: 300000, // 5 minutes - complex deck analysis needs more time
-          maxTokens: undefined, // No token limit for deck scan
+          model: tierRes.model,
+          fallbackModel: tierRes.fallbackModel,
+          timeout: 300000,
+          maxTokens: undefined,
           apiType: 'chat',
           userId: user.id,
           isPro,
