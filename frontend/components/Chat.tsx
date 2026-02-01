@@ -377,13 +377,12 @@ function Chat() {
     };
   }, [isLoggedIn]);
   
-  // Extract and fetch card images and prices from assistant messages (including streaming content)
+  // Extract and fetch card images and prices only from finalized assistant messages.
+  // Do not run for streaming content to avoid flicker; images/prices appear when the message is complete.
   useEffect(() => {
     (async () => {
       try {
         const assistantMessages = messages.filter(m => m.role === 'assistant');
-        
-        // Extract cards from all assistant messages
         const allCards: string[] = [];
         for (const msg of assistantMessages) {
           const extracted = extractCardsForImages(msg.content || '');
@@ -393,37 +392,18 @@ function Chat() {
             }
           });
         }
-        
-        // Also extract cards from streaming content if active
-        if (isStreaming && streamingContent) {
-          const extracted = extractCardsForImages(streamingContent);
-          extracted.forEach(card => {
-            if (!allCards.includes(card.name)) {
-              allCards.push(card.name);
-            }
-          });
-        }
-        
         if (allCards.length === 0) return;
-        
-        // Fetch images and prices in parallel
-        // getImagesForNames only returns cards that exist in scryfall_cache (acts as validation)
         const [imagesMap, pricesMap] = await Promise.all([
           getImagesForNames(allCards),
           getBulkPrices(allCards)
         ]);
-        
-        // Only keep cards that have images (validation against cache)
-        // This filters out false positives like "Good", "Great", etc.
-        const validCards = Array.from(imagesMap.keys());
-        
         setCardImages(imagesMap);
         setCardPrices(pricesMap);
       } catch (error) {
         logger.warn('Failed to fetch card data:', { error });
       }
     })();
-  }, [messages, isStreaming, streamingContent]);
+  }, [messages]);
 
   // Deck linking
   useEffect(() => {
@@ -1132,34 +1112,24 @@ function Chat() {
     setHoverCard(null);
   }
   
-  // Render message content with card images at bottom
-  function renderMessageContent(content: string, isAssistant: boolean) {
+  // Render message content with card images at bottom (only when skipCardImages is false, e.g. after message is finalized)
+  function renderMessageContent(content: string, isAssistant: boolean, skipCardImages?: boolean) {
     if (!isAssistant) {
-      // User messages: just render markdown
       return renderMarkdown(content);
     }
-    
-    // Extract cards from this message (handles [[Card Name]] format)
-    const extractedCards = extractCardsForImages(content);
-    
-    // Remove [[Card Name]] markers from display text (they're extracted separately for images)
-    // The markers will be replaced with just the card name for natural reading
     const displayContent = content.replace(/\[\[([^\]]+)\]\]/g, '$1');
-    
+    const extractedCards = extractCardsForImages(content);
+    const showCardImages = !skipCardImages && extractedCards.length > 0;
     return (
       <div className="space-y-3">
-        {/* Main message content */}
         <div>{renderMarkdown(displayContent)}</div>
-        
-        {/* Card images row at bottom with price badges */}
-        {extractedCards.length > 0 && (
+        {showCardImages && (
           <div className="flex gap-3 flex-wrap pt-2 border-t border-neutral-600">
             {extractedCards.map((card, idx) => {
               const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
               const image = cardImages.get(normalized);
               const price = cardPrices.get(normalized);
               if (!image?.small) return null;
-              
               return (
                 <div key={idx} className="relative">
                   <img
@@ -1572,7 +1542,7 @@ function Chat() {
                   <span>assistant</span>
                   <span className="ml-2 animate-pulse">•••</span>
                 </div>
-                <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
+                <div className="leading-relaxed">{renderMessageContent(streamingContent, true, true)}</div>
               </div>
             </div>
           )}

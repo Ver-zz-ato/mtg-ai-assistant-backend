@@ -136,6 +136,29 @@ export async function getDetailsForNamesCached(names: string[]) {
   return out;
 }
 
+/** Cache-only read: type_line + oracle_text from scryfall_cache. No live Scryfall fetch. Used for module detection. */
+export async function getDetailsForNamesCacheOnly(names: string[]) {
+  const supabase = await createClient();
+  const uniq = Array.from(new Set((names || []).filter(Boolean)));
+  const keys = uniq.map(norm);
+  const out = new Map<string, { type_line?: string; oracle_text?: string }>();
+  if (!keys.length) return out;
+  try {
+    const { data } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text")
+      .in("name", keys);
+    const rows = (data || []) as { name: string; type_line?: string | null; oracle_text?: string | null }[];
+    for (const row of rows) {
+      out.set(row.name, {
+        type_line: row.type_line ?? undefined,
+        oracle_text: row.oracle_text ?? undefined,
+      });
+    }
+  } catch {}
+  return out;
+}
+
 // Specialized function for profile trends - gets color identity and card details for analysis
 export async function getCardDataForProfileTrends(names: string[]) {
   const supabase = await createClient();

@@ -66,13 +66,13 @@ export async function POST(req: NextRequest) {
     }
 
     const { type, input } = finalTestCase;
+    const formatKey = body?.formatKey ?? input?.format;
     let responseText = "";
     let promptUsed: { system?: string; user?: string; prompt_version_id?: string | null } = {};
     let error: string | null = null;
 
     try {
       if (type === "chat") {
-        // Call chat API
         const baseUrl = req.url.split("/api/admin")[0];
         const chatResponse = await fetch(`${baseUrl}/api/chat`, {
           method: "POST",
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
             text: input.userMessage,
             threadId: null,
             prefs: {
-              format: input.format,
+              format: formatKey ?? input?.format,
               teaching: input.context?.teaching || false,
             },
             context: input.context,

@@ -1588,15 +1588,21 @@ export async function POST(req: Request) {
   const suggestionDebugReasons = new Set<string>();
   let postFilteredCount = 0;
 
-  // Load deck analysis system prompt for potential future use in internal functions
+  // Compose deck analysis system prompt from 3-layer system (BASE + FORMAT + MODULES), or fallback to prompt_versions
+  const formatKey = body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander";
+  const deckContextForCompose = { deckCards: entries, commanderName: context.commander ?? null, colorIdentity: context.colors ?? null, deckId: undefined as string | undefined };
   let deckAnalysisSystemPrompt: string | null = null;
   try {
-    const promptVersion = await getPromptVersion("deck_analysis");
-    if (promptVersion) {
-      deckAnalysisSystemPrompt = promptVersion.system_prompt;
-    }
+    const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
+    const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+    const suffix = "\n\nOutput structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
+    deckAnalysisSystemPrompt = composed + suffix;
   } catch (e) {
-    console.warn("[deck/analyze] Failed to load deck analysis prompt:", e);
+    if (process.env.NODE_ENV === "development") console.warn("[deck/analyze] prompt_layers_fallback_used", e);
+    try {
+      const promptVersion = await getPromptVersion("deck_analysis", supabase);
+      if (promptVersion) deckAnalysisSystemPrompt = promptVersion.system_prompt;
+    } catch (_) {}
   }
 
   if (useGPT) {

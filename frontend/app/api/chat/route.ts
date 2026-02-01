@@ -558,22 +558,7 @@ export async function POST(req: NextRequest) {
             } catch {}
           }
           
-          // Build deck context for system prompt
-          const deckContextParts: string[] = [];
-          if (d?.commander) {
-            deckContextParts.push(`Commander: ${d.commander}`);
-          }
-          if (d?.deck_aim) {
-            deckContextParts.push(`Deck aim/goal: ${d.deck_aim}`);
-          }
-          if (entries.length > 0) {
-            const cardList = entries.map(e => `${e.count}x ${e.name}`).join("; ");
-            deckContextParts.push(`Cards: ${cardList}`);
-          }
-          if (deckContextParts.length > 0) {
-            // Will be added to sys prompt after it's initialized
-            (globalThis as any).__deckContextForPrompt = `\n\nDeck context (title: ${d?.title || "linked"}): ${deckContextParts.join('. ')}`;
-          }
+          // Deck context is injected as DECK CONTEXT block after composeSystemPrompt (see below)
         }
       } catch (error) {
         console.warn('[chat] Failed to fetch deck context:', error);
@@ -691,24 +676,35 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
 - Use a calm, precise judge-like tone for rules questions. Be accurate, not overconfident—if you're uncertain about complex interactions, cite what you know and recommend checking Oracle text or consulting a judge for final confirmation.
 - This does not replace tournament judges or provide official rulings, but helps users understand the rules with proper citations.`;
     
+    const deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
+    const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+    const deckContextForCompose = entries.length && d ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined } : null;
+
     try {
-      const { getPromptVersion } = await import("@/lib/config/prompts");
-      const promptVersion = await getPromptVersion("chat");
-      if (promptVersion) {
-        sys = promptVersion.system_prompt;
-        promptVersionId = promptVersion.id;
-        console.log(`[chat] ✅ Using prompt version ${promptVersion.version} (${promptVersion.id}) - Length: ${sys.length} chars`);
-      } else {
-        console.log(`[chat] ⚠️ No prompt version found, using default prompt`);
-      }
+      const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
+      const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+      sys = composed;
     } catch (e) {
-      console.warn("[chat] Failed to load prompt version, using default:", e);
+      if (process.env.NODE_ENV === "development") console.warn("[chat] prompt_layers_fallback_used", e);
+      try {
+        const { getPromptVersion } = await import("@/lib/config/prompts");
+        const promptVersion = await getPromptVersion("chat", supabase);
+        if (promptVersion) {
+          sys = promptVersion.system_prompt;
+          promptVersionId = promptVersion.id;
+        }
+      } catch (_) {}
+      if (!sys) sys = `You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.`;
     }
-    
-    // Add deck context if available (from linked deck or context parameter)
-    if ((globalThis as any).__deckContextForPrompt) {
-      sys += (globalThis as any).__deckContextForPrompt;
-      delete (globalThis as any).__deckContextForPrompt;
+
+    if (d && deckText && deckText.trim()) {
+      sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
+      sys += `- Format: ${deckFormat || formatKey} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
+      sys += `- Commander: ${d.commander || "none"}\n`;
+      sys += `- Deck Title: ${d.title || "Untitled Deck"}\n`;
+      sys += `- Full Decklist:\n${deckText}\n`;
+      sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+      sys += `- Do NOT suggest cards already in the decklist above.\n`;
     }
     
     // Add pasted decklist context if found (Task 1)

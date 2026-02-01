@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { testCases, suite, validationOptions } = body;
+    const { testCases, suite, validationOptions, formatKey: batchFormatKey } = body;
 
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return NextResponse.json({ ok: false, error: "testCases array required" }, { status: 400 });
@@ -125,13 +125,13 @@ export async function POST(req: NextRequest) {
               },
               body: JSON.stringify({
                 text: input.userMessage,
-                threadId: batchTestThreadId, // Reuse the batch test thread instead of creating new ones
+                threadId: batchTestThreadId,
                 prefs: {
-                  format: input.format,
+                  format: batchFormatKey ?? input?.format,
                   teaching: input.context?.teaching || false,
                 },
                 context: input.context,
-                noUserInsert: true, // Don't save user messages to DB for batch tests
+                noUserInsert: true,
               }),
             });
 

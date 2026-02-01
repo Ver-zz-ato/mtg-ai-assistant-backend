@@ -87,6 +87,16 @@ export default function AiTestPage() {
   const [manualPromptKind, setManualPromptKind] = React.useState<"chat" | "deck_analysis">("chat");
   const [manualPromptDescription, setManualPromptDescription] = React.useState("");
   const [creatingPrompt, setCreatingPrompt] = React.useState(false);
+  const [adminFormatKey, setAdminFormatKey] = React.useState<"commander" | "standard" | "modern" | "pioneer" | "pauper">("commander");
+  const [layerTab, setLayerTab] = React.useState<"base" | "formats" | "modules">("base");
+  const [layerKeys, setLayerKeys] = React.useState<{ key: string; updated_at?: string }[]>([]);
+  const [selectedLayerKey, setSelectedLayerKey] = React.useState<string>("BASE_UNIVERSAL_ENFORCEMENT");
+  const [layerBody, setLayerBody] = React.useState("");
+  const [layerSaving, setLayerSaving] = React.useState(false);
+  const [composedPreview, setComposedPreview] = React.useState<string | null>(null);
+  const [modulesAttachedPreview, setModulesAttachedPreview] = React.useState<string[]>([]);
+  const [layerVersions, setLayerVersions] = React.useState<{ id: string; created_at: string }[]>([]);
+  const [showLayerSection, setShowLayerSection] = React.useState(false);
 
   // Load test cases
   React.useEffect(() => {
@@ -353,6 +363,70 @@ export default function AiTestPage() {
     loadPromptVersions();
   }, []);
 
+  async function loadLayerKeys() {
+    try {
+      const r = await fetch("/api/admin/prompt-layers", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok && j.layers) setLayerKeys(j.layers);
+    } catch (e) {
+      console.error("Failed to load layer keys:", e);
+    }
+  }
+  async function loadLayer(key: string) {
+    try {
+      const r = await fetch(`/api/admin/prompt-layers?key=${encodeURIComponent(key)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok) {
+        setSelectedLayerKey(key);
+        setLayerBody(j.body ?? "");
+      }
+    } catch (e) {
+      console.error("Failed to load layer:", e);
+    }
+  }
+  async function saveLayer() {
+    if (!selectedLayerKey || layerSaving) return;
+    setLayerSaving(true);
+    try {
+      const r = await fetch("/api/admin/prompt-layers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: selectedLayerKey, body: layerBody }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        alert(`Saved ${selectedLayerKey}`);
+        loadLayerKeys();
+        loadLayerVersions(selectedLayerKey);
+      } else alert(j.error || "Save failed");
+    } catch (e: any) {
+      alert(e?.message || "Save failed");
+    } finally {
+      setLayerSaving(false);
+    }
+  }
+  async function loadComposedPreview() {
+    try {
+      const r = await fetch(`/api/admin/ai-test/composed-prompt?formatKey=${encodeURIComponent(adminFormatKey)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok) {
+        setComposedPreview(j.composed ?? "");
+        setModulesAttachedPreview(j.modulesAttached ?? []);
+      } else setComposedPreview(null);
+    } catch (e) {
+      setComposedPreview(null);
+    }
+  }
+  async function loadLayerVersions(key: string) {
+    try {
+      const r = await fetch(`/api/admin/prompt-layers/versions?key=${encodeURIComponent(key)}&limit=20`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok && j.versions) setLayerVersions(j.versions);
+    } catch (e) {
+      setLayerVersions([]);
+    }
+  }
+
   async function runTest(testCase: TestCase) {
     setLoading(true);
     setTestResult(null);
@@ -362,7 +436,7 @@ export default function AiTestPage() {
       const runRes = await fetch("/api/admin/ai-test/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testCase }),
+        body: JSON.stringify({ testCase, formatKey: adminFormatKey }),
       });
       const runData = await runRes.json();
       if (!runData.ok) {
@@ -489,6 +563,7 @@ export default function AiTestPage() {
           testCases: filtered,
           suite: `batch-${new Date().toISOString().slice(0, 10)}`,
           validationOptions,
+          formatKey: adminFormatKey,
         }),
       });
 
@@ -661,6 +736,135 @@ export default function AiTestPage() {
           Export Training Dataset (JSONL)
         </button>
       </div>
+
+      {/* 3-Layer Prompt System */}
+      <section className="rounded border border-neutral-800 p-3 mb-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <div className="font-medium">3-Layer Prompt System (Base + Format + Modules)</div>
+          <button
+            onClick={() => {
+              setShowLayerSection(!showLayerSection);
+              if (!showLayerSection) {
+                loadLayerKeys();
+                loadLayer(layerTab === "base" ? "BASE_UNIVERSAL_ENFORCEMENT" : layerTab === "formats" ? `FORMAT_${adminFormatKey.toUpperCase()}` : "MODULE_CASCADE");
+              }
+            }}
+            className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
+          >
+            {showLayerSection ? "Hide" : "Show"}
+          </button>
+        </div>
+        {showLayerSection && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div>
+                <label className="text-xs opacity-70 mr-1">Format (for tests & preview)</label>
+                <select
+                  value={adminFormatKey}
+                  onChange={(e) => setAdminFormatKey(e.target.value as typeof adminFormatKey)}
+                  className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
+                >
+                  <option value="commander">Commander</option>
+                  <option value="standard">Standard</option>
+                  <option value="modern">Modern</option>
+                  <option value="pioneer">Pioneer</option>
+                  <option value="pauper">Pauper</option>
+                </select>
+              </div>
+              <div className="flex gap-1">
+                {(["base", "formats", "modules"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setLayerTab(t);
+                      if (t === "base") loadLayer("BASE_UNIVERSAL_ENFORCEMENT");
+                      else if (t === "formats") loadLayer(`FORMAT_${adminFormatKey.toUpperCase()}`);
+                      else loadLayer("MODULE_CASCADE");
+                    }}
+                    className={`px-2 py-1 text-xs rounded ${layerTab === t ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600"}`}
+                  >
+                    {t === "base" ? "Base" : t === "formats" ? "Formats" : "Modules"}
+                  </button>
+                ))}
+              </div>
+              <button onClick={loadComposedPreview} className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600">
+                Preview composed prompt
+              </button>
+            </div>
+            {layerTab === "base" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs opacity-70">Layer:</span>
+                  <button onClick={() => loadLayer("BASE_UNIVERSAL_ENFORCEMENT")} className="text-xs px-2 py-0.5 rounded bg-neutral-700">BASE_UNIVERSAL_ENFORCEMENT</button>
+                </div>
+                <textarea value={layerBody} onChange={(e) => setLayerBody(e.target.value)} className="w-full h-48 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs font-mono" placeholder="Load layer to edit" />
+                <div className="flex gap-2">
+                  <button onClick={saveLayer} disabled={layerSaving} className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50">{layerSaving ? "Saving..." : "Save"}</button>
+                  <button onClick={() => loadLayerVersions(selectedLayerKey)} className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500">Version history</button>
+                </div>
+                {layerVersions.length > 0 && (
+                  <div className="text-xs text-neutral-400 max-h-24 overflow-y-auto">
+                    {layerVersions.map((v) => (
+                      <div key={v.id}>{new Date(v.created_at).toLocaleString()}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {layerTab === "formats" && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-xs opacity-70">Format layer:</span>
+                  {["COMMANDER", "STANDARD", "MODERN", "PIONEER", "PAUPER"].map((f) => (
+                    <button key={f} onClick={() => loadLayer(`FORMAT_${f}`)} className={`text-xs px-2 py-0.5 rounded ${selectedLayerKey === `FORMAT_${f}` ? "bg-blue-600" : "bg-neutral-700"}`}>FORMAT_{f}</button>
+                  ))}
+                </div>
+                <textarea value={layerBody} onChange={(e) => setLayerBody(e.target.value)} className="w-full h-48 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs font-mono" placeholder="Load layer to edit" />
+                <div className="flex gap-2">
+                  <button onClick={saveLayer} disabled={layerSaving} className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50">{layerSaving ? "Saving..." : "Save"}</button>
+                  <button onClick={() => loadLayerVersions(selectedLayerKey)} className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500">Version history</button>
+                </div>
+                {layerVersions.length > 0 && (
+                  <div className="text-xs text-neutral-400 max-h-24 overflow-y-auto">
+                    {layerVersions.map((v) => (
+                      <div key={v.id}>{new Date(v.created_at).toLocaleString()}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {layerTab === "modules" && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-xs opacity-70">Module:</span>
+                  {["MODULE_CASCADE", "MODULE_ARISTOCRATS", "MODULE_LANDFALL", "MODULE_SPELLSLINGER_STORM", "MODULE_GRAVEYARD_RECURSION"].map((m) => (
+                    <button key={m} onClick={() => loadLayer(m)} className={`text-xs px-2 py-0.5 rounded ${selectedLayerKey === m ? "bg-blue-600" : "bg-neutral-700"}`}>{m}</button>
+                  ))}
+                </div>
+                <textarea value={layerBody} onChange={(e) => setLayerBody(e.target.value)} className="w-full h-48 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs font-mono" placeholder="Load layer to edit" />
+                <div className="flex gap-2">
+                  <button onClick={saveLayer} disabled={layerSaving} className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50">{layerSaving ? "Saving..." : "Save"}</button>
+                  <button onClick={() => loadLayerVersions(selectedLayerKey)} className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500">Version history</button>
+                </div>
+                {layerVersions.length > 0 && (
+                  <div className="text-xs text-neutral-400 max-h-24 overflow-y-auto">
+                    {layerVersions.map((v) => (
+                      <div key={v.id}>{new Date(v.created_at).toLocaleString()}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {composedPreview !== null && (
+              <div className="rounded border border-neutral-700 p-2 space-y-1">
+                <div className="text-xs font-medium">Composed prompt (format: {adminFormatKey})</div>
+                {modulesAttachedPreview.length > 0 && <div className="text-xs text-green-400">Modules attached: {modulesAttachedPreview.join(", ")}</div>}
+                <pre className="text-xs text-neutral-300 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{composedPreview.slice(0, 2000)}{composedPreview.length > 2000 ? "…" : ""}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* 2-Column Layout */}
       <div className="grid grid-cols-[1fr_500px] gap-4">

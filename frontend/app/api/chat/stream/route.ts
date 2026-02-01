@@ -187,165 +187,114 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Load prompt version from prompt_versions table (same as main chat route)
-    // This ensures streaming uses the same patched prompt as regular chat
-    // When you apply patches via /admin/ai-test, they update the active prompt version,
-    // and this code loads that same version for all streaming chat requests.
+    const prefs = raw?.prefs || raw?.preferences || null;
+    const contextDeckId = typeof raw?.context === "object" && raw.context !== null && "deckId" in raw.context ? (raw.context as any).deckId : null;
+    let deckIdLinked: string | null = null;
+    if (tid && !isGuest) {
+      const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
+      deckIdLinked = (th?.deck_id as string) ?? null;
+    }
+    if (contextDeckId) deckIdLinked = contextDeckId;
+
+    let deckData: { d: any; entries: Array<{ count: number; name: string }>; deckText: string } | null = null;
+    if (deckIdLinked) {
+      try {
+        const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
+        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+        let entries: Array<{ count: number; name: string }> = [];
+        let deckText = "";
+        if (allCards && Array.isArray(allCards) && allCards.length > 0) {
+          entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
+          deckText = entries.map((e: { count: number; name: string }) => `${e.count} ${e.name}`).join("\n");
+        }
+        deckData = { d, entries, deckText };
+      } catch (_) {}
+    }
+
+    // formatKey: prefs.format is source of truth; do not override with deck.format when deckId present
+    const deckFormat = deckData?.d?.format ? String(deckData.d.format).toLowerCase().replace(/\s+/g, "") : null;
+    const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+
     let sys = "";
     let promptVersionId: string | null = null;
+    const deckContextForCompose = deckData?.entries?.length
+      ? { deckCards: deckData.entries, commanderName: deckData.d?.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdLinked ?? undefined }
+      : null;
+
     try {
-      const { getPromptVersion } = await import("@/lib/config/prompts");
-      const promptVersion = await getPromptVersion("chat");
-      if (promptVersion) {
-        sys = promptVersion.system_prompt;
-        promptVersionId = promptVersion.id;
-        if (process.env.NODE_ENV === "development") {
-          console.log(`[chat/stream] ✅ Using prompt version ${promptVersion.version} (${promptVersion.id}) - Length: ${sys.length} chars`);
-        }
-      } else {
-        // Fallback to default if no version found
-        sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
-        console.warn(`[chat/stream] ⚠️ No prompt version found, using default prompt`);
-      }
+      const { composeSystemPrompt } = await import("@/lib/prompts/composeSystemPrompt");
+      const { composed } = await composeSystemPrompt({ formatKey, deckContext: deckContextForCompose, supabase });
+      sys = composed;
     } catch (e) {
-      console.warn("[chat/stream] Failed to load prompt version, using default:", e);
-      // Fallback to default
-      sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. Answer succinctly with clear steps when advising.\n\nIMPORTANT: When mentioning Magic: The Gathering card names in your response, wrap them in double square brackets like [[Card Name]] so they can be displayed as images. For example: 'Consider adding [[Lightning Bolt]] and [[Sol Ring]] to your deck.' Always use this format for card names, even in lists or when using bold formatting.\n\nIf a rules question depends on board state, layers, or replacement effects, give the most likely outcome but remind the user to double-check the official Oracle text.";
+      if (process.env.NODE_ENV === "development") console.warn("[chat/stream] prompt_layers_fallback_used", e);
+      try {
+        const { getPromptVersion } = await import("@/lib/config/prompts");
+        const promptVersion = await getPromptVersion("chat", supabase);
+        if (promptVersion) {
+          sys = promptVersion.system_prompt;
+          promptVersionId = promptVersion.id;
+        }
+      } catch (_) {}
+      if (!sys) {
+        sys = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
+      }
     }
-    
-    // User-selected format/prefs from UI — use it so we never say "Format unclear" when they've already chosen
-    const prefs = raw?.prefs || raw?.preferences || null;
+
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
-      const fmt = typeof prefs.format === "string" ? prefs.format : undefined;
       const plan = typeof prefs.budget === "string" ? prefs.budget : (typeof prefs.plan === "string" ? prefs.plan : undefined);
       const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
-      const colors = cols && cols.length ? cols.join(",") : "any";
-      sys += `\n\nUser preferences: Format=${fmt || "unspecified"}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking.`;
-      if (fmt) {
-        sys += ` Do NOT say "Format unclear" or "I'll assume Commander/Standard/…" — the user has already selected a format in the UI; use it.`;
-      }
+      const colors = cols?.length ? cols.join(",") : "any";
+      sys += `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
     }
-    
-    // Add inference when deck is linked (lightweight for streaming)
-    // Check both thread-linked deck and context.deckId (passed directly from DeckAssistant)
-    const contextDeckId = typeof raw?.context === 'object' && raw.context !== null && 'deckId' in raw.context
-      ? (raw.context as any).deckId
-      : null;
-    
-    if ((tid && !isGuest) || contextDeckId) {
-      try {
-        // Check if thread is linked to a deck, or use context.deckId
-        let deckIdLinked: string | null = null;
-        if (tid && !isGuest) {
-          const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
-          deckIdLinked = th?.deck_id as string | null;
-        }
-        // Prefer context.deckId if provided (more direct)
-        if (contextDeckId) {
-          deckIdLinked = contextDeckId;
-        }
-        
-        if (deckIdLinked) {
-          try {
-            const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
-            const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
-            
-            let entries: Array<{ count: number; name: string }> = [];
-            let deckText = "";
-            
-            if (allCards && Array.isArray(allCards) && allCards.length > 0) {
-              entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
-              deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
-            }
-            
-            // Always add decklist to system prompt if we have it
-            if (deckText && deckText.trim()) {
-              const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
-              const commander = d?.commander || null;
-              
-              // Try to infer context for better analysis, but don't fail if inference fails
-              let inferredContext: any = { format, colors: [], commander };
-              if (entries.length > 0) {
-                try {
-                  const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
-                  
-                  // Build minimal card map (only fetch first 50 cards for speed)
-                  const byName = new Map<string, SfCard>();
-                  const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 50);
-                  const looked = await Promise.all(unique.map(name => fetchCard(name)));
-                  for (const c of looked) {
-                    if (c) byName.set(c.name.toLowerCase(), c);
-                  }
-                  
-                  // Infer deck context
-                  inferredContext = await inferDeckContext(deckText, text, entries, format, commander, [], byName);
-                } catch (error) {
-                  console.warn("[stream] Failed to infer deck context:", error);
-                  // Use basic info if inference fails
-                  inferredContext = { format, colors: [], commander };
-                }
-              }
-              
-              // Add key inferred context to system prompt - make it explicit so AI doesn't assume format
-              sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
-              sys += `- Format: ${inferredContext.format} (this is the deck's format, do NOT say "Format unclear" or "I'll assume")\n`;
-              sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
-              if (inferredContext.commander) {
-                sys += `- Commander: ${inferredContext.commander}\n`;
-              }
-              sys += `- Deck Title: ${d?.title || 'Untitled Deck'}\n`;
-              sys += `- Full Decklist:\n${deckText}\n`;
-              sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to "share the decklist" or "provide a decklist" - you already have it. The format, commander, color identity, and full decklist are all known. Do NOT include messages like "Format unclear — I'll assume Commander (EDH) for now" or "I'll need to see the decklist" - start directly with your analysis or suggestions.\n`;
-              if (inferredContext.format !== "Commander") {
-                sys += `- WARNING: Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
-                sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
-              }
-              sys += `- Do NOT suggest cards already in the decklist above.\n`;
-              sys += `- When describing card draw or hand effects, distinguish between card advantage (net gain of cards) and card filtering (same number of cards but improved quality). For example, Faithless Looting and Careful Study are filtering, not draw engines.\n`;
-            }
-          } catch (error) {
-            console.warn("[stream] Failed to fetch deck for inference:", error);
+
+    if (deckData && deckData.deckText.trim()) {
+      const d = deckData.d;
+      const formatDisplay = deckFormat || formatKey;
+      let inferredContext: { format: string; colors: string[]; commander: string | null } = { format: formatDisplay, colors: [], commander: d?.commander ?? null };
+      if (deckData.entries.length > 0) {
+        try {
+          const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
+          const byName = new Map<string, SfCard>();
+          const unique = Array.from(new Set(deckData.entries.map((e: { name: string }) => e.name))).slice(0, 50);
+          const looked = await Promise.all(unique.map((name: string) => fetchCard(name)));
+          for (const c of looked) {
+            if (c) byName.set(c.name.toLowerCase(), c);
           }
-        }
-        
-        // Task 1: Extract pasted decklist from thread history (lightweight for streaming)
-        const { data: messages } = await supabase
-          .from("chat_messages")
-          .select("role, content")
-          .eq("thread_id", tid)
-          .order("created_at", { ascending: true })
-          .limit(30);
-        
-        if (messages && Array.isArray(messages) && messages.length > 0) {
+          inferredContext = await inferDeckContext(deckData.deckText, text, deckData.entries, formatDisplay, d?.commander ?? null, [], byName);
+        } catch (_) {}
+      }
+      sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
+      sys += `- Format: ${inferredContext.format} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
+      sys += `- Colors: ${inferredContext.colors.join(", ") || "none"}\n`;
+      if (inferredContext.commander) sys += `- Commander: ${inferredContext.commander}\n`;
+      sys += `- Deck Title: ${d?.title || "Untitled Deck"}\n`;
+      sys += `- Full Decklist:\n${deckData.deckText}\n`;
+      sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+      if (String(inferredContext.format).toLowerCase() !== "commander") {
+        sys += `- Do NOT suggest Commander-only cards (e.g. Sol Ring, Command Tower). Only suggest cards legal in ${inferredContext.format}.\n`;
+      }
+      sys += `- Do NOT suggest cards already in the decklist above.\n`;
+      sys += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
+    }
+
+    if (tid) {
+      try {
+        const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
+        if (messages?.length) {
           const { isDecklist } = await import("@/lib/chat/decklistDetector");
           const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
-          
-          // Find most recent decklist (excluding current message if it's not a decklist)
           for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
-            // Skip the current message if it's not a decklist
-            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) {
-              continue;
-            }
-            if (msg.role === 'user' && msg.content) {
-              const isDeck = isDecklist(msg.content);
-              if (isDeck) {
-                const problems = analyzeDecklistFromText(msg.content);
-                // Always include decklist context, even if no problems found
-                const decklistContext = generateDeckContext(problems, 'Pasted Decklist', msg.content);
-                if (decklistContext) {
-                  sys += "\n\n" + decklistContext;
-                  break;
-                }
-              }
+            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) continue;
+            if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
+              const decklistContext = generateDeckContext(analyzeDecklistFromText(msg.content), "Pasted Decklist", msg.content);
+              if (decklistContext) { sys += "\n\n" + decklistContext; break; }
             }
           }
         }
-      } catch (error) {
-        console.warn("[stream] Failed to fetch conversation history:", error);
-      }
+      } catch (_) {}
     }
-    
+
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     
     // Create OpenAI streaming request
