@@ -1242,7 +1242,34 @@ Return the corrected answer with concise, user-facing tone.`;
     // Use deckIdToUse OR check if format was inferred from deck (not from pasted text)
     const hasLinkedDeckContext = !!deckIdToUse || (!!d && !!d.format);
     outText = enforceChatGuards(outText, guardCtx, hasLinkedDeckContext);
-    
+
+    // Runtime validation: strip invalid ADD suggestions (off-color, already-in-deck)
+    const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
+    if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
+      try {
+        const { validateAddSuggestions } = await import("@/lib/chat/validateAddSuggestions");
+        const formatKeyForValidate = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+        const result = await validateAddSuggestions(outText, {
+          deckCards: deckCardsForValidate,
+          colorIdentity: null,
+          commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
+          formatKey: formatKeyForValidate,
+        });
+        if (!result.valid && result.invalidAdds.length > 0) {
+          if (DEV) console.warn("[chat] Invalid ADD suggestions stripped:", result.invalidAdds);
+          outText = result.repairedText;
+        }
+        const { applyValidators } = await import("@/lib/chat/responseValidators");
+        const validatorsResult = await applyValidators(outText, { deckCards: deckCardsForValidate, formatKey: formatKeyForValidate });
+        outText = validatorsResult.repairedText;
+        if (DEV && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
+          console.warn("[chat] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+        }
+      } catch (e) {
+        if (DEV) console.warn("[chat] validateAddSuggestions/applyValidators error:", e);
+      }
+    }
+
     // Debug logging for local dev
     if (DEV) {
       console.log('[chat] Response:', {

@@ -34,6 +34,17 @@ const GRAVEYARD_COMMANDER_NAMES = new Set([
   "jarad, golgari lich lord",
 ]);
 
+/** Name-only enablers/payoffs: deck with >=3 of these attaches MODULE_GRAVEYARD_RECURSION even without oracle. */
+const GRAVEYARD_ENABLER_NAMES = new Set([
+  "buried alive",
+  "victimize",
+  "living death",
+  "animate dead",
+  "necromancy",
+  "final parting",
+  "deadbridge chant",
+]);
+
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -150,6 +161,14 @@ export function detectModules(
     if (cmdCard && hasCascade(cmdCard.oracle_text ?? "")) cascadeCount = Math.max(cascadeCount, CASCADE_MIN_COUNT);
     if (GRAVEYARD_COMMANDER_NAMES.has(cmdNorm)) flags.graveyard = true;
   }
+
+  // Graveyard: also attach if deck has >=3 name-only enablers (no oracle required)
+  let graveyardEnablerCount = 0;
+  for (const entry of deckCards) {
+    const nameNorm = norm(entry.name);
+    if (GRAVEYARD_ENABLER_NAMES.has(nameNorm)) graveyardEnablerCount++;
+  }
+  if (graveyardEnablerCount >= 3) flags.graveyard = true;
 
   if (cascadeCount >= CASCADE_MIN_COUNT) flags.cascade = true;
   if (instantsSorceriesCount >= SPELLSLINGER_MIN_INSTANTS_SORCERIES || hasStormPayoff) flags.spellslinger = true;

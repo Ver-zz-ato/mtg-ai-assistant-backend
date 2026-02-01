@@ -412,18 +412,13 @@ export async function POST(req: NextRequest) {
 
           const decoder = new TextDecoder();
           let buffer = "";
+          let fullContent = "";
+          let streamDone = false;
 
-          while (true) {
-            // Check time and token limits
+          while (!streamDone) {
             const elapsed = Date.now() - streamStartTime;
-            if (elapsed > MAX_STREAM_SECONDS * 1000) {
-              controller.enqueue(encoder.encode("\n\nPaused to protect your token budget."));
-              break;
-            }
-            if (estimatedTokens > MAX_TOKENS_STREAM) {
-              controller.enqueue(encoder.encode("\n\nPaused to protect your token budget."));
-              break;
-            }
+            if (elapsed > MAX_STREAM_SECONDS * 1000) break;
+            if (estimatedTokens > MAX_TOKENS_STREAM) break;
 
             const { done, value } = await reader.read();
             if (done) break;
@@ -436,30 +431,21 @@ export async function POST(req: NextRequest) {
               const trimmed = line.trim();
               if (!trimmed) continue;
               if (trimmed === "data: [DONE]") {
-                controller.enqueue(encoder.encode("\n[DONE]"));
-                controller.close();
-                return;
+                streamDone = true;
+                break;
               }
               if (trimmed.startsWith("data: ")) {
                 try {
                   const jsonStr = trimmed.slice(6);
                   if (jsonStr === "[DONE]") {
-                    controller.enqueue(encoder.encode("\n[DONE]"));
-                    controller.close();
-                    return;
+                    streamDone = true;
+                    break;
                   }
                   const data = JSON.parse(jsonStr);
                   const delta = data.choices?.[0]?.delta?.content;
                   if (delta) {
-                    try {
-                      controller.enqueue(encoder.encode(delta));
-                      // Rough token estimation (4 chars ≈ 1 token)
-                      estimatedTokens += Math.ceil(delta.length / 4);
-                    } catch (controllerError) {
-                      // Controller already closed, stop processing
-                      if (DEV) console.log('[stream] Controller closed, stopping');
-                      return;
-                    }
+                    fullContent += delta;
+                    estimatedTokens += Math.ceil(delta.length / 4);
                   }
                 } catch (e) {
                   if (DEV) console.warn("[stream] parse error:", e, trimmed);
@@ -468,6 +454,36 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          let outputText = fullContent.trim();
+          const deckCards = deckContextForCompose?.deckCards ?? [];
+          if (deckCards.length > 0 && outputText) {
+            try {
+              const { validateAddSuggestions } = await import("@/lib/chat/validateAddSuggestions");
+              const result = await validateAddSuggestions(outputText, {
+                deckCards,
+                colorIdentity: deckContextForCompose?.colorIdentity ?? null,
+                commanderName: deckContextForCompose?.commanderName ?? null,
+                formatKey,
+              });
+              if (!result.valid && result.invalidAdds.length > 0) {
+                if (DEV) console.warn("[stream] Invalid ADD suggestions stripped:", result.invalidAdds);
+                outputText = result.repairedText;
+              }
+              const { applyValidators } = await import("@/lib/chat/responseValidators");
+              const validatorsResult = await applyValidators(outputText, { deckCards, formatKey });
+              outputText = validatorsResult.repairedText;
+              if (DEV && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
+                console.warn("[stream] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+              }
+            } catch (e) {
+              if (DEV) console.warn("[stream] validateAddSuggestions/applyValidators error:", e);
+            }
+          }
+
+          const CHUNK_SIZE = 120;
+          for (let i = 0; i < outputText.length; i += CHUNK_SIZE) {
+            controller.enqueue(encoder.encode(outputText.slice(i, i + CHUNK_SIZE)));
+          }
           controller.enqueue(encoder.encode("\n[DONE]"));
           controller.close();
           

@@ -1685,9 +1685,23 @@ export async function POST(req: Request) {
       };
 
       const result = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
-      
+      let analysisText = result.text;
+      if (entries.length > 0 && analysisText) {
+        try {
+          const { applyValidators } = await import("@/lib/chat/responseValidators");
+          const formatKeyAnalyze = (body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander") as string;
+          const validatorsResult = await applyValidators(analysisText, {
+            deckCards: entries.map((e) => ({ name: e.name })),
+            formatKey: formatKeyAnalyze,
+          });
+          analysisText = validatorsResult.repairedText;
+          if (process.env.NODE_ENV === "development" && (validatorsResult.removedInDeck.length > 0 || validatorsResult.removedDowngrades.length > 0)) {
+            console.warn("[deck/analyze] responseValidators removed:", { inDeck: validatorsResult.removedInDeck, downgrades: validatorsResult.removedDowngrades });
+          }
+        } catch (_) {}
+      }
       validatedAnalysis = {
-        text: result.text,
+        text: analysisText,
         json: result.json,
         validationErrors: result.validationErrors,
         validationWarnings: result.validationWarnings,
