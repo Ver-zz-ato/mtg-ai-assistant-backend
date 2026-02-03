@@ -1,8 +1,5 @@
 "use client";
 import React from "react";
-import { ELI5, HelpTip } from "@/components/AdminHelp";
-
-function norm(s:string){return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
 
 function SnapshotInfo(){
   const [loading, setLoading] = React.useState(true);
@@ -196,132 +193,101 @@ export default function AdminAIUsagePage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">AI Usage & Cost</h1>
-        <p className="text-sm text-neutral-400">
-          Every request that uses your OpenAI key is logged: chat, streaming chat, deck analyze, swap suggestions, swap-why, health suggestions, compare-ai, reprint-risk, suggestion-why.
-        </p>
-      </div>
-      <ELI5 heading="Quick reference" items={[
-        '📊 Overview: Today, last 3 days, and period total at the top; by route (feature) and by model below',
-        '📋 Request log tab: Every request with cost, model, type, tokens; click Details for input/output preview',
-        '👤 Filter by user or model to find who or what drives cost',
-        '📥 Export CSV from any table or the full request log'
-      ]} />
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">AI Usage</h1>
+            <p className="text-xs text-neutral-500 mt-0.5">OpenAI spend by route, model, and user</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={load} disabled={loading} className="px-3 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">
+              {loading ? "Loading…" : "Refresh"}
+            </button>
+            <details className="relative">
+              <summary className="list-none px-3 py-1.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-sm cursor-pointer text-neutral-300">
+                Other actions
+              </summary>
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-lg z-10">
+                <button type="button" onClick={async () => {
+                  const key = prompt("CRON_KEY:");
+                  if (!key) return;
+                  const r = await fetch("/api/cron/prewarm-scryfall", { method: "POST", headers: { "x-cron-key": key } });
+                  const j = await r.json().catch(() => ({}));
+                  alert(r.ok && j?.ok ? `Prewarmed ${j.warmed} names` : j?.error || "Failed");
+                }} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-800">Prewarm Scryfall</button>
+                <button type="button" onClick={async () => {
+                  if (!confirm("Build today’s price snapshot?")) return;
+                  setBuilding(true);
+                  try {
+                    const r = await fetch("/api/admin/price/snapshot/build", { method: "POST" });
+                    const j = await r.json().catch(() => ({}));
+                    alert(r.ok && j?.ok ? `Done: ${j.inserted} rows` : j?.error || "Failed");
+                  } finally { setBuilding(false); }
+                }} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-800">Price snapshot (today)</button>
+                <button type="button" onClick={async () => {
+                  if (!confirm("Build FULL snapshot (can take a while)?")) return;
+                  setBuilding(true);
+                  try {
+                    const r = await fetch("/api/admin/price/snapshot/bulk", { method: "POST" });
+                    const j = await r.json().catch(() => ({}));
+                    alert(r.ok && j?.ok ? `Done: ${j.inserted} rows` : j?.error || "Failed");
+                  } finally { setBuilding(false); }
+                }} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-800">Price snapshot (full)</button>
+              </div>
+            </details>
+            {building && <span className="text-xs text-neutral-500">Building…</span>}
+          </div>
+        </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
-        <label className="text-sm">
-          <div className="opacity-70 mb-1">Days</div>
-          <input type="number" value={days} onChange={e=>setDays(parseInt(e.target.value||"30",10))}
-            className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-        </label>
-        <label className="text-sm sm:col-span-2">
-          <div className="opacity-70 mb-1">Filter by User ID (optional)</div>
-          <input value={userId} onChange={e=>setUserId(e.target.value)}
-            placeholder="uuid..." className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-        </label>
-        <label className="text-sm sm:col-span-1">
-          <div className="opacity-70 mb-1">Filter by Thread ID (optional)</div>
-          <input value={threadId} onChange={e=>setThreadId(e.target.value)}
-            placeholder="uuid..." className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-        </label>
-        <label className="text-sm sm:col-span-1">
-          <div className="opacity-70 mb-1">Filter by Model (client)</div>
-          <select value={modelFilter} onChange={e=>setModelFilter(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
-            <option value="">All</option>
-            {(Array.from(new Set((data?.by_model || []).map((m:any) => String(m.model)))) as string[]).map((m) => (<option key={m} value={m}>{m}</option>))}
+        {loading && <div className="text-sm text-neutral-500">Loading…</div>}
+        {error && <div className="rounded-md bg-red-950/50 border border-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+
+        {/* Hero metrics */}
+        {data?.recent_days_cost != null && data?.totals != null && !loading && (
+          <section className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-5">
+              <div className="text-[11px] uppercase tracking-widest text-neutral-500">Today</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-white">${data.recent_days_cost.today_usd ?? "0"}</div>
+            </div>
+            <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-5">
+              <div className="text-[11px] uppercase tracking-widest text-neutral-500">Last 3 days</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-white">${data.recent_days_cost.last_3_days}</div>
+            </div>
+            <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-5">
+              <div className="text-[11px] uppercase tracking-widest text-neutral-500">Last {data.window_days} days</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-white">${data.totals.cost_usd}</div>
+              <div className="mt-0.5 text-xs text-neutral-500">{data.totals.messages} requests</div>
+            </div>
+          </section>
+        )}
+
+        {/* Filters — one compact row */}
+        <section className="flex flex-wrap items-center gap-3">
+          <span className="text-xs text-neutral-500">Filters:</span>
+          <input type="number" value={days} onChange={e => setDays(parseInt(e.target.value || "30", 10))} className="w-14 bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm" title="Days" />
+          <input value={userId} onChange={e => setUserId(e.target.value)} placeholder="User ID" className="w-40 bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm placeholder:text-neutral-600" />
+          <input value={threadId} onChange={e => setThreadId(e.target.value)} placeholder="Thread ID" className="w-40 bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm placeholder:text-neutral-600" />
+          <select value={modelFilter} onChange={e => setModelFilter(e.target.value)} className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm">
+            <option value="">All models</option>
+            {(Array.from(new Set((data?.by_model || []).map((m: any) => String(m.model)))) as string[]).map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-        </label>
-        <div className="sm:col-span-5 flex gap-2">
-          <button onClick={load} disabled={loading} className="px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload</button>
-          <button onClick={async()=>{
-            try {
-              const key = prompt('Enter CRON_KEY to prewarm Scryfall cache (admin only):');
-              if (!key) return;
-              const r = await fetch('/api/cron/prewarm-scryfall', { method: 'POST', headers: { 'x-cron-key': key } });
-              const j = await r.json().catch(()=>({}));
-              if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Prewarm failed');
-              alert(`Prewarmed ${j.warmed} names`);
-            } catch (e:any) {
-              alert(e?.message || 'Prewarm failed');
-            }
-          }} className="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm">Prewarm Scryfall cache</button>
-          <button onClick={async()=>{
-            try {
-              if (!confirm('Build today\'s price snapshot from Scryfall for names in your decks?')) return;
-              setBuilding(true);
-              const r = await fetch('/api/admin/price/snapshot/build', { method:'POST' });
-              const j = await r.json().catch(()=>({}));
-              if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Snapshot failed');
-              alert(`Snapshot done: ${j.inserted} rows on ${j.snapshot_date}`);
-            } catch (e:any) { alert(e?.message || 'Snapshot failed'); } finally { setBuilding(false); }
-          }} className="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-sm">Build price snapshot (today)</button>
-          <button onClick={async()=>{
-            try {
-              if (!confirm('Build FULL snapshot from Scryfall bulk (can take a while)?')) return;
-              setBuilding(true);
-              const r = await fetch('/api/admin/price/snapshot/bulk', { method:'POST' });
-              const j = await r.json().catch(()=>({}));
-              if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Bulk snapshot failed');
-              alert(`Bulk snapshot done: ${j.inserted} rows on ${j.snapshot_date}`);
-            } catch (e:any) { alert(e?.message || 'Bulk snapshot failed'); } finally { setBuilding(false); }
-          }} className="px-3 py-2 rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-sm">Build FULL snapshot (ALL cards)</button>
+        </section>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-neutral-800">
+          <button onClick={() => setTab("summary")} className={`px-4 py-2 text-sm font-medium rounded-t border border-b-0 transition-colors ${tab === "summary" ? "bg-neutral-800 border-neutral-700 text-white" : "border-transparent text-neutral-400 hover:text-white"}`}>
+            Summary
+          </button>
+          <button onClick={() => setTab("requests")} className={`px-4 py-2 text-sm font-medium rounded-t border border-b-0 transition-colors ${tab === "requests" ? "bg-neutral-800 border-neutral-700 text-white" : "border-transparent text-neutral-400 hover:text-white"}`}>
+            Request log
+          </button>
         </div>
-      </div>
 
-      {loading && (<div className="text-sm opacity-70">Loading…</div>)}
-      {error && (<div className="text-sm text-red-400">{error}</div>)}
-
-      {data?.recent_days_cost != null && data?.totals != null && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
-            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Today (UTC)</div>
-            <div className="text-2xl font-bold font-mono text-white">${data.recent_days_cost.today_usd ?? "0"}</div>
-          </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
-            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Last 3 days</div>
-            <div className="text-2xl font-bold font-mono text-white">${data.recent_days_cost.last_3_days}</div>
-          </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
-            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Period total ({data.window_days}d)</div>
-            <div className="text-2xl font-bold font-mono text-white">${data.totals.cost_usd}</div>
-            <div className="text-xs text-neutral-500 mt-1">{data.totals.messages} requests</div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2 border-b border-neutral-800 pb-2">
-        <button
-          onClick={() => setTab("summary")}
-          className={`px-3 py-1.5 rounded-t text-sm ${tab === "summary" ? "bg-neutral-700 text-white" : "bg-neutral-800/50 text-neutral-400 hover:text-white"}`}
-        >
-          Summary
-        </button>
-        <button
-          onClick={() => setTab("requests")}
-          className={`px-3 py-1.5 rounded-t text-sm ${tab === "requests" ? "bg-neutral-700 text-white" : "bg-neutral-800/50 text-neutral-400 hover:text-white"}`}
-        >
-          Request log
-        </button>
-      </div>
-
-      <div className="rounded border border-neutral-800 p-3 bg-neutral-950/50">
-        <div className="font-semibold mb-1">What can I do here?</div>
-        <ul className="list-disc pl-5 text-sm space-y-1">
-          <li><b>Reload</b>: refreshes the usage tables below (messages, tokens, cost).</li>
-          <li><b>Prewarm Scryfall cache</b>: warms card images/details for popular/recent decks so pages load faster and hit Scryfall less. You’ll be asked for <code>CRON_KEY</code> — use the same value set in your environment.</li>
-          <li><b>Build price snapshot</b>: creates a daily snapshot of card prices used for per-card and total estimates.</li>
-          <li><b>By model / day / users</b>: simple summaries to spot heavy usage.</li>
-        </ul>
-        {building && (<div className="mt-2 text-xs opacity-80">Building snapshot…</div>)}
-      </div>
-
+        {/* Tab content */}
       {tab === "requests" && (
         <div className="space-y-4">
-          <div className="rounded border border-neutral-700 bg-neutral-900/40 p-2 text-sm opacity-90">
-            <strong>What you see here:</strong> Every AI request we record — <b>cost per request</b>, <b>model</b> (e.g. gpt-5 vs gpt-4o-mini), <b>type</b> (chat), <b>tokens</b> (in/out), and the <b>message</b> (input/output preview). Click <b>Details</b> on any row to see what was sent and what the AI answered. Sort by <b>Cost</b> to find the most expensive requests first.
-          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-sm flex items-center gap-1">
               <span className="opacity-70">Days</span>
@@ -369,8 +335,8 @@ export default function AdminAIUsagePage() {
               Export request log CSV
             </button>
           </div>
-          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2">Per-request log (model, cost, type, input/answer preview)</div>
+          <div className="rounded-lg border border-neutral-800 overflow-hidden">
+            <div className="px-3 py-2 border-b border-neutral-800 text-sm font-medium text-neutral-300">Requests · click Details for input/output</div>
             {requestsLoading && <div className="text-sm opacity-70 py-4">Loading…</div>}
             {!requestsLoading && requests.length === 0 && <div className="text-sm opacity-70 py-4">No requests in range.</div>}
             {!requestsLoading && requests.length > 0 && (() => {
@@ -449,89 +415,105 @@ export default function AdminAIUsagePage() {
 
       {data && tab === "summary" && (
         <div className="space-y-6">
-          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2 flex items-center justify-between">
-              <span>By feature / route</span>
-              <button onClick={() => {
-                const rows = data.by_route || [];
-                exportCsv(rows, ["route", "messages", "input_tokens", "output_tokens", "cost_usd"], (r: any) => [r.route, r.messages, r.input_tokens, r.output_tokens, r.cost_usd]);
-              }} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Export CSV</button>
-            </div>
-            <p className="text-xs text-neutral-500 mb-2">Where your OpenAI spend goes: chat, chat_stream, deck_analyze, swap_suggestions, etc.</p>
-            <table className="min-w-full text-sm">
-              <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 pr-3">Route</th><th className="text-right py-1 pr-3">Requests</th><th className="text-right py-1 pr-3">In</th><th className="text-right py-1 pr-3">Out</th><th className="text-right py-1 pr-3">Cost</th></tr></thead>
-              <tbody>
-                {(data.by_route || []).map((r: any) => (
-                  <tr key={r.route} className="border-b border-neutral-900">
-                    <td className="py-1 pr-3 font-mono text-xs">{r.route}</td>
-                    <td className="py-1 pr-3 text-right">{r.messages}</td>
-                    <td className="py-1 pr-3 text-right">{r.input_tokens}</td>
-                    <td className="py-1 pr-3 text-right">{r.output_tokens}</td>
-                    <td className="py-1 pr-3 text-right font-mono">${r.cost_usd}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+              <div className="px-4 py-2.5 border-b border-neutral-800 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-neutral-200">By route</h2>
+                <button onClick={() => exportCsv(data.by_route || [], ["route","messages","input_tokens","output_tokens","cost_usd"], (r: any) => [r.route,r.messages,r.input_tokens,r.output_tokens,r.cost_usd])} className="text-xs text-neutral-400 hover:text-white">Export</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead><tr className="border-b border-neutral-800 text-neutral-500 text-left"><th className="px-4 py-2 font-medium">Route</th><th className="px-4 py-2 text-right">Req</th><th className="px-4 py-2 text-right">Cost</th></tr></thead>
+                  <tbody>
+                    {(data.by_route || []).map((r: any) => (
+                      <tr key={r.route} className="border-b border-neutral-800/80 hover:bg-neutral-800/30">
+                        <td className="px-4 py-2 font-mono text-xs">{r.route}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{r.messages}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">${r.cost_usd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+              <div className="px-4 py-2.5 border-b border-neutral-800 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-neutral-200">By model</h2>
+                <button onClick={() => exportCsv((data.by_model || []).filter((m: any) => !modelFilter || m.model === modelFilter), ["model","messages","input_tokens","output_tokens","cost_usd"], (m: any) => [m.model,m.messages,m.input_tokens,m.output_tokens,m.cost_usd])} className="text-xs text-neutral-400 hover:text-white">Export</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead><tr className="border-b border-neutral-800 text-neutral-500 text-left"><th className="px-4 py-2 font-medium">Model</th><th className="px-4 py-2 text-right">Req</th><th className="px-4 py-2 text-right">Cost</th></tr></thead>
+                  <tbody>
+                    {(data.by_model || []).filter((m: any) => !modelFilter || m.model === modelFilter).map((m: any) => (
+                      <tr key={m.model} className="border-b border-neutral-800/80 hover:bg-neutral-800/30">
+                        <td className="px-4 py-2">{m.model}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{m.messages}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">${m.cost_usd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
 
-          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2 flex items-center justify-between">
-              <span>By model</span>
-              <button onClick={() => {
-                const rows = (data.by_model || []).filter((m:any)=> !modelFilter || m.model === modelFilter);
-                exportCsv(rows, ['model','messages','input_tokens','output_tokens','cost_usd'], (m:any)=>[m.model,m.messages,m.input_tokens,m.output_tokens,m.cost_usd])
-              }} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Export CSV</button>
-            </div>
-            <table className="min-w-full text-sm">
-              <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 pr-3">Model</th><th className="text-right py-1 pr-3">Msgs</th><th className="text-right py-1 pr-3">In</th><th className="text-right py-1 pr-3">Out</th><th className="text-right py-1 pr-3">Cost</th></tr></thead>
-              <tbody>
-                {(data.by_model || []).filter((m:any)=> !modelFilter || m.model === modelFilter).map((m:any)=> (
-                  <tr key={m.model} className="border-b border-neutral-900"><td className="py-1 pr-3">{m.model}</td><td className="py-1 pr-3 text-right">{m.messages}</td><td className="py-1 pr-3 text-right">{m.input_tokens}</td><td className="py-1 pr-3 text-right">{m.output_tokens}</td><td className="py-1 pr-3 text-right">${m.cost_usd}</td></tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+              <div className="px-4 py-2.5 border-b border-neutral-800 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-neutral-200">By day</h2>
+                <button onClick={() => exportCsv(data.by_day, ["date","messages","cost_usd"], (d: any) => [d.date,d.messages,d.cost_usd])} className="text-xs text-neutral-400 hover:text-white">Export</button>
+              </div>
+              <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800 text-neutral-500 text-left"><th className="px-4 py-2 font-medium">Date</th><th className="px-4 py-2 text-right">Req</th><th className="px-4 py-2 text-right">Cost</th></tr></thead>
+                  <tbody>
+                    {data.by_day.map((d: any) => (
+                      <tr key={d.date} className="border-b border-neutral-800/80 hover:bg-neutral-800/30">
+                        <td className="px-4 py-2">{d.date}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{d.messages}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">${d.cost_usd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+              <div className="px-4 py-2.5 border-b border-neutral-800 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-neutral-200">Top users</h2>
+                <button onClick={() => exportCsv(data.top_users, ["user_id","messages","input_tokens","output_tokens","cost_usd"], (u: any) => [u.user_id,u.messages,u.input_tokens,u.output_tokens,u.cost_usd])} className="text-xs text-neutral-400 hover:text-white">Export</button>
+              </div>
+              <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800 text-neutral-500 text-left"><th className="px-4 py-2 font-medium">User</th><th className="px-4 py-2 text-right">Req</th><th className="px-4 py-2 text-right">Cost</th></tr></thead>
+                  <tbody>
+                    {data.top_users.map((u: any) => (
+                      <tr key={u.user_id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => { setUserId(u.user_id); setTimeout(load, 0); }} title="Click to filter by this user">
+                        <td className="px-4 py-2 font-mono text-xs truncate max-w-[180px]" title={u.user_id}>{u.user_id}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{u.messages}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">${u.cost_usd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
 
-          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2 flex items-center justify-between">
-              <span>By day</span>
-              <button onClick={() => exportCsv(data.by_day, ['date','messages','cost_usd'], (d:any)=>[d.date,d.messages,d.cost_usd])} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Export CSV</button>
+          <details className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+            <summary className="px-4 py-2.5 border-b border-neutral-800 cursor-pointer text-sm font-medium text-neutral-300 hover:text-white">Price snapshots &amp; tools</summary>
+            <div className="p-4 space-y-4">
+              <SnapshotInfo />
+              <SnapshotRows />
             </div>
-            <table className="min-w-full text-sm">
-              <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 pr-3">Date</th><th className="text-right py-1 pr-3">Messages</th><th className="text-right py-1 pr-3">Cost</th></tr></thead>
-              <tbody>
-                {data.by_day.map((d:any)=> (
-                  <tr key={d.date} className="border-b border-neutral-900"><td className="py-1 pr-3">{d.date}</td><td className="py-1 pr-3 text-right">{d.messages}</td><td className="py-1 pr-3 text-right">${d.cost_usd}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2 flex items-center justify-between">
-              <span>Top users (by cost)</span>
-              <button onClick={() => exportCsv(data.top_users, ['user_id','messages','input_tokens','output_tokens','cost_usd'], (u:any)=>[u.user_id,u.messages,u.input_tokens,u.output_tokens,u.cost_usd])} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Export CSV</button>
-            </div>
-            <table className="min-w-full text-sm">
-              <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 pr-3">User</th><th className="text-right py-1 pr-3">Msgs</th><th className="text-right py-1 pr-3">In</th><th className="text-right py-1 pr-3">Out</th><th className="text-right py-1 pr-3">Cost</th></tr></thead>
-              <tbody>
-                {data.top_users.map((u:any)=> (
-                  <tr key={u.user_id} className="border-b border-neutral-900 cursor-pointer" title="Filter by this user" onClick={() => { setUserId(u.user_id); setTimeout(load, 0); }}>
-                    <td className="py-1 pr-3 font-mono">{u.user_id}</td>
-                    <td className="py-1 pr-3 text-right">{u.messages}</td>
-                    <td className="py-1 pr-3 text-right">{u.input_tokens}</td>
-                    <td className="py-1 pr-3 text-right">{u.output_tokens}</td>
-                    <td className="py-1 pr-3 text-right">${u.cost_usd}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <SnapshotInfo />
-          <SnapshotRows />
+          </details>
         </div>
       )}
+
+      </div>
     </div>
   );
 }

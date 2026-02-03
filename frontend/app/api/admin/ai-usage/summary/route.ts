@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
     if (!user || !isAdmin(user)) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
 
     const sp = req.nextUrl.searchParams;
+    const fromParam = sp.get("from");
+    const toParam = sp.get("to");
     const daysRaw = parseInt(sp.get("days") || "30", 10);
     const days = Math.min(90, Math.max(1, isFinite(daysRaw) ? daysRaw : 30));
     const limitRaw = parseInt(sp.get("limit") || "10000", 10);
@@ -26,7 +28,19 @@ export async function GET(req: NextRequest) {
     const userId = sp.get("userId");
     const threadId = sp.get("threadId");
 
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    let cutoff: string;
+    let windowLabel: string;
+    if (fromParam && toParam) {
+      const from = new Date(fromParam + "T00:00:00Z").toISOString();
+      const to = new Date(toParam + "T23:59:59.999Z").toISOString();
+      cutoff = from;
+      windowLabel = `${fromParam} – ${toParam}`;
+      // Filter rows by toDate in the loop; we'll need to pass toDate to the query - actually we can't do gte(cutoff) and lte(to) in one query
+    } else {
+      cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      windowLabel = `last ${days} days`;
+    }
+    const toDate = fromParam && toParam ? new Date(toParam + "T23:59:59.999Z").toISOString() : null;
 
     let q = supabase
       .from("ai_usage")
@@ -34,7 +48,7 @@ export async function GET(req: NextRequest) {
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
       .limit(limit);
-
+    if (toDate) q = q.lte("created_at", toDate);
     if (userId) q = q.eq("user_id", userId);
     if (threadId) q = q.eq("thread_id", threadId);
 
@@ -67,7 +81,7 @@ export async function GET(req: NextRequest) {
     const totals = { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
     const by_model = new Map<string, typeof totals>();
     const by_route = new Map<string, typeof totals>();
-    const by_day = new Map<string, { messages: number; cost_usd: number }>();
+    const by_day = new Map<string, { messages: number; input_tokens: number; output_tokens: number; cost_usd: number }>();
     const by_user = new Map<string, typeof totals>();
 
     for (const r of rows) {
@@ -90,9 +104,9 @@ export async function GET(req: NextRequest) {
       br.messages += 1; br.input_tokens += it; br.output_tokens += ot; br.cost_usd += c;
 
       const date = String(r.created_at || "").slice(0, 10);
-      if (!by_day.has(date)) by_day.set(date, { messages: 0, cost_usd: 0 });
+      if (!by_day.has(date)) by_day.set(date, { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
       const bd = by_day.get(date)!;
-      bd.messages += 1; bd.cost_usd += c;
+      bd.messages += 1; bd.input_tokens += it; bd.output_tokens += ot; bd.cost_usd += c;
 
       const uid = String(r.user_id || "");
       if (!by_user.has(uid)) by_user.set(uid, { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
@@ -105,8 +119,9 @@ export async function GET(req: NextRequest) {
     const resp = {
       ok: true,
       window_days: days,
+      window_label: windowLabel,
       limit,
-      filters: { userId: userId || null, threadId: threadId || null },
+      filters: { userId: userId || null, threadId: threadId || null, from: fromParam || null, to: toParam || null },
       recent_days_cost: { today_usd: toFixed(todayCost), last_3_days: toFixed(last3DaysCost) },
       totals: { ...totals, cost_usd: toFixed(totals.cost_usd) },
       by_model: Array.from(by_model.entries()).map(([model, t]) => ({ model, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>b.cost_usd-a.cost_usd),
