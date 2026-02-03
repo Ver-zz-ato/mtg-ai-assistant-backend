@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     let q = supabase
       .from("ai_usage")
-      .select("id,user_id,thread_id,model,input_tokens,output_tokens,cost_usd,created_at")
+      .select("id,user_id,thread_id,model,route,input_tokens,output_tokens,cost_usd,created_at")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -43,9 +43,19 @@ export async function GET(req: NextRequest) {
 
     const rows = Array.isArray(data) ? data as any[] : [];
 
-    // Last 3 days cost (separate query so it's accurate regardless of limit)
-    let last3DaysCost = 0;
+    // Today (UTC) and last 3 days cost — separate queries so accurate regardless of limit
+    const now = new Date();
+    const todayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    let todayCost = 0;
+    let last3DaysCost = 0;
+    const { data: todayRows } = await supabase
+      .from("ai_usage")
+      .select("cost_usd")
+      .gte("created_at", todayStartUTC);
+    if (Array.isArray(todayRows)) {
+      todayCost = todayRows.reduce((sum: number, r: any) => sum + (Number(r.cost_usd) || 0), 0);
+    }
     const { data: recentRows } = await supabase
       .from("ai_usage")
       .select("cost_usd")
@@ -56,6 +66,7 @@ export async function GET(req: NextRequest) {
 
     const totals = { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
     const by_model = new Map<string, typeof totals>();
+    const by_route = new Map<string, typeof totals>();
     const by_day = new Map<string, { messages: number; cost_usd: number }>();
     const by_user = new Map<string, typeof totals>();
 
@@ -72,6 +83,11 @@ export async function GET(req: NextRequest) {
       if (!by_model.has(model)) by_model.set(model, { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
       const bm = by_model.get(model)!;
       bm.messages += 1; bm.input_tokens += it; bm.output_tokens += ot; bm.cost_usd += c;
+
+      const route = String(r.route || "unknown");
+      if (!by_route.has(route)) by_route.set(route, { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+      const br = by_route.get(route)!;
+      br.messages += 1; br.input_tokens += it; br.output_tokens += ot; br.cost_usd += c;
 
       const date = String(r.created_at || "").slice(0, 10);
       if (!by_day.has(date)) by_day.set(date, { messages: 0, cost_usd: 0 });
@@ -91,9 +107,10 @@ export async function GET(req: NextRequest) {
       window_days: days,
       limit,
       filters: { userId: userId || null, threadId: threadId || null },
-      recent_days_cost: { last_3_days: toFixed(last3DaysCost) },
+      recent_days_cost: { today_usd: toFixed(todayCost), last_3_days: toFixed(last3DaysCost) },
       totals: { ...totals, cost_usd: toFixed(totals.cost_usd) },
       by_model: Array.from(by_model.entries()).map(([model, t]) => ({ model, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>b.cost_usd-a.cost_usd),
+      by_route: Array.from(by_route.entries()).map(([route, t]) => ({ route, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>b.cost_usd-a.cost_usd),
       by_day: Array.from(by_day.entries()).map(([date, t]) => ({ date, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>a.date.localeCompare(b.date)),
       top_users: Array.from(by_user.entries()).map(([user_id, t]) => ({ user_id, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>b.cost_usd-a.cost_usd).slice(0, 20),
     };

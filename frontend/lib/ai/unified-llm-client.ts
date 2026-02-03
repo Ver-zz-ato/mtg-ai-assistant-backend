@@ -12,6 +12,8 @@
 
 import { prepareOpenAIBody } from './openai-params';
 import { logAICall, getUserType, hashUserId, type AICallLog } from './observability';
+import { recordAiUsage } from './log-usage';
+import { costUSD } from './pricing';
 
 export type LLMConfig = {
   route: string;              // e.g., '/api/chat'
@@ -25,6 +27,12 @@ export type LLMConfig = {
   isPro?: boolean;           // Pro status for logging
   retryOn429?: boolean;      // Whether to retry on 429 (default: false for most routes)
   retryOn5xx?: boolean;      // Whether to retry on 5xx (default: false)
+  threadId?: string | null;  // For ai_usage.thread_id (e.g. chat thread)
+  promptPreview?: string | null;  // Truncated input for ai_usage.prompt_preview
+  responsePreview?: string | null; // Truncated output for ai_usage.response_preview
+  modelTier?: string | null; // e.g. 'pro', 'free'
+  promptPath?: string | null;
+  formatKey?: string | null;
 };
 
 export type LLMResponse = {
@@ -310,6 +318,25 @@ export async function callLLM(
     
     throw new Error(errorMsg || 'AI request failed');
   }
+
+  const it = tokens.input ?? 0;
+  const ot = tokens.output ?? 0;
+  const cost = costUSD(actualModel, it, ot);
+
+  recordAiUsage({
+    user_id: config.userId ?? null,
+    thread_id: config.threadId ?? null,
+    model: actualModel,
+    input_tokens: it,
+    output_tokens: ot,
+    cost_usd: cost,
+    route: config.feature,
+    prompt_preview: config.promptPreview ?? null,
+    response_preview: config.responsePreview ?? (text ? text.slice(0, 1000) : null),
+    model_tier: config.modelTier ?? null,
+    prompt_path: config.promptPath ?? null,
+    format_key: config.formatKey ?? null,
+  }).catch(() => {});
 
   return {
     text,

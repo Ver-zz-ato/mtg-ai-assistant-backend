@@ -505,6 +505,8 @@ async function callOpenAI(
         apiType,
         userId: opts.userId || null,
         isPro: opts.isPro || false,
+        promptPreview: (systemPrompt + '\n' + userPrompt).slice(0, 1000),
+        responsePreview: null,
       }
     );
 

@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const userId = sp.get("userId") || undefined;
     const threadId = sp.get("threadId") || undefined;
     const modelFilter = sp.get("model") || undefined;
+    const routeFilter = sp.get("route") || undefined;
 
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest) {
     if (userId) q = q.eq("user_id", userId);
     if (threadId) q = q.eq("thread_id", threadId);
     if (modelFilter) q = q.eq("model", modelFilter);
+    if (routeFilter) q = q.eq("route", routeFilter);
 
     const { data: rows, error, count } = await q;
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -94,7 +96,7 @@ export async function GET(req: NextRequest) {
       offset,
       limit,
       days,
-      filters: { userId: userId || null, threadId: threadId || null, model: modelFilter || null },
+      filters: { userId: userId || null, threadId: threadId || null, model: modelFilter || null, route: routeFilter || null },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "server_error";

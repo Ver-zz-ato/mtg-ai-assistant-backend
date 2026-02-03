@@ -67,7 +67,28 @@ export async function POST(req: Request) {
 
     const j: any = await r?.json().catch(() => ({}));
     let text = (j?.output_text || '').toString().trim();
-    
+
+    if (r?.ok && text) {
+      try {
+        const { recordAiUsage } = await import('@/lib/ai/log-usage');
+        const usage = j?.usage || {};
+        const it = Number(usage.input_tokens ?? usage.prompt_tokens) || Math.ceil((system.length + user.length) / 4);
+        const ot = Number(usage.output_tokens ?? usage.completion_tokens) || Math.ceil(text.length / 4);
+        const model = (j?.model || process.env.OPENAI_MODEL || 'gpt-5.2-codex') as string;
+        const { costUSD } = await import('@/lib/ai/pricing');
+        await recordAiUsage({
+          user_id: null,
+          model,
+          input_tokens: it,
+          output_tokens: ot,
+          cost_usd: costUSD(model, it, ot),
+          route: 'suggestion_why',
+          prompt_preview: user.slice(0, 1000),
+          response_preview: text.slice(0, 1000),
+        });
+      } catch (_) {}
+    }
+
     // Sanitize bad responses
     const bad = /tighten|tightened|paste the (?:answer|text)|audience and goal|desired tone|word limit|must-keep/i.test(text || '');
     if (!r || !r.ok || !text || bad) {

@@ -574,6 +574,27 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          try {
+            const { recordAiUsage } = await import("@/lib/ai/log-usage");
+            const inputLen = (sys?.length || 0) + (text?.length || 0);
+            const it = Math.ceil(inputLen / 4);
+            const ot = Math.ceil((outputText?.length || 0) / 4);
+            const { costUSD } = await import("@/lib/ai/pricing");
+            const cost = costUSD(effectiveModel, it, ot);
+            await recordAiUsage({
+              user_id: userId,
+              thread_id: tid || null,
+              model: effectiveModel,
+              input_tokens: it,
+              output_tokens: ot,
+              cost_usd: cost,
+              route: "chat_stream",
+              prompt_preview: typeof text === "string" ? text.slice(0, 1000) : null,
+              response_preview: typeof outputText === "string" ? outputText.slice(0, 1000) : null,
+              model_tier: modelTierRes.tier,
+            });
+          } catch (_) {}
+
           const CHUNK_SIZE = 120;
           for (let i = 0; i < outputText.length; i += CHUNK_SIZE) {
             controller.enqueue(encoder.encode(outputText.slice(i, i + CHUNK_SIZE)));

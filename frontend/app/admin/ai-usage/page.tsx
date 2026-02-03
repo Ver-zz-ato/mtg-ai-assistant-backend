@@ -138,6 +138,8 @@ export default function AdminAIUsagePage() {
   const [requestsLoading, setRequestsLoading] = React.useState(false);
   const [requestDays, setRequestDays] = React.useState(7);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [requestSort, setRequestSort] = React.useState<"time" | "cost" | "tokens">("cost");
+  const [requestRouteFilter, setRequestRouteFilter] = React.useState<string>("");
 
   async function load() {
     setLoading(true);
@@ -167,6 +169,7 @@ export default function AdminAIUsagePage() {
       if (userId.trim()) qs.set("userId", userId.trim());
       if (threadId.trim()) qs.set("threadId", threadId.trim());
       if (modelFilter) qs.set("model", modelFilter);
+      if (requestRouteFilter) qs.set("route", requestRouteFilter);
       const res = await fetch(`/api/admin/ai-usage/requests?${qs.toString()}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !j?.ok) throw new Error(j?.error || "Failed to load requests");
@@ -180,7 +183,7 @@ export default function AdminAIUsagePage() {
 
   React.useEffect(() => {
     if (tab === "requests") loadRequests();
-  }, [tab, requestDays, userId, threadId, modelFilter]);
+  }, [tab, requestDays, userId, threadId, modelFilter, requestRouteFilter]);
 
   const exportCsv = (rows: any[], headers: string[], rowMap: (r:any)=>any[]) => {
     const lines = [headers, ...rows.map(rowMap)];
@@ -193,19 +196,18 @@ export default function AdminAIUsagePage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-semibold">Admin • AI Usage</h1>
-      <ELI5 heading="AI Usage & Cost Monitoring" items={[
-        '💸 Cost Tracking: See total AI API spend and last-3-days spend at a glance',
-        '📋 Request Log: Per-request detail — model, cost, tokens, input/output preview (Summary vs Request log tabs)',
-        '📊 Token Usage: Monitor input/output tokens to understand what\'s expensive',
-        '🤖 Model Breakdown: Which AI models cost the most (GPT-4o, GPT-4o-mini, etc.)',
-        '👤 User Analysis: Find power users or cost outliers — click a user to filter',
-        '📉 Price Snapshot Status: Check if daily price caching is working',
-        '📥 Export CSVs: Download summary or full request log (with prompt/response preview)',
-        '⏱️ When to use: Weekly/monthly budget reviews, investigating cost spikes (e.g. high spend in a few days)',
-        '🔄 How often: Monthly for budget planning, daily if costs are high',
-        '💡 Helps decide: Should you rate-limit expensive features or adjust pricing?'
+    <div className="max-w-5xl mx-auto p-4 space-y-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold">AI Usage & Cost</h1>
+        <p className="text-sm text-neutral-400">
+          Every request that uses your OpenAI key is logged: chat, streaming chat, deck analyze, swap suggestions, swap-why, health suggestions, compare-ai, reprint-risk, suggestion-why.
+        </p>
+      </div>
+      <ELI5 heading="Quick reference" items={[
+        '📊 Overview: Today, last 3 days, and period total at the top; by route (feature) and by model below',
+        '📋 Request log tab: Every request with cost, model, type, tokens; click Details for input/output preview',
+        '👤 Filter by user or model to find who or what drives cost',
+        '📥 Export CSV from any table or the full request log'
       ]} />
 
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
@@ -271,11 +273,21 @@ export default function AdminAIUsagePage() {
       {loading && (<div className="text-sm opacity-70">Loading…</div>)}
       {error && (<div className="text-sm text-red-400">{error}</div>)}
 
-      {data?.recent_days_cost != null && (
-        <div className="rounded border border-amber-900/60 bg-amber-950/30 p-3 border-l-4 border-l-amber-500">
-          <div className="font-medium text-amber-200">Last 3 days spend</div>
-          <div className="text-2xl font-mono text-amber-100">${data.recent_days_cost.last_3_days}</div>
-          <div className="text-xs opacity-80 mt-1">Use the Request log tab to see per-request detail (input, output, model, cost).</div>
+      {data?.recent_days_cost != null && data?.totals != null && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
+            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Today (UTC)</div>
+            <div className="text-2xl font-bold font-mono text-white">${data.recent_days_cost.today_usd ?? "0"}</div>
+          </div>
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
+            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Last 3 days</div>
+            <div className="text-2xl font-bold font-mono text-white">${data.recent_days_cost.last_3_days}</div>
+          </div>
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
+            <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Period total ({data.window_days}d)</div>
+            <div className="text-2xl font-bold font-mono text-white">${data.totals.cost_usd}</div>
+            <div className="text-xs text-neutral-500 mt-1">{data.totals.messages} requests</div>
+          </div>
         </div>
       )}
 
@@ -307,10 +319,40 @@ export default function AdminAIUsagePage() {
 
       {tab === "requests" && (
         <div className="space-y-4">
+          <div className="rounded border border-neutral-700 bg-neutral-900/40 p-2 text-sm opacity-90">
+            <strong>What you see here:</strong> Every AI request we record — <b>cost per request</b>, <b>model</b> (e.g. gpt-5 vs gpt-4o-mini), <b>type</b> (chat), <b>tokens</b> (in/out), and the <b>message</b> (input/output preview). Click <b>Details</b> on any row to see what was sent and what the AI answered. Sort by <b>Cost</b> to find the most expensive requests first.
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-sm flex items-center gap-1">
               <span className="opacity-70">Days</span>
               <input type="number" min={1} max={90} value={requestDays} onChange={e => setRequestDays(parseInt(e.target.value || "7", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+            </label>
+            <label className="text-sm flex items-center gap-1">
+              <span className="opacity-70">Sort by</span>
+              <select value={requestSort} onChange={e => setRequestSort(e.target.value as "time" | "cost" | "tokens")} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+                <option value="cost">Cost (highest first)</option>
+                <option value="time">Time (newest first)</option>
+                <option value="tokens">Input tokens (highest first)</option>
+              </select>
+            </label>
+            <label className="text-sm flex items-center gap-1">
+              <span className="opacity-70">Route</span>
+              <select
+                value={requestRouteFilter}
+                onChange={e => setRequestRouteFilter(e.target.value)}
+                className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 max-w-[140px]"
+              >
+                <option value="">All</option>
+                <option value="chat">chat</option>
+                <option value="chat_stream">chat_stream</option>
+                <option value="deck_analyze">deck_analyze</option>
+                <option value="swap_why">swap_why</option>
+                <option value="swap_suggestions">swap_suggestions</option>
+                <option value="deck_scan">deck_scan</option>
+                <option value="deck_compare">deck_compare</option>
+                <option value="reprint_risk">reprint_risk</option>
+                <option value="suggestion_why">suggestion_why</option>
+              </select>
             </label>
             <button onClick={() => loadRequests()} disabled={requestsLoading} className="px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload requests</button>
             <button
@@ -328,15 +370,23 @@ export default function AdminAIUsagePage() {
             </button>
           </div>
           <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
-            <div className="font-medium mb-2">Per-request log (model, cost, input/answer preview)</div>
+            <div className="font-medium mb-2">Per-request log (model, cost, type, input/answer preview)</div>
             {requestsLoading && <div className="text-sm opacity-70 py-4">Loading…</div>}
             {!requestsLoading && requests.length === 0 && <div className="text-sm opacity-70 py-4">No requests in range.</div>}
-            {!requestsLoading && requests.length > 0 && (
+            {!requestsLoading && requests.length > 0 && (() => {
+              const sorted = [...requests].sort((a: any, b: any) => {
+                if (requestSort === "cost") return (Number(b.cost_usd) || 0) - (Number(a.cost_usd) || 0);
+                if (requestSort === "tokens") return (Number(b.input_tokens) || 0) - (Number(a.input_tokens) || 0);
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              });
+              const costHighlight = 0.05;
+              return (
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-neutral-800">
                     <th className="text-left py-1 pr-2">Time</th>
                     <th className="text-left py-1 pr-2">User</th>
+                    <th className="text-left py-1 pr-2">Type</th>
                     <th className="text-left py-1 pr-2">Model</th>
                     <th className="text-left py-1 pr-2">Tier</th>
                     <th className="text-right py-1 pr-2">Cost</th>
@@ -346,14 +396,18 @@ export default function AdminAIUsagePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((r: any) => (
+                  {sorted.map((r: any) => {
+                    const cost = Number(r.cost_usd) || 0;
+                    const isExpensive = cost >= costHighlight;
+                    return (
                     <React.Fragment key={r.id}>
-                      <tr className="border-b border-neutral-900 hover:bg-neutral-900/50">
+                      <tr className={`border-b border-neutral-900 hover:bg-neutral-900/50 ${isExpensive ? "bg-amber-950/40 border-l-2 border-l-amber-600" : ""}`}>
                         <td className="py-1 pr-2 whitespace-nowrap text-xs">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="py-1 pr-2 max-w-[120px] truncate" title={r.user_email || r.user_id}>{r.user_email || r.user_display_name || (r.user_id ? String(r.user_id).slice(0, 8) + "…" : "—")}</td>
+                        <td className="py-1 pr-2">{r.route ?? "chat"}</td>
                         <td className="py-1 pr-2">{r.model ?? "—"}</td>
                         <td className="py-1 pr-2">{r.model_tier ?? "—"}</td>
-                        <td className="py-1 pr-2 text-right font-mono">${r.cost_usd}</td>
+                        <td className={`py-1 pr-2 text-right font-mono ${isExpensive ? "text-amber-300 font-semibold" : ""}`}>${r.cost_usd}</td>
                         <td className="py-1 pr-2 text-right">{r.input_tokens} / {r.output_tokens}</td>
                         <td className="py-1 pr-2 max-w-[180px] truncate text-xs opacity-80">{r.prompt_path ?? "—"}</td>
                         <td className="py-1 pr-2">
@@ -362,46 +416,63 @@ export default function AdminAIUsagePage() {
                           </button>
                         </td>
                       </tr>
-                      {expandedId === r.id && (r.prompt_preview || r.response_preview) && (
+                      {expandedId === r.id && (
                         <tr className="border-b border-neutral-900 bg-neutral-900/70">
-                          <td colSpan={8} className="py-2 pr-2 align-top">
+                          <td colSpan={9} className="py-2 pr-2 align-top">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                               <div>
                                 <div className="font-medium text-neutral-400 mb-1">Input (preview)</div>
-                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">{r.prompt_preview || "—"}</pre>
+                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">
+                                  {r.prompt_preview || <span className="opacity-70">No preview (recorded before this feature or not stored)</span>}
+                                </pre>
                               </div>
                               <div>
                                 <div className="font-medium text-neutral-400 mb-1">Output (preview)</div>
-                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">{r.response_preview || "—"}</pre>
+                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">
+                                  {r.response_preview || <span className="opacity-70">No preview (recorded before this feature or not stored)</span>}
+                                </pre>
                               </div>
                             </div>
                           </td>
                         </tr>
                       )}
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
 
       {data && tab === "summary" && (
         <div className="space-y-6">
-          <div className="rounded border border-neutral-800 p-3">
-            <div className="font-medium mb-2">Totals (last {data.window_days} days)</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-              <div>Messages: <span className="font-mono">{data.totals.messages}</span></div>
-              <div>Input tokens: <span className="font-mono">{data.totals.input_tokens}</span></div>
-              <div>Output tokens: <span className="font-mono">{data.totals.output_tokens}</span></div>
-              <div>Cost: <span className="font-mono">${data.totals.cost_usd}</span></div>
+          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
+            <div className="font-medium mb-2 flex items-center justify-between">
+              <span>By feature / route</span>
+              <button onClick={() => {
+                const rows = data.by_route || [];
+                exportCsv(rows, ["route", "messages", "input_tokens", "output_tokens", "cost_usd"], (r: any) => [r.route, r.messages, r.input_tokens, r.output_tokens, r.cost_usd]);
+              }} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Export CSV</button>
             </div>
+            <p className="text-xs text-neutral-500 mb-2">Where your OpenAI spend goes: chat, chat_stream, deck_analyze, swap_suggestions, etc.</p>
+            <table className="min-w-full text-sm">
+              <thead><tr className="border-b border-neutral-800"><th className="text-left py-1 pr-3">Route</th><th className="text-right py-1 pr-3">Requests</th><th className="text-right py-1 pr-3">In</th><th className="text-right py-1 pr-3">Out</th><th className="text-right py-1 pr-3">Cost</th></tr></thead>
+              <tbody>
+                {(data.by_route || []).map((r: any) => (
+                  <tr key={r.route} className="border-b border-neutral-900">
+                    <td className="py-1 pr-3 font-mono text-xs">{r.route}</td>
+                    <td className="py-1 pr-3 text-right">{r.messages}</td>
+                    <td className="py-1 pr-3 text-right">{r.input_tokens}</td>
+                    <td className="py-1 pr-3 text-right">{r.output_tokens}</td>
+                    <td className="py-1 pr-3 text-right font-mono">${r.cost_usd}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {/* Snapshot prices panel (latest date per currency) */}
-          <SnapshotInfo />
-          <SnapshotRows />
 
           <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
             <div className="font-medium mb-2 flex items-center justify-between">
@@ -456,6 +527,9 @@ export default function AdminAIUsagePage() {
               </tbody>
             </table>
           </div>
+
+          <SnapshotInfo />
+          <SnapshotRows />
         </div>
       )}
     </div>

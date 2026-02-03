@@ -1360,10 +1360,25 @@ Return the corrected answer with concise, user-facing tone.`;
         prompt_preview: typeof text === "string" ? text.slice(0, PREVIEW_MAX) : null,
         response_preview: typeof outText === "string" ? outText.slice(0, PREVIEW_MAX) : null,
       };
-      try {
-        await supabase.from("ai_usage").insert({ ...usagePayload, persona_id, teaching: teachingFlag });
-      } catch {
-        await supabase.from("ai_usage").insert(usagePayload);
+      const minimalPayload = {
+        user_id: userId,
+        thread_id: tid,
+        model: actualModel,
+        input_tokens: it,
+        output_tokens: ot,
+        cost_usd: cost,
+      };
+      let inserted = false;
+      const withExtras = { ...usagePayload, persona_id, teaching: teachingFlag };
+      const { error: e1 } = await supabase.from("ai_usage").insert(withExtras);
+      if (!e1) inserted = true;
+      if (!inserted) {
+        const { error: e2 } = await supabase.from("ai_usage").insert(usagePayload);
+        if (!e2) inserted = true;
+      }
+      if (!inserted) {
+        const { error: e3 } = await supabase.from("ai_usage").insert(minimalPayload);
+        if (e3 && DEV) console.warn("[ai_usage] insert fallback failed:", e3.message);
       }
     } catch {}
 
