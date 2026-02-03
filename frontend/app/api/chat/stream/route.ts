@@ -5,6 +5,7 @@ import type { SfCard } from "@/lib/deck/inference";
 import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 
@@ -177,6 +178,21 @@ export async function POST(req: NextRequest) {
     }
 
     const modelTierRes = getModelForTier({ isGuest, userId, isPro });
+    const promptRequestId = generatePromptRequestId();
+
+    // Guardrail: chat/completions only accepts chat-capable models
+    let effectiveModel = modelTierRes.model;
+    if (!isChatCompletionsModel(effectiveModel)) {
+      console.warn(JSON.stringify({
+        tag: "model_rejected_chat",
+        requestId: promptRequestId,
+        route: "/api/chat/stream",
+        tier: modelTierRes.tier,
+        model: effectiveModel,
+        replacement: modelTierRes.fallbackModel,
+      }));
+      effectiveModel = modelTierRes.fallbackModel;
+    }
 
     // Save user message to database FIRST (if thread exists and user is logged in)
     // This ensures it's in the DB when we fetch messages for RAG
@@ -237,7 +253,6 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    const promptRequestId = generatePromptRequestId();
     const promptResult = await buildSystemPromptForRequest({
       kind: "chat",
       formatKey,
@@ -260,7 +275,7 @@ export async function POST(req: NextRequest) {
         modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
         promptVersionId: promptResult.promptVersionId ?? null,
         tier: modelTierRes.tier,
-        model: modelTierRes.model,
+        model: effectiveModel,
         route: "/api/chat/stream",
         ...(promptResult.error && { compose_failed: true, error_name: promptResult.error.name, error_message: promptResult.error.message }),
       }));
@@ -274,7 +289,7 @@ export async function POST(req: NextRequest) {
             modules_attached_count: promptResult.modulesAttached?.length ?? 0,
             prompt_version_id: promptResult.promptVersionId ?? null,
             tier: modelTierRes.tier,
-            model: modelTierRes.model,
+            model: effectiveModel,
             route: "/api/chat/stream",
             request_id: promptRequestId,
           });
@@ -369,7 +384,7 @@ export async function POST(req: NextRequest) {
     const tokenLimit = MAX_TOKENS_STREAM;
     
     const openAIBody = prepareOpenAIBody({
-      model: modelTierRes.model,
+      model: effectiveModel,
       messages,
       stream: true,
       max_completion_tokens: tokenLimit
@@ -411,9 +426,9 @@ export async function POST(req: NextRequest) {
             const errorText = await openAIResponse.text();
             console.log(`[stream] OpenAI API error ${openAIResponse.status}:`, errorText);
             
-            // Try fallback model if primary model fails
-            const isGPT5Primary = modelTierRes.model.toLowerCase().includes('gpt-5');
-            if (isGPT5Primary) {
+            // Try fallback model if primary model fails (effectiveModel is always chat-capable)
+            const tryFallback = effectiveModel !== modelTierRes.fallbackModel;
+            if (tryFallback) {
               const fallbackBody = prepareOpenAIBody({
                 model: modelTierRes.fallbackModel,
                 messages,
@@ -510,7 +525,7 @@ export async function POST(req: NextRequest) {
                 console.log("[stream] regeneration (needsRegeneration) triggered");
                 try {
                   const repairBody = prepareOpenAIBody({
-                    model: modelTierRes.model,
+                    model: effectiveModel,
                     messages: [
                       { role: "system", content: sys + "\n\n" + REPAIR_SYSTEM_MESSAGE },
                       { role: "user", content: text },

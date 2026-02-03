@@ -9,6 +9,7 @@ import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { deduplicatedFetch } from "@/lib/api/deduplicator";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 
@@ -166,6 +167,18 @@ async function callOpenAI(
     isPro: isPro ?? false,
   });
 
+  let effectiveModel = tierRes.model;
+  if (!isChatCompletionsModel(effectiveModel)) {
+    console.warn(JSON.stringify({
+      tag: "model_rejected_chat",
+      route: "/api/chat",
+      tier: tierRes.tier,
+      model: effectiveModel,
+      replacement: tierRes.fallbackModel,
+    }));
+    effectiveModel = tierRes.fallbackModel;
+  }
+
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
 
@@ -182,7 +195,7 @@ async function callOpenAI(
       {
         route: '/api/chat',
         feature: 'chat',
-        model: tierRes.model,
+        model: effectiveModel,
         fallbackModel: tierRes.fallbackModel,
         timeout: 30000,
         maxTokens,
@@ -217,7 +230,7 @@ async function callOpenAI(
       json: { error: { message: error?.message || 'OpenAI API call failed' } },
       status: 500,
       fallback: true,
-      actualModel: tierRes.model,
+      actualModel: effectiveModel,
     };
   }
 }
@@ -1330,6 +1343,7 @@ Return the corrected answer with concise, user-facing tone.`;
       // Use the model that was actually used (gpt-5 for complex analysis, gpt-4o-mini for simple queries)
       const actualModel = out1?.actualModel ?? getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false }).model;
       const cost = costUSD(actualModel, it, ot);
+      const PREVIEW_MAX = 1000;
       const usagePayload: Record<string, unknown> = {
         user_id: userId,
         thread_id: tid,
@@ -1342,6 +1356,9 @@ Return the corrected answer with concise, user-facing tone.`;
         modules_attached_count: promptResult.modulesAttached?.length ?? null,
         format_key: promptResult.formatKey ?? null,
         model_tier: chatTierRes.tier,
+        route: "chat",
+        prompt_preview: typeof text === "string" ? text.slice(0, PREVIEW_MAX) : null,
+        response_preview: typeof outText === "string" ? outText.slice(0, PREVIEW_MAX) : null,
       };
       try {
         await supabase.from("ai_usage").insert({ ...usagePayload, persona_id, teaching: teachingFlag });

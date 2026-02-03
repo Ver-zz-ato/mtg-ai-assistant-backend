@@ -210,15 +210,16 @@ export async function callLLM(
     // - 400 with bad payload (bug - will repeat)
     // - 422 validation errors (will repeat)
     // - "context_length_exceeded" (fallback often has smaller context)
-    const shouldFallback = 
-      status >= 400 && 
-      status < 500 && 
-      status !== 401 && 
+    const shouldFallback =
+      status >= 400 &&
+      status < 500 &&
+      status !== 401 &&
       status !== 403 &&
       (
         /model.*not found|model.*unavailable|model.*does not exist|model.*invalid/.test(errorMessage) ||
+        /not a chat model|not supported.*chat\.completions/.test(errorMessage) ||
         /unsupported.*parameter|parameter.*not supported|invalid.*parameter/.test(errorMessage) ||
-        (errorType === 'invalid_request_error' && /model|parameter/.test(errorMessage))
+        (errorType === "invalid_request_error" && /model|parameter/.test(errorMessage))
       ) &&
       !/context.*length|context.*exceeded|token.*limit.*exceeded/.test(errorMessage);
 
@@ -246,6 +247,17 @@ export async function callLLM(
   const latency = Date.now() - startTime;
   const tokens = extractTokens(attempt.json);
   const text = extractText(attempt.json);
+
+  if (attempt.ok && !text) {
+    console.error("[callLLM] 200 but no text — check response shape", {
+      route: config.route,
+      feature: config.feature,
+      model: actualModel,
+      apiType: config.apiType,
+      hasChoices: !!attempt.json?.choices,
+      hasOutputText: "output_text" in (attempt.json || {}),
+    });
+  }
 
   // Log the call
   await logAICall({

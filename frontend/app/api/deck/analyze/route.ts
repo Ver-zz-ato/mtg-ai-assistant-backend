@@ -476,14 +476,25 @@ async function callOpenAI(
     useCase: 'deck_analysis',
   });
 
+  const { getPreferredApiSurface } = await import('@/lib/ai/modelCapabilities');
+  const apiSurface = getPreferredApiSurface(tierRes.model);
+  const apiType = apiSurface === 'responses' ? 'responses' : 'chat';
+
+  const messages = apiType === 'responses'
+    ? [
+        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+      ]
+    : [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
 
     const response = await callLLM(
-      [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
-      ],
+      messages as any,
       {
         route: '/api/deck/analyze',
         feature: 'deck_analyze',
@@ -491,7 +502,7 @@ async function callOpenAI(
         fallbackModel: tierRes.fallbackModel,
         timeout: 300000,
         maxTokens,
-        apiType: 'responses',
+        apiType,
         userId: opts.userId || null,
         isPro: opts.isPro || false,
       }

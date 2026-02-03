@@ -43,6 +43,17 @@ export async function GET(req: NextRequest) {
 
     const rows = Array.isArray(data) ? data as any[] : [];
 
+    // Last 3 days cost (separate query so it's accurate regardless of limit)
+    let last3DaysCost = 0;
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentRows } = await supabase
+      .from("ai_usage")
+      .select("cost_usd")
+      .gte("created_at", threeDaysAgo);
+    if (Array.isArray(recentRows)) {
+      last3DaysCost = recentRows.reduce((sum: number, r: any) => sum + (Number(r.cost_usd) || 0), 0);
+    }
+
     const totals = { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
     const by_model = new Map<string, typeof totals>();
     const by_day = new Map<string, { messages: number; cost_usd: number }>();
@@ -80,6 +91,7 @@ export async function GET(req: NextRequest) {
       window_days: days,
       limit,
       filters: { userId: userId || null, threadId: threadId || null },
+      recent_days_cost: { last_3_days: toFixed(last3DaysCost) },
       totals: { ...totals, cost_usd: toFixed(totals.cost_usd) },
       by_model: Array.from(by_model.entries()).map(([model, t]) => ({ model, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>b.cost_usd-a.cost_usd),
       by_day: Array.from(by_day.entries()).map(([date, t]) => ({ date, ...t, cost_usd: toFixed(t.cost_usd) })).sort((a,b)=>a.date.localeCompare(b.date)),

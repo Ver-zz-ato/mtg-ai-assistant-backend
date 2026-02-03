@@ -122,6 +122,8 @@ function SnapshotRows(){
   );
 }
 
+type Tab = "summary" | "requests";
+
 export default function AdminAIUsagePage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -131,6 +133,11 @@ export default function AdminAIUsagePage() {
   const [data, setData] = React.useState<any | null>(null);
   const [modelFilter, setModelFilter] = React.useState<string>("");
   const [building, setBuilding] = React.useState<boolean>(false);
+  const [tab, setTab] = React.useState<Tab>("summary");
+  const [requests, setRequests] = React.useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = React.useState(false);
+  const [requestDays, setRequestDays] = React.useState(7);
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -153,6 +160,28 @@ export default function AdminAIUsagePage() {
 
   React.useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
+  async function loadRequests(offset = 0) {
+    setRequestsLoading(true);
+    try {
+      const qs = new URLSearchParams({ days: String(requestDays), limit: "500", offset: String(offset) });
+      if (userId.trim()) qs.set("userId", userId.trim());
+      if (threadId.trim()) qs.set("threadId", threadId.trim());
+      if (modelFilter) qs.set("model", modelFilter);
+      const res = await fetch(`/api/admin/ai-usage/requests?${qs.toString()}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || "Failed to load requests");
+      setRequests(j.requests || []);
+    } catch (e: any) {
+      setRequests([]);
+    } finally {
+      setRequestsLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (tab === "requests") loadRequests();
+  }, [tab, requestDays, userId, threadId, modelFilter]);
+
   const exportCsv = (rows: any[], headers: string[], rowMap: (r:any)=>any[]) => {
     const lines = [headers, ...rows.map(rowMap)];
     const csv = lines.map(r => r.map(v => '"'+String(v ?? '').replace(/"/g,'""')+'"').join(',')).join('\r\n');
@@ -167,13 +196,14 @@ export default function AdminAIUsagePage() {
     <div className="max-w-5xl mx-auto p-4 space-y-4">
       <h1 className="text-xl font-semibold">Admin • AI Usage</h1>
       <ELI5 heading="AI Usage & Cost Monitoring" items={[
-        '💸 Cost Tracking: See total AI API spend per user, per model, per day',
+        '💸 Cost Tracking: See total AI API spend and last-3-days spend at a glance',
+        '📋 Request Log: Per-request detail — model, cost, tokens, input/output preview (Summary vs Request log tabs)',
         '📊 Token Usage: Monitor input/output tokens to understand what\'s expensive',
-        '🤖 Model Breakdown: Which AI models cost the most (GPT-4, Claude, etc.)',
-        '👤 User Analysis: Find power users or cost outliers - click a user to filter',
+        '🤖 Model Breakdown: Which AI models cost the most (GPT-4o, GPT-4o-mini, etc.)',
+        '👤 User Analysis: Find power users or cost outliers — click a user to filter',
         '📉 Price Snapshot Status: Check if daily price caching is working',
-        '📥 Export CSVs: Download data for external analysis',
-        '⏱️ When to use: Weekly/monthly budget reviews, investigating cost spikes',
+        '📥 Export CSVs: Download summary or full request log (with prompt/response preview)',
+        '⏱️ When to use: Weekly/monthly budget reviews, investigating cost spikes (e.g. high spend in a few days)',
         '🔄 How often: Monthly for budget planning, daily if costs are high',
         '💡 Helps decide: Should you rate-limit expensive features or adjust pricing?'
       ]} />
@@ -241,6 +271,29 @@ export default function AdminAIUsagePage() {
       {loading && (<div className="text-sm opacity-70">Loading…</div>)}
       {error && (<div className="text-sm text-red-400">{error}</div>)}
 
+      {data?.recent_days_cost != null && (
+        <div className="rounded border border-amber-900/60 bg-amber-950/30 p-3 border-l-4 border-l-amber-500">
+          <div className="font-medium text-amber-200">Last 3 days spend</div>
+          <div className="text-2xl font-mono text-amber-100">${data.recent_days_cost.last_3_days}</div>
+          <div className="text-xs opacity-80 mt-1">Use the Request log tab to see per-request detail (input, output, model, cost).</div>
+        </div>
+      )}
+
+      <div className="flex gap-2 border-b border-neutral-800 pb-2">
+        <button
+          onClick={() => setTab("summary")}
+          className={`px-3 py-1.5 rounded-t text-sm ${tab === "summary" ? "bg-neutral-700 text-white" : "bg-neutral-800/50 text-neutral-400 hover:text-white"}`}
+        >
+          Summary
+        </button>
+        <button
+          onClick={() => setTab("requests")}
+          className={`px-3 py-1.5 rounded-t text-sm ${tab === "requests" ? "bg-neutral-700 text-white" : "bg-neutral-800/50 text-neutral-400 hover:text-white"}`}
+        >
+          Request log
+        </button>
+      </div>
+
       <div className="rounded border border-neutral-800 p-3 bg-neutral-950/50">
         <div className="font-semibold mb-1">What can I do here?</div>
         <ul className="list-disc pl-5 text-sm space-y-1">
@@ -252,7 +305,89 @@ export default function AdminAIUsagePage() {
         {building && (<div className="mt-2 text-xs opacity-80">Building snapshot…</div>)}
       </div>
 
-      {data && (
+      {tab === "requests" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm flex items-center gap-1">
+              <span className="opacity-70">Days</span>
+              <input type="number" min={1} max={90} value={requestDays} onChange={e => setRequestDays(parseInt(e.target.value || "7", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+            </label>
+            <button onClick={() => loadRequests()} disabled={requestsLoading} className="px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload requests</button>
+            <button
+              onClick={() => {
+                const headers = ["created_at", "user_id", "user_email", "thread_id", "model", "model_tier", "route", "prompt_path", "input_tokens", "output_tokens", "cost_usd", "prompt_preview", "response_preview"];
+                const rowMap = (r: any) => [r.created_at, r.user_id, r.user_email ?? "", r.thread_id, r.model, r.model_tier ?? "", r.route ?? "", r.prompt_path ?? "", r.input_tokens, r.output_tokens, r.cost_usd, (r.prompt_preview ?? "").slice(0, 2000), (r.response_preview ?? "").slice(0, 2000)];
+                const lines = [headers, ...requests.map(rowMap)];
+                const csv = lines.map(row => row.map((v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ai_usage_requests.csv"; a.click();
+              }}
+              className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
+            >
+              Export request log CSV
+            </button>
+          </div>
+          <div className="rounded border border-neutral-800 p-3 overflow-x-auto">
+            <div className="font-medium mb-2">Per-request log (model, cost, input/answer preview)</div>
+            {requestsLoading && <div className="text-sm opacity-70 py-4">Loading…</div>}
+            {!requestsLoading && requests.length === 0 && <div className="text-sm opacity-70 py-4">No requests in range.</div>}
+            {!requestsLoading && requests.length > 0 && (
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-800">
+                    <th className="text-left py-1 pr-2">Time</th>
+                    <th className="text-left py-1 pr-2">User</th>
+                    <th className="text-left py-1 pr-2">Model</th>
+                    <th className="text-left py-1 pr-2">Tier</th>
+                    <th className="text-right py-1 pr-2">Cost</th>
+                    <th className="text-right py-1 pr-2">In / Out</th>
+                    <th className="text-left py-1 pr-2">Prompt path</th>
+                    <th className="text-left py-1 pr-2 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((r: any) => (
+                    <React.Fragment key={r.id}>
+                      <tr className="border-b border-neutral-900 hover:bg-neutral-900/50">
+                        <td className="py-1 pr-2 whitespace-nowrap text-xs">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
+                        <td className="py-1 pr-2 max-w-[120px] truncate" title={r.user_email || r.user_id}>{r.user_email || r.user_display_name || (r.user_id ? String(r.user_id).slice(0, 8) + "…" : "—")}</td>
+                        <td className="py-1 pr-2">{r.model ?? "—"}</td>
+                        <td className="py-1 pr-2">{r.model_tier ?? "—"}</td>
+                        <td className="py-1 pr-2 text-right font-mono">${r.cost_usd}</td>
+                        <td className="py-1 pr-2 text-right">{r.input_tokens} / {r.output_tokens}</td>
+                        <td className="py-1 pr-2 max-w-[180px] truncate text-xs opacity-80">{r.prompt_path ?? "—"}</td>
+                        <td className="py-1 pr-2">
+                          <button type="button" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} className="text-xs text-blue-400 hover:underline">
+                            {expandedId === r.id ? "Hide" : "Details"}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedId === r.id && (r.prompt_preview || r.response_preview) && (
+                        <tr className="border-b border-neutral-900 bg-neutral-900/70">
+                          <td colSpan={8} className="py-2 pr-2 align-top">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <div className="font-medium text-neutral-400 mb-1">Input (preview)</div>
+                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">{r.prompt_preview || "—"}</pre>
+                              </div>
+                              <div>
+                                <div className="font-medium text-neutral-400 mb-1">Output (preview)</div>
+                                <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 border border-neutral-800">{r.response_preview || "—"}</pre>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {data && tab === "summary" && (
         <div className="space-y-6">
           <div className="rounded border border-neutral-800 p-3">
             <div className="font-medium mb-2">Totals (last {data.window_days} days)</div>
