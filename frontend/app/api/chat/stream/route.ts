@@ -392,15 +392,80 @@ export async function POST(req: NextRequest) {
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
 
-    // Create readable stream with OpenAI streaming
+    // Fetch OpenAI *before* creating the stream so we can return a proper JSON error for 429/quota
+    // instead of piping a broken stream (which causes "failed to pipe response" in Sentry).
+    let openAIResponse: Response = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(openAIBody)
+    });
+
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      console.log(`[stream] OpenAI API error ${openAIResponse.status}:`, errorText);
+
+      const isQuota = openAIResponse.status === 429 || /insufficient_quota|rate_limit/i.test(errorText);
+      if (isQuota) {
+        status = 503;
+        return new Response(JSON.stringify({
+          error: { message: "Service temporarily limited. Please try again in a few minutes." }
+        }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      const tryFallback = effectiveModel !== modelTierRes.fallbackModel;
+      if (tryFallback) {
+        const fallbackBody = prepareOpenAIBody({
+          model: modelTierRes.fallbackModel,
+          messages,
+          max_completion_tokens: tokenLimit,
+          stream: true
+        } as Record<string, unknown>);
+        const fallbackResponse = await fetch(OPENAI_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(fallbackBody)
+        });
+        if (fallbackResponse.ok) {
+          openAIResponse = fallbackResponse;
+        } else {
+          const fallbackError = await fallbackResponse.text();
+          console.log(`[stream] Fallback model also failed:`, fallbackError);
+          status = 503;
+          return new Response(JSON.stringify({
+            error: { message: "AI service temporarily unavailable. Please try again in a few minutes." }
+          }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+      } else {
+        status = 503;
+        return new Response(JSON.stringify({
+          error: { message: "AI service temporarily unavailable. Please try again in a few minutes." }
+        }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // Create readable stream that consumes the already-fetched OpenAI response body
     const encoder = new TextEncoder();
     let heartbeatTimer: NodeJS.Timeout | null = null;
     let streamStartTime = Date.now();
     let estimatedTokens = 0;
-    
+
     const stream = new ReadableStream({
       async start(controller) {
-        let openAIResponse: Response | null = null;
         try {
           // Set up heartbeat
           heartbeatTimer = setInterval(() => {
@@ -410,51 +475,6 @@ export async function POST(req: NextRequest) {
               if (heartbeatTimer) clearInterval(heartbeatTimer);
             }
           }, STREAM_HEARTBEAT_MS);
-
-          // Start OpenAI streaming request
-          openAIResponse = await fetch(OPENAI_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(openAIBody)
-          });
-
-          if (!openAIResponse.ok) {
-            // Log the actual error from OpenAI
-            const errorText = await openAIResponse.text();
-            console.log(`[stream] OpenAI API error ${openAIResponse.status}:`, errorText);
-            
-            // Try fallback model if primary model fails (effectiveModel is always chat-capable)
-            const tryFallback = effectiveModel !== modelTierRes.fallbackModel;
-            if (tryFallback) {
-              const fallbackBody = prepareOpenAIBody({
-                model: modelTierRes.fallbackModel,
-                messages,
-                max_completion_tokens: tokenLimit,
-                stream: true
-              } as Record<string, unknown>);
-              
-              const fallbackResponse = await fetch(OPENAI_URL, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(fallbackBody)
-              });
-              
-              if (fallbackResponse.ok) {
-                openAIResponse = fallbackResponse;
-              } else {
-                const fallbackError = await fallbackResponse.text();
-                throw new Error(`Both models failed - primary: ${errorText}, fallback: ${fallbackError}`);
-              }
-            } else {
-              throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`);
-            }
-          }
 
           const reader = openAIResponse.body?.getReader();
           if (!reader) throw new Error("No response stream");

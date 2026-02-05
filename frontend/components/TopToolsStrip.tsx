@@ -7,6 +7,7 @@ import { useProStatus } from "@/hooks/useProStatus";
 
 export default function TopToolsStrip() {
   const [flags, setFlags] = React.useState<any>(null);
+  const [failedImgs, setFailedImgs] = React.useState<Set<number>>(new Set());
   const { user } = useAuth();
   const { isPro } = useProStatus();
   
@@ -41,7 +42,7 @@ export default function TopToolsStrip() {
     { href: "/collections/cost-to-finish", img: "/Cost To Finish.png", alt: "Cost to Finish", tour: "cost-to-finish" },
     { href: "/deck/swap-suggestions", img: "/Budget Swaps.png", alt: "Budget Swaps", tour: "budget-swaps" },
     ...(riskyOn ? [{ href: "/price-tracker", img: "/Price Tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
-    { href: "/tools/mulligan", img: "/Mulligan Simulator.png", alt: "Mulligan Simulator", tour: "mulligan" },
+    { href: "/tools/mulligan", img: "/mulligan-simulator.png", alt: "Mulligan Simulator", tour: "mulligan" },
     { href: "/tools/probability", img: "/Probability Helpers.png", alt: "Probability Helpers", tour: "probability" },
   ];
 
@@ -55,7 +56,21 @@ export default function TopToolsStrip() {
             onClick={() => handleToolClick(tool)}
             className="block rounded-xl overflow-hidden snap-center flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20 hover:ring-2 hover:ring-blue-400/50"
           >
-            <Image src={tool.img} alt={tool.alt} width={400} height={200} className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover transition-transform duration-300" priority />
+            {failedImgs.has(idx) ? (
+              <div className="w-full md:max-h-[170px] max-h-[102px] min-h-[102px] flex items-center justify-center bg-neutral-800 text-neutral-500 text-sm rounded-xl">
+                {tool.alt}
+              </div>
+            ) : (
+              <Image
+                src={tool.img}
+                alt={tool.alt}
+                width={400}
+                height={200}
+                className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover transition-transform duration-300"
+                priority
+                onError={() => setFailedImgs((s) => new Set(s).add(idx))}
+              />
+            )}
           </a>
         ))}
       </div>

@@ -1,6 +1,9 @@
 // app/page.tsx
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import ModeOptions from "../components/ModeOptions";
+
+// Avoid DYNAMIC_SERVER_USAGE: allow request-time data so any downstream use of cookies/headers is valid (e.g. suspense cache, middleware, or transitive deps).
+export const dynamic = "force-dynamic";
 import LeftSidebar from "../components/LeftSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab";
@@ -14,11 +17,11 @@ import HomepageFAQ from "../components/HomepageFAQ";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
-const RightSidebar = dynamic(() => import("../components/RightSidebar"), {
+const RightSidebar = nextDynamic(() => import("../components/RightSidebar"), {
   loading: () => <div className="animate-pulse bg-gray-800 rounded-2xl h-48" />
 });
 
-const MetaDeckPanel = dynamic(() => import("../components/MetaDeckPanel"), {
+const MetaDeckPanel = nextDynamic(() => import("../components/MetaDeckPanel"), {
   loading: () => <div className="animate-pulse bg-purple-900/20 rounded-2xl h-32 border border-purple-800/30" />
 });
 

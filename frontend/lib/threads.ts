@@ -200,13 +200,17 @@ export async function postMessageStream(
         if (json.fallback) {
           throw new Error(json.message || "fallback");
         }
-        throw new Error(json.message || `HTTP ${response.status}`);
+        const message = json?.error?.message ?? json?.message;
+        throw new Error(typeof message === "string" && message.trim() ? message.trim() : `HTTP ${response.status}`);
       } catch (e) {
         if (e instanceof Error && e.message === 'guest_limit_exceeded') {
           throw e;
         }
         if (e instanceof Error && e.message === 'fallback') {
           throw e;
+        }
+        if (e instanceof Error && !e.message.startsWith("HTTP")) {
+          throw e; // rethrow our friendly message
         }
         throw new Error(`HTTP ${response.status}`);
       }
