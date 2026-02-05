@@ -1,7 +1,11 @@
 // lib/deck/analysis-generator.ts
-// Generates full deck analysis text with JSON output mode
+// Generates full deck analysis text with JSON output mode.
+// This is the single LLM call path for full deck analysis; do not add a second LLM call in the same flow.
 
-import { callOpenAI } from "../ai/openai-client";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { getPreferredApiSurface } from "@/lib/ai/modelCapabilities";
+import { callLLM } from "@/lib/ai/unified-llm-client";
+import { MAX_DECK_ANALYZE_OUTPUT_TOKENS, MAX_DECK_ANALYZE_DECK_TEXT_CHARS } from "@/lib/feature-limits";
 import type { InferredDeckContext } from "./inference";
 import type { DeckAnalysisJSON } from "./analysis-validator";
 
@@ -11,9 +15,37 @@ export type AnalysisGenerationOptions = {
   context: InferredDeckContext;
   userMessage?: string;
   commanderProfile?: any;
-  // Note: temperature removed - not supported by this model
   maxTokens?: number;
+  /** Optional: for rate limiting and model selection (guest/free/pro). */
+  userId?: string | null;
+  /** Optional: when true, uses Pro model for deck_analysis. */
+  isPro?: boolean;
+  /** Optional: when set, maxTokens is derived from this (small/medium/large deck). */
+  deckSize?: number;
+  /** Optional: for single-flight guard; only one LLM call per requestId. Do not reuse for slot-planning/candidate calls. */
+  requestId?: string;
 };
+
+/**
+ * Token limit by deck size (same logic as /api/deck/analyze).
+ * Small <60: 800, 60-100: 1200, >100: 1500.
+ */
+function calculateDynamicTokens(deckSize: number): number {
+  if (deckSize < 60) return 800;
+  if (deckSize <= 100) return 1200;
+  return 1500;
+}
+
+/** Single-flight per requestId: map of requestId -> timestamp (at). Pruned by TTL on each call. */
+const analysisFlightByRequestId = new Map<string, number>();
+const ANALYSIS_FLIGHT_TTL_MS = 5 * 60 * 1000;
+
+function pruneAnalysisFlightMap(): void {
+  const now = Date.now();
+  for (const [id, at] of analysisFlightByRequestId.entries()) {
+    if (now - at > ANALYSIS_FLIGHT_TTL_MS) analysisFlightByRequestId.delete(id);
+  }
+}
 
 /**
  * Generates a full deck analysis with both text and JSON output
@@ -23,12 +55,36 @@ export async function generateDeckAnalysis(
 ): Promise<{ text: string; json: DeckAnalysisJSON | null }> {
   const {
     systemPrompt,
-    deckText,
+    deckText: rawDeckText,
     context,
     userMessage,
     commanderProfile,
-    maxTokens = 2000,
+    maxTokens: maxTokensOpt,
+    userId,
+    isPro,
+    deckSize,
+    requestId,
   } = options;
+
+  // Input trim: hard cap on deck list length; add note so model focuses on highest-signal info
+  let deckText = rawDeckText;
+  if (deckText.length > MAX_DECK_ANALYZE_DECK_TEXT_CHARS) {
+    deckText = deckText.slice(0, MAX_DECK_ANALYZE_DECK_TEXT_CHARS) + "\n\n[Deck list truncated for length; focus on highest-signal info.]";
+  }
+
+  let maxTokens = deckSize !== undefined
+    ? calculateDynamicTokens(deckSize)
+    : (maxTokensOpt ?? 2000);
+  maxTokens = Math.min(maxTokens, MAX_DECK_ANALYZE_OUTPUT_TOKENS);
+
+  const tierRes = getModelForTier({
+    isGuest: userId == null || userId === "",
+    userId: userId ?? null,
+    isPro: isPro ?? false,
+    useCase: "deck_analysis",
+  });
+  const apiSurface = getPreferredApiSurface(tierRes.model);
+  const apiType = apiSurface === "responses" ? "responses" : "chat";
 
   // Build user prompt
   const format = context.format || "Commander";
@@ -81,13 +137,46 @@ export async function generateDeckAnalysis(
     "Follow the JSON with your natural language analysis.",
   ].filter(Boolean).join("\n");
 
+  const messages =
+    apiType === "responses"
+      ? [
+          { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+          { role: "user", content: [{ type: "input_text", text: userPrompt }] },
+        ]
+      : [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ];
+
   try {
-    const response = await callOpenAI(systemPrompt, userPrompt, { maxTokens });
-    
+    if (requestId) {
+      pruneAnalysisFlightMap();
+      if (analysisFlightByRequestId.has(requestId)) {
+        throw new Error("[generateDeckAnalysis] Assertion: single LLM call per analysis; double-call detected.");
+      }
+      analysisFlightByRequestId.set(requestId, Date.now());
+    }
+    const response = await callLLM(messages as any, {
+      route: "/api/deck/analyze",
+      feature: "deck_analyze",
+      model: tierRes.model,
+      fallbackModel: tierRes.fallbackModel,
+      timeout: 300000,
+      maxTokens,
+      apiType,
+      userId: userId ?? undefined,
+      isPro: isPro ?? false,
+      promptPreview: (systemPrompt + "\n" + userPrompt).slice(0, 1000),
+      responsePreview: null,
+      deckSize: deckSize ?? undefined,
+    });
+
+    const text = response.text;
+
     // Extract JSON from response
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
     let json: DeckAnalysisJSON | null = null;
-    
+
     if (jsonMatch) {
       try {
         json = JSON.parse(jsonMatch[1]) as DeckAnalysisJSON;
@@ -97,21 +186,22 @@ export async function generateDeckAnalysis(
     }
 
     // Extract text (everything after JSON block, or full response if no JSON)
-    let text = response;
+    let outText = text;
     if (jsonMatch) {
-      const textStart = response.indexOf("```", jsonMatch.index! + jsonMatch[0].length);
+      const textStart = text.indexOf("```", jsonMatch.index! + jsonMatch[0].length);
       if (textStart !== -1) {
-        text = response.substring(textStart + 3).trim();
+        outText = text.substring(textStart + 3).trim();
       } else {
-        // JSON at end, text is everything before
-        text = response.substring(0, jsonMatch.index).trim();
+        outText = text.substring(0, jsonMatch.index).trim();
       }
     }
 
-    return { text, json };
+    return { text: outText, json };
   } catch (error) {
     console.error("[generateDeckAnalysis] Error:", error);
     throw error;
+  } finally {
+    if (requestId) analysisFlightByRequestId.delete(requestId);
   }
 }
 

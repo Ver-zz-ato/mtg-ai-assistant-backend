@@ -27,8 +27,19 @@ export const SWAP_WHY_PRO = 100;
 export const REPRINT_RISK_FREE = 10;
 export const REPRINT_RISK_PRO = 100;
 
+/** Suggestion why (explain recommended card): rate-limit as if public. Free 20/day, Pro 100/day, unauthenticated 10/day. */
+export const SUGGESTION_WHY_GUEST = 10;
+export const SUGGESTION_WHY_FREE = 20;
+export const SUGGESTION_WHY_PRO = 100;
+
 /** Deck Compare AI: Pro-only, 20/day. */
 export const DECK_COMPARE_PRO = 20;
+
+/** Deck analyze: max output tokens (ceiling regardless of deck size). */
+export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 1500;
+
+/** Deck analyze: hard cap on deck list character length; over this we truncate and add a note. */
+export const MAX_DECK_ANALYZE_DECK_TEXT_CHARS = 30_000;
 
 /** Mulligan Simulator: free 5/day, Pro 50/day. */
 export const MULLIGAN_FREE = 5;

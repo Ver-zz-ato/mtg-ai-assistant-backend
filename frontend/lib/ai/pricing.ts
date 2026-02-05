@@ -1,3 +1,6 @@
+/** Date-based version; bump when the pricing table changes so historical ai_usage rows stay interpretable. */
+export const PRICING_VERSION = "2026-02-05";
+
 export function costUSD(model: string, inputTokens: number, outputTokens: number): number {
   const key = (model || "").toLowerCase();
   // Default rough prices per 1K tokens if model is unknown

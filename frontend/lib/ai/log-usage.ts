@@ -5,7 +5,7 @@
  */
 
 import { getServerSupabase } from '@/lib/server-supabase';
-import { costUSD } from '@/lib/ai/pricing';
+import { costUSD, PRICING_VERSION } from '@/lib/ai/pricing';
 
 const PREVIEW_MAX = 1000;
 const DEV = process.env.NODE_ENV !== 'production';
@@ -23,6 +23,7 @@ export type RecordAiUsagePayload = {
   model_tier?: string | null;
   prompt_path?: string | null;
   format_key?: string | null;
+  deck_size?: number | null;
 };
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
@@ -40,11 +41,13 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       output_tokens: payload.output_tokens,
       cost_usd: cost,
       route: payload.route,
+      pricing_version: PRICING_VERSION,
       prompt_preview: payload.prompt_preview != null ? String(payload.prompt_preview).slice(0, PREVIEW_MAX) : null,
       response_preview: payload.response_preview != null ? String(payload.response_preview).slice(0, PREVIEW_MAX) : null,
       model_tier: payload.model_tier ?? null,
       prompt_path: payload.prompt_path ?? null,
       format_key: payload.format_key ?? null,
+      deck_size: payload.deck_size != null ? payload.deck_size : null,
     };
 
     const withoutPreviews = {
@@ -55,9 +58,11 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       output_tokens: full.output_tokens,
       cost_usd: full.cost_usd,
       route: full.route,
+      pricing_version: full.pricing_version,
       model_tier: full.model_tier,
       prompt_path: full.prompt_path,
       format_key: full.format_key,
+      deck_size: full.deck_size,
     };
 
     const minimal = {
@@ -75,6 +80,11 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
     if (!inserted) {
       const { error: e2 } = await supabase.from('ai_usage').insert(withoutPreviews);
       if (!e2) inserted = true;
+    }
+    if (!inserted) {
+      const { deck_size: _d, ...withoutDeckSize } = withoutPreviews as Record<string, unknown> & { deck_size?: number };
+      const { error: e2b } = await supabase.from('ai_usage').insert(withoutDeckSize);
+      if (!e2b) inserted = true;
     }
     if (!inserted) {
       const { error: e3 } = await supabase.from('ai_usage').insert(minimal);

@@ -1339,7 +1339,7 @@ Return the corrected answer with concise, user-facing tone.`;
         const approx = Math.ceil((text?.length || 0) / 4);
         it = approx; ot = Math.ceil((outText?.length || 0) / 4);
       }
-      const { costUSD } = await import("@/lib/ai/pricing");
+      const { costUSD, PRICING_VERSION } = await import("@/lib/ai/pricing");
       // Use the model that was actually used (gpt-5 for complex analysis, gpt-4o-mini for simple queries)
       const actualModel = out1?.actualModel ?? getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false }).model;
       const cost = costUSD(actualModel, it, ot);
@@ -1351,6 +1351,7 @@ Return the corrected answer with concise, user-facing tone.`;
         input_tokens: it,
         output_tokens: ot,
         cost_usd: cost,
+        pricing_version: PRICING_VERSION,
         prompt_path: promptResult.promptPath,
         prompt_version_id: promptResult.promptVersionId ?? null,
         modules_attached_count: promptResult.modulesAttached?.length ?? null,

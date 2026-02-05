@@ -33,6 +33,7 @@ export type LLMConfig = {
   modelTier?: string | null; // e.g. 'pro', 'free'
   promptPath?: string | null;
   formatKey?: string | null;
+  deckSize?: number | null;  // For ai_usage.deck_size (deck analyze flows)
 };
 
 export type LLMResponse = {
@@ -218,11 +219,13 @@ export async function callLLM(
     // - 400 with bad payload (bug - will repeat)
     // - 422 validation errors (will repeat)
     // - "context_length_exceeded" (fallback often has smaller context)
+    // - 429 rate limit: do not fallback (would amplify traffic under rate limiting)
     const shouldFallback =
       status >= 400 &&
       status < 500 &&
       status !== 401 &&
       status !== 403 &&
+      status !== 429 &&
       (
         /model.*not found|model.*unavailable|model.*does not exist|model.*invalid/.test(errorMessage) ||
         /not a chat model|not supported.*chat\.completions/.test(errorMessage) ||
@@ -336,6 +339,7 @@ export async function callLLM(
     model_tier: config.modelTier ?? null,
     prompt_path: config.promptPath ?? null,
     format_key: config.formatKey ?? null,
+    deck_size: config.deckSize ?? null,
   }).catch(() => {});
 
   return {

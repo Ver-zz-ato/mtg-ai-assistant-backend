@@ -26,6 +26,13 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { DECK_ANALYZE_FREE, DECK_ANALYZE_GUEST, DECK_ANALYZE_PRO } from "@/lib/feature-limits";
 
+/** Slot planning: JSON-only output, 3–6 slots. Cap so this stage stays cheap. */
+const MAX_SLOT_PLANNING_TOKENS = 800;
+/** Slot candidates: JSON-only, short candidate list with reasons. */
+const MAX_SLOT_CANDIDATES_TOKENS = 500;
+
+export type DeckAnalyzeLLMByFeature = { validated: number; slot_planning: number; slot_candidates: number };
+
 type RoleBaselineEntry = {
   min?: number;
   recommended?: number;
@@ -463,11 +470,28 @@ export function calculateDynamicTokens(deckSize: number): number {
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
-  opts: { maxTokens?: number; deckSize?: number; userId?: string | null; isPro?: boolean } = {}
+  opts: {
+    maxTokens?: number;
+    deckSize?: number;
+    userId?: string | null;
+    isPro?: boolean;
+    /** Feature for ai_usage attribution: deck_analyze | deck_analyze_slot_planning | deck_analyze_slot_candidates */
+    feature?: string;
+    /** If provided, increment the appropriate key after the LLM call */
+    llmCallCounter?: DeckAnalyzeLLMByFeature;
+  } = {}
 ): Promise<string> {
-  const maxTokens = opts.deckSize !== undefined
-    ? calculateDynamicTokens(opts.deckSize)
-    : (opts.maxTokens || 400);
+  const feature = opts.feature ?? "deck_analyze";
+  let maxTokens: number;
+  if (feature === "deck_analyze_slot_planning") {
+    maxTokens = MAX_SLOT_PLANNING_TOKENS;
+  } else if (feature === "deck_analyze_slot_candidates") {
+    maxTokens = MAX_SLOT_CANDIDATES_TOKENS;
+  } else {
+    maxTokens = opts.deckSize !== undefined
+      ? calculateDynamicTokens(opts.deckSize)
+      : (opts.maxTokens || 400);
+  }
 
   const tierRes = getModelForTier({
     isGuest: !opts.userId,
@@ -497,7 +521,7 @@ async function callOpenAI(
       messages as any,
       {
         route: '/api/deck/analyze',
-        feature: 'deck_analyze',
+        feature,
         model: tierRes.model,
         fallbackModel: tierRes.fallbackModel,
         timeout: 300000,
@@ -507,9 +531,14 @@ async function callOpenAI(
         isPro: opts.isPro || false,
         promptPreview: (systemPrompt + '\n' + userPrompt).slice(0, 1000),
         responsePreview: null,
+        deckSize: opts.deckSize ?? undefined,
       }
     );
 
+    if (opts.llmCallCounter) {
+      if (feature === "deck_analyze_slot_planning") opts.llmCallCounter.slot_planning += 1;
+      else if (feature === "deck_analyze_slot_candidates") opts.llmCallCounter.slot_candidates += 1;
+    }
     return response.text;
   } catch (error: any) {
     throw new Error(error?.message || 'OpenAI API call failed');
@@ -532,7 +561,8 @@ async function planSuggestionSlots(
   context: InferredDeckContext,
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
-  isPro?: boolean
+  isPro?: boolean,
+  llmCallCounter?: DeckAnalyzeLLMByFeature
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
@@ -583,9 +613,14 @@ async function planSuggestionSlots(
   ].filter(Boolean).join("\n");
 
   try {
-    // Calculate deck size from deckText for dynamic token allocation
     const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
-    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
+    const raw = await callOpenAI(systemPrompt, userPrompt, {
+      userId,
+      isPro,
+      feature: "deck_analyze_slot_planning",
+      llmCallCounter,
+      deckSize,
+    });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
     return slots.slice(0, 8).map((slot: any) => ({
@@ -610,7 +645,8 @@ async function fetchSlotCandidates(
   mode: "normal" | "strict" = "normal",
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
-  isPro?: boolean
+  isPro?: boolean,
+  llmCallCounter?: DeckAnalyzeLLMByFeature
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
@@ -665,9 +701,14 @@ async function fetchSlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    // Calculate deck size from deckText for dynamic token allocation
     const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
-    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
+    const raw = await callOpenAI(systemPrompt, userPrompt, {
+      userId,
+      isPro,
+      feature: "deck_analyze_slot_candidates",
+      llmCallCounter,
+      deckSize,
+    });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -687,7 +728,8 @@ async function retrySlotCandidates(
   mode: "normal" | "strict" = "normal",
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
-  isPro?: boolean
+  isPro?: boolean,
+  llmCallCounter?: DeckAnalyzeLLMByFeature
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
   const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
@@ -734,9 +776,14 @@ async function retrySlotCandidates(
   ].filter(Boolean).join("\n");
 
   try {
-    // Calculate deck size from deckText for dynamic token allocation
     const deckSize = deckText.split(/\r?\n/).filter((l: string) => l.trim().length > 0).length;
-    const raw = await callOpenAI(systemPrompt, userPrompt, { deckSize, userId, isPro });
+    const raw = await callOpenAI(systemPrompt, userPrompt, {
+      userId,
+      isPro,
+      feature: "deck_analyze_slot_candidates",
+      llmCallCounter,
+      deckSize,
+    });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     return items.slice(0, mode === "strict" ? 6 : 5).map((item: any) => ({
@@ -759,7 +806,8 @@ async function validateSlots(
   strict: boolean,
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
-  isPro?: boolean
+  isPro?: boolean,
+  llmCallCounter?: DeckAnalyzeLLMByFeature
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -774,7 +822,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -853,7 +901,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter);
       await attempt(retry, "retry");
     }
   }
@@ -1597,6 +1645,8 @@ export async function POST(req: Request) {
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
 
   const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: 'deck_analysis' });
+  const deckAnalyzeLLMByFeature: DeckAnalyzeLLMByFeature = { validated: 0, slot_planning: 0, slot_candidates: 0 };
+  let deckAnalyzeRequestId: string | undefined;
   let promptLogged = false;
   if (!promptLogged) {
     promptLogged = true;
@@ -1632,8 +1682,8 @@ export async function POST(req: Request) {
   }
 
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1646,7 +1696,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1683,19 +1733,18 @@ export async function POST(req: Request) {
   if (useGPT && deckAnalysisSystemPrompt) {
     try {
       const { generateValidatedDeckAnalysis } = await import("@/lib/deck/analysis-with-validation");
-
-      // Calculate dynamic token limit based on deck size
+      deckAnalyzeRequestId = crypto.randomUUID();
       const deckSize = entries.length;
-      const dynamicMaxTokens = calculateDynamicTokens(deckSize);
-      
       const analysisOptions = {
         systemPrompt: deckAnalysisSystemPrompt,
         deckText,
         context,
         userMessage: body.userMessage,
         commanderProfile,
-        // Dynamic token allocation based on deck size
-        maxTokens: dynamicMaxTokens,
+        deckSize,
+        userId: user?.id ?? null,
+        isPro: isPro ?? false,
+        requestId: deckAnalyzeRequestId,
       };
 
       const validationContext = {
@@ -1706,6 +1755,7 @@ export async function POST(req: Request) {
       };
 
       const analysisResult = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
+      deckAnalyzeLLMByFeature.validated += 1;
       let analysisText = analysisResult.text;
       if (entries.length > 0 && analysisText) {
         try {
@@ -1754,6 +1804,16 @@ export async function POST(req: Request) {
       console.error("[deck/analyze] Failed to generate validated analysis:", error);
       // Don't fail the request if analysis generation fails - return suggestions anyway
     }
+  }
+
+  const totalLLMCalls = deckAnalyzeLLMByFeature.validated + deckAnalyzeLLMByFeature.slot_planning + deckAnalyzeLLMByFeature.slot_candidates;
+  if (totalLLMCalls > 0) {
+    console.log(JSON.stringify({
+      tag: "deck_analyze_llm_calls",
+      requestId: deckAnalyzeRequestId,
+      byFeature: deckAnalyzeLLMByFeature,
+      totalCalls: totalLLMCalls,
+    }));
   }
 
   return new Response(
