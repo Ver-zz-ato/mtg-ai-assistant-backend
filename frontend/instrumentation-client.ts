@@ -30,9 +30,15 @@ Sentry.init({
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
 
-  // Filter out malicious external script errors (not from our codebase)
-  // These are typically injected by browser extensions, adware, or malware
+  // Filter out known SDK/internal noise and malicious external script errors
   beforeSend(event, hint) {
+    // Sentry SDK internal: Replay/tracing may request "performanceMetrics" feature that isn't
+    // registered in some builds or browsers (e.g. DuckDuckGo Mobile). Not an app bug.
+    const errorValue = event.exception?.values?.[0]?.value || '';
+    if (errorValue.includes('feature named') && errorValue.includes('performanceMetrics') && errorValue.includes('was not found')) {
+      return null;
+    }
+
     // Ignore errors from known malicious domains (browser extension/adware injection)
     const maliciousDomains = [
       'sevendata.fun',
@@ -40,7 +46,6 @@ Sentry.init({
     ];
     
     // Build a comprehensive search string from all error-related fields
-    const errorValue = event.exception?.values?.[0]?.value || '';
     const errorType = event.exception?.values?.[0]?.type || '';
     // Access title and message safely (they may not be on the base Event type)
     const eventTitle = (event as any).title || '';
