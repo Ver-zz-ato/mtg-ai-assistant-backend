@@ -312,12 +312,15 @@ export default function AdminAIUsagePage() {
                 <option value="chat">chat</option>
                 <option value="chat_stream">chat_stream</option>
                 <option value="deck_analyze">deck_analyze</option>
+                <option value="deck_analyze_slot_planning">deck_analyze_slot_planning</option>
+                <option value="deck_analyze_slot_candidates">deck_analyze_slot_candidates</option>
                 <option value="swap_why">swap_why</option>
                 <option value="swap_suggestions">swap_suggestions</option>
                 <option value="deck_scan">deck_scan</option>
                 <option value="deck_compare">deck_compare</option>
                 <option value="reprint_risk">reprint_risk</option>
                 <option value="suggestion_why">suggestion_why</option>
+                <option value="debug_ping">debug_ping</option>
               </select>
             </label>
             <button onClick={() => loadRequests()} disabled={requestsLoading} className="px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload requests</button>

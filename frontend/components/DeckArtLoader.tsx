@@ -7,6 +7,10 @@ interface DeckArtLoaderProps {
   commander?: string;
   title?: string;
   deckText?: string;
+  /** When provided, used immediately and no per-deck fetch is made (e.g. from batch-art-for-decks). */
+  initialArt?: string;
+  /** When true, only show initialArt and never run per-deck fetch (used by browse page with batch-art). */
+  batchOnly?: boolean;
   children: (art?: string, loading?: boolean) => React.ReactNode;
 }
 
@@ -61,12 +65,21 @@ function prioritizeCards(names: string[]): string[] {
   return [...nonBasic, ...basic]; // Non-basics first
 }
 
-export default function DeckArtLoader({ deckId, commander, title, deckText, children }: DeckArtLoaderProps) {
-  const [art, setArt] = useState<string | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
+export default function DeckArtLoader({ deckId, commander, title, deckText, initialArt, batchOnly, children }: DeckArtLoaderProps) {
+  const [art, setArt] = useState<string | undefined>(initialArt);
+  const [loading, setLoading] = useState(!initialArt);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (initialArt) {
+      setArt(initialArt);
+      setLoading(false);
+      return;
+    }
+    if (batchOnly) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     const abortController = new AbortController();
 
@@ -177,9 +190,10 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
           extracted.forEach(n => candidates.push(n));
         }
 
-        // STEP 2: Always try deck_cards table if we have deckId
-        // This ensures we get cards for public decks even if commander/title aren't available
-        if (deckId && !cancelled) {
+        // STEP 2: Try deck_cards table only if we don't have enough from deckText (avoids N+1 on browse)
+        // When deckText is provided (e.g. from /api/decks/browse), skip this to avoid 24x GET /api/decks/cards
+        const hasEnoughFromDeckText = candidates.length >= 5;
+        if (deckId && !cancelled && !(deckText && hasEnoughFromDeckText)) {
           try {
             const deckCardsResponse = await fetch(`/api/decks/cards?deckId=${deckId}`, {
               signal: abortController.signal
@@ -270,7 +284,7 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, chil
       cancelled = true;
       abortController.abort();
     };
-  }, [deckId, commander, title, deckText]);
+  }, [deckId, commander, title, deckText, initialArt, batchOnly]);
 
   return <>{children(art, loading)}</>;
 }

@@ -74,6 +74,29 @@ export default function BrowseDecksPage() {
   // Ref for infinite scroll observer
   const observerTarget = React.useRef<HTMLDivElement>(null);
 
+  // Batch art for visible decks (one request instead of N) to avoid many POST /api/cards/batch-images
+  const [artByDeckId, setArtByDeckId] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (decks.length === 0) return;
+    const deckIds = decks.map((d) => d.id);
+    const deckTexts: Record<string, string> = {};
+    for (const d of decks) {
+      if (d.deck_text) deckTexts[d.id] = d.deck_text;
+    }
+    let cancelled = false;
+    fetch('/api/cards/batch-art-for-decks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deckIds, deckTexts }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled && j?.ok && j.art) setArtByDeckId(j.art);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [decks.map((d) => d.id).join(',')]);
+
   useEffect(() => {
     capture('browse_decks_page_view');
   }, []);
@@ -343,6 +366,9 @@ export default function BrowseDecksPage() {
                     deckId={deck.id}
                     commander={deck.commander || undefined}
                     title={deck.title || undefined}
+                    deckText={deck.deck_text ?? undefined}
+                    initialArt={artByDeckId[deck.id]}
+                    batchOnly
                   >
                     {(art, loading) => (
                       art ? (

@@ -11,13 +11,51 @@ function getDeckId(url: string) {
   return sp.get("deckId") || sp.get("deckid") || sp.get("id");
 }
 
+function getDeckIds(url: string): string[] | null {
+  const sp = new URL(url).searchParams;
+  const raw = sp.get("deckIds") ?? sp.get("deck_ids");
+  if (!raw) return null;
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return ids.length > 0 ? ids.slice(0, 50) : null; // cap 50
+}
+
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 export async function GET(req: NextRequest) {
   try {
+    const deckIds = getDeckIds(req.url);
+    if (deckIds && deckIds.length > 0) {
+      // Batch: return cards for multiple decks (e.g. ?deckIds=id1,id2,id3)
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+      const service = serviceKey ? createServiceClient(url, serviceKey, { auth: { persistSession: false } }) : supabase;
+      const { data: decks } = await service.from("decks").select("id, is_public, public, user_id").in("id", deckIds);
+      const allowed = (decks ?? []).filter(
+        (d: any) => d.is_public || d.public || d.user_id === user?.id
+      ).map((d: any) => d.id);
+      if (allowed.length === 0) {
+        return NextResponse.json({ ok: true, decks: {} });
+      }
+      const { data: rows, error } = await service
+        .from("deck_cards")
+        .select("id, deck_id, name, qty, created_at")
+        .in("deck_id", allowed)
+        .order("name", { ascending: true });
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      const byDeck: Record<string, { cards: any[] }> = {};
+      for (const id of allowed) byDeck[id] = { cards: [] };
+      for (const r of rows ?? []) {
+        if (byDeck[r.deck_id]) byDeck[r.deck_id].cards.push(r);
+      }
+      return NextResponse.json({ ok: true, decks: byDeck });
+    }
+
     const deckId = getDeckId(req.url);
     if (!deckId) {
-      return NextResponse.json({ ok: false, error: "deckId required" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "deckId or deckIds required" }, { status: 400 });
     }
     const supabase = await createClient();
     

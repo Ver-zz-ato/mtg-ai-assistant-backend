@@ -501,42 +501,46 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     return out;
   }, [deckCount, collectionCount, usage?.messages, tools?.prob_runs, tools?.prob_saves, tools?.mull_iters_total]);
 
+  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
+
   // Extra analytical badges derived from recent decks: On-Curve 90, Mana Maestro, Combomancer
+  // Deferred and gated so we don't run heavy /api/deck/analyze on every profile load (causes 12s spikes if user navigates away).
   const [extraBadges, setExtraBadges] = useState<Array<{ key:string; label:string; emoji:string; desc:string }>>([]);
   React.useEffect(()=>{
-    (async()=>{
-      try{
-        const picks = recentDecks.slice(0,5);
-        if (!picks.length) { setExtraBadges([]); return; }
-        function comb(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
-        function hyperAtLeast(k:number,K:number,N:number,n:number){ let p=0; for(let i=k;i<=Math.min(n,K);i++){ const a=comb(K,i), b=comb(N-K, n-i), c=comb(N,n); p+= c===0?0:(a*b)/c; } return Math.max(0, Math.min(1,p)); }
-        async function landCount(deckId:string){ const r=await fetch(`/api/deck/analyze`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText: (await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`)).json()).cards.map((c:any)=>`${c.qty} ${c.name}`).join('\n'), format:'Commander', useScryfall:true }) }); const j=await r.json().catch(()=>({})); return { lands:Number(j?.counts?.lands||0), total:Number((await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`)).json()).cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99) }; }
-        async function colorSources(deckId:string){ const jr=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`); const jj=await jr.json().catch(()=>({})); const cards:Array<{name:string;qty:number}>=Array.isArray(jj?.cards)?jj.cards:[]; const sr=await fetch('/api/deck/color-sources',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({cards})}); const sj=await sr.json().catch(()=>({})); const src=sj?.sources||{W:0,U:0,B:0,R:0,G:0}; return src; }
-        async function hasCombo(deckId:string){ const r=await fetch('/api/deck/combos',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckId})}); const j=await r.json().catch(()=>({})); return Array.isArray(j?.present) && j.present.length>0; }
-        let onCurve=false, maestro=false, combo=false;
-        for (const d of picks){
-          try{
-            const { lands, total } = await landCount(d.id);
-            const p4 = hyperAtLeast(4, lands, total||99, 7+3); if (p4>=0.90) onCurve = true;
-          } catch{}
-          try{
-            const src = await colorSources(d.id);
-            const cols = ['W','U','B','R','G'].filter(k=> (src as any)[k]>0);
-            if (cols.length>=1){
-              const counts = cols.map(k=>(src as any)[k]); const N = (await (await fetch(`/api/decks/cards?deckId=${encodeURIComponent(d.id)}`)).json()).cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99; const draws=7+2; const others = Math.max(0, N - counts.reduce((a,b)=>a+b,0)); function prob(){ function c(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; } const bounds = counts.map(cn=>Math.min(cn, draws)); let totalP=0; function loop(i:number, acc:number[], left:number){ if(i===counts.length){ const sx=acc.reduce((a,b)=>a+b,0); if (sx>draws) return; const rest=draws-sx; const top=acc.reduce((accu,x,ii)=>accu*c(counts[ii],x),1)*c(others,rest); const bot=c(N,draws); totalP += bot===0?0:top/bot; return;} const min=1; for(let x=min;x<=Math.min(bounds[i], left); x++) loop(i+1,[...acc,x], left-x); } loop(0,[],draws); return Math.max(0, Math.min(1,totalP)); } const p=prob(); if (p>=0.85) maestro=true; }
-          } catch{}
-          try{ if (await hasCombo(d.id)) combo=true; } catch{}
-        }
-        const extra: any[] = [];
-        if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'📈', desc:'≥90% to hit land drops T1–T4' });
-        if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'💧', desc:'High color odds by T3' });
-        if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'✨', desc:'Includes at least one detected combo' });
-        setExtraBadges(extra);
-      } catch{ setExtraBadges([]); }
-    })();
-  }, [recentDecks.map(d=>d.id).join(',')]);
+    if (tab !== 'profile') return;
+    const ac = new AbortController();
+    const t = setTimeout(()=>{
+      (async()=>{
+        try{
+          const picks = recentDecks.slice(0, 2);
+          if (!picks.length || ac.signal.aborted) { setExtraBadges([]); return; }
+          function comb(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
+          function hyperAtLeast(k:number,K:number,N:number,n:number){ let p=0; for(let i=k;i<=Math.min(n,K);i++){ const a=comb(K,i), b=comb(N-K, n-i), c=comb(N,n); p+= c===0?0:(a*b)/c; } return Math.max(0, Math.min(1,p)); }
+          const opts = { signal: ac.signal };
+          async function landCount(deckId:string){ const cardsRes=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, opts); const cardsJ=await cardsRes.json().catch(()=>({})); const cards=Array.isArray(cardsJ?.cards)?cardsJ.cards:[]; const deckText=cards.map((c:any)=>`${c.qty} ${c.name}`).join('\n'); const r=await fetch(`/api/deck/analyze`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true }), ...opts }); const j=await r.json().catch(()=>({})); return { lands:Number(j?.counts?.lands||0), total: cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99 }; }
+          async function colorSources(deckId:string){ const jr=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, opts); const jj=await jr.json().catch(()=>({})); const cards:Array<{name:string;qty:number}>=Array.isArray(jj?.cards)?jj.cards:[]; const sr=await fetch('/api/deck/color-sources',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({cards}), ...opts}); const sj=await sr.json().catch(()=>({})); const src=sj?.sources||{W:0,U:0,B:0,R:0,G:0}; return src; }
+          async function hasCombo(deckId:string){ const r=await fetch('/api/deck/combos',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckId}), ...opts}); const j=await r.json().catch(()=>({})); return Array.isArray(j?.present) && j.present.length>0; }
+          let onCurve=false, maestro=false, combo=false;
+          for (const d of picks){
+            if (ac.signal.aborted) break;
+            try{ const { lands, total } = await landCount(d.id); const p4 = hyperAtLeast(4, lands, total||99, 7+3); if (p4>=0.90) onCurve = true; } catch{}
+            if (ac.signal.aborted) break;
+            try{ const src = await colorSources(d.id); const cols = ['W','U','B','R','G'].filter(k=> (src as any)[k]>0); if (cols.length>=1){ const counts = cols.map(k=>(src as any)[k]); const jr2=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(d.id)}`, opts); const jj2=await jr2.json().catch(()=>({})); const N = (Array.isArray(jj2?.cards)?jj2.cards:[]).reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99; const draws=7+2; const others = Math.max(0, N - counts.reduce((a,b)=>a+b,0)); function prob(){ function c(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; } const bounds = counts.map(cn=>Math.min(cn, draws)); let totalP=0; function loop(i:number, acc:number[], left:number){ if(i===counts.length){ const sx=acc.reduce((a,b)=>a+b,0); if (sx>draws) return; const rest=draws-sx; const top=acc.reduce((accu,x,ii)=>accu*c(counts[ii],x),1)*c(others,rest); const bot=c(N,draws); totalP += bot===0?0:top/bot; return;} const min=1; for(let x=min;x<=Math.min(bounds[i], left); x++) loop(i+1,[...acc,x], left-x); } loop(0,[],draws); return Math.max(0, Math.min(1,totalP)); } const p=prob(); if (p>=0.85) maestro=true; } } catch{}
+            try{ if (await hasCombo(d.id)) combo=true; } catch{}
+            if (onCurve && maestro && combo) break;
+          }
+          if (ac.signal.aborted) return;
+          const extra: any[] = [];
+          if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'📈', desc:'≥90% to hit land drops T1–T4' });
+          if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'💧', desc:'High color odds by T3' });
+          if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'✨', desc:'Includes at least one detected combo' });
+          setExtraBadges(extra);
+        } catch{ if (!ac.signal.aborted) setExtraBadges([]); }
+      })();
+    }, 1500);
+    return ()=>{ ac.abort(); clearTimeout(t); };
+  }, [tab, recentDecks.map(d=>d.id).join(',')]);
 
-  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
   return (
     <div className="space-y-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Header card with optional signature deck art banner (match public profile) */}
