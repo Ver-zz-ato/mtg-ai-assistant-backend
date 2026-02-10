@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
     const by_route = new Map<string, typeof totals>();
     const by_day = new Map<string, { messages: number; input_tokens: number; output_tokens: number; cost_usd: number }>();
     const by_user = new Map<string, typeof totals>();
+    const distinctUserIds = new Set<string>();
 
     for (const r of rows) {
       const it = Number(r.input_tokens || 0);
@@ -109,6 +110,7 @@ export async function GET(req: NextRequest) {
       bd.messages += 1; bd.input_tokens += it; bd.output_tokens += ot; bd.cost_usd += c;
 
       const uid = String(r.user_id || "");
+      if (uid) distinctUserIds.add(uid);
       if (!by_user.has(uid)) by_user.set(uid, { messages: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
       const bu = by_user.get(uid)!;
       bu.messages += 1; bu.input_tokens += it; bu.output_tokens += ot; bu.cost_usd += c;
@@ -121,6 +123,7 @@ export async function GET(req: NextRequest) {
       window_days: days,
       window_label: windowLabel,
       limit,
+      distinct_users: distinctUserIds.size,
       filters: { userId: userId || null, threadId: threadId || null, from: fromParam || null, to: toParam || null },
       recent_days_cost: { today_usd: toFixed(todayCost), last_3_days: toFixed(last3DaysCost) },
       totals: { ...totals, cost_usd: toFixed(totals.cost_usd) },

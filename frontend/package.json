@@ -10,7 +10,7 @@
     "lint": "eslint",
     "test:e2e": "playwright test",
     "test:canary": "playwright test tests/smoke.spec.ts",
-    "test:unit": "tsx tests/unit/canonicalize.test.ts && tsx tests/unit/openai-params.test.ts",
+    "test:unit": "tsx tests/unit/canonicalize.test.ts && tsx tests/unit/openai-params.test.ts && tsx tests/unit/layer0-gate.test.ts",
     "test:unit:openai": "tsx tests/unit/openai-params.test.ts",
     "test:assistant": "tsx tests/unit/build_assistant.test.ts",
     "seo:check": "node scripts/seo-check.mjs",

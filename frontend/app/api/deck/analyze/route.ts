@@ -1468,8 +1468,19 @@ export async function POST(req: Request) {
     console.error('[deck/analyze] Rate limit check failed:', error);
   }
 
+  // Budget cap: block new API calls if daily/weekly limit exceeded
+  const { allowAIRequest } = await import('@/lib/server/budgetEnforcement');
+  const budgetCheck = await allowAIRequest(supabase);
+  if (!budgetCheck.allow) {
+    return new Response(
+      JSON.stringify({ ok: false, code: 'BUDGET_LIMIT', error: budgetCheck.reason ?? 'AI budget limit reached. Try again later.' }),
+      { status: 429, headers: { "content-type": "application/json" } }
+    );
+  }
+
   const body = (await req.json().catch(() => ({}))) as {
     deckText?: string;
+    deckId?: string;
     format?: "Commander" | "Modern" | "Pioneer";
     plan?: "Budget" | "Optimized";
     colors?: string[];
@@ -1482,6 +1493,44 @@ export async function POST(req: Request) {
   };
 
   let deckText = String(body.deckText || "").trim();
+  if (body.deckId && !deckText) {
+    const { data: deckRow } = await supabase.from("decks").select("deck_text, commander, format, colors").eq("id", body.deckId).maybeSingle();
+    if (deckRow?.deck_text) {
+      deckText = String(deckRow.deck_text).trim();
+    } else {
+      const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", body.deckId).limit(400);
+      if (cards?.length) {
+        deckText = (cards as Array<{ name: string; qty: number }>).map((c) => `${c.qty} ${c.name}`).join("\n");
+      }
+    }
+  }
+
+  // Layer 0: no deck provided → NO_LLM need_more_info (runtime or env LLM_LAYER0=on)
+  const deckRuntimeConfig = await (await import("@/lib/ai/runtime-config")).getRuntimeAIConfig(supabase);
+  if (deckRuntimeConfig.flags.llm_layer0 === true && !deckText.trim()) {
+    const { recordAiUsage } = await import("@/lib/ai/log-usage");
+    await recordAiUsage({
+      user_id: user?.id ?? null,
+      thread_id: null,
+      model: "none",
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      route: "deck_analyze",
+      request_kind: "NO_LLM",
+      layer0_mode: "NO_LLM",
+      layer0_reason: "no_deck",
+    });
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        code: "need_more_info",
+        error: "Please provide a deck (paste decklist or link a deck by deckId) to analyze.",
+      }),
+      { status: 400, headers: { "content-type": "application/json" } }
+    );
+  }
+
   const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
   const useScryfall = Boolean(body.useScryfall ?? true);
   const useGPT = Boolean(body.useGPT ?? true);
@@ -1548,6 +1597,26 @@ export async function POST(req: Request) {
     for (const card of batch.values()) {
       byName.set(card.name.toLowerCase(), card);
     }
+  }
+
+  try {
+    const { deckHash, buildDeckContextSummary } = await import("@/lib/deck/deck-context-summary");
+    const deckId = body.deckId;
+    if (deckId && deckText.trim()) {
+      const hash = deckHash(deckText);
+      const { data: row } = await supabase.from("deck_context_summary").select("summary_json").eq("deck_id", deckId).eq("deck_hash", hash).maybeSingle();
+      if (!row?.summary_json) {
+        const { data: d } = await supabase.from("decks").select("commander, format, colors").eq("id", deckId).maybeSingle();
+        const summary = await buildDeckContextSummary(deckText, {
+          format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? format,
+          commander: d?.commander ?? body.commander ?? null,
+          colors: Array.isArray(d?.colors) ? d.colors : (Array.isArray(body.colors) ? body.colors : []),
+        });
+        await supabase.from("deck_context_summary").upsert({ deck_id: deckId, deck_hash: hash, summary_json: summary }, { onConflict: "deck_id,deck_hash" });
+      }
+    }
+  } catch (e) {
+    console.warn("[deck/analyze] v2 summary upsert failed:", e);
   }
 
   const reqCommander = typeof body.commander === "string" && body.commander.trim() ? body.commander.trim() : null;

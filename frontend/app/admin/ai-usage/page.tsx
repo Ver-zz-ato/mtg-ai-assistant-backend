@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 
 function SnapshotInfo(){
   const [loading, setLoading] = React.useState(true);
@@ -119,7 +120,7 @@ function SnapshotRows(){
   );
 }
 
-type Tab = "summary" | "requests";
+type Tab = "summary" | "requests" | "board";
 
 export default function AdminAIUsagePage() {
   const [loading, setLoading] = React.useState(true);
@@ -130,13 +131,28 @@ export default function AdminAIUsagePage() {
   const [data, setData] = React.useState<any | null>(null);
   const [modelFilter, setModelFilter] = React.useState<string>("");
   const [building, setBuilding] = React.useState<boolean>(false);
-  const [tab, setTab] = React.useState<Tab>("summary");
+  const [tab, setTab] = React.useState<Tab>("board");
   const [requests, setRequests] = React.useState<any[]>([]);
   const [requestsLoading, setRequestsLoading] = React.useState(false);
   const [requestDays, setRequestDays] = React.useState(7);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [requestSort, setRequestSort] = React.useState<"time" | "cost" | "tokens">("cost");
   const [requestRouteFilter, setRequestRouteFilter] = React.useState<string>("");
+
+  // Board: new overview API
+  const [overview, setOverview] = React.useState<any | null>(null);
+  const [overviewLoading, setOverviewLoading] = React.useState(false);
+  const [boardDays, setBoardDays] = React.useState(30);
+  const [topDrivers, setTopDrivers] = React.useState<Record<string, Array<{ id: string; cost_usd: number; requests: number }>>>({});
+  const [usageList, setUsageList] = React.useState<any[]>([]);
+  const [usageListCursor, setUsageListCursor] = React.useState<string | null>(null);
+  const [usageListLoading, setUsageListLoading] = React.useState(false);
+  const [usageDetailId, setUsageDetailId] = React.useState<string | null>(null);
+  const [usageDetail, setUsageDetail] = React.useState<any | null>(null);
+  const [config, setConfig] = React.useState<any | null>(null);
+  const [configLoading, setConfigLoading] = React.useState(false);
+  const [recommendations, setRecommendations] = React.useState<any[]>([]);
+  const [seriesView, setSeriesView] = React.useState<"daily" | "hourly">("daily");
 
   async function load() {
     setLoading(true);
@@ -181,6 +197,81 @@ export default function AdminAIUsagePage() {
   React.useEffect(() => {
     if (tab === "requests") loadRequests();
   }, [tab, requestDays, userId, threadId, modelFilter, requestRouteFilter]);
+
+  async function loadOverview() {
+    setOverviewLoading(true);
+    try {
+      const qs = new URLSearchParams({ days: String(boardDays) });
+      const res = await fetch(`/api/admin/ai/overview?${qs}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({ ok: false }));
+      if (j?.ok) setOverview(j); else setOverview(null);
+    } catch { setOverview(null); } finally { setOverviewLoading(false); }
+  }
+  async function loadTopDrivers() {
+    try {
+      const qs = `days=${boardDays}`;
+      const dims = ["user", "deck", "thread", "error_code"] as const;
+      const out: Record<string, Array<{ id: string; cost_usd: number; requests: number }>> = {};
+      for (const d of dims) {
+        const r = await fetch(`/api/admin/ai/top?${qs}&dimension=${d}`, { cache: "no-store" });
+        const j = await r.json().catch(() => ({}));
+        out[d] = j?.items || [];
+      }
+      setTopDrivers(out);
+    } catch { setTopDrivers({}); }
+  }
+  async function loadUsageList(cursor?: string | null) {
+    setUsageListLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "50", days: String(boardDays) });
+      if (cursor) params.set("next_cursor", cursor);
+      const res = await fetch(`/api/admin/ai/usage/list?${params}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      if (j?.ok) {
+        if (!cursor) setUsageList(j.items || []); else setUsageList((prev) => [...prev, ...(j.items || [])]);
+        setUsageListCursor(j.next_cursor || null);
+      }
+    } catch {} finally { setUsageListLoading(false); }
+  }
+  async function loadUsageDetail(id: string) {
+    setUsageDetailId(id);
+    try {
+      const res = await fetch(`/api/admin/ai/usage/${id}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      setUsageDetail(j?.ok ? j : null);
+    } catch { setUsageDetail(null); }
+  }
+  async function loadConfig() {
+    setConfigLoading(true);
+    try {
+      const res = await fetch("/api/admin/ai/config", { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      setConfig(j?.ok ? j : null);
+    } catch { setConfig(null); } finally { setConfigLoading(false); }
+  }
+  async function loadRecommendations() {
+    try {
+      const res = await fetch(`/api/admin/ai/recommendations?days=${boardDays}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      setRecommendations(j?.ok ? j.recommendations || [] : []);
+    } catch { setRecommendations([]); }
+  }
+
+  React.useEffect(() => {
+    if (tab === "board") {
+      loadOverview();
+      loadTopDrivers();
+      loadUsageList();
+      loadConfig();
+      loadRecommendations();
+    }
+  }, [tab, boardDays]);
+
+  React.useEffect(() => {
+    if (tab !== "board") return;
+    const t = setInterval(loadOverview, 60_000);
+    return () => clearInterval(t);
+  }, [tab, boardDays]);
 
   const exportCsv = (rows: any[], headers: string[], rowMap: (r:any)=>any[]) => {
     const lines = [headers, ...rows.map(rowMap)];
@@ -258,7 +349,7 @@ export default function AdminAIUsagePage() {
             <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-5">
               <div className="text-[11px] uppercase tracking-widest text-neutral-500">Last {data.window_days} days</div>
               <div className="mt-1 text-2xl font-semibold tabular-nums text-white">${data.totals.cost_usd}</div>
-              <div className="mt-0.5 text-xs text-neutral-500">{data.totals.messages} requests</div>
+              <div className="mt-0.5 text-xs text-neutral-500">{data.totals.messages} requests · {data.distinct_users ?? "—"} unique users</div>
             </div>
           </section>
         )}
@@ -277,6 +368,9 @@ export default function AdminAIUsagePage() {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-neutral-800">
+          <button onClick={() => setTab("board")} className={`px-4 py-2 text-sm font-medium rounded-t border border-b-0 transition-colors ${tab === "board" ? "bg-neutral-800 border-neutral-700 text-white" : "border-transparent text-neutral-400 hover:text-white"}`}>
+            Board
+          </button>
           <button onClick={() => setTab("summary")} className={`px-4 py-2 text-sm font-medium rounded-t border border-b-0 transition-colors ${tab === "summary" ? "bg-neutral-800 border-neutral-700 text-white" : "border-transparent text-neutral-400 hover:text-white"}`}>
             Summary
           </button>
@@ -286,6 +380,190 @@ export default function AdminAIUsagePage() {
         </div>
 
         {/* Tab content */}
+      {tab === "board" && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm flex items-center gap-1">
+              <span className="opacity-70">Days</span>
+              <input type="number" min={1} max={90} value={boardDays} onChange={e => setBoardDays(parseInt(e.target.value || "30", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+            </label>
+            <button onClick={() => { loadOverview(); loadTopDrivers(); loadUsageList(); loadRecommendations(); }} disabled={overviewLoading} className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">Refresh</button>
+          </div>
+          {overviewLoading && !overview && <div className="text-sm text-neutral-500">Loading overview…</div>}
+          {overview?.totals && (
+            <>
+              <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-500">Total cost</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums text-white">${overview.totals.total_cost_usd?.toFixed(4) ?? "0"}</div>
+                </div>
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-500">Requests</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums text-white">{overview.totals.total_requests ?? 0}</div>
+                </div>
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-500">Avg cost/req</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums text-white">${overview.totals.avg_cost?.toFixed(4) ?? "0"}</div>
+                </div>
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-500">P95 latency</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums text-white">{overview.totals.p95_latency_ms != null ? `${overview.totals.p95_latency_ms} ms` : "—"}</div>
+                </div>
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-500">Tokens in/out</div>
+                  <div className="mt-1 text-sm font-mono tabular-nums text-white">{overview.totals.total_tokens_in ?? 0} / {overview.totals.total_tokens_out ?? 0}</div>
+                </div>
+              </section>
+              <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-neutral-200">Time series</h2>
+                  <button onClick={() => setSeriesView(s => s === "daily" ? "hourly" : "daily")} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">{seriesView === "daily" ? "Hourly" : "Daily"}</button>
+                </div>
+                <div className="h-64">
+                  {(seriesView === "daily" ? overview.series_daily : overview.series_hourly)?.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={seriesView === "daily" ? overview.series_daily : overview.series_hourly} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                        <XAxis dataKey={seriesView === "daily" ? "date" : "hour"} tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="cost_usd" stroke="#3b82f6" fill="#3b82f6/30" name="Cost USD" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </section>
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+                  <div className="px-4 py-2 border-b border-neutral-800 text-sm font-semibold text-neutral-200">By model</div>
+                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table className="min-w-full text-sm">
+                      <tbody>
+                        {(overview.by_model || []).slice(0, 10).map((m: any) => (
+                          <tr key={m.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => { setModelFilter(m.id); setTab("requests"); }}>
+                            <td className="px-4 py-1.5 font-mono text-xs">{m.id}</td>
+                            <td className="px-4 py-1.5 text-right tabular-nums">{m.requests}</td>
+                            <td className="px-4 py-1.5 text-right font-mono">${m.cost_usd}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+                  <div className="px-4 py-2 border-b border-neutral-800 text-sm font-semibold text-neutral-200">By route</div>
+                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table className="min-w-full text-sm">
+                      <tbody>
+                        {(overview.by_route || []).slice(0, 10).map((r: any) => (
+                          <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => { setRequestRouteFilter(r.id); setTab("requests"); }}>
+                            <td className="px-4 py-1.5 font-mono text-xs">{r.id}</td>
+                            <td className="px-4 py-1.5 text-right tabular-nums">{r.total_requests}</td>
+                            <td className="px-4 py-1.5 text-right font-mono">${r.total_cost_usd}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+                  <div className="px-4 py-2 border-b border-neutral-800 text-sm font-semibold text-neutral-200">By request kind</div>
+                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table className="min-w-full text-sm">
+                      <tbody>
+                        {(overview.by_request_kind || []).slice(0, 10).map((k: any) => (
+                          <tr key={k.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30">
+                            <td className="px-4 py-1.5 font-mono text-xs">{k.id}</td>
+                            <td className="px-4 py-1.5 text-right tabular-nums">{k.requests}</td>
+                            <td className="px-4 py-1.5 text-right font-mono">${k.cost_usd}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+              <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
+                <h2 className="text-sm font-semibold text-neutral-200 mb-3">Top cost drivers</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {["user", "deck", "thread", "error_code"].map(dim => (
+                    <div key={dim}>
+                      <div className="text-xs uppercase text-neutral-500 mb-1">{dim}</div>
+                      <ul className="text-sm space-y-1 max-h-32 overflow-y-auto">
+                        {(topDrivers[dim] || []).slice(0, 5).map((x: any) => (
+                          <li key={x.id} className="flex justify-between font-mono text-xs truncate">
+                            <span className="truncate max-w-[100px]" title={x.id}>{x.id === "null" ? "—" : x.id}</span>
+                            <span>${x.cost_usd}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+          <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+            <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-200">Usage log</h2>
+              <button onClick={() => loadUsageList()} disabled={usageListLoading} className="text-xs px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50">Reload</button>
+            </div>
+            <div className="overflow-x-auto max-h-80 overflow-y-auto">
+              {usageListLoading && usageList.length === 0 && <div className="p-4 text-sm text-neutral-500">Loading…</div>}
+              {!usageListLoading && usageList.length === 0 && <div className="p-4 text-sm text-neutral-500">No rows.</div>}
+              {usageList.length > 0 && (
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
+                  <tbody>
+                    {usageList.map((r: any) => (
+                      <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => loadUsageDetail(r.id)}>
+                        <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
+                        <td className="px-2 py-1">{r.route ?? "—"}</td>
+                        <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
+                        <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
+                        <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {usageListCursor && <button onClick={() => loadUsageList(usageListCursor)} disabled={usageListLoading} className="w-full py-2 text-sm text-neutral-400 hover:text-white border-t border-neutral-800">Load more</button>}
+          </section>
+          {usageDetailId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setUsageDetailId(null)}>
+              <div className="bg-neutral-900 border border-neutral-700 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto p-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-2"><h3 className="font-semibold">Usage detail</h3><button onClick={() => setUsageDetailId(null)} className="text-neutral-400 hover:text-white">×</button></div>
+                {usageDetail?.cost_reasons && <p className="text-sm text-neutral-300 mb-2">{usageDetail.cost_reasons}</p>}
+                {usageDetail?.row && <pre className="text-xs overflow-x-auto bg-neutral-950 p-2 rounded border border-neutral-800 whitespace-pre-wrap">{JSON.stringify(usageDetail.row, null, 2)}</pre>}
+              </div>
+            </div>
+          )}
+          <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
+            <h2 className="text-sm font-semibold text-neutral-200 mb-2">Config switchboard</h2>
+            {configLoading && !config && <div className="text-sm text-neutral-500">Loading config…</div>}
+            {config?.config && (
+              <div className="space-y-2 text-sm">
+                <p className="text-xs text-neutral-500">Flags (apply via POST /api/admin/ai/config with body {"{ updates: { flags: { ... } } }"})</p>
+                <pre className="bg-neutral-950 p-2 rounded border border-neutral-800 text-xs overflow-x-auto">{JSON.stringify(config.config.flags, null, 2)}</pre>
+                {config.last_updated?.length > 0 && <p className="text-xs text-neutral-500">Last updated: {config.last_updated.map((u: any) => `${u.key} by ${u.by}`).join("; ")}</p>}
+              </div>
+            )}
+          </section>
+          <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
+            <h2 className="text-sm font-semibold text-neutral-200 mb-2">Recommendations</h2>
+            {recommendations.length === 0 && <p className="text-sm text-neutral-500">None or load recommendations.</p>}
+            <ul className="space-y-2 text-sm">
+              {recommendations.map((rec: any, i: number) => (
+                <li key={i} className="flex items-start justify-between gap-2">
+                  <span className="text-neutral-300">{rec.text}</span>
+                  {rec.suggested_key && <button type="button" onClick={() => alert("Apply: " + JSON.stringify(rec.suggested_value))} className="text-xs px-2 py-1 rounded bg-blue-800 hover:bg-blue-700 shrink-0">Apply switch</button>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
+
       {tab === "requests" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">

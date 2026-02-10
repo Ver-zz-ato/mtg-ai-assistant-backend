@@ -148,13 +148,24 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   return text;
 }
 
+type CallOpenAIOpts = {
+  deckCardCount?: number;
+  stop?: string[];
+  /** Layer 0 MINI_ONLY: force model and max_tokens, skip dynamic ceiling */
+  forceModel?: string;
+  forceMaxTokens?: number;
+  /** When true, route records one ai_usage row at the end; skip recording in callLLM */
+  skipRecordAiUsage?: boolean;
+};
+
 async function callOpenAI(
   userText: string,
   sys?: string,
   useMidTier: boolean = false,
   userId?: string | null,
   isPro?: boolean,
-  isGuest?: boolean
+  isGuest?: boolean,
+  opts?: CallOpenAIOpts
 ) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -167,8 +178,9 @@ async function callOpenAI(
     isPro: isPro ?? false,
   });
 
-  let effectiveModel = tierRes.model;
-  if (!isChatCompletionsModel(effectiveModel)) {
+  const modelOverride = opts?.forceModel;
+  let effectiveModel = modelOverride ?? tierRes.model;
+  if (!modelOverride && !isChatCompletionsModel(effectiveModel)) {
     console.warn(JSON.stringify({
       tag: "model_rejected_chat",
       route: "/api/chat",
@@ -179,6 +191,13 @@ async function callOpenAI(
     effectiveModel = tierRes.fallbackModel;
   }
 
+  const { getDynamicTokenCeiling, CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
+  const maxTokens = opts?.forceMaxTokens ?? getDynamicTokenCeiling(
+    { isComplex: useMidTier, deckCardCount: opts?.deckCardCount ?? 0 },
+    false
+  );
+  const stop = opts?.stop?.length ? opts.stop : CHAT_STOP_SEQUENCES;
+
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
 
@@ -187,8 +206,6 @@ async function callOpenAI(
       messages.push({ role: "system", content: sys });
     }
     messages.push({ role: "user", content: userText });
-
-    const maxTokens = useMidTier ? 384 : 256;
 
     const response = await callLLM(
       messages,
@@ -199,11 +216,13 @@ async function callOpenAI(
         fallbackModel: tierRes.fallbackModel,
         timeout: 30000,
         maxTokens,
+        stop,
         apiType: 'chat',
         userId: userId || null,
         isPro: isPro || false,
         retryOn429: false,
         retryOn5xx: false,
+        skipRecordAiUsage: opts?.skipRecordAiUsage ?? false,
       }
     );
 
@@ -434,6 +453,7 @@ export async function POST(req: NextRequest) {
     // Task 1 & 3: Fetch conversation history for RAG and decklist extraction
     let threadHistory: Array<{ role: string; content: string }> = [];
     let pastedDecklistContext = '';
+    let pastedDeckTextRaw: string | null = null;
     let pastedDecklistForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: null; deckId?: undefined } | null = null;
     let ragContext = '';
     let deckIdToUse: string | null = null; // Declare here for use later
@@ -482,6 +502,7 @@ export async function POST(req: NextRequest) {
               const isDeck = isDecklist(msg.content);
               
               if (isDeck) {
+                pastedDeckTextRaw = msg.content;
                 // Found a decklist - analyze it
                 const problems = analyzeDecklistFromText(msg.content);
                 // Always include decklist context, even if no problems found
@@ -590,7 +611,140 @@ export async function POST(req: NextRequest) {
         console.warn('[chat] Failed to fetch deck context:', error);
       }
     }
-    
+
+    // Layer 0: deterministic / mini-only gate (runtime or env LLM_LAYER0=on)
+    let layer0Mode: string | null = null;
+    let layer0Reason: string | null = null;
+    let layer0MiniOnly: { model: string; max_tokens: number } | null = null;
+    const hasDeckContextForLayer0 = !!(deckIdToUse && deckText?.trim()) || !!(pastedDeckTextRaw?.trim());
+    const runtimeConfig = await (await import('@/lib/ai/runtime-config')).getRuntimeAIConfig(supabase);
+    const layer0Enabled = runtimeConfig.flags.llm_layer0 === true;
+    if (layer0Enabled) {
+      const { layer0Decide } = await import("@/lib/ai/layer0-gate");
+      const { getFaqAnswer } = await import("@/lib/ai/static-faq");
+      const { checkBudgetStatus } = await import("@/lib/server/budgetEnforcement");
+      const status = await checkBudgetStatus(supabase);
+      const nearBudgetCap = status.daily_usage_pct >= 90;
+      const decision = layer0Decide({
+        text,
+        hasDeckContext: hasDeckContextForLayer0,
+        deckCardCount: null,
+        isAuthenticated: !!userId,
+        route: "chat",
+        nearBudgetCap,
+      });
+      if (decision.mode === "NO_LLM") {
+        let responseText: string;
+        if (decision.handler === "need_more_info") {
+          if (!text.trim()) {
+            responseText = "Please enter your question or paste a decklist.";
+          } else {
+            responseText =
+              "To analyze or improve a deck, please link a deck to this chat or paste your decklist in the message. You can link a deck from the deck selector in the chat header, or paste a list (one card per line, e.g. 1 Sol Ring).";
+          }
+        } else if (decision.handler === "static_faq") {
+          responseText = getFaqAnswer(text) ?? "I don't have a canned answer for that. Try asking in different words or use the full AI.";
+        } else {
+          responseText = "Please enter your question or paste a decklist.";
+        }
+        if (!suppressInsert && !isGuest && tid) {
+          await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: responseText });
+        }
+        const { recordAiUsage } = await import("@/lib/ai/log-usage");
+        await recordAiUsage({
+          user_id: userId ?? null,
+          thread_id: tid ?? null,
+          model: "none",
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: 0,
+          route: "chat",
+          request_kind: "NO_LLM",
+          context_source: "raw_fallback",
+          layer0_mode: "NO_LLM",
+          layer0_reason: decision.reason,
+          is_guest: isGuest,
+          user_tier: isPro ? "pro" : userId ? "free" : "guest",
+        });
+        return ok({ text: responseText, threadId: tid, provider: "layer0" });
+      }
+      if (decision.mode === "MINI_ONLY") {
+        layer0Mode = "MINI_ONLY";
+        layer0Reason = decision.reason;
+        layer0MiniOnly = { model: decision.model, max_tokens: decision.max_tokens };
+      } else {
+        layer0Mode = "FULL_LLM";
+        layer0Reason = decision.reason;
+      }
+    }
+
+    // LLM v2 context (Phase A): summary instead of full decklist. Kill-switch: LLM_V2_CONTEXT=off or runtime forces raw path.
+    let v2Summary: import("@/lib/deck/deck-context-summary").DeckContextSummary | null = null;
+    let contextSource: "linked_db" | "paste_ttl" | "raw_fallback" = "raw_fallback";
+    let summaryTokensEstimate: number | null = null;
+    let deckHashForLog: string | null = null;
+    const v2ContextEnabled = runtimeConfig.flags.llm_v2_context !== false;
+    const v2BuildStart = Date.now();
+    if (v2ContextEnabled) {
+      try {
+        const {
+          deckHash,
+          buildDeckContextSummary,
+          getPasteSummary,
+          setPasteSummary,
+          estimateSummaryTokens,
+        } = await import("@/lib/deck/deck-context-summary");
+        if (deckIdToUse && deckText && deckText.trim()) {
+          const hash = deckHash(deckText);
+          deckHashForLog = hash;
+          const { data: row } = await supabase
+            .from("deck_context_summary")
+            .select("summary_json")
+            .eq("deck_id", deckIdToUse)
+            .eq("deck_hash", hash)
+            .maybeSingle();
+          if (row?.summary_json) {
+            v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
+            contextSource = "linked_db";
+          } else {
+            v2Summary = await buildDeckContextSummary(deckText, {
+              format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+              commander: d?.commander ?? null,
+              colors: Array.isArray(d?.colors) ? d.colors : [],
+            });
+            await supabase.from("deck_context_summary").upsert(
+              { deck_id: deckIdToUse, deck_hash: hash, summary_json: v2Summary },
+              { onConflict: "deck_id,deck_hash" }
+            );
+            contextSource = "linked_db";
+          }
+          summaryTokensEstimate = estimateSummaryTokens(v2Summary);
+        } else if (pastedDeckTextRaw && pastedDeckTextRaw.trim()) {
+          const hash = deckHash(pastedDeckTextRaw);
+          deckHashForLog = hash;
+          const cached = getPasteSummary(hash);
+          if (cached) {
+            v2Summary = cached;
+            contextSource = "paste_ttl";
+          } else {
+            v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, { format: "Commander" });
+            setPasteSummary(hash, v2Summary);
+            contextSource = "paste_ttl";
+          }
+          summaryTokensEstimate = estimateSummaryTokens(v2Summary);
+        }
+        const v2BuildMs = Date.now() - v2BuildStart;
+        if (v2Summary && v2BuildMs > 400) {
+          console.warn(JSON.stringify({ tag: "slow_summary_build", route: "/api/chat", ms: v2BuildMs }));
+          v2Summary = null;
+          contextSource = "raw_fallback";
+          summaryTokensEstimate = null;
+        }
+      } catch (e) {
+        console.warn("[chat] v2 context build failed, falling back to raw:", e);
+      }
+    }
+
     const deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
     const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
     const deckContextForCompose = entries.length && d
@@ -643,24 +797,37 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    if (d && deckText && deckText.trim()) {
-      sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
-      sys += `- Format: ${deckFormat || formatKey} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
-      sys += `- Commander: ${d.commander || "none"}\n`;
-      sys += `- Deck Title: ${d.title || "Untitled Deck"}\n`;
-      sys += `- Full Decklist:\n${deckText}\n`;
-      sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
-      sys += `- Do NOT suggest cards already in the decklist above.\n`;
+    if (v2Summary) {
+      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(v2Summary)}\n`;
+      sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
+      const { isDecklist } = await import("@/lib/chat/decklistDetector");
+      const last6 = threadHistory.slice(-12).filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
+      const redacted = last6.map((m) => {
+        const content = typeof m.content === "string" ? m.content : "";
+        const label = m.role === "user" ? "User" : "Assistant";
+        const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
+        return `${label}: ${body}`;
+      });
+      if (redacted.length > 0) {
+        sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+      }
+    } else {
+      if (d && deckText && deckText.trim()) {
+        sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
+        sys += `- Format: ${deckFormat || formatKey} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
+        sys += `- Commander: ${d.commander || "none"}\n`;
+        sys += `- Deck Title: ${d.title || "Untitled Deck"}\n`;
+        sys += `- Full Decklist:\n${deckText}\n`;
+        sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+        sys += `- Do NOT suggest cards already in the decklist above.\n`;
+      }
+      if (pastedDecklistContext) {
+        sys += "\n\n" + pastedDecklistContext;
+      }
     }
     
-    // Add pasted decklist context if found (Task 1)
-    // IMPORTANT: Always include decklist context if found, even without RAG trigger
-    if (pastedDecklistContext) {
-      sys += "\n\n" + pastedDecklistContext;
-    }
-    
-    // Add RAG context if found (Task 3)
-    if (ragContext) {
+    // Add RAG context if found (Task 3) - skip when v2 summary used to avoid duplication
+    if (ragContext && !v2Summary) {
       sys += ragContext;
     }
     
@@ -955,11 +1122,61 @@ export async function POST(req: NextRequest) {
       }
       return ok({ text: cachedText, threadId: tid, provider: "cached" });
     }
-    
+
+    // Budget cap: block new API calls if daily/weekly limit exceeded (cached responses still allowed above)
+    const { allowAIRequest } = await import('@/lib/server/budgetEnforcement');
+    const budgetCheck = await allowAIRequest(supabase);
+    if (!budgetCheck.allow) {
+      status = 429;
+      return err(budgetCheck.reason ?? 'AI budget limit reached. Try again later.', 'BUDGET_LIMIT', 429);
+    }
+
     const stage1T = Date.now();
+    let sysForCall = sys + (researchNote ? `\n\nResearch: ${researchNote}` : '');
+    const deckCardCount = v2Summary?.card_count ?? 0;
+    type PlannerUsage = { model: string; inputTokens: number; outputTokens: number; cost_usd: number };
+    let plannerUsage: PlannerUsage | null = null;
+    // Phase B two-stage: for long-answer deck questions, mini model produces outline then main writes to it. Skip planner when near daily budget cap or Layer 0 MINI_ONLY.
+    let useTwoStage = !layer0MiniOnly && isComplexAnalysis && hasDeckContext && (await import('@/lib/ai/chat-generation-config')).isLongAnswerRequest(text);
+    if (useTwoStage) {
+      try {
+        const { checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
+        const status = await checkBudgetStatus(supabase);
+        if (status.daily_usage_pct >= 90) useTwoStage = false;
+      } catch (_) {}
+    }
+    if (useTwoStage) {
+      try {
+        const { OUTLINE_MAX_TOKENS } = await import('@/lib/ai/chat-generation-config');
+        const { callLLM } = await import('@/lib/ai/unified-llm-client');
+        const { costUSD } = await import('@/lib/ai/pricing');
+        const tierRes = getModelForTier({ isGuest: !!isGuest, userId: userId ?? null, isPro: isPro ?? false });
+        const outlineResp = await callLLM(
+          [
+            { role: 'system', content: 'You are an outline generator for a Magic: The Gathering assistant. Given the user request (they have deck context). Output only a short outline: 3-6 section titles and one line each for what to cover. No prose, no greeting.' },
+            { role: 'user', content: text },
+          ],
+          { route: '/api/chat', feature: 'chat', model: tierRes.fallbackModel, fallbackModel: tierRes.fallbackModel, timeout: 15000, maxTokens: OUTLINE_MAX_TOKENS, apiType: 'chat', userId: userId ?? null, isPro: isPro ?? false, retryOn429: false, retryOn5xx: false, skipRecordAiUsage: true }
+        );
+        const outline = (outlineResp.text || '').trim();
+        if (outline) {
+          sysForCall += '\n\nWrite the response strictly following this outline. Do not add filler.\nOutline:\n' + outline;
+          const pi = outlineResp.inputTokens ?? 0;
+          const po = outlineResp.outputTokens ?? 0;
+          plannerUsage = { model: outlineResp.actualModel, inputTokens: pi, outputTokens: po, cost_usd: costUSD(outlineResp.actualModel, pi, po) };
+        }
+      } catch (e) {
+        console.warn('[chat] Two-stage outline failed, continuing without outline:', e);
+      }
+    }
     let out1: any;
     try {
-      out1 = await callOpenAI(text, sys + (researchNote?`\n\nResearch: ${researchNote}`:''), isComplexAnalysis, userId, isPro, isGuest);
+      const callOpts: CallOpenAIOpts = { deckCardCount, stop: (await import('@/lib/ai/chat-generation-config')).CHAT_STOP_SEQUENCES, skipRecordAiUsage: true };
+      if (layer0MiniOnly) {
+        callOpts.forceModel = layer0MiniOnly.model;
+        callOpts.forceMaxTokens = layer0MiniOnly.max_tokens;
+      }
+      out1 = await callOpenAI(text, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, callOpts);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -1327,60 +1544,57 @@ Return the corrected answer with concise, user-facing tone.`;
       }
     } catch {}
 
-    // AI usage + cost tracking (best effort)
+    // AI usage + cost tracking (single row via recordAiUsage; planner_* when two-stage)
     try {
       const u = (out1 as any)?.usage || {};
-      const inputTokens = Number(u.input_tokens || 0);
-      const outputTokens = Number(u.output_tokens || 0);
+      const inputTokens = Number(u.prompt_tokens ?? u.input_tokens ?? 0);
+      const outputTokens = Number(u.completion_tokens ?? u.output_tokens ?? 0);
       let it = isFinite(inputTokens) ? inputTokens : 0;
       let ot = isFinite(outputTokens) ? outputTokens : 0;
       if (!it && !ot) {
-        // estimate tokens if provider didn't return usage
         const approx = Math.ceil((text?.length || 0) / 4);
         it = approx; ot = Math.ceil((outText?.length || 0) / 4);
       }
-      const { costUSD, PRICING_VERSION } = await import("@/lib/ai/pricing");
-      // Use the model that was actually used (gpt-5 for complex analysis, gpt-4o-mini for simple queries)
+      const { costUSD } = await import("@/lib/ai/pricing");
       const actualModel = out1?.actualModel ?? getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false }).model;
       const cost = costUSD(actualModel, it, ot);
-      const PREVIEW_MAX = 1000;
-      const usagePayload: Record<string, unknown> = {
-        user_id: userId,
-        thread_id: tid,
+      const { getDynamicTokenCeiling } = await import('@/lib/ai/chat-generation-config');
+      const maxTokensConfig = getDynamicTokenCeiling({ isComplex: isComplexAnalysis, deckCardCount }, false);
+      const { recordAiUsage } = await import("@/lib/ai/log-usage");
+      await recordAiUsage({
+        user_id: userId ?? null,
+        thread_id: tid ?? null,
         model: actualModel,
         input_tokens: it,
         output_tokens: ot,
         cost_usd: cost,
-        pricing_version: PRICING_VERSION,
-        prompt_path: promptResult.promptPath,
-        prompt_version_id: promptResult.promptVersionId ?? null,
-        modules_attached_count: promptResult.modulesAttached?.length ?? null,
-        format_key: promptResult.formatKey ?? null,
-        model_tier: chatTierRes.tier,
         route: "chat",
-        prompt_preview: typeof text === "string" ? text.slice(0, PREVIEW_MAX) : null,
-        response_preview: typeof outText === "string" ? outText.slice(0, PREVIEW_MAX) : null,
-      };
-      const minimalPayload = {
-        user_id: userId,
-        thread_id: tid,
-        model: actualModel,
-        input_tokens: it,
-        output_tokens: ot,
-        cost_usd: cost,
-      };
-      let inserted = false;
-      const withExtras = { ...usagePayload, persona_id, teaching: teachingFlag };
-      const { error: e1 } = await supabase.from("ai_usage").insert(withExtras);
-      if (!e1) inserted = true;
-      if (!inserted) {
-        const { error: e2 } = await supabase.from("ai_usage").insert(usagePayload);
-        if (!e2) inserted = true;
-      }
-      if (!inserted) {
-        const { error: e3 } = await supabase.from("ai_usage").insert(minimalPayload);
-        if (e3 && DEV) console.warn("[ai_usage] insert fallback failed:", e3.message);
-      }
+        request_kind: layer0Mode ?? undefined,
+        layer0_mode: layer0Mode ?? undefined,
+        layer0_reason: layer0Reason ?? undefined,
+        prompt_path: promptResult.promptPath ?? undefined,
+        format_key: promptResult.formatKey ?? undefined,
+        model_tier: chatTierRes.tier,
+        prompt_preview: typeof text === "string" ? text.slice(0, 1000) : null,
+        response_preview: typeof outText === "string" ? outText.slice(0, 1000) : null,
+        context_source: contextSource !== "raw_fallback" ? contextSource : undefined,
+        summary_tokens_estimate: summaryTokensEstimate ?? undefined,
+        deck_hash: deckHashForLog ?? undefined,
+        has_deck_context: !!(deckIdToUse || pastedDecklistContext),
+        deck_card_count: v2Summary?.card_count ?? (entries.length || undefined),
+        used_v2_summary: !!v2Summary,
+        used_two_stage: !!plannerUsage,
+        planner_model: plannerUsage?.model ?? undefined,
+        planner_tokens_in: plannerUsage?.inputTokens ?? undefined,
+        planner_tokens_out: plannerUsage?.outputTokens ?? undefined,
+        planner_cost_usd: plannerUsage?.cost_usd ?? undefined,
+        stop_sequences_enabled: true,
+        max_tokens_config: maxTokensConfig,
+        deck_id: deckIdToUse ?? undefined,
+        latency_ms: Date.now() - stage1T,
+        user_tier: chatTierRes.tier,
+        is_guest: isGuest,
+      });
     } catch {}
 
     // Server analytics (no-op if key missing)

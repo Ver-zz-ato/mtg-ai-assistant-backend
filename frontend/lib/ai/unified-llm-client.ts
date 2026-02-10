@@ -14,6 +14,7 @@ import { prepareOpenAIBody } from './openai-params';
 import { logAICall, getUserType, hashUserId, type AICallLog } from './observability';
 import { recordAiUsage } from './log-usage';
 import { costUSD } from './pricing';
+import { deduplicatedFetch } from '@/lib/api/deduplicator';
 
 export type LLMConfig = {
   route: string;              // e.g., '/api/chat'
@@ -34,6 +35,24 @@ export type LLMConfig = {
   promptPath?: string | null;
   formatKey?: string | null;
   deckSize?: number | null;  // For ai_usage.deck_size (deck analyze flows)
+  stop?: string[];          // Stop sequences to cut filler (Phase B)
+  /** When true, route will record usage itself (e.g. one row with planner_*); do not call recordAiUsage here */
+  skipRecordAiUsage?: boolean;
+  /** Optional extended fields for ai_usage when skipRecordAiUsage is false */
+  context_source?: string | null;
+  layer0_mode?: string | null;
+  layer0_reason?: string | null;
+  request_kind?: string | null;
+  used_v2_summary?: boolean | null;
+  used_two_stage?: boolean | null;
+  user_tier?: string | null;
+  is_guest?: boolean | null;
+  deck_id?: string | null;
+  cache_hit?: boolean | null;
+  cache_kind?: string | null;
+  error_code?: string | null;
+  stop_sequences_enabled?: boolean | null;
+  max_tokens_config?: number | null;
 };
 
 export type LLMResponse = {
@@ -102,6 +121,7 @@ export async function callLLM(
       model: config.model,
       messages: messages,
       ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
+      ...(config.stop?.length ? { stop: config.stop } : {}),
     });
   }
 
@@ -125,6 +145,7 @@ export async function callLLM(
         model,
         messages: messages,
         ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
+        ...(config.stop?.length ? { stop: config.stop } : {}),
       });
     }
 
@@ -132,7 +153,7 @@ export async function callLLM(
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(apiUrl, {
+      const response = await deduplicatedFetch(apiUrl, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -326,21 +347,38 @@ export async function callLLM(
   const ot = tokens.output ?? 0;
   const cost = costUSD(actualModel, it, ot);
 
-  recordAiUsage({
-    user_id: config.userId ?? null,
-    thread_id: config.threadId ?? null,
-    model: actualModel,
-    input_tokens: it,
-    output_tokens: ot,
-    cost_usd: cost,
-    route: config.feature,
-    prompt_preview: config.promptPreview ?? null,
-    response_preview: config.responsePreview ?? (text ? text.slice(0, 1000) : null),
-    model_tier: config.modelTier ?? null,
-    prompt_path: config.promptPath ?? null,
-    format_key: config.formatKey ?? null,
-    deck_size: config.deckSize ?? null,
-  }).catch(() => {});
+  if (!config.skipRecordAiUsage) {
+    recordAiUsage({
+      user_id: config.userId ?? null,
+      thread_id: config.threadId ?? null,
+      model: actualModel,
+      input_tokens: it,
+      output_tokens: ot,
+      cost_usd: cost,
+      route: config.feature,
+      prompt_preview: config.promptPreview ?? null,
+      response_preview: config.responsePreview ?? (text ? text.slice(0, 1000) : null),
+      model_tier: config.modelTier ?? null,
+      prompt_path: config.promptPath ?? null,
+      format_key: config.formatKey ?? null,
+      deck_size: config.deckSize ?? null,
+      context_source: config.context_source ?? null,
+      layer0_mode: config.layer0_mode ?? null,
+      layer0_reason: config.layer0_reason ?? null,
+      request_kind: config.request_kind ?? config.layer0_mode ?? null,
+      used_v2_summary: config.used_v2_summary ?? null,
+      used_two_stage: config.used_two_stage ?? null,
+      user_tier: config.user_tier ?? null,
+      is_guest: config.is_guest ?? null,
+      deck_id: config.deck_id ?? null,
+      cache_hit: config.cache_hit ?? null,
+      cache_kind: config.cache_kind ?? null,
+      error_code: config.error_code ?? null,
+      stop_sequences_enabled: config.stop_sequences_enabled ?? null,
+      max_tokens_config: config.max_tokens_config ?? null,
+      latency_ms: latency,
+    }).catch(() => {});
+  }
 
   return {
     text,

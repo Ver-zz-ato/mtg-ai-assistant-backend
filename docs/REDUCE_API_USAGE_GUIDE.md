@@ -1,121 +1,63 @@
 # How to Reduce OpenAI API Usage
 
-Based on your usage dashboard showing **$9.73 spent** (4.2M tokens, 1,272 requests), here are actionable ways to reduce costs:
+Based on your usage dashboard showing **$9.73 spent** (4.2M tokens, 1,272 requests), here are actionable ways to reduce costs.
 
 ## Current Cost Breakdown
 
 - **gpt-4o-mini**: $0.15/$0.60 per 1K tokens (input/output) - **3.3x cheaper**
 - **gpt-5**: $0.50/$1.50 per 1K tokens (input/output) - **Used for complex analysis**
 
+## Already Implemented ✅
+
+- **Response caching for chat** – 1-hour cache for identical queries (message + system hash + format + commander).
+- **Tightened complex analysis** – gpt-5 only when deck context OR 2+ complex keywords; simple patterns use gpt-4o-mini.
+- **Budget cap enforcement** – `allowAIRequest()` is called before chat, chat/stream, and deck/analyze. Set `llm_budget` in DB to enable (see below).
+- **Request deduplication** – `unified-llm-client` uses `deduplicatedFetch` to avoid duplicate in-flight requests (e.g. double-clicks).
+- **Rate limiting** – Daily + per-minute limits for chat; daily limits for deck analyze.
+- **Lower max tokens for simple chat** – Dynamic ceilings (Phase B): simple 192, complex 320, +deck bonus, cap 512 (non-stream); stream scales similarly with cap 2000.
+- **Sentry** – 1% traces in dev, 10% in production.
+- **LLM v2 context (Phase A)** – Always on. Chat and stream send a compact `DeckContextSummary` plus last 6 messages (with deck pastes redacted) instead of full decklist + long history when deck context exists. Linked decks: summary stored in DB by `(deck_id, deck_hash)`. Pasted decklists: summary cached in-memory (LRU + TTL). **Migrations:** run `037_deck_context_summary.sql` and `038_ai_usage_context_source.sql` before deploying. **Observe:** `ai_usage.context_source` = `linked_db` | `paste_ttl` | `raw_fallback`.
+- **Phase B (two-stage + dynamic ceilings + stop sequences)** – **Two-stage:** For long-answer deck questions (analyze, improve, suggest, etc.), a mini model first produces a short outline (3–6 sections); the main model then writes the response following that outline. **Dynamic token ceilings:** Non-stream max completion tokens scale by complexity and deck size (base 192/320, +deck bonus, cap 512). Stream ceiling scales similarly (base 768/1536, cap 2000). **Stop sequences:** Filler phrases like "Let me know if you have…", "Feel free to ask if…" are cut via OpenAI `stop`. Config: `frontend/lib/ai/chat-generation-config.ts`.
+
 ## Quick Wins (Immediate Impact)
 
-### 1. **Reduce Sentry Sampling in Development** ⚡
-Your Sentry config is set to **100% traces in dev**, which can be expensive.
-
-**File**: `frontend/sentry.server.config.ts` and `frontend/instrumentation-client.ts`
-
-```typescript
-// Change from:
-tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
-
-// To:
-tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0.01, // 1% in dev
-```
-
-**Impact**: Reduces Sentry overhead during development/testing.
-
-### 2. **Add Response Caching for Chat** 💾
-Currently, chat responses aren't cached. Add caching for identical queries.
-
-**File**: `frontend/app/api/chat/route.ts`
-
-Add after line 252 (in POST handler):
-```typescript
-// Cache key: user message + system prompt + format
-const cacheKey = `chat:${text}:${sysPrompt?.slice(0, 100)}:${prefs?.format || ''}`;
-const cached = memoGet<{ text: string; usage: any }>(cacheKey);
-if (cached) {
-  // Return cached response (skip API call)
-  return ok({ text: cached.text, threadId: tid, provider: 'cached' });
-}
-```
-
-Then after getting response (around line 1020):
-```typescript
-// Cache successful responses for 1 hour
-if (outText) {
-  memoSet(cacheKey, { text: outText, usage }, 60 * 60 * 1000);
-}
-```
-
-**Impact**: Identical queries won't hit the API again for 1 hour. Could save 20-40% of requests.
-
-### 3. **Tighten Complex Analysis Detection** 🎯
-Make sure simple queries use `gpt-4o-mini` instead of `gpt-5`.
-
-**File**: `frontend/app/api/chat/route.ts` (around line 896)
-
-Current logic detects complex analysis. Review and ensure:
-- Simple questions → `gpt-4o-mini` (cheaper)
-- Only full deck analysis → `gpt-5` (expensive)
-
-**Check**: Are too many queries being classified as "complex"? If yes, tighten the detection.
-
-**Impact**: If 50% of queries are using gpt-5 instead of gpt-4o-mini, switching them saves ~60% cost.
-
-### 4. **Enable Budget Caps** 💰
-You have budget cap infrastructure but need to configure it.
+### 1. **Enable Budget Caps** 💰 (recommended)
+Budget enforcement is **wired** but only active when `llm_budget` is set in the database.
 
 **In Supabase SQL Editor**:
 ```sql
-INSERT INTO app_config (key, value) 
-VALUES ('llm_budget', '{"daily_usd": 1.0, "weekly_usd": 5.0}'::jsonb)
+INSERT INTO app_config (key, value)
+VALUES ('llm_budget', '{"daily_usd": 5.0, "weekly_usd": 20.0}'::jsonb)
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 ```
 
-This will:
-- Stop API calls if daily spend exceeds $1
-- Stop API calls if weekly spend exceeds $5
-- Return 429 error when budget exceeded
+Adjust `daily_usd` and `weekly_usd` to your comfort level. When exceeded, chat/stream and deck/analyze return 429. Cached chat responses still work.
 
 **Impact**: Hard cap prevents runaway costs.
 
-### 5. **Reduce Max Tokens for Simple Queries** 📉
-For simple queries using `gpt-4o-mini`, reduce `max_tokens`.
+### 2. **Response Caching for Chat** 💾 ✅ (already in place)
+Chat responses are cached for identical queries.
 
-**File**: `frontend/app/api/chat/route.ts` (line 183)
+Implemented in `frontend/app/api/chat/route.ts`: cache key includes text, system prompt hash, format, commander; TTL 1 hour.
 
-```typescript
-// Current: 384 tokens for all queries
-let attempt = await invoke(baseModel, 384);
+**Impact**: Identical queries won't hit the API again for 1 hour. Saves 20-40% of requests.
 
-// Change to: Lower tokens for simple queries
-const maxTokens = useMidTier ? 384 : 256; // 256 for simple, 384 for complex
-let attempt = await invoke(baseModel, maxTokens);
-```
+### 3. **Tighten Complex Analysis Detection** 🎯 ✅ (already in place)
+Simple patterns (card lookups, quick questions) use `gpt-4o-mini`. gpt-5 only when deck context OR 2+ complex keywords. See `isSimpleQuery` / `isComplexAnalysis` in chat route.
 
-**Impact**: Reduces output token costs by ~30% for simple queries.
+**Impact**: Avoids using gpt-5 for simple queries (~60% cost saving when switched).
+
+### 4. **Budget caps** – see **#1 (Enable Budget Caps)** above.
+
+### 5. **Reduce Max Tokens for Simple Queries** 📉 ✅ (already in place)
+Simple queries use 192 max tokens, complex 384. See `callOpenAI` in chat route.
 
 ## Medium-Term Optimizations
 
-### 6. **Add Request Deduplication** 🔄
-You have `deduplicatedFetch` but it's not used for chat API calls.
+### 6. **Request Deduplication** 🔄 ✅ (already in place)
+`unified-llm-client` uses `deduplicatedFetch` for all non-streaming OpenAI calls (chat, deck analyze, etc.).
 
-**File**: `frontend/app/api/chat/route.ts`
-
-Wrap the OpenAI fetch call:
-```typescript
-import { deduplicatedFetch } from '@/lib/api/deduplicator';
-
-// In invoke function, replace fetch with:
-const res = await deduplicatedFetch(OPENAI_URL, {
-  method: "POST",
-  headers: { "content-type": "application/json", "authorization": `Bearer ${apiKey}` },
-  body: JSON.stringify(body),
-});
-```
-
-**Impact**: Prevents duplicate simultaneous requests (common with double-clicks).
+**Impact**: Prevents duplicate simultaneous requests (e.g. double-clicks).
 
 ### 7. **Optimize System Prompts** ✂️
 Shorter system prompts = fewer input tokens.
@@ -129,20 +71,8 @@ Review system prompts and:
 
 **Impact**: 10-20% reduction in input tokens.
 
-### 8. **Add Rate Limiting Per User** ⏱️
-Prevent users from spamming requests.
-
-**File**: `frontend/app/api/chat/route.ts`
-
-Add after line 252:
-```typescript
-// Rate limit: 10 requests per minute per user
-const rateLimitKey = `chat:${userId || req.ip}`;
-const { success } = await checkDurableRateLimit(supabase, rateLimitKey, '/api/chat', 10, 1/60); // 10 per minute
-if (!success) {
-  return err('rate_limit', 'Too many requests. Please wait a moment.', 429);
-}
-```
+### 8. **Rate Limiting Per User** ⏱️ ✅ (already in place)
+Chat has durable daily limits and 10 requests/minute per user. Deck analyze has daily limits per user/guest/IP.
 
 **Impact**: Prevents abuse and reduces unnecessary API calls.
 
@@ -205,10 +135,9 @@ Implementing items 1-5 should reduce costs by **40-60%**:
 
 **Target**: Reduce from $9.73 to **$3-5/month** with these changes.
 
-## Priority Order
+## Priority Order (what to do next)
 
-1. **#2 (Response Caching)** - Biggest impact, easy to implement
-2. **#3 (Tighten Complex Detection)** - Review current logic
-3. **#4 (Budget Caps)** - Safety net
-4. **#5 (Reduce Max Tokens)** - Quick win
-5. **#1 (Sentry Sampling)** - Reduce dev overhead
+1. **Enable budget caps** – Run the SQL in **#1** to set `llm_budget` (e.g. daily $5, weekly $20). Enforcement is already wired.
+2. **#7 (Optimize System Prompts)** – Shorten prompts to cut input tokens 10–20%.
+3. **#9 (Streaming)** – You have `/api/chat/stream`; ensure the main chat UI uses it where possible for better UX and potential token savings.
+4. **#10 (Query classification)** – Pre-classify simple vs complex for even finer model/token choice.
