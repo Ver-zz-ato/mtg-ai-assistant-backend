@@ -6,6 +6,8 @@ import Link from 'next/link';
 type HealthState = {
   openai_key_configured: boolean;
   runtime_flags: Record<string, boolean | undefined>;
+  eli5?: Record<string, string>;
+  diagnosis?: string[];
   probe?: {
     ok: boolean;
     latency_ms?: number;
@@ -37,6 +39,8 @@ export default function AiHealthPage() {
       setHealth({
         openai_key_configured: j.openai_key_configured ?? false,
         runtime_flags: j.runtime_flags ?? {},
+        eli5: j.eli5,
+        diagnosis: j.diagnosis,
         probe: j.probe,
         ts: j.ts,
       });
@@ -89,14 +93,38 @@ export default function AiHealthPage() {
             )}
           </section>
 
+          {health.diagnosis && health.diagnosis.length > 0 && (
+            <section className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-4 space-y-2">
+              <h2 className="text-sm font-semibold text-amber-200">Diagnosis</h2>
+              <p className="text-xs text-neutral-400">What’s going on and what to do.</p>
+              <ul className="text-sm text-neutral-200 space-y-1.5 list-disc list-inside">
+                {health.diagnosis.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-2">
-            <h2 className="text-sm font-semibold text-neutral-200">Runtime flags (app_config)</h2>
-            <ul className="text-sm text-neutral-300 space-y-1 font-mono">
-              {Object.entries(health.runtime_flags).map(([k, v]) => (
-                <li key={k}>{k}: {String(v)}</li>
-              ))}
-            </ul>
-            {Object.keys(health.runtime_flags).length === 0 && (
+            <h2 className="text-sm font-semibold text-neutral-200">What each setting means (ELI5)</h2>
+            <p className="text-xs text-neutral-400">Plain-English breakdown of environment and flags.</p>
+            {health.eli5 && Object.keys(health.eli5).length > 0 ? (
+              <ul className="text-sm text-neutral-300 space-y-2">
+                {Object.entries(health.eli5).map(([key, text]) => (
+                  <li key={key} className="flex gap-2">
+                    <span className="font-mono text-neutral-500 shrink-0">{key}:</span>
+                    <span>{text}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="text-sm text-neutral-300 space-y-1 font-mono">
+                {Object.entries(health.runtime_flags).map(([k, v]) => (
+                  <li key={k}>{k}: {String(v)}</li>
+                ))}
+              </ul>
+            )}
+            {Object.keys(health.runtime_flags).length === 0 && !health.eli5 && (
               <p className="text-neutral-500 text-sm">No flags loaded (defaults apply).</p>
             )}
           </section>
