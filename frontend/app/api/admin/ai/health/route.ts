@@ -34,12 +34,8 @@ export async function GET(req: NextRequest) {
         ? 'Emergency: only the small model is used. Real deck help will be weaker.'
         : 'Normal: both small and large models can be used.',
       llm_disable_stream: flags.llm_disable_stream ? 'Streaming is disabled; chat waits for full response.' : 'Streaming is on.',
-      widgets: flags.widgets ? 'UI widgets (e.g. deck tips) are on.' : 'Widgets are off.',
-      chat_extras: flags.chat_extras ? 'Chat extras (e.g. suggestions) are on.' : 'Chat extras are off.',
-      risky_betas: flags.risky_betas ? 'Risky beta features are enabled.' : 'Risky betas are off.',
-      analytics_clicks_enabled: flags.analytics_clicks_enabled ? 'Click analytics are recorded.' : 'Click analytics are off.',
     };
-    // Fill in any flag that doesn't have an eli5 yet (generic)
+    // Fill in any flag that doesn't have an eli5 yet (generic, e.g. widgets, chat_extras, risky_betas from app_config)
     const flagsRecord = flags as Record<string, boolean | undefined>;
     for (const k of Object.keys(flagsRecord)) {
       if (!(k in eli5)) eli5[k] = flagsRecord[k] ? `${k} is on.` : `${k} is off.`;
