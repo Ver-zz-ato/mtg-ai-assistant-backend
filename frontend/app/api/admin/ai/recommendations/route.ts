@@ -26,8 +26,25 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     const list = (rows || []) as Array<Record<string, unknown>>;
 
-    const totalCost = list.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
     const totalRequests = list.length;
+    const NULL_ROUTE_THRESHOLD = 0.1;
+    const nullRoute = list.filter((r) => r.route == null || r.route === '' || String(r.route).toLowerCase() === 'unknown').length;
+    const nullKind = list.filter((r) => {
+      const k = r.request_kind ?? r.layer0_mode;
+      return k == null || k === '' || String(k).toLowerCase() === 'unknown';
+    }).length;
+    const pctNullRoute = totalRequests > 0 ? nullRoute / totalRequests : 0;
+    const pctNullKind = totalRequests > 0 ? nullKind / totalRequests : 0;
+    if (totalRequests > 0 && (pctNullRoute > NULL_ROUTE_THRESHOLD || pctNullKind > NULL_ROUTE_THRESHOLD)) {
+      return NextResponse.json({
+        ok: true,
+        recommendations: [],
+        telemetry_unhealthy: true,
+        message: 'Insufficient telemetry (missing route/kind fields). Deploy latest logging or narrow time window.',
+      });
+    }
+
+    const totalCost = list.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
     const byModel = new Map<string, { cost: number; count: number }>();
     const byRequestKind = new Map<string, number>();
     const rawFallbackCount = list.filter((r) => r.context_source === 'raw_fallback').length;

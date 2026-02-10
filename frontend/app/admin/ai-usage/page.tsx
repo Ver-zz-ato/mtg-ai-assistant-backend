@@ -152,6 +152,8 @@ export default function AdminAIUsagePage() {
   const [config, setConfig] = React.useState<any | null>(null);
   const [configLoading, setConfigLoading] = React.useState(false);
   const [recommendations, setRecommendations] = React.useState<any[]>([]);
+  const [recommendationsTelemetryUnhealthy, setRecommendationsTelemetryUnhealthy] = React.useState<boolean>(false);
+  const [recommendationsMessage, setRecommendationsMessage] = React.useState<string | null>(null);
   const [seriesView, setSeriesView] = React.useState<"daily" | "hourly">("daily");
 
   async function load() {
@@ -254,7 +256,13 @@ export default function AdminAIUsagePage() {
       const res = await fetch(`/api/admin/ai/recommendations?days=${boardDays}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       setRecommendations(j?.ok ? j.recommendations || [] : []);
-    } catch { setRecommendations([]); }
+      setRecommendationsTelemetryUnhealthy(j?.telemetry_unhealthy ?? false);
+      setRecommendationsMessage(j?.message ?? null);
+    } catch {
+      setRecommendations([]);
+      setRecommendationsTelemetryUnhealthy(false);
+      setRecommendationsMessage(null);
+    }
   }
 
   React.useEffect(() => {
@@ -551,7 +559,11 @@ export default function AdminAIUsagePage() {
           </section>
           <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
             <h2 className="text-sm font-semibold text-neutral-200 mb-2">Recommendations</h2>
-            {recommendations.length === 0 && <p className="text-sm text-neutral-500">None or load recommendations.</p>}
+            {recommendationsTelemetryUnhealthy && recommendationsMessage && (
+              <p className="text-sm text-amber-200/90">{recommendationsMessage}</p>
+            )}
+            {!recommendationsTelemetryUnhealthy && recommendations.length === 0 && !recommendationsMessage && <p className="text-sm text-neutral-500">None or load recommendations.</p>}
+            {!recommendationsTelemetryUnhealthy && recommendations.length > 0 && (
             <ul className="space-y-2 text-sm">
               {recommendations.map((rec: any, i: number) => (
                 <li key={i} className="flex items-start justify-between gap-2">
@@ -560,6 +572,7 @@ export default function AdminAIUsagePage() {
                 </li>
               ))}
             </ul>
+            )}
           </section>
         </div>
       )}

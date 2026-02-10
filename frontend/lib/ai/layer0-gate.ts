@@ -11,7 +11,7 @@ export type Layer0Decision =
   | {
       mode: "NO_LLM";
       reason: string;
-      handler: "card_lookup" | "static_faq" | "need_more_info";
+      handler: "card_lookup" | "static_faq" | "need_more_info" | "off_topic";
     }
   | {
       mode: "MINI_ONLY";
@@ -86,6 +86,31 @@ export function isManaTapFaq(text: string): boolean {
   return getFaqAnswer(text) !== null;
 }
 
+/** MTG-related keywords; if the message has none of these, we treat as off-topic when combined with no FAQ match. */
+const MTG_SCOPE_KEYWORDS = [
+  'mtg', 'magic', 'commander', 'edh', 'deck', 'card', 'mana', 'planeswalker',
+  'creature', 'sorcery', 'instant', 'artifact', 'enchantment', 'land',
+  'trample', 'flying', 'lifelink', 'hexproof', 'ward', 'sol ring',
+  'format', 'brew', 'list', 'swap', 'ramp', 'draw', 'removal', 'combo', 'synergy',
+  '[[', 'banned', 'legal', 'cedh', 'wotc', 'scryfall', 'tcg', 'edhrec',
+];
+
+/**
+ * True if the message contains no MTG-related keyword (conservative: used with FAQ check for off-topic).
+ */
+export function hasNoMTGKeyword(text: string): boolean {
+  const q = (text || '').toLowerCase().trim();
+  if (q.length < 12) return false; // avoid flagging "hi" / "thanks"
+  return !MTG_SCOPE_KEYWORDS.some((kw) => q.includes(kw.toLowerCase()));
+}
+
+/**
+ * True if the message is clearly off-topic (non-MTG). FAQ matches are not off-topic.
+ */
+export function isClearlyNonMTG(text: string): boolean {
+  return getFaqAnswer(text) === null && hasNoMTGKeyword(text);
+}
+
 /**
  * True if the user is asking for something that requires a deck but hasDeckContext is false.
  */
@@ -115,6 +140,11 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
   // 3. ManaTap FAQ → static answer
   if (isManaTapFaq(text)) {
     return { mode: "NO_LLM", reason: "static_faq_match", handler: "static_faq" };
+  }
+
+  // 3.5. Clearly non-MTG (no FAQ match, no MTG keywords) → scope gate
+  if (isClearlyNonMTG(text)) {
+    return { mode: "NO_LLM", reason: "off_topic", handler: "off_topic" };
   }
 
   // 4. Simple rules/term question, no deck → MINI_ONLY
