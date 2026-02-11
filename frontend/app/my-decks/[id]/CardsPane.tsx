@@ -27,12 +27,17 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
 
   async function load() {
     if (!deckId) return;
-    const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { cache: "no-store" });
-    let json: any = {};
-    try { json = await res.json(); } catch { json = { ok: false, error: "Bad JSON" }; }
-    if (!json?.ok) { setStatus(json?.error || `Error ${res.status}`); return; }
-    setCards(json.cards || []);
-    setStatus(null);
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { cache: "no-store" });
+      let json: any = {};
+      try { json = await res.json(); } catch { json = { ok: false, error: "Bad JSON" }; }
+      if (!json?.ok) { setStatus(json?.error || `Error ${res.status}`); return; }
+      setCards(json.cards || []);
+      setStatus(null);
+    } catch (e) {
+      // Network error (e.g. Load failed, aborted) — avoid unhandled rejection
+      setStatus("Couldn't load cards. Check your connection and try again.");
+    }
   }
 
   useEffect(() => { 

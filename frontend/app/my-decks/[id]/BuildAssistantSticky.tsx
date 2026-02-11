@@ -53,10 +53,16 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   function proGuard(): boolean { if (isPro) return true; try { const { showProToast } = require('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature. Upgrade to unlock.'); } return false; }
 
   async function fetchDeckRows(): Promise<Array<{ id:string; name:string; qty:number }>> {
-    const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache:'no-store' });
-    const j = await r.json().catch(()=>({ ok:false }));
-    if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
-    return Array.isArray(j.cards) ? j.cards : [];
+    try {
+      const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache:'no-store' });
+      const j = await r.json().catch(()=>({ ok:false }));
+      if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
+      return Array.isArray(j.cards) ? j.cards : [];
+    } catch (e) {
+      // Network failure (e.g. "Load failed" on mobile) — rethrow so callers can handle
+      if (e instanceof Error) throw e;
+      throw new Error(e instanceof Error ? e.message : 'Failed to load deck');
+    }
   }
 
   async function getDeckTextAndNames() {

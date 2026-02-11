@@ -33,7 +33,9 @@ function getAllowedOrigins(): string[] {
  */
 /**
  * Validate Origin or Referer header for CSRF protection
- * Logs security events on validation failures
+ * Logs security events on validation failures.
+ * Note: When users land via search (e.g. Referer: duckduckgo.com), POSTs may get 403.
+ * Clients should catch 403 and show a friendly message (e.g. "Refresh and try again") instead of throwing.
  */
 export function validateOrigin(req: NextRequest, routePath?: string): boolean {
   // Extract route path automatically if not provided
