@@ -50,15 +50,13 @@ export function getDynamicTokenCeiling(
 /**
  * Stop sequences to cut filler phrases and keep responses concise.
  * OpenAI stops at the first occurrence of any of these (substring match).
- * Kept long and specific to avoid cutting mid-sentence when streaming.
+ * OpenAI API allows max 4 stop sequences; we use the 4 most common filler phrases.
  */
 export const CHAT_STOP_SEQUENCES: string[] = [
   "Let me know if you have any questions.",
   "Feel free to ask if you have any questions.",
   "If you have any questions, feel free to ask.",
   "Happy to help if you have more questions.",
-  "Don't hesitate to ask if you need anything else.",
-  "I'm here if you need any more help.",
 ];
 
 /**

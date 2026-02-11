@@ -4,6 +4,18 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+// Swallow known SDK noise: Replay/tracing requests "performanceMetrics" in some builds;
+// in DuckDuckGo Mobile and similar it's not found and throws. Not an app bug.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (ev) => {
+    const msg = ev.reason?.message ?? String(ev.reason ?? '');
+    if (msg.includes('feature named') && msg.includes('performanceMetrics') && msg.includes('was not found')) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+  });
+}
+
 Sentry.init({
   dsn: "https://c12a08c930a7b2441af2a730bd8bc6ef@o4510234321354752.ingest.de.sentry.io/4510234326335568",
 
