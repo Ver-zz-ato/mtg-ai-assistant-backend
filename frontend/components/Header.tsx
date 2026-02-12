@@ -241,6 +241,13 @@ export default function Header() {
             What's New
           </Link>
           <Link 
+            href="/commanders" 
+            className="text-sm hover:underline text-indigo-400 font-medium px-2 py-1 rounded transition-all hover:bg-indigo-400/10 hover:shadow-sm"
+            onClick={() => capture('nav_link_clicked', { destination: '/commanders', source: 'header' })}
+          >
+            Commanders
+          </Link>
+          <Link 
             href="/decks/browse" 
             className="text-sm hover:underline text-purple-400 font-medium px-2 py-1 rounded transition-all hover:bg-purple-400/10 hover:shadow-sm"
             onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
@@ -417,6 +424,16 @@ export default function Header() {
             >
               <span className="text-xs">✨</span>
               What's New
+            </Link>
+            <Link 
+              href="/commanders" 
+              className="block py-2 text-sm text-indigo-400 font-medium"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Commanders
             </Link>
             <Link 
               href="/decks/browse" 

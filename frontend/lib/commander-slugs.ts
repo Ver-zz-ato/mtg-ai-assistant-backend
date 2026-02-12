@@ -1,6 +1,10 @@
-import commanderProfiles from "@/lib/data/commander_profiles.json";
+/**
+ * Re-exports from commanders.ts for backward compatibility.
+ * commander-slugs is the single source of truth (lib/commanders.ts).
+ */
 
-/** Convert commander name to URL-safe slug */
+import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
+
 export function toCommanderSlug(name: string): string {
   return name
     .toLowerCase()
@@ -8,16 +12,11 @@ export function toCommanderSlug(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
-/** Map slug -> commander name (from commander_profiles) */
-const SLUG_TO_NAME: Record<string, string> = {};
-for (const name of Object.keys(commanderProfiles as Record<string, unknown>)) {
-  SLUG_TO_NAME[toCommanderSlug(name)] = name;
-}
-
 export function commanderSlugToName(slug: string): string | null {
-  return SLUG_TO_NAME[slug] ?? null;
+  const profile = getCommanderBySlug(slug);
+  return profile?.name ?? null;
 }
 
 export function getAllCommanderSlugs(): string[] {
-  return Object.keys(SLUG_TO_NAME);
+  return getFirst50CommanderSlugs();
 }

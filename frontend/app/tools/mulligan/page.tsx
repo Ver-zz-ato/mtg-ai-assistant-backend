@@ -249,9 +249,8 @@ export default function MulliganSimulatorPage() {
   };
 
   return (
-    <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
-      <div className="max-w-[1400px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <div className="max-w-[1400px] mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* LEFT COLUMN: Main content */}
           <div className="lg:col-span-8 space-y-4">
       <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-amber-900/20 via-orange-900/10 to-red-900/20 p-6">
@@ -465,7 +464,6 @@ export default function MulliganSimulatorPage() {
             </div>
           </aside>
         </div>
-      </div>
     </div>
   );
 }

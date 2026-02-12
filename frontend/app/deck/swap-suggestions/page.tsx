@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Client from "./Client";
 import { RelatedTools } from "@/components/RelatedTools";
+import { ToolStrip } from "@/components/ToolStrip";
+import { PopularCommanders } from "@/components/PopularCommanders";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
+      <ToolStrip currentPath="/deck/swap-suggestions" variant="compact" className="mb-4" />
       <section
         className="mb-6 max-w-4xl text-neutral-200"
         aria-label="About Budget Swaps"
@@ -51,6 +54,7 @@ export default function Page() {
             { href: "/collections/cost-to-finish", label: "Cost to Finish" },
           ]}
         />
+        <PopularCommanders />
       </section>
       <Client />
     </main>

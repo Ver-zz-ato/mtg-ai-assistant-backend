@@ -860,7 +860,7 @@ export default function CostToFinishClient() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+    <div className="mx-auto w-full max-w-none px-0 py-4 space-y-4">
       {/* Enhanced header */}
       <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-green-900/20 via-teal-900/10 to-cyan-900/20 p-6">
         <div className="relative z-10">
@@ -904,7 +904,7 @@ export default function CostToFinishClient() {
       </header>
 
       {/* Layout: If no results, show Setup + Example side-by-side. If results, show 3-column layout */}
-      <div className={`w-full ${rowsToShow.length === 0 && !busy ? 'grid md:grid-cols-[400px_1fr] gap-6 items-start' : 'space-y-6 2xl:space-y-0 2xl:grid 2xl:grid-cols-[320px_1fr_520px] 2xl:gap-6 items-start'}`}>
+      <div className={`w-full ${rowsToShow.length === 0 && !busy ? 'grid md:grid-cols-[minmax(320px,400px)_1fr] gap-6 items-start' : 'space-y-6 2xl:space-y-0 2xl:grid 2xl:grid-cols-[minmax(300px,360px)_1fr_minmax(560px,700px)] 2xl:gap-6 items-start'}`}>
         {/* LEFT COLUMN: Setup */}
         <div className="space-y-3 w-full shrink-0 relative z-10">
           {deckPreview && (
@@ -1966,7 +1966,7 @@ export default function CostToFinishClient() {
 
         {/* RIGHT COLUMN: Top Missing Cards - only show when there are results */}
         {rowsToShow.length > 0 && (
-        <div className="w-full 2xl:w-[520px] shrink-0 space-y-3 relative z-10">
+        <div className="w-full 2xl:min-w-0 2xl:max-w-full shrink-0 space-y-3 relative z-10">
           {/* Top Missing Cards */}
           {rowsToShow.length > 0 && (() => {
             const topCards = rowsToShow.slice().sort((a, b) => (b.unit || 0) - (a.unit || 0)).slice(0, 5);

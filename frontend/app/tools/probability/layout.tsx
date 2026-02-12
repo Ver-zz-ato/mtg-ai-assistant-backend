@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { RelatedTools } from "@/components/RelatedTools";
+import { ToolStrip } from "@/components/ToolStrip";
+import { PopularCommanders } from "@/components/PopularCommanders";
 
 export const metadata: Metadata = {
   title: "MTG Probability Calculator | Commander Draw Odds | ManaTap AI",
@@ -27,6 +29,50 @@ function faqJsonLd() {
   });
 }
 
+const IntroBlock = () => (
+  <section
+    className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 text-neutral-200"
+    aria-label="About the Probability Calculator"
+  >
+    <h1 className="text-xl md:text-2xl font-bold text-white mb-3">
+      MTG Probability Calculator
+    </h1>
+    <p className="text-neutral-300 mb-3 text-sm">
+      Use hypergeometric probability to answer questions like &quot;What are the
+      odds I draw at least one Sol Ring by turn 2?&quot; or &quot;How many copies of
+      my combo piece do I need to see it in 4 turns?&quot; Magic uses
+      drawing without replacement, so the standard formula accounts for
+      your deck shrinking as you draw.
+    </p>
+    <h2 className="text-base font-semibold text-neutral-100 mb-2">Opening hand and draw odds</h2>
+    <p className="text-neutral-300 mb-3 text-sm">
+      Set deck size (99 for Commander), number of &quot;hits&quot; in the deck
+      (e.g. lands or a specific card), hand size, and turns.
+    </p>
+    <h2 className="text-base font-semibold text-neutral-100 mb-2">Color requirements and ramp</h2>
+    <p className="text-neutral-300 mb-4 text-sm">
+      Advanced mode lets you configure color sources and requirements (e.g.
+      &quot;need UU by turn 3&quot;) or model ramp and removal density.
+    </p>
+    <h2 className="text-base font-semibold text-neutral-100 mb-2">FAQ</h2>
+    <dl className="space-y-2 text-neutral-300 text-sm">
+      {FAQ.map(({ q, a }) => (
+        <div key={q}>
+          <dt className="font-medium text-neutral-100">{q}</dt>
+          <dd className="ml-0 mt-0.5">{a}</dd>
+        </div>
+      ))}
+    </dl>
+    <RelatedTools
+      tools={[
+        { href: "/tools/mulligan", label: "Commander Mulligan Simulator" },
+        { href: "/collections/cost-to-finish", label: "Cost to Finish" },
+      ]}
+    />
+    <PopularCommanders />
+  </section>
+);
+
 export default function ProbabilityLayout({
   children,
 }: {
@@ -35,56 +81,19 @@ export default function ProbabilityLayout({
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
-      <section
-        className="mb-6 max-w-4xl mx-auto px-4 text-neutral-200"
-        aria-label="About the Probability Calculator"
-      >
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
-          MTG Probability Calculator
-        </h1>
-        <p className="text-neutral-300 mb-4">
-          Use hypergeometric probability to answer questions like &quot;What are the
-          odds I draw at least one Sol Ring by turn 2?&quot; or &quot;How many copies of
-          my combo piece do I need to see it in 4 turns?&quot; Magic uses
-          drawing without replacement, so the standard formula accounts for
-          your deck shrinking as you draw.
-        </p>
-        <h2 className="text-lg font-semibold text-neutral-100 mb-2">
-          Opening hand and draw odds
-        </h2>
-        <p className="text-neutral-300 mb-4">
-          Set deck size (99 for Commander), number of &quot;hits&quot; in the deck
-          (e.g. lands or a specific card), hand size, and turns. The calculator
-          shows the probability of drawing at least N of your target cards by
-          the given turn. Play or draw affects your card count — toggle for
-          accuracy.
-        </p>
-        <h2 className="text-lg font-semibold text-neutral-100 mb-2">
-          Color requirements and ramp
-        </h2>
-        <p className="text-neutral-300 mb-6">
-          Advanced mode lets you configure color sources and requirements (e.g.
-          &quot;need UU by turn 3&quot;) or model ramp and removal density. Load a deck
-          from ManaTap to auto-fill values, or enter them manually for any
-          decklist.
-        </p>
-        <h2 className="text-lg font-semibold text-neutral-100 mb-2">FAQ</h2>
-        <dl className="space-y-3 text-neutral-300">
-          {FAQ.map(({ q, a }) => (
-            <div key={q}>
-              <dt className="font-medium text-neutral-100">{q}</dt>
-              <dd className="ml-0 mt-1 text-sm">{a}</dd>
+      <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-6">
+        <div className="max-w-[1600px] mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div className="lg:col-span-8 order-2 lg:order-1 min-w-0">
+              <ToolStrip currentPath="/tools/probability" variant="compact" className="mb-4" />
+              {children}
             </div>
-          ))}
-        </dl>
-        <RelatedTools
-          tools={[
-            { href: "/tools/mulligan", label: "Commander Mulligan Simulator" },
-            { href: "/collections/cost-to-finish", label: "Cost to Finish" },
-          ]}
-        />
-      </section>
-      {children}
+            <aside className="lg:col-span-4 order-1 lg:order-2 lg:sticky lg:top-4 self-start">
+              <IntroBlock />
+            </aside>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
