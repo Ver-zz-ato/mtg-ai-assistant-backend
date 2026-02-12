@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { capture } from '@/lib/ph';
 import DeckArtLoader from '@/components/DeckArtLoader';
 import DeckArtPlaceholder from '@/components/DeckArtPlaceholder';
@@ -51,7 +52,10 @@ const SORT_OPTIONS = [
   { value: 'expensive', label: 'Highest Value' },
 ];
 
-export default function BrowseDecksPage() {
+function BrowseDecksContent() {
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get('search') ?? '';
+
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -60,8 +64,8 @@ export default function BrowseDecksPage() {
   const [hasMore, setHasMore] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  // Filters
-  const [search, setSearch] = useState('');
+  // Filters (initialize search from URL for commander hub links)
+  const [search, setSearch] = useState(initialSearch);
   const [format, setFormat] = useState('all');
   const [colors, setColors] = useState('all');
   const [sort, setSort] = useState('recent');
@@ -486,3 +490,32 @@ export default function BrowseDecksPage() {
   );
 }
 
+function BrowseDecksFallback() {
+  return (
+    <main className="mx-auto max-w-7xl p-4 sm:p-6">
+      <div className="mb-8">
+        <div className="h-10 bg-neutral-800 rounded w-64 mb-2" />
+        <div className="h-5 bg-neutral-800 rounded w-96" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden animate-pulse">
+            <div className="h-48 bg-neutral-800" />
+            <div className="p-4">
+              <div className="h-6 bg-neutral-800 rounded mb-2" />
+              <div className="h-4 bg-neutral-800 rounded w-3/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+export default function BrowseDecksPage() {
+  return (
+    <Suspense fallback={<BrowseDecksFallback />}>
+      <BrowseDecksContent />
+    </Suspense>
+  );
+}

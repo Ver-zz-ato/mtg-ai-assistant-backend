@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
     removeConsole: true, // Remove ALL console.* calls (log, info, debug, warn, error)
   } : undefined,
 
+  async redirects() {
+    return [
+      { source: "/budget-swaps", destination: "/deck/swap-suggestions", permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       {

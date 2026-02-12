@@ -559,6 +559,14 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                 <ExportToTCGPlayer deckId={id} />
               </div>
             </div>
+            <div className="mt-4 text-sm text-neutral-400">
+              Try with this deck:{" "}
+              <a href={`/collections/cost-to-finish?deck=${id}`} className="text-cyan-400 hover:underline">Cost to Finish</a>
+              {" · "}
+              <a href={`/tools/mulligan?deckId=${id}`} className="text-cyan-400 hover:underline">Mulligan Simulator</a>
+              {" · "}
+              <a href={`/deck/swap-suggestions?deckId=${id}`} className="text-cyan-400 hover:underline">Budget Swaps</a>
+            </div>
           </header>
 
           <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-6 shadow-lg">

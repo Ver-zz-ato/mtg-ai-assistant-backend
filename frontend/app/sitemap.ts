@@ -1,6 +1,7 @@
 // app/sitemap.ts
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getAllCommanderSlugs } from "@/lib/commander-slugs";
 
 const BASE = "https://www.manatap.ai";
 const now = new Date();
@@ -11,18 +12,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "my-decks", // user deck management
     "collections", // MTG collections
     "profile", // user profiles
-    "wishlist", // user wishlists  
+    "wishlist", // user wishlists
     "pricing", // subscription plans
     "privacy", // privacy policy
     "terms", // terms of service
     "support", // help/support
     "changelog", // what's new
-    "budget-swaps", // budget optimization tool
     "price-tracker", // price tracking tool
     "tools/probability", // probability calculator
     "tools/mulligan", // mulligan simulator
+    "collections/cost-to-finish", // cost to finish calculator
+    "decks/browse", // browse public decks
+    "deck/swap-suggestions", // budget swaps (canonical; budget-swaps redirects here)
     "blog", // blog index
     "mtg-commander-ai-deck-builder", // SEO hero landing page
+    // Intent landing pages
+    "commander-mulligan-calculator",
+    "mtg-probability-calculator",
+    "mtg-deck-cost-calculator",
+    "mtg-budget-swap-tool",
   ].map((p) => ({
     url: `${BASE}/${p}`,
     lastModified: now,
@@ -48,29 +56,40 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Fetch dynamic public decks
+  // Commander hub pages (from commander_profiles)
+  const commanderRoutes = getAllCommanderSlugs().map((slug) => ({
+    url: `${BASE}/commanders/${slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.5,
+  }));
+
+  // Public decks updated in last 30 days (cap at 300 for sitemap safety)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const supabase = await createClient();
   let publicDeckRoutes: MetadataRoute.Sitemap = [];
-  
+
   try {
     const { data: publicDecks } = await supabase
-      .from('decks')
-      .select('id, updated_at')
-      .eq('is_public', true)
-      .order('updated_at', { ascending: false })
-      .limit(500); // Limit to avoid sitemap bloat
-    
+      .from("decks")
+      .select("id, updated_at")
+      .eq("is_public", true)
+      .gte("updated_at", thirtyDaysAgo.toISOString())
+      .order("updated_at", { ascending: false })
+      .limit(300);
+
     if (publicDecks && publicDecks.length > 0) {
-      publicDeckRoutes = publicDecks.map(deck => ({
+      publicDeckRoutes = publicDecks.map((deck) => ({
         url: `${BASE}/decks/${deck.id}`,
         lastModified: deck.updated_at ? new Date(deck.updated_at) : now,
-        changeFrequency: 'weekly' as const,
+        changeFrequency: "weekly" as const,
         priority: 0.5,
       }));
     }
   } catch (error) {
-    console.error('[Sitemap] Failed to fetch public decks:', error);
+    console.error("[Sitemap] Failed to fetch public decks:", error);
   }
 
-  return [...staticRoutes, ...blogPosts, ...publicDeckRoutes];
+  return [...staticRoutes, ...blogPosts, ...commanderRoutes, ...publicDeckRoutes];
 }

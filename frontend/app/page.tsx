@@ -95,6 +95,18 @@ export default function Page() {
             Build, analyze, and optimize Magic: The Gathering decks with AI-powered suggestions. 
             Free to start—no signup required.
           </p>
+          <nav className="text-sm text-neutral-400 mt-4" aria-label="Tools">
+            <span className="font-medium text-neutral-300">Tools: </span>
+            <a href="/tools/mulligan" className="hover:text-white">Mulligan Simulator</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/tools/probability" className="hover:text-white">Probability Calculator</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/collections/cost-to-finish" className="hover:text-white">Deck Cost Calculator</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/deck/swap-suggestions" className="hover:text-white">Budget Swap Optimizer</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/price-tracker" className="hover:text-white">Price Tracker</a>
+          </nav>
         </div>
         
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
