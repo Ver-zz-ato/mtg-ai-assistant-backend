@@ -144,6 +144,14 @@ export function getCommanderBySlug(slug: string): CommanderProfile | null {
   return COMMANDERS.find((c) => c.slug === slug) ?? null;
 }
 
+/** Get commander slug from display name (for deck→commander links). */
+export function getCommanderSlugByName(name: string): string | null {
+  const clean = String(name || "").replace(/\s*\(.*?\)\s*$/, "").trim();
+  if (!clean) return null;
+  const found = COMMANDERS.find((c) => norm(c.name) === norm(clean));
+  return found?.slug ?? null;
+}
+
 export function getFirst50CommanderSlugs(): string[] {
   return COMMANDERS.map((c) => c.slug);
 }

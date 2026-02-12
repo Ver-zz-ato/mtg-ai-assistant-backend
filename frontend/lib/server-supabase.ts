@@ -1,7 +1,17 @@
 // Unified server-side Supabase client using '@supabase/ssr' with explicit cookie adapter.
 // This avoids the Next 15 cookies() sync/async gotchas and ensures getUser() sees the JWT.
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+/** Static/sitemap context: no cookies. Use for generateStaticParams, sitemap, crons. */
+export function createClientForStatic() {
+  if (!SUPABASE_URL || !ANON_KEY) throw new Error("Missing Supabase env");
+  return createSupabaseClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
+}
 
 // Async variant for route handlers — await cookies() to avoid Next 15 sync dynamic API warnings.
 export async function createClient() {

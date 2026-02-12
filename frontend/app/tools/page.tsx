@@ -99,20 +99,32 @@ export default function ToolsIndexPage() {
             </div>
           ))}
         </div>
-        <div className="mt-10 pt-6 border-t border-neutral-700">
-          <Link
-            href="/commanders"
-            className="text-blue-400 hover:underline font-medium"
-          >
-            Browse commanders →
-          </Link>
-          <span className="mx-2 text-neutral-500">|</span>
-          <Link
-            href="/decks/browse"
-            className="text-blue-400 hover:underline font-medium"
-          >
-            Browse decks →
-          </Link>
+        <div className="mt-10 pt-6 border-t border-neutral-700 space-y-4">
+          <div>
+            <span className="text-neutral-500 text-sm">Archetypes:</span>{" "}
+            <Link href="/commander-archetypes/dragons" className="text-blue-400 hover:underline">Dragons</Link>
+            <span className="text-neutral-500">, </span>
+            <Link href="/commander-archetypes/tokens" className="text-blue-400 hover:underline">Tokens</Link>
+            <span className="text-neutral-500">, </span>
+            <Link href="/commander-archetypes/aristocrats" className="text-blue-400 hover:underline">Aristocrats</Link>
+            <span className="text-neutral-500">, </span>
+            <Link href="/commander-archetypes" className="text-blue-400 hover:underline">all</Link>
+          </div>
+          <div>
+            <span className="text-neutral-500 text-sm">Strategies:</span>{" "}
+            <Link href="/strategies/ramp" className="text-blue-400 hover:underline">Ramp</Link>
+            <span className="text-neutral-500">, </span>
+            <Link href="/strategies/control" className="text-blue-400 hover:underline">Control</Link>
+            <span className="text-neutral-500">, </span>
+            <Link href="/strategies" className="text-blue-400 hover:underline">all</Link>
+          </div>
+          <div>
+            <Link href="/commanders" className="text-blue-400 hover:underline font-medium">Browse commanders</Link>
+            <span className="mx-2 text-neutral-500">|</span>
+            <Link href="/decks/browse" className="text-blue-400 hover:underline font-medium">Browse decks</Link>
+            <span className="mx-2 text-neutral-500">|</span>
+            <Link href="/meta" className="text-blue-400 hover:underline font-medium">Meta</Link>
+          </div>
         </div>
       </article>
     </main>

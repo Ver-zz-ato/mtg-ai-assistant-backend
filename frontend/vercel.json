@@ -1,8 +1,11 @@
 {
   "crons": [
-    {"path": "/api/cron/cleanup-price-cache", "schedule": "0 4 * * *"},
-    {"path": "/api/cron/commander-aggregates", "schedule": "0 5 * * *"},
-    {"path": "/api/cron/cleanup-guest-sessions", "schedule": "0 5 * * *"},
-    {"path": "/api/cron/cleanup-rate-limits", "schedule": "0 6 * * 0"}
+    { "path": "/api/cron/cleanup-price-cache", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/deck-costs", "schedule": "30 4 * * *" },
+    { "path": "/api/cron/commander-aggregates", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/cleanup-guest-sessions", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/meta-signals", "schedule": "15 5 * * *" },
+    { "path": "/api/cron/top-cards", "schedule": "30 5 * * *" },
+    { "path": "/api/cron/cleanup-rate-limits", "schedule": "0 6 * * 0" }
   ]
 }

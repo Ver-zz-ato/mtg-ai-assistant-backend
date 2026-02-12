@@ -1,9 +1,14 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getFirst50CommanderSlugs } from "@/lib/commanders";
+import { ARCHETYPES } from "@/lib/data/archetypes";
+import { STRATEGIES } from "@/lib/data/strategies";
+import { getTopCards } from "@/lib/top-cards";
+import { getPublishedSeoPageSlugs } from "@/lib/seo-pages";
 
 const BASE = "https://www.manatap.ai";
 const CONTENT_PAGES = ["mulligan-guide", "budget-upgrades", "best-cards"] as const;
+const META_SLUGS = ["trending-commanders", "most-played-commanders", "budget-commanders", "trending-cards", "most-played-cards"] as const;
 const now = new Date();
 
 /** Sitemap index: references child sitemaps at /sitemap/[id].xml */
@@ -14,6 +19,11 @@ export async function generateSitemaps() {
     { id: "commanders" },
     { id: "commander-content" },
     { id: "decks-recent" },
+    { id: "archetypes" },
+    { id: "strategies" },
+    { id: "meta" },
+    { id: "cards" },
+    { id: "seo-pages" },
   ];
 }
 
@@ -48,6 +58,10 @@ export default async function sitemap(props: {
         "mtg-deck-cost-calculator",
         "mtg-budget-swap-tool",
         "commanders",
+        "commander-archetypes",
+        "strategies",
+        "meta",
+        "cards",
       ];
       const blogPosts = [
         "devlog-23-days-soft-launch",
@@ -150,6 +164,65 @@ export default async function sitemap(props: {
       }
 
       return publicDeckRoutes;
+    }
+
+    case "archetypes": {
+      return [
+        { url: `${BASE}/commander-archetypes`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
+        ...ARCHETYPES.map((a) => ({
+          url: `${BASE}/commander-archetypes/${a.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        })),
+      ];
+    }
+
+    case "strategies": {
+      return [
+        { url: `${BASE}/strategies`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
+        ...STRATEGIES.map((s) => ({
+          url: `${BASE}/strategies/${s.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        })),
+      ];
+    }
+
+    case "meta": {
+      return [
+        { url: `${BASE}/meta`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
+        ...META_SLUGS.map((slug) => ({
+          url: `${BASE}/meta/${slug}`,
+          lastModified: now,
+          changeFrequency: "daily" as const,
+          priority: 0.6,
+        })),
+      ];
+    }
+
+    case "cards": {
+      const topCards = await getTopCards();
+      return [
+        { url: `${BASE}/cards`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
+        ...topCards.map((c) => ({
+          url: `${BASE}/cards/${c.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly" as const,
+          priority: 0.5,
+        })),
+      ];
+    }
+
+    case "seo-pages": {
+      const slugs = await getPublishedSeoPageSlugs(500);
+      return slugs.map((slug) => ({
+        url: `${BASE}/q/${slug}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
+      }));
     }
 
     default:

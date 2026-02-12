@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
+import { ARCHETYPES } from "@/lib/data/archetypes";
+import { STRATEGIES } from "@/lib/data/strategies";
 import {
   renderCommanderIntro,
   deriveCommanderSnapshot,
@@ -167,6 +169,18 @@ export default async function CommanderHubPage({ params }: Props) {
           </div>
         )}
 
+        {aggregates && aggregates.medianDeckCost != null && aggregates.medianDeckCost > 0 && (
+          <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
+            <h2 className="text-xl font-semibold text-neutral-100 mb-4">Typical Deck Cost Range</h2>
+            <p className="text-neutral-400 text-sm mb-3">
+              Based on {aggregates.deckCount} public {name} decks.
+            </p>
+            <p className="text-neutral-200">
+              Median deck cost: ~${Math.round(aggregates.medianDeckCost).toLocaleString()} USD
+            </p>
+          </div>
+        )}
+
         {aggregates && aggregates.recentDecks.length > 0 && (
           <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
             <h2 className="text-xl font-semibold text-neutral-100 mb-4">Recent Decks</h2>
@@ -207,11 +221,41 @@ export default async function CommanderHubPage({ params }: Props) {
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Strategy Snapshot</h2>
         <p className="text-neutral-300 mb-8 leading-relaxed">{strategySnapshot}</p>
 
-        <div className="flex flex-wrap gap-3 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm mb-4">
           <Link href={`/commanders/${slug}/mulligan-guide`} className="text-blue-400 hover:underline">Mulligan Guide</Link>
           <Link href={`/commanders/${slug}/budget-upgrades`} className="text-blue-400 hover:underline">Budget Upgrades</Link>
           <Link href={`/commanders/${slug}/best-cards`} className="text-blue-400 hover:underline">Best Cards</Link>
         </div>
+        {(() => {
+          const tags = new Set((profile.tags ?? []).map((t) => t.toLowerCase()));
+          const archetypes = ARCHETYPES.filter((a) => a.tagMatches.some((m) => tags.has(m.toLowerCase())));
+          const strategies = STRATEGIES.filter((s) => s.tagMatches.some((m) => tags.has(m.toLowerCase())));
+          if (archetypes.length === 0 && strategies.length === 0) return null;
+          return (
+            <div className="text-sm text-neutral-400 mb-6">
+              {archetypes.length > 0 && (
+                <p>
+                  Archetypes: {archetypes.map((a, i) => (
+                    <span key={a.slug}>
+                      {i > 0 && ", "}
+                      <Link href={`/commander-archetypes/${a.slug}`} className="text-blue-400 hover:underline">{a.title}</Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+              {strategies.length > 0 && (
+                <p>
+                  Strategies: {strategies.map((s, i) => (
+                    <span key={s.slug}>
+                      {i > 0 && ", "}
+                      <Link href={`/strategies/${s.slug}`} className="text-blue-400 hover:underline">{s.title}</Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+            </div>
+          );
+        })()}
         <RelatedTools
           tools={[
             { href: "/tools/mulligan", label: "Mulligan Simulator" },

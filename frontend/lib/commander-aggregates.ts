@@ -4,6 +4,7 @@ export interface CommanderAggregates {
   topCards: Array<{ cardName: string; count: number; percent: number }>;
   deckCount: number;
   recentDecks: Array<{ id: string; title: string; updated_at: string }>;
+  medianDeckCost: number | null;
 }
 
 /** Read cached commander aggregates. Returns null if stale or missing. */
@@ -13,15 +14,17 @@ export async function getCommanderAggregates(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("commander_aggregates")
-    .select("top_cards, deck_count, recent_decks")
+    .select("top_cards, deck_count, recent_decks, median_deck_cost")
     .eq("commander_slug", slug)
     .maybeSingle();
 
   if (error || !data) return null;
 
+  const median = data.median_deck_cost != null ? Number(data.median_deck_cost) : null;
   return {
     topCards: (data.top_cards as CommanderAggregates["topCards"]) ?? [],
     deckCount: Number(data.deck_count) ?? 0,
     recentDecks: (data.recent_decks as CommanderAggregates["recentDecks"]) ?? [],
+    medianDeckCost: median != null && !isNaN(median) ? median : null,
   };
 }

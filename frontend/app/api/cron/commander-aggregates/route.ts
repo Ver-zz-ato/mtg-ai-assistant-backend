@@ -9,6 +9,7 @@ export interface CommanderAggregate {
   topCards: Array<{ cardName: string; count: number; percent: number }>;
   deckCount: number;
   recentDecks: Array<{ id: string; title: string; updated_at: string }>;
+  medianDeckCost: number | null;
 }
 
 async function computeAggregatesForCommander(
@@ -25,7 +26,7 @@ async function computeAggregatesForCommander(
     .limit(500);
 
   if (decksError || !decks || decks.length === 0) {
-    return { topCards: [], deckCount: 0, recentDecks: [] };
+    return { topCards: [], deckCount: 0, recentDecks: [], medianDeckCost: null };
   }
 
   const deckIds = decks.map((d) => d.id);
@@ -66,7 +67,24 @@ async function computeAggregatesForCommander(
     updated_at: d.updated_at || new Date().toISOString(),
   }));
 
-  return { topCards, deckCount, recentDecks };
+  let medianDeckCost: number | null = null;
+  const { data: costs } = await admin!
+    .from("deck_costs")
+    .select("total_usd")
+    .in("deck_id", deckIds);
+  if (costs && costs.length > 0) {
+    const values = (costs as { total_usd: number }[])
+      .map((r) => Number(r.total_usd))
+      .filter((n) => !isNaN(n) && n > 0)
+      .sort((a, b) => a - b);
+    if (values.length > 0) {
+      const mid = Math.floor(values.length / 2);
+      medianDeckCost =
+        values.length % 2 === 1 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+    }
+  }
+
+  return { topCards, deckCount, recentDecks, medianDeckCost };
 }
 
 function isAuthorized(req: NextRequest): boolean {
@@ -116,6 +134,7 @@ async function runAggregates() {
             top_cards: agg.topCards,
             deck_count: agg.deckCount,
             recent_decks: agg.recentDecks,
+            median_deck_cost: agg.medianDeckCost,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "commander_slug" }

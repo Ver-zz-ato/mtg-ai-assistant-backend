@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
@@ -69,6 +70,14 @@ const IntroBlock = () => (
         { href: "/collections/cost-to-finish", label: "Cost to Finish" },
       ]}
     />
+    <p className="text-sm text-neutral-400 mt-4">
+      Explore:{" "}
+      <Link href="/commander-archetypes" className="text-cyan-400 hover:underline">Archetypes</Link>
+      {" · "}
+      <Link href="/strategies" className="text-cyan-400 hover:underline">Strategies</Link>
+      {" · "}
+      <Link href="/meta" className="text-cyan-400 hover:underline">Meta</Link>
+    </p>
     <PopularCommanders />
   </section>
 );

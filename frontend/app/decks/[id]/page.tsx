@@ -1,5 +1,7 @@
 // app/decks/[id]/page.tsx
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCommanderSlugByName } from "@/lib/commanders";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import PublicDeckCardList from "@/components/PublicDeckCardList";
@@ -514,6 +516,16 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                     {format}
                   </span>
                 </div>
+                {commander && (() => {
+                  const cmdSlug = getCommanderSlugByName(commander);
+                  return cmdSlug ? (
+                    <p className="text-sm text-neutral-400 mb-2">
+                      Commander: <Link href={`/commanders/${cmdSlug}`} className="text-cyan-400 hover:underline">{commander}</Link>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-neutral-400 mb-2">Commander: {commander}</p>
+                  );
+                })()}
                 <div className="flex flex-wrap gap-2 mb-2">
                   {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
                     <span 
@@ -559,13 +571,24 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                 <ExportToTCGPlayer deckId={id} />
               </div>
             </div>
-            <div className="mt-4 text-sm text-neutral-400">
-              Try with this deck:{" "}
-              <a href={`/collections/cost-to-finish?deck=${id}`} className="text-cyan-400 hover:underline">Cost to Finish</a>
-              {" · "}
-              <a href={`/tools/mulligan?deckId=${id}`} className="text-cyan-400 hover:underline">Mulligan Simulator</a>
-              {" · "}
-              <a href={`/deck/swap-suggestions?deckId=${id}`} className="text-cyan-400 hover:underline">Budget Swaps</a>
+            <div className="mt-4 text-sm text-neutral-400 space-y-1">
+              <p>Try with this deck:{" "}
+                <Link href={`/collections/cost-to-finish?deck=${id}`} className="text-cyan-400 hover:underline">Cost to Finish</Link>
+                {" · "}
+                <Link href={`/tools/mulligan?deckId=${id}`} className="text-cyan-400 hover:underline">Mulligan Simulator</Link>
+                {" · "}
+                <Link href={`/deck/swap-suggestions?deckId=${id}`} className="text-cyan-400 hover:underline">Budget Swaps</Link>
+              </p>
+              <p>
+                Explore:{" "}
+                <Link href="/commander-archetypes" className="text-cyan-400 hover:underline">Archetypes</Link>
+                {" · "}
+                <Link href="/strategies" className="text-cyan-400 hover:underline">Strategies</Link>
+                {" · "}
+                <Link href="/meta" className="text-cyan-400 hover:underline">Meta Signals</Link>
+                {" · "}
+                <Link href="/cards" className="text-cyan-400 hover:underline">Top Cards</Link>
+              </p>
             </div>
           </header>
 
