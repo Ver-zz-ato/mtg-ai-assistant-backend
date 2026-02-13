@@ -162,42 +162,60 @@ export async function POST(req: NextRequest) {
         console.log('🤖 [health-suggestions] Last 500 chars:', content.substring(content.length - 500));
       }
 
-      // Extract card suggestions from response - more flexible parsing
+      // Extract card suggestions from response - flexible parsing for various AI output formats
       const suggestions: Array<{ card: string; reason: string }> = [];
+      const SKIP_PREFIXES = /^(Card|Name|Suggestion|Here|These|Consider|Try|Add|I suggest|I recommend)/i;
       
-      // Split content into lines for easier parsing
       const lines = content.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
       
       for (const line of lines) {
-        // Try numbered list format: "1. Card Name - reason" or "1) Card Name - reason"
-        const numberedMatch = line.match(/^\d+[\.\)]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
-        if (numberedMatch && numberedMatch[1]) {
-          const cardName = numberedMatch[1].trim();
-          const reason = numberedMatch[2]?.trim() || 'Recommended for this deck';
-          if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
-            suggestions.push({ card: cardName, reason });
-            if (suggestions.length >= 7) break;
-            continue;
+        let cardName = '';
+        let reason = 'Recommended for this deck';
+        
+        // 1. Numbered: "1. Card Name - reason" or "1) Card Name: reason"
+        const numMatch = line.match(/^\d+[\.\)]\s*(.+)$/);
+        if (numMatch) {
+          const rest = numMatch[1];
+          const dashIdx = rest.search(/\s[-–—:]\s/);
+          if (dashIdx >= 0) {
+            cardName = rest.slice(0, dashIdx).replace(/\*\*/g, '').trim();
+            reason = rest.slice(dashIdx + 3).trim();
+          } else {
+            cardName = rest.replace(/\*\*/g, '').trim();
+          }
+        }
+        // 2. Bullet: "- Card Name - reason" or "* Card Name: reason"
+        else if (/^[-*•]\s+/.test(line)) {
+          const rest = line.replace(/^[-*•]\s+/, '');
+          const dashIdx = rest.search(/\s[-–—:]\s/);
+          if (dashIdx >= 0) {
+            cardName = rest.slice(0, dashIdx).replace(/\*\*/g, '').trim();
+            reason = rest.slice(dashIdx + 3).trim();
+          } else {
+            cardName = rest.replace(/\*\*/g, '').trim();
+          }
+        }
+        // 3. Bold markdown: "**Card Name** - reason"
+        else if (line.includes('**')) {
+          const boldMatch = line.match(/\*\*([^*]+)\*\*(?:\s*[-–—:]\s*(.+))?/);
+          if (boldMatch) {
+            cardName = boldMatch[1].trim();
+            reason = boldMatch[2]?.trim() || reason;
+          }
+        }
+        // 4. Plain "Card Name - reason" (line starts with capital, has dash)
+        else if (/^[A-Z]/.test(line)) {
+          const dashIdx = line.search(/\s[-–—:]\s/);
+          if (dashIdx >= 0) {
+            cardName = line.slice(0, dashIdx).replace(/\*\*/g, '').trim();
+            reason = line.slice(dashIdx + 3).trim();
+          } else {
+            cardName = line.replace(/\*\*/g, '').trim();
           }
         }
         
-        // Try bullet points: "- Card Name - reason" or "* Card Name - reason"
-        const bulletMatch = line.match(/^[-*•]\s*([A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*)(?:\s*[-–—:]\s*(.+))?$/);
-        if (bulletMatch && bulletMatch[1]) {
-          const cardName = bulletMatch[1].trim();
-          const reason = bulletMatch[2]?.trim() || 'Recommended for this deck';
-          if (cardName.length > 2 && cardName.length < 100 && !cardName.match(/^(Card|Name|Suggestion)/i)) {
-            suggestions.push({ card: cardName, reason });
-            if (suggestions.length >= 7) break;
-            continue;
-          }
-        }
-        
-        // Try simple card name on its own line (if it looks like a card name)
-        if (line.match(/^[A-Z][A-Za-z\s,'-]+(?:,\s*the\s+[A-Za-z\s-]+)?(?:\s+[A-Z][A-Za-z\s-]+)*$/) && 
-            line.length > 2 && line.length < 100 &&
-            !line.match(/^(Card|Name|Suggestion|Here|These|Consider|Try|Add)/i)) {
-          suggestions.push({ card: line, reason: 'Recommended for this deck' });
+        if (cardName && cardName.length >= 2 && cardName.length < 100 && !SKIP_PREFIXES.test(cardName)) {
+          suggestions.push({ card: cardName, reason });
           if (suggestions.length >= 7) break;
         }
       }

@@ -76,11 +76,11 @@ export async function allowAIRequest(supabase: SupabaseClient): Promise<{ allow:
     const status = await checkBudgetStatus(supabase);
     
     if (status.over_daily_limit) {
-      return { allow: false, reason: 'Daily AI budget limit exceeded' };
+      return { allow: false, reason: 'Server AI budget limit reached for today. Try again later or contact support.' };
     }
     
     if (status.over_weekly_limit) {
-      return { allow: false, reason: 'Weekly AI budget limit exceeded' };
+      return { allow: false, reason: 'Server AI budget limit reached for this week. Try again later or contact support.' };
     }
     
     return { allow: true };
