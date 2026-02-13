@@ -1,0 +1,333 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "ManaTap Logo" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "ManaTap Logo" [ref=e6] [cursor=pointer]
+      - button "Sign in / Sign up" [ref=e8]
+      - button "Toggle menu" [ref=e10]:
+        - img [ref=e11]
+  - main [ref=e13]:
+    - main [ref=e14]:
+      - article [ref=e15]:
+        - navigation [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e18]: /
+          - link "Commanders" [ref=e19] [cursor=pointer]:
+            - /url: /commanders
+          - generic [ref=e20]: /
+          - generic [ref=e21]: The Ur-Dragon
+        - heading "The Ur-Dragon Commander Tools" [level=1] [ref=e22]
+        - generic [ref=e23]:
+          - img "The Ur-Dragon" [ref=e24]
+          - generic [ref=e26]: The Ur-Dragon
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - generic [ref=e29]: "Public decks:"
+            - generic [ref=e30]: "1"
+          - generic [ref=e31]:
+            - generic [ref=e32]: "Archetype:"
+            - link "Dragon Tribal" [ref=e33] [cursor=pointer]:
+              - /url: /commander-archetypes/dragons
+          - generic [ref=e34]:
+            - generic [ref=e35]: "Difficulty:"
+            - generic [ref=e36]: Easy
+        - generic [ref=e37]:
+          - paragraph [ref=e38]: The Ur-Dragon is one of the most popular Commanders in EDH.
+          - paragraph [ref=e39]: Common themes include dragons, treasure, flying.
+          - paragraph [ref=e40]: Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects.
+          - paragraph [ref=e41]: Use the tools below to refine your build.
+          - paragraph [ref=e42]: Browse community decks, simulate mulligans, estimate costs, and find budget swaps — all in one place.
+        - generic [ref=e43]:
+          - heading "Commander Snapshot" [level=2] [ref=e44]
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]: "Gameplan:"
+              - generic [ref=e48]: Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects
+            - generic [ref=e49]:
+              - generic [ref=e50]: "Core themes:"
+              - generic [ref=e51]: dragons, treasure, flying, anthem
+            - generic [ref=e52]:
+              - generic [ref=e53]: "Power style:"
+              - generic [ref=e54]: Value
+            - generic [ref=e55]:
+              - generic [ref=e56]: "Difficulty:"
+              - generic [ref=e57]: Easy
+        - heading "Try tools with this commander" [level=2] [ref=e58]
+        - generic [ref=e59]:
+          - paragraph [ref=e60]: "Start here: Mulligan Simulator (fast) → then Cost to Finish (money) → Budget Swaps (savings)"
+          - generic [ref=e61]:
+            - link "Start here Mulligan Simulator Simulate keep rates for your opener" [ref=e62] [cursor=pointer]:
+              - /url: /tools/mulligan?commander=the-ur-dragon
+              - generic [ref=e63] [cursor=pointer]:
+                - generic [ref=e64] [cursor=pointer]: Start here
+                - generic [ref=e65] [cursor=pointer]:
+                  - heading "Mulligan Simulator" [level=3] [ref=e66] [cursor=pointer]
+                  - paragraph [ref=e67] [cursor=pointer]: Simulate keep rates for your opener
+            - link "Cost to Finish Estimate cost to complete your deck" [ref=e68] [cursor=pointer]:
+              - /url: /collections/cost-to-finish?commander=the-ur-dragon
+              - generic [ref=e70] [cursor=pointer]:
+                - heading "Cost to Finish" [level=3] [ref=e71] [cursor=pointer]
+                - paragraph [ref=e72] [cursor=pointer]: Estimate cost to complete your deck
+            - link "Budget Swaps Find cheaper alternatives" [ref=e73] [cursor=pointer]:
+              - /url: /deck/swap-suggestions?commander=the-ur-dragon
+              - generic [ref=e75] [cursor=pointer]:
+                - heading "Budget Swaps" [level=3] [ref=e76] [cursor=pointer]
+                - paragraph [ref=e77] [cursor=pointer]: Find cheaper alternatives
+            - link "Browse Decks Explore public The Ur-Dragon decks" [ref=e78] [cursor=pointer]:
+              - /url: /decks/browse?search=The%20Ur-Dragon
+              - generic [ref=e80] [cursor=pointer]:
+                - heading "Browse Decks" [level=3] [ref=e81] [cursor=pointer]
+                - paragraph [ref=e82] [cursor=pointer]: Explore public The Ur-Dragon decks
+          - paragraph [ref=e83]: No signup required to try tools.
+        - region "Explore ManaTap Tools" [ref=e84]:
+          - generic [ref=e85]: Explore ManaTap Tools
+          - generic [ref=e86]:
+            - link "Cost to Finish" [ref=e87] [cursor=pointer]:
+              - /url: /collections/cost-to-finish
+            - link "Budget Swaps" [ref=e88] [cursor=pointer]:
+              - /url: /deck/swap-suggestions
+            - link "Price Tracker" [ref=e89] [cursor=pointer]:
+              - /url: /price-tracker
+            - link "Mulligan Simulator" [ref=e90] [cursor=pointer]:
+              - /url: /tools/mulligan
+            - link "Probability Helpers" [ref=e91] [cursor=pointer]:
+              - /url: /tools/probability
+        - generic [ref=e92]:
+          - heading "Common synergy packages" [level=2] [ref=e93]
+          - list [ref=e94]:
+            - listitem [ref=e95]:
+              - generic [ref=e96]: •
+              - generic [ref=e97]: Dragon cost reducers + haste enablers
+            - listitem [ref=e98]:
+              - generic [ref=e99]: •
+              - generic [ref=e100]: Treasure ramp + big threats
+            - listitem [ref=e101]:
+              - generic [ref=e102]: •
+              - generic [ref=e103]: Anthem effects for flying beatdown
+        - generic [ref=e104]:
+          - heading "Most Played Cards" [level=2] [ref=e105]
+          - paragraph [ref=e106]: Top cards across 1 public The Ur-Dragon decks.
+          - generic [ref=e107]:
+            - link "1 Anguished Unmaking 100%" [ref=e108] [cursor=pointer]:
+              - /url: /cards/anguished-unmaking
+              - generic [ref=e109] [cursor=pointer]: "1"
+              - generic [ref=e110] [cursor=pointer]: Anguished Unmaking
+              - generic [ref=e111] [cursor=pointer]: 100%
+            - link "2 Arcane Denial 100%" [ref=e112] [cursor=pointer]:
+              - /url: /cards/arcane-denial
+              - generic [ref=e113] [cursor=pointer]: "2"
+              - generic [ref=e114] [cursor=pointer]: Arcane Denial
+              - generic [ref=e115] [cursor=pointer]: 100%
+            - link "3 Arcane Signet 100%" [ref=e116] [cursor=pointer]:
+              - /url: /cards/arcane-signet
+              - generic [ref=e117] [cursor=pointer]: "3"
+              - generic [ref=e118] [cursor=pointer]: Arcane Signet
+              - generic [ref=e119] [cursor=pointer]: 100%
+            - link "4 Beast Within 100%" [ref=e120] [cursor=pointer]:
+              - /url: /cards/beast-within
+              - generic [ref=e121] [cursor=pointer]: "4"
+              - generic [ref=e122] [cursor=pointer]: Beast Within
+              - generic [ref=e123] [cursor=pointer]: 100%
+            - link "5 Blasphemous Act 100%" [ref=e124] [cursor=pointer]:
+              - /url: /cards/blasphemous-act
+              - generic [ref=e125] [cursor=pointer]: "5"
+              - generic [ref=e126] [cursor=pointer]: Blasphemous Act
+              - generic [ref=e127] [cursor=pointer]: 100%
+            - link "6 Boros Signet 100%" [ref=e128] [cursor=pointer]:
+              - /url: /cards/boros-signet
+              - generic [ref=e129] [cursor=pointer]: "6"
+              - generic [ref=e130] [cursor=pointer]: Boros Signet
+              - generic [ref=e131] [cursor=pointer]: 100%
+            - link "7 Chaos Warp 100%" [ref=e132] [cursor=pointer]:
+              - /url: /cards/chaos-warp
+              - generic [ref=e133] [cursor=pointer]: "7"
+              - generic [ref=e134] [cursor=pointer]: Chaos Warp
+              - generic [ref=e135] [cursor=pointer]: 100%
+            - link "8 Command Tower 100%" [ref=e136] [cursor=pointer]:
+              - /url: /cards/command-tower
+              - generic [ref=e137] [cursor=pointer]: "8"
+              - generic [ref=e138] [cursor=pointer]: Command Tower
+              - generic [ref=e139] [cursor=pointer]: 100%
+            - link "9 Counterspell 100%" [ref=e140] [cursor=pointer]:
+              - /url: /cards/counterspell
+              - generic [ref=e141] [cursor=pointer]: "9"
+              - generic [ref=e142] [cursor=pointer]: Counterspell
+              - generic [ref=e143] [cursor=pointer]: 100%
+            - link "10 Cultivate 100%" [ref=e144] [cursor=pointer]:
+              - /url: /cards/cultivate
+              - generic [ref=e145] [cursor=pointer]: "10"
+              - generic [ref=e146] [cursor=pointer]: Cultivate
+              - generic [ref=e147] [cursor=pointer]: 100%
+            - link "11 Cyclonic Rift 100%" [ref=e148] [cursor=pointer]:
+              - /url: /cards/cyclonic-rift
+              - generic [ref=e149] [cursor=pointer]: "11"
+              - generic [ref=e150] [cursor=pointer]: Cyclonic Rift
+              - generic [ref=e151] [cursor=pointer]: 100%
+            - link "12 Demonic Tutor 100%" [ref=e152] [cursor=pointer]:
+              - /url: /cards/demonic-tutor
+              - generic [ref=e153] [cursor=pointer]: "12"
+              - generic [ref=e154] [cursor=pointer]: Demonic Tutor
+              - generic [ref=e155] [cursor=pointer]: 100%
+        - generic [ref=e156]:
+          - heading "Similar commanders you may like" [level=2] [ref=e157]
+          - list [ref=e158]:
+            - listitem [ref=e159]:
+              - link "Miirym, Sentinel Wyrm" [ref=e160] [cursor=pointer]:
+                - /url: /commanders/miirym-sentinel-wyrm
+            - listitem [ref=e161]:
+              - link "Edgar Markov" [ref=e162] [cursor=pointer]:
+                - /url: /commanders/edgar-markov
+            - listitem [ref=e163]:
+              - link "Jodah, the Unifier" [ref=e164] [cursor=pointer]:
+                - /url: /commanders/jodah-the-unifier
+            - listitem [ref=e165]:
+              - link "Atraxa, Praetors' Voice" [ref=e166] [cursor=pointer]:
+                - /url: /commanders/atraxa-praetors-voice
+            - listitem [ref=e167]:
+              - link "Krenko, Mob Boss" [ref=e168] [cursor=pointer]:
+                - /url: /commanders/krenko-mob-boss
+            - listitem [ref=e169]:
+              - link "Kaalia of the Vast" [ref=e170] [cursor=pointer]:
+                - /url: /commanders/kaalia-of-the-vast
+        - generic [ref=e171]:
+          - heading "Recent Decks" [level=2] [ref=e172]
+          - paragraph [ref=e173]: Latest community decks for The Ur-Dragon.
+          - list [ref=e174]:
+            - listitem [ref=e175]:
+              - link "The Ur-Dragon – Dragon Tribal" [ref=e176] [cursor=pointer]:
+                - /url: /decks/c4425ebb-67ad-4be5-8152-3b0f2e09fc72
+              - generic [ref=e177]: 28/11/2025
+        - heading "Popular decks using this commander" [level=2] [ref=e178]
+        - generic [ref=e179]:
+          - paragraph [ref=e180]: Explore community decks built around The Ur-Dragon to find inspiration and proven lists.
+          - link "Browse The Ur-Dragon decks →" [ref=e181] [cursor=pointer]:
+            - /url: /decks/browse?search=The%20Ur-Dragon
+        - heading "Strategy Snapshot" [level=2] [ref=e182]
+        - paragraph [ref=e183]: The Ur-Dragon favors a value playstyle with dragons, treasure, flying, anthem themes. Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects. This build is typically easy to pilot.
+        - generic [ref=e184]:
+          - link "Mulligan Guide" [ref=e185] [cursor=pointer]:
+            - /url: /commanders/the-ur-dragon/mulligan-guide
+          - link "Budget Upgrades" [ref=e186] [cursor=pointer]:
+            - /url: /commanders/the-ur-dragon/budget-upgrades
+          - link "Best Cards" [ref=e187] [cursor=pointer]:
+            - /url: /commanders/the-ur-dragon/best-cards
+        - paragraph [ref=e189]:
+          - text: "Archetypes:"
+          - link "Dragon Tribal" [ref=e191] [cursor=pointer]:
+            - /url: /commander-archetypes/dragons
+          - generic [ref=e192]:
+            - text: ","
+            - link "Treasure" [ref=e193] [cursor=pointer]:
+              - /url: /commander-archetypes/treasure
+        - region "Related tools" [ref=e194]:
+          - heading "Related Tools" [level=2] [ref=e195]
+          - list [ref=e196]:
+            - listitem [ref=e197]:
+              - link "Mulligan Simulator" [ref=e198] [cursor=pointer]:
+                - /url: /tools/mulligan
+            - listitem [ref=e199]:
+              - link "Cost to Finish" [ref=e200] [cursor=pointer]:
+                - /url: /collections/cost-to-finish
+            - listitem [ref=e201]:
+              - link "Budget Swaps" [ref=e202] [cursor=pointer]:
+                - /url: /deck/swap-suggestions
+            - listitem [ref=e203]:
+              - link "Probability Calculator" [ref=e204] [cursor=pointer]:
+                - /url: /tools/probability
+            - listitem [ref=e205]:
+              - link "Price Tracker" [ref=e206] [cursor=pointer]:
+                - /url: /price-tracker
+  - button "Feedback" [ref=e207]
+  - contentinfo [ref=e208]:
+    - generic [ref=e209]:
+      - generic [ref=e212]:
+        - generic [ref=e213]:
+          - generic [ref=e215]: "AI Model:"
+          - generic [ref=e216]: GPT-5 & GPT-4o Mini
+        - generic [ref=e217]:
+          - generic [ref=e219]: "Card Data:"
+          - link "Scryfall API" [ref=e220] [cursor=pointer]:
+            - /url: https://scryfall.com
+          - generic [ref=e221]: (Updated Recent)
+      - generic [ref=e223]: © 2026 ManaTap AI
+      - generic [ref=e224]:
+        - heading "Explore ManaTap" [level=3] [ref=e226]
+        - navigation [ref=e227]:
+          - link "Deck Builder" [ref=e228] [cursor=pointer]:
+            - /url: /mtg-commander-ai-deck-builder
+          - link "What's New" [ref=e229] [cursor=pointer]:
+            - /url: /changelog
+          - link "Cost to Finish" [ref=e230] [cursor=pointer]:
+            - /url: /collections/cost-to-finish
+          - link "Blog" [ref=e231] [cursor=pointer]:
+            - /url: /blog
+          - link "Budget Swaps" [ref=e232] [cursor=pointer]:
+            - /url: /deck/swap-suggestions
+          - link "Price Tracker" [ref=e233] [cursor=pointer]:
+            - /url: /price-tracker
+          - link "Probability" [ref=e234] [cursor=pointer]:
+            - /url: /tools/probability
+          - link "Mulligan" [ref=e235] [cursor=pointer]:
+            - /url: /tools/mulligan
+          - link "My Decks" [ref=e236] [cursor=pointer]:
+            - /url: /my-decks
+          - link "My Collections" [ref=e237] [cursor=pointer]:
+            - /url: /collections
+          - link "My Wishlist" [ref=e238] [cursor=pointer]:
+            - /url: /wishlist
+          - link "Profile" [ref=e239] [cursor=pointer]:
+            - /url: /profile
+      - generic [ref=e240]:
+        - generic [ref=e242]:
+          - 'link "Follow us on X: @ManaTapAI" [ref=e243] [cursor=pointer]':
+            - /url: https://x.com/ManatapAI
+            - text: "Follow us on X:"
+            - generic [ref=e244] [cursor=pointer]: "@ManaTapAI"
+          - generic [ref=e245]: •
+          - 'link "Instagram: @manatap.ai" [ref=e246] [cursor=pointer]':
+            - /url: https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1
+            - text: "Instagram:"
+            - generic [ref=e247] [cursor=pointer]: "@manatap.ai"
+        - generic [ref=e249]:
+          - generic [ref=e250]: "Support us:"
+          - link "Ko‑fi" [ref=e251] [cursor=pointer]:
+            - /url: https://ko-fi.com/manatapai
+          - link "PayPal" [ref=e252] [cursor=pointer]:
+            - /url: https://paypal.me/manatapai
+          - link "Stripe" [ref=e253] [cursor=pointer]:
+            - /url: https://buy.stripe.com/14A4gAdle89v3XE61q4AU01
+        - navigation [ref=e255]:
+          - link "Support" [ref=e256] [cursor=pointer]:
+            - /url: /support
+          - generic [ref=e257]: •
+          - link "Pricing" [ref=e258] [cursor=pointer]:
+            - /url: /pricing
+          - generic [ref=e259]: •
+          - link "Terms" [ref=e260] [cursor=pointer]:
+            - /url: /terms
+          - generic [ref=e261]: •
+          - link "Privacy" [ref=e262] [cursor=pointer]:
+            - /url: /privacy
+          - generic [ref=e263]: •
+          - link "Refund Policy" [ref=e264] [cursor=pointer]:
+            - /url: /refund
+          - generic [ref=e265]: •
+          - button "Cookie Settings" [ref=e266]
+      - generic [ref=e267]:
+        - paragraph [ref=e268]: "This assistant uses AI to help with Magic: The Gathering deck building and strategy. Card information is sourced from Scryfall's comprehensive database. AI responses should be verified for competitive play."
+        - paragraph [ref=e269]: "Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 1993-2026 Wizards. All Rights Reserved. Manatap.ai is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. Manatap.ai may use the trademarks and other intellectual property of Wizards of the Coast LLC, which is permitted under Wizards' Fan Site Policy. MAGIC: THE GATHERING® is a trademark of Wizards of the Coast."
+        - paragraph [ref=e270]:
+          - text: Some card prices and other card data are provided by
+          - link "Scryfall" [ref=e271] [cursor=pointer]:
+            - /url: https://scryfall.com/
+          - text: . Scryfall makes no guarantee about its price information and recommends you see stores for final prices and details. For more information about Wizards of the Coast, visit
+          - link "https://company.wizards.com/" [ref=e272] [cursor=pointer]:
+            - /url: https://company.wizards.com/
+          - text: .
+  - alert [ref=e273]
+```
