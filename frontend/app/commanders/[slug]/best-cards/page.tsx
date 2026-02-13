@@ -8,7 +8,10 @@ import {
 } from "@/lib/seo/commander-content";
 import { RelatedTools } from "@/components/RelatedTools";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
+import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbon";
+import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import { getCommanderAggregates } from "@/lib/commander-aggregates";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -63,7 +66,10 @@ export default async function BestCardsPage({ params }: Props) {
   const content = renderBestCardsContent(profile);
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
-  const imgMap = await getImagesForNamesCached([cleanName]);
+  const [imgMap, aggregates] = await Promise.all([
+    getImagesForNamesCached([cleanName]),
+    getCommanderAggregates(slug),
+  ]);
   function norm(s: string) {
     return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
   }
@@ -90,27 +96,17 @@ export default async function BestCardsPage({ params }: Props) {
         {commanderArt && (
           <CommanderArtBanner artUrl={commanderArt} name={name} subtitle="Best Cards" className="mb-6" />
         )}
-        <div className="mb-6 flex flex-wrap gap-3">
-          <Link
-            href={`/decks/browse?search=${encodeURIComponent(name)}`}
-            className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg"
-          >
-            Browse {name} decks →
-          </Link>
-          <Link
-            href={`/tools/mulligan?commander=${encodeURIComponent(slug)}`}
-            className="inline-block px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold rounded-lg"
-          >
-            Mulligan Simulator →
-          </Link>
-          <Link
-            href={`/collections/cost-to-finish?commander=${encodeURIComponent(slug)}`}
-            className="inline-block px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold rounded-lg"
-          >
-            Cost to Finish →
-          </Link>
-        </div>
-        <p className="text-neutral-500 text-sm mb-6">No signup required to try tools.</p>
+        <CommanderStatsRibbon profile={profile} aggregates={aggregates} />
+        <h2 className="text-xl font-semibold text-neutral-100 mb-4">Try tools with this commander</h2>
+        <CommanderToolActions
+          commanderName={name}
+          tools={[
+            { href: `/tools/mulligan?commander=${encodeURIComponent(slug)}`, label: "Mulligan Simulator", description: "Simulate keep rates for your opener" },
+            { href: `/collections/cost-to-finish?commander=${encodeURIComponent(slug)}`, label: "Cost to Finish", description: "Estimate cost to complete your deck" },
+            { href: `/deck/swap-suggestions?commander=${encodeURIComponent(slug)}`, label: "Budget Swaps", description: "Find cheaper alternatives" },
+            { href: `/decks/browse?search=${encodeURIComponent(name)}`, label: "Browse Decks", description: `Explore public ${name} decks`, isRecommended: true },
+          ]}
+        />
         <div className="space-y-6 text-neutral-300 leading-relaxed">
           {content.map((block, i) => (
             <section key={i}>
@@ -130,27 +126,14 @@ export default async function BestCardsPage({ params }: Props) {
             </div>
           ))}
         </dl>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-8">
           <Link
-            href={`/decks/browse?search=${encodeURIComponent(name)}`}
-            className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg"
+            href={`/commanders/${slug}`}
+            className="text-cyan-400 hover:underline"
           >
-            Browse {name} decks →
-          </Link>
-          <Link
-            href={`/tools/mulligan?commander=${encodeURIComponent(slug)}`}
-            className="inline-block px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold rounded-lg"
-          >
-            Mulligan Simulator →
-          </Link>
-          <Link
-            href={`/collections/cost-to-finish?commander=${encodeURIComponent(slug)}`}
-            className="inline-block px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold rounded-lg"
-          >
-            Cost to Finish →
+            ← Back to {name} commander hub
           </Link>
         </div>
-        <p className="text-neutral-500 text-sm mt-3">No signup required to try tools.</p>
         <RelatedTools
           tools={[
             { href: "/tools/mulligan", label: "Mulligan Simulator" },

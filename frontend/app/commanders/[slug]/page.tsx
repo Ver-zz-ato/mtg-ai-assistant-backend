@@ -12,6 +12,11 @@ import {
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
+import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbon";
+import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
+import { CommanderSynergyTeaser } from "@/components/commander/CommanderSynergyTeaser";
+import { MostPlayedCardsGrid } from "@/components/commander/MostPlayedCardsGrid";
+import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 
@@ -101,6 +106,7 @@ export default async function CommanderHubPage({ params }: Props) {
         {commanderArt && (
           <CommanderArtBanner artUrl={commanderArt} name={name} className="mb-6" />
         )}
+        <CommanderStatsRibbon profile={profile} aggregates={aggregates} />
         <div className="text-neutral-300 mb-8 space-y-4 text-lg leading-relaxed">
           {intro.split(/(?<=\.)\s+/).map((p, i) => (
             <p key={i}>{p}</p>
@@ -119,55 +125,29 @@ export default async function CommanderHubPage({ params }: Props) {
         </div>
 
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Try tools with this commander</h2>
-        <div className="grid gap-4 sm:grid-cols-2 mb-6">
-          <a
-            href={browseUrl}
-            className="block p-4 rounded-lg bg-neutral-800/80 border border-neutral-700 hover:border-blue-600 hover:bg-neutral-800 transition-colors"
-          >
-            <h3 className="font-semibold text-white mb-1">Browse Decks</h3>
-            <p className="text-sm text-neutral-400">Explore public {name} decks</p>
-          </a>
-          <a
-            href={mulliganUrl}
-            className="block p-4 rounded-lg bg-neutral-800/80 border border-neutral-700 hover:border-blue-600 hover:bg-neutral-800 transition-colors"
-          >
-            <h3 className="font-semibold text-white mb-1">Mulligan Simulator</h3>
-            <p className="text-sm text-neutral-400">Simulate keep rates for your opener</p>
-          </a>
-          <a
-            href={costUrl}
-            className="block p-4 rounded-lg bg-neutral-800/80 border border-neutral-700 hover:border-blue-600 hover:bg-neutral-800 transition-colors"
-          >
-            <h3 className="font-semibold text-white mb-1">Cost to Finish</h3>
-            <p className="text-sm text-neutral-400">Estimate cost to complete your deck</p>
-          </a>
-          <a
-            href={swapsUrl}
-            className="block p-4 rounded-lg bg-neutral-800/80 border border-neutral-700 hover:border-blue-600 hover:bg-neutral-800 transition-colors"
-          >
-            <h3 className="font-semibold text-white mb-1">Budget Swaps</h3>
-            <p className="text-sm text-neutral-400">Find cheaper alternatives</p>
-          </a>
-        </div>
+        <CommanderToolActions
+          commanderName={name}
+          tools={[
+            { href: mulliganUrl, label: "Mulligan Simulator", description: "Simulate keep rates for your opener", isRecommended: true },
+            { href: costUrl, label: "Cost to Finish", description: "Estimate cost to complete your deck" },
+            { href: swapsUrl, label: "Budget Swaps", description: "Find cheaper alternatives" },
+            { href: browseUrl, label: "Browse Decks", description: `Explore public ${name} decks` },
+          ]}
+        />
 
         <ToolStrip variant="compact" className="mb-8" />
 
+        <CommanderSynergyTeaser profile={profile} />
+
         {aggregates && aggregates.topCards.length > 0 && (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
-            <h2 className="text-xl font-semibold text-neutral-100 mb-4">Most Played Cards</h2>
-            <p className="text-neutral-400 text-sm mb-3">
-              Top cards across {aggregates.deckCount} public {name} decks.
-            </p>
-            <ul className="grid gap-2 sm:grid-cols-2 text-sm">
-              {aggregates.topCards.slice(0, 12).map((c) => (
-                <li key={c.cardName} className="flex justify-between">
-                  <span className="text-neutral-200 truncate">{c.cardName}</span>
-                  <span className="text-neutral-500 shrink-0 ml-2">{c.percent}%</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <MostPlayedCardsGrid
+            cards={aggregates.topCards.slice(0, 12)}
+            commanderName={name}
+            deckCount={aggregates.deckCount}
+          />
         )}
+
+        <SimilarCommanders currentSlug={slug} />
 
         {aggregates && aggregates.medianDeckCost != null && aggregates.medianDeckCost > 0 && (
           <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
