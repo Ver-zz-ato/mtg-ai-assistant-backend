@@ -5,7 +5,6 @@ import { ok, err } from "@/app/api/_utils/envelope";
 import type { SfCard } from "@/lib/deck/inference";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import { logger } from "@/lib/logger";
-import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { deduplicatedFetch } from "@/lib/api/deduplicator";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
@@ -179,7 +178,8 @@ async function callOpenAI(
   });
 
   const modelOverride = opts?.forceModel;
-  let effectiveModel = modelOverride ?? tierRes.model;
+  // Cost routing: simple queries → mini, complex (deck analysis, synergy) → full model
+  let effectiveModel = modelOverride ?? (useMidTier ? tierRes.model : tierRes.fallbackModel);
   if (!modelOverride && !isChatCompletionsModel(effectiveModel)) {
     console.warn(JSON.stringify({
       tag: "model_rejected_chat",
@@ -286,6 +286,8 @@ export async function POST(req: NextRequest) {
   
   try {
     const supabase = await getServerSupabase();
+    const forwarded = req.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
     const { data: { user } } = await supabase.auth.getUser();
     
     // Accept { text } and legacy { prompt }
@@ -387,6 +389,7 @@ export async function POST(req: NextRequest) {
     const parse = ChatPostSchema.safeParse(normalized);
     const prefs = raw?.prefs || raw?.preferences || null; // optional UX prefs from client
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
+    const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
     const looksSearch = typeof inputText === 'string' && /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(inputText.trim());
     let suppressInsert = !!looksSearch;
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
@@ -699,26 +702,36 @@ export async function POST(req: NextRequest) {
         if (deckIdToUse && deckText && deckText.trim()) {
           const hash = deckHash(deckText);
           deckHashForLog = hash;
-          const { data: row } = await supabase
-            .from("deck_context_summary")
-            .select("summary_json")
-            .eq("deck_id", deckIdToUse)
-            .eq("deck_hash", hash)
-            .maybeSingle();
-          if (row?.summary_json) {
-            v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
-            contextSource = "linked_db";
+          const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+          if (admin) {
+            const { data: row } = await admin
+              .from("deck_context_summary")
+              .select("summary_json")
+              .eq("deck_id", deckIdToUse)
+              .eq("deck_hash", hash)
+              .maybeSingle();
+            if (row?.summary_json) {
+              v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
+              contextSource = "linked_db";
+            } else {
+              v2Summary = await buildDeckContextSummary(deckText, {
+                format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                commander: d?.commander ?? null,
+                colors: Array.isArray(d?.colors) ? d.colors : [],
+              });
+              await admin.from("deck_context_summary").upsert(
+                { deck_id: deckIdToUse, deck_hash: hash, summary_json: v2Summary },
+                { onConflict: "deck_id,deck_hash" }
+              );
+              contextSource = "linked_db";
+            }
           } else {
             v2Summary = await buildDeckContextSummary(deckText, {
               format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
               commander: d?.commander ?? null,
               colors: Array.isArray(d?.colors) ? d.colors : [],
             });
-            await supabase.from("deck_context_summary").upsert(
-              { deck_id: deckIdToUse, deck_hash: hash, summary_json: v2Summary },
-              { onConflict: "deck_id,deck_hash" }
-            );
-            contextSource = "linked_db";
+            contextSource = "raw_fallback";
           }
           summaryTokensEstimate = estimateSummaryTokens(v2Summary);
         } else if (pastedDeckTextRaw && pastedDeckTextRaw.trim()) {
@@ -761,7 +774,8 @@ export async function POST(req: NextRequest) {
       supabase,
       hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
     });
-    let sys = promptResult.systemPrompt;
+    const { NO_FILLER_INSTRUCTION } = await import("@/lib/ai/chat-generation-config");
+    let sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
     let promptVersionId: string | null = promptResult.promptVersionId ?? null;
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
@@ -800,7 +814,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (v2Summary) {
-      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(v2Summary)}\n`;
+      // For simple queries, shrink card_names: use intent-based top-K or trim to 25 (cost savings, token creep guard)
+      const queryLower = (text || '').toLowerCase().trim();
+      const looksSimple = /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?|is |can |does |will )\b/i.test(queryLower) ||
+        /^(is|can|does|will)\s+\w+\s+(a|an|legal|banned|good|bad)\b/i.test(queryLower);
+      let cardNamesForPrompt = v2Summary.card_names;
+      if (looksSimple) {
+        const { getRelevantCardsForIntent } = await import("@/lib/deck/deck-context-summary");
+        const relevant = getRelevantCardsForIntent(v2Summary, queryLower);
+        if (relevant.length > 0) {
+          cardNamesForPrompt = relevant;
+        } else if (Array.isArray(v2Summary.card_names) && v2Summary.card_names.length > 25) {
+          cardNamesForPrompt = v2Summary.card_names.slice(0, 25);
+        }
+      }
+      const summaryForPrompt = { ...v2Summary, card_names: cardNamesForPrompt };
+      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
       sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = threadHistory.slice(-12).filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
@@ -1100,28 +1129,108 @@ export async function POST(req: NextRequest) {
     // Only use gpt-5 when truly needed: deck context OR 2+ complex keywords (not simple queries)
     const isComplexAnalysis = !isSimpleQuery && (hasDeckContext || complexKeywordCount >= 2);
     
-    // Task 1: Add response caching for chat (check cache before calling OpenAI)
-    const { hashString } = await import('@/lib/guest-tracking');
+    // Two-tier cache: public (allowlist) or private (scoped). No global shared cache.
+    const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const sysPromptHash = await hashString(sys || '');
     const format = typeof prefs?.format === 'string' ? prefs.format : '';
     const commander = inferredContext?.commander || '';
-    const cacheKey = `chat:${text}:${sysPromptHash}:${format}:${commander || ''}`;
-    const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-    
-    // Check cache before making API call
-    const cachedResponse = memoGet<{ text: string; usage?: any; fallback?: boolean }>(cacheKey);
+    const hasChatHistory = threadHistory.length > 0;
+    const tierLabel = chatTierRes.tier;
+    const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+    const { isPublicCacheEligible } = await import('@/lib/ai/cache-allowlist');
+    const publicEligible = isPublicCacheEligible({
+      hasDeckContext,
+      hasChatHistory,
+      userMessage: text,
+      layer0Handler: layer0Mode === "NO_LLM" ? undefined : layer0Mode ?? undefined,
+    });
+
+    let cachedResponse: { text: string; usage?: any; fallback?: boolean } | undefined;
+    if (publicEligible) {
+      const { hashCacheKey, supabaseCacheGet, normalizeCacheText } = await import('@/lib/utils/supabase-cache');
+      const payload = {
+        cache_version: 1,
+        model: chatTierRes.model,
+        sysPromptHash,
+        intent: "public",
+        normalized_user_text: normalizeCacheText(text, true),
+        deck_context_included: false,
+        deck_hash: null as string | null,
+        tier: tierLabel,
+        locale: null as string | null,
+      };
+      const key = await hashCacheKey(payload);
+      try {
+        cachedResponse = await supabaseCacheGet(supabase, "ai_public_cache", key);
+      } catch (e) {
+        if (DEV) console.warn("[chat] Public cache get failed:", e);
+      }
+    } else {
+      // Private cache: scope by user_id → guest token hash → anon session cookie → ip_hash (last resort only)
+      let scope: string;
+      if (userId) {
+        scope = `user:${userId}`;
+      } else if (guestToken) {
+        scope = `guest:${await hashGuestToken(guestToken)}`;
+      } else {
+        try {
+          const { getOrCreateAnonSessionId } = await import('@/lib/guest-tracking');
+          const anonId = await getOrCreateAnonSessionId();
+          scope = `anon:${await hashString(anonId)}`;
+        } catch {
+          scope = `ip:${await hashString(ip)}`;
+        }
+      }
+      const { hashCacheKey, supabaseCacheGet, normalizeCacheText } = await import('@/lib/utils/supabase-cache');
+      const payload = {
+        cache_version: 1,
+        model: chatTierRes.model,
+        sysPromptHash,
+        intent: "private",
+        normalized_user_text: normalizeCacheText(text, false),
+        deck_context_included: hasDeckContext,
+        deck_hash: v2Summary?.deck_hash ?? null,
+        tier: tierLabel,
+        locale: null as string | null,
+        scope,
+      };
+      const key = await hashCacheKey(payload);
+      try {
+        cachedResponse = await supabaseCacheGet(supabase, "ai_private_cache", key);
+      } catch (e) {
+        if (DEV) console.warn("[chat] Private cache get failed:", e);
+      }
+    }
+
     if (cachedResponse) {
       if (DEV) console.log(`[chat] Cache HIT for query: ${text.slice(0, 50)}...`);
-      // Validate cached response - ensure text is a string, not a function
       let cachedText = cachedResponse.text || '';
       if (typeof cachedText !== 'string') {
         console.error('❌ [chat] Cached response has non-string text! Type:', typeof cachedText);
         cachedText = '';
       }
-      // Return cached response immediately
       if (!suppressInsert && !isGuest && tid) {
         await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: cachedText });
       }
+      try {
+        const { recordAiUsage } = await import("@/lib/ai/log-usage");
+        await recordAiUsage({
+          user_id: userId ?? null,
+          thread_id: tid ?? null,
+          model: "cached",
+          input_tokens: 0,
+          output_tokens: Math.ceil((cachedText?.length || 0) / 4),
+          cost_usd: 0,
+          route: "chat",
+          request_kind: layer0Mode ?? undefined,
+          layer0_mode: layer0Mode ?? undefined,
+          cache_hit: true,
+          cache_kind: publicEligible ? "public" : "private",
+          is_guest: isGuest,
+          user_tier: tierLabel,
+        });
+      } catch (_) {}
       return ok({ text: cachedText, threadId: tid, provider: "cached" });
     }
 
@@ -1138,8 +1247,11 @@ export async function POST(req: NextRequest) {
     const deckCardCount = v2Summary?.card_count ?? 0;
     type PlannerUsage = { model: string; inputTokens: number; outputTokens: number; cost_usd: number };
     let plannerUsage: PlannerUsage | null = null;
-    // Phase B two-stage: for long-answer deck questions, mini model produces outline then main writes to it. Skip planner when near daily budget cap or Layer 0 MINI_ONLY.
-    let useTwoStage = !layer0MiniOnly && isComplexAnalysis && hasDeckContext && (await import('@/lib/ai/chat-generation-config')).isLongAnswerRequest(text);
+    // Phase B two-stage: for long-answer deck questions, mini model produces outline then main writes to it.
+    // Skip when Layer 0 MINI_ONLY, near budget cap, or predicted output too short (avoids planner overhead).
+    const { isLongAnswerRequest, predictOutputTokens, TWO_STAGE_MIN_PREDICTED_TOKENS } = await import('@/lib/ai/chat-generation-config');
+    const predictedTokens = predictOutputTokens(text, hasDeckContext, isComplexAnalysis);
+    let useTwoStage = !layer0MiniOnly && isComplexAnalysis && hasDeckContext && isLongAnswerRequest(text) && predictedTokens > TWO_STAGE_MIN_PREDICTED_TOKENS;
     if (useTwoStage) {
       try {
         const { checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
@@ -1174,7 +1286,9 @@ export async function POST(req: NextRequest) {
     let out1: any;
     try {
       const callOpts: CallOpenAIOpts = { deckCardCount, stop: (await import('@/lib/ai/chat-generation-config')).CHAT_STOP_SEQUENCES, skipRecordAiUsage: true };
-      if (layer0MiniOnly) {
+      if (forceModel) {
+        callOpts.forceModel = forceModel;
+      } else if (layer0MiniOnly) {
         callOpts.forceModel = layer0MiniOnly.model;
         callOpts.forceMaxTokens = layer0MiniOnly.max_tokens;
       }
@@ -1392,6 +1506,8 @@ Return the corrected answer with concise, user-facing tone.`;
     // Use deckIdToUse OR check if format was inferred from deck (not from pasted text)
     const hasLinkedDeckContext = !!deckIdToUse || (!!d && !!d.format);
     outText = enforceChatGuards(outText, guardCtx, hasLinkedDeckContext);
+    const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
+    outText = trimOutroLines(outText);
 
     // Runtime validation: format-aware recommendation validator + output cleanup
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
@@ -1463,24 +1579,61 @@ Return the corrected answer with concise, user-facing tone.`;
     }
     
     // Task 1: Cache successful responses for 1 hour
-    // CRITICAL: Only cache if outText is a valid string (not a function or empty)
+    // Cache successful responses (two-tier: public or private)
     if (outText && typeof outText === 'string' && outText.length > 0 && !(out1 as any)?.fallback) {
       const usage = (out1 as any)?.usage || {};
-      // Ensure we're caching a clean object with only string values
-      const cacheValue = {
-        text: String(outText),
-        usage: usage || {},
-        fallback: false
-      };
-      memoSet(cacheKey, cacheValue, CACHE_TTL_MS);
-      if (DEV) console.log(`[chat] Cached response for query: ${text.slice(0, 50)}...`);
-    } else {
-      console.warn('⚠️ [chat] Skipping cache - outText invalid:', {
-        hasOutText: !!outText,
-        outTextType: typeof outText,
-        outTextLength: typeof outText === 'string' ? outText.length : 0,
-        isFallback: !!(out1 as any)?.fallback
-      });
+      const cacheValue = { text: String(outText), usage: usage || {}, fallback: false };
+      try {
+        const { hashCacheKey, supabaseCacheSet, normalizeCacheText } = await import('@/lib/utils/supabase-cache');
+        let cacheScope: string;
+        if (userId) cacheScope = `user:${userId}`;
+        else if (guestToken) cacheScope = `guest:${await hashGuestToken(guestToken)}`;
+        else {
+          try {
+            const { getOrCreateAnonSessionId } = await import('@/lib/guest-tracking');
+            cacheScope = `anon:${await hashString(await getOrCreateAnonSessionId())}`;
+          } catch {
+            cacheScope = `ip:${await hashString(ip)}`;
+          }
+        }
+        const payload = publicEligible
+          ? {
+              cache_version: 1,
+              model: chatTierRes.model,
+              sysPromptHash,
+              intent: "public",
+              normalized_user_text: normalizeCacheText(text, true),
+              deck_context_included: false,
+              deck_hash: null as string | null,
+              tier: tierLabel,
+              locale: null as string | null,
+            }
+          : {
+              cache_version: 1,
+              model: chatTierRes.model,
+              sysPromptHash,
+              intent: "private",
+              normalized_user_text: normalizeCacheText(text, false),
+              deck_context_included: hasDeckContext,
+              deck_hash: v2Summary?.deck_hash ?? null,
+              tier: tierLabel,
+              locale: null as string | null,
+              scope: cacheScope,
+            };
+        const key = await hashCacheKey(payload);
+        await supabaseCacheSet(
+          supabase,
+          publicEligible ? "ai_public_cache" : "ai_private_cache",
+          key,
+          cacheValue,
+          CACHE_TTL_MS
+        );
+        if (DEV) console.log(`[chat] Cached response for query: ${text.slice(0, 50)}...`);
+      } catch (e) {
+        if (DEV) console.warn("[chat] Cache set failed:", e);
+      }
+    } else if (DEV && (!outText || (out1 as any)?.fallback)) {
+      console.warn('⚠️ [chat] Skipping cache - outText invalid or fallback');
     }
     
     // Inject prices into card mentions (cache-first, Scryfall fallback)
@@ -1596,6 +1749,8 @@ Return the corrected answer with concise, user-facing tone.`;
         latency_ms: Date.now() - stage1T,
         user_tier: chatTierRes.tier,
         is_guest: isGuest,
+        cache_hit: false,
+        cache_kind: undefined,
       });
     } catch {}
 

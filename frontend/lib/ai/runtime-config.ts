@@ -2,6 +2,8 @@
  * Runtime AI config from app_config with env overrides.
  * Env kill-switch (e.g. LLM_V2_CONTEXT=off) wins over app_config when explicitly "off".
  * Cache TTL 30s to avoid hitting DB on every request.
+ *
+ * Cost savings: Set LLM_LAYER0=on to enable FAQ shortcuts and off-topic gate (reduces LLM calls).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -49,7 +51,11 @@ let cache: { data: RuntimeAIConfig; ts: number } | null = null;
 function applyEnvOverrides(flags: RuntimeAIFlags): RuntimeAIFlags {
   const out = { ...flags };
   if (process.env.LLM_V2_CONTEXT === 'off') out.llm_v2_context = false;
-  if (process.env.LLM_LAYER0 !== 'on') out.llm_layer0 = false;
+  // Layer 0 precedence: off → always off; on → always on; unset → follow app_config
+  const layer0Env = process.env.LLM_LAYER0;
+  if (layer0Env === 'off') out.llm_layer0 = false;
+  else if (layer0Env === 'on') out.llm_layer0 = true;
+  // unset: leave out.llm_layer0 as-is (from app_config or default)
   return out;
 }
 

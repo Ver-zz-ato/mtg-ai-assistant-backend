@@ -479,6 +479,8 @@ async function callOpenAI(
     feature?: string;
     /** If provided, increment the appropriate key after the LLM call */
     llmCallCounter?: DeckAnalyzeLLMByFeature;
+    /** Override model (e.g. from AI test batch to use gpt-4o-mini) */
+    forceModel?: string;
   } = {}
 ): Promise<string> {
   const feature = opts.feature ?? "deck_analyze";
@@ -499,6 +501,11 @@ async function callOpenAI(
     isPro: opts.isPro ?? false,
     useCase: 'deck_analysis',
   });
+
+  // Slot planning/candidates: use mini for cost savings (structured JSON tasks)
+  const slotModel = process.env.MODEL_DECK_ANALYZE_SLOTS || 'gpt-4o-mini';
+  const useMiniForSlots = feature === "deck_analyze_slot_planning" || feature === "deck_analyze_slot_candidates";
+  const model = opts.forceModel ?? (useMiniForSlots ? slotModel : tierRes.model);
 
   const { getPreferredApiSurface } = await import('@/lib/ai/modelCapabilities');
   const apiSurface = getPreferredApiSurface(tierRes.model);
@@ -522,7 +529,7 @@ async function callOpenAI(
       {
         route: '/api/deck/analyze',
         feature,
-        model: tierRes.model,
+        model,
         fallbackModel: tierRes.fallbackModel,
         timeout: 300000,
         maxTokens,
@@ -562,7 +569,8 @@ async function planSuggestionSlots(
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
   isPro?: boolean,
-  llmCallCounter?: DeckAnalyzeLLMByFeature
+  llmCallCounter?: DeckAnalyzeLLMByFeature,
+  forceModel?: string
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
@@ -620,6 +628,7 @@ async function planSuggestionSlots(
       feature: "deck_analyze_slot_planning",
       llmCallCounter,
       deckSize,
+      forceModel,
     });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
@@ -646,7 +655,8 @@ async function fetchSlotCandidates(
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
   isPro?: boolean,
-  llmCallCounter?: DeckAnalyzeLLMByFeature
+  llmCallCounter?: DeckAnalyzeLLMByFeature,
+  forceModel?: string
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
@@ -708,6 +718,7 @@ async function fetchSlotCandidates(
       feature: "deck_analyze_slot_candidates",
       llmCallCounter,
       deckSize,
+      forceModel,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -729,7 +740,8 @@ async function retrySlotCandidates(
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
   isPro?: boolean,
-  llmCallCounter?: DeckAnalyzeLLMByFeature
+  llmCallCounter?: DeckAnalyzeLLMByFeature,
+  forceModel?: string
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
   const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
@@ -783,6 +795,7 @@ async function retrySlotCandidates(
       feature: "deck_analyze_slot_candidates",
       llmCallCounter,
       deckSize,
+      forceModel,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -807,7 +820,8 @@ async function validateSlots(
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
   isPro?: boolean,
-  llmCallCounter?: DeckAnalyzeLLMByFeature
+  llmCallCounter?: DeckAnalyzeLLMByFeature,
+  forceModel?: string
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -822,7 +836,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -901,7 +915,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel);
       await attempt(retry, "retry");
     }
   }
@@ -1490,6 +1504,7 @@ export async function POST(req: Request) {
     useScryfall?: boolean;
     useGPT?: boolean;
     lockCards?: string[];
+    forceModel?: string;
   };
 
   let deckText = String(body.deckText || "").trim();
@@ -1604,15 +1619,18 @@ export async function POST(req: Request) {
     const deckId = body.deckId;
     if (deckId && deckText.trim()) {
       const hash = deckHash(deckText);
-      const { data: row } = await supabase.from("deck_context_summary").select("summary_json").eq("deck_id", deckId).eq("deck_hash", hash).maybeSingle();
-      if (!row?.summary_json) {
-        const { data: d } = await supabase.from("decks").select("commander, format, colors").eq("id", deckId).maybeSingle();
-        const summary = await buildDeckContextSummary(deckText, {
-          format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? format,
-          commander: d?.commander ?? body.commander ?? null,
-          colors: Array.isArray(d?.colors) ? d.colors : (Array.isArray(body.colors) ? body.colors : []),
-        });
-        await supabase.from("deck_context_summary").upsert({ deck_id: deckId, deck_hash: hash, summary_json: summary }, { onConflict: "deck_id,deck_hash" });
+      const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+      if (admin) {
+        const { data: row } = await admin.from("deck_context_summary").select("summary_json").eq("deck_id", deckId).eq("deck_hash", hash).maybeSingle();
+        if (!row?.summary_json) {
+          const { data: d } = await supabase.from("decks").select("commander, format, colors").eq("id", deckId).maybeSingle();
+          const summary = await buildDeckContextSummary(deckText, {
+            format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? format,
+            commander: d?.commander ?? body.commander ?? null,
+            colors: Array.isArray(d?.colors) ? d.colors : (Array.isArray(body.colors) ? body.colors : []),
+          });
+          await admin.from("deck_context_summary").upsert({ deck_id: deckId, deck_hash: hash, summary_json: summary }, { onConflict: "deck_id,deck_hash" });
+        }
       }
     }
   } catch (e) {
@@ -1751,8 +1769,8 @@ export async function POST(req: Request) {
   }
 
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1765,7 +1783,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);

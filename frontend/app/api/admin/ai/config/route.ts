@@ -16,19 +16,22 @@ export async function GET() {
     const config = await getRuntimeAIConfig(supabase);
     let last_updated: Array<{ key: string; at: string; by: string }> = [];
     try {
-      const { data: audit } = await supabase
-        .from('admin_audit_log')
-        .select('payload_json, created_at, admin_user_id')
-        .eq('action', 'config_set')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      const byKey = new Map<string, { at: string; by: string }>();
-      for (const a of audit || []) {
-        const row = a as { payload_json?: { key?: string }; created_at: string; admin_user_id?: string };
-        const key = row.payload_json?.key;
-        if (key && !byKey.has(key)) byKey.set(key, { at: row.created_at, by: row.admin_user_id || 'unknown' });
+      const admin = (await import('@/app/api/_lib/supa')).getAdmin();
+      if (admin) {
+        const { data: audit } = await admin
+          .from('admin_audit_log')
+          .select('payload_json, created_at, admin_user_id')
+          .eq('action', 'config_set')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        const byKey = new Map<string, { at: string; by: string }>();
+        for (const a of audit || []) {
+          const row = a as { payload_json?: { key?: string }; created_at: string; admin_user_id?: string };
+          const key = row.payload_json?.key;
+          if (key && !byKey.has(key)) byKey.set(key, { at: row.created_at, by: row.admin_user_id || 'unknown' });
+        }
+        last_updated = Array.from(byKey.entries()).map(([key, v]) => ({ key, ...v }));
       }
-      last_updated = Array.from(byKey.entries()).map(([key, v]) => ({ key, ...v }));
     } catch {
       // admin_audit_log might not exist yet
     }

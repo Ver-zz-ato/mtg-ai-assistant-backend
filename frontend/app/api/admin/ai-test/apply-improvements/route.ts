@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -195,11 +196,15 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       updatedSystemPrompt += improvementsText;
     }
 
-    // Create new prompt version
+    // Create new prompt version (service role for RLS-protected prompt_versions)
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const newVersion = `v${timestamp}`;
 
-    const { data: newPromptVersion, error: versionError } = await supabase
+    const { data: newPromptVersion, error: versionError } = await admin
       .from("prompt_versions")
       .insert({
         version: newVersion,
@@ -222,7 +227,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
     }
 
     // Update patches status to accepted
-    await supabase
+    await admin
       .from("prompt_patches")
       .update({
         status: "accepted",
@@ -231,7 +236,7 @@ If the commander profile indicates a specific archetype, preserve the deck's fla
       .in("id", patchIds);
 
     // Set the new version as active
-    const { error: activeError } = await supabase
+    const { error: activeError } = await admin
       .from("app_config")
       .upsert(
         {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { getAdmin } from '@/app/api/_lib/supa';
 import { isAdmin } from '@/lib/admin-check';
 
 export const runtime = 'nodejs';
@@ -10,10 +11,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
+    const admin = getAdmin();
+    if (!admin) return NextResponse.json({ ok: false, error: 'missing_service_role_key' }, { status: 500 });
+
     const { id } = await params;
     if (!id) return NextResponse.json({ ok: false, error: 'missing id' }, { status: 400 });
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await admin
       .from('ai_usage')
       .select('*')
       .eq('id', id)

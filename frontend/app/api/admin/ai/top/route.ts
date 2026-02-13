@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { getAdmin } from '@/app/api/_lib/supa';
 import { isAdmin } from '@/lib/admin-check';
 
 export const runtime = 'nodejs';
@@ -13,6 +14,9 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
+    const admin = getAdmin();
+    if (!admin) return NextResponse.json({ ok: false, error: 'missing_service_role_key' }, { status: 500 });
+
     const sp = req.nextUrl.searchParams;
     const fromParam = sp.get('from') || '';
     const toParam = sp.get('to') || '';
@@ -24,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const col = dimension === 'user' ? 'user_id' : dimension === 'deck' ? 'deck_id' : dimension;
     const selectCols = col === 'user_id' ? 'user_id,cost_usd' : col === 'deck_id' ? 'deck_id,cost_usd' : `${col},cost_usd`;
-    const { data: rows, error } = await supabase
+    const { data: rows, error } = await admin
       .from('ai_usage')
       .select(selectCols + ',id')
       .gte('created_at', from)

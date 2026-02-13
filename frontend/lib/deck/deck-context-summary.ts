@@ -25,6 +25,10 @@ export type DeckContextSummary = {
   archetype_tags: string[];
   warning_flags: string[];
   card_names: string[];
+  /** Precomputed card names per category (for intent-based context shrink). */
+  ramp_cards?: string[];
+  removal_cards?: string[];
+  draw_cards?: string[];
   card_count: number;
   last_updated: string;
 };
@@ -79,23 +83,46 @@ const wipeRe = /destroy all|exile all|each (creature|permanent)|board wipe|wrath
 function tally(
   entries: Array<{ count: number; name: string }>,
   byName: Map<string, SfCard>
-): { lands: number; ramp: number; draw: number; removal: number; wipes: number; curve: number[] } {
+): {
+  lands: number;
+  ramp: number;
+  draw: number;
+  removal: number;
+  wipes: number;
+  curve: number[];
+  ramp_cards: string[];
+  removal_cards: string[];
+  draw_cards: string[];
+} {
   let lands = 0;
   let ramp = 0;
   let draw = 0;
   let removal = 0;
   let wipes = 0;
   const curve = [0, 0, 0, 0, 0];
+  const rampCards: string[] = [];
+  const removalCards: string[] = [];
+  const drawCards: string[] = [];
 
   for (const { name, count } of entries) {
     const card = byName.get(name.toLowerCase());
     const typeLine = card?.type_line ?? "";
     const oracle = card?.oracle_text ?? "";
+    const displayName = name.trim().replace(/\s+/g, " ");
 
     if (landRe.test(typeLine)) lands += count;
-    if (drawRe.test(oracle)) draw += count;
-    if (rampRe.test(oracle) || /signet|talisman|sol ring/i.test(name)) ramp += count;
-    if (killRe.test(oracle)) removal += count;
+    if (drawRe.test(oracle)) {
+      draw += count;
+      drawCards.push(displayName);
+    }
+    if (rampRe.test(oracle) || /signet|talisman|sol ring/i.test(name)) {
+      ramp += count;
+      rampCards.push(displayName);
+    }
+    if (killRe.test(oracle)) {
+      removal += count;
+      removalCards.push(displayName);
+    }
     if (wipeRe.test(oracle)) wipes += count;
 
     const cmc = typeof card?.cmc === "number" ? card.cmc : undefined;
@@ -108,7 +135,7 @@ function tally(
     }
   }
 
-  return { lands, ramp, draw, removal, wipes, curve };
+  return { lands, ramp, draw, removal, wipes, curve, ramp_cards: rampCards, removal_cards: removalCards, draw_cards: drawCards };
 }
 
 function inferWarningFlags(
@@ -149,7 +176,7 @@ export async function buildDeckContextSummary(
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).filter(Boolean);
   const byName = await fetchCardsBatch(uniqueNames);
 
-  const { lands, ramp, draw, removal, wipes, curve } = tally(entries, byName);
+  const { lands, ramp, draw, removal, wipes, curve, ramp_cards, removal_cards, draw_cards } = tally(entries, byName);
   const totalCards = entries.reduce((s, e) => s + e.count, 0);
 
   const cardNames = Array.from(new Set(entries.map((e) => e.name.trim().replace(/\s+/g, " "))));
@@ -182,9 +209,32 @@ export async function buildDeckContextSummary(
     archetype_tags: archetypeTags.length ? archetypeTags : ["unknown"],
     warning_flags: warningFlags,
     card_names: cardNames,
+    ramp_cards,
+    removal_cards,
+    draw_cards,
     card_count: totalCards,
     last_updated: new Date().toISOString(),
   };
+}
+
+/**
+ * Return top-K relevant cards by query intent. Deterministic, no embeddings.
+ * For simple queries, use this instead of full card_names to reduce tokens.
+ */
+export function getRelevantCardsForIntent(
+  summary: DeckContextSummary,
+  queryLower: string
+): string[] {
+  if (/\b(ramp|mana\s*rock|mana\s*dork|sol\s*ring|signet|talisman)\b/i.test(queryLower) && summary.ramp_cards?.length) {
+    return summary.ramp_cards.slice(0, 15);
+  }
+  if (/\b(removal|kill|destroy|exile|interaction)\b/i.test(queryLower) && summary.removal_cards?.length) {
+    return summary.removal_cards.slice(0, 15);
+  }
+  if (/\b(draw|card\s*draw|cantrip)\b/i.test(queryLower) && summary.draw_cards?.length) {
+    return summary.draw_cards.slice(0, 15);
+  }
+  return [];
 }
 
 /**

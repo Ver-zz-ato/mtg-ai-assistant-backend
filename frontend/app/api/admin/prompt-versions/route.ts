@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ function isAdmin(user: any): boolean {
 /**
  * GET /api/admin/prompt-versions
  * List all prompt versions for a given kind
+ * Uses service role for prompt_versions (RLS enabled).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -27,6 +29,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
+
     const url = new URL(req.url);
     const kind = url.searchParams.get("kind") as "chat" | "deck_analysis" | null;
 
@@ -34,8 +41,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "kind must be 'chat' or 'deck_analysis'" }, { status: 400 });
     }
 
-    // Get all versions for this kind
-    const { data: versions, error: versionsError } = await supabase
+    // Get all versions for this kind (service role bypasses RLS)
+    const { data: versions, error: versionsError } = await admin
       .from("prompt_versions")
       .select("*")
       .eq("kind", kind)
@@ -46,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get active version from app_config
-    const { data: activeConfig } = await supabase
+    const { data: activeConfig } = await admin
       .from("app_config")
       .select("value")
       .eq("key", `active_prompt_version_${kind}`)
@@ -62,7 +69,7 @@ export async function GET(req: NextRequest) {
         activePromptText = activeVersion.system_prompt;
       } else {
         // Active version not in list - load it directly
-        const { data: versionData } = await supabase
+        const { data: versionData } = await admin
           .from("prompt_versions")
           .select("system_prompt")
           .eq("id", activeVersionId)
@@ -76,7 +83,7 @@ export async function GET(req: NextRequest) {
     
     // Fallback to app_config if no active version
     if (!activePromptText) {
-      const { data: promptsConfig } = await supabase
+      const { data: promptsConfig } = await admin
         .from("app_config")
         .select("value")
         .eq("key", "prompts")
@@ -110,6 +117,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const { versionId, kind } = body;
 
@@ -120,8 +132,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify version exists
-    const { data: version, error: versionError } = await supabase
+    // Verify version exists (service role bypasses RLS)
+    const { data: version, error: versionError } = await admin
       .from("prompt_versions")
       .select("id, version")
       .eq("id", versionId)
@@ -133,7 +145,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update app_config to set as active
-    const { error: configError } = await supabase
+    const { error: configError } = await admin
       .from("app_config")
       .upsert(
         {

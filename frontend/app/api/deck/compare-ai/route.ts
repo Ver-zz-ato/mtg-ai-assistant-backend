@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { DECK_COMPARE_PRO } from "@/lib/feature-limits";
-
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export const runtime = "nodejs";
 
@@ -73,8 +70,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
-      const { getModelForTier } = await import('@/lib/ai/model-by-tier');
-      const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro: true });
+      const model = process.env.MODEL_DECK_COMPARE || 'gpt-4o-mini';
       
       const response = await callLLM(
         [
@@ -90,9 +86,9 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
         {
           route: '/api/deck/compare-ai',
           feature: 'deck_compare',
-          model: tierRes.model,
-          fallbackModel: tierRes.fallbackModel,
-          timeout: 300000,
+          model,
+          fallbackModel: 'gpt-4o-mini',
+          timeout: 90000,
           maxTokens: 1000,
           apiType: 'chat',
           userId: user.id,

@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prepareOpenAIBody } from "@/lib/ai/openai-params";
-import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { createClient } from "@/lib/server-supabase";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
@@ -74,8 +72,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const isPro = user ? await checkProStatus(user.id) : false;
-    const tierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro });
+    const model = process.env.MODEL_REPRINT_RISK || 'gpt-4o-mini';
     let aiMap: Record<string, { risk: "low"|"medium"|"high"; reason: string }> = {};
 
     if (uniq.length > 0) {
@@ -93,13 +90,13 @@ export async function POST(req: NextRequest) {
           {
             route: '/api/cards/reprint-risk',
             feature: 'reprint_risk',
-            model: tierRes.model,
-            fallbackModel: tierRes.fallbackModel,
-            timeout: 300000,
+            model,
+            fallbackModel: 'gpt-4o-mini',
+            timeout: 60000,
             maxTokens: 600,
             apiType: 'responses',
             userId: user?.id || null,
-            isPro,
+            isPro: user ? await checkProStatus(user.id) : false,
           }
         );
 

@@ -37,6 +37,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = await getServerSupabase();
+    const forwarded = req.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+    let guestToken: string | null = null;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -87,11 +90,7 @@ export async function POST(req: NextRequest) {
     if (isGuest) {
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
-      const guestToken = cookieStore.get('guest_session_token')?.value || null;
-      
-      // Extract IP and User-Agent
-      const forwarded = req.headers.get('x-forwarded-for');
-      const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+      guestToken = cookieStore.get('guest_session_token')?.value || null;
       const userAgent = req.headers.get('user-agent') || 'unknown';
       
       if (!guestToken) {
@@ -260,7 +259,8 @@ export async function POST(req: NextRequest) {
       supabase,
       hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
     });
-    let sys = promptResult.systemPrompt;
+    const { NO_FILLER_INSTRUCTION } = await import("@/lib/ai/chat-generation-config");
+    let sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
     const promptVersionId = promptResult.promptVersionId ?? null;
 
     let promptLogged = false;
@@ -334,26 +334,36 @@ export async function POST(req: NextRequest) {
           const deckText = deckData.deckText;
           const hash = deckHash(deckText);
           streamDeckHashForLog = hash;
-          const { data: row } = await supabase
-            .from("deck_context_summary")
-            .select("summary_json")
-            .eq("deck_id", deckIdLinked!)
-            .eq("deck_hash", hash)
-            .maybeSingle();
-          if (row?.summary_json) {
-            v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
-            streamContextSource = "linked_db";
+          const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+          if (admin) {
+            const { data: row } = await admin
+              .from("deck_context_summary")
+              .select("summary_json")
+              .eq("deck_id", deckIdLinked!)
+              .eq("deck_hash", hash)
+              .maybeSingle();
+            if (row?.summary_json) {
+              v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
+              streamContextSource = "linked_db";
+            } else {
+              v2Summary = await buildDeckContextSummary(deckText, {
+                format: (deckData.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                commander: deckData.d?.commander ?? null,
+                colors: Array.isArray(deckData.d?.colors) ? deckData.d.colors : [],
+              });
+              await admin.from("deck_context_summary").upsert(
+                { deck_id: deckIdLinked!, deck_hash: hash, summary_json: v2Summary },
+                { onConflict: "deck_id,deck_hash" }
+              );
+              streamContextSource = "linked_db";
+            }
           } else {
             v2Summary = await buildDeckContextSummary(deckText, {
               format: (deckData.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
               commander: deckData.d?.commander ?? null,
               colors: Array.isArray(deckData.d?.colors) ? deckData.d.colors : [],
             });
-            await supabase.from("deck_context_summary").upsert(
-              { deck_id: deckIdLinked!, deck_hash: hash, summary_json: v2Summary },
-              { onConflict: "deck_id,deck_hash" }
-            );
-            streamContextSource = "linked_db";
+            streamContextSource = "raw_fallback";
           }
           streamSummaryTokensEstimate = estimateSummaryTokens(v2Summary);
         } else if (tid) {
@@ -396,7 +406,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (v2Summary) {
-      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(v2Summary)}\n`;
+      // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard)
+      const queryLower = (text || '').toLowerCase().trim();
+      const looksSimple = /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?|is |can |does |will )\b/i.test(queryLower.trim()) ||
+        /^(is|can|does|will)\s+\w+\s+(a|an|legal|banned|good|bad)\b/i.test(queryLower.trim());
+      let cardNamesForPrompt = v2Summary.card_names;
+      if (looksSimple) {
+        const { getRelevantCardsForIntent } = await import("@/lib/deck/deck-context-summary");
+        const relevant = getRelevantCardsForIntent(v2Summary, queryLower);
+        if (relevant.length > 0) {
+          cardNamesForPrompt = relevant;
+        } else if (Array.isArray(v2Summary.card_names) && v2Summary.card_names.length > 25) {
+          cardNamesForPrompt = v2Summary.card_names.slice(0, 25);
+        }
+      }
+      const summaryForPrompt = { ...v2Summary, card_names: cardNamesForPrompt };
+      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
       sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = streamThreadHistory.filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
@@ -562,6 +587,18 @@ export async function POST(req: NextRequest) {
         streamLayer0Reason = decision.reason;
       }
     }
+
+    const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
+    const sysPromptHash = await hashString(sys || '');
+    const { isPublicCacheEligible } = await import('@/lib/ai/cache-allowlist');
+    const streamHasChatHistory = streamThreadHistory.length > 0;
+    const publicEligible = isPublicCacheEligible({
+      hasDeckContext: !!v2Summary || !!(deckData?.deckText?.trim()),
+      hasChatHistory: streamHasChatHistory,
+      userMessage: text,
+      layer0Handler: streamLayer0Mode === "NO_LLM" ? undefined : streamLayer0Mode ?? undefined,
+    });
+    const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
     // Phase B: dynamic token ceiling and stop sequences
     const { getDynamicTokenCeiling, CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
@@ -738,6 +775,8 @@ export async function POST(req: NextRequest) {
           }
 
           let outputText = fullContent.trim();
+          const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
+          outputText = trimOutroLines(outputText);
           const deckCards = deckContextForCompose?.deckCards ?? [];
           if (deckCards.length > 0 && outputText) {
             try {
@@ -840,8 +879,57 @@ export async function POST(req: NextRequest) {
               user_tier: modelTierRes.tier,
               is_guest: isGuest,
               deck_id: deckIdLinked ?? undefined,
+              cache_hit: false,
+              cache_kind: undefined,
             });
           } catch (_) {}
+
+          // Cache-on-complete: write to two-tier cache when stream finishes successfully
+          if (outputText && typeof outputText === "string" && outputText.length > 0) {
+            try {
+              const { hashCacheKey, supabaseCacheSet, normalizeCacheText } = await import("@/lib/utils/supabase-cache");
+              let scope: string;
+              if (userId) scope = `user:${userId}`;
+              else if (guestToken) scope = `guest:${await hashGuestToken(guestToken)}`;
+              else {
+                try {
+                  const { getOrCreateAnonSessionId } = await import("@/lib/guest-tracking");
+                  scope = `anon:${await hashString(await getOrCreateAnonSessionId())}`;
+                } catch {
+                  scope = `ip:${await hashString(ip)}`;
+                }
+              }
+              const payload = publicEligible
+                ? {
+                    cache_version: 1,
+                    model: effectiveModel,
+                    sysPromptHash,
+                    intent: "public",
+                    normalized_user_text: normalizeCacheText(text, true),
+                    deck_context_included: false,
+                    deck_hash: null as string | null,
+                    tier: modelTierRes.tier,
+                    locale: null as string | null,
+                  }
+                : {
+                    cache_version: 1,
+                    model: effectiveModel,
+                    sysPromptHash,
+                    intent: "private",
+                    normalized_user_text: normalizeCacheText(text, false),
+                    deck_context_included: streamHasDeckContext,
+                    deck_hash: streamDeckHashForLog ?? null,
+                    tier: modelTierRes.tier,
+                    locale: null as string | null,
+                    scope,
+                  };
+              const key = await hashCacheKey(payload);
+              await supabaseCacheSet(supabase, publicEligible ? "ai_public_cache" : "ai_private_cache", key, { text: outputText, usage: {}, fallback: false }, CACHE_TTL_MS);
+              if (DEV) console.log(`[stream] Cached response for query: ${text.slice(0, 50)}...`);
+            } catch (e) {
+              if (DEV) console.warn("[stream] Cache set failed:", e);
+            }
+          }
 
           const CHUNK_SIZE = 120;
           for (let i = 0; i < outputText.length; i += CHUNK_SIZE) {

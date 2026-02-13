@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getPromptVersion } from "@/lib/config/prompts";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -101,9 +102,13 @@ export async function POST(req: NextRequest) {
     const rulesAfter = (refactoredPrompt.match(/\d+\./g) || []).length;
     const improvementsCount = improvementsText ? improvementsText.split(/\n\n+/).filter((s: string) => s.trim().length > 0).length : 0;
 
-    // Create new prompt version
+    // Create new prompt version (service role for RLS-protected prompt_versions)
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
     const version = `v${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}`;
-    const { data: newVersion, error: versionError } = await supabase
+    const { data: newVersion, error: versionError } = await admin
       .from("prompt_versions")
       .insert({
         kind,
@@ -130,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     // Set as active if requested
     if (setActive) {
-      await supabase
+      await admin
         .from("app_config")
         .upsert(
           {

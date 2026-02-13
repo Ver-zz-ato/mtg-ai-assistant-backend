@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
-import { getPromptVersion } from '@/lib/config/prompts';
-import { prepareOpenAIBody } from '@/lib/ai/openai-params';
-import { getModelForTier } from '@/lib/ai/model-by-tier';
 import { HEALTH_SCAN_FREE, HEALTH_SCAN_PRO } from '@/lib/feature-limits';
 
 export const runtime = 'nodejs';
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-
 export async function POST(req: NextRequest) {
-  // Always log entry (even in production) for debugging
-  const DEBUG = true; // Force debugging on
   console.log('🚀 [health-suggestions] ==========================================');
   console.log('🚀 [health-suggestions] API route called at', new Date().toISOString());
   console.log('🚀 [health-suggestions] ==========================================');
@@ -99,35 +92,21 @@ export async function POST(req: NextRequest) {
     const deckContext = `Deck: ${title}${commander ? ` | Commander: ${commander}` : ''} | Format: ${format} | Full Decklist: ${cardList}`;
     const fullPrompt = `${prompt}\n\n${deckContext}`;
 
-    // Load deck analysis prompt as base
-    let basePrompt = 'You are ManaTap AI, an expert Magic: The Gathering assistant.';
-    try {
-      const promptVersion = await getPromptVersion('deck_analysis');
-      if (promptVersion) {
-        basePrompt = promptVersion.system_prompt;
-      }
-    } catch (e) {
-      console.warn('[health-suggestions] Failed to load prompt version:', e);
-    }
+    // Minimal system prompt - deck_analysis prompt is 4k+ tokens and overkill for "suggest 5-7 cards"
+    const systemPrompt = `You are ManaTap AI, an expert Magic: The Gathering assistant.
 
-    const systemPrompt = [
-      basePrompt,
-      '',
-      '=== DECK HEALTH SUGGESTIONS MODE ===',
-      'Provide specific card suggestions to improve the deck\'s health in the requested category.',
-      'Format your response as a numbered list with card names and brief explanations.',
-      'Example:',
-      '1. Lightning Greaves - Provides haste and protection for key creatures',
-      '2. Sol Ring - Essential mana acceleration',
-      '',
-      'Focus on cards that are:',
-      '- Legal in the deck\'s format',
-      '- Match the deck\'s color identity',
-      '- Fill the specific role requested',
-      '- Are commonly played and effective',
-    ].join('\n');
+Provide specific card suggestions to improve the deck's health in the requested category.
+Format your response as a numbered list with card names and brief explanations.
+Example:
+1. Lightning Greaves - Provides haste and protection for key creatures
+2. Sol Ring - Essential mana acceleration
 
-    const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro });
+Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played. Do not suggest cards already in the decklist.
+Output ONLY the numbered list, no preamble.`;
+
+    // Use gpt-4o-mini for cost efficiency - card suggestions don't need flagship model (~$0.70/call → ~$0.05/call)
+    const model = process.env.MODEL_DECK_SCAN || 'gpt-4o-mini';
+    const fallbackModel = 'gpt-4o-mini';
 
     // Call OpenAI using unified wrapper
     try {
@@ -141,10 +120,10 @@ export async function POST(req: NextRequest) {
         {
           route: '/api/deck/health-suggestions',
           feature: 'deck_scan',
-          model: tierRes.model,
-          fallbackModel: tierRes.fallbackModel,
-          timeout: 300000,
-          maxTokens: undefined,
+          model,
+          fallbackModel,
+          timeout: 60000,
+          maxTokens: 600,
           apiType: 'chat',
           userId: user.id,
           isPro,

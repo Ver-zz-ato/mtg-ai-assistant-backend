@@ -188,3 +188,28 @@ export function extractIP(req: Request): string {
 export function extractUserAgent(req: Request): string {
   return req.headers.get('user-agent') || 'unknown';
 }
+
+const ANON_SESSION_COOKIE = 'anon_session_id';
+const ANON_SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+
+/**
+ * Get or create a stable anonymous session id for cache scoping.
+ * Prefer this over ip_hash to avoid unwanted sharing (mobile networks, NAT, VPNs).
+ * Only use ip_hash if you truly cannot set a cookie (e.g. non-browser clients).
+ */
+export async function getOrCreateAnonSessionId(): Promise<string> {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  let id = cookieStore.get(ANON_SESSION_COOKIE)?.value;
+  if (!id) {
+    id = crypto.randomUUID();
+    cookieStore.set(ANON_SESSION_COOKIE, id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: ANON_SESSION_MAX_AGE,
+      path: '/',
+    });
+  }
+  return id;
+}

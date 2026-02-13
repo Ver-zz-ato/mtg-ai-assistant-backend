@@ -2,9 +2,6 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
-import { getPromptVersion } from '@/lib/config/prompts';
-import { prepareOpenAIBody } from '@/lib/ai/openai-params';
-import { getModelForTier } from '@/lib/ai/model-by-tier';
 import { createClient } from '@/lib/server-supabase';
 import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
@@ -56,34 +53,17 @@ export async function POST(req: NextRequest){
       }
     }
 
-    // Load the deck_analysis prompt as the base, then add swap explanation instructions
-    let basePrompt = 'You are ManaTap AI, an expert Magic: The Gathering assistant.';
-    try {
-      const promptVersion = await getPromptVersion('deck_analysis');
-      if (promptVersion) {
-        basePrompt = promptVersion.system_prompt;
-      }
-    } catch (e) {
-      console.warn('[swap-why] Failed to load prompt version:', e);
-    }
-    
-    const system = [
-      basePrompt,
-      '',
-      '=== BUDGET SWAP EXPLANATION MODE ===',
-      'Explain clearly and concisely why a cheaper swap preserves deck function.',
-      'Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.'
-    ].join('\n');
+    const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+
+Explain clearly and concisely why a cheaper swap preserves deck function.
+Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.`;
     
     const userPrompt = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- If synergy is involved, name the enabler and payoff cards and explain the sequence (e.g., "Card A enables X; Card B pays off with Y").\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
-      
-      const currentUser = user;
-      const isPro = currentUser ? await checkProStatus(currentUser.id) : false;
-      const tierRes = getModelForTier({ isGuest: !currentUser, userId: currentUser?.id ?? null, isPro });
-      
+      const model = process.env.MODEL_SWAP_WHY || 'gpt-4o-mini';
+
       const response = await callLLM(
         [
           { role: 'system', content: [{ type: 'input_text', text: system }] },
@@ -92,13 +72,13 @@ export async function POST(req: NextRequest){
         {
           route: '/api/deck/swap-why',
           feature: 'swap_why',
-          model: tierRes.model,
-          fallbackModel: tierRes.fallbackModel,
-          timeout: 300000,
+          model,
+          fallbackModel: 'gpt-4o-mini',
+          timeout: 60000,
           maxTokens: 80,
           apiType: 'responses',
-          userId: currentUser?.id || null,
-          isPro,
+          userId: user?.id || null,
+          isPro: user ? await checkProStatus(user.id) : false,
         }
       );
 

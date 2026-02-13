@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
                 },
                 context: input.context,
                 noUserInsert: true,
+                forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
               }),
             });
 
@@ -164,6 +165,7 @@ export async function POST(req: NextRequest) {
                 colors: input.colors || [],
                 plan: input.context?.plan || "Optimized",
                 currency: input.context?.currency || "USD",
+                forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
               }),
             });
 

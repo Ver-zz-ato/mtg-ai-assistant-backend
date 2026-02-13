@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
+
     // Get current prompt version for reference
     const { getPromptVersion } = await import("@/lib/config/prompts");
     const currentPrompt = await getPromptVersion(kind as "chat" | "deck_analysis");
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const newVersion = `v${timestamp}`;
 
-    const { data: newPromptVersion, error: versionError } = await supabase
+    const { data: newPromptVersion, error: versionError } = await admin
       .from("prompt_versions")
       .insert({
         version: newVersion,
@@ -76,7 +82,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Set the new version as active
-    const { error: activeError } = await supabase
+    const { error: activeError } = await admin
       .from("app_config")
       .upsert(
         {
@@ -94,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update app_config for backward compatibility
-    const { data: promptsConfig } = await supabase
+    const { data: promptsConfig } = await admin
       .from("app_config")
       .select("value")
       .eq("key", "prompts")

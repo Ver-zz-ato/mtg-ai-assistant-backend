@@ -1,9 +1,9 @@
 /**
  * Shared utility for server-side guest message limit checking
  * Used by both /api/chat and /api/chat/stream routes
+ * Uses service role (getAdmin) for guest_sessions - RLS enabled, no client access.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { GUEST_MESSAGE_LIMIT } from '@/lib/limits';
 
 interface GuestLimitResult {
@@ -16,7 +16,7 @@ interface GuestLimitResult {
  * Check if guest user has exceeded message limit (server-side enforcement)
  */
 export async function checkGuestMessageLimit(
-  supabase: SupabaseClient,
+  _supabase: import('@supabase/supabase-js').SupabaseClient,
   token: string | null,
   ip: string,
   userAgent: string
@@ -27,13 +27,20 @@ export async function checkGuestMessageLimit(
   }
 
   try {
+    const { getAdmin } = await import('@/app/api/_lib/supa');
+    const admin = getAdmin();
+    if (!admin) {
+      console.error('[checkGuestMessageLimit] Admin client not available');
+      return { allowed: false, count: 0 };
+    }
+
     const { hashGuestToken, hashString } = await import('@/lib/guest-tracking');
     const tokenHash = await hashGuestToken(token);
     const ipHash = await hashString(ip);
     const uaHash = await hashString(userAgent);
 
-    // Check existing session
-    const { data: existing, error: fetchError } = await supabase
+    // Check existing session (service role bypasses RLS)
+    const { data: existing, error: fetchError } = await admin
       .from('guest_sessions')
       .select('message_count, expires_at')
       .eq('token_hash', tokenHash)
@@ -53,8 +60,8 @@ export async function checkGuestMessageLimit(
     // Check if expired
     if (expiresAt && expiresAt < now) {
       // Session expired - delete and create new
-      await supabase.from('guest_sessions').delete().eq('token_hash', tokenHash);
-      const { error: insertError } = await supabase.from('guest_sessions').insert({
+      await admin.from('guest_sessions').delete().eq('token_hash', tokenHash);
+      const { error: insertError } = await admin.from('guest_sessions').insert({
         token_hash: tokenHash,
         message_count: 1,
         ip_hash: ipHash,
@@ -78,7 +85,7 @@ export async function checkGuestMessageLimit(
     }
 
     // Increment counter
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from('guest_sessions')
       .upsert({
         token_hash: tokenHash,

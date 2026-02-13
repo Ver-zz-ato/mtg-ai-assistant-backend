@@ -2,6 +2,9 @@
  * Centralized AI usage recording for the ai_usage table.
  * Used by chat, chat/stream, deck/analyze, swap-why, swap-suggestions, etc.
  * Tries full payload first, then without optional columns, then minimal (so DB works with or without migration 034).
+ *
+ * Audit checklist: model (actual model used), layer0_mode/request_kind (gate mode result),
+ * input_tokens (rough estimate when usage not available), cache_hit, cache_kind.
  */
 
 import { getServerSupabase } from '@/lib/server-supabase';

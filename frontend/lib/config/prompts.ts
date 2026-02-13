@@ -1,9 +1,8 @@
 /**
  * Prompt versioning helper functions
  * Loads system prompts from prompt_versions table with fallback to app_config
+ * Uses service role (getAdmin) - RLS enabled on prompt_versions, no client access.
  */
-
-import { getServerSupabase } from "@/lib/server-supabase";
 
 export type PromptVersion = {
   id: string;
@@ -17,10 +16,15 @@ export type PromptVersion = {
  */
 export async function getPromptVersion(
   kind: "chat" | "deck_analysis",
-  supabase?: any
+  _supabase?: any
 ): Promise<PromptVersion | null> {
   try {
-    const db = supabase || await getServerSupabase();
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const db = getAdmin();
+    if (!db) {
+      console.warn("[getPromptVersion] Admin client not available");
+      return null;
+    }
 
     // First, check app_config for active version
     const { data: activeConfig } = await db

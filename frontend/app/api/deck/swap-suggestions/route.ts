@@ -4,10 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
-import { getPromptVersion } from "@/lib/config/prompts";
 import swapsData from "@/lib/data/budget-swaps.json";
-import { prepareOpenAIBody } from "@/lib/ai/openai-params";
-import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
@@ -89,58 +86,24 @@ async function aiSuggest(
   userId?: string | null,
   isPro?: boolean
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
-  // Load the deck_analysis prompt as the base, then add budget swap instructions
-  let basePrompt = "You are ManaTap AI, an expert Magic: The Gathering assistant.";
-  try {
-    const promptVersion = await getPromptVersion("deck_analysis");
-    if (promptVersion) {
-      basePrompt = promptVersion.system_prompt;
-    }
-  } catch (e) {
-    console.warn("[swap-suggestions] Failed to load prompt version:", e);
-  }
-  
-  const system = [
-    basePrompt,
-    "",
-    "=== BUDGET SWAP MODE ===",
-    "You are suggesting budget-friendly alternatives for expensive cards in a Magic: The Gathering deck.",
-    "",
-    "CRITICAL RULES:",
-    "1. Price Awareness: Only suggest swaps where the replacement card costs LESS than the threshold.",
-    "2. Role Preservation: The replacement must fill the SAME role (ramp, removal, draw, win condition, etc.)",
-    "3. Function Overlap: Cards must have similar functions (e.g., both are board wipes, both are mana rocks)",
-    "4. Synergy Preservation: If the original card is part of a synergy, the replacement must maintain that synergy.",
-    "   - For synergies: Name BOTH the enabler and payoff cards",
-    "   - Describe the mechanical sequence: \"Card A does X; Card B responds to X by doing Y; together they achieve Z\"",
-    "5. Format Legality: All suggestions must be legal in the deck's format (Commander, Modern, Standard, etc.)",
-    "6. Color Identity: All suggestions must match the deck's color identity",
-    "7. Power Level: Try to maintain similar power level, but prioritize budget when necessary",
-    "",
-    "SUGGESTION FORMAT:",
-    "- Focus on cards that are functionally similar but cheaper",
-    "- Prioritize recent reprints (they're often cheaper)",
-    "- Consider cards that are slightly weaker but much cheaper",
-    "- Avoid suggesting cards that are strictly worse unless they're significantly cheaper",
-    "",
-    "RESPONSE FORMAT:",
-    "Respond ONLY with a JSON array of objects. Each object must have:",
-    "- \"from\": The original expensive card name (exact name from decklist)",
-    "- \"to\": The cheaper replacement card name (exact official name)",
-    "- \"reason\": A concise 1-2 sentence explanation of why this swap works (mention role, synergy if applicable, and price benefit)",
-    "",
-    "Example:",
-    "[{\"from\":\"Gaea's Cradle\",\"to\":\"Growing Rites of Itlimoc\",\"reason\":\"Both provide mana acceleration for creature-heavy decks. Growing Rites transforms into a land that taps for mana equal to creatures, making it a budget-friendly alternative that preserves the ramp role.\"}]",
-    "",
-    "IMPORTANT: Only suggest swaps you are confident about. Quality over quantity."
-  ].join("\n");
+  const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
+  const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
+
+CRITICAL RULES:
+1. Price: Only suggest swaps where the replacement costs LESS than the threshold.
+2. Role: Replacement must fill the SAME role (ramp, removal, draw, win condition, etc.)
+3. Function: Cards must have similar functions (e.g., both board wipes, both mana rocks)
+4. Synergy: If original is part of a synergy, replacement must maintain it. Name enabler and payoff.
+5. Format & color: All suggestions must be legal and match deck's color identity.
+
+RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences).
+Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both provide mana acceleration for creature-heavy decks."}]
+Quality over quantity.`;
   
   const input = `Currency: ${currency}\nThreshold: ${budget}\nDeck:\n${deckText}`;
   
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
-    
-    const tierRes = getModelForTier({ isGuest: !userId, userId: userId ?? null, isPro: isPro ?? false });
 
     const response = await callLLM(
       [
@@ -150,9 +113,9 @@ async function aiSuggest(
       {
         route: '/api/deck/swap-suggestions',
         feature: 'swap_suggestions',
-        model: tierRes.model,
-        fallbackModel: tierRes.fallbackModel,
-        timeout: 300000,
+        model,
+        fallbackModel: 'gpt-4o-mini',
+        timeout: 90000,
         maxTokens: 512,
         apiType: 'responses',
         userId: userId || null,

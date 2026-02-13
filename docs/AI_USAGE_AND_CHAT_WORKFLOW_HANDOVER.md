@@ -98,6 +98,8 @@ All routes use `isAdmin(user)` from `lib/admin-check.ts`; 403 if not admin.
 ## 2. Current Supabase Schema (Relevant Tables)
 
 - **ai_usage** — Identity `id`, `user_id` (NOT NULL), `thread_id`, `model`, `input_tokens`, `output_tokens`, `cost_usd`, `created_at`, plus prompt/response previews, `route`, `context_source`, `summary_tokens_estimate`, `deck_hash`, `layer0_mode`, `layer0_reason`, and all new analytics columns (request_kind, has_deck_context, deck_card_count, used_v2_summary, used_two_stage, planner_*, stop_sequences_enabled, max_tokens_config, response_truncated, user_tier, is_guest, deck_id, latency_ms, cache_hit, cache_kind, error_code). Optional: persona_id, teaching, prompt_path, prompt_version_id, modules_attached_count, format_key, model_tier.
+- **ai_public_cache** — Supabase-backed cache for allowlisted intents only (no deck context, no chat history). `cache_key` (hash), `response_text`, `response_meta` (JSONB), `created_at`, `expires_at`. RLS enabled; service role only.
+- **ai_private_cache** — Supabase-backed cache for everything else, scoped by user_id / guest token hash / anon session cookie / ip_hash (last resort). Same schema as ai_public_cache.
 - **admin_audit** — Existing; actor_id, action, target, payload (used for non-config admin actions).
 - **admin_audit_log** — New; id (UUID), created_at, admin_user_id, action, payload_json (config_set with key, before, after).
 - **app_config** — key (PK), value (JSONB), updated_at. Keys include `flags`, `llm_budget`, `llm_models`, `llm_thresholds`.
@@ -130,8 +132,11 @@ All routes use `isAdmin(user)` from `lib/admin-check.ts`; 403 if not admin.
 6. **System prompt**  
    - Compose via `buildSystemPromptForRequest`; append deck context (v2 summary or full list), RAG, conversation summary, format knowledge, etc.
 
-7. **Cache (optional)**  
-   - If response cache hit, return cached text and skip LLM; no ai_usage row for that path (cache hit path does not currently write a row; main path writes one).
+7. **Two-tier Supabase cache**  
+   - Determine public vs private eligibility (`isPublicCacheEligible`: no deck context, no chat history, allowlisted intent, no context-implying phrases).  
+   - If public-eligible: lookup `ai_public_cache`. If private: lookup `ai_private_cache` with scope (`user_id` → `guest:token_hash` → `anon:session_cookie` → `ip_hash` last resort).  
+   - On cache hit: return cached text, `recordAiUsage` with `cache_hit: true`, `cache_kind: 'public'|'private'`, return.  
+   - On cache miss: proceed to LLM. After successful response, write to correct cache table (3h TTL).
 
 8. **Budget**  
    - `allowAIRequest(supabase)`; if not allowed, return 429.
@@ -155,7 +160,8 @@ All routes use `isAdmin(user)` from `lib/admin-check.ts`; 403 if not admin.
 - Same auth, thread, deck/paste detection, and runtime config.  
 - Layer 0: if NO_LLM, stream static response and `recordAiUsage(route: 'chat_stream', request_kind: 'NO_LLM', …)`.  
 - V2 context: same as chat (linked_db / paste_ttl / raw_fallback).  
-- Single LLM stream; on completion, one `recordAiUsage` with full payload and `latency_ms` from stream start.
+- **No cache read** (streaming + cache hit = messy UX). Cache write on completion only.  
+- Single LLM stream; on completion, one `recordAiUsage` with full payload and `latency_ms` from stream start; then write response to `ai_public_cache` or `ai_private_cache` (same eligibility rules as chat).
 
 ---
 
@@ -171,7 +177,7 @@ All routes use `isAdmin(user)` from `lib/admin-check.ts`; 403 if not admin.
 
 | Area | Files |
 |------|--------|
-| Migrations | `frontend/db/migrations/040_ai_usage_admin_analytics.sql`, `041_admin_audit_log.sql` |
+| Migrations | `frontend/db/migrations/040_ai_usage_admin_analytics.sql`, `041_admin_audit_log.sql`, `051_ai_response_cache.sql` |
 | Logging | `frontend/lib/ai/log-usage.ts` |
 | Runtime config | `frontend/lib/ai/runtime-config.ts` |
 | Chat flow | `frontend/app/api/chat/route.ts` |
@@ -179,6 +185,7 @@ All routes use `isAdmin(user)` from `lib/admin-check.ts`; 403 if not admin.
 | Deck analyze | `frontend/app/api/deck/analyze/route.ts` |
 | LLM client | `frontend/lib/ai/unified-llm-client.ts` |
 | Layer 0 | `frontend/lib/ai/layer0-gate.ts` |
+| Cache | `frontend/lib/utils/supabase-cache.ts`, `frontend/lib/ai/cache-allowlist.ts` |
 | Admin API | `frontend/app/api/admin/ai/overview/route.ts`, `top/route.ts`, `usage/list/route.ts`, `usage/[id]/route.ts`, `config/route.ts`, `recommendations/route.ts` |
 | Admin UI | `frontend/app/admin/ai-usage/page.tsx` |
 | Admin check | `frontend/lib/admin-check.ts` |
@@ -214,8 +221,8 @@ This handover plus **AI_USAGE_ADMIN.md** (operating the Board and config) and **
 - **ai_usage.user_id NOT NULL vs guests**  
   Schema may have `user_id NOT NULL`. We pass `user_id: userId ?? null` for guests. If the table is still NOT NULL, guest inserts will fail unless you: use a synthetic guest user_id, relax the constraint, or write to a separate guest-usage store. If guests work in prod, one of these is already in place—otherwise this is the classic footgun.
 
-- **Cache-hit path not writing ai_usage**  
-  Cache hits do not write a row. Dashboard request counts will be lower than app traffic; to measure “how often we avoided LLM via cache” you’d need a zero-cost cache_hit row or a separate ai_events table. Accounting semantics are intentional; just be aware.
+- **Cache-hit path**  
+  Cache hits write `recordAiUsage` with `cache_hit: true`, `cache_kind: 'public'|'private'`, `model: 'cached'`, `cost_usd: 0`. Dashboard can filter by `cache_hit` to measure cache effectiveness.
 
 - **Admin endpoints + RLS**  
   Routes are guarded by `isAdmin(user)`. Overview, top, usage/list, usage/[id], recommendations use `getServerSupabase()` (anon + user context). If `ai_usage` has RLS that restricts by `auth.uid()`, admins will only see their own rows unless you add an RLS policy for admins or use a service-role client for those reads. Config POST correctly uses `getAdmin()` (service role) for app_config and admin_audit_log writes. If you see “works locally, empty in prod” for admin analytics, check RLS and consider service-role for admin read paths.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "promptVersionId required" }, { status: 400 });
     }
 
-    // Get the specified prompt version
-    const { data: promptVersion, error: versionError } = await supabase
+    const admin = getAdmin();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
+    }
+
+    // Get the specified prompt version (service role for RLS-protected prompt_versions)
+    const { data: promptVersion, error: versionError } = await admin
       .from("prompt_versions")
       .select("id, version, created_at, kind")
       .eq("id", promptVersionId)

@@ -48,15 +48,31 @@ export function getDynamicTokenCeiling(
 }
 
 /**
- * Stop sequences to cut filler phrases and keep responses concise.
- * OpenAI stops at the first occurrence of any of these (substring match).
- * OpenAI API allows max 4 stop sequences; we use the 4 most common filler phrases.
+ * Instruction to suppress closing filler. Prefer this over stop sequences for stream-safe behavior
+ * (stop can truncate mid-sentence when streaming). Use with trimOutroLines post-processor.
+ */
+export const NO_FILLER_INSTRUCTION =
+  "Do not add closing filler like 'Let me know if you have questions' or 'Feel free to ask'.";
+
+/**
+ * Stop sequences to cut filler phrases. Use sparingly—can amputate legitimate content when streaming.
+ * Prefer NO_FILLER_INSTRUCTION + trimOutroLines for stream-safe behavior.
  */
 export const CHAT_STOP_SEQUENCES: string[] = [
   "Let me know if you have any questions.",
   "Feel free to ask if you have any questions.",
   "If you have any questions, feel free to ask.",
   "Happy to help if you have more questions.",
+];
+
+/** Known outro phrases to trim only at end of response (stream-safe). */
+export const OUTRO_PHRASES_TO_TRIM: string[] = [
+  "Let me know if you have any questions.",
+  "Feel free to ask if you have any questions.",
+  "If you have any questions, feel free to ask.",
+  "Happy to help if you have more questions.",
+  "Let me know if you have any other questions.",
+  "Feel free to ask if you have any other questions.",
 ];
 
 /**
@@ -75,3 +91,41 @@ export function isLongAnswerRequest(query: string): boolean {
 
 /** Max tokens for the mini-model outline step (two-stage). */
 export const OUTLINE_MAX_TOKENS = 256;
+
+/** Minimum predicted output tokens to use two-stage (avoids planner overhead on short answers). */
+export const TWO_STAGE_MIN_PREDICTED_TOKENS = 350;
+
+/**
+ * Heuristic estimate of output length. Used to gate two-stage: only use when predicted > 350 tokens.
+ * Based on intent type, deck context presence, and request patterns (e.g. "give me 10 swaps" → high).
+ */
+export function predictOutputTokens(
+  query: string,
+  hasDeckContext: boolean,
+  isComplexAnalysis: boolean
+): number {
+  const q = (query || "").toLowerCase().trim();
+  if (!isComplexAnalysis || !hasDeckContext) return 0;
+
+  // Explicit list requests → high
+  if (/\b(give me|list|suggest|recommend)\s+(\d+)\s+(swap|card|upgrade|addition)s?/i.test(q)) {
+    const match = q.match(/(\d+)\s+(swap|card|upgrade|addition)/i);
+    const n = match ? parseInt(match[1], 10) : 5;
+    return 80 + n * 60; // ~60 tokens per card suggestion
+  }
+  if (/\b(top|best)\s+(\d+)\s+/i.test(q)) {
+    const match = q.match(/(\d+)/);
+    const n = match ? parseInt(match[1], 10) : 5;
+    return 60 + n * 50;
+  }
+
+  // Analysis/improve/suggest (no count) → medium-high
+  if (/\b(analyze|analysis|improve|optimize|review|what'?s? wrong|suggest improvement)/i.test(q))
+    return 400;
+  if (/\b(synergy|strategy|game plan|curve|mana base)\b/i.test(q)) return 350;
+
+  // Vague long-answer → medium
+  if (/\b(how can i|what should i|help me)\b/i.test(q)) return 320;
+
+  return 250; // default for long-answer without specific signals
+}

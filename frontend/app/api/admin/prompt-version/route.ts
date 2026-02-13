@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getActivePromptVersion } from "@/lib/config/prompts";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -29,12 +30,11 @@ export async function GET(req: NextRequest) {
 
     const activeVersion = getActivePromptVersion();
     
-    // Load versions from database
-    const { data: versions } = await supabase
-      .from("prompt_versions")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
+    // Load versions from database (service role for RLS-protected prompt_versions)
+    const admin = getAdmin();
+    const { data: versions } = admin
+      ? await admin.from("prompt_versions").select("*").order("created_at", { ascending: false }).limit(50)
+      : { data: [] };
 
     return NextResponse.json({
       ok: true,
@@ -76,12 +76,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate version exists in database
-    const { data: versionData } = await supabase
-      .from("prompt_versions")
-      .select("id")
-      .eq("version", version)
-      .maybeSingle();
+    // Validate version exists in database (service role for RLS-protected prompt_versions)
+    const admin = getAdmin();
+    const { data: versionData } = admin
+      ? await admin.from("prompt_versions").select("id").eq("version", version).maybeSingle()
+      : { data: null };
 
     if (!versionData) {
       return NextResponse.json({ 

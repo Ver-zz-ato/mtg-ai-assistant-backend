@@ -3,6 +3,44 @@
  * concise, and human. Applied before returning analysis to the user.
  */
 
+import { OUTRO_PHRASES_TO_TRIM } from "@/lib/ai/chat-generation-config";
+
+/**
+ * Trim known outro phrases only if they appear at the end of the response.
+ * Stream-safe: avoids mid-sentence truncation that stop sequences can cause.
+ */
+export function trimOutroLines(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let out = text.trimEnd();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const phrase of OUTRO_PHRASES_TO_TRIM) {
+      const trimmed = phrase.trim();
+      if (!trimmed) continue;
+      // Match phrase at end (with optional leading newline/space)
+      const escaped = escapeRegex(trimmed);
+      const exactEnd = new RegExp(`\\s*${escaped}\\s*$`, "i");
+      const withNewline = new RegExp(`[\\n\\s]+${escaped}\\s*$`, "i");
+      if (exactEnd.test(out)) {
+        out = out.replace(exactEnd, "").trimEnd();
+        changed = true;
+        break;
+      }
+      if (withNewline.test(out)) {
+        out = out.replace(withNewline, "").trimEnd();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Strip synergy chain blocks that are truncated or malformed (e.g. end with "[\n
  * or have only one arrow). Valid chain has at least two "→" with content between.

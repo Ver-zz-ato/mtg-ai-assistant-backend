@@ -3,7 +3,6 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { canonicalize } from '@/lib/cards/canonicalize';
-import { getPromptVersion } from '@/lib/config/prompts';
 import { SUGGESTION_WHY_GUEST, SUGGESTION_WHY_FREE, SUGGESTION_WHY_PRO } from '@/lib/feature-limits';
 
 /** Hard-set cheap model for suggestion-why (do not inherit Pro). */
@@ -60,26 +59,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, text: fallback });
     }
 
-    let basePrompt = 'You are ManaTap AI, an expert Magic: The Gathering assistant.';
-    try {
-      const promptVersion = await getPromptVersion('deck_analysis');
-      if (promptVersion) basePrompt = promptVersion.system_prompt;
-    } catch (e) {
-      console.warn('[suggestion-why] Failed to load prompt version:', e);
-    }
+    const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
 
-    const system = [
-      basePrompt,
-      '',
-      '=== SUGGESTION EXPLANATION MODE ===',
-      'Explain why this card is recommended for this specific deck.',
-      'Provide 1-2 bullet points covering:',
-      '- Missing role (draw/ramp/removal/lands)',
-      '- Synergy with commander',
-      '- Curve smoothing',
-      '- Meta pressure',
-      'Be concise and specific. Use bullet points if multiple reasons apply.',
-    ].join('\n');
+Explain why this card is recommended for this specific deck in 1-2 bullet points.
+Cover: missing role (draw/ramp/removal/lands), synergy with commander, curve smoothing, or meta pressure.
+Be concise and specific. Use bullet points if multiple reasons apply.`;
 
     const commanderContext = commander ? `\nCommander: ${commander}` : '';
     const userText = `Explain why "${card}" is recommended for this specific deck in 1-2 short bullet points. Cover: missing role (draw/ramp/removal), synergy with commander, curve smoothing, or meta pressure. Be specific and concrete.\n\nDeck list:\n${deckText}${commanderContext}`;
