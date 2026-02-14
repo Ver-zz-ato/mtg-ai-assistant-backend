@@ -18,12 +18,14 @@ type SeoPage = {
   indexing?: string;
   impressions?: number | null;
   clicks?: number | null;
+  ctr?: number | null;
+  position?: number | null;
 };
 
 export default function SeoPagesAdminPage() {
   const [pages, setPages] = React.useState<SeoPage[]>([]);
   const [statusFilter, setStatusFilter] = React.useState<string>("");
-  const [sortBy, setSortBy] = React.useState<string>("priority_desc");
+  const [sortBy, setSortBy] = React.useState<string>("impact_desc");
   const [joinMetrics, setJoinMetrics] = React.useState(true);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -131,19 +133,27 @@ export default function SeoPagesAdminPage() {
   }
 
   async function setIndexing(slug: string, indexing: "index" | "noindex") {
+    await setIndexingBatch([slug], indexing);
+  }
+
+  async function setIndexingBatch(slugs: string[], indexing: "index" | "noindex") {
+    if (slugs.length === 0) return;
     setBusy(true);
     setMsg(null);
     try {
       const r = await fetch("/api/admin/seo-pages/set-indexing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, indexing }),
+        body: JSON.stringify({ slugs, indexing }),
       });
       const j = await r.json();
       if (j?.ok) {
-        setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, indexing } : p)));
-        setWinners((prev) => prev.filter((w) => w.slug !== slug));
-        setMsg(`Set ${slug} to ${indexing}`);
+        const set = new Set(slugs);
+        setPages((prev) => prev.map((p) => (set.has(p.slug) ? { ...p, indexing } : p)));
+        setWinners((prev) => prev.filter((w) => !set.has(w.slug)));
+        setMsg(`Set ${slugs.length} page(s) to ${indexing}`);
+        load();
+        loadWinners();
       } else setMsg(j?.error ?? "Set indexing failed");
     } catch (e) {
       setMsg(String(e));
@@ -192,17 +202,25 @@ export default function SeoPagesAdminPage() {
               <thead>
                 <tr className="border-b border-neutral-700">
                   <th className="text-left p-2">Slug</th>
+                  <th className="text-left p-2 tabular-nums">Impact</th>
                   <th className="text-left p-2 tabular-nums">Impressions</th>
                   <th className="text-left p-2 tabular-nums">Clicks</th>
                   <th className="text-left p-2 tabular-nums">CTR</th>
                   <th className="text-left p-2 tabular-nums">Position</th>
-                  <th className="text-left p-2">Priority</th>
+                  <th className="text-left p-2">Signals</th>
                   <th className="text-left p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {winners.map((w) => (
-                  <tr key={w.slug} className="border-b border-neutral-800">
+                {winners.map((w) => {
+                  const imp = w.impressions ?? 0;
+                  const ctr = w.ctr ?? 0;
+                  const impactScore = imp > 0 && ctr > 0 ? Math.round(imp * ctr) : 0;
+                  const highImpressions = imp >= 1000;
+                  const highCtr = ctr >= 0.03;
+                  const nearPage1 = w.position != null && w.position <= 15;
+                  return (
+                  <tr key={w.slug} className={`border-b border-neutral-800 ${highImpressions ? "bg-emerald-950/20" : ""}`}>
                     <td className="p-2">
                       <span className="flex items-center gap-2">
                         <a href={`/q/${w.slug}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
@@ -213,11 +231,18 @@ export default function SeoPagesAdminPage() {
                         )}
                       </span>
                     </td>
+                    <td className="p-2 tabular-nums">{impactScore}</td>
                     <td className="p-2 tabular-nums">{w.impressions}</td>
                     <td className="p-2 tabular-nums">{w.clicks}</td>
                     <td className="p-2 tabular-nums">{w.ctr != null ? `${(w.ctr * 100).toFixed(2)}%` : "—"}</td>
                     <td className="p-2 tabular-nums">{w.position ?? "—"}</td>
-                    <td className="p-2 tabular-nums">{w.priority}</td>
+                    <td className="p-2">
+                      <span className="flex flex-wrap gap-1">
+                        {highImpressions && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300">High impressions</span>}
+                        {highCtr && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300">High CTR</span>}
+                        {nearPage1 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300">Near page 1</span>}
+                      </span>
+                    </td>
                     <td className="p-2">
                       <button
                         onClick={() => setIndexing(w.slug, "index")}
@@ -228,7 +253,8 @@ export default function SeoPagesAdminPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -260,6 +286,7 @@ export default function SeoPagesAdminPage() {
           onChange={(e) => setSortBy(e.target.value)}
           className="bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
         >
+          <option value="impact_desc">Sort by impact (default)</option>
           <option value="priority_desc">Sort by priority</option>
           <option value="impressions_desc">Sort by impressions (high)</option>
           <option value="impressions_asc">Sort by impressions (low)</option>
@@ -269,6 +296,50 @@ export default function SeoPagesAdminPage() {
           Include metrics
         </label>
       </div>
+
+      {/* Top Actions Today */}
+      <section className="rounded border border-cyan-900/50 bg-cyan-950/20 p-4">
+        <div className="font-medium text-cyan-200 mb-3">Top Actions Today</div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const slugs = winners.slice(0, 5).map((w) => w.slug);
+              if (slugs.length) setIndexingBatch(slugs, "index");
+              else setMsg("No winners to index");
+            }}
+            disabled={busy || winners.length === 0}
+            className="px-3 py-1.5 rounded bg-cyan-700 hover:bg-cyan-600 disabled:opacity-60 text-sm"
+          >
+            Index top 5 winners
+          </button>
+          <button
+            onClick={() => {
+              const slugs = pages
+                .filter((p) => p.status === "published" && (p.indexing ?? "noindex") === "noindex" && (p.impressions ?? 0) >= 1000)
+                .map((p) => p.slug);
+              if (slugs.length) setIndexingBatch(slugs, "index");
+              else setMsg("No noindex pages with impressions ≥ 1000");
+            }}
+            disabled={busy || !joinMetrics}
+            className="px-3 py-1.5 rounded bg-cyan-700 hover:bg-cyan-600 disabled:opacity-60 text-sm"
+          >
+            Index pages with impressions ≥ 1000
+          </button>
+          <button
+            onClick={() => {
+              const slugs = pages
+                .filter((p) => p.status === "published" && (p.indexing ?? "noindex") === "noindex" && (p.ctr ?? 0) >= 0.03)
+                .map((p) => p.slug);
+              if (slugs.length) setIndexingBatch(slugs, "index");
+              else setMsg("No noindex pages with CTR ≥ 3%");
+            }}
+            disabled={busy || !joinMetrics}
+            className="px-3 py-1.5 rounded bg-cyan-700 hover:bg-cyan-600 disabled:opacity-60 text-sm"
+          >
+            Index pages with CTR ≥ 3%
+          </button>
+        </div>
+      </section>
 
       <div className="rounded border border-neutral-800 overflow-hidden">
         {loading ? (
@@ -286,16 +357,30 @@ export default function SeoPagesAdminPage() {
                 <th className="text-left p-3">Indexing</th>
                 {joinMetrics && (
                   <>
+                    <th className="text-left p-3 tabular-nums">Impact</th>
                     <th className="text-left p-3 tabular-nums">Impressions</th>
                     <th className="text-left p-3 tabular-nums">Clicks</th>
+                    <th className="text-left p-3">Signals</th>
                   </>
                 )}
                 <th className="text-left p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pages.map((p) => (
-                <tr key={p.id} className="border-b border-neutral-800">
+              {pages.map((p) => {
+                const imp = Number(p.impressions ?? 0);
+                const ctr = Number(p.ctr ?? 0);
+                const pos = p.position != null ? Number(p.position) : null;
+                const impactScore = imp > 0 && ctr > 0 ? Math.round(imp * ctr) : 0;
+                const highImpressions = imp >= 1000;
+                const highCtr = ctr >= 0.03;
+                const nearPage1 = pos != null && pos <= 15;
+                const indexingVal = p.indexing ?? "noindex";
+                return (
+                <tr
+                  key={p.id}
+                  className={`border-b border-neutral-800 ${highImpressions ? "bg-emerald-950/20" : ""}`}
+                >
                   <td className="p-3">
                     <a href={`/q/${p.slug}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
                       {p.slug}
@@ -315,21 +400,29 @@ export default function SeoPagesAdminPage() {
                   <td className="p-3">
                     {p.status === "published" ? (
                       <button
-                        onClick={() => setIndexing(p.slug, (p.indexing ?? "noindex") === "index" ? "noindex" : "index")}
+                        onClick={() => setIndexing(p.slug, indexingVal === "index" ? "noindex" : "index")}
                         disabled={busy}
-                        className={`text-xs ${(p.indexing ?? "noindex") === "index" ? "text-green-400" : "text-neutral-500"} hover:underline`}
-                        title={(p.indexing ?? "noindex") === "index" ? "Click to set noindex" : "Click to set index (include in sitemap)"}
+                        className={`text-xs px-2 py-0.5 rounded ${indexingVal === "index" ? "bg-green-900/60 text-green-300" : "bg-amber-900/60 text-amber-300"} hover:opacity-90`}
+                        title={indexingVal === "index" ? "Click to set noindex" : "Click to set index (include in sitemap)"}
                       >
-                        {p.indexing ?? "noindex"}
+                        {indexingVal}
                       </button>
                     ) : (
-                      <span className="text-neutral-500 text-xs">{p.indexing ?? "noindex"}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${indexingVal === "index" ? "bg-green-900/40 text-green-400/70" : "bg-amber-900/40 text-amber-400/70"}`}>{indexingVal}</span>
                     )}
                   </td>
                   {joinMetrics && (
                     <>
+                      <td className="p-3 tabular-nums text-neutral-300">{impactScore}</td>
                       <td className="p-3 tabular-nums text-neutral-400">{p.impressions ?? "—"}</td>
                       <td className="p-3 tabular-nums text-neutral-400">{p.clicks ?? "—"}</td>
+                      <td className="p-3">
+                        <span className="flex flex-wrap gap-1">
+                          {highImpressions && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300">High impressions</span>}
+                          {highCtr && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300">High CTR</span>}
+                          {nearPage1 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300">Near page 1</span>}
+                        </span>
+                      </td>
                     </>
                   )}
                   <td className="p-3">
@@ -350,7 +443,8 @@ export default function SeoPagesAdminPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         )}

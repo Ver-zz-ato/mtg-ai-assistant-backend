@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     if (status) q = q.eq("status", status);
 
-    if (sort === "impressions_desc" || sort === "impressions_asc") {
+    if (sort === "impressions_desc" || sort === "impressions_asc" || sort === "impact_desc") {
       q = q.order("priority", { ascending: false });
     }
 
@@ -40,19 +40,38 @@ export async function GET(req: NextRequest) {
     let enriched: Record<string, unknown>[] = (pages ?? []) as Record<string, unknown>[];
     if (joinMetrics && enriched.length > 0) {
       const queries = Array.from(new Set(enriched.map((p) => (p as { query: string }).query)));
-      const { data: metrics } = await admin.from("seo_queries").select("query, clicks, impressions").in("query", queries);
-      const metricsByQuery = new Map((metrics ?? []).map((m: { query: string; clicks: number; impressions: number }) => [m.query, { clicks: m.clicks, impressions: m.impressions }]));
-      enriched = enriched.map((p) => ({
-        ...p,
-        impressions: metricsByQuery.get((p as { query: string }).query)?.impressions ?? null,
-        clicks: metricsByQuery.get((p as { query: string }).query)?.clicks ?? null,
-      }));
+      const { data: metrics } = await admin.from("seo_queries").select("query, clicks, impressions, ctr, position").in("query", queries);
+      const metricsByQuery = new Map(
+        (metrics ?? []).map((m: { query: string; clicks: number; impressions: number; ctr?: number; position?: number }) => [
+          m.query,
+          { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr ?? null, position: m.position ?? null },
+        ])
+      );
+      enriched = enriched.map((p) => {
+        const m = metricsByQuery.get((p as { query: string }).query);
+        const impressions = m?.impressions ?? null;
+        const clicks = m?.clicks ?? null;
+        const ctr = m?.ctr ?? (impressions && impressions > 0 && clicks != null ? clicks / impressions : null);
+        return {
+          ...p,
+          impressions,
+          clicks,
+          ctr,
+          position: m?.position ?? null,
+        };
+      });
     }
 
     if (sort === "impressions_desc") {
       enriched = [...enriched].sort((a, b) => (Number(b.impressions ?? 0) - Number(a.impressions ?? 0)));
     } else if (sort === "impressions_asc") {
       enriched = [...enriched].sort((a, b) => (Number(a.impressions ?? 0) - Number(b.impressions ?? 0)));
+    } else if (sort === "impact_desc") {
+      enriched = [...enriched].sort((a, b) => {
+        const ia = Number(a.impressions ?? 0) * Number(a.ctr ?? 0);
+        const ib = Number(b.impressions ?? 0) * Number(b.ctr ?? 0);
+        return ib - ia;
+      });
     }
 
     return NextResponse.json({ ok: true, pages: enriched });
