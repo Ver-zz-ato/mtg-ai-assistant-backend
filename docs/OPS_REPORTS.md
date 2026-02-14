@@ -4,6 +4,15 @@ Scheduled daily and weekly ops reports run production-safe checks, store results
 
 ---
 
+## Quick Sanity Checks
+
+1. **Migration applied:** Confirm `ops_reports` exists and has columns `report_version`, `git_sha`, `run_key` plus index `ops_reports_run_key_unique`.
+2. **Cron auth:** `GET /api/cron/ops-report/weekly` with no secret → 401. With `x-cron-key: CRON_SECRET` → 200 and insert/update row.
+3. **Admin proxy:** `/api/admin/ops-reports/run` calls `runOpsReport()` directly (server-side) — no HTTP with secret.
+4. **SEO Winners:** `/api/admin/seo-pages/winners?days=7` filters `seo_queries` by `date_end >= today - 7 days` (or null for legacy).
+
+---
+
 ## What Checks Run
 
 | Check | Description |
@@ -58,7 +67,7 @@ Env vars: `CRON_SECRET`, `CRON_KEY`, or `RENDER_CRON_SECRET` (any one).
   - Latest daily + weekly
   - Table of last 10 runs
   - Expandable JSON details per run
-- **Database:** `ops_reports` table (migration `058_ops_reports.sql`)
+- **Database:** `ops_reports` table (migrations `058_ops_reports.sql`, `059_ops_reports_version_run_key.sql`)
 
 ---
 
@@ -83,6 +92,10 @@ Vercel sends `CRON_SECRET` as Bearer token in `Authorization` header when invoki
 
 ---
 
+## Idempotency
+
+Reports use `run_key` (e.g. `daily_ops:2026-02-14`) for idempotency. If the cron retries the same day, the existing row is updated instead of inserting a duplicate.
+
 ## Example ops_reports Row (JSON)
 
 ```json
@@ -90,6 +103,9 @@ Vercel sends `CRON_SECRET` as Bearer token in `Authorization` header when invoki
   "id": "uuid",
   "created_at": "2026-02-14T12:00:00Z",
   "report_type": "daily_ops",
+  "report_version": "1",
+  "git_sha": "abc123",
+  "run_key": "daily_ops:2026-02-14",
   "status": "ok",
   "summary": "All checks passed.",
   "details": {
@@ -118,6 +134,8 @@ Vercel sends `CRON_SECRET` as Bearer token in `Authorization` header when invoki
 • Indexed pages: 45
 • SEO winners (noindex w/ impressions): 3
   Top: atraxa-deck-cost, edgar-markov-cost, krenko-cost
+
+View in [admin/ops](https://your-app.com/admin/ops)
 ```
 
 ---
@@ -126,11 +144,15 @@ Vercel sends `CRON_SECRET` as Bearer token in `Authorization` header when invoki
 
 ```sql
 -- Pages with noindex but impressions above threshold (join to seo_queries for metrics)
+-- Filter by date_end for "last 7 days" when seo_queries has date_start/date_end from ingest
 SELECT p.slug, p.title, q.impressions, q.clicks, q.ctr, q.position, p.priority
 FROM seo_pages p
 JOIN seo_queries q ON q.query = p.query
 WHERE p.indexing = 'noindex'
   AND q.impressions > 10
+  AND (q.date_end IS NULL OR q.date_end >= CURRENT_DATE - INTERVAL '7 days')
 ORDER BY q.impressions DESC
 LIMIT 50;
 ```
+
+The `/api/admin/seo-pages/winners` endpoint uses `?days=7` (default) to filter `seo_queries` by `date_end >= today - 7 days`, so winners reflect recent GSC data.

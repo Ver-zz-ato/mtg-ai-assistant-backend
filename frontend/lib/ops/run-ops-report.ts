@@ -211,17 +211,42 @@ export async function runOpsReport(reportType: ReportType): Promise<{
   const seoHealth = details.seo_health as { indexed_page_count?: number } | undefined;
   const seoWinners = details.seo_winners as { count?: number; top_slugs?: string[] } | undefined;
 
+  const reportVersion = "1";
+  const gitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || null;
+  const today = new Date().toISOString().slice(0, 10);
+  const runKey = `${reportType}:${today}`;
+
+  const row = {
+    report_type: reportType,
+    status,
+    summary,
+    details,
+    duration_ms: durationMs,
+    error: null,
+    report_version: reportVersion,
+    git_sha: gitSha,
+    run_key: runKey,
+  };
+
   let reportId: string | null = null;
   try {
-    const { data: inserted, error } = await admin.from("ops_reports").insert({ report_type: reportType, status, summary, details, duration_ms: durationMs, error: null }).select("id").single();
-    if (!error && inserted) reportId = (inserted as { id: string }).id;
+    const { data: existing } = await admin.from("ops_reports").select("id").eq("run_key", runKey).maybeSingle();
+    if (existing) {
+      const { data: updated } = await admin.from("ops_reports").update(row).eq("id", (existing as { id: string }).id).select("id").single();
+      if (updated) reportId = (updated as { id: string }).id;
+    } else {
+      const { data: inserted, error } = await admin.from("ops_reports").insert(row).select("id").single();
+      if (!error && inserted) reportId = (inserted as { id: string }).id;
+    }
   } catch (e) {
-    console.error("[ops-report] Insert failed:", e);
+    console.error("[ops-report] Save failed:", e);
   }
 
+  const adminUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mtgassistant.com";
   postOpsReportToDiscord({
     status,
     reportType,
+    adminUrl: `${adminUrl.replace(/\/$/, "")}/admin/ops`,
     aiMismatchRate: aiAudit?.mismatch_rate,
     rate429: quality?.err429_rate_pct,
     routeNullPct: routeCov?.route_null_pct,
@@ -229,6 +254,7 @@ export async function runOpsReport(reportType: ReportType): Promise<{
     indexedPageCount: seoHealth?.indexed_page_count,
     seoWinnersCount: seoWinners?.count,
     seoWinnersSlugs: seoWinners?.top_slugs,
+    errorSummary: status === "fail" ? summary : null,
   });
 
   return {

@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
     process.env.RENDER_CRON_SECRET ||
     "";
   const hdr = req.headers.get("x-cron-key") || req.headers.get("authorization")?.replace("Bearer ", "") || "";
-  if (!secret || hdr !== secret) {
+  const qSecret = req.nextUrl.searchParams.get("secret") || "";
+  const isValid = secret && (hdr === secret || qSecret === secret);
+  if (!isValid) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 

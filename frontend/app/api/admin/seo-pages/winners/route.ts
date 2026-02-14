@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const DEFAULT_THRESHOLD = 10;
 const DEFAULT_LIMIT = 50;
+const DEFAULT_DAYS = 7;
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,6 +24,8 @@ export async function GET(req: NextRequest) {
 
     const threshold = Math.max(0, parseInt(req.nextUrl.searchParams.get("threshold") || String(DEFAULT_THRESHOLD), 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || String(DEFAULT_LIMIT), 10)));
+    const days = Math.min(90, Math.max(0, parseInt(req.nextUrl.searchParams.get("days") || String(DEFAULT_DAYS), 10)));
+    const cutoff = days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) : null;
 
     const { data: pages } = await admin
       .from("seo_pages")
@@ -42,19 +45,26 @@ export async function GET(req: NextRequest) {
     }> = [];
 
     if (queries.length > 0) {
-      const { data: metrics } = await admin
+      const { data: rawMetrics } = await admin
         .from("seo_queries")
-        .select("query, clicks, impressions, ctr, position")
+        .select("query, clicks, impressions, ctr, position, date_end")
         .in("query", queries);
 
+      const metrics = cutoff
+        ? (rawMetrics || []).filter(
+            (m: { date_end?: string | null }) =>
+              !m.date_end || String(m.date_end).slice(0, 10) >= cutoff
+          )
+        : rawMetrics || [];
+
       const byQuery = new Map(
-        (metrics || []).map((m: { query: string; clicks: number; impressions: number; ctr?: number; position?: number }) => [
+        metrics.map((m: { query: string; clicks: number; impressions: number; ctr?: number; position?: number }) => [
           m.query,
           { clicks: m.clicks ?? 0, impressions: m.impressions ?? 0, ctr: m.ctr ?? null, position: m.position ?? null },
         ])
       );
 
-      for (const p of pages || []) {
+      for (const p of pages ?? []) {
         const m = byQuery.get(p.query);
         if (!m || m.impressions < threshold) continue;
         winners.push({
@@ -70,7 +80,7 @@ export async function GET(req: NextRequest) {
       winners = winners.sort((a, b) => b.impressions - a.impressions).slice(0, limit);
     }
 
-    return NextResponse.json({ ok: true, winners, threshold });
+    return NextResponse.json({ ok: true, winners, threshold, days });
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
