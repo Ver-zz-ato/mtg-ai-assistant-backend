@@ -28,6 +28,21 @@ export default function SeoPagesAdminPage() {
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [winners, setWinners] = React.useState<Array<{ slug: string; title: string; impressions: number; clicks: number; ctr: number | null; position: number | null; priority: number }>>([]);
+  const [winnersLoading, setWinnersLoading] = React.useState(false);
+
+  const loadWinners = React.useCallback(async () => {
+    setWinnersLoading(true);
+    try {
+      const r = await fetch("/api/admin/seo-pages/winners?threshold=10&limit=50", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok) setWinners(j.winners ?? []);
+    } catch {
+      setWinners([]);
+    } finally {
+      setWinnersLoading(false);
+    }
+  }, []);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -51,6 +66,10 @@ export default function SeoPagesAdminPage() {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  React.useEffect(() => {
+    loadWinners();
+  }, [loadWinners]);
 
   async function toggleStatus(slug: string, newStatus: string) {
     setBusy(true);
@@ -119,6 +138,7 @@ export default function SeoPagesAdminPage() {
       const j = await r.json();
       if (j?.ok) {
         setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, indexing } : p)));
+        setWinners((prev) => prev.filter((w) => w.slug !== slug));
         setMsg(`Set ${slug} to ${indexing}`);
       } else setMsg(j?.error ?? "Set indexing failed");
     } catch (e) {
@@ -146,6 +166,58 @@ export default function SeoPagesAdminPage() {
           {msg}
         </div>
       )}
+
+      {/* SEO Winners */}
+      <section className="rounded border border-emerald-900/50 bg-emerald-950/20 p-4 space-y-3">
+        <div className="font-medium text-emerald-200">SEO Winners (Eligible for Indexing)</div>
+        <p className="text-xs text-neutral-400">Pages here are receiving impressions but are still noindex.</p>
+        {winnersLoading ? (
+          <div className="text-sm text-neutral-500">Loading…</div>
+        ) : winners.length === 0 ? (
+          <div className="text-sm text-neutral-500">No noindex pages with impressions above threshold.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-700">
+                  <th className="text-left p-2">Slug</th>
+                  <th className="text-left p-2 tabular-nums">Impressions</th>
+                  <th className="text-left p-2 tabular-nums">Clicks</th>
+                  <th className="text-left p-2 tabular-nums">CTR</th>
+                  <th className="text-left p-2 tabular-nums">Position</th>
+                  <th className="text-left p-2">Priority</th>
+                  <th className="text-left p-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {winners.map((w) => (
+                  <tr key={w.slug} className="border-b border-neutral-800">
+                    <td className="p-2">
+                      <a href={`/q/${w.slug}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
+                        {w.slug}
+                      </a>
+                    </td>
+                    <td className="p-2 tabular-nums">{w.impressions}</td>
+                    <td className="p-2 tabular-nums">{w.clicks}</td>
+                    <td className="p-2 tabular-nums">{w.ctr != null ? `${(w.ctr * 100).toFixed(2)}%` : "—"}</td>
+                    <td className="p-2 tabular-nums">{w.position ?? "—"}</td>
+                    <td className="p-2 tabular-nums">{w.priority}</td>
+                    <td className="p-2">
+                      <button
+                        onClick={() => setIndexing(w.slug, "index")}
+                        disabled={busy}
+                        className="text-xs px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60"
+                      >
+                        Index
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <div className="flex flex-wrap gap-3">
         <button onClick={generate} disabled={busy} className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">

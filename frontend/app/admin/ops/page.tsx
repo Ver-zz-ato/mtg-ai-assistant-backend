@@ -15,6 +15,41 @@ export default function OpsPage() {
   const [busy, setBusy] = React.useState(false);
   const [pinboard, setPinboard] = React.useState<any>(null);
   const [lastRefresh, setLastRefresh] = React.useState<string>('');
+  const [opsReports, setOpsReports] = React.useState<{ reports: any[]; latest_daily: any; latest_weekly: any } | null>(null);
+  const [runReportBusy, setRunReportBusy] = React.useState<string | null>(null);
+  const [expandedReportId, setExpandedReportId] = React.useState<string | null>(null);
+
+  async function loadOpsReports() {
+    try {
+      const r = await fetch('/api/admin/ops-reports/list?limit=10', { cache: 'no-store' });
+      const j = await r.json();
+      if (j?.ok) setOpsReports({ reports: j.reports || [], latest_daily: j.latest_daily, latest_weekly: j.latest_weekly });
+    } catch (e) {
+      console.warn('Failed to load ops reports:', e);
+    }
+  }
+
+  async function runReport(type: 'daily' | 'weekly') {
+    setRunReportBusy(type);
+    try {
+      const r = await fetch('/api/admin/ops-reports/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        alert(`${type === 'daily' ? 'Daily' : 'Weekly'} report completed. Status: ${j.status}`);
+        loadOpsReports();
+      } else {
+        alert(j?.error || 'Run failed');
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Run failed');
+    } finally {
+      setRunReportBusy(null);
+    }
+  }
 
   React.useEffect(() => { (async () => {
     try {
@@ -25,6 +60,7 @@ export default function OpsPage() {
       if (j?.config?.llm_budget) setBudget(j.config.llm_budget);
     } catch {}
     refreshPinboard();
+    loadOpsReports();
   })(); }, []);
   
   async function refreshPinboard() {
@@ -144,6 +180,77 @@ export default function OpsPage() {
           <div className="text-center py-4 opacity-60">Loading health data...</div>
         )}
       </section>
+
+      {/* Scheduled Reports */}
+      <section className="rounded border border-neutral-800 p-3 space-y-3">
+        <div className="font-medium">Scheduled Reports <HelpTip text="Daily and weekly ops health checks. Stored in ops_reports and posted to Discord." /></div>
+        <div className="flex gap-2">
+          <button onClick={() => runReport('daily')} disabled={!!runReportBusy} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">
+            {runReportBusy === 'daily' ? 'Running…' : 'Run Daily Now'}
+          </button>
+          <button onClick={() => runReport('weekly')} disabled={!!runReportBusy} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">
+            {runReportBusy === 'weekly' ? 'Running…' : 'Run Weekly Now'}
+          </button>
+          <button onClick={loadOpsReports} disabled={!!runReportBusy} className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-60 text-sm">Refresh</button>
+        </div>
+        {opsReports && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              {opsReports.latest_daily && (
+                <div className="p-2 rounded border border-neutral-700">
+                  <div className="font-medium text-neutral-300">Latest Daily</div>
+                  <div className="text-xs mt-1">
+                    {new Date(opsReports.latest_daily.created_at).toLocaleString()} · {opsReports.latest_daily.status}
+                  </div>
+                  <div className="text-xs opacity-80 mt-0.5 truncate">{opsReports.latest_daily.summary || '—'}</div>
+                </div>
+              )}
+              {opsReports.latest_weekly && (
+                <div className="p-2 rounded border border-neutral-700">
+                  <div className="font-medium text-neutral-300">Latest Weekly</div>
+                  <div className="text-xs mt-1">
+                    {new Date(opsReports.latest_weekly.created_at).toLocaleString()} · {opsReports.latest_weekly.status}
+                  </div>
+                  <div className="text-xs opacity-80 mt-0.5 truncate">{opsReports.latest_weekly.summary || '—'}</div>
+                </div>
+              )}
+            </div>
+            <div className="overflow-auto max-h-60">
+              <table className="min-w-full text-sm">
+                <thead><tr><th className="text-left py-1 px-2">When</th><th className="text-left py-1 px-2">Type</th><th className="text-left py-1 px-2">Status</th><th className="text-left py-1 px-2">Summary</th><th className="text-left py-1 px-2"></th></tr></thead>
+                <tbody>
+                  {(opsReports.reports || []).map((r: any) => (
+                    <React.Fragment key={r.id}>
+                      <tr className="border-t border-neutral-900">
+                        <td className="py-1 px-2 font-mono text-xs">{new Date(r.created_at).toLocaleString()}</td>
+                        <td className="py-1 px-2">{r.report_type}</td>
+                        <td className="py-1 px-2">{r.status}</td>
+                        <td className="py-1 px-2 max-w-[200px] truncate" title={r.summary}>{r.summary || '—'}</td>
+                        <td className="py-1 px-2">
+                          <button onClick={() => setExpandedReportId(expandedReportId === r.id ? null : r.id)} className="text-xs text-blue-400 hover:underline">
+                            {expandedReportId === r.id ? 'Hide' : 'Details'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedReportId === r.id && r.details && (
+                        <tr className="border-t border-neutral-900 bg-neutral-950/50">
+                          <td colSpan={5} className="py-2 px-2">
+                            <pre className="text-xs overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">{JSON.stringify(r.details, null, 2)}</pre>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  {(!opsReports.reports || opsReports.reports.length === 0) && (
+                    <tr><td colSpan={5} className="py-3 text-center opacity-70">No reports yet. Run one above.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+
       <ELI5 heading="Ops & Safety - EMERGENCY CONTROLS" items={[
         '🚨 DANGER ZONE: Kill switches for broken features',
         '🔴 Maintenance Mode: Show banner or completely pause the app',
