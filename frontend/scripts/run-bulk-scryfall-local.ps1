@@ -1,5 +1,10 @@
 # frontend/scripts/run-bulk-scryfall-local.ps1
 # Automates the bulk Scryfall import by starting the dev server and triggering the job
+#
+# Usage: .\scripts\run-bulk-scryfall-local.ps1 [-Clean]
+#   -Clean  Clear .next cache before starting (fixes "ENOENT @opentelemetry" / stuck startup)
+
+param([switch]$Clean)
 
 Write-Host "Bulk Scryfall Import - Local Automation" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
@@ -44,6 +49,15 @@ try {
     # Step 2: Start dev server if not running
     $DevServerProcess = $null
     if (-not $ServerAlreadyRunning) {
+        if ($Clean) {
+            $NextDir = Join-Path $FrontendDir ".next"
+            if (Test-Path $NextDir) {
+                Write-Host ""
+                Write-Host "Clearing .next cache (-Clean)..." -ForegroundColor Yellow
+                Remove-Item -Recurse -Force $NextDir -ErrorAction SilentlyContinue
+                Write-Host "OK: Cache cleared" -ForegroundColor Green
+            }
+        }
         Write-Host ""
         Write-Host "Starting Next.js dev server..." -ForegroundColor Yellow
         Write-Host "   (This may take 30-60 seconds to compile)" -ForegroundColor Gray
@@ -80,6 +94,8 @@ try {
         
         if (-not $Ready) {
             Write-Host "ERROR: Server failed to start within $MaxWaitTime seconds" -ForegroundColor Red
+            Write-Host "TIP: Try running with -Clean to clear corrupted .next cache:" -ForegroundColor Yellow
+            Write-Host "     .\scripts\run-bulk-scryfall-local.ps1 -Clean" -ForegroundColor Gray
             if ($DevServerProcess) {
                 Stop-Process -Id $DevServerProcess.Id -Force -ErrorAction SilentlyContinue
             }

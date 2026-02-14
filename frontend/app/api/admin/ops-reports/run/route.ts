@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const type = body?.type === "daily" ? "daily_ops" : "weekly_ops";
 
     const result = await runOpsReport(type);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json(result);
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }

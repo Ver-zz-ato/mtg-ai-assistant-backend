@@ -155,4 +155,7 @@ ORDER BY q.impressions DESC
 LIMIT 50;
 ```
 
-The `/api/admin/seo-pages/winners` endpoint uses `?days=7` (default) to filter `seo_queries` by `date_end >= today - 7 days`, so winners reflect recent GSC data.
+The `/api/admin/seo-pages/winners` endpoint:
+- Uses `?days=7` (default) to filter `seo_queries` by `date_end >= today - 7 days`
+- **Excludes legacy rows** (`date_end IS NULL`) by default — treat as unknown freshness
+- Add `?include_legacy=1` to include legacy; rows are marked `is_legacy: true` in the response

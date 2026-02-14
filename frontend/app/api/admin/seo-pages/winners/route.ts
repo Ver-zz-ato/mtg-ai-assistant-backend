@@ -25,16 +25,18 @@ export async function GET(req: NextRequest) {
     const threshold = Math.max(0, parseInt(req.nextUrl.searchParams.get("threshold") || String(DEFAULT_THRESHOLD), 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || String(DEFAULT_LIMIT), 10)));
     const days = Math.min(90, Math.max(0, parseInt(req.nextUrl.searchParams.get("days") || String(DEFAULT_DAYS), 10)));
+    const includeLegacy = req.nextUrl.searchParams.get("include_legacy") === "1" || req.nextUrl.searchParams.get("include_legacy") === "true";
     const cutoff = days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) : null;
 
     const { data: pages } = await admin
       .from("seo_pages")
-      .select("slug, title, query, priority, indexing")
+      .select("slug, title, query, priority, indexing, status")
       .eq("indexing", "noindex")
+      .eq("status", "published")
       .limit(500);
 
     const queries = Array.from(new Set((pages || []).map((p: { query: string }) => p.query)));
-    let winners: Array<{
+    type Winner = {
       slug: string;
       title: string;
       impressions: number;
@@ -42,7 +44,9 @@ export async function GET(req: NextRequest) {
       ctr: number | null;
       position: number | null;
       priority: number;
-    }> = [];
+      is_legacy: boolean;
+    };
+    let winners: Winner[] = [];
 
     if (queries.length > 0) {
       const { data: rawMetrics } = await admin
@@ -50,17 +54,22 @@ export async function GET(req: NextRequest) {
         .select("query, clicks, impressions, ctr, position, date_end")
         .in("query", queries);
 
-      const metrics = cutoff
-        ? (rawMetrics || []).filter(
-            (m: { date_end?: string | null }) =>
-              !m.date_end || String(m.date_end).slice(0, 10) >= cutoff
-          )
-        : rawMetrics || [];
+      const metrics = (rawMetrics || []).filter((m: { date_end?: string | null }) => {
+        if (!m.date_end) return includeLegacy;
+        if (!cutoff) return true;
+        return String(m.date_end).slice(0, 10) >= cutoff;
+      });
 
       const byQuery = new Map(
-        metrics.map((m: { query: string; clicks: number; impressions: number; ctr?: number; position?: number }) => [
+        metrics.map((m: { query: string; clicks: number; impressions: number; ctr?: number; position?: number; date_end?: string | null }) => [
           m.query,
-          { clicks: m.clicks ?? 0, impressions: m.impressions ?? 0, ctr: m.ctr ?? null, position: m.position ?? null },
+          {
+            clicks: m.clicks ?? 0,
+            impressions: m.impressions ?? 0,
+            ctr: m.ctr ?? null,
+            position: m.position ?? null,
+            is_legacy: !m.date_end,
+          },
         ])
       );
 
@@ -75,12 +84,13 @@ export async function GET(req: NextRequest) {
           ctr: m.ctr,
           position: m.position,
           priority: p.priority ?? 0,
+          is_legacy: m.is_legacy,
         });
       }
       winners = winners.sort((a, b) => b.impressions - a.impressions).slice(0, limit);
     }
 
-    return NextResponse.json({ ok: true, winners, threshold, days });
+    return NextResponse.json({ ok: true, winners, threshold, days, include_legacy: includeLegacy });
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }

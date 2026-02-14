@@ -28,13 +28,17 @@ export default function SeoPagesAdminPage() {
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
-  const [winners, setWinners] = React.useState<Array<{ slug: string; title: string; impressions: number; clicks: number; ctr: number | null; position: number | null; priority: number }>>([]);
+  const [winners, setWinners] = React.useState<Array<{ slug: string; title: string; impressions: number; clicks: number; ctr: number | null; position: number | null; priority: number; is_legacy?: boolean }>>([]);
   const [winnersLoading, setWinnersLoading] = React.useState(false);
+  const [includeLegacy, setIncludeLegacy] = React.useState(false);
+  const [winnersDays] = React.useState(7);
 
   const loadWinners = React.useCallback(async () => {
     setWinnersLoading(true);
     try {
-      const r = await fetch("/api/admin/seo-pages/winners?threshold=10&limit=50", { cache: "no-store" });
+      const params = new URLSearchParams({ threshold: "10", limit: "50", days: String(winnersDays) });
+      if (includeLegacy) params.set("include_legacy", "1");
+      const r = await fetch(`/api/admin/seo-pages/winners?${params}`, { cache: "no-store" });
       const j = await r.json();
       if (j?.ok) setWinners(j.winners ?? []);
     } catch {
@@ -42,7 +46,7 @@ export default function SeoPagesAdminPage() {
     } finally {
       setWinnersLoading(false);
     }
-  }, []);
+  }, [includeLegacy, winnersDays]);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -169,8 +173,15 @@ export default function SeoPagesAdminPage() {
 
       {/* SEO Winners */}
       <section className="rounded border border-emerald-900/50 bg-emerald-950/20 p-4 space-y-3">
-        <div className="font-medium text-emerald-200">SEO Winners (Eligible for Indexing)</div>
-        <p className="text-xs text-neutral-400">Pages here are receiving impressions but are still noindex.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-medium text-emerald-200">SEO Winners (Eligible for Indexing)</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">Window: last {winnersDays} days</span>
+          <label className="flex items-center gap-2 text-xs text-neutral-400">
+            <input type="checkbox" checked={includeLegacy} onChange={(e) => setIncludeLegacy(e.target.checked)} className="rounded" />
+            Include legacy metrics (unbounded)
+          </label>
+        </div>
+        <p className="text-xs text-neutral-400">Pages here are receiving impressions but are still noindex. Default: fresh metrics only.</p>
         {winnersLoading ? (
           <div className="text-sm text-neutral-500">Loading…</div>
         ) : winners.length === 0 ? (
@@ -193,9 +204,14 @@ export default function SeoPagesAdminPage() {
                 {winners.map((w) => (
                   <tr key={w.slug} className="border-b border-neutral-800">
                     <td className="p-2">
-                      <a href={`/q/${w.slug}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
-                        {w.slug}
-                      </a>
+                      <span className="flex items-center gap-2">
+                        <a href={`/q/${w.slug}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
+                          {w.slug}
+                        </a>
+                        {w.is_legacy && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-medium">LEGACY</span>
+                        )}
+                      </span>
                     </td>
                     <td className="p-2 tabular-nums">{w.impressions}</td>
                     <td className="p-2 tabular-nums">{w.clicks}</td>
