@@ -86,6 +86,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Maintenance mode (defense-in-depth; middleware also blocks)
+    const { checkMaintenance } = await import('@/lib/maintenance-check');
+    const maint = await checkMaintenance();
+    if (maint.enabled) {
+      return new Response(JSON.stringify({
+        fallback: true,
+        reason: "maintenance",
+        message: maint.message,
+      }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Guest user limit checking (server-side enforcement)
     if (isGuest) {
       const { cookies } = await import('next/headers');

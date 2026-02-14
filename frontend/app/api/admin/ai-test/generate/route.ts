@@ -24,6 +24,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
+    const { checkMaintenance } = await import('@/lib/maintenance-check');
+    const maint = await checkMaintenance();
+    if (maint.enabled) {
+      return NextResponse.json({ ok: false, error: maint.message }, { status: 503 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const { description, count = 5, type = "chat", random = false } = body;
 

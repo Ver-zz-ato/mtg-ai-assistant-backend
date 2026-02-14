@@ -338,6 +338,14 @@ export async function POST(req: NextRequest) {
       isPro = await checkProStatus(userId);
     }
 
+    // Maintenance mode (defense-in-depth; middleware also blocks)
+    const { checkMaintenance } = await import('@/lib/maintenance-check');
+    const maint = await checkMaintenance();
+    if (maint.enabled) {
+      status = 503;
+      return err(maint.message, "maintenance", 503);
+    }
+
     // Durable rate limiting (database-backed, persists across restarts)
     // This complements in-memory rate limiting for reliability
     if (!isGuest && userId) {

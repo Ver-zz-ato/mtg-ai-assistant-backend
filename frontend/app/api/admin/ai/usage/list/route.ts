@@ -6,7 +6,7 @@ import { isAdmin } from '@/lib/admin-check';
 export const runtime = 'nodejs';
 
 const PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 200;
+const MAX_PAGE_SIZE = 2000;
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
     if (!admin) return NextResponse.json({ ok: false, error: 'missing_service_role_key' }, { status: 500 });
 
     const sp = req.nextUrl.searchParams;
-    const from = sp.get('from') ? new Date(sp.get('from')! + 'T00:00:00Z').toISOString() : undefined;
+    const daysRaw = parseInt(sp.get('days') || '0', 10);
+    const days = Math.min(90, Math.max(1, isFinite(daysRaw) ? daysRaw : 0));
+    const cutoff = days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() : null;
+    const from = sp.get('from') ? new Date(sp.get('from')! + 'T00:00:00Z').toISOString() : cutoff;
     const to = sp.get('to') ? new Date(sp.get('to')! + 'T23:59:59.999Z').toISOString() : undefined;
     const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(sp.get('limit') || String(PAGE_SIZE), 10) || PAGE_SIZE));
     const cursor = sp.get('next_cursor'); // format: created_at|id (use | to avoid splitting ISO date)
@@ -38,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     let q = admin
       .from('ai_usage')
-      .select('id,created_at,route,model,request_kind,layer0_mode,input_tokens,output_tokens,cost_usd,latency_ms,context_source,used_v2_summary,used_two_stage,cache_hit,error_code,user_id,thread_id,deck_id', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(limit + 1);

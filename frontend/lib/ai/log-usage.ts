@@ -152,7 +152,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       system_prompt_token_estimate: full.system_prompt_token_estimate,
     };
 
-    const minimal = {
+    const minimal: Record<string, unknown> = {
       user_id: payload.user_id,
       thread_id: payload.thread_id ?? null,
       model: payload.model,
@@ -160,6 +160,9 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       output_tokens: payload.output_tokens,
       cost_usd: cost,
     };
+    if (payload.route != null && payload.route !== '') minimal.route = payload.route;
+    if (payload.prompt_preview != null && String(payload.prompt_preview).trim()) minimal.prompt_preview = String(payload.prompt_preview).slice(0, PREVIEW_MAX);
+    if (payload.response_preview != null && String(payload.response_preview).trim()) minimal.response_preview = String(payload.response_preview).slice(0, PREVIEW_MAX);
 
     let inserted = false;
     const { error: e1 } = await supabase.from('ai_usage').insert(full);

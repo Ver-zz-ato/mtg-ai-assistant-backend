@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { getRouteContext } from "@/lib/ai/route-to-page";
 
 function SnapshotInfo(){
   const [loading, setLoading] = React.useState(true);
@@ -155,6 +156,8 @@ export default function AdminAIUsagePage() {
   const [recommendationsTelemetryUnhealthy, setRecommendationsTelemetryUnhealthy] = React.useState<boolean>(false);
   const [recommendationsMessage, setRecommendationsMessage] = React.useState<string | null>(null);
   const [seriesView, setSeriesView] = React.useState<"daily" | "hourly">("daily");
+  const [openaiData, setOpenaiData] = React.useState<any | null>(null);
+  const [openaiLoading, setOpenaiLoading] = React.useState(false);
 
   async function load() {
     setLoading(true);
@@ -264,6 +267,14 @@ export default function AdminAIUsagePage() {
       setRecommendationsMessage(null);
     }
   }
+  async function loadOpenAIUsage() {
+    setOpenaiLoading(true);
+    try {
+      const res = await fetch(`/api/admin/ai/openai-usage?days=${boardDays}`, { cache: "no-store" });
+      const j = await res.json().catch(() => ({ ok: false }));
+      setOpenaiData(j?.ok ? j : null);
+    } catch { setOpenaiData(null); } finally { setOpenaiLoading(false); }
+  }
 
   React.useEffect(() => {
     if (tab === "board") {
@@ -272,6 +283,7 @@ export default function AdminAIUsagePage() {
       loadUsageList();
       loadConfig();
       loadRecommendations();
+      loadOpenAIUsage();
     }
   }, [tab, boardDays]);
 
@@ -395,7 +407,7 @@ export default function AdminAIUsagePage() {
               <span className="opacity-70">Days</span>
               <input type="number" min={1} max={90} value={boardDays} onChange={e => setBoardDays(parseInt(e.target.value || "30", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
             </label>
-            <button onClick={() => { loadOverview(); loadTopDrivers(); loadUsageList(); loadRecommendations(); }} disabled={overviewLoading} className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">Refresh</button>
+            <button onClick={() => { loadOverview(); loadTopDrivers(); loadUsageList(); loadRecommendations(); loadOpenAIUsage(); }} disabled={overviewLoading} className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">Refresh</button>
           </div>
           {overviewLoading && !overview && <div className="text-sm text-neutral-500">Loading overview…</div>}
           {overview?.totals && (
@@ -421,6 +433,65 @@ export default function AdminAIUsagePage() {
                   <div className="text-[11px] uppercase tracking-widest text-neutral-500">Tokens in/out</div>
                   <div className="mt-1 text-sm font-mono tabular-nums text-white">{overview.totals.total_tokens_in ?? 0} / {overview.totals.total_tokens_out ?? 0}</div>
                 </div>
+              </section>
+              <section className="rounded-xl border border-emerald-900/50 overflow-hidden bg-emerald-950/20 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-emerald-200">OpenAI actual (from API)</h2>
+                  <button onClick={loadOpenAIUsage} disabled={openaiLoading} className="text-xs px-2 py-1 rounded bg-emerald-900/50 hover:bg-emerald-800/50 disabled:opacity-50">
+                    {openaiLoading ? "Loading…" : "Refresh"}
+                  </button>
+                </div>
+                {openaiLoading && !openaiData && <div className="text-sm text-neutral-500">Loading from OpenAI…</div>}
+                {!openaiLoading && openaiData?.error && (
+                  <div className="text-sm text-amber-300">{openaiData.error}</div>
+                )}
+                {!openaiLoading && openaiData?.totals && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Cost (actual)</div>
+                        <div className="text-lg font-semibold text-emerald-300">${openaiData.totals.cost_usd?.toFixed(4) ?? "0"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Requests</div>
+                        <div className="text-lg font-semibold tabular-nums">{openaiData.totals.requests ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Tokens in</div>
+                        <div className="text-sm font-mono tabular-nums">{openaiData.totals.input_tokens?.toLocaleString() ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Tokens out</div>
+                        <div className="text-sm font-mono tabular-nums">{openaiData.totals.output_tokens?.toLocaleString() ?? 0}</div>
+                      </div>
+                    </div>
+                    {overview?.totals?.total_cost_usd != null && (
+                      <div className="text-xs text-neutral-400">
+                        Our estimate: ${overview.totals.total_cost_usd?.toFixed(4)} vs OpenAI actual: ${openaiData.totals.cost_usd?.toFixed(4)}
+                        {Math.abs((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)) > 0.01 && (
+                          <span className="text-amber-400 ml-1">(diff: ${((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)).toFixed(4)})</span>
+                        )}
+                      </div>
+                    )}
+                    {(openaiData.by_model?.length ?? 0) > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-neutral-400 cursor-pointer hover:text-neutral-300">By model (OpenAI)</summary>
+                        <table className="min-w-full text-xs mt-1">
+                          <tbody>
+                            {(openaiData.by_model || []).slice(0, 8).map((m: any) => (
+                              <tr key={m.model} className="border-t border-neutral-800/50">
+                                <td className="py-0.5 font-mono">{m.model ?? "—"}</td>
+                                <td className="py-0.5 text-right tabular-nums">{m.requests ?? 0} req</td>
+                                <td className="py-0.5 text-right tabular-nums">{(m.input_tokens ?? 0).toLocaleString()} in</td>
+                                <td className="py-0.5 text-right tabular-nums">{(m.output_tokens ?? 0).toLocaleString()} out</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </details>
+                    )}
+                  </div>
+                )}
               </section>
               <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -513,24 +584,47 @@ export default function AdminAIUsagePage() {
           <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
             <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-200">Usage log</h2>
-              <button onClick={() => loadUsageList()} disabled={usageListLoading} className="text-xs px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50">Reload</button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    const params = new URLSearchParams({ limit: "2000", days: String(boardDays) });
+                    const res = await fetch(`/api/admin/ai/usage/list?${params}`, { cache: "no-store" });
+                    const j = await res.json().catch(() => ({}));
+                    const rows = j?.ok ? (j.items || []) : [];
+                    if (rows.length === 0) { alert("No rows to export."); return; }
+                    const allKeys = [...new Set(rows.flatMap((r: any) => Object.keys(r)))].sort() as string[];
+                    const headers = allKeys;
+                    const lines = [headers, ...rows.map((r: any) => headers.map((h: string) => r[h]))];
+                    const csv = lines.map(row => row.map((v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+                    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `ai_usage_${boardDays}d_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600"
+                >
+                  Export full CSV
+                </button>
+                <button onClick={() => loadUsageList()} disabled={usageListLoading} className="text-xs px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50">Reload</button>
+              </div>
             </div>
             <div className="overflow-x-auto max-h-80 overflow-y-auto">
               {usageListLoading && usageList.length === 0 && <div className="p-4 text-sm text-neutral-500">Loading…</div>}
               {!usageListLoading && usageList.length === 0 && <div className="p-4 text-sm text-neutral-500">No rows.</div>}
               {usageList.length > 0 && (
                 <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
+                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Called from</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
                   <tbody>
-                    {usageList.map((r: any) => (
+                    {usageList.map((r: any) => {
+                      const ctx = getRouteContext(r.route);
+                      return (
                       <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => loadUsageDetail(r.id)}>
                         <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
-                        <td className="px-2 py-1">{r.route ?? "—"}</td>
+                        <td className="px-2 py-1 font-mono text-xs">{r.route ?? "—"}</td>
+                        <td className="px-2 py-1 text-xs text-neutral-400" title={ctx?.description}>{ctx?.page ?? "—"}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
                         <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
                         <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               )}
@@ -539,10 +633,69 @@ export default function AdminAIUsagePage() {
           </section>
           {usageDetailId && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setUsageDetailId(null)}>
-              <div className="bg-neutral-900 border border-neutral-700 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto p-4 shadow-xl" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-2"><h3 className="font-semibold">Usage detail</h3><button onClick={() => setUsageDetailId(null)} className="text-neutral-400 hover:text-white">×</button></div>
-                {usageDetail?.cost_reasons && <p className="text-sm text-neutral-300 mb-2">{usageDetail.cost_reasons}</p>}
-                {usageDetail?.row && <pre className="text-xs overflow-x-auto bg-neutral-950 p-2 rounded border border-neutral-800 whitespace-pre-wrap">{JSON.stringify(usageDetail.row, null, 2)}</pre>}
+              <div className="bg-neutral-900 border border-neutral-700 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-3"><h3 className="font-semibold">Usage detail</h3><button onClick={() => setUsageDetailId(null)} className="text-neutral-400 hover:text-white">×</button></div>
+                {usageDetail?.row && (
+                  <>
+                    <div className="mb-3 p-2 rounded bg-neutral-800/50 text-sm">
+                      <span className="text-neutral-500">Cost: </span><span className="font-mono">${Number(usageDetail.row.cost_usd || 0).toFixed(4)}</span>
+                      <span className="text-neutral-500 ml-3">per request</span>
+                      <span className="text-neutral-500 ml-2">({usageDetail.row.input_tokens ?? 0} in / {usageDetail.row.output_tokens ?? 0} out tokens, {usageDetail.row.model ?? "—"})</span>
+                    </div>
+                    {(usageDetail.route_context || (usageDetail.row.route && getRouteContext(usageDetail.row.route))) && (
+                      <div className="mb-3 p-2 rounded bg-blue-950/30 border border-blue-800/50 text-sm">
+                        <div className="text-xs font-medium text-blue-300 uppercase tracking-wide mb-1">Called from (site location)</div>
+                        <div className="font-medium text-blue-200">{(usageDetail.route_context || getRouteContext(usageDetail.row.route))?.page ?? usageDetail.row.route}</div>
+                        <div className="text-xs text-neutral-400 mt-0.5">{(usageDetail.route_context || getRouteContext(usageDetail.row.route))?.description}</div>
+                      </div>
+                    )}
+                  </>
+                )}
+                {usageDetail?.prompt_preview ? (
+                  <div className="mb-3">
+                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">What was asked</div>
+                    <pre className="text-sm bg-neutral-950 p-3 rounded border border-neutral-700 whitespace-pre-wrap overflow-x-auto max-h-40 overflow-y-auto">{usageDetail.prompt_preview}</pre>
+                  </div>
+                ) : (
+                  <div className="mb-3 text-xs text-neutral-500">No prompt preview — older rows or fallback inserts may not store it. New requests should include it.</div>
+                )}
+                {usageDetail?.response_preview ? (
+                  <div className="mb-3">
+                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">AI response (preview)</div>
+                    <pre className="text-sm bg-neutral-950 p-3 rounded border border-neutral-700 whitespace-pre-wrap overflow-x-auto max-h-40 overflow-y-auto">{usageDetail.response_preview}</pre>
+                  </div>
+                ) : usageDetail?.prompt_preview && (
+                  <div className="mb-3 text-xs text-neutral-500">No response preview stored.</div>
+                )}
+                {usageDetail?.cost_reasons && <p className="text-sm text-neutral-400 mb-2">{usageDetail.cost_reasons}</p>}
+                {usageDetail?.row && (
+                  <div className="mb-3">
+                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-2">All fields</div>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-neutral-800">
+                      <table className="min-w-full text-xs">
+                        <tbody>
+                          {Object.entries(usageDetail.row)
+                            .filter(([, v]) => v != null && v !== "")
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([k, v]) => (
+                              <tr key={k} className="border-b border-neutral-800/80">
+                                <td className="py-1 pr-2 font-mono text-neutral-500 align-top">{k}</td>
+                                <td className="py-1 break-all">
+                                  {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {usageDetail?.row && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-neutral-500 cursor-pointer hover:text-neutral-400">Raw row (JSON)</summary>
+                    <pre className="text-xs overflow-x-auto bg-neutral-950 p-2 rounded border border-neutral-800 whitespace-pre-wrap mt-1 max-h-48 overflow-y-auto">{JSON.stringify(usageDetail.row, null, 2)}</pre>
+                  </details>
+                )}
               </div>
             </div>
           )}
@@ -617,16 +770,21 @@ export default function AdminAIUsagePage() {
             <button onClick={() => loadRequests()} disabled={requestsLoading} className="px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload requests</button>
             <button
               onClick={() => {
-                const headers = ["created_at", "user_id", "user_email", "thread_id", "model", "model_tier", "route", "prompt_path", "input_tokens", "output_tokens", "cost_usd", "prompt_preview", "response_preview"];
-                const rowMap = (r: any) => [r.created_at, r.user_id, r.user_email ?? "", r.thread_id, r.model, r.model_tier ?? "", r.route ?? "", r.prompt_path ?? "", r.input_tokens, r.output_tokens, r.cost_usd, (r.prompt_preview ?? "").slice(0, 2000), (r.response_preview ?? "").slice(0, 2000)];
-                const lines = [headers, ...requests.map(rowMap)];
+                const baseKeys = ["id", "created_at", "route", "route_page", "user_id", "user_email", "user_display_name", "thread_id", "deck_id", "model", "model_tier", "prompt_path", "format_key", "input_tokens", "output_tokens", "cost_usd", "pricing_version", "deck_size", "context_source", "summary_tokens_estimate", "deck_hash", "layer0_mode", "layer0_reason", "request_kind", "has_deck_context", "deck_card_count", "used_v2_summary", "used_two_stage", "planner_model", "planner_tokens_in", "planner_tokens_out", "planner_cost_usd", "stop_sequences_enabled", "max_tokens_config", "response_truncated", "user_tier", "is_guest", "latency_ms", "cache_hit", "cache_kind", "error_code", "prompt_tier", "system_prompt_token_estimate", "prompt_preview", "response_preview"];
+                const rowKeys = [...new Set(baseKeys.filter((k, i, a) => a.indexOf(k) === i).concat(...requests.map((r: any) => Object.keys(r))))];
+                const lines = [rowKeys, ...requests.map((r: any) => rowKeys.map(k => {
+                  if (k === "route_page") return (getRouteContext(r.route)?.page ?? r.route ?? "") + " | " + (getRouteContext(r.route)?.description ?? "");
+                  const v = r[k];
+                  if (k === "prompt_preview" || k === "response_preview") return (v ?? "").slice(0, 5000);
+                  return v;
+                }))];
                 const csv = lines.map(row => row.map((v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
                 const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-                const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ai_usage_requests.csv"; a.click();
+                const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `ai_usage_requests_${requestDays}d_${new Date().toISOString().slice(0,10)}.csv`; a.click();
               }}
               className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
             >
-              Export request log CSV
+              Export request log CSV (all columns)
             </button>
           </div>
           <div className="rounded-lg border border-neutral-800 overflow-hidden">
@@ -646,7 +804,8 @@ export default function AdminAIUsagePage() {
                   <tr className="border-b border-neutral-800">
                     <th className="text-left py-1 pr-2">Time</th>
                     <th className="text-left py-1 pr-2">User</th>
-                    <th className="text-left py-1 pr-2">Type</th>
+                    <th className="text-left py-1 pr-2">Route</th>
+                    <th className="text-left py-1 pr-2">Called from</th>
                     <th className="text-left py-1 pr-2">Model</th>
                     <th className="text-left py-1 pr-2">Tier</th>
                     <th className="text-right py-1 pr-2">Cost</th>
@@ -664,7 +823,8 @@ export default function AdminAIUsagePage() {
                       <tr className={`border-b border-neutral-900 hover:bg-neutral-900/50 ${isExpensive ? "bg-amber-950/40 border-l-2 border-l-amber-600" : ""}`}>
                         <td className="py-1 pr-2 whitespace-nowrap text-xs">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="py-1 pr-2 max-w-[120px] truncate" title={r.user_email || r.user_id}>{r.user_email || r.user_display_name || (r.user_id ? String(r.user_id).slice(0, 8) + "…" : "—")}</td>
-                        <td className="py-1 pr-2">{r.route ?? "chat"}</td>
+                        <td className="py-1 pr-2 font-mono text-xs">{r.route ?? "chat"}</td>
+                        <td className="py-1 pr-2 text-xs text-neutral-400 max-w-[140px] truncate" title={getRouteContext(r.route)?.description}>{getRouteContext(r.route)?.page ?? "—"}</td>
                         <td className="py-1 pr-2">{r.model ?? "—"}</td>
                         <td className="py-1 pr-2">{r.model_tier ?? "—"}</td>
                         <td className={`py-1 pr-2 text-right font-mono ${isExpensive ? "text-amber-300 font-semibold" : ""}`}>${r.cost_usd}</td>
@@ -678,7 +838,7 @@ export default function AdminAIUsagePage() {
                       </tr>
                       {expandedId === r.id && (
                         <tr className="border-b border-neutral-900 bg-neutral-900/70">
-                          <td colSpan={9} className="py-2 pr-2 align-top">
+                          <td colSpan={10} className="py-2 pr-2 align-top">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                               <div>
                                 <div className="font-medium text-neutral-400 mb-1">Input (preview)</div>

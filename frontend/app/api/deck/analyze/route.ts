@@ -1492,6 +1492,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // Maintenance mode (defense-in-depth; middleware also blocks)
+  const { checkMaintenance } = await import('@/lib/maintenance-check');
+  const maint = await checkMaintenance();
+  if (maint.enabled) {
+    return new Response(
+      JSON.stringify({ ok: false, code: 'maintenance', error: maint.message }),
+      { status: 503, headers: { "content-type": "application/json" } }
+    );
+  }
+
   const body = (await req.json().catch(() => ({}))) as {
     deckText?: string;
     deckId?: string;

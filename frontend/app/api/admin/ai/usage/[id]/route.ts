@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { isAdmin } from '@/lib/admin-check';
+import { getRouteContext } from '@/lib/ai/route-to-page';
 
 export const runtime = 'nodejs';
 
@@ -42,11 +43,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (r.error_code) parts.push(`Error: ${r.error_code}`);
     const cost_reasons = parts.join('; ') || 'No extra context.';
 
+    // Extract key fields for prominent display (what the AI was actually used on)
+    const promptPreview = typeof r.prompt_preview === 'string' && r.prompt_preview.trim() ? r.prompt_preview.trim() : null;
+    const responsePreview = typeof r.response_preview === 'string' && r.response_preview.trim() ? r.response_preview.trim() : null;
+
+    const routeContext = getRouteContext((r.route as string) ?? null);
+
     return NextResponse.json({
       ok: true,
       row: r,
       cost_reasons: cost_reasons,
       total_cost_usd: Math.round((totalCost) * 10000) / 10000,
+      prompt_preview: promptPreview,
+      response_preview: responsePreview,
+      route_context: routeContext,
     });
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: (e as Error).message || 'server_error' }, { status: 500 });
