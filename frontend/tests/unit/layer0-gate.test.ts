@@ -11,7 +11,6 @@ import {
   needsDeckButMissing,
 } from "@/lib/ai/layer0-gate";
 import { getFaqAnswer } from "@/lib/ai/static-faq";
-import { getFaqAnswer } from "@/lib/ai/static-faq";
 
 const base = (overrides: Partial<Parameters<typeof layer0Decide>[0]> = {}) => ({
   text: "",
@@ -78,7 +77,8 @@ assert.strictEqual(suggestWithDeck.mode, "FULL_LLM");
 const synergyWithDeck = layer0Decide(base({ text: "how does synergy work in this list?", hasDeckContext: true }));
 assert.strictEqual(synergyWithDeck.mode, "FULL_LLM");
 
-const defaultLong = layer0Decide(base({ text: "Explain in detail the history of Magic the Gathering and its impact on card games.", hasDeckContext: false }));
+// Must exceed 80 chars to hit "default" (simple_one_liner threshold is 80)
+const defaultLong = layer0Decide(base({ text: "Explain in detail the history of Magic the Gathering and its impact on card games worldwide.", hasDeckContext: false }));
 assert.strictEqual(defaultLong.mode, "FULL_LLM");
 assert.strictEqual((defaultLong as any).reason, "default");
 

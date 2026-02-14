@@ -26,6 +26,10 @@ export type RuntimeAIConfig = {
   llm_budget: { daily_usd?: number; weekly_usd?: number };
   llm_models: Record<string, unknown> | null;
   llm_thresholds: Record<string, unknown> | null;
+  /** Panic switch: bypass Layer0 MINI/NO_LLM for these routes (e.g. ["deck_analyze","swap_suggestions"]) */
+  llm_force_full_routes?: string[];
+  /** Panic switch: min max_tokens per route (e.g. { "deck_analyze": 256 }) */
+  llm_min_tokens_per_route?: Record<string, number>;
 };
 
 const DEFAULT_FLAGS: RuntimeAIFlags = {
@@ -74,7 +78,7 @@ export async function getRuntimeAIConfig(supabase: SupabaseClient): Promise<Runt
     const { data: rows } = await supabase
       .from('app_config')
       .select('key, value')
-      .in('key', ['flags', 'llm_budget', 'llm_models', 'llm_thresholds']);
+      .in('key', ['flags', 'llm_budget', 'llm_models', 'llm_thresholds', 'llm_force_full_routes', 'llm_min_tokens_per_route']);
 
     for (const row of rows || []) {
       const key = (row as { key: string }).key;
@@ -85,6 +89,10 @@ export async function getRuntimeAIConfig(supabase: SupabaseClient): Promise<Runt
         config.llm_budget = value as RuntimeAIConfig['llm_budget'];
       else if (key === 'llm_models' && value !== null) config.llm_models = value as Record<string, unknown>;
       else if (key === 'llm_thresholds' && value !== null) config.llm_thresholds = value as Record<string, unknown>;
+      else if (key === 'llm_force_full_routes' && Array.isArray(value))
+        config.llm_force_full_routes = value as string[];
+      else if (key === 'llm_min_tokens_per_route' && value && typeof value === 'object')
+        config.llm_min_tokens_per_route = value as Record<string, number>;
     }
     if (!rows?.length || !rows.some((r: any) => r.key === 'flags'))
       config.flags = applyEnvOverrides(config.flags);

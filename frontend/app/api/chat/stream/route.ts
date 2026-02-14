@@ -574,7 +574,9 @@ export async function POST(req: NextRequest) {
     let streamLayer0Mode: string | null = null;
     let streamLayer0Reason: string | null = null;
     let streamLayer0MiniOnly: { model: string; max_tokens: number } | null = null;
-    if (streamRuntimeConfig.flags.llm_layer0 === true) {
+    const streamForceFullRoutes = streamRuntimeConfig.llm_force_full_routes ?? [];
+    const streamForceFull = Array.isArray(streamForceFullRoutes) && streamForceFullRoutes.includes("chat_stream");
+    if (streamRuntimeConfig.flags.llm_layer0 === true && !streamForceFull) {
       const { layer0Decide } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
       const status = await checkBudgetStatus(supabase);
@@ -674,9 +676,10 @@ export async function POST(req: NextRequest) {
     ];
     const complexKeywordCount = complexKeywords.filter((re) => re.test(queryLower)).length;
     const isComplexAnalysis = !isSimpleQuery && (streamHasDeckContext || complexKeywordCount >= 2);
+    const streamMinFloor = streamRuntimeConfig.llm_min_tokens_per_route?.["chat_stream"];
     let tokenLimit = Math.min(
       getDynamicTokenCeiling(
-        { isComplex: isComplexAnalysis, deckCardCount: v2Summary?.card_count ?? 0 },
+        { isComplex: isComplexAnalysis, deckCardCount: v2Summary?.card_count ?? 0, minTokenFloor: streamMinFloor },
         true
       ),
       MAX_TOKENS_STREAM

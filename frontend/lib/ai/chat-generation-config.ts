@@ -6,6 +6,8 @@
 export type TokenCeilingOpts = {
   isComplex: boolean;
   deckCardCount?: number;
+  /** Optional floor from llm_min_tokens_per_route (panic switch) */
+  minTokenFloor?: number;
 };
 
 /** Non-stream (single completion) ceilings. Kept conservative to reduce cost. */
@@ -18,7 +20,7 @@ const CAP_NON_STREAM = 512;
 
 /** Stream ceilings: allow longer answers but still cap to avoid runaway. */
 const STREAM_BASE_SIMPLE = 768;
-const STREAM_BASE_COMPLEX = 1536;
+const STREAM_BASE_COMPLEX = 1800;
 const STREAM_DECK_BONUS = 256;
 const CAP_STREAM = 2000;
 
@@ -31,7 +33,7 @@ export function getDynamicTokenCeiling(
   opts: TokenCeilingOpts,
   forStream: boolean = false
 ): number {
-  const { isComplex, deckCardCount = 0 } = opts;
+  const { isComplex, deckCardCount = 0, minTokenFloor } = opts;
   const hasDeck = deckCardCount > 0;
   const deckBonus = hasDeck
     ? deckCardCount >= LARGE_DECK_THRESHOLD
@@ -39,12 +41,18 @@ export function getDynamicTokenCeiling(
       : (forStream ? Math.min(STREAM_DECK_BONUS, 128) : DECK_BONUS_SMALL)
     : 0;
 
+  let result: number;
   if (forStream) {
     const base = isComplex ? STREAM_BASE_COMPLEX : STREAM_BASE_SIMPLE;
-    return Math.min(base + deckBonus, CAP_STREAM);
+    result = Math.min(base + deckBonus, CAP_STREAM);
+  } else {
+    const base = isComplex ? BASE_COMPLEX : BASE_SIMPLE;
+    result = Math.min(base + deckBonus, CAP_NON_STREAM);
   }
-  const base = isComplex ? BASE_COMPLEX : BASE_SIMPLE;
-  return Math.min(base + deckBonus, CAP_NON_STREAM);
+  if (minTokenFloor != null && minTokenFloor > 0) {
+    result = Math.max(result, minTokenFloor);
+  }
+  return result;
 }
 
 /**

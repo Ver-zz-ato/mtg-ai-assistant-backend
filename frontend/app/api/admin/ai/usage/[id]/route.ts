@@ -3,8 +3,11 @@ import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { isAdmin } from '@/lib/admin-check';
 import { getRouteContext } from '@/lib/ai/route-to-page';
+import { costUSD } from '@/lib/ai/pricing';
 
 export const runtime = 'nodejs';
+
+const LEGACY_PRICING_CUTOFF = '2026-02-14';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -48,10 +51,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const responsePreview = typeof r.response_preview === 'string' && r.response_preview.trim() ? r.response_preview.trim() : null;
 
     const routeContext = getRouteContext((r.route as string) ?? null);
+    const pv = r.pricing_version as string | null | undefined;
+    const legacy_cost = !pv || pv < LEGACY_PRICING_CUTOFF;
+    const corrected_cost_estimate = legacy_cost
+      ? costUSD(String(r.model ?? ''), Number(r.input_tokens) || 0, Number(r.output_tokens) || 0)
+      : null;
 
     return NextResponse.json({
       ok: true,
-      row: r,
+      row: { ...r, legacy_cost, corrected_cost_estimate },
       cost_reasons: cost_reasons,
       total_cost_usd: Math.round((totalCost) * 10000) / 10000,
       prompt_preview: promptPreview,

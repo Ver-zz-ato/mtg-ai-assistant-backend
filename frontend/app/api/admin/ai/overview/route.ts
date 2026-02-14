@@ -5,6 +5,8 @@ import { isAdmin } from '@/lib/admin-check';
 
 export const runtime = 'nodejs';
 
+const LEGACY_PRICING_CUTOFF = '2026-02-14';
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
@@ -17,7 +19,8 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const fromParam = sp.get('from') || '';
     const toParam = sp.get('to') || '';
-    const days = Math.min(90, Math.max(1, parseInt(sp.get('days') || '30', 10) || 30));
+    const days = Math.min(90, Math.max(1, parseInt(sp.get('days') || '14', 10) || 14));
+    const excludeLegacyCost = sp.get('exclude_legacy_cost') === 'true';
     const from = fromParam && toParam
       ? new Date(fromParam + 'T00:00:00Z').toISOString()
       : new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -25,13 +28,17 @@ export async function GET(req: NextRequest) {
       ? new Date(toParam + 'T23:59:59.999Z').toISOString()
       : new Date().toISOString();
 
-    const selectCols = 'id,created_at,route,model,request_kind,layer0_mode,context_source,used_two_stage,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd';
-    const { data: rows, error } = await admin
+    const selectCols = 'id,created_at,route,model,request_kind,layer0_mode,context_source,used_two_stage,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,pricing_version';
+    let q = admin
       .from('ai_usage')
       .select(selectCols)
       .gte('created_at', from)
       .lte('created_at', to)
       .order('created_at', { ascending: false });
+    if (excludeLegacyCost) {
+      q = q.gte('pricing_version', LEGACY_PRICING_CUTOFF);
+    }
+    const { data: rows, error } = await q;
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     const list = (rows || []) as Array<Record<string, unknown>>;

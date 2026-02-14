@@ -6,6 +6,7 @@ import { isAdmin } from '@/lib/admin-check';
 export const runtime = 'nodejs';
 
 const DIMENSIONS = ['model', 'route', 'user', 'deck', 'thread', 'error_code'] as const;
+const LEGACY_PRICING_CUTOFF = '2026-02-14';
 type Dimension = (typeof DIMENSIONS)[number];
 
 export async function GET(req: NextRequest) {
@@ -25,14 +26,17 @@ export async function GET(req: NextRequest) {
     const to = fromParam && toParam ? new Date(toParam + 'T23:59:59.999Z').toISOString() : new Date().toISOString();
     const dimension = (sp.get('dimension') || 'model') as Dimension;
     if (!DIMENSIONS.includes(dimension)) return NextResponse.json({ ok: false, error: 'invalid dimension' }, { status: 400 });
+    const excludeLegacyCost = sp.get('exclude_legacy_cost') === 'true';
 
     const col = dimension === 'user' ? 'user_id' : dimension === 'deck' ? 'deck_id' : dimension;
     const selectCols = col === 'user_id' ? 'user_id,cost_usd' : col === 'deck_id' ? 'deck_id,cost_usd' : `${col},cost_usd`;
-    const { data: rows, error } = await admin
+    let q = admin
       .from('ai_usage')
       .select(selectCols + ',id')
       .gte('created_at', from)
       .lte('created_at', to);
+    if (excludeLegacyCost) q = q.gte('pricing_version', LEGACY_PRICING_CUTOFF);
+    const { data: rows, error } = await q;
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     const list = (rows || []) as unknown as Array<Record<string, unknown>>;

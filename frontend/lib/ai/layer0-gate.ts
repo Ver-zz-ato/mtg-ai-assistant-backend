@@ -90,8 +90,8 @@ export function isManaTapFaq(text: string): boolean {
 const MTG_SCOPE_KEYWORDS = [
   'mtg', 'magic', 'commander', 'edh', 'deck', 'card', 'mana', 'planeswalker',
   'creature', 'sorcery', 'instant', 'artifact', 'enchantment', 'land',
-  'trample', 'flying', 'lifelink', 'hexproof', 'ward', 'sol ring',
-  'format', 'brew', 'list', 'swap', 'ramp', 'draw', 'removal', 'combo', 'synergy',
+  'trample', 'flying', 'lifelink', 'vigilance', 'first strike', 'double strike', 'hexproof', 'ward', 'sol ring',
+  'format', 'brew', 'list', 'swap', 'ramp', 'draw', 'removal', 'combo', 'synergy', 'suggest', 'improve',
   '[[', 'banned', 'legal', 'cedh', 'wotc', 'scryfall', 'tcg', 'edhrec',
 ];
 
@@ -178,7 +178,7 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
   }
 
   // 7. Simple one-liner, no deck (e.g. "best commander for zombies?") → MINI_ONLY (keep short so long queries get FULL_LLM)
-  if (!hasDeckContext && q.length < 65 && !isDeckAnalysisRequest(text)) {
+  if (!hasDeckContext && q.length < 80 && !isDeckAnalysisRequest(text)) {
     const looksSimple = !/\b(analyze|improve|suggest|optimize|synergy|strategy|combo|engine)\b/i.test(qLower);
     if (looksSimple) {
       return {

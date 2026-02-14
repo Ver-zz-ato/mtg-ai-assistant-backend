@@ -143,7 +143,8 @@ export default function AdminAIUsagePage() {
   // Board: new overview API
   const [overview, setOverview] = React.useState<any | null>(null);
   const [overviewLoading, setOverviewLoading] = React.useState(false);
-  const [boardDays, setBoardDays] = React.useState(30);
+  const [boardDays, setBoardDays] = React.useState(14);
+  const [excludeLegacyCost, setExcludeLegacyCost] = React.useState(false);
   const [topDrivers, setTopDrivers] = React.useState<Record<string, Array<{ id: string; cost_usd: number; requests: number }>>>({});
   const [usageList, setUsageList] = React.useState<any[]>([]);
   const [usageListCursor, setUsageListCursor] = React.useState<string | null>(null);
@@ -207,6 +208,7 @@ export default function AdminAIUsagePage() {
     setOverviewLoading(true);
     try {
       const qs = new URLSearchParams({ days: String(boardDays) });
+      if (excludeLegacyCost) qs.set("exclude_legacy_cost", "true");
       const res = await fetch(`/api/admin/ai/overview?${qs}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({ ok: false }));
       if (j?.ok) setOverview(j); else setOverview(null);
@@ -214,11 +216,13 @@ export default function AdminAIUsagePage() {
   }
   async function loadTopDrivers() {
     try {
-      const qs = `days=${boardDays}`;
+      const qs = new URLSearchParams({ days: String(boardDays) });
+      if (excludeLegacyCost) qs.set("exclude_legacy_cost", "true");
+      const qsStr = qs.toString();
       const dims = ["user", "deck", "thread", "error_code"] as const;
       const out: Record<string, Array<{ id: string; cost_usd: number; requests: number }>> = {};
       for (const d of dims) {
-        const r = await fetch(`/api/admin/ai/top?${qs}&dimension=${d}`, { cache: "no-store" });
+        const r = await fetch(`/api/admin/ai/top?${qsStr}&dimension=${d}`, { cache: "no-store" });
         const j = await r.json().catch(() => ({}));
         out[d] = j?.items || [];
       }
@@ -230,6 +234,7 @@ export default function AdminAIUsagePage() {
     try {
       const params = new URLSearchParams({ limit: "50", days: String(boardDays) });
       if (cursor) params.set("next_cursor", cursor);
+      if (excludeLegacyCost) params.set("exclude_legacy_cost", "true");
       const res = await fetch(`/api/admin/ai/usage/list?${params}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (j?.ok) {
@@ -285,13 +290,13 @@ export default function AdminAIUsagePage() {
       loadRecommendations();
       loadOpenAIUsage();
     }
-  }, [tab, boardDays]);
+  }, [tab, boardDays, excludeLegacyCost]);
 
   React.useEffect(() => {
     if (tab !== "board") return;
     const t = setInterval(loadOverview, 60_000);
     return () => clearInterval(t);
-  }, [tab, boardDays]);
+  }, [tab, boardDays, excludeLegacyCost]);
 
   const exportCsv = (rows: any[], headers: string[], rowMap: (r:any)=>any[]) => {
     const lines = [headers, ...rows.map(rowMap)];
@@ -405,7 +410,11 @@ export default function AdminAIUsagePage() {
           <div className="flex items-center gap-3 flex-wrap">
             <label className="text-sm flex items-center gap-1">
               <span className="opacity-70">Days</span>
-              <input type="number" min={1} max={90} value={boardDays} onChange={e => setBoardDays(parseInt(e.target.value || "30", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+              <input type="number" min={1} max={90} value={boardDays} onChange={e => setBoardDays(parseInt(e.target.value || "14", 10))} className="w-16 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
+            </label>
+            <label className="text-sm flex items-center gap-1.5 cursor-pointer" title="Older cost records may be inflated due to historical unit bug. Exclude them from totals.">
+              <input type="checkbox" checked={excludeLegacyCost} onChange={e => setExcludeLegacyCost(e.target.checked)} className="rounded" />
+              <span className="opacity-70">Exclude legacy cost rows</span>
             </label>
             <button onClick={() => { loadOverview(); loadTopDrivers(); loadUsageList(); loadRecommendations(); loadOpenAIUsage(); }} disabled={overviewLoading} className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">Refresh</button>
           </div>
@@ -413,7 +422,7 @@ export default function AdminAIUsagePage() {
           {overview?.totals && (
             <>
               <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4">
+                <div className="rounded-xl bg-neutral-900/80 border border-neutral-700/80 p-4" title="Older cost records may be inflated due to historical unit bug. Use 'Exclude legacy cost rows' to filter them.">
                   <div className="text-[11px] uppercase tracking-widest text-neutral-500">Total cost</div>
                   <div className="mt-1 text-xl font-semibold tabular-nums text-white">${overview.totals.total_cost_usd?.toFixed(4) ?? "0"}</div>
                 </div>
@@ -639,6 +648,9 @@ export default function AdminAIUsagePage() {
                   <>
                     <div className="mb-3 p-2 rounded bg-neutral-800/50 text-sm">
                       <span className="text-neutral-500">Cost: </span><span className="font-mono">${Number(usageDetail.row.cost_usd || 0).toFixed(4)}</span>
+                      {process.env.NODE_ENV === "development" && (
+                        <span className="ml-2 text-xs text-neutral-500" title="Dev: raw cost_usd from API">(raw: {String(usageDetail.row.cost_usd)})</span>
+                      )}
                       <span className="text-neutral-500 ml-3">per request</span>
                       <span className="text-neutral-500 ml-2">({usageDetail.row.input_tokens ?? 0} in / {usageDetail.row.output_tokens ?? 0} out tokens, {usageDetail.row.model ?? "—"})</span>
                     </div>
@@ -770,7 +782,7 @@ export default function AdminAIUsagePage() {
             <button onClick={() => loadRequests()} disabled={requestsLoading} className="px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Reload requests</button>
             <button
               onClick={() => {
-                const baseKeys = ["id", "created_at", "route", "route_page", "user_id", "user_email", "user_display_name", "thread_id", "deck_id", "model", "model_tier", "prompt_path", "format_key", "input_tokens", "output_tokens", "cost_usd", "pricing_version", "deck_size", "context_source", "summary_tokens_estimate", "deck_hash", "layer0_mode", "layer0_reason", "request_kind", "has_deck_context", "deck_card_count", "used_v2_summary", "used_two_stage", "planner_model", "planner_tokens_in", "planner_tokens_out", "planner_cost_usd", "stop_sequences_enabled", "max_tokens_config", "response_truncated", "user_tier", "is_guest", "latency_ms", "cache_hit", "cache_kind", "error_code", "prompt_tier", "system_prompt_token_estimate", "prompt_preview", "response_preview"];
+                const baseKeys = ["id", "created_at", "route", "route_page", "user_id", "user_email", "user_display_name", "thread_id", "deck_id", "model", "model_tier", "prompt_path", "format_key", "input_tokens", "output_tokens", "cost_usd", "legacy_cost", "corrected_cost_estimate", "pricing_version", "deck_size", "context_source", "summary_tokens_estimate", "deck_hash", "layer0_mode", "layer0_reason", "request_kind", "has_deck_context", "deck_card_count", "used_v2_summary", "used_two_stage", "planner_model", "planner_tokens_in", "planner_tokens_out", "planner_cost_usd", "stop_sequences_enabled", "max_tokens_config", "response_truncated", "user_tier", "is_guest", "latency_ms", "cache_hit", "cache_kind", "error_code", "prompt_tier", "system_prompt_token_estimate", "prompt_preview", "response_preview"];
                 const rowKeys = [...new Set(baseKeys.filter((k, i, a) => a.indexOf(k) === i).concat(...requests.map((r: any) => Object.keys(r))))];
                 const lines = [rowKeys, ...requests.map((r: any) => rowKeys.map(k => {
                   if (k === "route_page") return (getRouteContext(r.route)?.page ?? r.route ?? "") + " | " + (getRouteContext(r.route)?.description ?? "");

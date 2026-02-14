@@ -493,6 +493,9 @@ async function callOpenAI(
     maxTokens = opts.deckSize !== undefined
       ? calculateDynamicTokens(opts.deckSize)
       : (opts.maxTokens || 400);
+    // Value-moment floor: ensure deck_analyze never under-answers
+    const DECK_ANALYZE_MIN_TOKENS = 256;
+    maxTokens = Math.max(maxTokens, DECK_ANALYZE_MIN_TOKENS);
   }
 
   const tierRes = getModelForTier({

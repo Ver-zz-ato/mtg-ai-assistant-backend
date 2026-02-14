@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { isAdmin } from '@/lib/admin-check';
+import { costUSD } from '@/lib/ai/pricing';
 
 export const runtime = 'nodejs';
 
 const PAGE_SIZE = 50;
+const LEGACY_PRICING_CUTOFF = '2026-02-14';
 const MAX_PAGE_SIZE = 2000;
 
 export async function GET(req: NextRequest) {
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
     const deck_id = sp.get('deck_id') || undefined;
     const thread_id = sp.get('thread_id') || undefined;
     const user_id = sp.get('user_id') || undefined;
+    const exclude_legacy_cost = sp.get('exclude_legacy_cost') === 'true';
 
     let q = admin
       .from('ai_usage')
@@ -69,15 +72,25 @@ export async function GET(req: NextRequest) {
     if (deck_id) q = q.eq('deck_id', deck_id);
     if (thread_id) q = q.eq('thread_id', thread_id);
     if (user_id) q = q.eq('user_id', user_id);
+    if (exclude_legacy_cost) q = q.gte('pricing_version', LEGACY_PRICING_CUTOFF);
 
     const { data: rows, error } = await q;
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
     const list = (rows || []) as Array<Record<string, unknown>>;
     const has_more = list.length > limit;
-    const items = has_more ? list.slice(0, limit) : list;
-    const last = items[items.length - 1];
-    const next_cursor = has_more && last ? `${last.created_at}|${last.id}` : undefined;
+    const rawItems = has_more ? list.slice(0, limit) : list;
+    const items = rawItems.map((r) => {
+      const pv = r.pricing_version as string | null | undefined;
+      const legacy = !pv || pv < LEGACY_PRICING_CUTOFF;
+      const model = String(r.model ?? '');
+      const inT = Number(r.input_tokens) || 0;
+      const outT = Number(r.output_tokens) || 0;
+      const corrected = legacy ? costUSD(model, inT, outT) : null;
+      return { ...r, legacy_cost: legacy, corrected_cost_estimate: corrected };
+    });
+    const lastRaw = rawItems[rawItems.length - 1] as Record<string, unknown> | undefined;
+    const next_cursor = has_more && lastRaw ? `${lastRaw.created_at}|${lastRaw.id}` : undefined;
 
     return NextResponse.json({ ok: true, items, next_cursor, has_more });
   } catch (e: unknown) {

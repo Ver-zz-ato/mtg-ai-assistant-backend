@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { costUSD } from "@/lib/ai/pricing";
+
+const LEGACY_PRICING_CUTOFF = "2026-02-14";
 
 function isAdmin(user: unknown): boolean {
   const u = user as { id?: string; email?: string } | null;
@@ -29,6 +32,7 @@ export async function GET(req: NextRequest) {
     const threadId = sp.get("threadId") || undefined;
     const modelFilter = sp.get("model") || undefined;
     const routeFilter = sp.get("route") || undefined;
+    const excludeLegacyCost = sp.get("exclude_legacy_cost") === "true";
 
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -88,6 +92,7 @@ export async function GET(req: NextRequest) {
     if (threadId) q = q.eq("thread_id", threadId);
     if (modelFilter) q = q.eq("model", modelFilter);
     if (routeFilter) q = q.eq("route", routeFilter);
+    if (excludeLegacyCost) q = q.gte("pricing_version", LEGACY_PRICING_CUTOFF);
 
     const { data: rows, error, count } = await q;
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -110,10 +115,17 @@ export async function GET(req: NextRequest) {
 
     const withUser = list.map((r) => {
       const profile = r.user_id ? profilesMap.get(r.user_id as string) : undefined;
+      const pv = r.pricing_version as string | null | undefined;
+      const legacy_cost = !pv || pv < LEGACY_PRICING_CUTOFF;
+      const corrected_cost_estimate = legacy_cost
+        ? costUSD(String(r.model ?? ""), Number(r.input_tokens) || 0, Number(r.output_tokens) || 0)
+        : null;
       return {
         ...r,
         user_email: profile?.email ?? null,
         user_display_name: profile?.display_name ?? null,
+        legacy_cost,
+        corrected_cost_estimate,
       };
     });
 

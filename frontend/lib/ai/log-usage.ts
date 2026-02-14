@@ -13,6 +13,11 @@ import { costUSD, PRICING_VERSION } from '@/lib/ai/pricing';
 const PREVIEW_MAX = 1000;
 const DEV = process.env.NODE_ENV !== 'production';
 
+/** Normalize route for ai_usage insert; never null. */
+export function getRouteForInsert(payload: { route?: string | null }): string {
+  return payload.route && String(payload.route).trim() ? String(payload.route).trim() : "unknown";
+}
+
 export type RecordAiUsagePayload = {
   user_id: string | null;
   thread_id?: string | null;
@@ -62,6 +67,10 @@ export type RecordAiUsagePayload = {
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
   try {
+    if (DEV && !payload.route) {
+      console.warn("[ai_usage] missing route", { model: payload.model, hasRoute: !!payload.route });
+    }
+    const route = getRouteForInsert(payload);
     const supabase = await getServerSupabase();
     const cost = typeof payload.cost_usd === 'number' && payload.cost_usd >= 0
       ? payload.cost_usd
@@ -75,7 +84,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       input_tokens: payload.input_tokens,
       output_tokens: payload.output_tokens,
       cost_usd: cost,
-      route: payload.route,
+      route,
       pricing_version: PRICING_VERSION,
       prompt_preview: payload.prompt_preview != null ? String(payload.prompt_preview).slice(0, PREVIEW_MAX) : null,
       response_preview: payload.response_preview != null ? String(payload.response_preview).slice(0, PREVIEW_MAX) : null,
@@ -118,7 +127,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       input_tokens: full.input_tokens,
       output_tokens: full.output_tokens,
       cost_usd: full.cost_usd,
-      route: full.route,
+      route,
       pricing_version: full.pricing_version,
       model_tier: full.model_tier,
       prompt_path: full.prompt_path,
@@ -159,8 +168,8 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       input_tokens: payload.input_tokens,
       output_tokens: payload.output_tokens,
       cost_usd: cost,
+      route,
     };
-    if (payload.route != null && payload.route !== '') minimal.route = payload.route;
     if (payload.prompt_preview != null && String(payload.prompt_preview).trim()) minimal.prompt_preview = String(payload.prompt_preview).slice(0, PREVIEW_MAX);
     if (payload.response_preview != null && String(payload.response_preview).trim()) minimal.response_preview = String(payload.response_preview).slice(0, PREVIEW_MAX);
 

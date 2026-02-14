@@ -1,0 +1,25 @@
+{
+  "prompts": [
+    { "id": "g1", "text": "hello", "expectedTier": "micro", "expectedReason": "greeting" },
+    { "id": "g2", "text": "hi", "expectedTier": "micro", "expectedReason": "greeting" },
+    { "id": "g3", "text": "thanks!", "expectedTier": "micro", "expectedReason": "greeting" },
+    { "id": "d1", "text": "what is trample", "expectedTier": "micro", "expectedReason": "simple_definition" },
+    { "id": "d2", "text": "what does ward do", "expectedTier": "micro", "expectedReason": "simple_definition" },
+    { "id": "d3", "text": "commander tax?", "expectedTier": "micro", "expectedReason": "simple_definition" },
+    { "id": "s1", "text": "best budget ramp?", "expectedTier": "standard", "expectedReason": "default" },
+    { "id": "s2", "text": "help with cuts?", "expectedTier": "standard", "expectedReason": "default" },
+    { "id": "s3", "text": "is Sol Ring legal in Pioneer?", "expectedTier": "standard", "expectedReason": "default" },
+    { "id": "f1", "text": "analyze my deck", "hasDeckContext": true, "expectedTier": "full", "expectedReason": "deck_context" },
+    { "id": "f2", "text": "suggest 5 upgrades", "hasDeckContext": true, "expectedTier": "full", "expectedReason": "deck_context" },
+    { "id": "f3", "text": "give me 10 swaps", "expectedTier": "full", "expectedReason": "explicit_list_request" },
+    { "id": "f4", "text": "suggest 5 upgrades", "hasDeckContext": false, "expectedTier": "full", "expectedReason": "explicit_list_request" },
+    { "id": "f5", "text": "analyze my deck", "hasDeckContext": false, "expectedTier": "full", "expectedReason": "deck_intent_no_context" },
+    { "id": "f6", "text": "explain step by step how to fix my curve", "hasDeckContext": false, "expectedTier": "full", "expectedReason": "multi_step_or_detailed" },
+    { "id": "l0_1", "text": "analyze my deck", "hasDeckContext": false, "expectedLayer0": "NO_LLM", "expectedLayer0Reason": "needs_deck_no_context" },
+    { "id": "l0_2", "text": "what is ward?", "hasDeckContext": false, "expectedLayer0": "MINI_ONLY", "expectedLayer0Reason": "simple_rules_or_term" },
+    { "id": "l0_3", "text": "analyze my deck", "hasDeckContext": true, "expectedLayer0": "FULL_LLM", "expectedLayer0Reason": "deck_context_complex_or_long" },
+    { "id": "l0_4", "text": "what's the best commander for zombies?", "hasDeckContext": false, "expectedLayer0": "MINI_ONLY", "expectedLayer0Reason": "simple_one_liner_no_deck" },
+    { "id": "ms1", "text": "explain step by step how to improve my mana base", "hasDeckContext": true, "expectedTier": "full", "expectedReason": "deck_context" },
+    { "id": "ms2", "text": "give me a detailed analysis of synergies", "hasDeckContext": true, "expectedTier": "full", "expectedReason": "deck_context" }
+  ]
+}

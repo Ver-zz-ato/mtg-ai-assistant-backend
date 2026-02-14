@@ -4,7 +4,7 @@
  * MICRO requires explicit pattern match (greeting or simple definition) — length alone is never enough.
  */
 
-import { isSimpleRulesOrTerm } from "./layer0-gate";
+import { isSimpleRulesOrTerm, isDeckAnalysisRequest } from "./layer0-gate";
 
 export type PromptTier = "micro" | "standard" | "full";
 
@@ -68,6 +68,11 @@ export function classifyPromptTier(args: ClassifyPromptTierArgs): ClassifyPrompt
     return { tier: "full", reason: "deck_context" };
   }
 
+  // FULL: deck-intent query (e.g. "analyze my deck") — even without deck, never micro
+  if (isDeckAnalysisRequest(text)) {
+    return { tier: "full", reason: "deck_intent_no_context" };
+  }
+
   // FULL: explicit list request (e.g. "give me 10 swaps") — even without deck, needs full prompt
   if (matchesExplicitListRequest(text)) {
     return { tier: "full", reason: "explicit_list_request" };
@@ -76,6 +81,11 @@ export function classifyPromptTier(args: ClassifyPromptTierArgs): ClassifyPrompt
   // MICRO: greeting — explicit pattern only
   if (matchesGreeting(text)) {
     return { tier: "micro", reason: "greeting" };
+  }
+
+  // FULL: multi-step / detailed request heuristic
+  if (/\b(step by step|step-by-step|detailed|in detail|break down|walk me through)\b/i.test(text)) {
+    return { tier: "full", reason: "multi_step_or_detailed" };
   }
 
   // MICRO: simple rules/term definition (what is trample, what does ward do)

@@ -5,7 +5,7 @@ import { getRuntimeAIConfig } from '@/lib/ai/runtime-config';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_KEYS = ['flags', 'llm_budget', 'llm_models', 'llm_thresholds'];
+const ALLOWED_KEYS = ['flags', 'llm_budget', 'llm_models', 'llm_thresholds', 'llm_force_full_routes', 'llm_min_tokens_per_route'];
 
 export async function GET() {
   try {
@@ -38,7 +38,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      config: { flags: config.flags, llm_budget: config.llm_budget, llm_models: config.llm_models, llm_thresholds: config.llm_thresholds },
+      config: { flags: config.flags, llm_budget: config.llm_budget, llm_models: config.llm_models, llm_thresholds: config.llm_thresholds, llm_force_full_routes: config.llm_force_full_routes, llm_min_tokens_per_route: config.llm_min_tokens_per_route },
       defaults: { flags: { llm_v2_context: true, llm_layer0: false, llm_two_stage: true } },
       last_updated,
     });

@@ -153,6 +153,8 @@ type CallOpenAIOpts = {
   /** Layer 0 MINI_ONLY: force model and max_tokens, skip dynamic ceiling */
   forceModel?: string;
   forceMaxTokens?: number;
+  /** Panic switch: min token floor from llm_min_tokens_per_route */
+  minTokenFloor?: number;
   /** When true, route records one ai_usage row at the end; skip recording in callLLM */
   skipRecordAiUsage?: boolean;
 };
@@ -193,7 +195,7 @@ async function callOpenAI(
 
   const { getDynamicTokenCeiling, CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
   const maxTokens = opts?.forceMaxTokens ?? getDynamicTokenCeiling(
-    { isComplex: useMidTier, deckCardCount: opts?.deckCardCount ?? 0 },
+    { isComplex: useMidTier, deckCardCount: opts?.deckCardCount ?? 0, minTokenFloor: opts?.minTokenFloor },
     false
   );
   const stop = opts?.stop?.length ? opts.stop : CHAT_STOP_SEQUENCES;
@@ -629,7 +631,9 @@ export async function POST(req: NextRequest) {
     let layer0MiniOnly: { model: string; max_tokens: number } | null = null;
     const hasDeckContextForLayer0 = !!(deckIdToUse && deckText?.trim()) || !!(pastedDeckTextRaw?.trim());
     const runtimeConfig = await (await import('@/lib/ai/runtime-config')).getRuntimeAIConfig(supabase);
-    const layer0Enabled = runtimeConfig.flags.llm_layer0 === true;
+    const forceFullRoutes = runtimeConfig.llm_force_full_routes ?? [];
+    const forceFullForChat = Array.isArray(forceFullRoutes) && forceFullRoutes.includes("chat");
+    const layer0Enabled = runtimeConfig.flags.llm_layer0 === true && !forceFullForChat;
     if (layer0Enabled) {
       const { layer0Decide } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
@@ -1333,6 +1337,8 @@ export async function POST(req: NextRequest) {
     let out1: any;
     try {
       const callOpts: CallOpenAIOpts = { deckCardCount, stop: (await import('@/lib/ai/chat-generation-config')).CHAT_STOP_SEQUENCES, skipRecordAiUsage: true };
+      const chatMinFloor = runtimeConfig.llm_min_tokens_per_route?.["chat"];
+      if (chatMinFloor != null) callOpts.minTokenFloor = chatMinFloor;
       if (forceModel) {
         callOpts.forceModel = forceModel;
       } else if (layer0MiniOnly) {
