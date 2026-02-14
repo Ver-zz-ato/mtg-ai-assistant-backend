@@ -766,26 +766,67 @@ export async function POST(req: NextRequest) {
       ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined }
       : (pastedDecklistForCompose ?? null);
 
+    const hasDeckContextForTier = !!v2Summary || !!(deckContextForCompose?.deckCards?.length);
+    let inferredContext: any = null;
+    let persona_id = 'any:optimized:plain';
+    const { classifyPromptTier, MICRO_PROMPT, estimateSystemPromptTokens } = await import("@/lib/ai/prompt-tier");
+    const tierResult = classifyPromptTier({ text, hasDeckContext: hasDeckContextForTier, deckContextForCompose });
+    const selectedTier = tierResult.tier;
+
     const promptRequestId = generatePromptRequestId();
-    const promptResult = await buildSystemPromptForRequest({
-      kind: "chat",
-      formatKey,
-      deckContextForCompose,
-      supabase,
-      hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
-    });
     const { NO_FILLER_INSTRUCTION } = await import("@/lib/ai/chat-generation-config");
-    let sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
-    let promptVersionId: string | null = promptResult.promptVersionId ?? null;
+    let promptResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
+    let sys: string;
+    let promptVersionId: string | null;
+
+    if (selectedTier === "micro") {
+      sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = null;
+      promptResult = { systemPrompt: MICRO_PROMPT, promptPath: "composed", formatKey, modulesAttached: [] };
+    } else if (selectedTier === "standard") {
+      promptResult = await buildSystemPromptForRequest({
+        kind: "chat",
+        formatKey,
+        deckContextForCompose: null,
+        supabase,
+        hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+      });
+      sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = promptResult.promptVersionId ?? null;
+      const { isDecklist } = await import("@/lib/chat/decklistDetector");
+      const last2 = threadHistory.slice(-4).filter((m) => m.role === "user" || m.role === "assistant").slice(-2);
+      const redacted = last2.map((m) => {
+        const content = typeof m.content === "string" ? m.content : "";
+        const label = m.role === "user" ? "User" : "Assistant";
+        const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
+        return `${label}: ${body}`;
+      });
+      if (redacted.length > 0) {
+        sys += "\n\nRecent conversation (last 2 turns):\n" + redacted.join("\n");
+      }
+    } else {
+      promptResult = await buildSystemPromptForRequest({
+        kind: "chat",
+        formatKey,
+        deckContextForCompose,
+        supabase,
+        hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+      });
+      sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = promptResult.promptVersionId ?? null;
+    }
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
     let promptLogged = false;
     if (!promptLogged) {
       promptLogged = true;
+      const systemPromptTokenEstimate = estimateSystemPromptTokens(sys);
       console.log(JSON.stringify({
         tag: "prompt",
         requestId: promptRequestId,
         promptPath: promptResult.promptPath,
+        promptTier: selectedTier,
+        systemPromptTokenEstimate: systemPromptTokenEstimate,
         kind: "chat",
         formatKey: promptResult.formatKey ?? formatKey,
         modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
@@ -813,7 +854,7 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    if (v2Summary) {
+    if (selectedTier === "full" && v2Summary) {
       // For simple queries, shrink card_names: use intent-based top-K or trim to 25 (cost savings, token creep guard)
       const queryLower = (text || '').toLowerCase().trim();
       const looksSimple = /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?|is |can |does |will )\b/i.test(queryLower) ||
@@ -842,7 +883,7 @@ export async function POST(req: NextRequest) {
       if (redacted.length > 0) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
-    } else {
+    } else if (selectedTier === "full") {
       if (d && deckText && deckText.trim()) {
         sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
         sys += `- Format: ${deckFormat || formatKey} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
@@ -856,7 +897,8 @@ export async function POST(req: NextRequest) {
         sys += "\n\n" + pastedDecklistContext;
       }
     }
-    
+
+    if (selectedTier === "full") {
     // Add RAG context if found (Task 3) - skip when v2 summary used to avoid duplication
     if (ragContext && !v2Summary) {
       sys += ragContext;
@@ -934,7 +976,6 @@ export async function POST(req: NextRequest) {
     }
     
     // Persona seed (minimal/async)
-    let persona_id = 'any:optimized:plain';
     const teachingFlag = !!(prefs && (prefs.teaching === true));
     try {
       const { selectPersonaAsync, selectPersona } = await import("@/lib/ai/persona");
@@ -991,12 +1032,10 @@ export async function POST(req: NextRequest) {
       try {
         const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
         const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
-        // Use commander from database (already fetched above)
         const commander = d?.commander || null;
         const deckAim = d?.deck_aim || null;
         const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
         
-        // Build card name map for inference
         const byName = new Map<string, SfCard>();
         const unique = Array.from(new Set(entries.map(e => e.name))).slice(0, 160);
         const looked = await Promise.all(unique.map(name => fetchCard(name)));
@@ -1004,7 +1043,6 @@ export async function POST(req: NextRequest) {
           if (c) byName.set(c.name.toLowerCase(), c);
         }
         
-        // Infer deck context
         const planPref = typeof prefs?.budget === 'string' ? prefs.budget : (typeof prefs?.plan === 'string' ? prefs.plan : undefined);
         const planOption = planPref === 'Budget' || planPref === 'Optimized' ? (planPref as "Budget" | "Optimized") : undefined;
         const currencyPref = typeof prefs?.currency === 'string' ? (prefs.currency as "USD" | "EUR" | "GBP") : undefined;
@@ -1059,6 +1097,7 @@ export async function POST(req: NextRequest) {
         console.warn('[chat] Failed to infer deck context:', error);
         // Continue without inference - graceful degradation
       }
+    }
     }
 
     // If prefs exist, short-circuit with an acknowledgement to avoid any fallback question flicker
@@ -1251,7 +1290,7 @@ export async function POST(req: NextRequest) {
     // Skip when Layer 0 MINI_ONLY, near budget cap, or predicted output too short (avoids planner overhead).
     const { isLongAnswerRequest, predictOutputTokens, TWO_STAGE_MIN_PREDICTED_TOKENS } = await import('@/lib/ai/chat-generation-config');
     const predictedTokens = predictOutputTokens(text, hasDeckContext, isComplexAnalysis);
-    let useTwoStage = !layer0MiniOnly && isComplexAnalysis && hasDeckContext && isLongAnswerRequest(text) && predictedTokens > TWO_STAGE_MIN_PREDICTED_TOKENS;
+    let useTwoStage = selectedTier === "full" && !layer0MiniOnly && isComplexAnalysis && hasDeckContext && isLongAnswerRequest(text) && predictedTokens > TWO_STAGE_MIN_PREDICTED_TOKENS;
     if (useTwoStage) {
       try {
         const { checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
@@ -1751,6 +1790,8 @@ Return the corrected answer with concise, user-facing tone.`;
         is_guest: isGuest,
         cache_hit: false,
         cache_kind: undefined,
+        prompt_tier: selectedTier,
+        system_prompt_token_estimate: estimateSystemPromptTokens(sys),
       });
     } catch {}
 

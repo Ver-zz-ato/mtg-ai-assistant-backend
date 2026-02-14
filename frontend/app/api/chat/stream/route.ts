@@ -252,16 +252,56 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    const promptResult = await buildSystemPromptForRequest({
-      kind: "chat",
-      formatKey,
-      deckContextForCompose,
-      supabase,
-      hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
-    });
+    const hasDeckContextForTier = !!(deckContextForCompose?.deckCards?.length);
+    const { classifyPromptTier, MICRO_PROMPT, estimateSystemPromptTokens } = await import("@/lib/ai/prompt-tier");
+    const tierResult = classifyPromptTier({ text, hasDeckContext: hasDeckContextForTier, deckContextForCompose });
+    const selectedTier = tierResult.tier;
+
     const { NO_FILLER_INSTRUCTION } = await import("@/lib/ai/chat-generation-config");
-    let sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
-    const promptVersionId = promptResult.promptVersionId ?? null;
+    let promptResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
+    let sys: string;
+    let promptVersionId: string | null;
+
+    if (selectedTier === "micro") {
+      sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = null;
+      promptResult = { systemPrompt: MICRO_PROMPT, promptPath: "composed", formatKey, modulesAttached: [] };
+    } else if (selectedTier === "standard") {
+      promptResult = await buildSystemPromptForRequest({
+        kind: "chat",
+        formatKey,
+        deckContextForCompose: null,
+        supabase,
+        hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+      });
+      sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = promptResult.promptVersionId ?? null;
+      if (tid) {
+      const { data: msgs } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
+      const threadHist = Array.isArray(msgs) ? msgs : [];
+      const { isDecklist } = await import("@/lib/chat/decklistDetector");
+      const last2 = threadHist.filter((m: { role: string }) => m.role === "user" || m.role === "assistant").slice(-2);
+      const redacted = last2.map((m: { role: string; content: string }) => {
+        const content = typeof m.content === "string" ? m.content : "";
+        const label = m.role === "user" ? "User" : "Assistant";
+        const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
+        return `${label}: ${body}`;
+      });
+      if (redacted.length > 0) {
+        sys += "\n\nRecent conversation (last 2 turns):\n" + redacted.join("\n");
+      }
+      }
+    } else {
+      promptResult = await buildSystemPromptForRequest({
+        kind: "chat",
+        formatKey,
+        deckContextForCompose,
+        supabase,
+        hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+      });
+      sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
+      promptVersionId = promptResult.promptVersionId ?? null;
+    }
 
     let promptLogged = false;
     if (!promptLogged) {
@@ -270,6 +310,8 @@ export async function POST(req: NextRequest) {
         tag: "prompt",
         requestId: promptRequestId,
         promptPath: promptResult.promptPath,
+        promptTier: selectedTier,
+        systemPromptTokenEstimate: estimateSystemPromptTokens(sys),
         kind: "chat",
         formatKey: promptResult.formatKey ?? formatKey,
         modulesAttachedCount: promptResult.modulesAttached?.length ?? 0,
@@ -297,6 +339,7 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
+    if (selectedTier === "full") {
     // User preferences: Commander must never use "Colors=any" (enforce color identity)
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
       const plan = typeof prefs.budget === "string" ? prefs.budget : (typeof prefs.plan === "string" ? prefs.plan : undefined);
@@ -310,6 +353,7 @@ export async function POST(req: NextRequest) {
         colors = "not applicable";
       }
       sys += `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
+    }
     }
 
     // Runtime AI config (env overrides when explicitly off)
@@ -405,7 +449,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (v2Summary) {
+    if (selectedTier === "full" && v2Summary) {
       // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard)
       const queryLower = (text || '').toLowerCase().trim();
       const looksSimple = /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?|is |can |does |will )\b/i.test(queryLower.trim()) ||
@@ -434,7 +478,7 @@ export async function POST(req: NextRequest) {
       if (redacted.length > 0) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
-    } else if (deckData && deckData.deckText.trim()) {
+    } else if (selectedTier === "full" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
       const formatDisplay = deckFormat || formatKey;
       let inferredContext: { format: string; colors: string[]; commander: string | null } = { format: formatDisplay, colors: [], commander: d?.commander ?? null };
@@ -464,8 +508,8 @@ export async function POST(req: NextRequest) {
       sys += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
     }
 
-    // Few-shot learning (format anchoring): same as non-stream for consistent quality
-    if (userId && !isGuest) {
+    // Few-shot learning (format anchoring): same as non-stream for consistent quality — full tier only
+    if (selectedTier === "full" && userId && !isGuest) {
       try {
         const { findSimilarExamples, formatExamplesForPrompt } = await import("@/lib/ai/few-shot-learning");
         const examples = await findSimilarExamples(text, undefined, undefined, 2);
@@ -477,7 +521,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (tid && !v2Summary) {
+    if (selectedTier === "full" && tid && !v2Summary) {
       try {
         const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
         if (messages?.length) {
@@ -495,7 +539,9 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
+    if (selectedTier === "full") {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
+    }
 
     // Budget cap: block new API calls if daily/weekly limit exceeded
     const { allowAIRequest, checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
@@ -881,6 +927,8 @@ export async function POST(req: NextRequest) {
               deck_id: deckIdLinked ?? undefined,
               cache_hit: false,
               cache_kind: undefined,
+              prompt_tier: selectedTier,
+              system_prompt_token_estimate: estimateSystemPromptTokens(sys),
             });
           } catch (_) {}
 

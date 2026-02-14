@@ -54,6 +54,10 @@ export type RecordAiUsagePayload = {
   cache_hit?: boolean | null;
   cache_kind?: string | null;
   error_code?: string | null;
+  /** 3-tier: micro | standard | full */
+  prompt_tier?: string | null;
+  /** Rough estimate of system prompt tokens */
+  system_prompt_token_estimate?: number | null;
 };
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
@@ -103,6 +107,8 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       cache_hit: payload.cache_hit ?? null,
       cache_kind: payload.cache_kind ?? null,
       error_code: payload.error_code ?? null,
+      prompt_tier: payload.prompt_tier ?? null,
+      system_prompt_token_estimate: payload.system_prompt_token_estimate ?? null,
     };
 
     const withoutPreviews = {
@@ -142,6 +148,8 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       cache_hit: full.cache_hit,
       cache_kind: full.cache_kind,
       error_code: full.error_code,
+      prompt_tier: full.prompt_tier,
+      system_prompt_token_estimate: full.system_prompt_token_estimate,
     };
 
     const minimal = {
@@ -166,6 +174,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
         'planner_model', 'planner_tokens_in', 'planner_tokens_out', 'planner_cost_usd',
         'stop_sequences_enabled', 'max_tokens_config', 'response_truncated', 'user_tier', 'is_guest',
         'deck_id', 'latency_ms', 'cache_hit', 'cache_kind', 'error_code',
+        'prompt_tier', 'system_prompt_token_estimate',
       ];
       const fallback = { ...withoutPreviews } as Record<string, unknown>;
       omitNew.forEach((k) => delete fallback[k]);
