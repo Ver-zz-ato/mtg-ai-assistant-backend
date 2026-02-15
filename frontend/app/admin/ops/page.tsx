@@ -18,6 +18,41 @@ export default function OpsPage() {
   const [opsReports, setOpsReports] = React.useState<{ reports: any[]; latest_daily: any; latest_weekly: any } | null>(null);
   const [runReportBusy, setRunReportBusy] = React.useState<string | null>(null);
   const [expandedReportId, setExpandedReportId] = React.useState<string | null>(null);
+  const [cronLastRun, setCronLastRun] = React.useState<Record<string, string>>({});
+  const [cronRunBusy, setCronRunBusy] = React.useState<string | null>(null);
+
+  const CRON_KEYS = ["deck-costs", "commander-aggregates", "meta-signals", "top-cards"] as const;
+
+  async function loadCronLastRun() {
+    try {
+      const keys = CRON_KEYS.map((k) => `key=job:last:${k}`).join("&");
+      const r = await fetch(`/api/admin/config?${keys}`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.config) setCronLastRun(j.config);
+    } catch {}
+  }
+
+  async function runCron(name: (typeof CRON_KEYS)[number]) {
+    setCronRunBusy(name);
+    try {
+      const r = await fetch("/api/admin/cron/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cron: name }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        alert(`✅ ${name} completed. ${j.updated != null ? `Updated: ${j.updated}` : ""}`);
+        loadCronLastRun();
+      } else {
+        alert(`❌ ${name} failed: ${j?.error || r.statusText}`);
+      }
+    } catch (e: any) {
+      alert(`❌ ${name} failed: ${e?.message}`);
+    } finally {
+      setCronRunBusy(null);
+    }
+  }
 
   async function loadOpsReports() {
     try {
@@ -61,6 +96,7 @@ export default function OpsPage() {
     } catch {}
     refreshPinboard();
     loadOpsReports();
+    loadCronLastRun();
   })(); }, []);
   
   async function refreshPinboard() {
@@ -179,6 +215,34 @@ export default function OpsPage() {
         ) : (
           <div className="text-center py-4 opacity-60">Loading health data...</div>
         )}
+      </section>
+
+      {/* Discovery Crons */}
+      <section className="rounded border border-neutral-800 p-3 space-y-3">
+        <div className="font-medium">Discovery Crons <HelpTip text="Run nightly via Vercel (04:30–05:30 UTC). Powers commander hub stats, meta signals, top cards. Run manually here to refresh data." /></div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead><tr className="border-b border-neutral-700"><th className="text-left py-1.5 px-2">Cron</th><th className="text-left py-1.5 px-2">Last run</th><th className="text-left py-1.5 px-2">Action</th></tr></thead>
+            <tbody>
+              {CRON_KEYS.map((name) => (
+                <tr key={name} className="border-b border-neutral-900">
+                  <td className="py-1.5 px-2 font-mono">{name}</td>
+                  <td className="py-1.5 px-2 text-neutral-400">
+                    {cronLastRun[`job:last:${name}`] ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString() : "—"}
+                  </td>
+                  <td className="py-1.5 px-2">
+                    <button onClick={() => runCron(name)} disabled={!!cronRunBusy} className="px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-60 text-xs">
+                      {cronRunBusy === name ? "Running…" : "Run now"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="text-xs text-neutral-500">
+          Order: deck-costs → commander-aggregates → meta-signals → top-cards. Or click &quot;Run all&quot; in terminal: <code className="bg-neutral-900 px-1 rounded">npx tsx scripts/run-crons.ts all</code>
+        </div>
       </section>
 
       {/* Scheduled Reports */}

@@ -117,6 +117,11 @@ async function runTopCards() {
     }
   }
 
+  await admin.from("app_config").upsert(
+    { key: "job:last:top-cards", value: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
   return NextResponse.json({
     ok: true,
     updated: rows.length,

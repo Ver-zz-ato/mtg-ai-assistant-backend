@@ -113,6 +113,13 @@ async function runDeckCosts() {
     }
   }
 
+  if (updated > 0 || decks.length > 0) {
+    await admin.from("app_config").upsert(
+      { key: "job:last:deck-costs", value: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     updated,

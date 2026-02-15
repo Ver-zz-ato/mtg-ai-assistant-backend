@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 function isAdmin(user: any): boolean {
   const ids = String(process.env.ADMIN_USER_IDS || "").split(/[,\s]+/).filter(Boolean);
@@ -17,6 +18,9 @@ export async function GET(req: NextRequest) {
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+
+    const admin = getAdmin();
+    const db = admin ?? supabase;
 
     const sp = req.nextUrl.searchParams;
     const fromParam = sp.get("from");
@@ -42,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
     const toDate = fromParam && toParam ? new Date(toParam + "T23:59:59.999Z").toISOString() : null;
 
-    let q = supabase
+    let q = db
       .from("ai_usage")
       .select("id,user_id,thread_id,model,route,input_tokens,output_tokens,cost_usd,created_at")
       .gte("created_at", cutoff)
@@ -63,14 +67,14 @@ export async function GET(req: NextRequest) {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     let todayCost = 0;
     let last3DaysCost = 0;
-    const { data: todayRows } = await supabase
+    const { data: todayRows } = await db
       .from("ai_usage")
       .select("cost_usd")
       .gte("created_at", todayStartUTC);
     if (Array.isArray(todayRows)) {
       todayCost = todayRows.reduce((sum: number, r: any) => sum + (Number(r.cost_usd) || 0), 0);
     }
-    const { data: recentRows } = await supabase
+    const { data: recentRows } = await db
       .from("ai_usage")
       .select("cost_usd")
       .gte("created_at", threeDaysAgo);

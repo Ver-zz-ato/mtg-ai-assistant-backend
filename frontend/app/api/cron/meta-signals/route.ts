@@ -201,6 +201,11 @@ async function runMetaSignals() {
   );
   if (!e5) updated++;
 
+  await admin.from("app_config").upsert(
+    { key: "job:last:meta-signals", value: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
   return NextResponse.json({
     ok: true,
     updated,

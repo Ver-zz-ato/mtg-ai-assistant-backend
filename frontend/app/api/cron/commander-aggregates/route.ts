@@ -146,6 +146,11 @@ async function runAggregates() {
     }
   }
 
+  await admin.from("app_config").upsert(
+    { key: "job:last:commander-aggregates", value: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
   return NextResponse.json({
     ok: true,
     updated,
