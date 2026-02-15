@@ -16,6 +16,8 @@ import { ToolGenericLanding } from "@/components/seo-landing/ToolGenericLanding"
 import { GuideGenericLanding } from "@/components/seo-landing/GuideGenericLanding";
 import { InternalLinkBlocks } from "@/components/seo-landing/InternalLinkBlocks";
 import { SeoLandingAnalytics } from "@/components/seo-landing/SeoLandingAnalytics";
+import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
+import { getCostLandingData } from "@/lib/seo/cost-landing-data";
 
 const BASE = "https://www.manatap.ai";
 
@@ -70,6 +72,10 @@ export default async function QueryLandingPage({ params }: Props) {
   const topCards = await getTopCards();
   const commanderNames = new Map(commanderSlugs.map((s) => [s, getCommanderBySlug(s)?.name ?? toTitle(s)]));
 
+  const costData = p.template === "commander_cost" && p.commander_slug
+    ? await getCostLandingData(p.commander_slug)
+    : { costSnapshot: null, costDrivers: [], deckCount: 0 };
+
   function renderContent() {
     switch (p.template) {
       case "commander_mulligan":
@@ -86,7 +92,7 @@ export default async function QueryLandingPage({ params }: Props) {
         );
       case "commander_cost":
         return commanderName && p.commander_slug ? (
-          <CommanderCostLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} />
+          <CommanderCostLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} costData={costData} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
@@ -119,8 +125,13 @@ export default async function QueryLandingPage({ params }: Props) {
     }
   }
 
+  const showActionBar = p.commander_slug && commanderName && ["commander_cost", "commander_budget", "commander_mulligan", "commander_best_cards"].includes(p.template ?? "");
+
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {showActionBar && p.commander_slug && (
+        <CommanderActionBar commanderSlug={p.commander_slug} commanderName={commanderName} />
+      )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
       <SeoLandingAnalytics page={p} slug={slug} />
       <article className="text-neutral-200">
@@ -130,6 +141,13 @@ export default async function QueryLandingPage({ params }: Props) {
           <span className="text-neutral-200">{p.title}</span>
         </nav>
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{p.title}</h1>
+        {p.template === "commander_cost" && commanderName && (
+          <p className="text-lg font-semibold text-neutral-200 mb-4">
+            {costData.costSnapshot
+              ? `Typical ${commanderName} decks cost between $${costData.costSnapshot.budget.toLocaleString()} and $${costData.costSnapshot.high.toLocaleString()} depending on build power.`
+              : "Typical decks vary widely depending on build power and staples."}
+          </p>
+        )}
         {renderContent()}
         <InternalLinkBlocks commanderSlugs={commanderSlugs} commanderNames={commanderNames} topCards={topCards} />
       </article>

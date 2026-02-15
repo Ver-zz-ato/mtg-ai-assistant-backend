@@ -32,10 +32,10 @@ export async function MostPlayedCardsGrid({ cards, commanderName, deckCount }: O
   }
 
   return (
-    <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
+    <div className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-6">
       <h2 className="text-lg font-semibold text-neutral-100 mb-3">Most Played Cards</h2>
       <p className="text-neutral-400 text-sm mb-4">
-        Top cards across {deckCount} public {commanderName} decks.
+        Top cards across {deckCount.toLocaleString()} tracked {commanderName} decks.
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {cards.map((c, i) => {

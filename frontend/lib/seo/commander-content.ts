@@ -39,10 +39,15 @@ const GUILD_NAMES: Record<string, string> = {
   WUBRG: "five-color",
 };
 
-function getColorLabel(colors: string[]): string {
+/** Format color identity for display (e.g. "Dimir", "five-color", "Mono-White") */
+export function getColorLabel(colors: string[]): string {
   if (!colors?.length) return "colorless";
-  if (colors.length === 5) return "five-color";
-  const key = colors.sort().join("");
+  if (colors.length === 5) return "WUBRG";
+  if (colors.length === 1) {
+    const c = GUILD_NAMES[colors[0]] ?? colors[0];
+    return `Mono-${c.charAt(0).toUpperCase() + c.slice(1)}`;
+  }
+  const key = [...colors].sort().join("");
   return GUILD_NAMES[key] ?? colors.map((c) => GUILD_NAMES[c] ?? c).join("-");
 }
 

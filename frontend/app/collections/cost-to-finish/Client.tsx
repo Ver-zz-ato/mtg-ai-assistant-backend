@@ -80,8 +80,20 @@ export default function CostToFinishClient() {
   const params = useSearchParams();
   const initialDeckId = params.get("deck") || "";
   const initialCollectionId = params.get("collectionId") || "";
-  
+
   const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
+
+  // Prefill from cost landing page (sessionStorage set before navigate)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = sessionStorage.getItem("cost-to-finish-paste");
+      if (stored) {
+        sessionStorage.removeItem("cost-to-finish-paste");
+        setDeckText(stored);
+      }
+    } catch {}
+  }, []);
   const currency = (globalCurrency as any as "USD" | "EUR" | "GBP") || "USD";
   
   React.useEffect(() => { 

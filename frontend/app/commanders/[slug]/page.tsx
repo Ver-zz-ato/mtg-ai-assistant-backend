@@ -12,13 +12,18 @@ import {
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
-import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbon";
+import {
+  CommanderIntelligencePanel,
+  buildCommanderIntelligenceData,
+} from "@/components/CommanderIntelligencePanel";
 import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
+import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
 import { CommanderSynergyTeaser } from "@/components/commander/CommanderSynergyTeaser";
 import { MostPlayedCardsGrid } from "@/components/commander/MostPlayedCardsGrid";
 import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
+import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -78,10 +83,17 @@ export default async function CommanderHubPage({ params }: Props) {
   const swapsUrl = `/deck/swap-suggestions?commander=${encodeURIComponent(slug)}`;
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
-  const [imgMap, aggregates] = await Promise.all([
+  const [imgMap, aggregates, metaBadge] = await Promise.all([
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
+    getCommanderMetaBadge(slug),
   ]);
+  const panelData = buildCommanderIntelligenceData(
+    profile,
+    aggregates,
+    snapshot,
+    metaBadge
+  );
   function norm(s: string) {
     return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
   }
@@ -90,6 +102,7 @@ export default async function CommanderHubPage({ params }: Props) {
 
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <CommanderActionBar commanderSlug={slug} commanderName={name} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd(slug, name) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: webPageJsonLd(slug, name, description) }} />
       <article className="text-neutral-200">
@@ -106,24 +119,7 @@ export default async function CommanderHubPage({ params }: Props) {
         {commanderArt && (
           <CommanderArtBanner artUrl={commanderArt} name={name} className="mb-6" />
         )}
-        <CommanderStatsRibbon profile={profile} aggregates={aggregates} />
-        <div className="text-neutral-300 mb-8 space-y-4 text-lg leading-relaxed">
-          {intro.split(/(?<=\.)\s+/).map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
-        </div>
-
-        {/* Commander Snapshot Card */}
-        <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
-          <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider mb-3">Commander Snapshot</h2>
-          <div className="grid gap-2 sm:grid-cols-2 text-sm">
-            <div><span className="text-neutral-500">Gameplan:</span> <span className="text-neutral-200">{snapshot.gameplan}</span></div>
-            <div><span className="text-neutral-500">Core themes:</span> <span className="text-neutral-200">{snapshot.themes}</span></div>
-            <div><span className="text-neutral-500">Power style:</span> <span className="text-neutral-200">{snapshot.powerStyle}</span></div>
-            <div><span className="text-neutral-500">Difficulty:</span> <span className="text-neutral-200">{snapshot.difficulty}</span></div>
-          </div>
-        </div>
-
+        <CommanderIntelligencePanel data={panelData} />
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Try tools with this commander</h2>
         <CommanderToolActions
           commanderName={name}
@@ -134,6 +130,22 @@ export default async function CommanderHubPage({ params }: Props) {
             { href: browseUrl, label: "Browse Decks", description: `Explore public ${name} decks` },
           ]}
         />
+        <div className="text-neutral-300 mb-8 space-y-4 text-lg leading-relaxed">
+          {intro.split(/(?<=\.)\s+/).map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
+        </div>
+
+        {/* Commander Snapshot Card — alternating bg */}
+        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6">
+          <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider mb-3">Commander Snapshot</h2>
+          <div className="grid gap-2 sm:grid-cols-2 text-sm">
+            <div><span className="text-neutral-500">Gameplan:</span> <span className="text-neutral-200">{snapshot.gameplan}</span></div>
+            <div><span className="text-neutral-500">Core themes:</span> <span className="text-neutral-200">{snapshot.themes}</span></div>
+            <div><span className="text-neutral-500">Power style:</span> <span className="text-neutral-200">{snapshot.powerStyle}</span></div>
+            <div><span className="text-neutral-500">Difficulty:</span> <span className="text-neutral-200">{snapshot.difficulty}</span></div>
+          </div>
+        </section>
 
         <ToolStrip variant="compact" className="mb-8" />
 
@@ -147,22 +159,24 @@ export default async function CommanderHubPage({ params }: Props) {
           />
         )}
 
+        <section className="mb-6">
         <SimilarCommanders currentSlug={slug} />
+        </section>
 
         {aggregates && aggregates.medianDeckCost != null && aggregates.medianDeckCost > 0 && (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
+          <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6">
             <h2 className="text-xl font-semibold text-neutral-100 mb-4">Typical Deck Cost Range</h2>
             <p className="text-neutral-400 text-sm mb-3">
-              Based on {aggregates.deckCount} public {name} decks.
+              Based on {aggregates.deckCount.toLocaleString()} tracked decks.
             </p>
             <p className="text-neutral-200">
               Median deck cost: ~${Math.round(aggregates.medianDeckCost).toLocaleString()} USD
             </p>
-          </div>
+          </section>
         )}
 
         {aggregates && aggregates.recentDecks.length > 0 && (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
+          <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-6">
             <h2 className="text-xl font-semibold text-neutral-100 mb-4">Recent Decks</h2>
             <p className="text-neutral-400 text-sm mb-3">
               Latest community decks for {name}.
@@ -182,11 +196,12 @@ export default async function CommanderHubPage({ params }: Props) {
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         )}
 
+        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-8">
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Popular decks using this commander</h2>
-        <div className="mb-8">
+        <div className="mb-4">
           <p className="text-neutral-400 text-sm mb-3">
             Explore community decks built around {name} to find inspiration and proven lists.
           </p>
@@ -197,9 +212,11 @@ export default async function CommanderHubPage({ params }: Props) {
             Browse {name} decks →
           </a>
         </div>
+        </section>
 
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-8">
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Strategy Snapshot</h2>
-        <p className="text-neutral-300 mb-8 leading-relaxed">{strategySnapshot}</p>
+        <p className="text-neutral-300 mb-4 leading-relaxed">{strategySnapshot}</p>
 
         <div className="flex flex-wrap gap-3 text-sm mb-4">
           <Link href={`/commanders/${slug}/mulligan-guide`} className="text-blue-400 hover:underline">Mulligan Guide</Link>
@@ -236,6 +253,7 @@ export default async function CommanderHubPage({ params }: Props) {
             </div>
           );
         })()}
+        </section>
         <RelatedTools
           tools={[
             { href: "/tools/mulligan", label: "Mulligan Simulator" },
