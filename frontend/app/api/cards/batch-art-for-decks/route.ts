@@ -24,9 +24,10 @@ function extractNamesFromDeckText(deckText: string): string[] {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { deckIds = [], deckTexts = {} } = body as {
+    const { deckIds = [], deckTexts = {}, commanders = {} } = body as {
       deckIds?: string[];
       deckTexts?: Record<string, string>;
+      commanders?: Record<string, string>;
     };
 
     if (!Array.isArray(deckIds) || deckIds.length === 0) {
@@ -39,8 +40,14 @@ export async function POST(req: NextRequest) {
 
     for (const deckId of ids) {
       const text = deckTexts?.[deckId];
-      if (!text) continue;
-      const names = extractNamesFromDeckText(text);
+      let names = text ? extractNamesFromDeckText(text) : [];
+      // Fallback: use commander when deck_text is empty or yields no cards
+      if (names.length === 0) {
+        const cmd = (commanders as Record<string, string>)?.[deckId];
+        if (cmd && typeof cmd === "string" && cmd.trim()) {
+          names = [cmd.trim().replace(/\s*\(.*?\)\s*$/, "").trim()];
+        }
+      }
       if (names.length > 0) {
         deckToNames[deckId] = names;
         for (const n of names) {

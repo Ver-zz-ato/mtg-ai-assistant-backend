@@ -34,12 +34,13 @@ export async function getCostLandingData(commanderSlug: string): Promise<CostLan
   const profile = getCommanderBySlug(commanderSlug);
   if (!profile) return { costSnapshot: null, costDrivers: [], deckCount: 0 };
 
+  // Match "The Ur-Dragon" and "The Ur-Dragon - Dragon Tribal" etc.
   const { data: decks, error: decksError } = await admin
     .from("decks")
     .select("id")
     .eq("is_public", true)
     .eq("format", "Commander")
-    .ilike("commander", profile.name)
+    .ilike("commander", `${profile.name}%`)
     .limit(500);
 
   if (decksError || !decks || decks.length === 0) {

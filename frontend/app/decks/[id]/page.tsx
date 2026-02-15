@@ -1,7 +1,7 @@
 // app/decks/[id]/page.tsx
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getCommanderSlugByName } from "@/lib/commanders";
+import { getCommanderSlugByName, getCommanderBySlug } from "@/lib/commanders";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import PublicDeckCardList from "@/components/PublicDeckCardList";
@@ -143,10 +143,15 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const out: Record<string, any> = {};
     if (!uniqueNames.length) return out;
     
+    // Use admin client for cache when available (bypasses RLS for public deck viewers)
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const admin = getAdmin();
+    const cacheClient = admin ?? supabase;
+
     // First, check local cache
     try {
       const normalizedNames = uniqueNames.map(n => norm(n));
-      const { data: cached } = await supabase
+      const { data: cached } = await cacheClient
         .from('scryfall_cache')
         .select('name, type_line, oracle_text, small, normal, art_crop, cmc, color_identity, mana_cost')
         .in('name', normalizedNames);
@@ -214,7 +219,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             updated_at: new Date().toISOString(),
           };
         });
-        if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
+        if (up.length) await cacheClient.from('scryfall_cache').upsert(up, { onConflict: 'name' });
       } catch (e) {
         console.error('Cache write failed:', e);
       }
@@ -232,6 +237,22 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const commander = deckRow?.commander || "";
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
   const isOwner = user?.id && (deckRow as any)?.user_id === user.id;
+
+  // Infer color identity from commander when deck.colors is empty (common for public decks)
+  let deckColors: string[] = Array.isArray((deckRow as any)?.colors) ? (deckRow as any).colors : [];
+  if (deckColors.length === 0 && format.toLowerCase() === "commander" && commander?.trim()) {
+    const slug = getCommanderSlugByName(commander);
+    const profile = slug ? getCommanderBySlug(slug) : null;
+    if (profile?.colors?.length) {
+      deckColors = profile.colors;
+    } else {
+      const cleanCmd = commander.trim().replace(/\s*\(.*?\)\s*$/, "");
+      const cmdBatch = await scryfallBatch([cleanCmd]);
+      const cmdData = cmdBatch[norm(cleanCmd)];
+      const ci = Array.isArray(cmdData?.color_identity) ? cmdData.color_identity : [];
+      if (ci.length > 0) deckColors = ci;
+    }
+  }
 
   // Fetch cards
     const { data: cards } = await supabase
@@ -254,8 +275,11 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     }
   } catch {}
 
-  // Compute pie from all deck cards (count how many cards contain each color)
+  // Compute pie from all deck cards + commander (commander may not be in deck_cards)
   const allCardNames = Array.from(new Set((cards||[]).map(c=>String(c.name))));
+  if (commander?.trim() && !allCardNames.some((n) => norm(n) === norm(commander.trim()))) {
+    allCardNames.push(commander.trim().replace(/\s*\(.*?\)\s*$/, ""));
+  }
   const allCardsForPie = allCardNames.length ? await scryfallBatch(allCardNames) : {};
   const pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
   Object.values(allCardsForPie).forEach((card:any) => {
@@ -268,6 +292,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   let detailsForRadar: Record<string, any> | null = null;
   if (!arche) {
     const names = Array.from(new Set((cards||[]).map(c=>String(c.name))));
+    if (commander?.trim() && !names.some((n) => norm(n) === norm(commander.trim()))) {
+      names.push(commander.trim().replace(/\s*\(.*?\)\s*$/, ""));
+    }
     const details = await scryfallBatch(names);
     detailsForRadar = details;
     const w = { aggro:0, control:0, combo:0, midrange:0, stax:0 } as Record<string, number>;
@@ -491,14 +518,13 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           {/* Deck Overview - Highlighted feature */}
           {format.toLowerCase() === 'commander' && (() => {
             const DeckOverview = require('@/app/my-decks/[id]/DeckOverview').default;
-            const deckColors = (deckRow as any)?.colors || [];
             const deckAim = (deckRow as any)?.deck_aim || null;
             return (
               <div className="mb-6">
                 <DeckOverview 
                   deckId={id}
                   initialCommander={deckRow?.commander || null}
-                  initialColors={Array.isArray(deckColors) ? deckColors : []}
+                  initialColors={deckColors}
                   initialAim={deckAim}
                   format={format}
                   readOnly={true}

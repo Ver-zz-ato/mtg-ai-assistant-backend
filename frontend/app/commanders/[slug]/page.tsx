@@ -24,6 +24,7 @@ import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
+import { getCostLandingData } from "@/lib/seo/cost-landing-data";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -83,16 +84,22 @@ export default async function CommanderHubPage({ params }: Props) {
   const swapsUrl = `/deck/swap-suggestions?commander=${encodeURIComponent(slug)}`;
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
-  const [imgMap, aggregates, metaBadge] = await Promise.all([
+  const [imgMap, aggregates, metaBadge, costLanding] = await Promise.all([
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
     getCommanderMetaBadge(slug),
+    getCostLandingData(slug),
   ]);
+  const medianCostFallback =
+    aggregates?.medianDeckCost == null && costLanding?.costSnapshot?.mid != null
+      ? costLanding.costSnapshot.mid
+      : null;
   const panelData = buildCommanderIntelligenceData(
     profile,
     aggregates,
     snapshot,
-    metaBadge
+    metaBadge,
+    medianCostFallback
   );
   function norm(s: string) {
     return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();

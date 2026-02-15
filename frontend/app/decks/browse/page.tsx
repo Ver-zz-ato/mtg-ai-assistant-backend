@@ -84,14 +84,16 @@ function BrowseDecksContent() {
     if (decks.length === 0) return;
     const deckIds = decks.map((d) => d.id);
     const deckTexts: Record<string, string> = {};
+    const commanders: Record<string, string> = {};
     for (const d of decks) {
       if (d.deck_text) deckTexts[d.id] = d.deck_text;
+      if (d.commander) commanders[d.id] = d.commander;
     }
     let cancelled = false;
     fetch('/api/cards/batch-art-for-decks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deckIds, deckTexts }),
+      body: JSON.stringify({ deckIds, deckTexts, commanders }),
     })
       .then((r) => r.json())
       .then((j) => {

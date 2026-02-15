@@ -23,7 +23,8 @@ function toSlug(name: string): string {
 
 /** Infer color identity from commander name (known commanders) */
 const COLOR_MAP: Record<string, string[]> = {
-  "theur-dragon": ["W", "U", "B", "R", "G"],
+  "theurdragon": ["W", "U", "B", "R", "G"],
+  "theur-dragon": ["W", "U", "B", "R", "G"], // legacy key
   "edgarmarkov": ["W", "B", "R"],
   "atraxapraetorsvoice": ["W", "U", "B", "G"],
   "krenkomobboss": ["R"],
@@ -73,6 +74,7 @@ const COLOR_MAP: Record<string, string[]> = {
   "omnathlocusofrage": ["R", "G"],
   "aragorntheunifier": ["W", "U", "B", "R", "G"],
   "roccocabaretticaterer": ["W", "R", "G"],
+  "myrathemagnificent": ["U", "R"],
 };
 
 function norm(name: string): string {

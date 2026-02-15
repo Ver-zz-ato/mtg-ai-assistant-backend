@@ -166,7 +166,7 @@ export default function SeoPagesAdminPage() {
     <div className="max-w-5xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">SEO Landing Pages</h1>
-        <Link href="/admin" className="text-sm text-neutral-400 hover:text-white">
+        <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">
           ← Admin
         </Link>
       </div>

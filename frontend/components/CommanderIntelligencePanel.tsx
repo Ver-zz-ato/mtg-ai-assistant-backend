@@ -122,7 +122,8 @@ export function buildCommanderIntelligenceData(
   profile: CommanderProfile,
   aggregates: { deckCount: number; medianDeckCost: number | null } | null,
   snapshot: { difficulty: string },
-  metaBadge: "Trending" | "Most Played" | null
+  metaBadge: "Trending" | "Most Played" | null,
+  medianCostFallback?: number | null
 ): CommanderIntelligenceData {
   const deckCount = aggregates?.deckCount ?? null;
   const lowSample = deckCount != null && deckCount < 5;
@@ -137,12 +138,14 @@ export function buildCommanderIntelligenceData(
     ? getColorLabel(profile.colors)
     : null;
 
+  const rawCost =
+    aggregates?.medianDeckCost != null && aggregates.medianDeckCost > 0
+      ? aggregates.medianDeckCost
+      : (medianCostFallback != null && medianCostFallback > 0 ? medianCostFallback : null);
+
   return {
     deckCount,
-    medianDeckCostUSD:
-      aggregates?.medianDeckCost != null && aggregates.medianDeckCost > 0
-        ? Math.round(aggregates.medianDeckCost)
-        : null,
+    medianDeckCostUSD: rawCost != null ? Math.round(rawCost) : null,
     archetypeLabel,
     colorsLabel,
     metaBadge,

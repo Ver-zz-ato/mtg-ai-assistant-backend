@@ -17,12 +17,13 @@ async function computeAggregatesForCommander(
   commanderName: string,
   slug: string
 ): Promise<CommanderAggregate> {
+  // Match "The Ur-Dragon" and "The Ur-Dragon - Dragon Tribal" etc.
   const { data: decks, error: decksError } = await admin!
     .from("decks")
     .select("id, title, updated_at")
     .eq("is_public", true)
     .eq("format", "Commander")
-    .ilike("commander", commanderName)
+    .ilike("commander", `${commanderName}%`)
     .limit(500);
 
   if (decksError || !decks || decks.length === 0) {

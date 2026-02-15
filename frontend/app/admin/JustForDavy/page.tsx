@@ -12,6 +12,84 @@ function Pill({ href, children }: { href: string; children: React.ReactNode }) {
   );
 }
 
+type Section = {
+  title: string;
+  eli5: string;
+  links: { href: string; label: string; eli5?: string }[];
+};
+
+const SECTIONS: Section[] = [
+  {
+    title: 'Daily Ops',
+    eli5: 'The main control panel. Turn features on/off, put the site in maintenance mode, set spending limits, run background jobs, and undo bad changes.',
+    links: [
+      { href: '/admin/ops', label: 'Ops & Safety', eli5: 'Feature toggles, maintenance mode, AI budget caps, cron jobs (deck costs, commander data), and snapshot rollback.' },
+    ],
+  },
+  {
+    title: 'Card Data & Prices',
+    eli5: 'Everything about the card database and prices. Check if card info is up to date, run big update jobs, and see how prices have changed.',
+    links: [
+      { href: '/admin/data', label: 'Data & Pricing', eli5: 'Look up cards in the cache, run Scryfall/price imports, see price change heatmaps.' },
+      { href: '/admin/budget-swaps', label: 'Budget Swaps', eli5: 'Manage which cheaper cards get suggested as replacements for expensive ones.' },
+    ],
+  },
+  {
+    title: 'AI',
+    eli5: 'Make the AI smarter and keep it healthy. Edit how it thinks, test if it works, see how much it costs, and tune chat behavior.',
+    links: [
+      { href: '/admin/ai-health', label: 'AI Health', eli5: 'Quick check: Is the AI working? Why might chat say "temporarily unavailable"?' },
+      { href: '/admin/ai', label: 'AI & Chat Quality', eli5: 'Edit prompts, toggle canned answers (combo checks, rules), set moderation allow/block lists, see usage.' },
+      { href: '/admin/ai-usage', label: 'AI Usage & Cost', eli5: 'How much are we spending on AI? Which features cost the most? Price snapshots.' },
+      { href: '/admin/chat-levers', label: 'Chat Levers', eli5: 'Defaults, answer packs, rules tuning, model/cost policy.' },
+      { href: '/admin/ai-test', label: 'AI Test Suite', eli5: 'Run test cases against the AI, compare prompt versions, find failures.' },
+    ],
+  },
+  {
+    title: 'Users & Support',
+    eli5: 'Help users with their accounts. Look someone up, grant Pro, resend verification, export or delete their data (GDPR).',
+    links: [
+      { href: '/admin/support', label: 'User Support', eli5: 'Search users, grant/revoke Pro, resend verification, GDPR export/delete.' },
+    ],
+  },
+  {
+    title: 'Monitoring',
+    eli5: 'See what\'s happening in the app. Event stream, rate limits, errors, and whether analytics/tracking is working.',
+    links: [
+      { href: '/admin/obs', label: 'Observability', eli5: 'Live-ish event feed, who\'s hitting rate limits, recent errors.' },
+      { href: '/admin/events', label: 'Events Debug', eli5: 'How many Probability runs, Mulligan iterations, badge progress.' },
+      { href: '/admin/analytics-debug', label: 'Analytics Debug', eli5: 'Is PostHog loaded? Consent status? Recent events. For fixing tracking issues.' },
+    ],
+  },
+  {
+    title: 'Business & Growth',
+    eli5: 'Money, SEO, and announcements. Payment toggles, conversion stats, pages that rank on Google, and What\'s New.',
+    links: [
+      { href: '/admin/monetize', label: 'Monetization', eli5: 'Turn Stripe/Ko-fi/PayPal on or off, see subscribers, promo bar.' },
+      { href: '/admin/pricing', label: 'Pricing & Conversion', eli5: 'Page views, upgrade clicks, signups, Pro conversions, revenue.' },
+      { href: '/admin/seo/pages', label: 'SEO Landing Pages', eli5: 'Pages that show up on Google. Find winners (getting impressions but not indexed), publish them, manage /q/[slug] pages.' },
+      { href: '/admin/changelog', label: 'Changelog', eli5: 'Manage What\'s New entries and version releases.' },
+    ],
+  },
+  {
+    title: 'Security & Infrastructure',
+    eli5: 'Keep things safe and backed up. Audit log, security tests, backups, and deployment info.',
+    links: [
+      { href: '/admin/security', label: 'Security & Compliance', eli5: 'Who did what in admin, CSP tester, key rotation.' },
+      { href: '/admin/backups', label: 'Database Backups', eli5: 'Backup status, manual backup, test restore.' },
+      { href: '/admin/deploy', label: 'Deployment', eli5: 'Current version, perf budgets, roadmap.' },
+    ],
+  },
+  {
+    title: 'Other',
+    eli5: 'Misc tools. Badge counts, analytics seeding (one-time setup).',
+    links: [
+      { href: '/admin/badges', label: 'Badges', eli5: 'Rough counts for Probability/Mulligan badges.' },
+      { href: '/admin/analytics-seed', label: 'Analytics Seed', eli5: 'One-time: fire sample events so PostHog knows the taxonomy. Safe to skip.' },
+    ],
+  },
+];
+
 export default function AdminHub() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -20,13 +98,12 @@ export default function AdminHub() {
 
   React.useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       router.push('/');
       return;
     }
 
-    // Check admin status via API
     (async () => {
       try {
         const res = await fetch('/api/admin/config', { cache: 'no-store' });
@@ -35,7 +112,6 @@ export default function AdminHub() {
           setIsAdmin(true);
         } else {
           setIsAdmin(false);
-          // Redirect non-admins immediately
           router.push('/');
         }
       } catch (err) {
@@ -74,91 +150,40 @@ export default function AdminHub() {
     <div className="max-w-5xl mx-auto p-4 space-y-6">
       <header className="space-y-1">
         <div className="text-xl font-semibold">Admin • JustForDavy</div>
-        <p className="text-sm opacity-80">Central hub for Ops, Data, AI quality, Observability and Growth toggles.</p>
+        <p className="text-sm opacity-80">Central hub for running the app, data, AI, users, monitoring, and growth.</p>
       </header>
 
+      {/* Quick pills - all links */}
       <nav className="flex flex-wrap gap-2">
-        <Pill href="/admin/ops">Ops & Safety</Pill>
-        <Pill href="/admin/data">Data & Pricing</Pill>
-        <Pill href="/admin/budget-swaps">Budget Swaps</Pill>
-        <Pill href="/admin/ai">AI & Chat Quality</Pill>
-        <Pill href="/admin/ai-health">AI Health</Pill>
-        <Pill href="/admin/support">User Support</Pill>
-        <Pill href="/admin/obs">Observability</Pill>
-        <Pill href="/admin/monetize">Monetization</Pill>
-        <Pill href="/admin/security">Security & Compliance</Pill>
-        <Pill href="/admin/backups">Database Backups</Pill>
-        <Pill href="/admin/deploy">Deployment Awareness</Pill>
-        <Pill href="/admin/chat-levers">Chat Levers</Pill>
-        <Pill href="/admin/changelog">Changelog</Pill>
-        <Pill href="/admin/analytics-debug">Analytics Debug</Pill>
+        {SECTIONS.flatMap((s) => s.links).map((l) => (
+          <Pill key={l.href} href={l.href}>{l.label}</Pill>
+        ))}
       </nav>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link href="/admin/ops" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Ops & Safety</div>
-          <p className="text-sm opacity-80">Feature flags, kill switches, maintenance mode, budget caps, snapshot rollback.</p>
-        </Link>
-        <Link href="/admin/data" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Data & Pricing</div>
-          <p className="text-sm opacity-80">Scryfall cache inspector, bulk jobs monitor, price delta heatmap.</p>
-        </Link>
-        <Link href="/admin/budget-swaps" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Budget Swaps</div>
-          <p className="text-sm opacity-80">Manage the Quick Swaps map - add, edit, or remove budget alternatives for expensive cards.</p>
-        </Link>
-        <Link href="/admin/ai-health" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">AI Health</div>
-          <p className="text-sm opacity-80">Test AI response and see why chat shows &quot;temporarily unavailable&quot;.</p>
-        </Link>
-        <Link href="/admin/ai" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">AI & Chat Quality</div>
-          <p className="text-sm opacity-80">Prompt library, metrics board, knowledge gaps, canned packs, moderation, evals.</p>
-        </Link>
-        <Link href="/admin/support" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">User Support</div>
-          <p className="text-sm opacity-80">Lookup & impersonate (read‑only), account actions, GDPR helpers.</p>
-        </Link>
-        <Link href="/admin/obs" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Observability</div>
-          <p className="text-sm opacity-80">Live event stream, 429 dashboard, error triage, RLS probe.</p>
-        </Link>
-        <Link href="/admin/monetize" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Monetization & Growth</div>
-          <p className="text-sm opacity-80">Toggles for Stripe/Ko‑fi/PayPal, conversion funnel, promo bar.</p>
-        </Link>
-        <Link href="/admin/security" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Security & Compliance</div>
-          <p className="text-sm opacity-80">Admin audit log, CSP tester, key rotation health.</p>
-        </Link>
-        <Link href="/admin/backups" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Database Backups</div>
-          <p className="text-sm opacity-80">Backup status, manual triggers, restore testing, recovery procedures.</p>
-        </Link>
-        <Link href="/admin/deploy" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Deployment Awareness</div>
-          <p className="text-sm opacity-80">Version & env panel, perf budgets roadmap.</p>
-        </Link>
-        <Link href="/admin/chat-levers" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Chat Levers</div>
-          <p className="text-sm opacity-80">Defaults editor, answer‑packs switchboard, rules source tuning, model/cost policy.</p>
-        </Link>
-        <Link href="/admin/badges" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Badges</div>
-          <p className="text-sm opacity-80">Rough counts & progress sampling for badges.</p>
-        </Link>
-        <Link href="/admin/events" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Events Debug</div>
-          <p className="text-sm opacity-80">Tool usage counters summary (Probability runs, Mulligan iterations).</p>
-        </Link>
-        <Link href="/admin/changelog" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Changelog Manager</div>
-          <p className="text-sm opacity-80">Manage what's new entries, version releases, and public changelog content.</p>
-        </Link>
-        <Link href="/admin/analytics-debug" className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
-          <div className="font-medium mb-1">Analytics Debug</div>
-          <p className="text-sm opacity-80">Consent, PostHog loaded, distinct_id, last capture events buffer.</p>
-        </Link>
+      {/* Grouped sections with ELI5 */}
+      <section className="space-y-6">
+        {SECTIONS.map((sec) => (
+          <div key={sec.title} className="rounded-lg border border-neutral-800 bg-neutral-900/30 p-4 space-y-3">
+            <div>
+              <h2 className="font-semibold text-neutral-100">{sec.title}</h2>
+              <p className="text-sm text-neutral-400 mt-0.5">{sec.eli5}</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {sec.links.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="rounded border border-neutral-700 p-3 hover:bg-neutral-800 hover:border-neutral-600 transition-colors"
+                >
+                  <div className="font-medium text-sm text-neutral-200">{l.label}</div>
+                  {l.eli5 && (
+                    <p className="text-xs text-neutral-500 mt-1">{l.eli5}</p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
