@@ -385,7 +385,7 @@ function generateDeckList(commander, archetype) {
 }
 
 async function addDecks() {
-  const userId = '990d69b2-3500-4833-81df-b05e07f929db'; // Public decks user
+  const userId = 'b8c7d6e5-f4a3-4210-9d00-000000000001'; // Public decks user
   
   let totalDecks = 0;
   

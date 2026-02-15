@@ -21,7 +21,7 @@ for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
   }
 }
 
-const SEED_USER_ID = "990d69b2-3500-4833-81df-b05e07f929db";
+const SEED_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 
 function parseDeckList(deckList: string): Array<{ name: string; qty: number }> {
   const cards: Array<{ name: string; qty: number }> = [];

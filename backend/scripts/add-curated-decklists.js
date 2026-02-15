@@ -165,7 +165,7 @@ const CURATED_DECKS = [
 // For now, let's create a script that reads from a JSON file with decklists
 
 async function addCuratedDecklists() {
-  const userId = '990d69b2-3500-4833-81df-b05e07f929db'; // Public decks user ID
+  const userId = 'b8c7d6e5-f4a3-4210-9d00-000000000001'; // Public decks user ID
   let totalDecks = 0;
   let skipped = 0;
 

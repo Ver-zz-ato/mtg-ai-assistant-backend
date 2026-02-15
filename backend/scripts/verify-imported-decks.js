@@ -46,7 +46,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function verifyImportedDecks() {
   console.log('🔍 Verifying imported decks...\n');
   
-  const userId = '990d69b2-3500-4833-81df-b05e07f929db';
+  const userId = 'b8c7d6e5-f4a3-4210-9d00-000000000001';
   
   // Get all public decks for this user
   const { data: decks, error: decksError } = await supabase

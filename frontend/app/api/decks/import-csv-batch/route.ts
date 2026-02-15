@@ -143,6 +143,12 @@ export async function POST(req: Request) {
         commander = deck.commander || '';
         title = deck.title || deck.name || `${commander} - Imported Deck`;
         
+        const { containsProfanity } = await import("@/lib/profanity");
+        if (containsProfanity(title)) {
+          results.push({ title, success: false, error: "Profanity in title" });
+          continue;
+        }
+        
         if (!decklistText) {
           results.push({ title, success: false, error: 'Missing decklist' });
           continue;

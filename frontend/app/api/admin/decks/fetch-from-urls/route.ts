@@ -6,8 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { containsProfanity } from "@/lib/profanity";
 
-const PUBLIC_DECKS_USER_ID = "990d69b2-3500-4833-81df-b05e07f929db";
+const PUBLIC_DECKS_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 const MAX_URLS = 50;
 
 function extractDeckId(url: string): { source: "moxfield" | "archidekt"; id: string } | null {
@@ -134,6 +135,10 @@ export async function POST(req: NextRequest) {
 
       if (!deck) {
         results.push({ url, title: "", success: false, error: "Fetch failed or invalid deck (need 96–101 cards)" });
+        continue;
+      }
+      if (containsProfanity(deck.title)) {
+        results.push({ url, title: deck.title, success: false, error: "Profanity in title" });
         continue;
       }
 

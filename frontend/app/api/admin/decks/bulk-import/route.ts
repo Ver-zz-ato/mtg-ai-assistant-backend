@@ -8,8 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { containsProfanity } from "@/lib/profanity";
 
-const PUBLIC_DECKS_USER_ID = "990d69b2-3500-4833-81df-b05e07f929db";
+const PUBLIC_DECKS_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 const MAX_DECKS = 500;
 
 function parseCSV(csvContent: string): { headers: string[]; rows: Record<string, string>[] } {
@@ -119,6 +120,10 @@ export async function POST(req: NextRequest) {
       const commander = (deck.commander ?? "").trim();
       const format = (deck.format ?? "Commander").trim() || "Commander";
 
+      if (containsProfanity(title)) {
+        results.push({ title, success: false, error: "Profanity in title" });
+        continue;
+      }
       if (!decklistText) {
         results.push({ title, success: false, error: "Missing decklist" });
         continue;

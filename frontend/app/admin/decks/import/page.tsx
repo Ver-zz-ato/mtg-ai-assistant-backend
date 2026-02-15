@@ -9,6 +9,7 @@ export default function BulkImportDecksPage() {
   const [uploading, setUploading] = React.useState(false);
   const [fetching, setFetching] = React.useState(false);
   const [discovering, setDiscovering] = React.useState(false);
+  const [discoveringFormat, setDiscoveringFormat] = React.useState<string | null>(null);
   const [urlInput, setUrlInput] = React.useState("");
   const [msg, setMsg] = React.useState<string | null>(null);
   const [results, setResults] = React.useState<Result[] | null>(null);
@@ -102,6 +103,32 @@ export default function BulkImportDecksPage() {
     }
   }
 
+  async function handleDiscoverByFormat(format: string) {
+    setDiscoveringFormat(format);
+    setMsg(null);
+    setResults(null);
+    setSummary(null);
+    try {
+      const r = await fetch("/api/admin/decks/discover-by-format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format, count: 50 }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        setResults(j.results ?? []);
+        setSummary(j.summary ?? null);
+        setMsg(`Discovered and imported ${j.summary?.successful ?? 0} of ${j.summary?.total ?? 0} ${format} decks`);
+      } else {
+        setMsg(j?.error ?? `Discover ${format} failed`);
+      }
+    } catch (err) {
+      setMsg(String(err));
+    } finally {
+      setDiscoveringFormat(null);
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
@@ -117,7 +144,7 @@ export default function BulkImportDecksPage() {
 
       {/* Discover & Import */}
       <div className="rounded border border-emerald-900/50 bg-emerald-950/20 p-4 space-y-3">
-        <p className="text-sm font-medium text-emerald-200">Discover & Import</p>
+        <p className="text-sm font-medium text-emerald-200">Discover & Import (Commander)</p>
         <p className="text-xs text-neutral-400">
           Searches Moxfield for 100 popular commanders and imports the top 3 decks per commander. One click.
         </p>
@@ -128,6 +155,26 @@ export default function BulkImportDecksPage() {
         >
           {discovering ? "Searching Moxfield…" : "Discover & Import Popular Decks"}
         </button>
+      </div>
+
+      {/* Discover by Format (60-card) */}
+      <div className="rounded border border-amber-900/50 bg-amber-950/20 p-4 space-y-3">
+        <p className="text-sm font-medium text-amber-200">Discover by Format (60-card)</p>
+        <p className="text-xs text-neutral-400">
+          Imports up to 50 decks per format from Moxfield. Modern, Pioneer, Standard. Sorted by popularity.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {["Modern", "Pioneer", "Standard"].map((f) => (
+            <button
+              key={f}
+              onClick={() => handleDiscoverByFormat(f)}
+              disabled={!!discoveringFormat}
+              className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-sm"
+            >
+              {discoveringFormat === f ? `Importing ${f}…` : `Discover 50 ${f} Decks`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Fetch from URLs */}

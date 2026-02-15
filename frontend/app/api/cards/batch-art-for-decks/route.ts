@@ -41,15 +41,25 @@ export async function POST(req: NextRequest) {
     const deckToNames: Record<string, string[]> = {};
     const allNames: string[] = [];
 
+    const cmdMap = commanders as Record<string, string>;
     for (const deckId of ids) {
       const text = deckTexts?.[deckId];
       let names = text ? extractNamesFromDeckText(text) : [];
       // Fallback: use commander when deck_text is empty or yields no cards
       if (names.length === 0) {
-        const cmd = (commanders as Record<string, string>)?.[deckId];
+        const cmd = cmdMap?.[deckId];
         if (cmd && typeof cmd === "string" && cmd.trim()) {
           names = [cmd.trim().replace(/\s*\(.*?\)\s*$/, "").trim()];
         }
+      }
+      // Prioritize commander so each deck gets unique art (not Sol Ring for everyone)
+      const cmd = cmdMap?.[deckId];
+      const cmdName = cmd && typeof cmd === "string" ? cmd.trim().replace(/\s*\(.*?\)\s*$/, "").trim() : "";
+      if (cmdName && names.length > 0) {
+        const rest = names.filter((n) => n.toLowerCase().trim() !== cmdName.toLowerCase());
+        names = [cmdName, ...rest];
+      } else if (cmdName && names.length === 0) {
+        names = [cmdName];
       }
       if (names.length > 0) {
         deckToNames[deckId] = names;
@@ -78,13 +88,20 @@ export async function POST(req: NextRequest) {
           if (deckToNames[deckId]) continue;
           const nonBasic = list.filter((c) => !BASIC_LANDS.has(c.name.toLowerCase().trim()));
           const basic = list.filter((c) => BASIC_LANDS.has(c.name.toLowerCase().trim()));
-          const sorted = [...nonBasic, ...basic]
+          let sorted = [...nonBasic, ...basic]
             .sort((a, b) => (b.qty || 0) - (a.qty || 0))
             .slice(0, MAX_NAMES_PER_DECK)
             .map((c) => c.name.trim())
             .filter(Boolean);
+          sorted = [...new Set(sorted)];
+          const cmd = cmdMap?.[deckId];
+          const cmdName = cmd && typeof cmd === "string" ? cmd.trim().replace(/\s*\(.*?\)\s*$/, "").trim() : "";
+          if (cmdName && sorted.length > 0) {
+            const rest = sorted.filter((n) => n.toLowerCase() !== cmdName.toLowerCase());
+            sorted = [cmdName, ...rest];
+          }
           if (sorted.length > 0) {
-            deckToNames[deckId] = [...new Set(sorted)];
+            deckToNames[deckId] = sorted;
             for (const n of sorted) {
               if (!allNames.includes(n)) allNames.push(n);
             }

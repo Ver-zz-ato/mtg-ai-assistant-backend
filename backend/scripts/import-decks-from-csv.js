@@ -139,7 +139,7 @@ async function importDecksFromCSV(csvFilePath) {
   console.log(`📦 Found ${decks.length} decks in CSV`);
   console.log(`Headers: ${headers.join(', ')}\n`);
   
-  const userId = '990d69b2-3500-4833-81df-b05e07f929db';
+  const userId = 'b8c7d6e5-f4a3-4210-9d00-000000000001';
   let totalDecks = 0;
   let skipped = 0;
   
