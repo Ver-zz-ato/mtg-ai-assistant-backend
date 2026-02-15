@@ -28,22 +28,20 @@ export function CommanderToolActions({ tools, commanderName }: Props) {
           <Link
             key={t.href}
             href={t.href}
-            className={`block p-4 rounded-lg border transition-all ${
+            className={`relative block p-4 rounded-lg border transition-all text-center ${
               t.isRecommended
                 ? "bg-blue-950/40 border-blue-600/60 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10"
                 : "bg-neutral-800/80 border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800"
             }`}
           >
-            <div className="flex items-start gap-2">
-              {t.isRecommended && (
-                <span className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-blue-600/80 text-white">
-                  Start here
-                </span>
-              )}
-              <div>
-                <h3 className="font-semibold text-white mb-1">{t.label}</h3>
-                <p className="text-sm text-neutral-400">{t.description}</p>
-              </div>
+            {t.isRecommended && (
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium bg-blue-600/80 text-white">
+                Start here
+              </span>
+            )}
+            <div className={t.isRecommended ? "pt-6" : ""}>
+              <h3 className="font-semibold text-white mb-1">{t.label}</h3>
+              <p className="text-sm text-neutral-400">{t.description}</p>
             </div>
           </Link>
         ))}

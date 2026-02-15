@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import JSZip from "jszip";
 
 type SeoPage = {
   id: string;
@@ -164,58 +165,71 @@ export default function SeoPagesAdminPage() {
     return -1;
   }
 
-  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function parseAndIngestCsv(text: string): Promise<{ ok: boolean; count?: number; error?: string }> {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return { ok: false, error: "CSV must have header + at least one data row" };
+    const header = parseCSVLine(lines[0]);
+    const queryIdx = findColumnIndex(header, ["query", "top queries", "search query"]);
+    const clicksIdx = findColumnIndex(header, ["clicks", "click"]);
+    const impressionsIdx = findColumnIndex(header, ["impressions", "impression"]);
+    const ctrIdx = findColumnIndex(header, ["ctr"]);
+    const positionIdx = findColumnIndex(header, ["position", "avg. position", "average position"]);
+    if (queryIdx < 0) return { ok: false, error: `Could not find Query column. Header: ${header.join(", ")}` };
+    const rows: Array<{ query: string; clicks: number; impressions: number; ctr?: number; position?: number }> = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parsed = parseCSVLine(lines[i]);
+      const query = (parsed[queryIdx] ?? "").replace(/^"|"$/g, "").trim();
+      if (!query) continue;
+      const clicks = clicksIdx >= 0 ? parseInt(String(parsed[clicksIdx] ?? 0), 10) || 0 : 0;
+      const impressions = impressionsIdx >= 0 ? parseInt(String(parsed[impressionsIdx] ?? 0), 10) || 0 : 0;
+      const ctrStr = ctrIdx >= 0 ? String(parsed[ctrIdx] ?? "").replace("%", "") : "";
+      const ctr = ctrStr ? parseFloat(ctrStr) : undefined;
+      const posStr = positionIdx >= 0 ? String(parsed[positionIdx] ?? "") : "";
+      const position = posStr ? parseFloat(posStr) : undefined;
+      rows.push({ query, clicks, impressions, ...(ctr != null && !isNaN(ctr) && { ctr }), ...(position != null && !isNaN(position) && { position }) });
+    }
+    if (rows.length === 0) return { ok: false, error: "No valid rows parsed from CSV" };
+    const r = await fetch("/api/admin/seo-queries/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const j = await r.json();
+    if (j?.ok) return { ok: true, count: j.inserted ?? j.updated ?? rows.length };
+    return { ok: false, error: j?.error ?? "Ingest failed" };
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
     setUploading(true);
     setMsg(null);
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length < 2) {
-        setMsg("CSV must have header + at least one data row");
-        return;
+      let csvText: string;
+      const name = file.name.toLowerCase();
+      if (name.endsWith(".zip")) {
+        const buf = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+        const queriesFile = Object.keys(zip.files).find(
+          (k) => k.toLowerCase().endsWith("queries.csv") || k.toLowerCase() === "queries.csv"
+        );
+        if (!queriesFile) {
+          setMsg("ZIP contains no Queries.csv. GSC export includes Chart, Countries, Devices, Pages, Queries, etc.");
+          return;
+        }
+        const f = zip.files[queriesFile];
+        csvText = await f.async("string");
+      } else {
+        csvText = await file.text();
       }
-      const header = parseCSVLine(lines[0]);
-      const queryIdx = findColumnIndex(header, ["query", "top queries", "search query"]);
-      const clicksIdx = findColumnIndex(header, ["clicks", "click"]);
-      const impressionsIdx = findColumnIndex(header, ["impressions", "impression"]);
-      const ctrIdx = findColumnIndex(header, ["ctr"]);
-      const positionIdx = findColumnIndex(header, ["position", "avg. position", "average position"]);
-      if (queryIdx < 0) {
-        setMsg(`Could not find Query column. Header: ${header.join(", ")}`);
-        return;
-      }
-      const rows: Array<{ query: string; clicks: number; impressions: number; ctr?: number; position?: number }> = [];
-      for (let i = 1; i < lines.length; i++) {
-        const parsed = parseCSVLine(lines[i]);
-        const query = (parsed[queryIdx] ?? "").replace(/^"|"$/g, "").trim();
-        if (!query) continue;
-        const clicks = clicksIdx >= 0 ? parseInt(String(parsed[clicksIdx] ?? 0), 10) || 0 : 0;
-        const impressions = impressionsIdx >= 0 ? parseInt(String(parsed[impressionsIdx] ?? 0), 10) || 0 : 0;
-        const ctrStr = ctrIdx >= 0 ? String(parsed[ctrIdx] ?? "").replace("%", "") : "";
-        const ctr = ctrStr ? parseFloat(ctrStr) : undefined;
-        const posStr = positionIdx >= 0 ? String(parsed[positionIdx] ?? "") : "";
-        const position = posStr ? parseFloat(posStr) : undefined;
-        rows.push({ query, clicks, impressions, ...(ctr != null && !isNaN(ctr) && { ctr }), ...(position != null && !isNaN(position) && { position }) });
-      }
-      if (rows.length === 0) {
-        setMsg("No valid rows parsed from CSV");
-        return;
-      }
-      const r = await fetch("/api/admin/seo-queries/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows }),
-      });
-      const j = await r.json();
-      if (j?.ok) {
-        setMsg(`Ingested ${j.inserted ?? j.updated ?? rows.length} queries from CSV`);
+      const result = await parseAndIngestCsv(csvText);
+      if (result.ok) {
+        setMsg(`Ingested ${result.count} queries from ${name.endsWith(".zip") ? "GSC zip (Queries.csv)" : "CSV"}`);
         load();
         loadWinners();
       } else {
-        setMsg(j?.error ?? "Ingest failed");
+        setMsg(result.error ?? "Ingest failed");
       }
     } catch (err) {
       setMsg(String(err));
@@ -353,8 +367,8 @@ export default function SeoPagesAdminPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
-          onChange={handleCsvUpload}
+          accept=".csv,.zip"
+          onChange={handleFileUpload}
           className="hidden"
         />
         <button
@@ -362,7 +376,7 @@ export default function SeoPagesAdminPage() {
           disabled={busy || uploading}
           className="px-4 py-2 rounded bg-neutral-600 hover:bg-neutral-500 disabled:opacity-60 text-sm"
         >
-          {uploading ? "Uploading…" : "Upload GSC CSV"}
+          {uploading ? "Uploading…" : "Upload GSC CSV or ZIP"}
         </button>
         <button onClick={generate} disabled={busy} className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm">
           Generate from queries
@@ -554,7 +568,7 @@ export default function SeoPagesAdminPage() {
 
       {!loading && pages.length === 0 && (
         <p className="text-sm text-neutral-500">
-          No pages. Upload a GSC CSV (Queries sheet from Performance export) or run the ingest script, then click &quot;Generate from queries&quot;.
+          No pages. Upload GSC export (CSV or ZIP with Queries.csv) or run the ingest script, then click &quot;Generate from queries&quot;.
         </p>
       )}
     </div>
