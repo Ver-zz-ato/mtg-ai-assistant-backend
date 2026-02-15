@@ -82,9 +82,10 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Other',
-    eli5: 'Misc tools. Badge counts, analytics seeding (one-time setup).',
+    eli5: 'Misc tools. Badge counts, bulk deck import, analytics seeding.',
     links: [
       { href: '/admin/badges', label: 'Badges', eli5: 'Rough counts for Probability/Mulligan badges.' },
+      { href: '/admin/decks/import', label: 'Bulk Import Decks', eli5: 'Upload CSV to add public decks. No web scraping — you provide the data.' },
       { href: '/admin/analytics-seed', label: 'Analytics Seed', eli5: 'One-time: fire sample events so PostHog knows the taxonomy. Safe to skip.' },
     ],
   },
