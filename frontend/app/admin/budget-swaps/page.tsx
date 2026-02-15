@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { ELI5 } from '@/components/AdminHelp';
 
 export default function BudgetSwapsAdminPage() {
   const { user } = useAuth();
@@ -107,9 +108,14 @@ export default function BudgetSwapsAdminPage() {
     <div className="container mx-auto p-8 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Budget Swaps Management</h1>
-        <p className="text-neutral-400">
+        <p className="text-neutral-400 mb-3">
           Manage the budget swap suggestions used in Quick Swaps mode. These are free, fast suggestions for common expensive cards.
         </p>
+        <ELI5 heading="Budget Swaps" items={[
+          'Quick Swaps mode suggests cheaper alternatives for expensive cards (e.g. Gaea\'s Cradle → Growing Rites).',
+          'Add/edit pairs here. Stored in budget-swaps.json. Changes apply after Save.',
+          'Use when: adding new popular expensive cards, updating meta-relevant swaps.'
+        ]} />
       </div>
 
       {message && (

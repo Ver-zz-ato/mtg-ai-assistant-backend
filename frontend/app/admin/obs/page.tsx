@@ -9,13 +9,24 @@ export default function ObsPage(){
 
   React.useEffect(()=>{ (async()=>{ try { const r = await fetch('/api/admin/audit'); const j = await r.json(); if (j?.ok) setAudit(j.rows||[]);} catch{}; try { const r2 = await fetch('/api/admin/rate-limits?hours=24'); const j2 = await r2.json(); if (j2?.ok) setRl(j2);} catch{}; try { const r3 = await fetch('/api/admin/errors?limit=200'); const j3 = await r3.json(); if (j3?.ok) setErrors(j3.rows||[]);} catch{} })(); }, []);
 
+  const refresh = () => {
+    (async () => {
+      try { const r = await fetch('/api/admin/audit'); const j = await r.json(); if (j?.ok) setAudit(j.rows || []); } catch {}
+      try { const r2 = await fetch('/api/admin/rate-limits?hours=24'); const j2 = await r2.json(); if (j2?.ok) setRl(j2); } catch {}
+      try { const r3 = await fetch('/api/admin/errors?limit=200'); const j3 = await r3.json(); if (j3?.ok) setErrors(j3.rows || []); } catch {}
+    })();
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <div className="text-xl font-semibold">Observability</div>
+      <div className="flex items-center justify-between">
+        <div className="text-xl font-semibold">Observability</div>
+        <button onClick={refresh} className="text-sm px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Refresh</button>
+      </div>
       <ELI5 heading="Observability" items={[
-        'See a live-ish audit feed of actions in the app.',
-        'Watch for rate-limit spikes (429s) by user and IP in the last 24h.',
-        'Skim the latest server errors. All read-only.'
+        'Event Stream: Who did what, when. Confirms actions (deck save, login, etc.) actually happened.',
+        'Rate Limits: Who is hitting 429s? Top users and IPs in the last 24h. Helps spot abuse or bugs.',
+        'Error Logs: Latest server errors for quick triage. Not a long-term log store — use your logging service for that.'
       ]} />
 
       {/* Live-ish audit (latest 200) */}
@@ -35,6 +46,7 @@ export default function ObsPage(){
       {/* Rate limits */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="font-medium">Rate Limit & 429s Dashboard <HelpTip text="Who is hammering us? Shows the heaviest users/IPs in the past day." /></div>
+        <p className="text-xs text-neutral-500">ELI5: When someone gets too many requests too fast, we return 429. This list shows who hit that limit most — helps spot bots, bugs, or users who need higher limits.</p>
         {!rl ? (<div className="text-sm opacity-70">Loading…</div>) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -56,6 +68,7 @@ export default function ObsPage(){
       {/* Error Logs */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="font-medium">Error Logs (latest 200) <HelpTip text="Quick triage list. Use for clues, not as the long‑term log store." /></div>
+        <p className="text-xs text-neutral-500">ELI5: Server errors we logged. Check path + message to debug. For full history, use Vercel logs or your logging service.</p>
         <div className="overflow-auto max-h-80">
           <table className="min-w-full text-sm">
             <thead><tr><th className="text-left py-1 px-2">When</th><th className="text-left py-1 px-2">Kind</th><th className="text-left py-1 px-2">Message</th><th className="text-left py-1 px-2">Path</th></tr></thead>

@@ -97,12 +97,10 @@ export default function AdminPricingPage() {
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800 space-y-2">
             <div className="font-semibold text-blue-900 dark:text-blue-200">📊 ELI5: What This Page Does</div>
             <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-              <li>• 💰 <strong>Monthly Revenue Tracking:</strong> See how much money Pro subscriptions bring in</li>
-              <li>• 📈 <strong>Conversion Metrics:</strong> How many visitors become paying customers</li>
-              <li>• 🎯 <strong>Upgrade Funnel:</strong> Track clicks on "Upgrade to Pro" buttons</li>
-              <li>• 👥 <strong>User Growth:</strong> Total users vs Pro users over time</li>
-              <li>• ⏱️ <strong>When to use:</strong> Monthly business reviews, pricing strategy decisions</li>
-              <li>• 🔄 <strong>How often:</strong> Weekly/monthly to track growth trends</li>
+              <li>• <strong>Accurate:</strong> Total users, Pro users, conversion rate, monthly revenue — from Supabase Auth</li>
+              <li>• <strong>Placeholder:</strong> Daily charts (page views, upgrade clicks) are simulated — wire up PostHog for real data</li>
+              <li>• 💰 <strong>Monthly Revenue:</strong> Pro users × $1.99/month</li>
+              <li>• ⏱️ <strong>When to use:</strong> Monthly business reviews, pricing strategy</li>
             </ul>
           </div>
         </div>

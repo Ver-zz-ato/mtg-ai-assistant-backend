@@ -17,8 +17,8 @@ export default function DeployPage(){
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="text-xl font-semibold">Deployment Awareness</div>
       <ELI5 heading="Deployment Awareness" items={[
-        'Write down what\'s live (git SHA, model, region, time) for quick debugging.',
-        'Set rough performance targets so regressions have a yardstick.'
+        'Version & Env: Record what\'s live — git SHA, AI model, region, deploy time. When something breaks, you know exactly which version to blame.',
+        'Perf Budgets: Set targets (TTFB, API p95, image load). Not enforced — just a reminder. If metrics creep past these, investigate.'
       ]} />
 
       <section className="rounded border border-neutral-800 p-3 space-y-2">

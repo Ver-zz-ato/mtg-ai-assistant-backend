@@ -2,10 +2,14 @@
  * Fetches actual usage and costs from OpenAI's Usage API and Costs API.
  * Requires OPENAI_ADMIN_API_KEY (Admin API key from org settings).
  * See: https://platform.openai.com/settings/organization/admin-keys
+ *
+ * If the Costs API returns $0 (common: delayed billing, different response format),
+ * we fall back to estimating cost from token usage using our pricing table.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { isAdmin } from '@/lib/admin-check';
+import { costUSD } from '@/lib/ai/pricing';
 
 export const runtime = 'nodejs';
 
@@ -135,9 +139,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Fallback: Costs API often returns $0 (delayed billing, different format). Estimate from tokens.
+    let costSource: 'openai_api' | 'estimated_from_tokens' = 'openai_api';
+    if (totalCostUsd === 0 && totalInput + totalOutput > 0) {
+      totalCostUsd = 0;
+      for (const [model, v] of byModel.entries()) {
+        totalCostUsd += costUSD(model, v.input_tokens, v.output_tokens);
+      }
+      totalCostUsd = Math.round(totalCostUsd * 10000) / 10000;
+      costSource = 'estimated_from_tokens';
+    }
+
     return NextResponse.json({
       ok: true,
       source: 'openai_api',
+      cost_source: costSource,
       days,
       totals: {
         cost_usd: Math.round(totalCostUsd * 10000) / 10000,

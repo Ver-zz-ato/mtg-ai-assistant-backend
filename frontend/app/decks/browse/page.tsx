@@ -212,105 +212,75 @@ function BrowseDecksContent() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl p-4 sm:p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-4xl font-bold text-white">Browse Public Decks</h1>
-          {total > 0 && (
-            <div className="text-sm text-gray-400">
-              Showing <span className="text-white font-semibold">{decks.length}</span> of <span className="text-white font-semibold">{total.toLocaleString()}</span> decks
-            </div>
-          )}
+    <main className="mx-auto max-w-[1600px] p-4 sm:p-6">
+      {/* Compact header + filters row */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+        <div className="flex-shrink-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Browse Public Decks</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Explore community decks</p>
         </div>
-        <p className="text-gray-400">
-          Explore community decks. Find inspiration, copy strategies, and share your own!
-        </p>
+        {total > 0 && (
+          <div className="text-sm text-gray-400 lg:self-center">
+            {decks.length} of {total.toLocaleString()} decks
+          </div>
+        )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-        {/* Search */}
-        <form onSubmit={handleSearch} className="mb-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by deck name, commander, or cards..."
-              className="flex-1 bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
-            >
-              Search
-            </button>
-          </div>
+      {/* Compact filters */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-4">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search deck, commander, or cards..."
+            className="flex-1 min-w-[200px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={format}
+            onChange={(e) => { setFormat(e.target.value); setPage(1); }}
+            className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+          >
+            {FORMATS.map(f => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+          <select
+            value={colors}
+            onChange={(e) => { setColors(e.target.value); setPage(1); }}
+            className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+          >
+            {COLORS.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+          <select
+            value={sort}
+            onChange={(e) => { setSort(e.target.value); setPage(1); }}
+            className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+          >
+            {SORT_OPTIONS.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowFiltersModal(true)}
+            className="bg-neutral-950 border border-neutral-700 hover:border-blue-500 rounded-lg px-3 py-2 text-sm text-white transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            More
+          </button>
+          <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">
+            Search
+          </button>
         </form>
-
-        {/* Filter Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Format */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Format</label>
-            <select
-              value={format}
-              onChange={(e) => { setFormat(e.target.value); setPage(1); }}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {FORMATS.map(f => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Colors */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Color Identity</label>
-            <select
-              value={colors}
-              onChange={(e) => { setColors(e.target.value); setPage(1); }}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {COLORS.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
-            <select
-              value={sort}
-              onChange={(e) => { setSort(e.target.value); setPage(1); }}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {SORT_OPTIONS.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Advanced Filters Button */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">More Filters</label>
-            <button
-              onClick={() => setShowFiltersModal(true)}
-              className="w-full bg-neutral-950 border border-neutral-700 hover:border-blue-500 rounded-lg px-3 py-2 text-white transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              Advanced
-            </button>
-          </div>
-        </div>
 
         {/* Active Filters */}
         {(format !== 'all' || colors !== 'all' || search) && (
-          <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-400">Active filters:</span>
             {format !== 'all' && (
               <span className="bg-blue-600/20 border border-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm">
@@ -340,15 +310,15 @@ function BrowseDecksContent() {
         )}
       </div>
 
-      {/* Results */}
+      {/* Results — 2–3 cols on small, 4–5 on large to reduce vertical scroll */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden animate-pulse">
-              <div className="h-48 bg-neutral-800" />
-              <div className="p-4">
-                <div className="h-6 bg-neutral-800 rounded mb-2" />
-                <div className="h-4 bg-neutral-800 rounded w-3/4" />
+              <div className="h-36 sm:h-40 bg-neutral-800" />
+              <div className="p-3">
+                <div className="h-5 bg-neutral-800 rounded mb-1" />
+                <div className="h-3 bg-neutral-800 rounded w-3/4" />
               </div>
             </div>
           ))}
@@ -357,7 +327,7 @@ function BrowseDecksContent() {
         <EmptySearchState query={search} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {decks.map((deck) => (
               <PrefetchLink
                 key={deck.id}
@@ -367,7 +337,7 @@ function BrowseDecksContent() {
                 className="group bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all transform hover:scale-[1.02]"
               >
                 {/* Art */}
-                <div className="relative h-48 bg-neutral-950 overflow-hidden">
+                <div className="relative h-36 sm:h-40 bg-neutral-950 overflow-hidden">
                   <DeckArtLoader
                     deckId={deck.id}
                     commander={deck.commander || undefined}
@@ -396,26 +366,19 @@ function BrowseDecksContent() {
                 </div>
 
                 {/* Info */}
-                <div className="p-4">
-                  <h3 className="font-bold text-lg text-white mb-1 truncate group-hover:text-blue-400 transition-colors">
+                <div className="p-3">
+                  <h3 className="font-semibold text-sm text-white mb-0.5 truncate group-hover:text-blue-400 transition-colors">
                     {deck.title || 'Untitled Deck'}
                   </h3>
                   {deck.commander && (
-                    <p className="text-sm text-gray-400 mb-2 truncate">
-                      Commander: {deck.commander}
+                    <p className="text-xs text-gray-400 truncate">
+                      {deck.commander}
                     </p>
                   )}
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>By {deck.owner_username}</span>
-                    <span>{deck.card_count} cards</span>
+                  <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+                    <span>{deck.owner_username}</span>
+                    <span>{deck.card_count}</span>
                   </div>
-                  {deck.format && (
-                    <div className="mt-2">
-                      <span className="inline-block bg-neutral-800 px-2 py-1 rounded text-xs text-gray-300">
-                        {deck.format}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </PrefetchLink>
             ))}

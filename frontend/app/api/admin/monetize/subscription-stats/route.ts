@@ -152,6 +152,17 @@ export async function GET(req: NextRequest) {
       }
     ];
 
+    // Fetch active subscription count directly from Stripe (source of truth)
+    let stripeApiActiveCount = 0;
+    try {
+      for await (const _ of stripe.subscriptions.list({ status: 'active', limit: 100 })) {
+        stripeApiActiveCount++;
+        if (stripeApiActiveCount >= 500) break;
+      }
+    } catch (stripeErr: any) {
+      console.warn('Could not fetch Stripe subscription count:', stripeErr?.message);
+    }
+
     // Enhanced stats with Stripe subscriber count
     return NextResponse.json({
       ok: true,
@@ -160,7 +171,8 @@ export async function GET(req: NextRequest) {
         monthly_subscriptions: monthly,
         yearly_subscriptions: yearly,
         manual_pro: manual,
-        stripe_subscribers: stripeSubscribers, // Total users with Stripe subscriptions
+        stripe_subscribers: stripeSubscribers, // Users in our DB with stripe_subscription_id
+        stripe_api_active: stripeApiActiveCount, // Active subs from Stripe API (source of truth)
         recent_signups_30d: recentPro
       },
       chart_data: cumulativeData,

@@ -56,8 +56,10 @@ export default function AdminBadgesPage(){
   return (
     <main className="max-w-3xl mx-auto p-4 space-y-3">
       <div className="text-xl font-semibold">Badges summary (approx)</div>
-      <ELI5 heading="Badges" items={["Rough counts of who likely earns each badge, based on recent data.", "Great for a quick sense check; exact values would need a background job."]} />
-      <div className="text-xs opacity-70">Sampling recent public decks for a quick estimate. For exact counts, we can add a background job later.</div>
+      <ELI5 heading="Badges" items={[
+        "Approximate counts from a sample of recent public decks (last 200). Not exact — some badges (On-Curve, Mana Maestro) are placeholders.",
+        "For exact counts, add a background job that scans all decks. Use this for a quick sense check."
+      ]} />
       {error && <div className="text-xs text-red-400">{error}</div>}
       <div className="rounded border border-neutral-800">
         <table className="w-full text-sm">

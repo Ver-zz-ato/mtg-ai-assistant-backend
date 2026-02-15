@@ -108,53 +108,63 @@ export default async function CommanderHubPage({ params }: Props) {
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
 
   return (
-    <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <CommanderActionBar commanderSlug={slug} commanderName={name} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd(slug, name) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: webPageJsonLd(slug, name, description) }} />
       <article className="text-neutral-200">
-        <nav className="text-sm text-neutral-400 mb-4">
+        <nav className="text-sm text-neutral-400 mb-3">
           <Link href="/" className="hover:text-white">Home</Link>
           <span className="mx-2">/</span>
           <Link href="/commanders" className="hover:text-white">Commanders</Link>
           <span className="mx-2">/</span>
           <span className="text-neutral-200">{name}</span>
         </nav>
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-          {name} Commander Tools
-        </h1>
-        {commanderArt && (
-          <CommanderArtBanner artUrl={commanderArt} name={name} className="mb-6" />
-        )}
-        <CommanderIntelligencePanel data={panelData} />
-        <h2 className="text-xl font-semibold text-neutral-100 mb-4">Try tools with this commander</h2>
-        <CommanderToolActions
-          commanderName={name}
-          tools={[
-            { href: mulliganUrl, label: "Mulligan Simulator", description: "Simulate keep rates for your opener", isRecommended: true },
-            { href: costUrl, label: "Cost to Finish", description: "Estimate cost to complete your deck" },
-            { href: swapsUrl, label: "Budget Swaps", description: "Find cheaper alternatives" },
-            { href: browseUrl, label: "Browse Decks", description: `Explore public ${name} decks` },
-          ]}
-        />
-        <div className="text-neutral-300 mb-8 space-y-4 text-lg leading-relaxed">
-          {intro.split(/(?<=\.)\s+/).map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
+
+        {/* 2-column layout: left = art + intelligence + tools, right = intro + snapshot */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-8">
+          <div className="lg:col-span-1 space-y-4">
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">
+              {name} Commander Tools
+            </h1>
+            {commanderArt && (
+              <CommanderArtBanner artUrl={commanderArt} name={name} className="mb-4" />
+            )}
+            <CommanderIntelligencePanel data={panelData} />
+            <div>
+              <h2 className="text-base font-semibold text-neutral-100 mb-3">Try tools</h2>
+              <CommanderToolActions
+                commanderName={name}
+                tools={[
+                  { href: mulliganUrl, label: "Mulligan Simulator", description: "Simulate keep rates", isRecommended: true },
+                  { href: costUrl, label: "Cost to Finish", description: "Estimate deck cost" },
+                  { href: swapsUrl, label: "Budget Swaps", description: "Find cheaper alternatives" },
+                  { href: browseUrl, label: "Browse Decks", description: `Explore ${name} decks` },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="lg:col-span-2 space-y-4">
+            <div className="text-neutral-300 text-base leading-relaxed">
+              {intro.split(/(?<=\.)\s+/).slice(0, 4).map((p, i) => (
+                <p key={i} className="mb-2">{p}</p>
+              ))}
+            </div>
+
+            {/* Commander Snapshot — compact */}
+            <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
+              <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider mb-2">Snapshot</h2>
+              <div className="grid gap-1 sm:grid-cols-2 text-sm">
+                <div><span className="text-neutral-500">Gameplan:</span> <span className="text-neutral-200">{snapshot.gameplan}</span></div>
+                <div><span className="text-neutral-500">Themes:</span> <span className="text-neutral-200">{snapshot.themes}</span></div>
+                <div><span className="text-neutral-500">Power:</span> <span className="text-neutral-200">{snapshot.powerStyle}</span></div>
+                <div><span className="text-neutral-500">Difficulty:</span> <span className="text-neutral-200">{snapshot.difficulty}</span></div>
+              </div>
+            </section>
+          </div>
         </div>
 
-        {/* Commander Snapshot Card — alternating bg */}
-        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6">
-          <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider mb-3">Commander Snapshot</h2>
-          <div className="grid gap-2 sm:grid-cols-2 text-sm">
-            <div><span className="text-neutral-500">Gameplan:</span> <span className="text-neutral-200">{snapshot.gameplan}</span></div>
-            <div><span className="text-neutral-500">Core themes:</span> <span className="text-neutral-200">{snapshot.themes}</span></div>
-            <div><span className="text-neutral-500">Power style:</span> <span className="text-neutral-200">{snapshot.powerStyle}</span></div>
-            <div><span className="text-neutral-500">Difficulty:</span> <span className="text-neutral-200">{snapshot.difficulty}</span></div>
-          </div>
-        </section>
-
-        <ToolStrip variant="compact" className="mb-8" />
+        <ToolStrip variant="compact" className="mb-6" />
 
         <CommanderSynergyTeaser profile={profile} />
 

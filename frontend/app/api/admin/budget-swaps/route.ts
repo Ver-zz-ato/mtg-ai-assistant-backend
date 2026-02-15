@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
-    const swapsFilePath = path.join(process.cwd(), 'frontend', 'lib', 'data', 'budget-swaps.json');
+    // process.cwd() is project root (frontend/ when deployed); avoid duplicate 'frontend'
+    const swapsFilePath = path.join(process.cwd(), 'lib', 'data', 'budget-swaps.json');
     
     try {
       const fileContent = fs.readFileSync(swapsFilePath, 'utf-8');
@@ -52,7 +53,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "swaps object required" }, { status: 400 });
     }
 
-    const swapsFilePath = path.join(process.cwd(), 'frontend', 'lib', 'data', 'budget-swaps.json');
+    // process.cwd() is project root (frontend/ when deployed); avoid duplicate 'frontend'
+    const swapsFilePath = path.join(process.cwd(), 'lib', 'data', 'budget-swaps.json');
     
     // Read existing file to preserve version and metadata
     let existingData: any = { version: "1.0.0", lastUpdated: new Date().toISOString().split('T')[0], swaps: {} };

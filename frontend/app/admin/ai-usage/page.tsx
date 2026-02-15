@@ -2,6 +2,7 @@
 import React from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { getRouteContext } from "@/lib/ai/route-to-page";
+import { ELI5 } from "@/components/AdminHelp";
 
 function SnapshotInfo(){
   const [loading, setLoading] = React.useState(true);
@@ -357,6 +358,12 @@ export default function AdminAIUsagePage() {
           </div>
         </header>
 
+        <ELI5 heading="AI Usage" items={[
+          'Our estimate: from our ai_usage table (we log each request). OpenAI actual: from their API when available.',
+          'If OpenAI actual shows $0, we fall back to estimating from token usage. Check OPENAI_ADMIN_API_KEY.',
+          'Use for: cost tracking, spotting expensive routes, debugging model usage.'
+        ]} />
+
         {loading && <div className="text-sm text-neutral-500">Loading…</div>}
         {error && <div className="rounded-md bg-red-950/50 border border-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>}
 
@@ -456,9 +463,16 @@ export default function AdminAIUsagePage() {
                 )}
                 {!openaiLoading && openaiData?.totals && (
                   <div className="space-y-3">
+                    {openaiData.cost_source === 'estimated_from_tokens' && (
+                      <div className="text-xs text-amber-400/90 bg-amber-950/30 rounded px-2 py-1">
+                        OpenAI Costs API returned $0 (common: delayed billing). Showing estimated cost from token usage.
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <div className="text-[11px] uppercase text-neutral-500">Cost (actual)</div>
+                        <div className="text-[11px] uppercase text-neutral-500">
+                          Cost {openaiData.cost_source === 'estimated_from_tokens' ? '(est. from tokens)' : '(actual)'}
+                        </div>
                         <div className="text-lg font-semibold text-emerald-300">${openaiData.totals.cost_usd?.toFixed(4) ?? "0"}</div>
                       </div>
                       <div>

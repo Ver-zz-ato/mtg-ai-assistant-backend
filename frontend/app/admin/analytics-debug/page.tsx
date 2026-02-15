@@ -4,12 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { getConsentStatus } from '@/lib/consent';
 import { getVisitorIdFromCookie, getDistinctId } from '@/lib/ph';
 import { getLastEvents, clearCaptureBuffer } from '@/lib/analytics/capture-buffer';
+import { ELI5 } from '@/components/AdminHelp';
 import Link from 'next/link';
 
 function isPostHogLoaded(): boolean {
   if (typeof window === 'undefined') return false;
   return !!(window as any).posthog?._loaded;
 }
+
+const POSTHOG_APP = process.env.NEXT_PUBLIC_POSTHOG_HOST?.includes('eu.') ? 'https://eu.posthog.com' : 'https://us.posthog.com';
 
 export default function AnalyticsDebugPage() {
   const [consent, setConsent] = useState<string>('unknown');
@@ -39,6 +42,18 @@ export default function AnalyticsDebugPage() {
           </Link>
         </div>
 
+        <ELI5 heading="Analytics Debug" items={[
+          'PostHog loads asynchronously — "no" here often means it\'s still loading. Refresh or wait a few seconds.',
+          'This buffer shows only client-side capture() events. Server-side events (pageview_server, auth-event) go straight to PostHog.',
+          'Check PostHog live events for the full picture. Accept cookies if you haven\'t — events are dropped without consent.'
+        ]} />
+
+        <div className="flex gap-2">
+          <a href={POSTHOG_APP} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 hover:text-blue-300 underline">
+            Open PostHog Dashboard →
+          </a>
+        </div>
+
         <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-neutral-400">Consent</span>
@@ -48,6 +63,7 @@ export default function AnalyticsDebugPage() {
             <span className="text-neutral-400">PostHog loaded</span>
             <span className="font-mono">{phLoaded ? 'yes' : 'no'}</span>
           </div>
+          {!phLoaded && <p className="text-xs text-amber-400/90 -mt-1">PostHog loads async. Wait a few seconds or click Refresh.</p>}
           <div className="flex items-center justify-between">
             <span className="text-neutral-400">distinct_id</span>
             <span className="font-mono text-sm truncate max-w-[240px]" title={distinctId ?? ''}>

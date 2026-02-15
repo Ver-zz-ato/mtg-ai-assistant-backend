@@ -1,6 +1,30 @@
 'use client';
 import React from 'react';
 import { ELI5, HelpTip } from '@/components/AdminHelp';
+
+function SyncFromStripeButton({ onSynced }: { onSynced: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const run = async () => {
+    if (!confirm('Sync Stripe subscriptions to profiles? Matches by customer email.')) return;
+    setBusy(true);
+    try {
+      const r = await fetch('/api/admin/stripe/sync-from-stripe', { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Sync failed');
+      alert(`Synced ${j.synced} profile(s). Skipped: ${j.skipped}.`);
+      onSynced();
+    } catch (e: any) {
+      alert(e?.message || 'Sync failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={run} disabled={busy} className="text-[10px] text-amber-400 hover:text-amber-300 mt-1 underline disabled:opacity-50">
+      {busy ? 'Syncing…' : 'Sync from Stripe'}
+    </button>
+  );
+}
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -192,7 +216,7 @@ export default function AdminMonetizePage() {
         ) : stats ? (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Total Pro Users</div>
                 <div className="text-2xl font-bold">{stats.stats?.total_pro || 0}</div>
@@ -210,9 +234,17 @@ export default function AdminMonetizePage() {
                 <div className="text-2xl font-bold">{stats.stats?.manual_pro || 0}</div>
               </div>
               <div className="rounded border border-blue-700 p-3 bg-blue-900/20">
-                <div className="text-xs text-blue-400 mb-1">Stripe Subscribers</div>
+                <div className="text-xs text-blue-400 mb-1">Stripe (our DB)</div>
                 <div className="text-2xl font-bold text-blue-300">{stats.stats?.stripe_subscribers || 0}</div>
-                <div className="text-[10px] text-blue-500 mt-1">Users with stripe_subscription_id</div>
+                <div className="text-[10px] text-blue-500 mt-1">Profiles with stripe_subscription_id</div>
+              </div>
+              <div className="rounded border border-emerald-700 p-3 bg-emerald-900/20">
+                <div className="text-xs text-emerald-400 mb-1">Stripe API (source of truth)</div>
+                <div className="text-2xl font-bold text-emerald-300">{stats.stats?.stripe_api_active ?? '—'}</div>
+                <div className="text-[10px] text-emerald-500 mt-1">Active subs from Stripe</div>
+                {(stats.stats?.stripe_api_active ?? 0) > (stats.stats?.stripe_subscribers ?? 0) && (
+                  <SyncFromStripeButton onSynced={loadStats} />
+                )}
               </div>
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Last 30 Days</div>

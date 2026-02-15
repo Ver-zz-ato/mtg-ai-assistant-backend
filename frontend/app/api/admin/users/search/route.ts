@@ -22,39 +22,92 @@ export async function GET(req: NextRequest){
     const admin = getAdmin();
     if (!admin) return NextResponse.json({ ok:false, error:"missing_service_role_key" }, { status:500 });
 
-    const q = String(req.nextUrl.searchParams.get("q") || "");
-    const page = 1, perPage = 1000;
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-    if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+    const q = String(req.nextUrl.searchParams.get("q") || "").trim();
+    const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
+    const perPage = Math.min(100, Math.max(10, parseInt(req.nextUrl.searchParams.get("perPage") || "50", 10) || 50));
 
-    // Fetch profiles data for Pro status (single source of truth)
-    const userIds = (data?.users || []).map((u:any) => u.id);
-    const { data: profiles } = await supabase
+    // When searching, fetch multiple pages (auth has no native search). Otherwise single page.
+    const authUsers: any[] = [];
+    if (q) {
+      for (let p = 1; p <= 10; p++) {
+        const { data, error } = await admin.auth.admin.listUsers({ page: p, perPage });
+        if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+        const batch = data?.users || [];
+        authUsers.push(...batch);
+        if (batch.length < perPage) break;
+      }
+    } else {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+      if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+      authUsers.push(...(data?.users || []));
+    }
+    const userIds = authUsers.map((u:any) => u.id);
+    if (userIds.length === 0) {
+      return NextResponse.json({ ok: true, users: [], total: 0, page, perPage });
+    }
+
+    // Fetch profiles (Pro status, Stripe, etc.)
+    const { data: profiles } = await admin
       .from('profiles')
-      .select('id, is_pro, pro_plan')
+      .select('id, email, username, display_name, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
       .in('id', userIds);
-    
     const profilesMap = new Map((profiles || []).map((p:any) => [p.id, p]));
 
+    // Deck counts per user
+    const { data: deckCounts } = await admin
+      .from('decks')
+      .select('user_id')
+      .in('user_id', userIds);
+    const countByUser = new Map<string, number>();
+    for (const d of deckCounts || []) {
+      const uid = (d as any).user_id;
+      if (uid) countByUser.set(uid, (countByUser.get(uid) || 0) + 1);
+    }
+
     const needle = norm(q);
-    const users = (data?.users || []).map((u:any) => {
+    const users = authUsers.map((u:any) => {
       const um = (u?.user_metadata || {}) as any;
-      const avatar = um.avatar || um.avatar_url || null;
-      const username = um.username || um.display_name || null;
-      
-      // Read Pro status from profiles table (single source of truth)
       const profile = profilesMap.get(u.id);
-      const pro = profile ? !!profile.is_pro : !!um.pro; // Fallback to user_metadata if profile missing
+      const username = profile?.username || um.username || um.display_name || null;
+      const displayName = profile?.display_name || um.display_name || um.username || null;
+      const emailVal = profile?.email || u.email || null;
+      const pro = profile ? !!profile.is_pro : !!um.pro;
       const pro_plan = profile?.pro_plan || null;
-      
       const billing_active = !!um.billing_active;
-      return { id: u.id, email: u.email, username, avatar, pro, pro_plan, billing_active } as any;
+      const created_at = u.created_at || null;
+      const last_sign_in_at = u.last_sign_in_at || null;
+      const deck_count = countByUser.get(u.id) ?? 0;
+      const stripe_subscription_id = profile?.stripe_subscription_id || null;
+      const stripe_customer_id = profile?.stripe_customer_id || null;
+      return {
+        id: u.id,
+        email: emailVal,
+        username,
+        display_name: displayName,
+        avatar: um.avatar || um.avatar_url || null,
+        pro,
+        pro_plan,
+        billing_active,
+        created_at,
+        last_sign_in_at,
+        deck_count,
+        stripe_subscription_id,
+        stripe_customer_id,
+        pro_since: profile?.pro_since || null,
+      } as any;
     }).filter((u:any) => {
       if (!needle) return true;
-      return [u.id, u.email, u.username].some(v => norm(v||"").includes(needle));
-    }).slice(0, 100);
+      return [u.id, u.email, u.username, u.display_name].some(v => norm(v||"").includes(needle));
+    });
 
-    return NextResponse.json({ ok:true, users });
+    return NextResponse.json({
+      ok: true,
+      users,
+      total: users.length,
+      page,
+      perPage,
+      hasMore: !q && authUsers.length >= perPage,
+    });
   }catch(e:any){
     return NextResponse.json({ ok:false, error:e?.message||"server_error" }, { status:500 });
   }

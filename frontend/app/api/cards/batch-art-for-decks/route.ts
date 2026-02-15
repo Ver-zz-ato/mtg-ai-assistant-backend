@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,9 @@ const MAX_DECKS = 50;
 const MAX_TOTAL_NAMES = 200;
 
 function extractNamesFromDeckText(deckText: string): string[] {
-  const parsed = parseDeckText(deckText);
+  // Normalize escaped newlines (deck_text sometimes stored with \n as literal)
+  let text = String(deckText || "").replace(/\\n/g, "\n").replace(/\\\\n/g, "\n");
+  const parsed = parseDeckText(text);
   const nonBasic = parsed.filter((e) => !BASIC_LANDS.has(e.name.toLowerCase().trim()));
   const basic = parsed.filter((e) => BASIC_LANDS.has(e.name.toLowerCase().trim()));
   const byQty = [...nonBasic, ...basic]
@@ -52,6 +55,40 @@ export async function POST(req: NextRequest) {
         deckToNames[deckId] = names;
         for (const n of names) {
           if (!allNames.includes(n)) allNames.push(n);
+        }
+      }
+    }
+
+    // Fallback: fetch from deck_cards for decks still missing names (e.g. decks with deck_text in odd format)
+    const missingIds = ids.filter((id) => !deckToNames[id]);
+    if (missingIds.length > 0) {
+      const admin = getAdmin();
+      if (admin) {
+        const { data: cards } = await admin
+          .from("deck_cards")
+          .select("deck_id, name, qty")
+          .in("deck_id", missingIds);
+        const byDeck = new Map<string, { name: string; qty: number }[]>();
+        for (const c of cards || []) {
+          const list = byDeck.get(c.deck_id) || [];
+          list.push({ name: (c as any).name, qty: (c as any).qty || 1 });
+          byDeck.set(c.deck_id, list);
+        }
+        for (const [deckId, list] of byDeck) {
+          if (deckToNames[deckId]) continue;
+          const nonBasic = list.filter((c) => !BASIC_LANDS.has(c.name.toLowerCase().trim()));
+          const basic = list.filter((c) => BASIC_LANDS.has(c.name.toLowerCase().trim()));
+          const sorted = [...nonBasic, ...basic]
+            .sort((a, b) => (b.qty || 0) - (a.qty || 0))
+            .slice(0, MAX_NAMES_PER_DECK)
+            .map((c) => c.name.trim())
+            .filter(Boolean);
+          if (sorted.length > 0) {
+            deckToNames[deckId] = [...new Set(sorted)];
+            for (const n of sorted) {
+              if (!allNames.includes(n)) allNames.push(n);
+            }
+          }
         }
       }
     }
