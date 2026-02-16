@@ -166,6 +166,7 @@ async function callOpenAI(
   userId?: string | null,
   isPro?: boolean,
   isGuest?: boolean,
+  anonId?: string | null,
   opts?: CallOpenAIOpts
 ) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -225,6 +226,7 @@ async function callOpenAI(
         retryOn429: false,
         retryOn5xx: false,
         skipRecordAiUsage: opts?.skipRecordAiUsage ?? false,
+        anonId: anonId ?? null,
       }
     );
 
@@ -331,6 +333,15 @@ export async function POST(req: NextRequest) {
       userId = null;
     } else {
       userId = user.id;
+    }
+
+    let anonId: string | null = null;
+    if (userId) {
+      const { hashString } = await import('@/lib/guest-tracking');
+      anonId = await hashString(userId);
+    } else if (guestToken) {
+      const { hashGuestToken } = await import('@/lib/guest-tracking');
+      anonId = await hashGuestToken(guestToken);
     }
 
     // Check Pro status (only for authenticated users) - use standardized check
@@ -670,6 +681,7 @@ export async function POST(req: NextRequest) {
         const { recordAiUsage } = await import("@/lib/ai/log-usage");
         await recordAiUsage({
           user_id: userId ?? null,
+          anon_id: anonId ?? null,
           thread_id: tid ?? null,
           model: "none",
           input_tokens: 0,
@@ -944,7 +956,7 @@ export async function POST(req: NextRequest) {
             try {
               const { buildSummaryPrompt, parseSummary, formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
               const summaryPrompt = buildSummaryPrompt(threadHistory);
-              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro, isGuest);
+              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro, isGuest, anonId);
               const summary = parseSummary(typeof summaryResponse === 'string' ? summaryResponse : (summaryResponse as any)?.text || '');
               
               if (summary) {
@@ -1268,6 +1280,7 @@ export async function POST(req: NextRequest) {
         const { recordAiUsage } = await import("@/lib/ai/log-usage");
         await recordAiUsage({
           user_id: userId ?? null,
+          anon_id: anonId ?? null,
           thread_id: tid ?? null,
           model: "cached",
           input_tokens: 0,
@@ -1345,7 +1358,7 @@ export async function POST(req: NextRequest) {
         callOpts.forceModel = layer0MiniOnly.model;
         callOpts.forceMaxTokens = layer0MiniOnly.max_tokens;
       }
-      out1 = await callOpenAI(text, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, callOpts);
+      out1 = await callOpenAI(text, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, anonId, callOpts);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -1468,7 +1481,7 @@ Return the corrected answer with concise, user-facing tone.`;
       reviewPromptLength: reviewPrompt.length
     });
     
-    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro, isGuest);
+    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro, isGuest, anonId);
     
     console.log("🔍 [chat] Review response:", {
       reviewType: typeof review,
@@ -1584,7 +1597,7 @@ Return the corrected answer with concise, user-facing tone.`;
         if (result.needsRegeneration) {
           console.log("[chat] regeneration (needsRegeneration) triggered");
           try {
-            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro, isGuest);
+            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro, isGuest, anonId);
             const regenText = firstOutputText((regenOut as any)?.json);
             if (typeof regenText === "string" && regenText.trim()) {
               outText = regenText.trim();
@@ -1771,6 +1784,7 @@ Return the corrected answer with concise, user-facing tone.`;
       const { recordAiUsage } = await import("@/lib/ai/log-usage");
       await recordAiUsage({
         user_id: userId ?? null,
+        anon_id: anonId ?? null,
         thread_id: tid ?? null,
         model: actualModel,
         input_tokens: it,

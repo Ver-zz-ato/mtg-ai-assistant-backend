@@ -63,6 +63,13 @@ Focus on role/function overlap and synergy preservation. When explaining synergy
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
       const model = process.env.MODEL_SWAP_WHY || 'gpt-4o-mini';
+      let anonId: string | null = null;
+      if (user?.id) anonId = await hashString(user.id);
+      else {
+        const { cookies } = await import('next/headers');
+        const guestToken = (await cookies()).get('guest_session_token')?.value;
+        if (guestToken) anonId = await hashGuestToken(guestToken);
+      }
 
       const response = await callLLM(
         [
@@ -79,6 +86,7 @@ Focus on role/function overlap and synergy preservation. When explaining synergy
           apiType: 'responses',
           userId: user?.id || null,
           isPro: user ? await checkProStatus(user.id) : false,
+          anonId,
         }
       );
 

@@ -20,6 +20,8 @@ export function getRouteForInsert(payload: { route?: string | null }): string {
 
 export type RecordAiUsagePayload = {
   user_id: string | null;
+  /** For joining with user_attribution. hash(guest_token) or hash(user_id). */
+  anon_id?: string | null;
   thread_id?: string | null;
   model: string;
   input_tokens: number;
@@ -81,6 +83,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
     const requestKind = payload.request_kind ?? payload.layer0_mode ?? null;
     const full: Record<string, unknown> = {
       user_id: payload.user_id,
+      anon_id: payload.anon_id ?? null,
       thread_id: payload.thread_id ?? null,
       model: payload.model,
       input_tokens: payload.input_tokens,
@@ -125,6 +128,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
 
     const withoutPreviews = {
       user_id: full.user_id,
+      anon_id: full.anon_id,
       thread_id: full.thread_id,
       model: full.model,
       input_tokens: full.input_tokens,
@@ -167,6 +171,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
 
     const minimal: Record<string, unknown> = {
       user_id: payload.user_id,
+      anon_id: payload.anon_id ?? null,
       thread_id: payload.thread_id ?? null,
       model: payload.model,
       input_tokens: payload.input_tokens,

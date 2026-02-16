@@ -67,6 +67,7 @@ const SECTIONS: Section[] = [
     links: [
       { href: '/admin/monetize', label: 'Monetization', eli5: 'Turn Stripe/Ko-fi/PayPal on or off, see subscribers, promo bar.' },
       { href: '/admin/pricing', label: 'Pricing & Conversion', eli5: 'Page views, upgrade clicks, signups, Pro conversions, revenue.' },
+      { href: '/admin/attribution', label: 'Attribution & Funnels', eli5: 'First-touch attribution: which landing pages and referrers lead to AI usage, repeat usage, and commander funnels.' },
       { href: '/admin/seo/pages', label: 'SEO Landing Pages', eli5: 'Pages that show up on Google. Find winners (getting impressions but not indexed), publish them, manage /q/[slug] pages.' },
       { href: '/admin/changelog', label: 'Changelog', eli5: 'Manage What\'s New entries and version releases.' },
     ],

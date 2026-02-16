@@ -84,7 +84,8 @@ async function aiSuggest(
   currency: string, 
   budget: number,
   userId?: string | null,
-  isPro?: boolean
+  isPro?: boolean,
+  anonId?: string | null
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
   const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
@@ -120,6 +121,7 @@ Quality over quantity.`;
         apiType: 'responses',
         userId: userId || null,
         isPro: isPro || false,
+        anonId: anonId ?? null,
       }
     );
 
@@ -205,7 +207,14 @@ export async function POST(req: NextRequest) {
     if (useAI) {
       const { data: { user } } = await supabase.auth.getUser();
       const isPro = user ? await checkProStatus(user.id) : false;
-      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro);
+      let anonId: string | null = null;
+      if (user?.id) anonId = await hashString(user.id);
+      else {
+        const { cookies } = await import('next/headers');
+        const guestToken = (await cookies()).get('guest_session_token')?.value;
+        if (guestToken) anonId = await hashGuestToken(guestToken);
+      }
+      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;

@@ -152,6 +152,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let anonId: string | null = null;
+    if (userId) {
+      const { hashString: hs } = await import('@/lib/guest-tracking');
+      anonId = await hs(userId);
+    } else if (guestToken) {
+      const { hashGuestToken } = await import('@/lib/guest-tracking');
+      anonId = await hashGuestToken(guestToken);
+    }
+
     // Rate limiting for authenticated users
     if (!isGuest && userId) {
       // Durable rate limiting (database-backed)
@@ -611,6 +620,7 @@ export async function POST(req: NextRequest) {
         const { recordAiUsage } = await import("@/lib/ai/log-usage");
         await recordAiUsage({
           user_id: userId ?? null,
+          anon_id: anonId ?? null,
           thread_id: tid || null,
           model: "none",
           input_tokens: 0,
@@ -920,6 +930,7 @@ export async function POST(req: NextRequest) {
             const cost = costUSD(effectiveModel, it, ot);
             await recordAiUsage({
               user_id: userId ?? null,
+              anon_id: anonId ?? null,
               thread_id: tid || null,
               model: effectiveModel,
               input_tokens: it,

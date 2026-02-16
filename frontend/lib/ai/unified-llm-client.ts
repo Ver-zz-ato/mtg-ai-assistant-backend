@@ -25,6 +25,7 @@ export type LLMConfig = {
   maxTokens?: number;        // Max completion/output tokens
   apiType: 'chat' | 'responses'; // Which OpenAI API to use
   userId?: string | null;    // User ID for logging
+  anonId?: string | null;   // For user_attribution join: hash(guest_token) or hash(user_id)
   isPro?: boolean;           // Pro status for logging
   retryOn429?: boolean;      // Whether to retry on 429 (default: false for most routes)
   retryOn5xx?: boolean;      // Whether to retry on 5xx (default: false)
@@ -380,6 +381,7 @@ export async function callLLM(
       max_tokens_config: config.max_tokens_config ?? null,
       latency_ms: latency,
       source_page: config.source_page ?? null,
+      anon_id: config.anonId ?? null,
     }).catch(() => {});
   }
 

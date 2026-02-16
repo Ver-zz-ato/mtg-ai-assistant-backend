@@ -16,6 +16,7 @@ import PromoBar from "@/components/PromoBar";
 import FeedbackFab from "@/components/FeedbackFab";
 // import PWAProvider from "@/components/PWAProvider"; // DISABLED: PWA not needed yet
 import FirstVisitTracker from "@/components/FirstVisitTracker";
+import AnalyticsAttribution from "@/components/AnalyticsAttribution";
 import TrustFooter from "@/components/TrustFooter";
 import UndoToast from "@/components/UndoToast";
 import KeyboardShortcutsProvider from "@/components/KeyboardShortcutsProvider";
@@ -108,6 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SecureConnectionsGuard />
                 <TopLoadingBar />
                 <FirstVisitTracker />
+                <AnalyticsAttribution />
                 <AnalyticsProvider />
                 <AnalyticsIdentity />
                 <WorkflowAbandonOnRouteChange />

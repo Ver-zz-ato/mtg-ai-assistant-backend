@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { getServerSupabase } from '@/lib/server-supabase';
+import { getAdmin } from '@/app/api/_lib/supa';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
 import { captureServer } from '@/lib/server/analytics';
 import Stripe from 'stripe';
+
+/** Use service role for webhook DB ops - webhooks have no cookies, so anon client would be blocked by RLS. */
+function getWebhookSupabase() {
+  const admin = getAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY required for Stripe webhook');
+  }
+  return admin;
+}
 
 export const runtime = 'nodejs';
 
@@ -159,36 +168,58 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     // This allows the webhook to still update the user even if plan detection fails
   }
 
-  // Find user by customer ID and update their profile
-  const supabase = await getServerSupabase();
+  // Find user by customer ID and update their profile.
+  // CRITICAL: Use service role - webhooks have no cookies, so anon client would be blocked by RLS.
+  const supabase = getWebhookSupabase();
   
   let profile: { id: string } | null = null;
+  let findError: any = null;
   
-  // Try lookup by stripe_customer_id first
-  const { data: profileByCustomer, error: findError } = await supabase
+  // 1) Try lookup by stripe_customer_id
+  const { data: profileByCustomer, error: err1 } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', session.customer)
-    .single();
+    .maybeSingle();
+  findError = err1;
 
-  if (!findError && profileByCustomer) {
+  if (profileByCustomer) {
     profile = profileByCustomer;
   } else {
-    // Fallback: Look up by user ID from session metadata (in case customer ID wasn't saved yet)
+    // 2) Fallback: Look up by user ID from session metadata
     const userId = (session.metadata as any)?.app_user_id;
     if (userId) {
-      const { data: profileById, error: findByIdError } = await supabase
+      const { data: profileById, error: err2 } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', userId)
-        .single();
-      
-      if (!findByIdError && profileById) {
+        .maybeSingle();
+      findError = err2;
+      if (profileById) {
         profile = profileById;
-        console.info('Found user by metadata.app_user_id fallback', { userId, customerId: session.customer });
-      } else {
-        console.error('Failed to find user by ID fallback:', userId, findByIdError);
+        console.info('Found user by metadata.app_user_id', { userId, customerId: session.customer });
       }
+    }
+  }
+
+  // 3) Fallback: Look up by Stripe customer email (works even if profile never had stripe_customer_id)
+  if (!profile) {
+    try {
+      const customer = await stripe.customers.retrieve(session.customer as string);
+      if (customer && !customer.deleted && (customer as any).email) {
+        const email = ((customer as any).email as string).toLowerCase();
+        const { data: profileByEmail } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        if (profileByEmail) {
+          profile = profileByEmail;
+          console.info('Found user by Stripe customer email', { email, customerId: session.customer });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch Stripe customer for email fallback:', e);
     }
   }
 
@@ -199,7 +230,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       subscriptionId: subscription.id,
       metadata: session.metadata,
       findError,
-      findByIdError: (session.metadata as any)?.app_user_id ? 'User ID in metadata but profile not found' : 'No user ID in metadata',
     });
     return;
   }
@@ -294,14 +324,14 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     status: subscription.status,
   });
 
-  // Find user by customer ID
-  const supabase = await getServerSupabase();
+  // Find user by customer ID (service role - webhooks have no cookies)
+  const supabase = getWebhookSupabase();
   
   const { data: profile, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', subscription.customer)
-    .single();
+    .maybeSingle();
 
   if (findError || !profile) {
     console.error('Failed to find user profile for customer:', subscription.customer, findError);
@@ -435,14 +465,14 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
     customerId: subscription.customer,
   });
 
-  // Find user by customer ID
-  const supabase = await getServerSupabase();
+  // Find user by customer ID (service role - webhooks have no cookies)
+  const supabase = getWebhookSupabase();
   
   const { data: profile, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', subscription.customer)
-    .single();
+    .maybeSingle();
 
   if (findError || !profile) {
     console.error('Failed to find user profile for customer:', subscription.customer, findError);
@@ -521,14 +551,14 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     return;
   }
 
-  // Find user by customer ID
-  const supabase = await getServerSupabase();
+  // Find user by customer ID (service role - webhooks have no cookies)
+  const supabase = getWebhookSupabase();
   
   const { data: profile, error: findError } = await supabase
     .from('profiles')
     .select('id, is_pro')
     .eq('stripe_customer_id', invoice.customer)
-    .single();
+    .maybeSingle();
 
   if (findError || !profile) {
     console.error('Failed to find user profile for customer:', invoice.customer, findError);
@@ -580,14 +610,14 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     return;
   }
 
-  // Find user to potentially send notification
-  const supabase = await getServerSupabase();
+  // Find user to potentially send notification (service role - webhooks have no cookies)
+  const supabase = getWebhookSupabase();
   
   const { data: profile, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', invoice.customer)
-    .single();
+    .maybeSingle();
 
   if (findError || !profile) {
     console.error('Failed to find user profile for failed payment:', invoice.customer, findError);
