@@ -115,6 +115,7 @@ export default function DeckAnalyzerExpandable() {
         deckText: deckText.trim(),
         format,
         useScryfall: true,
+        sourcePage: 'deck_analyzer_expandable',
       };
 
       // Add timeout to prevent hanging (240 seconds for complex decks)

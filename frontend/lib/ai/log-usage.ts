@@ -63,6 +63,8 @@ export type RecordAiUsagePayload = {
   prompt_tier?: string | null;
   /** Rough estimate of system prompt tokens */
   system_prompt_token_estimate?: number | null;
+  /** Where the call originated (e.g. deck_page_analyze, homepage, build_assistant) */
+  source_page?: string | null;
 };
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
@@ -118,6 +120,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       error_code: payload.error_code ?? null,
       prompt_tier: payload.prompt_tier ?? null,
       system_prompt_token_estimate: payload.system_prompt_token_estimate ?? null,
+      source_page: payload.source_page ?? null,
     };
 
     const withoutPreviews = {
@@ -159,6 +162,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       error_code: full.error_code,
       prompt_tier: full.prompt_tier,
       system_prompt_token_estimate: full.system_prompt_token_estimate,
+      source_page: full.source_page,
     };
 
     const minimal: Record<string, unknown> = {
@@ -186,7 +190,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
         'planner_model', 'planner_tokens_in', 'planner_tokens_out', 'planner_cost_usd',
         'stop_sequences_enabled', 'max_tokens_config', 'response_truncated', 'user_tier', 'is_guest',
         'deck_id', 'latency_ms', 'cache_hit', 'cache_kind', 'error_code',
-        'prompt_tier', 'system_prompt_token_estimate',
+        'prompt_tier', 'system_prompt_token_estimate', 'source_page',
       ];
       const fallback = { ...withoutPreviews } as Record<string, unknown>;
       omitNew.forEach((k) => delete fallback[k]);
@@ -194,7 +198,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       if (!e2b) inserted = true;
     }
     if (!inserted) {
-      const { deck_size: _d, context_source: _cs, summary_tokens_estimate: _ste, deck_hash: _dh, layer0_mode: _l0m, layer0_reason: _l0r, ...legacy } = withoutPreviews as Record<string, unknown> & { deck_size?: number; context_source?: string; summary_tokens_estimate?: number; deck_hash?: string; layer0_mode?: string; layer0_reason?: string };
+      const { deck_size: _d, context_source: _cs, summary_tokens_estimate: _ste, deck_hash: _dh, layer0_mode: _l0m, layer0_reason: _l0r, source_page: _sp, ...legacy } = withoutPreviews as Record<string, unknown> & { deck_size?: number; context_source?: string; summary_tokens_estimate?: number; deck_hash?: string; layer0_mode?: string; layer0_reason?: string; source_page?: string };
       const { error: e2c } = await supabase.from('ai_usage').insert(legacy);
       if (!e2c) inserted = true;
     }

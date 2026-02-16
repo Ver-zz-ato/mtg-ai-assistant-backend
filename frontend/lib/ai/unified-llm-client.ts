@@ -53,6 +53,8 @@ export type LLMConfig = {
   error_code?: string | null;
   stop_sequences_enabled?: boolean | null;
   max_tokens_config?: number | null;
+  /** Where the call originated (e.g. deck_page_analyze, homepage, build_assistant) */
+  source_page?: string | null;
 };
 
 export type LLMResponse = {
@@ -377,6 +379,7 @@ export async function callLLM(
       stop_sequences_enabled: config.stop_sequences_enabled ?? null,
       max_tokens_config: config.max_tokens_config ?? null,
       latency_ms: latency,
+      source_page: config.source_page ?? null,
     }).catch(() => {});
   }
 

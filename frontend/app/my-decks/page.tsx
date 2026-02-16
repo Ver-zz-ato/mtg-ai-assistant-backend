@@ -41,6 +41,11 @@ function MyDecksPageContent() {
   const [decks, setDecks] = useState<DeckRow[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const INITIAL_PAGE_SIZE = 20;
   const [showQuizModal, setShowQuizModal] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -85,48 +90,59 @@ function MyDecksPageContent() {
     }
   }, [searchParams]);
 
-  // Load decks - prevent reload when tabbing out/in
+  // Load decks - initial load with pinned first, then paginating the rest
   const decksLoadedRef = useRef(false);
   
-  useEffect(() => {
-    if (authLoading) return;
-    
-    if (!user) {
-      setLoading(false);
-      decksLoadedRef.current = false;
-      return;
-    }
-    
-    // Only reload if decks haven't been loaded yet, or if user ID actually changed
-    if (decksLoadedRef.current && decks && decks.length > 0) {
-      // Decks already loaded, don't reload on tab switch
-      return;
-    }
-    
-    setLoading(true);
-    
-    (async () => {
-      try {
-        const { data, error } = await supabase
+  const loadDecks = React.useCallback(async (pageNum: number, append: boolean) => {
+    if (!user) return;
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+
+    try {
+      const { data: pp } = await supabase
+        .from('profiles_public')
+        .select('pinned_deck_ids')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const pinned = Array.isArray(pp?.pinned_deck_ids) ? pp.pinned_deck_ids : [];
+      setPinnedIds(pinned);
+
+      if (pageNum === 1) {
+        // First page: pinned decks + first batch of non-pinned
+        const pinnedIds = pinned.filter(Boolean);
+        let pinnedDecks: DeckRow[] = [];
+        if (pinnedIds.length > 0) {
+          const { data: pinnedData } = await supabase
+            .from("decks")
+            .select("id, title, commander, created_at, updated_at, is_public")
+            .eq("user_id", user.id)
+            .in("id", pinnedIds);
+          pinnedDecks = (pinnedData || []).map((d: any) => ({
+            ...d,
+            is_public: d.is_public ?? false
+          }));
+        }
+
+        const excludeIds = pinned.filter(Boolean);
+        let nonPinnedQuery = supabase
           .from("decks")
           .select("id, title, commander, created_at, updated_at, is_public")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .range(0, INITIAL_PAGE_SIZE - 1);
 
-        if (error) throw error;
+        if (excludeIds.length > 0) {
+          nonPinnedQuery = nonPinnedQuery.not("id", "in", `("${excludeIds.join('","')}")`);
+        }
 
-        const { data: pp } = await supabase
-          .from('profiles_public')
-          .select('pinned_deck_ids')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        const pinned = Array.isArray(pp?.pinned_deck_ids) ? pp.pinned_deck_ids : [];
-        
-        const sorted = (data || []).map((d: any) => ({
+        const { data: nonPinnedData } = await nonPinnedQuery;
+        const nonPinned = (nonPinnedData || []).map((d: any) => ({
           ...d,
           is_public: d.is_public ?? false
-        })).sort((a: any, b: any) => {
+        }));
+
+        const sorted = [...pinnedDecks, ...nonPinned].sort((a: any, b: any) => {
           const ap = pinned.includes(a.id) ? 0 : 1;
           const bp = pinned.includes(b.id) ? 0 : 1;
           if (ap !== bp) return ap - bp;
@@ -134,15 +150,76 @@ function MyDecksPageContent() {
         });
 
         setDecks(sorted);
-        setPinnedIds(pinned);
-        decksLoadedRef.current = true; // Mark as loaded
-      } catch (err: any) {
-        // Silently fail
-      } finally {
-        setLoading(false);
+        setHasMore(nonPinned.length === INITIAL_PAGE_SIZE);
+      } else {
+        // Append: next page of non-pinned
+        const excludeIds = pinned.filter(Boolean);
+        let query = supabase
+          .from("decks")
+          .select("id, title, commander, created_at, updated_at, is_public")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .range((pageNum - 1) * INITIAL_PAGE_SIZE, pageNum * INITIAL_PAGE_SIZE - 1);
+
+        if (excludeIds.length > 0) {
+          query = query.not("id", "in", `("${excludeIds.join('","')}")`);
+        }
+
+        const { data: moreData } = await query;
+        const more = (moreData || []).map((d: any) => ({
+          ...d,
+          is_public: d.is_public ?? false
+        }));
+
+        setDecks(prev => [...prev, ...more]);
+        setHasMore(more.length === INITIAL_PAGE_SIZE);
       }
-    })();
-  }, [user?.id, authLoading]); // Only depend on user ID, not entire user object
+      decksLoadedRef.current = true;
+    } catch (err: any) {
+      // Silently fail
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [user?.id]);
+
+  const lastUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      decksLoadedRef.current = false;
+      lastUserIdRef.current = null;
+      return;
+    }
+    if (lastUserIdRef.current !== user.id) {
+      lastUserIdRef.current = user.id;
+      decksLoadedRef.current = false;
+      setPage(1);
+      setDecks([]);
+    }
+    if (decksLoadedRef.current && decks.length > 0 && page === 1) return;
+    loadDecks(1, false);
+  }, [user?.id, authLoading]);
+
+  useEffect(() => {
+    if (page > 1 && user) loadDecks(page, true);
+  }, [page]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    const currentTarget = observerTarget.current;
+    if (currentTarget) observer.observe(currentTarget);
+    return () => { if (currentTarget) observer.unobserve(currentTarget); };
+  }, [hasMore, loading, loadingMore]);
 
   if (authLoading) {
     return (
@@ -236,7 +313,7 @@ function MyDecksPageContent() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-semibold">My Decks</h1>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
@@ -263,6 +340,19 @@ function MyDecksPageContent() {
           {/* Left column: Deck list */}
           <div className="lg:col-span-2">
             <MyDecksList rows={decks} pinnedIds={pinnedIds} />
+            {hasMore && (
+              <div ref={observerTarget} className="h-16 flex items-center justify-center py-4">
+                {loadingMore && (
+                  <span className="flex items-center gap-2 text-gray-400 text-sm">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading more decks...
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           
           {/* Right column: Panels and widgets */}

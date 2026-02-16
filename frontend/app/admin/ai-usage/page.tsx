@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { getRouteContext } from "@/lib/ai/route-to-page";
+import { getRouteContext, getCalledFromDisplay } from "@/lib/ai/route-to-page";
 import { ELI5 } from "@/components/AdminHelp";
 
 function SnapshotInfo(){
@@ -638,11 +638,12 @@ export default function AdminAIUsagePage() {
                   <tbody>
                     {usageList.map((r: any) => {
                       const ctx = getRouteContext(r.route);
+                      const calledFrom = getCalledFromDisplay(r.route, r.source_page);
                       return (
                       <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => loadUsageDetail(r.id)}>
                         <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.route ?? "—"}</td>
-                        <td className="px-2 py-1 text-xs text-neutral-400" title={ctx?.description}>{ctx?.page ?? "—"}</td>
+                        <td className="px-2 py-1 text-xs text-neutral-400" title={r.source_page ? `${calledFrom} (${r.source_page})` : ctx?.description}>{calledFrom}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
                         <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
                         <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
@@ -668,11 +669,11 @@ export default function AdminAIUsagePage() {
                       <span className="text-neutral-500 ml-3">per request</span>
                       <span className="text-neutral-500 ml-2">({usageDetail.row.input_tokens ?? 0} in / {usageDetail.row.output_tokens ?? 0} out tokens, {usageDetail.row.model ?? "—"})</span>
                     </div>
-                    {(usageDetail.route_context || (usageDetail.row.route && getRouteContext(usageDetail.row.route))) && (
+                    {(usageDetail.route_context || usageDetail.row.source_page || (usageDetail.row.route && getRouteContext(usageDetail.row.route))) && (
                       <div className="mb-3 p-2 rounded bg-blue-950/30 border border-blue-800/50 text-sm">
                         <div className="text-xs font-medium text-blue-300 uppercase tracking-wide mb-1">Called from (site location)</div>
-                        <div className="font-medium text-blue-200">{(usageDetail.route_context || getRouteContext(usageDetail.row.route))?.page ?? usageDetail.row.route}</div>
-                        <div className="text-xs text-neutral-400 mt-0.5">{(usageDetail.route_context || getRouteContext(usageDetail.row.route))?.description}</div>
+                        <div className="font-medium text-blue-200">{getCalledFromDisplay(usageDetail.row.route, usageDetail.row.source_page) || (usageDetail.route_context || getRouteContext(usageDetail.row.route))?.page || usageDetail.row.route || "—"}</div>
+                        <div className="text-xs text-neutral-400 mt-0.5">{usageDetail.row.source_page ? `source_page: ${usageDetail.row.source_page}` : (usageDetail.route_context || getRouteContext(usageDetail.row.route))?.description}</div>
                       </div>
                     )}
                   </>
@@ -850,7 +851,7 @@ export default function AdminAIUsagePage() {
                         <td className="py-1 pr-2 whitespace-nowrap text-xs">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="py-1 pr-2 max-w-[120px] truncate" title={r.user_email || r.user_id}>{r.user_email || r.user_display_name || (r.user_id ? String(r.user_id).slice(0, 8) + "…" : "—")}</td>
                         <td className="py-1 pr-2 font-mono text-xs">{r.route ?? "chat"}</td>
-                        <td className="py-1 pr-2 text-xs text-neutral-400 max-w-[140px] truncate" title={getRouteContext(r.route)?.description}>{getRouteContext(r.route)?.page ?? "—"}</td>
+                        <td className="py-1 pr-2 text-xs text-neutral-400 max-w-[140px] truncate" title={r.source_page ? `${getCalledFromDisplay(r.route, r.source_page)} (${r.source_page})` : getRouteContext(r.route)?.description}>{getCalledFromDisplay(r.route, r.source_page)}</td>
                         <td className="py-1 pr-2">{r.model ?? "—"}</td>
                         <td className="py-1 pr-2">{r.model_tier ?? "—"}</td>
                         <td className={`py-1 pr-2 text-right font-mono ${isExpensive ? "text-amber-300 font-semibold" : ""}`}>${r.cost_usd}</td>

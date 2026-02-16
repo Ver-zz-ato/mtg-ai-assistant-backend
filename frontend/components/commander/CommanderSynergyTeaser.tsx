@@ -27,7 +27,7 @@ const SYNERGY_MAP: Record<string, string[]> = {
   control: ["Counterspells + removal", "Card advantage engines", "Win condition protection"],
 };
 
-function getSynergyBullets(profile: CommanderProfile): string[] {
+export function getSynergyBullets(profile: CommanderProfile): string[] {
   const tags = (profile.tags ?? []).map((t) => t.toLowerCase());
   for (const tag of tags) {
     const bullets = SYNERGY_MAP[tag];

@@ -62,7 +62,8 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
             body: JSON.stringify({
               deckText,
               format: formatCapitalized,
-              useScryfall: true
+              useScryfall: true,
+              sourcePage: 'banned_cards_banner',
             })
           });
           

@@ -8,4 +8,4 @@ SET title = CASE
   WHEN commander IS NOT NULL AND commander != '' THEN commander || ' - Imported'
   ELSE 'Imported Deck'
 END
-WHERE title ~* '\m(fuck|shit|bitch|cunt|twat|wanker|prick|dick|pussy|nigger|faggot|slut|whore|bastard|asshole|motherfucker|cock|dickhead|bellend|shithead|douche|bollocks)(s|es|ed|ing)?\M';
+WHERE title ~* '\m(fuck|shit|bitch|cunt|twat|wanker|prick|dick|pussy|nigger|faggot|fag|slut|whore|bastard|asshole|motherfucker|cock|dickhead|bellend|shithead|douche|bollocks|retard|foxtard)(s|es|ed|ing)?\M';

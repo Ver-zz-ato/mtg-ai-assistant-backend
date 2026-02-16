@@ -47,7 +47,7 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
       setError(null);
       const ensureText = deckText || await loadDeckText();
       const deckFormat = format || 'commander'; // Use provided format or default to commander
-      const body: any = { deckText: ensureText, format: deckFormat.charAt(0).toUpperCase() + deckFormat.slice(1), useScryfall: true };
+      const body: any = { deckText: ensureText, format: deckFormat.charAt(0).toUpperCase() + deckFormat.slice(1), useScryfall: true, sourcePage: 'deck_page_legality' };
       if (colors.length) body.colors = colors;
       
       // Add timeout to prevent hanging (120 seconds)

@@ -146,9 +146,23 @@ export async function GET(req: Request) {
       }
     }
 
-    // Filter decks with at least 10 cards
+    // Fetch actual card counts from deck_cards (source of truth) - deck_text can be stale
+    const rawDeckIds = (data || []).map((d: any) => d.id);
+    const cardCountByDeck = new Map<string, number>();
+    if (rawDeckIds.length > 0) {
+      const { data: cardsData } = await supabase
+        .from("deck_cards")
+        .select("deck_id, qty")
+        .in("deck_id", rawDeckIds);
+      for (const c of cardsData || []) {
+        const current = cardCountByDeck.get(c.deck_id) || 0;
+        cardCountByDeck.set(c.deck_id, current + (c.qty || 0));
+      }
+    }
+
+    // Filter decks with at least 10 cards (use deck_cards count, not deck_text)
     const filteredDecks = (data || []).filter(d => {
-      const cardCount = countCards(d.deck_text);
+      const cardCount = cardCountByDeck.get(d.id) ?? countCards(d.deck_text);
       if (cardCount < 10) {
         logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
       }
@@ -167,6 +181,8 @@ export async function GET(req: Request) {
         ? deck.profiles[0] 
         : deck.profiles;
       const username = profile?.username || 'Anonymous';
+      // Use deck_cards count (source of truth); fallback to deck_text parse if no deck_cards
+      const cardCount = cardCountByDeck.get(deck.id) ?? countCards(deck.deck_text);
       
       return {
         id: deck.id,
@@ -180,7 +196,7 @@ export async function GET(req: Request) {
         is_public: deck.is_public,
         public: deck.public,
         owner_username: username,
-        card_count: countCards(deck.deck_text),
+        card_count: cardCount,
         deck_text: deck.deck_text, // Include deck_text for art loading
       };
     });

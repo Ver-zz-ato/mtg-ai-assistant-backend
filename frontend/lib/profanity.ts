@@ -6,7 +6,8 @@
 const WORDS = [
   "cock","dickhead","bellend","shithead","motherfucker",
   "fuck","shit","bitch","cunt","twat","wanker","prick","dick","pussy",
-  "nigger","faggot","slut","whore","bastard","asshole","douche","bollocks"
+  "nigger","faggot","slut","whore","bastard","asshole","douche","bollocks",
+  "retard","foxtard","fag"
 ];
 
 function escapeRe(s: string) {

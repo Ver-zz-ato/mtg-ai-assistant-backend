@@ -64,7 +64,7 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
       if (!r.ok || j?.ok===false) return;
 const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
       const deckText = rows.map(it => `${it.qty} ${it.name}`).join('\n');
-      const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true }) });
+      const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true, sourcePage: 'deck_page_probability' }) });
       const aj = await a.json().catch(()=>({}));
       const c = aj?.counts || {};
       const map: any = { lands: c.lands||0, ramp: c.ramp||0, draw: c.draw||0, removal: c.removal||0 };

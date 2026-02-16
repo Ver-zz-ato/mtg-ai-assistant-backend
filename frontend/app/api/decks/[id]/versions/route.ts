@@ -145,7 +145,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     let cardCount = 0;
     if (cards && cards.length > 0) {
       currentDeckText = cards.map(c => `${c.qty} ${c.name}`).join('\n');
-      cardCount = cards.length;
+      cardCount = cards.reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
     }
 
     console.log(`[Version Save] Rebuilding deck_text from ${cards?.length || 0} cards in deck_cards table`);

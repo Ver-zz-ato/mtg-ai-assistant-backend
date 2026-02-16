@@ -24,6 +24,8 @@ export type AnalysisGenerationOptions = {
   deckSize?: number;
   /** Optional: for single-flight guard; only one LLM call per requestId. Do not reuse for slot-planning/candidate calls. */
   requestId?: string;
+  /** Optional: where the analyze was triggered (e.g. deck_page_analyze, homepage, build_assistant) */
+  sourcePage?: string;
 };
 
 /**
@@ -64,6 +66,7 @@ export async function generateDeckAnalysis(
     isPro,
     deckSize,
     requestId,
+    sourcePage,
   } = options;
 
   // Input trim: hard cap on deck list length; add note so model focuses on highest-signal info
@@ -169,6 +172,7 @@ export async function generateDeckAnalysis(
       promptPreview: (systemPrompt + "\n" + userPrompt).slice(0, 1000),
       responsePreview: null,
       deckSize: deckSize ?? undefined,
+      source_page: sourcePage ?? null,
     });
 
     const text = response.text;

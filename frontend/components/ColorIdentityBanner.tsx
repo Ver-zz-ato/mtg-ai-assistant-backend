@@ -65,7 +65,8 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
               deckText,
               format: 'Commander',
               useScryfall: true,
-              colors: allowedColors
+              colors: allowedColors,
+              sourcePage: 'color_identity_banner',
             })
           });
           

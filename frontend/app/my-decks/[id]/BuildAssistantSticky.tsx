@@ -85,7 +85,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
     try {
       setBusy('check');
       const { deckText, names } = await getDeckTextAndNames();
-      const body:any = { deckText, format: (intent?.format||'Commander'), useScryfall: true };
+      const body:any = { deckText, format: (intent?.format||'Commander'), useScryfall: true, sourcePage: 'deck_page_legality' };
       if (Array.isArray(intent?.colors) && intent.colors.length>0) body.colors = intent.colors;
       
       // Add timeout to prevent hanging (120 seconds)
@@ -245,7 +245,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       setBusy('curve');
       const fmt = String(intent?.format || 'Commander');
       const { deckText } = await getDeckTextAndNames();
-    const r = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: fmt, useScryfall: true, colors: Array.isArray(intent?.colors)? intent.colors: [] }) });
+    const r = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: fmt, useScryfall: true, colors: Array.isArray(intent?.colors)? intent.colors: [], sourcePage: 'build_assistant' }) });
     const j = await r.json().catch(()=>({}));
     if (!r.ok) throw new Error(j?.error || 'Analyze failed');
     const buckets: number[] = Array.isArray(j?.curveBuckets) ? j.curveBuckets : [0,0,0,0,0];

@@ -57,20 +57,24 @@ export function SimilarCommanders({ currentSlug }: Props) {
   if (similar.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 mb-6">
-      <h2 className="text-lg font-semibold text-neutral-100 mb-3">Similar commanders you may like</h2>
-      <ul className="flex flex-wrap gap-2">
-        {similar.map((c) => (
-          <li key={c.slug}>
-            <Link
-              href={`/commanders/${c.slug}`}
-              className="inline-block px-3 py-1.5 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm transition-colors"
-            >
-              {c.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="rounded-xl border border-neutral-700 bg-neutral-800/60 p-5 mb-6">
+      <h2 className="text-lg font-semibold text-neutral-100 mb-4">
+        Similar commanders you may like
+      </h2>
+      <div className="overflow-x-auto -mx-1 pb-2">
+        <ul className="flex gap-2 min-w-0">
+          {similar.map((c) => (
+            <li key={c.slug} className="shrink-0">
+              <Link
+                href={`/commanders/${c.slug}`}
+                className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium transition-colors border border-neutral-600 hover:border-neutral-500"
+              >
+                {c.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }

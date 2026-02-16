@@ -34,7 +34,7 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 ## Dependencies
 
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
-- **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.)
+- **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
 - **meta-signals** → needs `commander_aggregates`; populates `meta_signals` (trending, most-played, budget commanders)
 
 Run in order: deck-costs → commander-aggregates → meta-signals → top-cards.

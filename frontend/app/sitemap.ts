@@ -1,15 +1,18 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { getFirst50CommanderSlugs } from "@/lib/commanders";
+import { getCommanderSlugsWithUpdatedAt } from "@/lib/commanders";
 import { ARCHETYPES } from "@/lib/data/archetypes";
 import { STRATEGIES } from "@/lib/data/strategies";
 import { getTopCards } from "@/lib/top-cards";
-import { getPublishedSeoPageSlugs } from "@/lib/seo-pages";
+import { getPublishedSeoPagesForSitemap } from "@/lib/seo-pages";
 
 const BASE = "https://www.manatap.ai";
 const CONTENT_PAGES = ["mulligan-guide", "budget-upgrades", "best-cards"] as const;
 const META_SLUGS = ["trending-commanders", "most-played-commanders", "budget-commanders", "trending-cards", "most-played-cards"] as const;
-const now = new Date();
+
+// Force fresh sitemap - no caching
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 /** Sitemap index: references child sitemaps at /sitemap/[id].xml */
 export async function generateSitemaps() {
@@ -33,6 +36,7 @@ export default async function sitemap(props: {
   const id = typeof props.id === "string" ? props.id : await props.id;
   switch (id) {
     case "static": {
+      const now = new Date();
       const routes = [
         "",
         "my-decks",
@@ -74,7 +78,7 @@ export default async function sitemap(props: {
         "edh-land-count-what-the-community-actually-runs",
         "top-budget-staples-every-mtg-player-should-know-2025",
       ];
-      return [
+      const entries: MetadataRoute.Sitemap = [
         ...routes.map((p) => ({
           url: `${BASE}/${p}`,
           lastModified: now,
@@ -88,10 +92,13 @@ export default async function sitemap(props: {
           priority: 0.7,
         })),
       ];
+      console.log(`[Sitemap static] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "tools": {
-      return [
+      const now = new Date();
+      const entries = [
         "tools",
         "tools/probability",
         "tools/mulligan",
@@ -108,31 +115,36 @@ export default async function sitemap(props: {
         changeFrequency: "weekly" as const,
         priority: 0.5,
       }));
+      console.log(`[Sitemap tools] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "commanders": {
-      const slugs = getFirst50CommanderSlugs();
-      return slugs.map((slug) => ({
+      const commanders = await getCommanderSlugsWithUpdatedAt();
+      const entries = commanders.map(({ slug, updated_at }) => ({
         url: `${BASE}/commanders/${slug}`,
-        lastModified: now,
+        lastModified: new Date(updated_at),
         changeFrequency: "weekly" as const,
         priority: 0.5,
       }));
+      console.log(`[Sitemap commanders] Generated at ${new Date().toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "commander-content": {
-      const slugs = getFirst50CommanderSlugs();
+      const commanders = await getCommanderSlugsWithUpdatedAt();
       const entries: MetadataRoute.Sitemap = [];
-      for (const slug of slugs) {
+      for (const { slug, updated_at } of commanders) {
         for (const page of CONTENT_PAGES) {
           entries.push({
             url: `${BASE}/commanders/${slug}/${page}`,
-            lastModified: now,
+            lastModified: new Date(updated_at),
             changeFrequency: "monthly" as const,
             priority: 0.4,
           });
         }
       }
+      console.log(`[Sitemap commander-content] Generated at ${new Date().toISOString()}, ${entries.length} URLs`);
       return entries;
     }
 
@@ -154,7 +166,7 @@ export default async function sitemap(props: {
         if (publicDecks && publicDecks.length > 0) {
           publicDeckRoutes = publicDecks.map((deck) => ({
             url: `${BASE}/decks/${deck.id}`,
-            lastModified: deck.updated_at ? new Date(deck.updated_at) : now,
+            lastModified: deck.updated_at ? new Date(deck.updated_at) : new Date(),
             changeFrequency: "weekly" as const,
             priority: 0.5,
           }));
@@ -163,11 +175,13 @@ export default async function sitemap(props: {
         console.error("[Sitemap decks-recent] Failed:", error);
       }
 
+      console.log(`[Sitemap decks-recent] Generated at ${new Date().toISOString()}, ${publicDeckRoutes.length} URLs`);
       return publicDeckRoutes;
     }
 
     case "archetypes": {
-      return [
+      const now = new Date();
+      const entries = [
         { url: `${BASE}/commander-archetypes`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
         ...ARCHETYPES.map((a) => ({
           url: `${BASE}/commander-archetypes/${a.slug}`,
@@ -176,10 +190,13 @@ export default async function sitemap(props: {
           priority: 0.6,
         })),
       ];
+      console.log(`[Sitemap archetypes] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "strategies": {
-      return [
+      const now = new Date();
+      const entries = [
         { url: `${BASE}/strategies`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
         ...STRATEGIES.map((s) => ({
           url: `${BASE}/strategies/${s.slug}`,
@@ -188,10 +205,13 @@ export default async function sitemap(props: {
           priority: 0.6,
         })),
       ];
+      console.log(`[Sitemap strategies] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "meta": {
-      return [
+      const now = new Date();
+      const entries = [
         { url: `${BASE}/meta`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
         ...META_SLUGS.map((slug) => ({
           url: `${BASE}/meta/${slug}`,
@@ -200,29 +220,36 @@ export default async function sitemap(props: {
           priority: 0.6,
         })),
       ];
+      console.log(`[Sitemap meta] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "cards": {
       const topCards = await getTopCards();
-      return [
+      const now = new Date();
+      const entries = [
         { url: `${BASE}/cards`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
         ...topCards.map((c) => ({
           url: `${BASE}/cards/${c.slug}`,
-          lastModified: now,
+          lastModified: c.updated_at ? new Date(c.updated_at) : now,
           changeFrequency: "weekly" as const,
           priority: 0.5,
         })),
       ];
+      console.log(`[Sitemap cards] Generated at ${now.toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     case "seo-pages": {
-      const slugs = await getPublishedSeoPageSlugs(500);
-      return slugs.map((slug) => ({
+      const pages = await getPublishedSeoPagesForSitemap(500);
+      const entries = pages.map(({ slug, updated_at }) => ({
         url: `${BASE}/q/${slug}`,
-        lastModified: now,
+        lastModified: new Date(updated_at),
         changeFrequency: "weekly" as const,
         priority: 0.5,
       }));
+      console.log(`[Sitemap seo-pages] Generated at ${new Date().toISOString()}, ${entries.length} URLs`);
+      return entries;
     }
 
     default:

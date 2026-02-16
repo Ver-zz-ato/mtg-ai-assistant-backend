@@ -28,10 +28,40 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
   "/api/admin/ai/health": { page: "Admin Health", description: "Admin AI health probe", apiPath: "/api/admin/ai/health" },
 };
 
+/** Human-readable labels for source_page (where deck_analyze was called from) */
+export const SOURCE_PAGE_LABELS: Record<string, string> = {
+  deck_page_analyze: "Deck page (Analyze)",
+  deck_page_health: "Deck page (AI health)",
+  deck_page_legality: "Deck page (Legality)",
+  deck_page_probability: "Deck page (Probability)",
+  homepage: "Homepage",
+  build_assistant: "Build assistant",
+  profile: "Profile",
+  deck_analyzer_expandable: "Deck analyzer (expandable)",
+  banned_cards_banner: "Banned cards banner",
+  color_identity_banner: "Color identity banner",
+  my_decks_list: "My Decks list",
+  admin_ai_test: "Admin AI test",
+};
+
+export function getSourcePageLabel(sourcePage: string | null | undefined): string | null {
+  if (!sourcePage?.trim()) return null;
+  const s = sourcePage.trim();
+  return SOURCE_PAGE_LABELS[s] ?? s;
+}
+
 export function getRouteContext(route: string | null | undefined): { page: string; description: string } | null {
   if (!route) return null;
   const r = route.trim();
   const info = ROUTE_TO_PAGE[r];
   if (info) return { page: info.page, description: info.description };
   return { page: r, description: `API route or feature: ${r}` };
+}
+
+/** Combined "Called from" display: route context + source_page when available */
+export function getCalledFromDisplay(route: string | null | undefined, sourcePage?: string | null): string {
+  const src = getSourcePageLabel(sourcePage);
+  if (src) return src;
+  const ctx = getRouteContext(route);
+  return ctx?.page ?? route ?? "—";
 }

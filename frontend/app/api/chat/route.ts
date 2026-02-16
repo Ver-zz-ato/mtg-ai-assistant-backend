@@ -1625,7 +1625,7 @@ Return the corrected answer with concise, user-facing tone.`;
         hasLinkedDeckContext,
         deckIdToUse,
         format: d?.format || 'unknown',
-        cardCount: entries.length,
+        cardCount: entries.reduce((s: number, e: any) => s + (Number(e?.count) || 0), 0),
         outTextLength: outText.length,
         outTextPreview: outText.substring(0, 200)
       });
@@ -1789,7 +1789,7 @@ Return the corrected answer with concise, user-facing tone.`;
         summary_tokens_estimate: summaryTokensEstimate ?? undefined,
         deck_hash: deckHashForLog ?? undefined,
         has_deck_context: !!(deckIdToUse || pastedDecklistContext),
-        deck_card_count: v2Summary?.card_count ?? (entries.length || undefined),
+        deck_card_count: v2Summary?.card_count ?? (entries.reduce((s: number, e: any) => s + (Number(e?.count) || 0), 0) || undefined),
         used_v2_summary: !!v2Summary,
         used_two_stage: !!plannerUsage,
         planner_model: plannerUsage?.model ?? undefined,

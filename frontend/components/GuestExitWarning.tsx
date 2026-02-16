@@ -46,9 +46,12 @@ export default function GuestExitWarning() {
     };
   }, []);
 
+  // Only intercept when user is ON a chat page - avoid modal on browse, decks, etc.
+  const isChatPage = pathname === '/' || pathname.startsWith('/chat');
+
   // Intercept navigation attempts
   useEffect(() => {
-    if (!hasGuestChat) return;
+    if (!hasGuestChat || !isChatPage) return;
 
     // Check session flag to see if user dismissed warning
     const dismissed = sessionStorage.getItem('guest_exit_warning_dismissed');
@@ -96,7 +99,7 @@ export default function GuestExitWarning() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('click', handleClick, true);
     };
-  }, [hasGuestChat, pathname]);
+  }, [hasGuestChat, isChatPage, pathname]);
 
   const handleStayAndSignUp = () => {
     capture('guest_exit_warning_signup_clicked');

@@ -17,7 +17,7 @@ export default function LegalityMini({ deckId, format = 'Commander' }: { deckId:
       const j = await r.json().catch(()=>({}));
       const rows: Array<{ name:string; qty:number }> = Array.isArray(j?.cards)? j.cards : [];
       const deckText = rows.map(x=> `${x.qty} ${x.name}`).join('\n');
-      const ar = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format, useScryfall: true }) });
+      const ar = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format, useScryfall: true, sourcePage: 'deck_page_legality' }) });
       const aj = await ar.json().catch(()=>({}));
       if (!ar.ok || aj?.error) throw new Error(aj?.error || ar.statusText);
       setIllegalByCI(Number(aj?.illegalByCI||0));

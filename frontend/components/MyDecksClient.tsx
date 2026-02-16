@@ -23,7 +23,7 @@ export default function MyDecksClient({ decks }: { decks: Array<{ id:string; tit
         const cards: Array<{ name:string; qty:number }> = Array.isArray(j?.cards)? j.cards : [];
         if(cards.length){
           const deckText = cards.map(c=>`${c.qty||1} ${c.name}`).join('\n');
-          const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true }) });
+          const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true, sourcePage: 'my_decks_list' }) });
           const aj = await a.json().catch(()=>({}));
           const score = Number(aj?.result?.score||0);
           const bands = aj?.result?.bands||{};

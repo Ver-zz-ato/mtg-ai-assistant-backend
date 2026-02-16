@@ -200,6 +200,10 @@ export async function POST(req: NextRequest) {
     }
 
     const successful = results.filter((r) => r.success).length;
+    if (successful > 0) {
+      const { pingGoogleSitemap } = await import("@/lib/seo/pingGoogle");
+      pingGoogleSitemap().catch(() => {});
+    }
     return NextResponse.json({
       ok: true,
       results,

@@ -34,15 +34,23 @@ export async function getSeoPageBySlug(slug: string): Promise<SeoPage | null> {
 }
 
 export async function getPublishedSeoPageSlugs(limit = 500): Promise<string[]> {
+  const pages = await getPublishedSeoPagesForSitemap(limit);
+  return pages.map((p) => p.slug);
+}
+
+export async function getPublishedSeoPagesForSitemap(limit = 500): Promise<Array<{ slug: string; updated_at: string }>> {
   const supabase = createClientForStatic();
   const { data, error } = await supabase
     .from("seo_pages")
-    .select("slug")
+    .select("slug, updated_at")
     .eq("status", "published")
     .eq("indexing", "index")
     .order("priority", { ascending: false })
     .limit(limit);
 
   if (error || !data) return [];
-  return (data as { slug: string }[]).map((r) => r.slug);
+  return (data as { slug: string; updated_at: string }[]).map((r) => ({
+    slug: r.slug,
+    updated_at: r.updated_at || new Date().toISOString(),
+  }));
 }

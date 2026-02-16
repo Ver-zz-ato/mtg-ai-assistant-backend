@@ -157,3 +157,29 @@ export function getCommanderSlugByName(name: string): string | null {
 export function getFirst50CommanderSlugs(): string[] {
   return COMMANDERS.map((c) => c.slug);
 }
+
+/** For sitemap: get commander slugs with updated_at from commander_aggregates. */
+export async function getCommanderSlugsWithUpdatedAt(): Promise<Array<{ slug: string; updated_at: string }>> {
+  const slugs = getFirst50CommanderSlugs();
+  try {
+    const { createClientForStatic } = await import("@/lib/server-supabase");
+    const supabase = createClientForStatic();
+    const { data } = await supabase
+      .from("commander_aggregates")
+      .select("commander_slug, updated_at")
+      .in("commander_slug", slugs);
+    const bySlug = new Map<string, string>();
+    for (const row of data || []) {
+      const r = row as { commander_slug: string; updated_at: string };
+      if (r.commander_slug && r.updated_at) bySlug.set(r.commander_slug, r.updated_at);
+    }
+    const now = new Date().toISOString();
+    return slugs.map((slug) => ({
+      slug,
+      updated_at: bySlug.get(slug) || now,
+    }));
+  } catch {
+    const now = new Date().toISOString();
+    return slugs.map((slug) => ({ slug, updated_at: now }));
+  }
+}

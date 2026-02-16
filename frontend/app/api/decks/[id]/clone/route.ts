@@ -79,11 +79,12 @@ export async function POST(req: NextRequest, context: { params: Promise<Params> 
       }
     }
 
+    const totalCardCount = (sourceCards || []).reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
     return NextResponse.json({ 
       ok: true, 
       deckId: newDeck.id,
       title: newDeckTitle,
-      cardCount: sourceCards?.length || 0
+      cardCount: totalCardCount
     });
   } catch (error: any) {
     console.error("Clone deck error:", error);

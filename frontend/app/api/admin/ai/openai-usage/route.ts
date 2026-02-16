@@ -123,13 +123,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Aggregate costs
+    // Aggregate costs (OpenAI API uses "result" not "results" for Costs buckets)
     let totalCostUsd = 0;
     const dailyCosts: Array<{ date: string; cost_usd: number }> = [];
     for (const bucket of costsBuckets) {
       let bucketCost = 0;
-      for (const r of bucket.results ?? []) {
-        const val = r.amount?.value ?? 0;
+      const items = (bucket as { result?: unknown[]; results?: unknown[] }).result ?? (bucket as { results?: unknown[] }).results ?? [];
+      for (const r of items) {
+        const amt = (r as { amount?: { value?: number } })?.amount;
+        const val = typeof amt?.value === 'number' ? amt.value : 0;
         bucketCost += val;
         totalCostUsd += val;
       }

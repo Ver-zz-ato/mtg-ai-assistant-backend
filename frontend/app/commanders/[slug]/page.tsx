@@ -2,25 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
-import { ARCHETYPES } from "@/lib/data/archetypes";
-import { STRATEGIES } from "@/lib/data/strategies";
 import {
   renderCommanderIntro,
   deriveCommanderSnapshot,
-  renderStrategySnapshot,
 } from "@/lib/seo/commander-content";
 import { RelatedTools } from "@/components/RelatedTools";
-import { ToolStrip } from "@/components/ToolStrip";
-import { CommanderArtBanner } from "@/components/CommanderArtBanner";
-import {
-  CommanderIntelligencePanel,
-  buildCommanderIntelligenceData,
-} from "@/components/CommanderIntelligencePanel";
-import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
 import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
-import { CommanderSynergyTeaser } from "@/components/commander/CommanderSynergyTeaser";
-import { MostPlayedCardsGrid } from "@/components/commander/MostPlayedCardsGrid";
+import { CommanderHero } from "@/components/commander/CommanderHero";
+import { CommanderSynergyTeaser, getSynergyBullets } from "@/components/commander/CommanderSynergyTeaser";
+import { CoreStaples } from "@/components/commander/CoreStaples";
+import { CommunityBuildsTabs } from "@/components/commander/CommunityBuildsTabs";
 import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
+import { DeepDiveLinks } from "@/components/commander/DeepDiveLinks";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
@@ -76,7 +69,6 @@ export default async function CommanderHubPage({ params }: Props) {
   const intro = renderCommanderIntro(profile, "hub");
   const description = `Tools for ${name} Commander decks: mulligan simulator, cost to finish, budget swaps. Browse ${name} decks.`;
   const snapshot = deriveCommanderSnapshot(profile);
-  const strategySnapshot = renderStrategySnapshot(profile);
 
   const browseUrl = `/decks/browse?search=${encodeURIComponent(name)}`;
   const mulliganUrl = `/tools/mulligan?commander=${encodeURIComponent(slug)}`;
@@ -94,18 +86,36 @@ export default async function CommanderHubPage({ params }: Props) {
     aggregates?.medianDeckCost == null && costLanding?.costSnapshot?.mid != null
       ? costLanding.costSnapshot.mid
       : null;
-  const panelData = buildCommanderIntelligenceData(
-    profile,
-    aggregates,
-    snapshot,
+
+  const deckCount = aggregates?.deckCount ?? 0;
+  const medianDeckCostUSD =
+    (aggregates?.medianDeckCost != null && aggregates.medianDeckCost > 0
+      ? Math.round(aggregates.medianDeckCost)
+      : medianCostFallback != null && medianCostFallback > 0
+        ? Math.round(medianCostFallback)
+        : null) ?? null;
+
+  const statsData = {
+    deckCount: deckCount > 0 ? deckCount : null,
+    medianDeckCostUSD,
     metaBadge,
-    medianCostFallback
-  );
+    difficultyLabel: snapshot.difficulty,
+    powerTier: snapshot.powerStyle,
+  };
+
   function norm(s: string) {
-    return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
   const cmdImg = imgMap.get(norm(cleanName));
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
+
+  const winPlanBullets = getSynergyBullets(profile);
+  const recentDecks = aggregates?.recentDecks ?? [];
 
   return (
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -121,156 +131,45 @@ export default async function CommanderHubPage({ params }: Props) {
           <span className="text-neutral-200">{name}</span>
         </nav>
 
-        {/* 2-column layout: left = art + intelligence + tools, right = intro + snapshot */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-8">
-          <div className="lg:col-span-1 space-y-4">
-            <h1 className="text-2xl lg:text-3xl font-bold text-white">
-              {name} Commander Tools
-            </h1>
-            {commanderArt && (
-              <CommanderArtBanner artUrl={commanderArt} name={name} className="mb-4" />
-            )}
-            <CommanderIntelligencePanel data={panelData} />
-            <div>
-              <h2 className="text-base font-semibold text-neutral-100 mb-3">Try tools</h2>
-              <CommanderToolActions
-                commanderName={name}
-                tools={[
-                  { href: mulliganUrl, label: "Mulligan Simulator", description: "Simulate keep rates", isRecommended: true },
-                  { href: costUrl, label: "Cost to Finish", description: "Estimate deck cost" },
-                  { href: swapsUrl, label: "Budget Swaps", description: "Find cheaper alternatives" },
-                  { href: browseUrl, label: "Browse Decks", description: `Explore ${name} decks` },
-                ]}
-              />
-            </div>
-          </div>
-          <div className="lg:col-span-2 space-y-4">
-            <div className="text-neutral-300 text-base leading-relaxed">
-              {intro.split(/(?<=\.)\s+/).slice(0, 4).map((p, i) => (
-                <p key={i} className="mb-2">{p}</p>
-              ))}
-            </div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+          {name} Commander Tools
+        </h1>
+        <p className="text-neutral-400 text-base mb-6 max-w-2xl">
+          {intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")}
+        </p>
 
-            {/* Commander Snapshot — compact */}
-            <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
-              <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider mb-2">Snapshot</h2>
-              <div className="grid gap-1 sm:grid-cols-2 text-sm">
-                <div><span className="text-neutral-500">Gameplan:</span> <span className="text-neutral-200">{snapshot.gameplan}</span></div>
-                <div><span className="text-neutral-500">Themes:</span> <span className="text-neutral-200">{snapshot.themes}</span></div>
-                <div><span className="text-neutral-500">Power:</span> <span className="text-neutral-200">{snapshot.powerStyle}</span></div>
-                <div><span className="text-neutral-500">Difficulty:</span> <span className="text-neutral-200">{snapshot.difficulty}</span></div>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <ToolStrip variant="compact" className="mb-6" />
-
-        <CommanderSynergyTeaser profile={profile} />
+        <CommanderHero
+          commanderName={name}
+          commanderSlug={slug}
+          artUrl={commanderArt ?? null}
+          statsData={statsData}
+          winPlanBullets={winPlanBullets}
+          mulliganUrl={mulliganUrl}
+          costUrl={costUrl}
+          browseUrl={browseUrl}
+          swapsUrl={swapsUrl}
+        />
 
         {aggregates && aggregates.topCards.length > 0 && (
-          <MostPlayedCardsGrid
+          <CoreStaples
             cards={aggregates.topCards.slice(0, 12)}
             commanderName={name}
             deckCount={aggregates.deckCount}
           />
         )}
 
-        <section className="mb-6">
+        <CommanderSynergyTeaser profile={profile} />
+
+        <CommunityBuildsTabs
+          commanderName={name}
+          browseUrl={browseUrl}
+          recentDecks={recentDecks}
+        />
+
         <SimilarCommanders currentSlug={slug} />
-        </section>
 
-        {aggregates && aggregates.medianDeckCost != null && aggregates.medianDeckCost > 0 && (
-          <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6">
-            <h2 className="text-xl font-semibold text-neutral-100 mb-4">Typical Deck Cost Range</h2>
-            <p className="text-neutral-400 text-sm mb-3">
-              Based on {aggregates.deckCount.toLocaleString()} tracked decks.
-            </p>
-            <p className="text-neutral-200">
-              Median deck cost: ~${Math.round(aggregates.medianDeckCost).toLocaleString()} USD
-            </p>
-          </section>
-        )}
+        <DeepDiveLinks commanderSlug={slug} />
 
-        {aggregates && aggregates.recentDecks.length > 0 && (
-          <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-6">
-            <h2 className="text-xl font-semibold text-neutral-100 mb-4">Recent Decks</h2>
-            <p className="text-neutral-400 text-sm mb-3">
-              Latest community decks for {name}.
-            </p>
-            <ul className="space-y-2">
-              {aggregates.recentDecks.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    href={`/decks/${d.id}`}
-                    className="text-blue-400 hover:underline"
-                  >
-                    {d.title}
-                  </Link>
-                  <span className="text-neutral-500 text-xs ml-2">
-                    {new Date(d.updated_at).toLocaleDateString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-8">
-        <h2 className="text-xl font-semibold text-neutral-100 mb-4">Popular decks using this commander</h2>
-        <div className="mb-4">
-          <p className="text-neutral-400 text-sm mb-3">
-            Explore community decks built around {name} to find inspiration and proven lists.
-          </p>
-          <a
-            href={browseUrl}
-            className="inline-block px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-blue-400 font-medium"
-          >
-            Browse {name} decks →
-          </a>
-        </div>
-        </section>
-
-        <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-8">
-        <h2 className="text-xl font-semibold text-neutral-100 mb-4">Strategy Snapshot</h2>
-        <p className="text-neutral-300 mb-4 leading-relaxed">{strategySnapshot}</p>
-
-        <div className="flex flex-wrap gap-3 text-sm mb-4">
-          <Link href={`/commanders/${slug}/mulligan-guide`} className="text-blue-400 hover:underline">Mulligan Guide</Link>
-          <Link href={`/commanders/${slug}/budget-upgrades`} className="text-blue-400 hover:underline">Budget Upgrades</Link>
-          <Link href={`/commanders/${slug}/best-cards`} className="text-blue-400 hover:underline">Best Cards</Link>
-        </div>
-        {(() => {
-          const tags = new Set((profile.tags ?? []).map((t) => t.toLowerCase()));
-          const archetypes = ARCHETYPES.filter((a) => a.tagMatches.some((m) => tags.has(m.toLowerCase())));
-          const strategies = STRATEGIES.filter((s) => s.tagMatches.some((m) => tags.has(m.toLowerCase())));
-          if (archetypes.length === 0 && strategies.length === 0) return null;
-          return (
-            <div className="text-sm text-neutral-400 mb-6">
-              {archetypes.length > 0 && (
-                <p>
-                  Archetypes: {archetypes.map((a, i) => (
-                    <span key={a.slug}>
-                      {i > 0 && ", "}
-                      <Link href={`/commander-archetypes/${a.slug}`} className="text-blue-400 hover:underline">{a.title}</Link>
-                    </span>
-                  ))}
-                </p>
-              )}
-              {strategies.length > 0 && (
-                <p>
-                  Strategies: {strategies.map((s, i) => (
-                    <span key={s.slug}>
-                      {i > 0 && ", "}
-                      <Link href={`/strategies/${s.slug}`} className="text-blue-400 hover:underline">{s.title}</Link>
-                    </span>
-                  ))}
-                </p>
-              )}
-            </div>
-          );
-        })()}
-        </section>
         <RelatedTools
           tools={[
             { href: "/tools/mulligan", label: "Mulligan Simulator" },

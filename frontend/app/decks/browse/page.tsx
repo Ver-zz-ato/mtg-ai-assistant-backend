@@ -78,31 +78,6 @@ function BrowseDecksContent() {
   // Ref for infinite scroll observer
   const observerTarget = React.useRef<HTMLDivElement>(null);
 
-  // Batch art for visible decks (one request instead of N) to avoid many POST /api/cards/batch-images
-  const [artByDeckId, setArtByDeckId] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (decks.length === 0) return;
-    const deckIds = decks.map((d) => d.id);
-    const deckTexts: Record<string, string> = {};
-    const commanders: Record<string, string> = {};
-    for (const d of decks) {
-      if (d.deck_text) deckTexts[d.id] = d.deck_text;
-      if (d.commander) commanders[d.id] = d.commander;
-    }
-    let cancelled = false;
-    fetch('/api/cards/batch-art-for-decks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deckIds, deckTexts, commanders }),
-    })
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled && j?.ok && j.art) setArtByDeckId(j.art);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [decks.map((d) => d.id).join(',')]);
-
   useEffect(() => {
     capture('browse_decks_page_view');
   }, []);
@@ -310,12 +285,12 @@ function BrowseDecksContent() {
         )}
       </div>
 
-      {/* Results — 2–3 cols on small, 4–5 on large to reduce vertical scroll */}
+      {/* Results — 2–3 cols on small, 4 max for wider pills */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden animate-pulse">
-              <div className="h-36 sm:h-40 bg-neutral-800" />
+              <div className="h-40 sm:h-44 bg-neutral-800" />
               <div className="p-3">
                 <div className="h-5 bg-neutral-800 rounded mb-1" />
                 <div className="h-3 bg-neutral-800 rounded w-3/4" />
@@ -327,7 +302,7 @@ function BrowseDecksContent() {
         <EmptySearchState query={search} />
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {decks.map((deck) => (
               <PrefetchLink
                 key={deck.id}
@@ -337,14 +312,12 @@ function BrowseDecksContent() {
                 className="group bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all transform hover:scale-[1.02]"
               >
                 {/* Art */}
-                <div className="relative h-36 sm:h-40 bg-neutral-950 overflow-hidden">
+                <div className="relative h-40 sm:h-44 bg-neutral-950 overflow-hidden">
                   <DeckArtLoader
                     deckId={deck.id}
                     commander={deck.commander || undefined}
                     title={deck.title || undefined}
                     deckText={deck.deck_text ?? undefined}
-                    initialArt={artByDeckId[deck.id]}
-                    batchOnly
                   >
                     {(art, loading) => (
                       art ? (

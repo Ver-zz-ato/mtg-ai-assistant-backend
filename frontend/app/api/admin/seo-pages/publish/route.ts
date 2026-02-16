@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
     }
 
+    const { pingGoogleSitemap } = await import("@/lib/seo/pingGoogle");
+    pingGoogleSitemap().catch(() => {});
+
     return NextResponse.json({
       ok: true,
       published: slugs.length,

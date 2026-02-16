@@ -257,6 +257,13 @@ export async function middleware(req: NextRequest) {
       response.cookies.delete('guest_session_token');
     }
   }
-  
-  return response || NextResponse.next();
+
+  // Sitemap: prevent caching so Google always gets fresh content
+  const res = response || NextResponse.next();
+  if (path === '/sitemap.xml' || path.startsWith('/sitemap')) {
+    res.headers.set('Cache-Control', 'no-store');
+    res.headers.set('Content-Type', 'application/xml');
+  }
+
+  return res;
 }

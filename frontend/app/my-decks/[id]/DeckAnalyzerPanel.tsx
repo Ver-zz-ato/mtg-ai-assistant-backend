@@ -66,7 +66,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       let commander: string | undefined = undefined;
       try { const sb = createBrowserSupabaseClient(); const { data } = await sb.from('decks').select('commander').eq('id', deckId).maybeSingle(); commander = String((data as any)?.commander||'') || undefined; } catch {}
       setStoredCommander(commander);
-      const payload:any = { deckText, format:'Commander', useScryfall:true };
+      const payload:any = { deckText, format:'Commander', useScryfall:true, sourcePage: 'deck_page_analyze' };
       if (commander) payload.commander = commander;
       
       // Dispatch event to auto-expand AI Assistant when analyzer runs
