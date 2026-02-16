@@ -61,10 +61,15 @@ export async function POST(req: NextRequest) {
       const productId = item?.price?.product as string;
       const plan = PRODUCT_TO_PLAN[productId] || (item?.price?.recurring?.interval === 'year' ? 'yearly' : 'monthly');
 
+      const { data: userId } = await admin.rpc('get_user_id_by_email', { p_email: customerEmail });
+      if (!userId) {
+        skipped.push(`${sub.id} (${customerEmail} — no matching user)`);
+        continue;
+      }
       const { data: profile } = await admin
         .from('profiles')
         .select('id, stripe_subscription_id')
-        .eq('email', customerEmail.toLowerCase())
+        .eq('id', userId)
         .maybeSingle();
 
       if (!profile) {

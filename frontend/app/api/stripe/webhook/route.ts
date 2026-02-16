@@ -202,20 +202,16 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     }
   }
 
-  // 3) Fallback: Look up by Stripe customer email (works even if profile never had stripe_customer_id)
+  // 3) Fallback: Look up by Stripe customer email via auth.users (profiles has no email column)
   if (!profile) {
     try {
       const customer = await stripe.customers.retrieve(session.customer as string);
       if (customer && !customer.deleted && (customer as any).email) {
-        const email = ((customer as any).email as string).toLowerCase();
-        const { data: profileByEmail } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-        if (profileByEmail) {
-          profile = profileByEmail;
-          console.info('Found user by Stripe customer email', { email, customerId: session.customer });
+        const email = ((customer as any).email as string).trim();
+        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
+        if (userId) {
+          profile = { id: userId };
+          console.info('Found user by Stripe customer email (auth.users)', { email, customerId: session.customer });
         }
       }
     } catch (e) {
@@ -327,13 +323,33 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
   // Find user by customer ID (service role - webhooks have no cookies)
   const supabase = getWebhookSupabase();
   
-  const { data: profile, error: findError } = await supabase
+  let profile: { id: string } | null = null;
+  const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', subscription.customer)
     .maybeSingle();
 
-  if (findError || !profile) {
+  if (profileByCustomer) {
+    profile = profileByCustomer;
+  } else {
+    // Fallback: Look up by Stripe customer email (handles placeholder stripe_customer_id)
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      if (customer && !customer.deleted && (customer as any).email) {
+        const email = ((customer as any).email as string).trim();
+        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
+        if (userId) {
+          profile = { id: userId };
+          console.info('Found user by Stripe customer email (subscription.updated)', { email, customerId: subscription.customer });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch Stripe customer for email fallback:', e);
+    }
+  }
+
+  if (!profile) {
     console.error('Failed to find user profile for customer:', subscription.customer, findError);
     return;
   }
@@ -468,23 +484,44 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   // Find user by customer ID (service role - webhooks have no cookies)
   const supabase = getWebhookSupabase();
   
-  const { data: profile, error: findError } = await supabase
+  let profile: { id: string } | null = null;
+  const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', subscription.customer)
     .maybeSingle();
 
-  if (findError || !profile) {
+  if (profileByCustomer) {
+    profile = profileByCustomer;
+  } else {
+    // Fallback: Look up by Stripe customer email (handles placeholder stripe_customer_id)
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      if (customer && !customer.deleted && (customer as any).email) {
+        const email = ((customer as any).email as string).trim();
+        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
+        if (userId) {
+          profile = { id: userId };
+          console.info('Found user by Stripe customer email (subscription.deleted)', { email, customerId: subscription.customer });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch Stripe customer for email fallback:', e);
+    }
+  }
+
+  if (!profile) {
     console.error('Failed to find user profile for customer:', subscription.customer, findError);
     return;
   }
 
-  // Remove Pro status immediately
+  // Remove Pro status immediately. Also fix stripe_customer_id if it was a placeholder.
   const { error: updateError } = await supabase
     .from('profiles')
     .update({
       is_pro: false,
       pro_until: new Date().toISOString(),
+      stripe_customer_id: subscription.customer as string, // Fix placeholder so future webhooks work
     })
     .eq('id', profile.id);
 
@@ -554,13 +591,32 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   // Find user by customer ID (service role - webhooks have no cookies)
   const supabase = getWebhookSupabase();
   
-  const { data: profile, error: findError } = await supabase
+  let profile: { id: string; is_pro: boolean } | null = null;
+  const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id, is_pro')
     .eq('stripe_customer_id', invoice.customer)
     .maybeSingle();
 
-  if (findError || !profile) {
+  if (profileByCustomer) {
+    profile = profileByCustomer;
+  } else {
+    try {
+      const customer = await stripe.customers.retrieve(invoice.customer as string);
+      if (customer && !customer.deleted && (customer as any).email) {
+        const email = ((customer as any).email as string).trim();
+        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
+        if (userId) {
+          const { data: p } = await supabase.from('profiles').select('id, is_pro').eq('id', userId).maybeSingle();
+          if (p) profile = p;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch Stripe customer for email fallback:', e);
+    }
+  }
+
+  if (!profile) {
     console.error('Failed to find user profile for customer:', invoice.customer, findError);
     return;
   }
@@ -613,13 +669,29 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
   // Find user to potentially send notification (service role - webhooks have no cookies)
   const supabase = getWebhookSupabase();
   
-  const { data: profile, error: findError } = await supabase
+  let profile: { id: string } | null = null;
+  const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
     .eq('stripe_customer_id', invoice.customer)
     .maybeSingle();
 
-  if (findError || !profile) {
+  if (profileByCustomer) {
+    profile = profileByCustomer;
+  } else {
+    try {
+      const customer = await stripe.customers.retrieve(invoice.customer as string);
+      if (customer && !customer.deleted && (customer as any).email) {
+        const email = ((customer as any).email as string).trim();
+        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
+        if (userId) profile = { id: userId };
+      }
+    } catch (e) {
+      console.error('Failed to fetch Stripe customer for email fallback:', e);
+    }
+  }
+
+  if (!profile) {
     console.error('Failed to find user profile for failed payment:', invoice.customer, findError);
     return;
   }
