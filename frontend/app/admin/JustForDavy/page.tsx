@@ -43,6 +43,7 @@ const SECTIONS: Section[] = [
       { href: '/admin/ai-usage', label: 'AI Usage & Cost', eli5: 'How much are we spending on AI? Which features cost the most? Price snapshots.' },
       { href: '/admin/chat-levers', label: 'Chat Levers', eli5: 'Defaults, answer packs, rules tuning, model/cost policy.' },
       { href: '/admin/ai-test', label: 'AI Test Suite', eli5: 'Run test cases against the AI, compare prompt versions, find failures.' },
+      { href: '/admin/mulligan-ai', label: 'Mulligan AI Playground', eli5: 'Test AI mulligan advice flow before homepage. Paste deck, draw hand, get keep/mulligan advice.' },
     ],
   },
   {

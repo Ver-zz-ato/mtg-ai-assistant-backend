@@ -485,6 +485,8 @@ async function callOpenAI(
     sourcePage?: string | null;
     /** For user_attribution join */
     anonId?: string | null;
+    /** For AI test cost reporting */
+    evalRunId?: string | null;
   } = {}
 ): Promise<string> {
   const feature = opts.feature ?? "deck_analyze";
@@ -548,6 +550,8 @@ async function callOpenAI(
         deckSize: opts.deckSize ?? undefined,
         source_page: opts.sourcePage ?? null,
         anonId: opts.anonId ?? null,
+        eval_run_id: opts.evalRunId ?? null,
+        source: opts.evalRunId ? "ai_test" : null,
       }
     );
 
@@ -581,7 +585,8 @@ async function planSuggestionSlots(
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
   sourcePage?: string | null,
-  anonId?: string | null
+  anonId?: string | null,
+  evalRunId?: string | null
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
@@ -642,6 +647,7 @@ async function planSuggestionSlots(
       forceModel,
       sourcePage,
       anonId,
+      evalRunId,
     });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
@@ -671,7 +677,8 @@ async function fetchSlotCandidates(
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
   sourcePage?: string | null,
-  anonId?: string | null
+  anonId?: string | null,
+  evalRunId?: string | null
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
@@ -736,6 +743,7 @@ async function fetchSlotCandidates(
       forceModel,
       sourcePage,
       anonId,
+      evalRunId,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -760,7 +768,8 @@ async function retrySlotCandidates(
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
   sourcePage?: string | null,
-  anonId?: string | null
+  anonId?: string | null,
+  evalRunId?: string | null
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
   const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
@@ -817,6 +826,7 @@ async function retrySlotCandidates(
       forceModel,
       sourcePage,
       anonId,
+      evalRunId,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -844,7 +854,8 @@ async function validateSlots(
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
   sourcePage?: string | null,
-  anonId?: string | null
+  anonId?: string | null,
+  evalRunId?: string | null
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -859,7 +870,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -938,7 +949,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId);
       await attempt(retry, "retry");
     }
   }
@@ -1553,6 +1564,8 @@ export async function POST(req: Request) {
     forceModel?: string;
     /** Where the analyze was triggered (e.g. deck_page_analyze, homepage, build_assistant) */
     sourcePage?: string;
+    /** For AI test cost reporting - links ai_usage to eval_runs */
+    eval_run_id?: string;
   };
 
   let deckText = String(body.deckText || "").trim();
@@ -1585,6 +1598,8 @@ export async function POST(req: Request) {
       layer0_mode: "NO_LLM",
       layer0_reason: "no_deck",
       source_page: body.sourcePage?.trim() || null,
+      eval_run_id: typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null,
+      source: body.eval_run_id ? "ai_test" : undefined,
     });
     return new Response(
       JSON.stringify({
@@ -1819,9 +1834,10 @@ export async function POST(req: Request) {
   }
 
   const sourcePage = body.sourcePage?.trim() || null;
+  const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
@@ -1834,7 +1850,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);

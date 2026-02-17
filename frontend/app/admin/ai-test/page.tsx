@@ -30,6 +30,451 @@ type TestResult = {
   validation?: any;
 };
 
+function PairwiseComparePanel({
+  filteredCases,
+  pairwiseResult,
+  pairwiseFilter,
+  onFilterChange,
+  onRun,
+}: {
+  filteredCases: TestCase[];
+  pairwiseResult: any;
+  pairwiseFilter: "all" | "disagreements";
+  onFilterChange: (v: "all" | "disagreements") => void;
+  onRun: () => Promise<void>;
+}) {
+  const [running, setRunning] = React.useState(false);
+  const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
+
+  const results = pairwiseResult?.results ?? [];
+  const summary = pairwiseResult?.summary ?? {};
+  const filtered =
+    pairwiseFilter === "disagreements"
+      ? results.filter((r: any) => r.winnerByJudge !== r.winnerByValidator)
+      : results;
+
+  return (
+    <div className="space-y-3">
+      <div className="font-medium">Pairwise A/B Compare</div>
+      <p className="text-xs opacity-70">
+        Winner determined by rubric-based judge (human taste), not validator score. Both stored for analysis.
+      </p>
+      <button
+        onClick={async () => {
+          setRunning(true);
+          try {
+            await onRun();
+          } finally {
+            setRunning(false);
+          }
+        }}
+        disabled={running || filteredCases.length === 0}
+        className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50"
+      >
+        {running ? "Running…" : `Run Pairwise (first ${Math.min(5, filteredCases.length)})`}
+      </button>
+
+      {pairwiseResult?.ok && (
+        <div className="space-y-3 pt-2 border-t border-neutral-700">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="text-xs text-neutral-500 mb-1">By Judge (primary)</div>
+              <div>
+                A: {summary.winRateAByJudge?.toFixed(1)}% | B: {summary.winRateBByJudge?.toFixed(1)}% | Ties:{" "}
+                {summary.tieRateByJudge?.toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-neutral-500 mb-1">By Validator</div>
+              <div>
+                A: {summary.winRateAByValidator?.toFixed(1)}% | B: {summary.winRateBByValidator?.toFixed(1)}% | Ties:{" "}
+                {summary.tieRateByValidator?.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-4 text-xs">
+            <span>
+              <strong>Disagreement rate:</strong> {summary.disagreementRate?.toFixed(1)}%
+            </span>
+            <span>
+              <strong>Avg judge confidence:</strong> {summary.avgJudgeConfidence?.toFixed(2)}
+            </span>
+          </div>
+          {summary.avgRubricScores && (
+            <div className="text-xs">
+              <div className="text-neutral-500 mb-1">Avg rubric scores</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(summary.avgRubricScores).map(([k, v]) => (
+                  <span key={k}>
+                    {k}: {(v as number).toFixed(1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => onFilterChange("all")}
+              className={`px-2 py-1 text-xs rounded ${pairwiseFilter === "all" ? "bg-neutral-600" : "bg-neutral-700"}`}
+            >
+              All ({results.length})
+            </button>
+            <button
+              onClick={() => onFilterChange("disagreements")}
+              className={`px-2 py-1 text-xs rounded ${pairwiseFilter === "disagreements" ? "bg-amber-600" : "bg-neutral-700"}`}
+            >
+              Disagreements ({results.filter((r: any) => r.winnerByJudge !== r.winnerByValidator).length})
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-auto">
+            {filtered.map((r: any, i: number) => {
+              const idx = results.indexOf(r);
+              const expanded = expandedIdx === idx;
+              const isDisagreement = r.winnerByJudge !== r.winnerByValidator;
+              return (
+                <div
+                  key={r.testCase?.id ?? i}
+                  className={`p-2 rounded border text-xs ${isDisagreement ? "border-amber-600 bg-amber-950/30" : "border-neutral-700 bg-neutral-900"}`}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>{r.testCase?.name ?? `Case ${i + 1}`}</span>
+                    <span>
+                      Judge: {r.winnerByJudge} | Validator: {r.winnerByValidator}
+                      {isDisagreement && <span className="ml-1 text-amber-400">(disagree)</span>}
+                    </span>
+                    <button
+                      onClick={() => setExpandedIdx(expanded ? null : idx)}
+                      className="px-1 py-0.5 rounded bg-neutral-600"
+                    >
+                      {expanded ? "−" : "+"}
+                    </button>
+                  </div>
+                  {expanded && (
+                    <div className="mt-2 pt-2 border-t border-neutral-700 space-y-2">
+                      <div>
+                        <div className="text-neutral-500">Answer A</div>
+                        <pre className="whitespace-pre-wrap text-[10px] max-h-24 overflow-auto">{r.responseA?.slice(0, 500)}…</pre>
+                      </div>
+                      <div>
+                        <div className="text-neutral-500">Answer B</div>
+                        <pre className="whitespace-pre-wrap text-[10px] max-h-24 overflow-auto">{r.responseB?.slice(0, 500)}…</pre>
+                      </div>
+                      {r.judge?.reasons?.length > 0 && (
+                        <div>
+                          <div className="text-neutral-500">Judge reasons</div>
+                          <ul className="list-disc ml-4">
+                            {r.judge.reasons.map((x: string, j: number) => (
+                              <li key={j}>{x}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DIFFICULTY_PRESETS = [
+  { value: "standard", label: "Standard" },
+  { value: "strict", label: "Strict (brutal)" },
+  { value: "safety_first", label: "Safety-First" },
+] as const;
+
+function EvalSetsPanel({
+  evalSets,
+  expandedId,
+  onExpand,
+  onRefresh,
+  adminFormatKey,
+}: {
+  evalSets: any[];
+  expandedId: string | null;
+  onExpand: (id: string | null) => void;
+  onRefresh: () => void;
+  adminFormatKey: string;
+}) {
+  const [saving, setSaving] = React.useState(false);
+  const [running, setRunning] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState<Record<string, any>>({});
+
+  const handleSave = async (s: any) => {
+    setSaving(true);
+    try {
+      const form = editForm[s.id] ?? {};
+      const payload = {
+        id: s.id,
+        min_overall_score: form.min_overall_score ?? s.min_overall_score ?? 80,
+        max_critical_violations: form.max_critical_violations ?? s.max_critical_violations ?? 0,
+        max_total_violations: form.max_total_violations ?? s.max_total_violations ?? 2,
+        min_specificity_score: form.min_specificity_score ?? s.min_specificity_score ?? 70,
+        min_actionability_score: form.min_actionability_score ?? s.min_actionability_score ?? 70,
+        min_format_legality_score: form.min_format_legality_score ?? s.min_format_legality_score ?? 90,
+        require_clarifying_question_when_missing_info: form.require_clarifying_question_when_missing_info ?? s.require_clarifying_question_when_missing_info ?? false,
+        require_refusal_on_illegal_request: form.require_refusal_on_illegal_request ?? s.require_refusal_on_illegal_request !== false,
+        difficulty_preset: form.difficulty_preset ?? s.difficulty_preset ?? "standard",
+      };
+      const r = await fetch("/api/admin/ai-test/eval-sets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        onRefresh();
+        setEditForm((prev) => {
+          const next = { ...prev };
+          delete next[s.id];
+          return next;
+        });
+      } else alert(j.error || "Failed to save");
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRun = async (s: any) => {
+    setRunning(s.id);
+    try {
+      const r = await fetch("/api/admin/ai-test/run-eval-set", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eval_set_id: s.id, format_key: adminFormatKey }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        alert(`Run complete. Pass: ${j.summary?.setPassed ? "Yes" : "No"}, Rate: ${j.summary?.passRate}%`);
+        onRefresh();
+      } else alert(j.error || "Failed");
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  const getForm = (s: any) => editForm[s.id] ?? {};
+  const setForm = (s: any, updates: any) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [s.id]: { ...(prev[s.id] ?? {}), ...updates },
+    }));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="font-medium">Golden Eval Sets</div>
+      <button onClick={onRefresh} className="px-2 py-1 text-xs rounded bg-neutral-600">Refresh</button>
+      <div className="grid gap-2">
+        {evalSets.map((s: any) => {
+          const expanded = expandedId === s.id;
+          const lastRun = s.last_run;
+          const meta = lastRun?.meta ?? {};
+          const topReasons = (meta.worst_offenders ?? [])
+            .flatMap((o: any) => o.reasons ?? [])
+            .slice(0, 3);
+          const categoryBreakdown = meta.top_failing_categories ?? [];
+
+          return (
+            <div key={s.id} className="p-2 bg-neutral-900 rounded border border-neutral-800">
+              <div className="flex justify-between items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{s.name}</span>
+                  <span className="text-xs text-neutral-400 ml-2">
+                    ({s.test_case_ids?.length || 0} cases, strict={String(s.strict)}, preset: {s.difficulty_preset || "standard"})
+                  </span>
+                  {lastRun && (
+                    <span className={`ml-2 text-xs ${lastRun.pass ? "text-green-400" : "text-red-400"}`}>
+                      Last: {lastRun.pass ? "PASS" : "FAIL"} ({meta.pass_rate ?? "?"}%)
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => onExpand(expanded ? null : s.id)}
+                    className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500"
+                  >
+                    {expanded ? "Collapse" : "Edit / Details"}
+                  </button>
+                  <button
+                    onClick={() => handleRun(s)}
+                    disabled={!!running}
+                    className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 disabled:opacity-50"
+                  >
+                    {running === s.id ? "Running…" : "Run Golden Set"}
+                  </button>
+                </div>
+              </div>
+
+              {expanded && (
+                <div className="mt-3 pt-3 border-t border-neutral-700 space-y-4">
+                  {/* Last run breakdown */}
+                  {lastRun && (
+                    <div>
+                      <div className="text-xs font-medium text-neutral-300 mb-1">Last run</div>
+                      <div className="text-xs space-y-1">
+                        {categoryBreakdown.length > 0 && (
+                          <div>
+                            <span className="text-neutral-500">Top failing categories: </span>
+                            {categoryBreakdown.map((c: any) => (
+                              <span key={c.category} className="mr-2">
+                                {c.category} ({c.count})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {topReasons.length > 0 && (
+                          <div>
+                            <span className="text-neutral-500">Top 3 failure reasons: </span>
+                            <ol className="list-decimal ml-4">
+                              {topReasons.map((r: string, i: number) => (
+                                <li key={i}>{r}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+                        {meta.regression_hints?.length > 0 && (
+                          <div className="text-amber-400">
+                            {meta.regression_hints.map((h: string, i: number) => (
+                              <div key={i}>{h}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gating config form */}
+                  <div>
+                    <div className="text-xs font-medium text-neutral-300 mb-2">Gating thresholds</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Difficulty preset</label>
+                        <select
+                          value={getForm(s).difficulty_preset ?? s.difficulty_preset ?? "standard"}
+                          onChange={(e) => setForm(s, { difficulty_preset: e.target.value })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        >
+                          {DIFFICULTY_PRESETS.map((p) => (
+                            <option key={p.value} value={p.value}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Min overall score</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={getForm(s).min_overall_score ?? s.min_overall_score ?? 80}
+                          onChange={(e) => setForm(s, { min_overall_score: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Max critical violations</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={getForm(s).max_critical_violations ?? s.max_critical_violations ?? 0}
+                          onChange={(e) => setForm(s, { max_critical_violations: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Max total violations</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={getForm(s).max_total_violations ?? s.max_total_violations ?? 2}
+                          onChange={(e) => setForm(s, { max_total_violations: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Min specificity</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={getForm(s).min_specificity_score ?? s.min_specificity_score ?? 70}
+                          onChange={(e) => setForm(s, { min_specificity_score: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Min actionability</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={getForm(s).min_actionability_score ?? s.min_actionability_score ?? 70}
+                          onChange={(e) => setForm(s, { min_actionability_score: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-500 mb-0.5">Min format legality</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={getForm(s).min_format_legality_score ?? s.min_format_legality_score ?? 90}
+                          onChange={(e) => setForm(s, { min_format_legality_score: Number(e.target.value) })}
+                          className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={getForm(s).require_clarifying_question_when_missing_info ?? s.require_clarifying_question_when_missing_info ?? false}
+                            onChange={(e) => setForm(s, { require_clarifying_question_when_missing_info: e.target.checked })}
+                          />
+                          <span>Require clarifying Q</span>
+                        </label>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={getForm(s).require_refusal_on_illegal_request ?? s.require_refusal_on_illegal_request !== false}
+                            onChange={(e) => setForm(s, { require_refusal_on_illegal_request: e.target.checked })}
+                          />
+                          <span>Require refusal on illegal</span>
+                        </label>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleSave(s)}
+                      disabled={saving}
+                      className="mt-2 px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : "Save gating config"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AiTestPage() {
   const [testCases, setTestCases] = React.useState<TestCase[]>([]);
   const [selectedCase, setSelectedCase] = React.useState<TestCase | null>(null);
@@ -38,6 +483,7 @@ export default function AiTestPage() {
   const [loading, setLoading] = React.useState(false);
   const [runningBatch, setRunningBatch] = React.useState(false);
   const [batchResults, setBatchResults] = React.useState<any[]>([]);
+  const [lastEvalRunId, setLastEvalRunId] = React.useState<number | null>(null);
   const [filterTag, setFilterTag] = React.useState<string>("");
   const [filterType, setFilterType] = React.useState<string | null>(null);
   const [filterStatus, setFilterStatus] = React.useState<string | null>(null);
@@ -97,6 +543,13 @@ export default function AiTestPage() {
   const [modulesAttachedPreview, setModulesAttachedPreview] = React.useState<string[]>([]);
   const [layerVersions, setLayerVersions] = React.useState<{ id: string; created_at: string }[]>([]);
   const [showLayerSection, setShowLayerSection] = React.useState(false);
+  const [suiteToolTab, setSuiteToolTab] = React.useState<"main" | "eval-sets" | "compare" | "mutations" | "cost" | "human-review">("main");
+  const [evalSets, setEvalSets] = React.useState<any[]>([]);
+  const [expandedEvalSetId, setExpandedEvalSetId] = React.useState<string | null>(null);
+  const [pairwiseResult, setPairwiseResult] = React.useState<any>(null);
+  const [pairwiseFilter, setPairwiseFilter] = React.useState<"all" | "disagreements">("all");
+  const [costReport, setCostReport] = React.useState<any>(null);
+  const [humanReviews, setHumanReviews] = React.useState<any[]>([]);
 
   // Load test cases
   React.useEffect(() => {
@@ -106,6 +559,26 @@ export default function AiTestPage() {
     loadTrendsData();
     loadTestSchedules();
   }, []);
+
+  async function loadEvalSets() {
+    try {
+      const r = await fetch("/api/admin/ai-test/eval-sets", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok) setEvalSets(j.sets || []);
+    } catch (e) {
+      console.error("Failed to load eval sets:", e);
+    }
+  }
+
+  async function loadHumanReviews() {
+    try {
+      const r = await fetch("/api/admin/ai-test/human-reviews?status=pending&limit=50", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok) setHumanReviews(j.reviews || []);
+    } catch (e) {
+      console.error("Failed to load human reviews:", e);
+    }
+  }
 
   // Load coverage when test cases are loaded or batch results change
   React.useEffect(() => {
@@ -582,9 +1055,10 @@ export default function AiTestPage() {
               summary: batchData.summary,
             }),
           });
-          // Reload history and coverage
+          // Reload history, coverage, and eval runs (so Cost tab can use the new ID)
           loadTestHistory();
           loadCoverageData();
+          loadEvalRuns();
         } catch (e) {
           console.error("Failed to save test history:", e);
         }
@@ -628,9 +1102,8 @@ export default function AiTestPage() {
             }
           }
         }
-        // Store eval run ID for later reference
         if (batchData.evalRunId) {
-          console.log("Eval run created:", batchData.evalRunId);
+          setLastEvalRunId(batchData.evalRunId);
         }
       } else {
         console.error("Batch test failed:", batchData.error);
@@ -708,6 +1181,21 @@ export default function AiTestPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="text-xl font-semibold">AI Testing Interface</div>
+        <div className="flex gap-2">
+          {(["main", "eval-sets", "compare", "mutations", "cost", "human-review"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                setSuiteToolTab(t);
+                if (t === "eval-sets") loadEvalSets();
+                if (t === "human-review") loadHumanReviews();
+              }}
+              className={`px-2 py-1 text-xs rounded ${suiteToolTab === t ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600"}`}
+            >
+              {t === "main" ? "Main" : t === "eval-sets" ? "Eval Sets" : t === "compare" ? "Compare A/B" : t === "mutations" ? "Mutations" : t === "cost" ? "Cost" : "Human Review"}
+            </button>
+          ))}
+        </div>
         <button
           onClick={async () => {
             try {
@@ -736,6 +1224,222 @@ export default function AiTestPage() {
           Export Training Dataset (JSONL)
         </button>
       </div>
+
+      {/* Suite Tools: Eval Sets, Compare, Mutations, Cost, Human Review */}
+      {suiteToolTab !== "main" && (
+        <section className="rounded border border-neutral-800 p-4 mb-4">
+          {suiteToolTab === "eval-sets" && (
+            <>
+              <div className="mb-4">
+                <ELI5
+                  heading="What are Golden Eval Sets?"
+                  items={[
+                  "A Golden Set is a curated list of tests that must ALL pass before you deploy.",
+                  "Think of it as a final exam: if any test fails, the whole set fails. No exceptions.",
+                  "Use this when you want a strict gate — e.g. before releasing a prompt change.",
+                  "Step 1: Create or pick a set. Step 2: Click Run Golden Set. Step 3: If it passes, you're good to go.",
+                ]}
+                />
+              </div>
+              <EvalSetsPanel
+              evalSets={evalSets}
+              expandedId={expandedEvalSetId}
+              onExpand={setExpandedEvalSetId}
+              onRefresh={loadEvalSets}
+              adminFormatKey={adminFormatKey}
+            />
+            </>
+          )}
+          {suiteToolTab === "compare" && (
+            <>
+              <div className="mb-4">
+                <ELI5
+                  heading="What is Compare A/B?"
+                  items={[
+                  "Compare two versions of the AI side-by-side on the same questions.",
+                  "Version A and Version B each answer the same test. A judge picks the better answer.",
+                  "Use this when you have two prompts (or models) and want to see which one wins.",
+                  "Step 1: Run Pairwise. Step 2: Check win rates. Step 3: Filter to disagreements to inspect.",
+                ]}
+                />
+              </div>
+              <PairwiseComparePanel
+              filteredCases={filteredCases}
+              pairwiseResult={pairwiseResult}
+              pairwiseFilter={pairwiseFilter}
+              onFilterChange={setPairwiseFilter}
+              onRun={async () => {
+                try {
+                  const r = await fetch("/api/admin/ai-test/pairwise", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ test_case_ids: filteredCases.slice(0, 5).map((c) => c.id) }),
+                  });
+                  const j = await r.json();
+                  if (j.ok) {
+                    setPairwiseResult(j);
+                  } else alert(j.error || "Failed");
+                } catch (e: any) {
+                  alert(e?.message || "Failed");
+                }
+              }}
+            />
+            </>
+          )}
+          {suiteToolTab === "mutations" && (
+            <div className="space-y-4">
+              <ELI5
+                heading="What are Mutations?"
+                items={[
+                  "Mutations are twisted versions of existing tests — like 'what if the user forgot to say the format?'",
+                  "They help catch edge cases: typos, missing info, messy decklists, etc.",
+                  "Use this to grow your test suite with harder, weirder scenarios.",
+                  "Step 1: Select one or more test cases. Step 2: Click Generate Mutations.",
+                ]}
+              />
+              <div className="font-medium">Step 2: Generate Mutations</div>
+              <p className="text-xs opacity-70">Step 1: Select test cases in the Main tab (or leave unselected to use first 3). Then click below.</p>
+              <button
+                onClick={async () => {
+                  const ids = selectedCase ? [selectedCase.id] : filteredCases.slice(0, 3).map((c) => c.id);
+                  if (ids.length === 0) {
+                    alert("Select test cases first");
+                    return;
+                  }
+                  try {
+                    const r = await fetch("/api/admin/ai-test/generate-mutations", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ base_test_case_ids: ids, count_per_case: 1 }),
+                    });
+                    const j = await r.json();
+                    if (j.ok) {
+                      alert(`Created ${j.created} mutations`);
+                      loadTestCases();
+                    } else alert(j.error || "Failed");
+                  } catch (e: any) {
+                    alert(e?.message || "Failed");
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-500"
+              >
+                Generate Mutations
+              </button>
+            </div>
+          )}
+          {suiteToolTab === "cost" && (
+            <div className="space-y-4">
+              <ELI5
+                heading="What is the Cost Report?"
+                items={[
+                  "See how much money (and time) each test run cost — tokens, API calls, judge calls.",
+                  "Use this to track spend before/after prompt changes or to debug expensive runs.",
+                  "Step 1: Get the eval run ID (see below). Step 2: Paste it here. Step 3: Click Load Report.",
+                ]}
+              />
+              <div className="font-medium">Step 2: Enter eval run ID and load</div>
+              <p className="text-xs opacity-70">
+                Where to get the ID: Run a batch test (Main → Run All) or a Golden Set. The ID is in Eval Runs History (right column) or in the run result. Copy it here.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Eval run ID (e.g. 12345)"
+                  id="cost-eval-run-id"
+                  className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm w-80"
+                />
+                <button
+                  onClick={async () => {
+                    const id = (document.getElementById("cost-eval-run-id") as HTMLInputElement)?.value?.trim();
+                    if (!id) {
+                      alert("Enter eval run ID");
+                      return;
+                    }
+                    try {
+                      const r = await fetch(`/api/admin/ai-test/cost-report?eval_run_id=${encodeURIComponent(id)}`);
+                      const j = await r.json();
+                      if (j.ok) setCostReport(j);
+                      else alert(j.error || "Failed");
+                    } catch (e: any) {
+                      alert(e?.message || "Failed");
+                    }
+                  }}
+                  className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500"
+                >
+                  Load Report
+                </button>
+              </div>
+              {costReport && (
+                <pre className="text-xs p-2 bg-neutral-900 rounded overflow-auto max-h-48">
+                  {JSON.stringify(costReport, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
+          {suiteToolTab === "human-review" && (
+            <div className="space-y-4">
+              <ELI5
+                heading="What is Human Review?"
+                items={[
+                  "Sample real AI outputs from production and review them yourself.",
+                  "Use this to calibrate the automated judges or spot issues the tests miss.",
+                  "Step 1: Click Sample from Production. Step 2: Review the outputs. Step 3: Mark as reviewed.",
+                ]}
+              />
+              <div className="font-medium">Human Review Queue</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch("/api/admin/ai-test/sample-production", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ count: 10 }),
+                      });
+                      const j = await r.json();
+                      if (j.ok) {
+                        alert(`Sampled ${j.sampled}, created ${j.created} reviews`);
+                        loadHumanReviews();
+                      } else alert(j.error || "Failed");
+                    } catch (e: any) {
+                      alert(e?.message || "Failed");
+                    }
+                  }}
+                  className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600"
+                >
+                  Sample from Production
+                </button>
+                <button onClick={loadHumanReviews} className="px-2 py-1 text-xs rounded bg-neutral-600">Refresh</button>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-auto">
+                {humanReviews.map((rev: any) => (
+                  <div key={rev.id} className="p-2 bg-neutral-900 rounded border border-neutral-700">
+                    <div className="text-xs font-mono truncate">{rev.route} • {rev.source}</div>
+                    <div className="text-xs mt-1 line-clamp-2">{String(rev.output || "").slice(0, 200)}...</div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch("/api/admin/ai-test/human-reviews", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: rev.id, labels: { overall: 4 }, status: "reviewed", reviewer: "admin" }),
+                          });
+                          loadHumanReviews();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className="mt-1 px-2 py-0.5 text-xs rounded bg-blue-600"
+                    >
+                      Mark Reviewed
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 3-Layer Prompt System */}
       <section className="rounded border border-neutral-800 p-3 mb-4 space-y-3">
@@ -882,6 +1586,17 @@ export default function AiTestPage() {
         ]}
       />
 
+      <ELI5
+        heading="Typical workflow (step by step)"
+        items={[
+          "Step 1: Use the filters below to find the tests you care about (or leave them as-is to see all).",
+          "Step 2: Click Run All to run every test in the list. Wait for it to finish.",
+          "Step 3: Check the results — green = passed, red = failed. Click a test to see details.",
+          "Step 4: If you changed the prompt, run again to see if things improved.",
+          "Step 5: Use the tabs above (Eval Sets, Compare, Cost, etc.) for advanced checks before deploy.",
+        ]}
+      />
+
       {/* Validation Options */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="font-medium flex items-center gap-2">
@@ -964,7 +1679,7 @@ export default function AiTestPage() {
       {/* Filters and Search */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="font-medium flex items-center gap-2">
-          Find Tests
+          Step 1: Find Tests
           <HelpTip text="Use these filters to find specific tests. Like searching for a book in a library." />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -1086,7 +1801,7 @@ export default function AiTestPage() {
       {/* Batch Test Controls */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <div className="font-medium">Batch Testing</div>
+          <div className="font-medium">Batch Testing — Step 2: Run your tests</div>
           {batchResults.length > 0 && (
             <div className="flex items-center gap-2">
               <div className="text-sm">
@@ -1141,7 +1856,7 @@ export default function AiTestPage() {
 
       {/* Test Cases List */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
-        <div className="font-medium">Test Cases</div>
+        <div className="font-medium">Test Cases (click one to run it alone or see details)</div>
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {filteredCases.length === 0 ? (
             <div className="text-sm opacity-70">No test cases found</div>
@@ -1357,6 +2072,11 @@ export default function AiTestPage() {
       {batchResults.length > 0 && (
         <section className="rounded border border-neutral-800 p-3 space-y-2">
           <div className="font-medium">Batch Test Results</div>
+          {lastEvalRunId != null && (
+            <div className="text-xs opacity-80 mb-2">
+              Eval run ID: <code className="bg-neutral-800 px-1 rounded">{lastEvalRunId}</code> — copy this for the Cost report (Cost tab).
+            </div>
+          )}
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {batchResults.map((result, idx) => (
               <div
@@ -1989,7 +2709,7 @@ export default function AiTestPage() {
         <section className="rounded border border-neutral-800 p-3 space-y-2">
           <div className="font-medium">Eval Runs History</div>
           <div className="space-y-2">
-            <div className="text-xs opacity-70 mb-2">Select two runs to compare:</div>
+            <div className="text-xs opacity-70 mb-2">Select two runs to compare. ID = use in Cost tab for cost report.</div>
             <div className="space-y-1 max-h-48 overflow-y-auto text-xs">
               {evalRuns.map((run: any) => (
                 <div key={run.id} className="p-2 rounded border border-neutral-700 bg-neutral-950/40">
@@ -2020,7 +2740,7 @@ export default function AiTestPage() {
                       <div>
                         <div className="font-medium">{run.suite}</div>
                         <div className="text-[10px] opacity-70">
-                          {run.status} - {new Date(run.created_at).toLocaleString()}
+                          ID: <code className="bg-neutral-800 px-0.5 rounded">{run.id}</code> · {run.status} · {new Date(run.created_at).toLocaleString()}
                         </div>
                       </div>
                       {run.meta?.pass_rate !== undefined && (

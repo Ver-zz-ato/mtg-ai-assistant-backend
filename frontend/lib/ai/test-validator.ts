@@ -13,6 +13,30 @@ export type ValidationResult = {
     message: string;
   }>;
   warnings: string[];
+  /** Optional: critical violations (e.g. from reference compare) */
+  criticalViolations?: number;
+  /** Optional: total violations count */
+  totalViolations?: number;
+};
+
+/** Golden Set gating: structured breakdown for regression gates */
+export type ValidatorBreakdown = {
+  overallScore: number;
+  categoryScores: {
+    factuality: number;
+    legality: number;
+    specificity: number;
+    actionability: number;
+    structure: number;
+    tone: number;
+    safety: number;
+  };
+  violations: { critical: number; total: number; list: string[] };
+  flags: {
+    askedClarifyingQuestions: boolean;
+    refusedWhenNeeded: boolean;
+    hallucinationRisk: boolean;
+  };
 };
 
 /**
@@ -1314,12 +1338,15 @@ export async function validateReferenceCompare(
   
   // Don't allow passing if there are critical violations
   const passed = score >= 80 && criticalViolations === 0;
+  const totalViolations = checks.filter((c) => !c.passed).length;
 
   return {
     passed,
     score,
     checks,
     warnings,
+    criticalViolations,
+    totalViolations,
   };
 }
 
@@ -2600,6 +2627,7 @@ export async function validateResponse(
     score: number;
     summary: string;
   };
+  validatorBreakdown?: ValidatorBreakdown;
 }> {
   const results: {
     keywordResults?: ValidationResult;
@@ -2789,12 +2817,82 @@ export async function validateResponse(
 
   const summary = `Overall: ${overallPassed ? "PASSED" : "FAILED"} (${overallScore}%)`;
 
+  const validatorBreakdown = buildValidatorBreakdown(results, response, overallScore);
+
   return {
     ...results,
     overall: {
       passed: overallPassed,
       score: overallScore,
       summary,
+    },
+    validatorBreakdown,
+  };
+}
+
+/**
+ * Build structured breakdown for Golden Set gating.
+ * Maps validator results to category scores, violations, and flags.
+ */
+function buildValidatorBreakdown(
+  results: Record<string, ValidationResult | JudgeResult | undefined>,
+  response: string,
+  validationOverallScore: number
+): ValidatorBreakdown {
+  const ref = results.referenceResults as (ValidationResult & { criticalViolations?: number; totalViolations?: number }) | undefined;
+  const llmJudge = results.llmJudge as JudgeResult | undefined;
+
+  const llmRes = results.llmResults as ValidationResult | undefined;
+  const factuality = llmJudge?.factual_score ?? ref?.score ?? (llmRes?.score ?? 100);
+  const legality = llmJudge?.legality_score ?? ref?.score ?? ((results.colorIdentityResults as ValidationResult | undefined)?.score ?? 100);
+  const specificity = (results.specificityResults as ValidationResult | undefined)?.score ?? 100;
+  const actionability = [
+    (results.deckStyleResults as ValidationResult | undefined)?.score,
+    (results.problemsFirstResults as ValidationResult | undefined)?.score,
+    (results.synergyResults as ValidationResult | undefined)?.score,
+  ].filter((s): s is number => typeof s === "number");
+  const actionabilityScore = actionability.length > 0 ? Math.round(actionability.reduce((a, b) => a + b, 0) / actionability.length) : 100;
+  const structure = [
+    (results.problemsFirstResults as ValidationResult | undefined)?.score,
+    (results.consistencyResults as ValidationResult | undefined)?.score,
+  ].filter((s): s is number => typeof s === "number");
+  const structureScore = structure.length > 0 ? Math.round(structure.reduce((a, b) => a + b, 0) / structure.length) : 100;
+  const tone = (results.toneResults as ValidationResult | undefined)?.score ?? 100;
+  const safety = [
+    (results as any).safetyResults?.score,
+    (results.colorIdentityResults as ValidationResult | undefined)?.score,
+    (results as any).cardRoleResults?.score,
+  ].filter((s): s is number => typeof s === "number");
+  const safetyScore = safety.length > 0 ? Math.round(safety.reduce((a, b) => a + b, 0) / safety.length) : 100;
+
+  const criticalViolations = ref?.criticalViolations ?? 0;
+  const totalViolations = ref?.totalViolations ?? (ref?.checks?.filter((c) => !c.passed).length ?? 0);
+  const violationList: string[] = [];
+  if (ref?.checks) {
+    ref.checks.filter((c) => !c.passed).forEach((c) => violationList.push(`${c.type}: ${c.message}`));
+  }
+  (ref?.warnings ?? []).slice(0, 10).forEach((w) => violationList.push(w));
+
+  const askedClarifyingQuestions = /\?|could you clarify|can you provide more|what format|which format|need more info/i.test(response);
+  const refusedWhenNeeded = /cannot|won't|refuse|against policy|not allowed|i can't help|i'm not able/i.test(response);
+  const hallucinationRisk = criticalViolations > 0 || (ref?.passed === false && (ref?.score ?? 100) < 70);
+
+  return {
+    overallScore: validationOverallScore,
+    categoryScores: {
+      factuality,
+      legality,
+      specificity,
+      actionability: actionabilityScore,
+      structure: structureScore,
+      tone,
+      safety: safetyScore,
+    },
+    violations: { critical: criticalViolations, total: totalViolations, list: violationList },
+    flags: {
+      askedClarifyingQuestions,
+      refusedWhenNeeded,
+      hallucinationRisk,
     },
   };
 }

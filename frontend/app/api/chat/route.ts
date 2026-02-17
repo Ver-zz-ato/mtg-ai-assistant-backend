@@ -411,6 +411,7 @@ export async function POST(req: NextRequest) {
     const prefs = raw?.prefs || raw?.preferences || null; // optional UX prefs from client
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
     const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
+    const evalRunId = typeof raw?.eval_run_id === 'string' && raw.eval_run_id.trim() ? raw.eval_run_id.trim() : undefined;
     const looksSearch = typeof inputText === 'string' && /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(inputText.trim());
     let suppressInsert = !!looksSearch;
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
@@ -694,6 +695,8 @@ export async function POST(req: NextRequest) {
           layer0_reason: decision.reason,
           is_guest: isGuest,
           user_tier: isPro ? "pro" : userId ? "free" : "guest",
+          eval_run_id: evalRunId ?? null,
+          source: evalRunId ? "ai_test" : undefined,
         });
         return ok({ text: responseText, threadId: tid, provider: "layer0" });
       }
@@ -1293,6 +1296,8 @@ export async function POST(req: NextRequest) {
           cache_kind: publicEligible ? "public" : "private",
           is_guest: isGuest,
           user_tier: tierLabel,
+          eval_run_id: evalRunId ?? null,
+          source: evalRunId ? "ai_test" : undefined,
         });
       } catch (_) {}
       return ok({ text: cachedText, threadId: tid, provider: "cached" });
@@ -1820,6 +1825,8 @@ Return the corrected answer with concise, user-facing tone.`;
         cache_kind: undefined,
         prompt_tier: selectedTier,
         system_prompt_token_estimate: estimateSystemPromptTokens(sys),
+        eval_run_id: evalRunId ?? undefined,
+        source: evalRunId ? "ai_test" : undefined,
       });
     } catch {}
 

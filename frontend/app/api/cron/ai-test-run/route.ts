@@ -115,10 +115,43 @@ export async function POST(req: NextRequest) {
           .eq("id", schedule.id);
 
         // Check if alert is needed
-        if (passRate < schedule.alert_threshold && schedule.alert_email) {
+        const alertThreshold = schedule.alert_threshold ?? 70;
+        const shouldAlert = passRate < alertThreshold;
+        if (shouldAlert && schedule.alert_email) {
           // TODO: Send email alert
-          console.warn(`[cron/ai-test-run] ALERT: Schedule "${schedule.name}" pass rate ${passRate}% is below threshold ${schedule.alert_threshold}%`);
-          // In production, you would send an email here
+          console.warn(`[cron/ai-test-run] ALERT: Schedule "${schedule.name}" pass rate ${passRate}% is below threshold ${alertThreshold}%`);
+        }
+
+        // Webhook alert (Discord-compatible JSON)
+        const webhookUrl = schedule.alert_webhook_url;
+        const alertOnRegression = schedule.alert_on_regression !== false;
+        if (shouldAlert && webhookUrl && typeof webhookUrl === "string" && webhookUrl.trim() && alertOnRegression) {
+          try {
+            const adminPageUrl = `${baseUrl.replace(/\/$/, "")}/admin/ai-test`;
+            const payload = {
+              content: null,
+              embeds: [{
+                title: "AI Test Regression Alert",
+                description: `Schedule **${schedule.name}** pass rate dropped below threshold.`,
+                color: 0xff0000,
+                fields: [
+                  { name: "Pass Rate", value: `${passRate}%`, inline: true },
+                  { name: "Threshold", value: `${alertThreshold}%`, inline: true },
+                  { name: "Tests", value: `${batchData.summary?.passed || 0}/${batchData.summary?.total || 0} passed`, inline: true },
+                  { name: "Eval Run ID", value: batchData.evalRunId || "N/A", inline: false },
+                  { name: "Admin", value: `[Open AI Test](${adminPageUrl})`, inline: false },
+                ],
+                timestamp: new Date().toISOString(),
+              }],
+            };
+            await fetch(webhookUrl.trim(), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          } catch (webhookErr) {
+            console.warn("[cron/ai-test-run] Webhook alert failed:", webhookErr);
+          }
         }
 
         executed.push({

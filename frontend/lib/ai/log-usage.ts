@@ -67,6 +67,10 @@ export type RecordAiUsagePayload = {
   system_prompt_token_estimate?: number | null;
   /** Where the call originated (e.g. deck_page_analyze, homepage, build_assistant) */
   source_page?: string | null;
+  /** Links to eval_runs for cost reporting (AI test runs) */
+  eval_run_id?: string | null;
+  /** ai_test, ai_test_judge, production, etc. */
+  source?: string | null;
 };
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
@@ -124,6 +128,8 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       prompt_tier: payload.prompt_tier ?? null,
       system_prompt_token_estimate: payload.system_prompt_token_estimate ?? null,
       source_page: payload.source_page ?? null,
+      eval_run_id: payload.eval_run_id ?? null,
+      source: payload.source ?? null,
     };
 
     const withoutPreviews = {
@@ -167,6 +173,8 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       prompt_tier: full.prompt_tier,
       system_prompt_token_estimate: full.system_prompt_token_estimate,
       source_page: full.source_page,
+      eval_run_id: full.eval_run_id,
+      source: full.source,
     };
 
     const minimal: Record<string, unknown> = {

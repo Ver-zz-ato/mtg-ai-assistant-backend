@@ -56,6 +56,10 @@ export type LLMConfig = {
   max_tokens_config?: number | null;
   /** Where the call originated (e.g. deck_page_analyze, homepage, build_assistant) */
   source_page?: string | null;
+  /** Links to eval_runs for cost reporting (AI test runs) */
+  eval_run_id?: string | null;
+  /** ai_test, ai_test_judge, production, etc. */
+  source?: string | null;
 };
 
 export type LLMResponse = {
@@ -382,6 +386,8 @@ export async function callLLM(
       latency_ms: latency,
       source_page: config.source_page ?? null,
       anon_id: config.anonId ?? null,
+      eval_run_id: config.eval_run_id ?? null,
+      source: config.source ?? null,
     }).catch(() => {});
   }
 
