@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   parseDecklist,
   getTotalCards,
@@ -8,6 +8,8 @@ import {
   type ParsedCard,
 } from "@/lib/mulligan/parse-decklist";
 import { capture, hasConsent } from "@/lib/ph";
+
+type DeckRow = { id: string; title?: string | null };
 
 function shuffleDeck<T>(deck: T[]): T[] {
   const shuffled = [...deck];
@@ -35,6 +37,7 @@ export default function MulliganAiPlayground() {
   const [deckSource, setDeckSource] = useState<"paste" | "load">("paste");
   const [deckText, setDeckText] = useState("");
   const [deckId, setDeckId] = useState("");
+  const [decks, setDecks] = useState<DeckRow[]>([]);
   const [parsedCards, setParsedCards] = useState<ParsedCard[]>([]);
   const [commander, setCommander] = useState<string | null>(null);
 
@@ -58,18 +61,75 @@ export default function MulliganAiPlayground() {
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
+  const [cardImages, setCardImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [imagesLoading, setImagesLoading] = useState(false);
+
+  // Fetch decks list for dropdown (same as ImportDeckForMath / budget swaps)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/decks/my", { cache: "no-store" });
+        const json = await res.json().catch(() => ({ ok: false }));
+        if (res.ok && json?.ok && Array.isArray(json.decks)) {
+          setDecks(json.decks);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Fetch card images when we have cards (like HandTestingWidget)
+  useEffect(() => {
+    const names = parsedCards.length > 0
+      ? Array.from(new Set(parsedCards.map((c) => c.name))).slice(0, 200)
+      : [];
+    if (names.length === 0) return;
+
+    let cancelled = false;
+    setImagesLoading(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/cards/batch-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ names }),
+        });
+        if (cancelled) return;
+        const data = await res.json().catch(() => ({}));
+        const map: Record<string, { small?: string; normal?: string }> = {};
+        if (data?.data && Array.isArray(data.data)) {
+          for (const card of data.data) {
+            const name = (card.name || "").toLowerCase().trim();
+            const img = card.image_uris || card.card_faces?.[0]?.image_uris || {};
+            if (name) map[name] = { small: img.small || img.normal, normal: img.normal || img.large };
+          }
+        }
+        if (!cancelled) setCardImages(map);
+      } catch {
+        if (!cancelled) setCardImages({});
+      } finally {
+        if (!cancelled) setImagesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [parsedCards]);
+
   const handleParse = useCallback(() => {
     const cards = parseDecklist(deckText);
     setParsedCards(cards);
     setError(null);
   }, [deckText]);
 
-  const handleLoadDeck = useCallback(async () => {
-    if (!deckId.trim()) return;
+  const handleDeckSelect = useCallback(async (id: string) => {
+    setDeckId(id);
+    if (!id) {
+      setParsedCards([]);
+      setCommander(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId.trim())}`, {
+      const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(id)}`, {
         cache: "no-store",
       });
       const data = await res.json();
@@ -81,12 +141,21 @@ export default function MulliganAiPlayground() {
       );
       setParsedCards(cards);
       setDeckText(cards.map((c) => `${c.count} ${c.name}`).join("\n"));
+      // Try to get commander from deck metadata
+      try {
+        const metaRes = await fetch(`/api/decks/get?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+        const meta = await metaRes.json().catch(() => ({}));
+        const cmd = (meta?.deck as { commander?: string })?.commander;
+        setCommander(cmd ? String(cmd).trim() || null : null);
+      } catch {
+        setCommander(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
     } finally {
       setLoading(false);
     }
-  }, [deckId]);
+  }, []);
 
   const handleDraw7 = useCallback(() => {
     const expanded = expandDeck(parsedCards);
@@ -233,20 +302,22 @@ export default function MulliganAiPlayground() {
           </div>
         ) : (
           <div className="space-y-2">
-            <input
-              type="text"
+            <select
               value={deckId}
-              onChange={(e) => setDeckId(e.target.value)}
-              placeholder="Deck ID (e.g. from /my-decks/xxx)"
-              className="w-full bg-neutral-950 border border-neutral-600 rounded px-3 py-2 text-sm"
-            />
-            <button
-              onClick={handleLoadDeck}
+              onChange={(e) => handleDeckSelect(e.target.value)}
               disabled={loading}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-sm disabled:opacity-50"
+              className="w-full bg-neutral-950 border border-neutral-600 rounded px-3 py-2 text-sm"
             >
-              Load
-            </button>
+              <option value="">
+                {decks.length === 0 ? "Sign in to load your decks" : "Select a deck…"}
+              </option>
+              {decks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title || "Untitled deck"}
+                </option>
+              ))}
+            </select>
+            {loading && <span className="text-xs text-neutral-500">Loading deck…</span>}
           </div>
         )}
 
@@ -262,49 +333,114 @@ export default function MulliganAiPlayground() {
         </div>
       </section>
 
-      {/* Hand Simulator */}
+      {/* Hand Simulator - styled like Hand Testing Widget */}
       <section className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-        <h2 className="font-semibold text-neutral-200 mb-3">Hand Simulator</h2>
-        <div className="flex flex-wrap gap-2 mb-3">
-          <button
-            onClick={handleDraw7}
-            disabled={parsedCards.length === 0}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm disabled:opacity-50"
-          >
-            Draw 7
-          </button>
-          <button
-            onClick={() => handleMulliganTo(6)}
-            disabled={currentHand.length === 0}
-            className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-          >
-            Mulligan to 6
-          </button>
-          <button
-            onClick={() => handleMulliganTo(5)}
-            disabled={currentHand.length === 0}
-            className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-          >
-            Mulligan to 5
-          </button>
-          <button
-            onClick={() => handleMulliganTo(4)}
-            disabled={currentHand.length === 0}
-            className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-          >
-            Mulligan to 4
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
+              {imagesLoading ? (
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              ) : (
+                "🃏"
+              )}
+            </div>
+            <div>
+              <h2 className="font-semibold text-amber-200">Hand Simulator</h2>
+              <p className="text-xs text-neutral-400">
+                {imagesLoading ? "Loading card images…" :
+                 parsedCards.length === 0 ? "Load or paste a deck first" :
+                 `${totalCards} cards • ${Object.keys(cardImages).length} images loaded • ${currentHand.length > 0 ? "Ready" : "Draw a hand"}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleDraw7}
+              disabled={parsedCards.length === 0}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-medium rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {currentHand.length === 0 ? "Draw Opening Hand" : "New Test"}
+            </button>
+            {currentHand.length > 0 && (
+              <>
+                <button
+                  onClick={() => handleMulliganTo(6)}
+                  disabled={totalCards < 6}
+                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
+                >
+                  Mulligan to 6
+                </button>
+                <button
+                  onClick={() => handleMulliganTo(5)}
+                  disabled={totalCards < 5}
+                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
+                >
+                  Mulligan to 5
+                </button>
+                <button
+                  onClick={() => handleMulliganTo(4)}
+                  disabled={totalCards < 4}
+                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
+                >
+                  Mulligan to 4
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {currentHand.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs text-neutral-500">
-              Current hand ({currentHand.length} cards) • {mulliganCount} mulligan{mulliganCount !== 1 ? "s" : ""}
+          <div className="mb-4">
+            <h4 className="text-sm font-medium mb-3">
+              Current Hand ({currentHand.length} cards)
+              {mulliganCount > 0 && (
+                <span className="ml-2 text-xs bg-orange-600 text-white px-2 py-0.5 rounded">
+                  {mulliganCount} mulligan{mulliganCount !== 1 ? "s" : ""}
+                </span>
+              )}
+            </h4>
+            <div
+              className={`grid gap-3 p-2 justify-items-center ${
+                currentHand.length === 1 ? "grid-cols-1" :
+                currentHand.length === 2 ? "grid-cols-2" :
+                currentHand.length === 3 ? "grid-cols-3" :
+                currentHand.length === 4 ? "grid-cols-4" :
+                "grid-cols-4"
+              }`}
+            >
+              {currentHand.map((name, i) => {
+                const cardData = cardImages[name.toLowerCase()?.trim()];
+                const imgUrl = cardData?.normal || cardData?.small;
+                return (
+                  <div
+                    key={`${name}-${i}`}
+                    className="bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 w-24 sm:w-28 md:w-32 relative"
+                    style={{ aspectRatio: "63/88" }}
+                    title={name}
+                  >
+                    {imgUrl ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imgUrl}
+                          alt={name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                          <div className="text-xs font-medium text-white truncate">{name}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="h-full flex flex-col justify-center p-2">
+                        <div className="font-medium text-white text-center text-sm truncate" title={name}>
+                          {name}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <ul className="list-disc list-inside text-sm text-neutral-300">
-              {currentHand.map((name, i) => (
-                <li key={`${name}-${i}`}>{name}</li>
-              ))}
-            </ul>
           </div>
         )}
       </section>
