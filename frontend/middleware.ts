@@ -27,8 +27,10 @@ try {
   }
 }
 
+// Exclude sitemap from middleware so it always reaches the route on all hostnames (www + apex).
+// Middleware auth/cookies can cause 404 on www when host handling differs.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/).*)'],
 };
 
 export async function middleware(req: NextRequest) {
@@ -258,12 +260,5 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Sitemap: prevent caching so Google always gets fresh content
-  const res = response || NextResponse.next();
-  if (path === '/sitemap.xml' || path.startsWith('/sitemap')) {
-    res.headers.set('Cache-Control', 'no-store');
-    res.headers.set('Content-Type', 'application/xml');
-  }
-
-  return res;
+  return response || NextResponse.next();
 }

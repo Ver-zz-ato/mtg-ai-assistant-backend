@@ -57,25 +57,33 @@ const nextConfig: NextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      // Images from Scryfall (cards + SVG mana symbols) and data URIs
       "img-src 'self' data: https://cards.scryfall.io https://svgs.scryfall.io",
-      // Allow scripts from self, Stripe, Ko-fi, and PostHog (for surveys/extensions)
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com https://eu-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      // Allow Scryfall API calls and Supabase/PostHog/Sentry + production domain for testing
-      // Note: wss:// is required for Supabase Realtime WebSocket connections
       "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
       "frame-src https://js.stripe.com https://ko-fi.com",
-      // PERFORMANCE FIX: Allow PostHog/Sentry to create web workers from blob URLs
       "worker-src 'self' blob:",
     ].join('; ');
     return [
       {
+        source: '/sitemap.xml',
+        headers: [
+          { key: 'Content-Type', value: 'application/xml' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
+      {
+        source: '/sitemap/:path*.xml',
+        headers: [
+          { key: 'Content-Type', value: 'application/xml' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
+      {
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: csp },
-          // Security headers for additional protection
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
