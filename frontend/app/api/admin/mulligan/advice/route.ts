@@ -11,8 +11,8 @@ const AdviceSchema = z.object({
   modelTier: z.enum(["mini", "full"]),
   format: z.literal("commander"),
   playDraw: z.enum(["play", "draw"]),
-  mulliganCount: z.number().min(0).max(3),
-  hand: z.array(z.string()).min(4).max(7),
+  mulliganCount: z.number().min(0).max(7),
+  hand: z.array(z.string()).min(1).max(7),
   deck: z.object({
     cards: z.array(z.object({ name: z.string(), count: z.number() })),
     commander: z.string().nullable().optional(),

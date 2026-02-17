@@ -63,6 +63,33 @@ export default function MulliganAiPlayground() {
 
   const [cardImages, setCardImages] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [imagesLoading, setImagesLoading] = useState(false);
+  const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({
+    src: "",
+    x: 0,
+    y: 0,
+    shown: false,
+    below: false,
+  });
+
+  const calcPos = useCallback((e: React.MouseEvent | MouseEvent) => {
+    try {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 12;
+      const boxW = 320;
+      const boxH = 460;
+      const half = boxW / 2;
+      const rawX = (e as React.MouseEvent).clientX;
+      const rawY = (e as React.MouseEvent).clientY;
+      const below = rawY - boxH - margin < 0;
+      const x = Math.min(vw - margin - half, Math.max(margin + half, rawX));
+      const y = below ? Math.min(vh - margin, rawY + margin) : Math.max(margin + 1, rawY - margin);
+      return { x, y, below };
+    } catch {
+      const ev = e as React.MouseEvent;
+      return { x: ev?.clientX ?? 0, y: ev?.clientY ?? 0, below: false };
+    }
+  }, []);
 
   // Fetch decks list for dropdown (same as ImportDeckForMath / budget swaps)
   useEffect(() => {
@@ -170,6 +197,17 @@ export default function MulliganAiPlayground() {
     setError(null);
   }, [parsedCards]);
 
+  // Commander: first mulligan free (redraw 7), then each costs a card: 7→7→6→5→4→3→2→1
+  const handleFreeMulligan = useCallback(() => {
+    if (parsedCards.length === 0 || currentHand.length !== 7 || mulliganCount !== 0) return;
+    const expanded = expandDeck(parsedCards);
+    if (expanded.length < 7) return;
+    setCurrentHand(drawHand(expanded, 7));
+    setMulliganCount(1);
+    setResult(null);
+    setError(null);
+  }, [parsedCards, currentHand.length, mulliganCount]);
+
   const handleMulliganTo = useCallback(
     (size: number) => {
       if (parsedCards.length === 0) return;
@@ -177,7 +215,8 @@ export default function MulliganAiPlayground() {
       if (expanded.length < size) return;
       setCurrentHand(drawHand(expanded, size));
       setHandSize(size);
-      setMulliganCount(7 - size);
+      // mulliganCount: 7→1, 6→2, 5→3, 4→4, 3→5, 2→6, 1→7
+      setMulliganCount(size === 7 ? 1 : 8 - size);
       setResult(null);
       setError(null);
     },
@@ -363,27 +402,64 @@ export default function MulliganAiPlayground() {
             </button>
             {currentHand.length > 0 && (
               <>
-                <button
-                  onClick={() => handleMulliganTo(6)}
-                  disabled={totalCards < 6}
-                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-                >
-                  Mulligan to 6
-                </button>
-                <button
-                  onClick={() => handleMulliganTo(5)}
-                  disabled={totalCards < 5}
-                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-                >
-                  Mulligan to 5
-                </button>
-                <button
-                  onClick={() => handleMulliganTo(4)}
-                  disabled={totalCards < 4}
-                  className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm disabled:opacity-50"
-                >
-                  Mulligan to 4
-                </button>
+                {mulliganCount === 0 && currentHand.length === 7 && (
+                  <button
+                    onClick={handleFreeMulligan}
+                    disabled={totalCards < 7}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-sm disabled:opacity-50"
+                    title="Commander: first mulligan is free, redraw 7"
+                  >
+                    Free mulligan (redraw 7)
+                  </button>
+                )}
+                {currentHand.length === 7 && mulliganCount >= 1 && totalCards >= 6 && (
+                  <button
+                    onClick={() => handleMulliganTo(6)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 6
+                  </button>
+                )}
+                {currentHand.length === 6 && totalCards >= 5 && (
+                  <button
+                    onClick={() => handleMulliganTo(5)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 5
+                  </button>
+                )}
+                {currentHand.length === 5 && totalCards >= 4 && (
+                  <button
+                    onClick={() => handleMulliganTo(4)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 4
+                  </button>
+                )}
+                {currentHand.length === 4 && totalCards >= 3 && (
+                  <button
+                    onClick={() => handleMulliganTo(3)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 3
+                  </button>
+                )}
+                {currentHand.length === 3 && totalCards >= 2 && (
+                  <button
+                    onClick={() => handleMulliganTo(2)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 2
+                  </button>
+                )}
+                {currentHand.length === 2 && totalCards >= 1 && (
+                  <button
+                    onClick={() => handleMulliganTo(1)}
+                    className="px-3 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-sm"
+                  >
+                    Mulligan to 1
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -410,12 +486,26 @@ export default function MulliganAiPlayground() {
               {currentHand.map((name, i) => {
                 const cardData = cardImages[name.toLowerCase()?.trim()];
                 const imgUrl = cardData?.normal || cardData?.small;
+                const fullImage = cardData?.normal || cardData?.small || "";
                 return (
                   <div
                     key={`${name}-${i}`}
                     className="bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 w-24 sm:w-28 md:w-32 relative"
                     style={{ aspectRatio: "63/88" }}
                     title={name}
+                    onMouseEnter={(e) => {
+                      if (fullImage) {
+                        const { x, y, below } = calcPos(e);
+                        setPv({ src: fullImage, x, y, shown: true, below });
+                      }
+                    }}
+                    onMouseMove={(e) => {
+                      if (fullImage) {
+                        const { x, y, below } = calcPos(e);
+                        setPv((p) => (p.shown ? { ...p, x, y, below } : p));
+                      }
+                    }}
+                    onMouseLeave={() => setPv((p) => ({ ...p, shown: false }))}
                   >
                     {imgUrl ? (
                       <>
@@ -465,10 +555,11 @@ export default function MulliganAiPlayground() {
             <input
               type="number"
               min={0}
-              max={3}
+              max={7}
               value={mulliganCount}
-              onChange={(e) => setMulliganCount(Math.max(0, Math.min(3, parseInt(e.target.value, 10) || 0)))}
+              onChange={(e) => setMulliganCount(Math.max(0, Math.min(7, parseInt(e.target.value, 10) || 0)))}
               className="w-16 bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-sm"
+              title="Commander: 0=initial, 1=free mulligan (7 cards), 2–7=paid mulligans (6 down to 1)"
             />
           </label>
           <label className="flex items-center gap-2">
@@ -548,6 +639,30 @@ export default function MulliganAiPlayground() {
           </div>
         )}
       </section>
+
+      {/* Global hover preview for card images (same as Hand Testing Widget) */}
+      {pv.shown && typeof window !== "undefined" && pv.src && (
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            left: pv.x,
+            top: pv.y,
+            transform: `translate(-50%, ${pv.below ? "0%" : "-100%"})`,
+          }}
+        >
+          <div
+            className="rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl w-72 md:w-80 transition-opacity duration-150 ease-out opacity-100"
+            style={{ minWidth: "18rem" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={pv.src}
+              alt="preview"
+              className="block w-full h-auto max-h-[70vh] max-w-none object-contain rounded"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
