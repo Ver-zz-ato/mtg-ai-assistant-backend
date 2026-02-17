@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminForApi } from "@/lib/server-admin";
-import { buildDeckProfile, computeHandFacts, type HandFacts } from "@/lib/mulligan/deck-profile";
+import { buildDeckProfileWithTypes, computeHandFactsWithTypes, type HandFacts } from "@/lib/mulligan/deck-profile";
 import {
   buildMulliganAdviceCacheKey,
   getMulliganAdviceCache,
@@ -128,8 +128,10 @@ export async function POST(req: NextRequest) {
   const effectiveModelTier =
     effectiveTier !== "pro" ? "mini" : (modelTier as "mini" | "full");
 
-  const profile = buildDeckProfile(deck.cards, deck.commander ?? null);
-  const handFacts = computeHandFacts(hand);
+  const [profile, handFacts] = await Promise.all([
+    buildDeckProfileWithTypes(deck.cards, deck.commander ?? null),
+    computeHandFactsWithTypes(hand),
+  ]);
 
   const cacheKey = buildMulliganAdviceCacheKey(
     deck,

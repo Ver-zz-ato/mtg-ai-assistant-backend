@@ -1,10 +1,15 @@
 /**
  * Deterministic deck profile builder for mulligan AI advice.
- * Uses name-based heuristics only (no DB, no LLM).
- * Produces baseline expectations and keep heuristics for deck-aware advice.
+ * Uses name-based heuristics + scryfall_cache type_line for land detection.
  */
 
 import type { ParsedCard } from "./parse-decklist";
+import {
+  getTypeLinesForNames,
+  isLandFromLookup,
+  colorsFromTypeLine,
+  normalizeCardName,
+} from "./card-types";
 
 export type DeckProfile = {
   format: "commander";
@@ -33,6 +38,8 @@ export type DeckProfile = {
   keepHeuristics: string[];
   notes: string[];
   commanderPlan?: "early_engine" | "late_engine" | "not_central" | "unknown";
+  /** Set when landCount is suspiciously low (e.g. <20 for 99-card deck) due to cache misses */
+  landDetectionIncomplete?: boolean;
 };
 
 export type HandFacts = {
@@ -302,6 +309,169 @@ export function buildDeckProfile(
   };
 }
 
+/**
+ * Async deck profile with type_line–based land detection (scryfall_cache).
+ * Use this for admin advice route. Falls back to name heuristics when type_line missing.
+ */
+export async function buildDeckProfileWithTypes(
+  cards: ParsedCard[],
+  commander?: string | null
+): Promise<DeckProfile> {
+  const totalCards = cards.reduce((s, c) => s + c.count, 0);
+  const allNames = Array.from(new Set(cards.map((c) => c.name)));
+  const typeMap = await getTypeLinesForNames(allNames);
+
+  let landCount = 0;
+  let fastManaCount = 0;
+  let rampCount = 0;
+  let tutorCount = 0;
+  let drawEngineCount = 0;
+  let interactionCount = 0;
+  let protectionCount = 0;
+  let oneDropCount = 0;
+  let twoDropCount = 0;
+
+  for (const { name, count } of cards) {
+    const n = normalizeCardName(name);
+    const typeLine = typeMap.get(n) ?? null;
+    const isLandCard =
+      isLandFromLookup(typeLine, n) || isLand(name); // fallback to name heuristic
+
+    if (isLandCard) {
+      landCount += count;
+      continue;
+    }
+    if (nameMatches(name, FAST_MANA)) fastManaCount += count;
+    if (nameMatchesPattern(name, TUTOR_PATTERNS)) tutorCount += count;
+    if (nameMatches(name, DRAW_ENGINES)) drawEngineCount += count;
+    if (nameMatches(name, BURST_DRAW)) drawEngineCount += count;
+    if (nameMatches(name, INTERACTION)) interactionCount += count;
+    if (nameMatches(name, PROTECTION)) protectionCount += count;
+    if (nameMatches(name, RAMP_DORKS_ROCKS)) rampCount += count;
+    if (nameMatches(name, ONE_DROPS)) oneDropCount += count;
+    if (nameMatches(name, TWO_DROPS)) twoDropCount += count;
+  }
+
+  const landPercent = totalCards > 0 ? Math.round((landCount / totalCards) * 100) : 0;
+  const landDetectionIncomplete =
+    totalCards >= 90 && landCount < 20;
+
+  // Velocity score (0..10)
+  let velocityScore = 0;
+  if (fastManaCount >= 5) velocityScore += 3;
+  if (tutorCount >= 6) velocityScore += 2;
+  if (oneDropCount + twoDropCount >= 25) velocityScore += 2;
+  if (drawEngineCount >= 4) velocityScore += 2;
+  if (interactionCount >= 8) velocityScore += 1;
+  velocityScore = Math.max(0, Math.min(10, velocityScore));
+
+  let archetype: DeckProfile["archetype"] = "unknown";
+  if (velocityScore >= 7 && tutorCount >= 4) {
+    archetype = interactionCount >= 6 ? "combo_control" : "turbo_combo";
+  } else if (drawEngineCount >= 5 && interactionCount >= 8 && tutorCount < 4) {
+    archetype = "control";
+  } else if (
+    drawEngineCount >= 3 &&
+    drawEngineCount <= 8 &&
+    rampCount >= 6 &&
+    rampCount <= 14
+  ) {
+    archetype = "midrange_value";
+  }
+
+  let mulliganStyle: DeckProfile["mulliganStyle"] = "balanced";
+  if (archetype === "turbo_combo") mulliganStyle = "aggressive";
+  else if (archetype === "combo_control") mulliganStyle = "balanced";
+  else if (archetype === "midrange_value") mulliganStyle = "balanced";
+  else if (archetype === "control") mulliganStyle = "conservative";
+
+  const expectedTurn1: string[] = [];
+  if (fastManaCount >= 3) expectedTurn1.push("fast mana");
+  if (rampCount >= 6) expectedTurn1.push("mana dork");
+  if (drawEngineCount >= 3) expectedTurn1.push("cantrip");
+  if (interactionCount >= 6) expectedTurn1.push("interaction");
+  if (expectedTurn1.length === 0) expectedTurn1.push("land drop");
+
+  const expectedTurn2: string[] = [];
+  if (drawEngineCount >= 4) expectedTurn2.push("engine");
+  if (tutorCount >= 4) expectedTurn2.push("tutor");
+  expectedTurn2.push("commander");
+  if (protectionCount >= 3 || interactionCount >= 6) expectedTurn2.push("hold up protection");
+  if (expectedTurn2.length === 1) expectedTurn2.push("ramp or value");
+
+  const keepHeuristics: string[] = [];
+  if (mulliganStyle === "aggressive") {
+    keepHeuristics.push("Hands without early acceleration (fast mana or dork) are below average.");
+    if (tutorCount >= 4) keepHeuristics.push("Prefer at least one tutor or combo piece.");
+  } else if (mulliganStyle === "balanced") {
+    keepHeuristics.push("Prefer 2–3 lands + one accelerator + one engine/interaction.");
+    if (drawEngineCount >= 4) keepHeuristics.push("Engine or draw in opener helps consistency.");
+  } else {
+    keepHeuristics.push("Prefer stable mana and at least one draw/interaction piece.");
+    if (interactionCount >= 8) keepHeuristics.push("Interaction density matters for control.");
+  }
+  if (landPercent < 34 && archetype !== "control") {
+    keepHeuristics.push(`Deck runs ${landPercent}% lands; prioritize land-heavy openers.`);
+  }
+  if (keepHeuristics.length === 0) keepHeuristics.push("Balance lands, ramp, and action.");
+
+  let commanderPlan: DeckProfile["commanderPlan"] = "unknown";
+  if (commander && commander.trim()) {
+    const expectsCommanderT2 = expectedTurn2.includes("commander");
+    const commanderCentric = rampCount >= 8 && tutorCount >= 4;
+    if (expectsCommanderT2 || (commanderCentric && velocityScore >= 6)) {
+      commanderPlan = "early_engine";
+    } else if (rampCount >= 6 && drawEngineCount >= 4) {
+      commanderPlan = "late_engine";
+    } else if (rampCount < 5 && tutorCount < 3) {
+      commanderPlan = "not_central";
+    }
+  }
+  if (commanderPlan !== "unknown") {
+    keepHeuristics.push(
+      commanderPlan === "early_engine"
+        ? "Enable commander by T2/T3; hands that can't deploy commander early are below average."
+        : commanderPlan === "late_engine"
+          ? "Commander is a value engine; prefer mana + draw to reach it."
+          : "Commander is not central; evaluate hand on its own merits."
+    );
+  }
+
+  const notes: string[] = [];
+  notes.push(`${landPercent}% lands (${landCount})`);
+  if (landDetectionIncomplete) {
+    notes.push("Land detection incomplete: some cards missing type_line in cache.");
+  }
+  notes.push(`fastMana=${fastManaCount} ramp=${rampCount} tutors=${tutorCount}`);
+  notes.push(`drawEngines=${drawEngineCount} interaction=${interactionCount} protection=${protectionCount}`);
+  notes.push(`velocity=${velocityScore} archetype=${archetype} style=${mulliganStyle}`);
+  if (commanderPlan) notes.push(`commanderPlan=${commanderPlan}`);
+
+  return {
+    format: "commander",
+    totalCards,
+    landCount,
+    landPercent,
+    fastManaCount,
+    rampCount,
+    tutorCount,
+    drawEngineCount,
+    interactionCount,
+    protectionCount,
+    oneDropCount,
+    twoDropCount,
+    velocityScore,
+    archetype,
+    mulliganStyle,
+    expectedTurn1,
+    expectedTurn2,
+    keepHeuristics,
+    notes,
+    commanderPlan,
+    landDetectionIncomplete: landDetectionIncomplete || undefined,
+  };
+}
+
 const ALL_COLOR_LANDS = [
   "command tower", "city of brass", "mana confluence", "forbidden orchard",
   "exotic orchard", "reflecting pool",
@@ -340,6 +510,81 @@ export function computeHandFacts(hand: string[]): HandFacts {
           colorSet.add("B");
           colorSet.add("R");
           colorSet.add("G");
+        }
+      }
+      continue;
+    }
+    if (nameMatches(name, FAST_MANA)) hasFastMana = true;
+    if (nameMatches(name, RAMP_DORKS_ROCKS)) hasRamp = true;
+    if (nameMatchesPattern(name, TUTOR_PATTERNS)) hasTutor = true;
+    if (nameMatches(name, DRAW_ENGINES) || nameMatches(name, BURST_DRAW)) hasDrawEngine = true;
+    if (nameMatches(name, PROTECTION)) hasProtection = true;
+    if (nameMatches(name, INTERACTION)) hasInteraction = true;
+  }
+
+  return {
+    handLandCount,
+    hasFastMana,
+    hasRamp,
+    hasTutor,
+    hasDrawEngine,
+    hasProtection,
+    hasInteraction,
+    colorsAvailable: Array.from(colorSet).sort(),
+  };
+}
+
+/**
+ * Async hand facts with type_line–based land detection and colors.
+ * Use for admin advice route.
+ */
+export async function computeHandFactsWithTypes(hand: string[]): Promise<HandFacts> {
+  const typeMap = await getTypeLinesForNames(hand);
+
+  let handLandCount = 0;
+  let hasFastMana = false;
+  let hasRamp = false;
+  let hasTutor = false;
+  let hasDrawEngine = false;
+  let hasProtection = false;
+  let hasInteraction = false;
+  const colorSet = new Set<string>();
+
+  for (const name of hand) {
+    const n = normalizeCardName(name);
+    const typeLine = typeMap.get(n) ?? null;
+    const isLandCard = isLandFromLookup(typeLine, n) || isLand(name);
+
+    if (isLandCard) {
+      handLandCount++;
+      const colors = colorsFromTypeLine(typeLine, n);
+      if (colors.size >= 5) {
+        colorSet.add("W");
+        colorSet.add("U");
+        colorSet.add("B");
+        colorSet.add("R");
+        colorSet.add("G");
+      } else if (nameMatches(name, ALL_COLOR_LANDS)) {
+        colorSet.add("W");
+        colorSet.add("U");
+        colorSet.add("B");
+        colorSet.add("R");
+        colorSet.add("G");
+      } else {
+        for (const c of colors) colorSet.add(c);
+        if (colors.size === 0) {
+          if (n.includes("island") || n.includes("blue")) colorSet.add("U");
+          if (n.includes("mountain") || n.includes("red")) colorSet.add("R");
+          if (n.includes("forest") || n.includes("green")) colorSet.add("G");
+          if (n.includes("plains") || n.includes("white")) colorSet.add("W");
+          if (n.includes("swamp") || n.includes("black")) colorSet.add("B");
+          if (/\bdual\b|fetch|shock|triome|pathway|bond\s*land|slow\s*land|fast\s*land|check\s*land|pain\s*land/i.test(n)) {
+            colorSet.add("W");
+            colorSet.add("U");
+            colorSet.add("B");
+            colorSet.add("R");
+            colorSet.add("G");
+          }
         }
       }
       continue;

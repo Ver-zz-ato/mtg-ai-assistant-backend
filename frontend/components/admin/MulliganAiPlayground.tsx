@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   parseDecklist,
   getTotalCards,
   getUniqueCount,
   type ParsedCard,
 } from "@/lib/mulligan/parse-decklist";
-import { buildDeckProfile, type DeckProfile } from "@/lib/mulligan/deck-profile";
+import type { DeckProfile } from "@/lib/mulligan/deck-profile";
 import { GOLDEN_TEST_CASES } from "@/lib/mulligan/golden-test-cases";
 import { capture, hasConsent } from "@/lib/ph";
 
@@ -85,6 +85,8 @@ export default function MulliganAiPlayground() {
   const [cardImages, setCardImages] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [deckProfile, setDeckProfile] = useState<DeckProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({
     src: "",
     x: 0,
@@ -348,10 +350,34 @@ export default function MulliganAiPlayground() {
   const totalCards = getTotalCards(parsedCards);
   const uniqueCards = getUniqueCount(parsedCards);
 
-  const deckProfile = useMemo(
-    () => (parsedCards.length > 0 ? buildDeckProfile(parsedCards, commander) : null),
-    [parsedCards, commander]
-  );
+  useEffect(() => {
+    if (parsedCards.length === 0) {
+      setDeckProfile(null);
+      return;
+    }
+    let cancelled = false;
+    setProfileLoading(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/mulligan/deck-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deck: { cards: parsedCards, commander: commander || null },
+          }),
+        });
+        if (cancelled) return;
+        const data = await res.json().catch(() => ({}));
+        if (data?.ok && data?.profile) setDeckProfile(data.profile);
+        else setDeckProfile(null);
+      } catch {
+        if (!cancelled) setDeckProfile(null);
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [parsedCards, commander]);
 
   const handleLoadTestCase = useCallback((caseId: string, handIndex: number) => {
     const tc = GOLDEN_TEST_CASES.find((c) => c.id === caseId);
@@ -472,17 +498,23 @@ export default function MulliganAiPlayground() {
         </div>
 
         {/* Deck profile panel: admin/debug only — do NOT ship to public mulligan tool (cognitive noise) */}
-        {deckProfile && (
+        {(deckProfile || profileLoading) && (
           <div className="mt-4 border-t border-neutral-700 pt-4">
             <button
               onClick={() => setShowProfile(!showProfile)}
               className="text-sm text-amber-400 hover:text-amber-300 font-medium"
             >
               {showProfile ? "▼" : "▶"} Deck profile (debug)
+              {profileLoading && <span className="ml-2 text-neutral-500">loading…</span>}
             </button>
-            {showProfile && (
+            {showProfile && deckProfile && (
               <div className="mt-3 p-3 bg-neutral-950 rounded border border-neutral-700 text-xs space-y-2">
                 <div className="flex flex-wrap gap-4">
+                  <span className="text-amber-400">landCount: {deckProfile.landCount}</span>
+                  <span className="text-amber-400">landPercent: {deckProfile.landPercent}%</span>
+                  {deckProfile.landDetectionIncomplete && (
+                    <span className="text-amber-500 font-medium">⚠ Land detection incomplete: some cards missing type_line in cache</span>
+                  )}
                   <span className="text-amber-400">velocityScore: {deckProfile.velocityScore}</span>
                   <span className="text-amber-400">archetype: {deckProfile.archetype}</span>
                   <span className="text-amber-400">mulliganStyle: {deckProfile.mulliganStyle}</span>
