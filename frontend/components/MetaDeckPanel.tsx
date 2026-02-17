@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 
 interface MetaData {
   topCommanders: Array<{ name: string; count: number }>;
@@ -69,19 +74,27 @@ export default function MetaDeckPanel() {
         <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent text-center">{meta.totalDecks.toLocaleString()}</div>
       </div>
 
-      {/* Top Commanders */}
+      {/* Top Commanders - linked for SEO crawl */}
           <div className="mb-4">
-            <h4 className="text-sm font-semibold text-gray-300 mb-2">🏆 Top Commanders</h4>
+            <h4 className="text-sm font-semibold text-gray-300 mb-2">
+              <Link href="/meta/trending-commanders" className="hover:text-purple-400 transition-colors">
+                🏆 Top Commanders
+              </Link>
+            </h4>
             {meta.topCommanders && meta.topCommanders.length > 0 ? (
               <div className="space-y-1">
                 {meta.topCommanders.slice(0, 5).map((cmd, i) => (
-                  <div key={cmd.name} className="flex items-center justify-between text-sm hover:bg-purple-900/20 rounded px-2 py-1 transition-colors duration-150 cursor-default">
-                    <span className="text-gray-300 truncate flex-1">
+                  <Link
+                    key={cmd.name}
+                    href={`/commanders/${toSlug(cmd.name)}`}
+                    className="flex items-center justify-between text-sm hover:bg-purple-900/20 rounded px-2 py-1 transition-colors duration-150 group"
+                  >
+                    <span className="text-gray-300 truncate flex-1 group-hover:text-white">
                       <span className="text-purple-400 font-semibold mr-2">{i + 1}.</span>
                       {cmd.name}
                     </span>
                     <span className="text-gray-500 text-xs ml-2">{cmd.count} decks</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

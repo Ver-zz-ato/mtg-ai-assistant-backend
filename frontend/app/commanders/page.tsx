@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { COMMANDERS } from "@/lib/commanders";
+import { COMMANDERS, getRecentlyUpdatedCommanders } from "@/lib/commanders";
 import { CommanderLinkWithHover } from "@/components/CommanderLinkWithHover";
 
 export const metadata: Metadata = {
@@ -23,7 +23,8 @@ function breadcrumbJsonLd() {
   });
 }
 
-export default function CommandersIndexPage() {
+export default async function CommandersIndexPage() {
+  const recentUpdates = await getRecentlyUpdatedCommanders(8);
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd() }} />
@@ -41,6 +42,31 @@ export default function CommandersIndexPage() {
           All content is SSR and indexable. No signup required to use the tools. Paste your decklist
           or load from your account to get started.
         </p>
+
+        {recentUpdates.length > 0 && (
+          <section className="mb-8 rounded-xl border border-neutral-700 bg-neutral-800/40 p-5">
+            <h2 className="text-lg font-semibold text-neutral-100 mb-3">Recently Updated</h2>
+            <p className="text-neutral-400 text-sm mb-4">
+              Commanders with fresh deck data and guides.
+            </p>
+            <ul className="space-y-1">
+              {recentUpdates.map(({ slug, name, updated_at }) => (
+                <li key={slug} className="flex items-center gap-2">
+                  <Link
+                    href={`/commanders/${slug}`}
+                    className="text-blue-400 hover:underline"
+                  >
+                    {name}
+                  </Link>
+                  <span className="text-neutral-500 text-xs">
+                    — {new Date(updated_at).toLocaleDateString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Commanders</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
           {COMMANDERS.map((c) => (

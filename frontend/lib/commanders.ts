@@ -158,6 +158,32 @@ export function getFirst50CommanderSlugs(): string[] {
   return COMMANDERS.map((c) => c.slug);
 }
 
+/** Get recently updated commanders from commander_aggregates (for Recent updates block). */
+export async function getRecentlyUpdatedCommanders(limit = 10): Promise<Array<{ slug: string; name: string; updated_at: string }>> {
+  const slugs = getFirst50CommanderSlugs();
+  try {
+    const { createClientForStatic } = await import("@/lib/server-supabase");
+    const supabase = createClientForStatic();
+    const { data } = await supabase
+      .from("commander_aggregates")
+      .select("commander_slug, updated_at")
+      .in("commander_slug", slugs)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    return (data || []).map((row) => {
+      const r = row as { commander_slug: string; updated_at: string };
+      const profile = getCommanderBySlug(r.commander_slug);
+      return {
+        slug: r.commander_slug,
+        name: profile?.name ?? r.commander_slug,
+        updated_at: r.updated_at || new Date().toISOString(),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** For sitemap: get commander slugs with updated_at from commander_aggregates. */
 export async function getCommanderSlugsWithUpdatedAt(): Promise<Array<{ slug: string; updated_at: string }>> {
   const slugs = getFirst50CommanderSlugs();

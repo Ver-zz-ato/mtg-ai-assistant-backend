@@ -95,7 +95,7 @@ export default function Page() {
             Build, analyze, and optimize Magic: The Gathering decks with AI-powered suggestions. 
             Free to start—no signup required.
           </p>
-          <nav className="text-sm text-neutral-400 mt-4" aria-label="Tools">
+          <nav className="text-sm text-neutral-400 mt-4" aria-label="Tools and discovery">
             <span className="font-medium text-neutral-300">Tools: </span>
             <a href="/tools/mulligan" className="hover:text-white">Mulligan Simulator</a>
             <span className="mx-2 text-neutral-600">·</span>
@@ -106,6 +106,13 @@ export default function Page() {
             <a href="/deck/swap-suggestions" className="hover:text-white">Budget Swap Optimizer</a>
             <span className="mx-2 text-neutral-600">·</span>
             <a href="/price-tracker" className="hover:text-white">Price Tracker</a>
+            <span className="mx-2 text-neutral-600">|</span>
+            <span className="font-medium text-neutral-300">Explore: </span>
+            <a href="/commanders" className="hover:text-white">Commanders</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/meta/trending-commanders" className="hover:text-white">Top Commanders</a>
+            <span className="mx-2 text-neutral-600">·</span>
+            <a href="/meta" className="hover:text-white">Meta</a>
           </nav>
         </div>
         
