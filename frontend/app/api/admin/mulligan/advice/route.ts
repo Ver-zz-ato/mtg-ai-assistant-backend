@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminForApi } from "@/lib/server-admin";
-import { buildDeckProfile } from "@/lib/mulligan/deck-profile";
-import { parseDecklist } from "@/lib/mulligan/parse-decklist";
+import { buildDeckProfile, computeHandFacts, type HandFacts } from "@/lib/mulligan/deck-profile";
+import {
+  buildMulliganAdviceCacheKey,
+  getMulliganAdviceCache,
+  setMulliganAdviceCache,
+  CACHE_TTL_SECONDS,
+} from "@/lib/mulligan/advice-cache";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 
 export const runtime = "nodejs";
@@ -17,6 +22,16 @@ const AdviceSchema = z.object({
     cards: z.array(z.object({ name: z.string(), count: z.number() })),
     commander: z.string().nullable().optional(),
   }),
+  simulatedTier: z.enum(["guest", "free", "pro"]).optional(),
+});
+
+const ResponseSchema = z.object({
+  action: z.enum(["KEEP", "MULLIGAN"]),
+  confidence: z.number().min(0).max(100).optional(),
+  reasons: z.array(z.string()).min(1).max(5),
+  suggestedLine: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+  dependsOn: z.array(z.string()).max(2).optional(),
 });
 
 const MINI_MODEL = process.env.MODEL_SWAP_WHY || "gpt-4o-mini";
@@ -25,6 +40,62 @@ const FULL_MODEL =
   process.env.MODEL_PRO_CHAT ||
   process.env.OPENAI_MODEL ||
   "gpt-4o";
+
+/** Check if reason mentions a deck card that is NOT in hand (hallucination) */
+function reasonMentionsNonHandCard(
+  reason: string,
+  hand: string[],
+  deckCardNames: string[]
+): boolean {
+  const handLower = new Set(hand.map((c) => c.toLowerCase().trim()));
+  const reasonLower = reason.toLowerCase();
+  for (const name of deckCardNames) {
+    const n = name.toLowerCase().trim();
+    if (n.length < 4) continue; // skip short names like "Opt"
+    if (handLower.has(n)) continue; // card is in hand, fine
+    if (reasonLower.includes(n)) return true; // mentions deck card not in hand = hallucination
+  }
+  return false;
+}
+
+/** Check if reason claims a fact that contradicts handFacts. Bidirectional: presence vs absence. */
+function reasonContradictsHandFacts(reason: string, facts: HandFacts): boolean {
+  const r = reason.toLowerCase();
+
+  // --- Positive claims when fact is false: "has ramp" but !hasRamp ---
+  if (!facts.hasRamp && /\b(has|includes?|with|got|provides?)\s+(ramp|acceleration|early mana|mana rock)\b/i.test(r)) return true;
+  if (!facts.hasRamp && /\b(ramp|acceleration|dork|signet)\s+(in|for)\s+(hand|opener)\b/i.test(r)) return true;
+  if (!facts.hasTutor && /\b(has|includes?|with|got)\s+tutor\b/i.test(r)) return true;
+  if (!facts.hasTutor && /\btutor\s+(in|for|finds?)\s+(hand|opener)\b/i.test(r)) return true;
+  if (!facts.hasDrawEngine && /\b(has|includes?|with|got)\s+(draw|engine|rhystic|remora)\b/i.test(r)) return true;
+  if (!facts.hasDrawEngine && /\b(draw|engine)\s+(in|for)\s+(hand|opener)\b/i.test(r)) return true;
+  if (!facts.hasInteraction && /\b(has|includes?|with|got)\s+(interaction|counter|removal)\b/i.test(r)) return true;
+  if (!facts.hasProtection && /\b(has|includes?|with|got)\s+protection\b/i.test(r)) return true;
+  if (!facts.hasFastMana && /\b(has|includes?|with|got)\s+(fast mana|mana crypt|explosive start)\b/i.test(r)) return true;
+
+  // --- Inverse: "no acceleration" / "lacks ramp" when hasFastMana || hasRamp ---
+  const hasAccel = facts.hasFastMana || facts.hasRamp;
+  if (hasAccel && /\b(no|lack|lacks|without|missing)\s+(acceleration|ramp|early mana|mana rock|fast mana)\b/i.test(r)) return true;
+  if (hasAccel && /\b(doesn't|does not)\s+(have|include)\s+(ramp|acceleration)\b/i.test(r)) return true;
+  if (facts.hasInteraction && /\b(no|lack|lacks|without|missing)\s+interaction\b/i.test(r)) return true;
+  if (facts.hasInteraction && /\b(doesn't|does not)\s+(have|include)\s+interaction\b/i.test(r)) return true;
+
+  // --- "Mana is shaky" when handLandCount >= 3 and colors look fine ---
+  const manaStable = facts.handLandCount >= 3 && facts.colorsAvailable.length >= 2;
+  if (manaStable && /\b(mana is shaky|mana screw|color screw|color issues|colorless|no colors)\b/i.test(r)) return true;
+  if (manaStable && /\b(shaky|unreliable)\s+mana\b/i.test(r)) return true;
+
+  return false;
+}
+
+/** Check if reason references generic commander averages (banhammer) */
+function reasonReferencesGenericCommander(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return (
+    /average (for )?commander|typical commander|in commander you usually|commander (land )?average|typical (land )?count/i.test(r) ||
+    /\b(usually|typically|on average)\s+(in|for)\s+commander\b/i.test(r)
+  );
+}
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdminForApi();
@@ -50,29 +121,94 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { modelTier, playDraw, mulliganCount, hand, deck } = parsed.data;
+  const { modelTier, playDraw, mulliganCount, hand, deck, simulatedTier } = parsed.data;
+
+  // Tier simulation: guest/free cannot use FULL model
+  const effectiveTier = simulatedTier ?? "pro";
+  const effectiveModelTier =
+    effectiveTier !== "pro" ? "mini" : (modelTier as "mini" | "full");
 
   const profile = buildDeckProfile(deck.cards, deck.commander ?? null);
+  const handFacts = computeHandFacts(hand);
 
-  const systemPrompt = `You are an MTG mulligan coach for Commander. You MUST output valid JSON only, no markdown or extra text.
-Be specific. Use the deck profile and hand. Consider play/draw and mulligan count.
-Do not invent cards not in the hand. If uncertain, say so briefly in reasons.
-Output format: {"action":"KEEP"|"MULLIGAN","confidence":0-100,"reasons":["...","..."],"suggestedLine":"...","warnings":["..."]}
+  const cacheKey = buildMulliganAdviceCacheKey(
+    deck,
+    hand,
+    playDraw,
+    mulliganCount,
+    effectiveModelTier,
+    "commander"
+  );
+
+  const cached = await getMulliganAdviceCache(cacheKey);
+  if (cached?.response_json) {
+    const parsedResp = ResponseSchema.safeParse(cached.response_json);
+    if (parsedResp.success) {
+      const result = parsedResp.data;
+      return NextResponse.json({
+        ok: true,
+        action: result.action,
+        confidence: result.confidence,
+        reasons: result.reasons,
+        suggestedLine: result.suggestedLine,
+        warnings: result.warnings,
+        dependsOn: result.dependsOn,
+        model: cached.model_used,
+        modelUsed: cached.model_used,
+        profileSummary: `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle}`,
+        handFacts,
+        cached: true,
+        cacheKey,
+        cacheTtlSeconds: CACHE_TTL_SECONDS,
+        effectiveTier,
+        effectiveModelTier,
+      });
+    }
+  }
+
+  const systemPrompt = `You are an MTG Commander mulligan coach. Output valid JSON only, no markdown or extra text.
+
+RULES:
+- Use the DeckProfile and keepHeuristics. Compare the hand RELATIVE to this deck's density only.
+- Do NOT reference "average commander land count", "typical commander", or "in commander you usually" at all. Only talk about this deck's landPercent and density.
+- You MUST NOT claim the hand contains ramp/tutor/draw/interaction/protection/fast mana unless handFacts says so. handFacts is authoritative.
+- If DeckProfile has commanderPlan (early_engine, late_engine, not_central), you MAY cite it in reasons. Example: "Deck plan is early_engine; this hand doesn't enable commander by T2/T3." That helps users accept aggressive mulligans.
+- Every reason MUST reference either: (a) a specific card actually in the hand, or (b) a profile baseline (e.g. "deck expects early acceleration").
+- Do not invent cards. If uncertain, say so briefly.
+
+Output format:
+{"action":"KEEP"|"MULLIGAN","confidence":0-100,"reasons":["...","..."],"suggestedLine":"...","warnings":["..."],"dependsOn":["..."]}
 - action: KEEP or MULLIGAN
-- confidence: 0-100 (optional but preferred)
-- reasons: 2-5 bullet points, each max 140 chars
-- suggestedLine: 0-1 short line for ideal first 2 turns (optional)
-- warnings: optional array of caveats`;
+- confidence: 0-100 (required)
+- reasons: 2-5 bullets, each max 140 chars, each must cite a hand card or profile baseline
+- suggestedLine: 1 short line for ideal first 2 turns (e.g. "T1 dork, T2 Rhystic; hold up Offer")
+- warnings: optional array of caveats
+- dependsOn: optional 0-2 items for matchup/pod speed dependencies`;
 
-  const userPrompt = `DeckProfile: ${JSON.stringify(profile)}
+  const userPrompt = `DeckProfile (use these baselines; do not use generic commander stats):
+${JSON.stringify(profile)}
+
+handFacts (authoritative; do NOT claim hand has ramp/tutor/etc unless handFacts says so):
+${JSON.stringify(handFacts)}
+
 Hand: ${JSON.stringify(hand)}
-Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}
-Task: Decide KEEP or MULLIGAN and explain succinctly. Output JSON only.`;
 
-  const model = modelTier === "mini" ? MINI_MODEL : FULL_MODEL;
+Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}
+
+Task: Decide KEEP or MULLIGAN for this specific deck. Explain relative to the deck's profile. Output JSON only.`;
+
+  const model = effectiveModelTier === "mini" ? MINI_MODEL : FULL_MODEL;
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[admin/mulligan/advice] modelTier=%s model=%s mulliganCount=%s handSize=%s", modelTier, model, mulliganCount, hand.length);
+    console.log(
+      "[admin/mulligan/advice] effectiveModelTier=%s model=%s mulliganCount=%s handSize=%s profile=%s cached=%s",
+      effectiveModelTier,
+      model,
+      mulliganCount,
+      hand.length,
+      `${profile.archetype}/${profile.velocityScore}`,
+      !!cached?.response_json
+    );
   }
 
   try {
@@ -87,7 +223,7 @@ Task: Decide KEEP or MULLIGAN and explain succinctly. Output JSON only.`;
         model,
         fallbackModel: MINI_MODEL,
         timeout: 30000,
-        maxTokens: 300,
+        maxTokens: 400,
         apiType: "chat",
         userId: admin.user.id,
         isPro: true,
@@ -103,16 +239,9 @@ Task: Decide KEEP or MULLIGAN and explain succinctly. Output JSON only.`;
       text = jsonMatch[0];
     }
 
-    let result: {
-      action: "KEEP" | "MULLIGAN";
-      confidence?: number;
-      reasons: string[];
-      suggestedLine?: string;
-      warnings?: string[];
-    };
-
+    let raw: unknown;
     try {
-      result = JSON.parse(text);
+      raw = JSON.parse(text);
     } catch {
       return NextResponse.json(
         { ok: false, error: "Model did not return valid JSON", raw: response.text.slice(0, 500) },
@@ -120,24 +249,74 @@ Task: Decide KEEP or MULLIGAN and explain succinctly. Output JSON only.`;
       );
     }
 
-    if (result.action !== "KEEP" && result.action !== "MULLIGAN") {
-      result.action = result.reasons?.length ? "MULLIGAN" : "KEEP";
+    const parsedResp = ResponseSchema.safeParse(raw);
+    let result: z.infer<typeof ResponseSchema>;
+
+    if (parsedResp.success) {
+      result = parsedResp.data;
+    } else {
+      result = {
+        action: (raw as { action?: string })?.action === "MULLIGAN" ? "MULLIGAN" : "KEEP",
+        confidence: 50,
+        reasons: ["Unable to parse model output; defaulting to KEEP with low confidence."],
+        suggestedLine: (raw as { suggestedLine?: string })?.suggestedLine,
+        warnings: ["Model response validation failed."],
+      };
     }
 
-    result.reasons = (result.reasons || []).slice(0, 5).map((r: string) => String(r).slice(0, 140));
-    if (result.confidence != null) {
-      result.confidence = Math.max(0, Math.min(100, Number(result.confidence)));
+    // Sanity check: reasons must not mention cards not in hand (hallucination) or contradict handFacts
+    const deckCardNames = deck.cards.map((c) => c.name);
+    const validReasons: string[] = [];
+    for (const r of result.reasons) {
+      const trimmed = String(r).slice(0, 140);
+      if (reasonMentionsNonHandCard(trimmed, hand, deckCardNames)) {
+        validReasons.push("Hand lacks the deck's typical early acceleration density.");
+      } else if (reasonReferencesGenericCommander(trimmed)) {
+        validReasons.push("Hand evaluated relative to deck profile.");
+      } else if (reasonContradictsHandFacts(trimmed, handFacts)) {
+        validReasons.push("Hand evaluated relative to deck profile and hand facts.");
+      } else {
+        validReasons.push(trimmed);
+      }
     }
 
-    return NextResponse.json({
+    result.reasons =
+      validReasons.length >= 2
+        ? validReasons
+        : [
+            validReasons[0] || "Hand evaluated relative to deck profile.",
+            "Consider deck's velocity and keep heuristics.",
+          ];
+
+    if (result.confidence == null) {
+      result.confidence = 50;
+    }
+    result.confidence = Math.max(0, Math.min(100, Number(result.confidence)));
+
+    const profileSummary = `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle} (${profile.landPercent}% lands, ${profile.fastManaCount} fastMana, ${profile.tutorCount} tutors)`;
+
+    const payload = {
       ok: true,
       action: result.action,
       confidence: result.confidence,
       reasons: result.reasons,
       suggestedLine: result.suggestedLine,
       warnings: result.warnings,
+      dependsOn: result.dependsOn,
       model: response.actualModel,
-    });
+      modelUsed: response.actualModel,
+      profileSummary,
+      handFacts,
+      cached: false,
+      cacheKey,
+      cacheTtlSeconds: CACHE_TTL_SECONDS,
+      effectiveTier,
+      effectiveModelTier,
+    };
+
+    await setMulliganAdviceCache(cacheKey, payload, response.actualModel);
+
+    return NextResponse.json(payload);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "LLM call failed";
     console.error("[admin/mulligan/advice] Error:", e);

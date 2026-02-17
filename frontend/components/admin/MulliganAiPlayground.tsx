@@ -1,15 +1,28 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   parseDecklist,
   getTotalCards,
   getUniqueCount,
   type ParsedCard,
 } from "@/lib/mulligan/parse-decklist";
+import { buildDeckProfile, type DeckProfile } from "@/lib/mulligan/deck-profile";
+import { GOLDEN_TEST_CASES } from "@/lib/mulligan/golden-test-cases";
 import { capture, hasConsent } from "@/lib/ph";
 
 type DeckRow = { id: string; title?: string | null };
+
+const TIER_LIMITS: Record<string, number> = { guest: 2, free: 10, pro: 100 };
+
+function getTodayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getSimStorageKey(tier: string): string {
+  return `admin_mulligan_sim_${tier}_${getTodayKey()}`;
+}
 
 function shuffleDeck<T>(deck: T[]): T[] {
   const shuffled = [...deck];
@@ -44,6 +57,8 @@ export default function MulliganAiPlayground() {
   const [playDraw, setPlayDraw] = useState<"play" | "draw">("play");
   const [mulliganCount, setMulliganCount] = useState(0);
   const [modelTier, setModelTier] = useState<"mini" | "full">("mini");
+  const [simulatedTier, setSimulatedTier] = useState<"guest" | "free" | "pro">("pro");
+  const [simUsageCount, setSimUsageCount] = useState(0);
 
   const [currentHand, setCurrentHand] = useState<string[]>([]);
   const [handSize, setHandSize] = useState(7);
@@ -56,13 +71,20 @@ export default function MulliganAiPlayground() {
     reasons: string[];
     suggestedLine?: string;
     warnings?: string[];
+    dependsOn?: string[];
     model?: string;
+    profileSummary?: string;
+    cached?: boolean;
+    cacheKey?: string;
+    effectiveTier?: string;
+    effectiveModelTier?: string;
   } | null>(null);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
   const [cardImages, setCardImages] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [imagesLoading, setImagesLoading] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({
     src: "",
     x: 0,
@@ -90,6 +112,20 @@ export default function MulliganAiPlayground() {
       return { x: ev?.clientX ?? 0, y: ev?.clientY ?? 0, below: false };
     }
   }, []);
+
+  const simLimit = TIER_LIMITS[simulatedTier] ?? 100;
+  const simRemaining = Math.max(0, simLimit - simUsageCount);
+  const simLimitExceeded = simUsageCount >= simLimit;
+
+  useEffect(() => {
+    try {
+      const key = getSimStorageKey(simulatedTier);
+      const raw = localStorage.getItem(key);
+      setSimUsageCount(raw ? parseInt(raw, 10) || 0 : 0);
+    } catch {
+      setSimUsageCount(0);
+    }
+  }, [simulatedTier]);
 
   // Fetch decks list for dropdown (same as ImportDeckForMath / budget swaps)
   useEffect(() => {
@@ -228,16 +264,21 @@ export default function MulliganAiPlayground() {
       setError("Draw a hand first and ensure deck is loaded");
       return;
     }
+    if (simLimitExceeded) {
+      setError(`Simulated daily limit reached (${simLimit} for ${simulatedTier}). Reset or try tomorrow.`);
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
     setRawJson(null);
 
     if (hasConsent()) {
-      capture("admin_mulligan_ai_advice_requested", {
-        modelTier,
-        mulliganCount,
+      capture("admin_mulligan_sim_advice_requested", {
+        tier: simulatedTier,
+        requestedModel: modelTier,
         handSize: currentHand.length,
+        mulliganCount,
       });
     }
 
@@ -255,15 +296,18 @@ export default function MulliganAiPlayground() {
             cards: parsedCards,
             commander: commander || null,
           },
+          simulatedTier,
         }),
       });
 
       const data = await res.json();
 
       if (hasConsent()) {
-        capture("admin_mulligan_ai_advice_result", {
+        capture("admin_mulligan_sim_advice_result", {
+          tier: data.effectiveTier ?? simulatedTier,
           action: data.action,
-          modelTier,
+          confidence: data.confidence,
+          cached: data.cached ?? false,
         });
       }
 
@@ -277,18 +321,53 @@ export default function MulliganAiPlayground() {
         reasons: data.reasons || [],
         suggestedLine: data.suggestedLine,
         warnings: data.warnings,
-        model: data.model,
+        dependsOn: data.dependsOn,
+        model: data.model ?? data.modelUsed,
+        profileSummary: data.profileSummary,
+        cached: data.cached,
+        cacheKey: data.cacheKey,
+        effectiveTier: data.effectiveTier,
+        effectiveModelTier: data.effectiveModelTier,
       });
       setRawJson(JSON.stringify(data, null, 2));
+
+      const effectiveTier = data.effectiveTier ?? simulatedTier;
+      try {
+        const key = getSimStorageKey(effectiveTier);
+        const prev = parseInt(localStorage.getItem(key) || "0", 10) || 0;
+        localStorage.setItem(key, String(prev + 1));
+        setSimUsageCount(prev + 1);
+      } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
       setLoading(false);
     }
-  }, [currentHand, parsedCards, modelTier, playDraw, mulliganCount, commander]);
+  }, [currentHand, parsedCards, modelTier, playDraw, mulliganCount, commander, simulatedTier, simLimitExceeded, simLimit]);
 
   const totalCards = getTotalCards(parsedCards);
   const uniqueCards = getUniqueCount(parsedCards);
+
+  const deckProfile = useMemo(
+    () => (parsedCards.length > 0 ? buildDeckProfile(parsedCards, commander) : null),
+    [parsedCards, commander]
+  );
+
+  const handleLoadTestCase = useCallback((caseId: string, handIndex: number) => {
+    const tc = GOLDEN_TEST_CASES.find((c) => c.id === caseId);
+    if (!tc) return;
+    setDeckText(tc.decklist);
+    const cards = parseDecklist(tc.decklist);
+    setParsedCards(cards);
+    setCommander(tc.commander);
+    const hand = tc.hands[handIndex] ?? tc.hands[0];
+    setCurrentHand(hand);
+    setMulliganCount(0);
+    setHandSize(hand.length);
+    setResult(null);
+    setError(null);
+    setDeckSource("paste");
+  }, []);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -325,13 +404,34 @@ export default function MulliganAiPlayground() {
               placeholder="1 Sol Ring&#10;1 Arcane Signet&#10;36 Forest&#10;..."
               className="w-full h-32 bg-neutral-950 border border-neutral-600 rounded px-3 py-2 text-sm font-mono resize-none"
             />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleParse}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-sm"
               >
                 Parse
               </button>
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  const [caseId, handIdx] = v.split(":");
+                  handleLoadTestCase(caseId, parseInt(handIdx || "0", 10));
+                  e.target.value = "";
+                }}
+                className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1.5 text-sm text-neutral-300"
+              >
+                <option value="">Load test case…</option>
+                {GOLDEN_TEST_CASES.map((tc) =>
+                  tc.hands.map((_, i) => (
+                    <option key={`${tc.id}-${i}`} value={`${tc.id}:${i}`}>
+                      {tc.label} — Hand {i + 1}
+                      {i === 3 ? " (trap)" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
               {parsedCards.length > 0 && (
                 <span className="text-xs text-neutral-400">
                   {totalCards} cards, {uniqueCards} unique
@@ -370,6 +470,49 @@ export default function MulliganAiPlayground() {
             className="w-full mt-1 bg-neutral-950 border border-neutral-600 rounded px-3 py-1.5 text-sm"
           />
         </div>
+
+        {/* Deck profile panel: admin/debug only — do NOT ship to public mulligan tool (cognitive noise) */}
+        {deckProfile && (
+          <div className="mt-4 border-t border-neutral-700 pt-4">
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className="text-sm text-amber-400 hover:text-amber-300 font-medium"
+            >
+              {showProfile ? "▼" : "▶"} Deck profile (debug)
+            </button>
+            {showProfile && (
+              <div className="mt-3 p-3 bg-neutral-950 rounded border border-neutral-700 text-xs space-y-2">
+                <div className="flex flex-wrap gap-4">
+                  <span className="text-amber-400">velocityScore: {deckProfile.velocityScore}</span>
+                  <span className="text-amber-400">archetype: {deckProfile.archetype}</span>
+                  <span className="text-amber-400">mulliganStyle: {deckProfile.mulliganStyle}</span>
+                  {deckProfile.commanderPlan && (
+                    <span className="text-amber-400">commanderPlan: {deckProfile.commanderPlan}</span>
+                  )}
+                </div>
+                <div className="text-neutral-400">
+                  Counts: lands={deckProfile.landCount} ({deckProfile.landPercent}%) fastMana={deckProfile.fastManaCount} ramp={deckProfile.rampCount} tutors={deckProfile.tutorCount} engines={deckProfile.drawEngineCount} interaction={deckProfile.interactionCount} protection={deckProfile.protectionCount}
+                </div>
+                <div>
+                  <div className="text-neutral-500 font-medium mb-1">keepHeuristics:</div>
+                  <ul className="list-disc list-inside text-neutral-400 space-y-0.5">
+                    {deckProfile.keepHeuristics.map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="text-neutral-500 font-medium mb-1">expectedTurn1:</div>
+                  <span className="text-neutral-400">{deckProfile.expectedTurn1.join(", ")}</span>
+                </div>
+                <div>
+                  <div className="text-neutral-500 font-medium mb-1">expectedTurn2:</div>
+                  <span className="text-neutral-400">{deckProfile.expectedTurn2.join(", ")}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Hand Simulator - styled like Hand Testing Widget */}
@@ -488,45 +631,50 @@ export default function MulliganAiPlayground() {
                 const imgUrl = cardData?.normal || cardData?.small;
                 const fullImage = cardData?.normal || cardData?.small || "";
                 return (
-                  <div
-                    key={`${name}-${i}`}
-                    className="bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 w-24 sm:w-28 md:w-32 relative"
-                    style={{ aspectRatio: "63/88" }}
-                    title={name}
-                    onMouseEnter={(e) => {
-                      if (fullImage) {
-                        const { x, y, below } = calcPos(e);
-                        setPv({ src: fullImage, x, y, shown: true, below });
-                      }
-                    }}
-                    onMouseMove={(e) => {
-                      if (fullImage) {
-                        const { x, y, below } = calcPos(e);
-                        setPv((p) => (p.shown ? { ...p, x, y, below } : p));
-                      }
-                    }}
-                    onMouseLeave={() => setPv((p) => ({ ...p, shown: false }))}
-                  >
-                    {imgUrl ? (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={imgUrl}
-                          alt={name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
-                          <div className="text-xs font-medium text-white truncate">{name}</div>
+                  <div key={`${name}-${i}`} className="flex flex-col items-center gap-1">
+                    <div
+                      className="bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 w-24 sm:w-28 md:w-32 relative"
+                      style={{ aspectRatio: "63/88" }}
+                      title={name}
+                      onMouseEnter={(e) => {
+                        if (fullImage) {
+                          const { x, y, below } = calcPos(e);
+                          setPv({ src: fullImage, x, y, shown: true, below });
+                        }
+                      }}
+                      onMouseMove={(e) => {
+                        if (fullImage) {
+                          const { x, y, below } = calcPos(e);
+                          setPv((p) => (p.shown ? { ...p, x, y, below } : p));
+                        }
+                      }}
+                      onMouseLeave={() => setPv((p) => ({ ...p, shown: false }))}
+                    >
+                      {imgUrl ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imgUrl}
+                            alt={name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                            <div className="text-xs font-medium text-white truncate">{name}</div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="h-full flex flex-col justify-center p-2">
+                          <div className="font-medium text-white text-center text-sm truncate" title={name}>
+                            {name}
+                          </div>
                         </div>
-                      </>
-                    ) : (
-                      <div className="h-full flex flex-col justify-center p-2">
-                        <div className="font-medium text-white text-center text-sm truncate" title={name}>
-                          {name}
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    {/* Admin test only: raw card name below — remove before shipping to homepage */}
+                    <div className="text-xs text-neutral-500 text-center w-full break-words max-w-[7rem] sm:max-w-[8rem] md:max-w-[9rem]" title={name}>
+                      {name}
+                    </div>
                   </div>
                 );
               })}
@@ -539,6 +687,35 @@ export default function MulliganAiPlayground() {
       <section className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
         <h2 className="font-semibold text-neutral-200 mb-3">Context</h2>
         <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2">
+            <span className="text-sm text-neutral-400">Simulated user tier</span>
+            <select
+              value={simulatedTier}
+              onChange={(e) => setSimulatedTier(e.target.value as "guest" | "free" | "pro")}
+              className="bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-sm"
+              title="Simulates guest/free/pro limits for testing (no real auth)"
+            >
+              <option value="guest">guest (2/day, mini only)</option>
+              <option value="free">free (10/day, mini only)</option>
+              <option value="pro">pro (100/day, full allowed)</option>
+            </select>
+          </label>
+          <span className="flex items-center gap-2 text-sm text-neutral-400">
+            Remaining today: <strong className="text-amber-400">{simRemaining}</strong> / {simLimit}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                const key = getSimStorageKey(simulatedTier);
+                localStorage.removeItem(key);
+                setSimUsageCount(0);
+              } catch {}
+            }}
+            className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded"
+          >
+            Reset simulated usage
+          </button>
           <label className="flex items-center gap-2">
             <span className="text-sm text-neutral-400">Play / Draw</span>
             <select
@@ -562,7 +739,7 @@ export default function MulliganAiPlayground() {
               title="Commander: 0=initial, 1=free mulligan (7 cards), 2–7=paid mulligans (6 down to 1)"
             />
           </label>
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-2" title={simulatedTier !== "pro" && modelTier === "full" ? "Full model is Pro-only (simulated)" : undefined}>
             <span className="text-sm text-neutral-400">Model</span>
             <select
               value={modelTier}
@@ -570,7 +747,7 @@ export default function MulliganAiPlayground() {
               className="bg-neutral-950 border border-neutral-600 rounded px-2 py-1 text-sm"
             >
               <option value="mini">Mini (cheap)</option>
-              <option value="full">Full (best)</option>
+              <option value="full">Full (best){simulatedTier !== "pro" ? " — Pro only" : ""}</option>
             </select>
           </label>
         </div>
@@ -581,10 +758,10 @@ export default function MulliganAiPlayground() {
         <h2 className="font-semibold text-neutral-200 mb-3">AI Advice</h2>
         <button
           onClick={handleGetAdvice}
-          disabled={loading || currentHand.length === 0}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-medium rounded text-sm disabled:opacity-50"
+          disabled={loading || currentHand.length === 0 || simLimitExceeded}
+          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-medium rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Loading…" : "Get AI Advice"}
+          {loading ? "Loading…" : simLimitExceeded ? `Limit reached (${simLimit}/${simulatedTier})` : "Get AI Advice"}
         </button>
 
         {error && (
@@ -595,19 +772,45 @@ export default function MulliganAiPlayground() {
 
         {result && (
           <div className="mt-4 p-4 bg-neutral-800 rounded-lg border border-neutral-600 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`font-bold text-lg ${result.action === "KEEP" ? "text-green-400" : "text-red-400"}`}
               >
                 {result.action}
               </span>
+              {result.cached && (
+                <span className="text-xs bg-emerald-700 text-white px-2 py-0.5 rounded font-medium">
+                  CACHED
+                </span>
+              )}
               {result.confidence != null && (
                 <span className="text-sm text-neutral-400">{result.confidence}% confidence</span>
               )}
               {result.model && (
-                <span className="text-xs text-neutral-500 ml-auto">{result.model}</span>
+                <span className="text-xs text-neutral-500 ml-auto" title={result.effectiveModelTier ? `effective tier: ${result.effectiveModelTier}` : undefined}>
+                  {result.model}
+                  {modelTier === "full" && result.effectiveModelTier === "mini" && (
+                    <span className="text-amber-400/80"> (→Mini, Pro-only)</span>
+                  )}
+                </span>
+              )}
+              {result.profileSummary && (
+                <span className="text-xs text-neutral-600 ml-2" title="Profile used for advice">
+                  ({result.profileSummary})
+                </span>
               )}
             </div>
+            {result.cacheKey && (
+              <details className="text-xs text-neutral-500">
+                <summary>Cache key (debug)</summary>
+                <code className="block mt-1 p-2 bg-neutral-950 rounded break-all">{result.cacheKey}</code>
+              </details>
+            )}
+            {result.dependsOn && result.dependsOn.length > 0 && (
+              <div className="text-xs text-amber-400/80">
+                Depends on: {result.dependsOn.join("; ")}
+              </div>
+            )}
             {result.reasons.length > 0 && (
               <ul className="list-disc list-inside text-sm text-neutral-300 space-y-1">
                 {result.reasons.map((r, i) => (
