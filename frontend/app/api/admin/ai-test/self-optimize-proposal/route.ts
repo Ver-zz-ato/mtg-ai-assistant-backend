@@ -46,19 +46,24 @@ export async function POST(req: NextRequest) {
       cost_guardrails = { max_cost_increase_pct: 10, max_latency_increase_pct: 10 },
       require_golden_pass = true,
       kind = "chat",
+      stream: wantStream = false,
     } = body;
 
     const baseUrl = req.url.split("/api/admin")[0];
+    type ProgressFn = (step: string, progress: number) => void;
+    const noop: ProgressFn = () => {};
     const cookie = req.headers.get("cookie") || "";
     const promptKind = kind === "deck_analysis" ? "deck_analysis" : "chat";
 
     const evidence: Record<string, unknown> = {};
     const steps: string[] = [];
 
+    const run = async (prog: ProgressFn) => {
     // 1. Resolve current (A) and previous (Prev) prompt
+    prog("Resolving prompts...", 2);
     const currentPrompt = await getPromptVersion(promptKind);
     if (!currentPrompt) {
-      return NextResponse.json({ ok: false, error: "No current prompt found" }, { status: 400 });
+      throw new Error("No current prompt found");
     }
 
     const { data: allVersions } = await admin
@@ -73,13 +78,15 @@ export async function POST(req: NextRequest) {
     steps.push(prevPrompt ? `Baseline: Current vs Previous (${prevPrompt.version})` : "Baseline: No previous version (N/A)");
 
     // 2. Sample decks FIRST and create deck-sample test cases (so we have tests even when ai_test_cases is empty)
+    prog("Sampling public decks...", 5);
     steps.push("Sampling public decks...");
     const deckRes = await fetch(`${baseUrl}/api/admin/decks/sample-public?count=${deck_sample_count}`, { headers: { Cookie: cookie } });
     const deckData = await deckRes.json();
     if (!deckData.ok || !deckData.decks?.length) {
-      return NextResponse.json({ ok: false, error: "No public decks to sample" }, { status: 400 });
+      throw new Error("No public decks to sample");
     }
 
+    prog("Creating deck sample test cases...", 6);
     const deckSampleCases: any[] = [];
     const prompts = [
       "Analyze this Commander deck. Identify 3 upgrades and 3 cuts with reasons. Respect color identity.",
@@ -119,9 +126,10 @@ export async function POST(req: NextRequest) {
 
     if (deckSampleCases.length === 0) {
       const hint = lastInsertError ? ` (Insert error: ${lastInsertError})` : deckData.decks?.length ? " (All decks had empty decklists?)" : "";
-      return NextResponse.json({ ok: false, error: `No decks with decklists could be sampled.${hint}` }, { status: 400 });
+      throw new Error(`No decks with decklists could be sampled.${hint}`);
     }
 
+    prog("Checking Golden Set...", 12);
     // 3. Ensure Golden Set exists (optional when ai_test_cases is empty - we'll use deck samples only)
     let { data: evalSets } = await supabase.from("ai_eval_sets").select("id, name, test_case_ids").order("created_at", { ascending: false });
     if (!evalSets?.length) {
@@ -183,6 +191,7 @@ export async function POST(req: NextRequest) {
     };
 
     // 5. Run batch with A
+    prog("Running suite with current prompt...", 18);
     steps.push("Running suite with current prompt...");
     const perfA = await runBatchWithPrompt(currentPrompt.id);
     evidence.eval_run_id_A = perfA.evalRunId;
@@ -190,12 +199,14 @@ export async function POST(req: NextRequest) {
     // 6. Run batch with Prev (if exists)
     let perfPrev: { passRate: number; passCount: number; total: number; evalRunId?: number } | null = null;
     if (prevPrompt) {
+      prog("Running suite with previous prompt...", 28);
       steps.push("Running suite with previous prompt...");
       perfPrev = await runBatchWithPrompt(prevPrompt.id);
       evidence.eval_run_id_Prev = perfPrev.evalRunId;
     }
 
     // 7. Generate candidates B, C
+    prog("Generating candidate prompts...", 38);
     steps.push("Generating candidate prompts...");
     const { data: lastResults } = await supabase
       .from("ai_test_results")
@@ -241,13 +252,13 @@ export async function POST(req: NextRequest) {
     const llmData = await llmRes.json();
     const content = llmData.choices?.[0]?.message?.content;
     if (!content) {
-      return NextResponse.json({ ok: false, error: "LLM failed to generate candidates" }, { status: 500 });
+      throw new Error("LLM failed to generate candidates");
     }
     let parsed: any;
     try {
       parsed = JSON.parse(content);
     } catch {
-      return NextResponse.json({ ok: false, error: "Invalid LLM JSON" }, { status: 500 });
+      throw new Error("Invalid LLM JSON");
     }
 
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -276,14 +287,16 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!verB || !verC) {
-      return NextResponse.json({ ok: false, error: "Failed to create candidates" }, { status: 500 });
+      throw new Error("Failed to create candidates");
     }
     const candidateIds = [verB.id, verC.id];
 
     // 8. Run batch with B and C
+    prog("Running suite with candidate B...", 48);
     steps.push("Running suite with candidate B...");
     const perfB = await runBatchWithPrompt(verB.id);
     evidence.eval_run_id_B = perfB.evalRunId;
+    prog("Running suite with candidate C...", 58);
     steps.push("Running suite with candidate C...");
     const perfC = await runBatchWithPrompt(verC.id);
     evidence.eval_run_id_C = perfC.evalRunId;
@@ -310,15 +323,18 @@ export async function POST(req: NextRequest) {
 
     const pairwiseResults: Record<string, any> = {};
     if (prevPrompt) {
+      prog("Pairwise: Current vs Previous...", 65);
       steps.push("Pairwise: Current vs Previous...");
       const pwPrev = await runPairwise(currentPrompt.id, prevPrompt.id);
       pairwiseResults["A_vs_Prev"] = pwPrev;
       evidence.pairwise_A_vs_Prev = pwPrev.evalRunId;
     }
+    prog("Pairwise: Current vs B...", 75);
     steps.push("Pairwise: Current vs B...");
     const pwB = await runPairwise(currentPrompt.id, verB.id);
     pairwiseResults["A_vs_B"] = pwB;
     evidence.pairwise_A_vs_B = pwB.evalRunId;
+    prog("Pairwise: Current vs C...", 82);
     steps.push("Pairwise: Current vs C...");
     const pwC = await runPairwise(currentPrompt.id, verC.id);
     pairwiseResults["A_vs_C"] = pwC;
@@ -340,6 +356,7 @@ export async function POST(req: NextRequest) {
       return total > 0 && passed === total;
     };
 
+    prog("Running Golden Set checks...", 88);
     const goldenPassB = require_golden_pass ? await runGoldenWithPrompt(verB.id) : true;
     const goldenPassC = require_golden_pass ? await runGoldenWithPrompt(verC.id) : true;
 
@@ -388,6 +405,7 @@ export async function POST(req: NextRequest) {
     };
 
     // 12. Create proposal
+    prog("Creating proposal...", 95);
     const { data: proposal, error: propErr } = await supabase
       .from("ai_prompt_change_proposals")
       .insert({
@@ -408,10 +426,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (propErr) {
-      return NextResponse.json({ ok: false, error: propErr.message }, { status: 500 });
+      throw new Error(propErr.message);
     }
 
-    return NextResponse.json({
+    prog("Done", 100);
+    return {
       ok: true,
       proposal_id: proposal.id,
       recommendation,
@@ -432,7 +451,31 @@ export async function POST(req: NextRequest) {
       },
       steps,
       proposal,
-    });
+    };
+    };
+
+    if (wantStream) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const enc = (o: object) => controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
+          try {
+            const result = await run((step, progress) => enc({ type: "progress", step, progress }));
+            enc({ type: "complete", result });
+          } catch (e: any) {
+            enc({ type: "error", error: e?.message || "server_error" });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+      return new Response(stream, {
+        headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" },
+      });
+    }
+
+    const result = await run(noop);
+    return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }

@@ -845,6 +845,7 @@ export default function AiTestPage() {
   const [autoChallengeLoading, setAutoChallengeLoading] = React.useState(false);
   const [selfOptLoading, setSelfOptLoading] = React.useState(false);
   const [selfOptResult, setSelfOptResult] = React.useState<any>(null);
+  const [selfOptProgress, setSelfOptProgress] = React.useState<{ step: string; progress: number } | null>(null);
   const [currentProposal, setCurrentProposal] = React.useState<any>(null);
   const [proposalLoading, setProposalLoading] = React.useState(false);
   const [postAcceptCompareResult, setPostAcceptCompareResult] = React.useState<any>(null);
@@ -1602,27 +1603,59 @@ export default function AiTestPage() {
                   setSelfOptLoading(true);
                   setSelfOptResult(null);
                   setCurrentProposal(null);
+                  setSelfOptProgress({ step: "Starting…", progress: 0 });
                   try {
                     const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 50 }),
+                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 50, stream: true }),
                     });
-                    const j = await r.json();
-                    setSelfOptResult(j);
-                    if (j.ok && j.proposal_id) {
-                      const fetchR = await fetch(`/api/admin/ai-test/proposals/${j.proposal_id}`);
-                      const fetchJ = await fetchR.json();
-                      if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
-                      loadEvalSets();
-                      loadEvalRuns();
-                      loadPromptVersions();
-                      loadLatestImprovementReport();
+                    if (!r.ok || !r.body) {
+                      const j = await r.json().catch(() => ({}));
+                      setSelfOptResult({ ok: false, error: j?.error || r.statusText });
+                      return;
+                    }
+                    const reader = r.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = "";
+                    let finalResult: any = null;
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      buffer += decoder.decode(value, { stream: true });
+                      const lines = buffer.split("\n");
+                      buffer = lines.pop() || "";
+                      for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                          const obj = JSON.parse(line);
+                          if (obj.type === "progress") {
+                            setSelfOptProgress({ step: obj.step, progress: obj.progress ?? 0 });
+                          } else if (obj.type === "complete") {
+                            finalResult = obj.result;
+                          } else if (obj.type === "error") {
+                            setSelfOptResult({ ok: false, error: obj.error });
+                          }
+                        } catch {}
+                      }
+                    }
+                    if (finalResult) {
+                      setSelfOptResult(finalResult);
+                      if (finalResult.ok && finalResult.proposal_id) {
+                        const fetchR = await fetch(`/api/admin/ai-test/proposals/${finalResult.proposal_id}`);
+                        const fetchJ = await fetchR.json();
+                        if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
+                        loadEvalSets();
+                        loadEvalRuns();
+                        loadPromptVersions();
+                        loadLatestImprovementReport();
+                      }
                     }
                   } catch (e: any) {
                     setSelfOptResult({ ok: false, error: e?.message });
                   } finally {
                     setSelfOptLoading(false);
+                    setSelfOptProgress(null);
                   }
                 }}
                 disabled={selfOptLoading}
@@ -4129,6 +4162,24 @@ export default function AiTestPage() {
         </div>
       </div>
         </>
+      )}
+
+      {/* Self-Optimization Progress Modal */}
+      {selfOptLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-blue-500/50 bg-neutral-900 p-6 shadow-2xl">
+            <div className="text-lg font-semibold mb-4">AI Self-Optimization</div>
+            <div className="text-sm text-neutral-400 mb-2">{selfOptProgress?.step ?? "Working…"}</div>
+            <div className="h-2 rounded-full bg-neutral-700 overflow-hidden mb-1">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                style={{ width: `${selfOptProgress?.progress ?? 0}%` }}
+              />
+            </div>
+            <div className="text-xs text-neutral-500 text-right">{Math.round(selfOptProgress?.progress ?? 0)}%</div>
+            <p className="text-xs text-neutral-500 mt-4">This may take several minutes. Do not close the page.</p>
+          </div>
+        </div>
       )}
     </div>
   );
