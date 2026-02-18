@@ -680,8 +680,8 @@ export default function HandTestingWidget({
       ref={containerRef}
       className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${compact ? "p-3" : ""} ${className}`}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
             {imagesLoading ? (
               <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -702,7 +702,7 @@ export default function HandTestingWidget({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           {testSequence && gameState === "finished" && (
             <button
               onClick={shareSequence}

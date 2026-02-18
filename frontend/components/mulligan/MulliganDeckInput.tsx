@@ -3,12 +3,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { parseDecklist } from "@/lib/mulligan/parse-decklist";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
+import { useAuth } from "@/lib/auth-context";
 import HandTestingWidget from "./HandTestingWidget";
 
 const FIRST_SAMPLE = SAMPLE_DECKS[0];
 type DeckRow = { id: string; title?: string | null };
 
 export default function MulliganDeckInput() {
+  const { user, loading: authLoading } = useAuth();
   const [deckSource, setDeckSource] = useState<"example" | "paste" | "load">("example");
   const [deckText, setDeckText] = useState("");
   const [deckId, setDeckId] = useState("");
@@ -50,6 +52,10 @@ export default function MulliganDeckInput() {
   }, [deckSource, deckText, deckId]);
 
   useEffect(() => {
+    if (!user) {
+      setDecks([]);
+      return;
+    }
     (async () => {
       try {
         const res = await fetch("/api/decks/my", { cache: "no-store" });
@@ -57,7 +63,7 @@ export default function MulliganDeckInput() {
         if (res.ok && j?.ok && Array.isArray(j.decks)) setDecks(j.decks);
       } catch {}
     })();
-  }, []);
+  }, [user]);
 
   const handleLoadDeck = useCallback(async (id: string) => {
     if (!id) return;
@@ -126,13 +132,24 @@ export default function MulliganDeckInput() {
           />
         </div>
       )}
-      {deckSource === "load" && (
+      {deckSource === "load" && !user && !authLoading && (
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "signup" } }))}
+          className="w-full rounded-lg border-2 border-dashed border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/80 transition-all py-4 px-4 flex flex-col items-center gap-2 group"
+        >
+          <span className="text-amber-400 font-semibold text-sm">Sign in to load your decks</span>
+          <span className="text-neutral-400 text-xs">Save decks and test opening hands anytime</span>
+          <span className="text-amber-500 text-xs font-medium group-hover:text-amber-400">Sign up free →</span>
+        </button>
+      )}
+      {deckSource === "load" && (user || authLoading) && (
         <select
           value={deckId}
           onChange={(e) => setDeckId(e.target.value)}
           className="w-full bg-neutral-950 border border-neutral-600 rounded px-2 py-1.5 text-xs"
         >
-          <option value="">{decks.length === 0 ? "Sign in to load decks" : "Select deck…"}</option>
+          <option value="">{authLoading ? "Loading…" : decks.length === 0 ? "No decks yet" : "Select deck…"}</option>
           {decks.map((d) => (
             <option key={d.id} value={d.id}>
               {d.title || "Untitled"}
