@@ -575,6 +575,11 @@ export default function AiTestPage() {
   });
   const [showAdvancedTools, setShowAdvancedTools] = React.useState(false);
   const [goldenRunning, setGoldenRunning] = React.useState<string | null>(null);
+  const [autoChallengeResult, setAutoChallengeResult] = React.useState<any>(null);
+  const [autoChallengeLoading, setAutoChallengeLoading] = React.useState(false);
+  const [selfOptLoading, setSelfOptLoading] = React.useState(false);
+  const [selfOptResult, setSelfOptResult] = React.useState<any>(null);
+  const [latestImprovementReport, setLatestImprovementReport] = React.useState<any>(null);
   const [showValidationDetails, setShowValidationDetails] = React.useState(false);
   const [showBatchDetails, setShowBatchDetails] = React.useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = React.useState(false);
@@ -596,6 +601,21 @@ export default function AiTestPage() {
     loadTestSchedules();
     loadEvalSets();
   }, []);
+
+  async function loadLatestImprovementReport() {
+    try {
+      const r = await fetch("/api/admin/ai-test/improvement-reports?kind=chat&limit=1", { cache: "no-store" });
+      const j = await r.json();
+      if (j?.ok && j.reports?.length) setLatestImprovementReport(j.reports[0]);
+      else setLatestImprovementReport(null);
+    } catch {
+      setLatestImprovementReport(null);
+    }
+  }
+
+  React.useEffect(() => {
+    if (simpleMode) loadLatestImprovementReport();
+  }, [simpleMode]);
 
   async function loadEvalSets() {
     try {
@@ -1293,6 +1313,59 @@ export default function AiTestPage() {
       {/* SIMPLE MODE: Status + 3 Big Actions */}
       {simpleMode && (
         <div className="space-y-8 mb-8">
+          {/* Run Self-Optimization - primary CTA */}
+          <section className="rounded-xl border-2 border-blue-600/50 p-6 bg-blue-950/20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-lg font-semibold mb-1">AI Auto-Improve Engine</div>
+                <div className="text-sm text-neutral-400">Run full self-optimization: run suite, generate Golden Set, challenge prompts, adopt best.</div>
+              </div>
+              <button
+                onClick={async () => {
+                  setSelfOptLoading(true);
+                  setSelfOptResult(null);
+                  try {
+                    const r = await fetch("/api/admin/ai-test/self-optimization", { method: "POST", headers: { "Content-Type": "application/json" } });
+                    const j = await r.json();
+                    setSelfOptResult(j);
+                    if (j.ok) {
+                      loadEvalSets();
+                      loadEvalRuns();
+                      loadPromptVersions();
+                      loadLatestImprovementReport();
+                    }
+                  } catch (e: any) {
+                    setSelfOptResult({ ok: false, error: e?.message });
+                  } finally {
+                    setSelfOptLoading(false);
+                  }
+                }}
+                disabled={selfOptLoading}
+                className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-50 text-white"
+              >
+                {selfOptLoading ? "Running…" : "Run Self-Optimization"}
+              </button>
+            </div>
+            {selfOptResult && (
+              <div className={`mt-4 p-4 rounded-lg ${selfOptResult.ok ? "bg-green-950/30 border border-green-800" : "bg-red-950/30 border border-red-800"}`}>
+                {selfOptResult.ok ? (
+                  <>
+                    <div className="font-medium text-green-400">✓ AI Improved</div>
+                    <div className="text-sm mt-2 space-y-1">
+                      <div>Pass rate: {selfOptResult.summary?.pass_rate_before}% → {selfOptResult.summary?.pass_rate_after}%</div>
+                      {selfOptResult.summary?.adopted && <div>Adopted automatically.</div>}
+                      {selfOptResult.summary?.recommendation && (
+                        <div className="text-neutral-400">{selfOptResult.summary.recommendation.message}</div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-red-400">{selfOptResult.error}</div>
+                )}
+              </div>
+            )}
+          </section>
+
           {/* Status Overview Panel */}
           <section className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50">
             <div className="text-sm font-medium text-neutral-400 mb-4">AI Health Status</div>
@@ -1322,6 +1395,36 @@ export default function AiTestPage() {
               </div>
             </div>
           </section>
+
+          {/* Latest AI Upgrade Summary */}
+          {latestImprovementReport && (
+            <section className="rounded-xl border border-neutral-700 p-4 bg-neutral-900/50">
+              <div className="text-sm font-medium text-neutral-400 mb-3">Latest AI Upgrade Summary</div>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                {latestImprovementReport.what_changed && (
+                  <div>
+                    <div className="text-xs text-neutral-500 mb-1">What changed?</div>
+                    <div>{latestImprovementReport.what_changed}</div>
+                  </div>
+                )}
+                {latestImprovementReport.what_improved && (
+                  <div>
+                    <div className="text-xs text-neutral-500 mb-1">What improved?</div>
+                    <div>{latestImprovementReport.what_improved}</div>
+                  </div>
+                )}
+                {latestImprovementReport.risk && (
+                  <div>
+                    <div className="text-xs text-neutral-500 mb-1">Risk?</div>
+                    <div>{latestImprovementReport.risk}</div>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-neutral-500 mt-2">
+                {latestImprovementReport.prompt_version_before} → {latestImprovementReport.prompt_version_after}
+              </div>
+            </section>
+          )}
 
           {/* 3 Big Actions */}
           <div className="grid md:grid-cols-3 gap-6">
@@ -1365,9 +1468,45 @@ export default function AiTestPage() {
               <div className="font-semibold text-lg mb-2">Run Golden Safety Check</div>
               <p className="text-sm text-neutral-400 mb-4">Strict gate. All tests must pass. Use before deploy.</p>
               {evalSets.length === 0 ? (
-                <div className="text-sm text-neutral-500 py-3">No Golden Set configured. Use Advanced Mode to create one.</div>
+                <div className="space-y-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await fetch("/api/admin/ai-test/auto-golden-set", { method: "POST", headers: { "Content-Type": "application/json" } });
+                        const j = await r.json();
+                        if (j.ok) {
+                          loadEvalSets();
+                          alert(j.message || "Golden Set created");
+                        } else alert(j.error || "Failed");
+                      } catch (e: any) {
+                        alert(e?.message || "Failed");
+                      }
+                    }}
+                    className="w-full py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-500 font-medium"
+                  >
+                    Generate Smart Golden Set
+                  </button>
+                  <p className="text-xs text-neutral-500">Auto-selects hardest 20% of tests</p>
+                </div>
               ) : (
                 <>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await fetch("/api/admin/ai-test/auto-golden-set", { method: "POST", headers: { "Content-Type": "application/json" } });
+                        const j = await r.json();
+                        if (j.ok) {
+                          loadEvalSets();
+                          alert(j.message || "Golden Set created/updated");
+                        } else alert(j.error || "Failed");
+                      } catch (e: any) {
+                        alert(e?.message || "Failed");
+                      }
+                    }}
+                    className="w-full py-2 px-4 rounded-lg bg-neutral-600 hover:bg-neutral-500 font-medium mb-2"
+                  >
+                    Generate Smart Golden Set
+                  </button>
                   {evalSets.slice(0, 2).map((s: any) => (
                     <button
                       key={s.id}
@@ -1416,6 +1555,106 @@ export default function AiTestPage() {
                 Compare Versions
               </button>
               <p className="text-xs text-neutral-500">Opens Advanced Mode to select A & B</p>
+            </div>
+          </div>
+
+          {/* Let AI Improve Prompt + Rollback */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
+              <div className="text-2xl mb-2">🤖</div>
+              <div className="font-semibold text-lg mb-2">Let AI Improve Prompt</div>
+              <p className="text-sm text-neutral-400 mb-4">Generate variants, run challenge, get recommendation.</p>
+              <button
+                onClick={async () => {
+                  setAutoChallengeLoading(true);
+                  setAutoChallengeResult(null);
+                  try {
+                    const r = await fetch("/api/admin/ai-test/auto-challenge", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ kind: "chat", testLimit: 15 }),
+                    });
+                    const j = await r.json();
+                    setAutoChallengeResult(j);
+                  } catch (e: any) {
+                    setAutoChallengeResult({ ok: false, error: e?.message });
+                  } finally {
+                    setAutoChallengeLoading(false);
+                  }
+                }}
+                disabled={autoChallengeLoading}
+                className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium disabled:opacity-50"
+              >
+                {autoChallengeLoading ? "Running…" : "Let AI Improve Prompt"}
+              </button>
+              {autoChallengeResult?.ok && (
+                <div className="mt-4 p-4 rounded-lg bg-neutral-800/80 space-y-3">
+                  <div className="font-medium">
+                    Winner: Prompt {autoChallengeResult.recommended_prompt} (+{autoChallengeResult.performance_diff?.win_rate_delta ?? 0}% win rate)
+                  </div>
+                  <div className="text-sm text-neutral-400">{autoChallengeResult.risk_assessment}</div>
+                  {autoChallengeResult.adopt_prompt_id && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const r = await fetch("/api/admin/ai-test/adopt-prompt", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                prompt_version_id: autoChallengeResult.adopt_prompt_id,
+                                kind: "chat",
+                                test_evidence: { win_rate_delta: autoChallengeResult.performance_diff?.win_rate_delta },
+                              }),
+                            });
+                            const j = await r.json();
+                            if (j.ok) {
+                              loadPromptVersions();
+                              loadLatestImprovementReport();
+                              alert("Adopted. Rollback available if needed.");
+                            } else alert(j.error || "Failed");
+                          } catch (e: any) {
+                            alert(e?.message || "Failed");
+                          }
+                        }}
+                        className="px-4 py-2 rounded bg-green-600 hover:bg-green-500 text-sm font-medium"
+                      >
+                        Adopt Prompt
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {autoChallengeResult && !autoChallengeResult.ok && (
+                <div className="mt-4 p-3 rounded-lg bg-red-950/30 text-red-400 text-sm">{autoChallengeResult.error}</div>
+              )}
+            </div>
+            <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
+              <div className="text-2xl mb-2">↩</div>
+              <div className="font-semibold text-lg mb-2">Rollback to Previous</div>
+              <p className="text-sm text-neutral-400 mb-4">Revert to the prompt version before last adoption.</p>
+              <button
+                onClick={async () => {
+                  if (!confirm("Rollback to previous prompt version?")) return;
+                  try {
+                    const r = await fetch("/api/admin/ai-test/rollback-prompt", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ kind: "chat" }),
+                    });
+                    const j = await r.json();
+                    if (j.ok) {
+                      loadPromptVersions();
+                      alert("Rolled back to " + j.restored_version);
+                    } else alert(j.error || "No previous version to rollback to");
+                  } catch (e: any) {
+                    alert(e?.message || "Failed");
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-lg bg-neutral-600 hover:bg-neutral-500 font-medium"
+              >
+                Rollback
+              </button>
             </div>
           </div>
 
@@ -1655,11 +1894,11 @@ export default function AiTestPage() {
           {suiteToolTab === "human-review" && (
             <div className="space-y-4">
               <ELI5
-                heading="What is Human Review?"
+                heading="Review Real Answers"
                 items={[
                   "Sample real AI outputs from production and review them yourself.",
                   "Use this to calibrate the automated judges or spot issues the tests miss.",
-                  "Step 1: Click Sample from Production. Step 2: Review the outputs. Step 3: Mark as reviewed.",
+                  "Step 1: Click Sample from Production. Step 2: Review the outputs. Step 3: Use quick labels or Mark Reviewed.",
                 ]}
               />
               <div className="font-medium">Human Review Queue</div>
@@ -1687,28 +1926,164 @@ export default function AiTestPage() {
                 </button>
                 <button onClick={loadHumanReviews} className="px-2 py-1 text-xs rounded bg-neutral-600">Refresh</button>
               </div>
-              <div className="space-y-2 max-h-96 overflow-auto">
+              <div className="space-y-4 max-h-[600px] overflow-auto">
                 {humanReviews.map((rev: any) => (
-                  <div key={rev.id} className="p-2 bg-neutral-900 rounded border border-neutral-700">
-                    <div className="text-xs font-mono truncate">{rev.route} • {rev.source}</div>
-                    <div className="text-xs mt-1 line-clamp-2">{String(rev.output || "").slice(0, 200)}...</div>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await fetch("/api/admin/ai-test/human-reviews", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ id: rev.id, labels: { overall: 4 }, status: "reviewed", reviewer: "admin" }),
-                          });
-                          loadHumanReviews();
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}
-                      className="mt-1 px-2 py-0.5 text-xs rounded bg-blue-600"
-                    >
-                      Mark Reviewed
-                    </button>
+                  <div key={rev.id} className="p-4 bg-neutral-900 rounded-lg border border-neutral-700 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs font-mono text-neutral-500">{rev.route} • {rev.source}</div>
+                      {(rev.created_at || rev.meta?.created_at) && (
+                        <div className="text-xs text-neutral-500">{new Date(rev.created_at || rev.meta.created_at).toLocaleString()}</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-neutral-400 mb-1">Input / Prompt</div>
+                      <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        {typeof rev.input === "object" && rev.input?.prompt_preview
+                          ? rev.input.prompt_preview
+                          : typeof rev.input === "string"
+                            ? rev.input
+                            : JSON.stringify(rev.input || {}, null, 2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-neutral-400 mb-1">Output</div>
+                      <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                        {String(rev.output || "(empty)")}
+                      </div>
+                    </div>
+                    {rev.meta?.validatorBreakdown && (
+                      <div>
+                        <div className="text-xs font-medium text-neutral-400 mb-1">Category Breakdown</div>
+                        <div className="p-2 bg-neutral-950 rounded border border-neutral-800 text-xs">
+                          {Object.entries(rev.meta.validatorBreakdown.categoryScores || {}).map(([k, v]: [string, any]) => (
+                            <div key={k} className="flex justify-between">
+                              <span>{k}</span>
+                              <span className={typeof v === "number" && v < 70 ? "text-yellow-400" : ""}>{typeof v === "number" ? `${v}%` : String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {rev.meta?.flags?.hallucinationRisk && (
+                      <div className="p-2 bg-amber-950/50 border border-amber-800 rounded text-amber-400 text-xs">
+                        ⚠ Suspected hallucination
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "good" }, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-green-600 hover:bg-green-500"
+                      >
+                        Good
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "too_generic" }, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500"
+                      >
+                        Too Generic
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "missed_constraint" }, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-500"
+                      >
+                        Missed Constraint
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "hallucination" }, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-500"
+                      >
+                        Hallucination
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "tone_issue" }, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-purple-600 hover:bg-purple-500"
+                      >
+                        Tone Issue
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/admin/ai-test/human-reviews", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: rev.id, labels: rev.labels || {}, status: "reviewed", reviewer: "admin" }),
+                            });
+                            loadHumanReviews();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500"
+                      >
+                        Mark Reviewed
+                      </button>
+                      <button
+                        onClick={() => {
+                          const input = rev.input?.prompt_preview || (typeof rev.input === "string" ? rev.input : "");
+                          const output = rev.output || "";
+                          navigator.clipboard.writeText(JSON.stringify({ input, output, route: rev.route }, null, 2));
+                          alert("Copied to clipboard. Use Advanced Mode → Import to add as test case.");
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-neutral-700 hover:bg-neutral-600"
+                      >
+                        Convert to Test Case
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

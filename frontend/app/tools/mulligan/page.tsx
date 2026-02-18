@@ -1,8 +1,10 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
-import HandTestingWidget from "@/components/HandTestingWidget";
+import HandTestingWidget from "@/components/mulligan/HandTestingWidget";
 import { comb, hypergeomCDFAtLeast } from "@/lib/math/hypergeometric";
+import { SAMPLE_DECKS } from "@/lib/sample-decks";
 
 function drawSample(deckSize: number, successCount: number, n: number): number {
   // Without replacement; simple count of successes in n cards
@@ -23,6 +25,7 @@ export default function MulliganSimulatorPage() {
   const [successCards, setSuccessCards] = React.useState(10);
   const [landsInDeck, setLandsInDeck] = React.useState(36);
   const [deckCards, setDeckCards] = React.useState<Array<{ name: string; qty: number }>>([]);
+  const [deckId, setDeckId] = React.useState<string>("");
   
   const [minKeep, setMinKeep] = React.useState(1); // keep if >= this many successes
   const [minLands, setMinLands] = React.useState(2);
@@ -40,13 +43,14 @@ export default function MulliganSimulatorPage() {
   const [reqW,setReqW]=React.useState(0); const [reqU,setReqU]=React.useState(0); const [reqB,setReqB]=React.useState(0); const [reqR,setReqR]=React.useState(0); const [reqG,setReqG]=React.useState(0); const [reqTurn,setReqTurn]=React.useState(0);
 
   // Memoized callback for ImportDeckForMath to prevent infinite loops
-  const handleDeckImport = React.useCallback(({ deckId, deckSize: N, successCards: K, deckCards: cards }: any) => {
+  const handleDeckImport = React.useCallback(({ deckId: id, deckSize: N, successCards: K, deckCards: cards }: any) => {
     setDeckSize(N || deckSize);
     if (K && Number.isFinite(K)) setSuccessCards(K);
     if (cards && Array.isArray(cards)) setDeckCards(cards);
+    if (id) setDeckId(id);
     try {
       const url = new URL(window.location.href);
-      url.searchParams.set("deckId", deckId);
+      url.searchParams.set("deckId", id || "");
       window.history.replaceState({}, "", url.toString());
     } catch {}
   }, [deckSize]);
@@ -62,6 +66,8 @@ export default function MulliganSimulatorPage() {
       const fm = params.get('fm'); if (fm!=null) setFreeMull7(fm==='1'); else { const lsfm = localStorage.getItem('mull:fm'); if (lsfm!=null) setFreeMull7(lsfm==='1'); }
       const dr = params.get('draw'); if (dr!=null) setOnDraw(dr==='1'); else { const lsd = localStorage.getItem('mull:draw'); if (lsd!=null) setOnDraw(lsd==='1'); }
       const adv = localStorage.getItem('mull:adv'); if (adv!=null) setAdvanced(adv==='1');
+      const did = params.get('deckId') || params.get('deck') || localStorage.getItem('mull:deck') || '';
+      if (did) setDeckId(did);
     } catch {}
   }, []);
 
@@ -287,9 +293,42 @@ export default function MulliganSimulatorPage() {
         </div>
       )}
 
-      {/* Paste Decklist Input */}
+      {/* Deck Input: Example, Paste, Import */}
       <div className="bg-neutral-900 border border-neutral-800 rounded p-4 space-y-3">
-        <div className="text-sm font-semibold">Paste Your Decklist</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-sm font-semibold">Deck Input</div>
+          <button
+            onClick={() => {
+              const ex = SAMPLE_DECKS[0];
+              if (ex) {
+                setDeckText(ex.deckList);
+                const lines = ex.deckList.split(/\r?\n/);
+                let totalCards = 0, landCount = 0;
+                const landKeywords = /\b(land|forest|island|mountain|plains|swamp)\b/i;
+                const basicLands = /^(island|mountain|forest|plains|swamp)$/i;
+                const parsedCards: Array<{ name: string; qty: number }> = [];
+                for (const line of lines) {
+                  const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+                  const qty = match ? parseInt(match[1], 10) : 1;
+                  const cardName = match ? match[2] : line;
+                  if (cardName.startsWith("//") || cardName.startsWith("#")) continue;
+                  totalCards += qty;
+                  parsedCards.push({ name: cardName.trim(), qty });
+                  if (landKeywords.test(cardName) || basicLands.test(cardName)) landCount += qty;
+                }
+                setDeckSize(totalCards);
+                setLandsInDeck(landCount);
+                setDeckCards(parsedCards);
+                setDeckId("");
+                setTimeout(() => run(), 100);
+              }
+            }}
+            className="px-2 py-1 rounded text-xs bg-amber-600 hover:bg-amber-500 text-black"
+          >
+            Use example deck
+          </button>
+        </div>
+        <div className="text-xs opacity-80">Paste your decklist below, or use the example deck.</div>
         <textarea
           value={deckText}
           onChange={(e) => setDeckText(e.target.value)}
@@ -437,16 +476,23 @@ export default function MulliganSimulatorPage() {
       )}
           </div>
           
-          {/* RIGHT COLUMN: Hand Testing Widget sidebar */}
+          {/* RIGHT COLUMN: Hand Testing Widget first, then FAQ */}
           <aside className="lg:col-span-4">
             <div className="sticky top-4 space-y-4">
-              {/* Interactive Hand Testing Widget */}
-              <HandTestingWidget 
-                deckCards={deckCards}
-                compact={false}
-                className=""
-              />
-              
+              {/* Interactive Hand Testing Widget - Try it now */}
+              <div>
+                <h3 className="text-sm font-semibold text-amber-200 mb-2">Try it now</h3>
+                <HandTestingWidget
+                  mode="DECK"
+                  deckId={deckId || undefined}
+                  deckCards={deckCards}
+                  decklistText={deckText.trim() || undefined}
+                  placement="MULLIGAN_PAGE"
+                  compact={false}
+                  className=""
+                />
+              </div>
+
               {/* Note about per-deck availability */}
               <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4">
                 <div className="flex items-center gap-3">
@@ -456,7 +502,7 @@ export default function MulliganSimulatorPage() {
                   <div className="flex-1">
                     <h3 className="font-semibold text-amber-200 text-sm">Also Available Per Deck!</h3>
                     <p className="text-xs opacity-80 mt-1">
-                      This hand testing widget is also available on <a href="/my-decks" className="underline hover:text-amber-300">individual deck pages</a> with your specific deck's cards for more focused testing!
+                      This hand testing widget is also available on <Link href="/my-decks" className="underline hover:text-amber-300">individual deck pages</Link> with your specific deck&apos;s cards for more focused testing!
                     </p>
                   </div>
                 </div>

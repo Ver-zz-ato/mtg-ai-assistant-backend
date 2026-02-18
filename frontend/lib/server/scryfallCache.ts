@@ -1,6 +1,6 @@
 // lib/server/scryfallCache.ts
 import { createClient } from "@/lib/supabase/server";
-import { ImageInfo } from "@/lib/scryfall";
+import { ImageInfo, fetchEnglishCardImages } from "@/lib/scryfall";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -102,9 +102,19 @@ export async function getDetailsForNamesCached(names: string[]) {
       const j: any = await r.json().catch(() => ({}));
       const dataRows: any[] = Array.isArray(j?.data) ? j.data : [];
       const up: any[] = [];
-      for (const c of dataRows) {
-        const key = norm(c?.name || "");
-        const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
+      for (let idx = 0; idx < dataRows.length; idx++) {
+        const c = dataRows[idx];
+        const requestedName = toFetch[idx] !== undefined ? uniq[keys.indexOf(toFetch[idx])] : null;
+        const key = requestedName ? norm(requestedName) : norm(c?.name || "");
+        if (!key) continue;
+        let img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
+        // Prefer English: Scryfall collection returns "newest" which can be non-English
+        if (c?.lang && c.lang !== "en" && requestedName) {
+          const enInfo = await fetchEnglishCardImages(requestedName);
+          if (enInfo?.normal || enInfo?.small) {
+            img = { small: enInfo.small, normal: enInfo.normal, art_crop: enInfo.art_crop };
+          }
+        }
         const colorIdentity = Array.isArray(c?.color_identity) ? c.color_identity : [];
         out.set(key, { 
           image_uris: img, 

@@ -11,6 +11,7 @@ import ExportToMoxfield from "@/components/ExportToMoxfield";
 import ExportToTCGPlayer from "@/components/ExportToTCGPlayer";
 import CloneDeckButton from "@/components/CloneDeckButton";
 import ShareButton from "@/components/ShareButton";
+import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
 
 type Params = { id: string };
@@ -640,6 +641,13 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
         {/* Right sidebar - deck fundamentals */}
         <aside className="col-span-12 lg:col-span-3 space-y-4">
+          {/* Hand Testing Widget */}
+          <HandTestingSection
+            deckId={id}
+            deckCards={(cards || []) as Array<{ name: string; qty: number }>}
+            commanderName={commander || null}
+          />
+
           {/* Types */}
           <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
             <div className="flex items-center gap-2 mb-4">

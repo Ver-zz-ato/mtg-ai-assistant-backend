@@ -102,6 +102,30 @@ export async function getPromptVersion(
 }
 
 /**
+ * Get prompt version by ID (for eval/pairwise override)
+ */
+export async function getPromptVersionById(
+  id: string,
+  kind: "chat" | "deck_analysis"
+): Promise<PromptVersion | null> {
+  try {
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const db = getAdmin();
+    if (!db) return null;
+    const { data, error } = await db
+      .from("prompt_versions")
+      .select("id, version, system_prompt")
+      .eq("id", id)
+      .eq("kind", kind)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { id: data.id, version: data.version, system_prompt: data.system_prompt };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get active prompt version (for backward compatibility with existing code)
  */
 export function getActivePromptVersion(): string {

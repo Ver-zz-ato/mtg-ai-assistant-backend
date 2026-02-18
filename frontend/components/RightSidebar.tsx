@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import BadgeProgressWidget from "./BadgeProgressWidget";
 import DeckAnalyzerExpandable from "./DeckAnalyzerExpandable";
 import HomepageFAQ from "./HomepageFAQ";
+import MulliganDeckInput from "./mulligan/MulliganDeckInput";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -15,6 +16,7 @@ export default function RightSidebar() {
   const [posting, setPosting] = useState<boolean>(false);
   const [debugSpace, setDebugSpace] = useState<boolean>(false);
   const [isCardPanelCollapsed, setIsCardPanelCollapsed] = useState<boolean>(false);
+  const [handTestCollapsed, setHandTestCollapsed] = useState<boolean>(true);
   const evRef = useRef<EventSource | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -164,6 +166,34 @@ export default function RightSidebar() {
       {/* FAQ Section - collapsed by default */}
       <div className="w-full">
         <HomepageFAQ defaultCollapsed={true} />
+      </div>
+
+      {/* Hand Testing Widget - compact demo, collapsible on mobile */}
+      <div className={`w-full sticky top-[90px] z-20 ${debugSpace ? "outline outline-2 outline-amber-500" : ""}`}>
+        <div className="lg:hidden">
+          <button
+            onClick={() => setHandTestCollapsed(!handTestCollapsed)}
+            className="w-full flex items-center justify-between p-3 bg-neutral-900/60 border border-neutral-700 rounded-xl hover:bg-neutral-800/60 transition-colors"
+          >
+            <h3 className="text-sm font-medium text-amber-200">Try a quick opening-hand test</h3>
+            <svg
+              className={`w-5 h-5 text-neutral-400 transition-transform ${handTestCollapsed ? "" : "rotate-180"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div className={`overflow-hidden transition-all ${handTestCollapsed ? "max-h-0" : "max-h-[800px]"}`}>
+            <div className="pt-3">
+              <MulliganDeckInput />
+            </div>
+          </div>
+        </div>
+        <div className="hidden lg:block">
+          <MulliganDeckInput />
+        </div>
       </div>
 
       {/* Deck Snapshot: Expandable analyzer panel */}

@@ -2,6 +2,8 @@
 // Helper to batch-fetch card images from internal scryfall_cache database
 // Uses internal API instead of hitting Scryfall directly
 
+import { fetchEnglishCardImages } from "@/lib/scryfall";
+
 export type ImageInfo = { small?: string; normal?: string; art_crop?: string };
 
 const memCache: Map<string, ImageInfo> = new Map(); // in-memory cache for session
@@ -104,19 +106,21 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
           if (r.ok) {
             const j: any = await r.json().catch(() => ({}));
             const data = Array.isArray(j?.data) ? j.data : [];
-            
-            for (const card of data) {
-              const key = norm(card?.name || "");
+            const identifiers = batchNorm.map((n) => ({ name: origForNorm.get(n)! }));
+
+            for (let idx = 0; idx < data.length; idx++) {
+              const card = data[idx];
+              const requestedName = identifiers[idx]?.name;
+              const key = requestedName ? norm(requestedName) : norm(card?.name || "");
               if (!key || !origForNorm.has(key)) continue;
-              
-              const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-              const info: ImageInfo = {
-                small: img.small,
-                normal: img.normal,
-                art_crop: img.art_crop,
-              };
-              
-              // Store in both caches
+
+              let img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
+              let info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
+              if (card?.lang && card.lang !== "en" && requestedName) {
+                const enInfo = await fetchEnglishCardImages(requestedName);
+                if (enInfo?.normal || enInfo?.small) info = enInfo;
+              }
+
               memCache.set(key, info);
               out.set(key, info);
             }

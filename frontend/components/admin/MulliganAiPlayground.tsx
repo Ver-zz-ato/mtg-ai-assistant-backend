@@ -9,11 +9,12 @@ import {
 } from "@/lib/mulligan/parse-decklist";
 import type { DeckProfile } from "@/lib/mulligan/deck-profile";
 import { GOLDEN_TEST_CASES } from "@/lib/mulligan/golden-test-cases";
+import { SAMPLE_DECKS } from "@/lib/sample-decks";
 import { capture, hasConsent } from "@/lib/ph";
 
 type DeckRow = { id: string; title?: string | null };
 
-const TIER_LIMITS: Record<string, number> = { guest: 2, free: 10, pro: 100 };
+const TIER_LIMITS: Record<string, number> = { guest: 2, free: 10, pro: 100 }; // admin: 100
 
 function getTodayKey(): string {
   const d = new Date();
@@ -46,8 +47,10 @@ function drawHand(deck: string[], size: number): string[] {
   return shuffled.slice(0, size);
 }
 
+const FIRST_SAMPLE_DECK = SAMPLE_DECKS[0];
+
 export default function MulliganAiPlayground() {
-  const [deckSource, setDeckSource] = useState<"paste" | "load">("paste");
+  const [deckSource, setDeckSource] = useState<"paste" | "load" | "example">("example");
   const [deckText, setDeckText] = useState("");
   const [deckId, setDeckId] = useState("");
   const [decks, setDecks] = useState<DeckRow[]>([]);
@@ -94,6 +97,25 @@ export default function MulliganAiPlayground() {
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [deckProfile, setDeckProfile] = useState<DeckProfile | null>(null);
+  const [showRuns, setShowRuns] = useState(false);
+  const [runs, setRuns] = useState<
+    Array<{
+      id: string;
+      created_at: string;
+      source: string;
+      deck_summary: string | null;
+      hand_summary: string | null;
+      llm_used: boolean;
+      model_used: string | null;
+      cost_usd: number | null;
+      cached: boolean;
+      effective_tier: string | null;
+      gate_action: string | null;
+      input_json?: unknown;
+      output_json?: unknown;
+    }>
+  >([]);
+  const [runsLoading, setRunsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({
     src: "",
@@ -136,6 +158,16 @@ export default function MulliganAiPlayground() {
       setSimUsageCount(0);
     }
   }, [simulatedTier]);
+
+  // Load example deck when source is "example"
+  useEffect(() => {
+    if (deckSource !== "example" || !FIRST_SAMPLE_DECK) return;
+    const cards = parseDecklist(FIRST_SAMPLE_DECK.deckList);
+    setParsedCards(cards);
+    setDeckText(FIRST_SAMPLE_DECK.deckList);
+    setCommander(FIRST_SAMPLE_DECK.commander);
+    setDeckId("");
+  }, [deckSource]);
 
   // Fetch decks list for dropdown (same as ImportDeckForMath / budget swaps)
   useEffect(() => {
@@ -389,6 +421,23 @@ export default function MulliganAiPlayground() {
     return () => { cancelled = true; };
   }, [parsedCards, commander]);
 
+  const fetchRuns = useCallback(async () => {
+    setRunsLoading(true);
+    try {
+      const res = await fetch("/api/admin/mulligan/runs", { cache: "no-store" });
+      const j = await res.json().catch(() => ({ ok: false }));
+      if (res.ok && j?.ok && Array.isArray(j.runs)) setRuns(j.runs);
+    } catch {
+      setRuns([]);
+    } finally {
+      setRunsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showRuns && runs.length === 0 && !runsLoading) fetchRuns();
+  }, [showRuns, runs.length, runsLoading, fetchRuns]);
+
   const handleLoadTestCase = useCallback((caseId: string, handIndex: number) => {
     const tc = GOLDEN_TEST_CASES.find((c) => c.id === caseId);
     if (!tc) return;
@@ -417,7 +466,13 @@ export default function MulliganAiPlayground() {
       {/* Deck Input */}
       <section className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
         <h2 className="font-semibold text-neutral-200 mb-3">Deck Input</h2>
-        <div className="flex gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            onClick={() => setDeckSource("example")}
+            className={`px-3 py-1.5 rounded text-sm ${deckSource === "example" ? "bg-amber-600 text-black" : "bg-neutral-700 text-neutral-300"}`}
+          >
+            Use example deck
+          </button>
           <button
             onClick={() => setDeckSource("paste")}
             className={`px-3 py-1.5 rounded text-sm ${deckSource === "paste" ? "bg-amber-600 text-black" : "bg-neutral-700 text-neutral-300"}`}
@@ -431,6 +486,16 @@ export default function MulliganAiPlayground() {
             Load my deck
           </button>
         </div>
+        {parsedCards.length > 0 && (
+          <div className="text-xs text-neutral-400 mb-2">
+            Active deck:{" "}
+            {deckSource === "example"
+              ? `${FIRST_SAMPLE_DECK?.name ?? "Example"} (${FIRST_SAMPLE_DECK?.commander ?? ""})`
+              : deckSource === "load" && deckId
+                ? decks.find((d) => d.id === deckId)?.title ?? "Loaded"
+                : "Pasted deck"}
+          </div>
+        )}
 
         {deckSource === "paste" ? (
           <div className="space-y-2">
@@ -910,6 +975,69 @@ export default function MulliganAiPlayground() {
                 {rawJson}
               </pre>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* Run Logging - admin debug */}
+      <section className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+        <button
+          onClick={() => {
+            setShowRuns(!showRuns);
+            if (!showRuns) fetchRuns();
+          }}
+          className="text-sm text-amber-400 hover:text-amber-300 font-medium flex items-center gap-2"
+        >
+          {showRuns ? "▼" : "▶"} Run log (debug)
+          {runsLoading && <span className="text-neutral-500">loading…</span>}
+        </button>
+        {showRuns && (
+          <div className="mt-3 space-y-3 max-h-[400px] overflow-y-auto">
+            {runs.length === 0 && !runsLoading && (
+              <p className="text-xs text-neutral-500">No runs yet. Get AI advice to log runs.</p>
+            )}
+            {runs.map((r) => (
+              <details
+                key={r.id}
+                className="p-3 bg-neutral-950 rounded border border-neutral-700 text-xs"
+              >
+                <summary className="cursor-pointer font-medium text-neutral-300">
+                  {new Date(r.created_at).toLocaleString()} • {r.source} •{" "}
+                  {r.llm_used ? "LLM" : "deterministic/cached"} •{" "}
+                  {r.output_json && typeof r.output_json === "object" && "action" in r.output_json
+                    ? String((r.output_json as { action?: string }).action)
+                    : "—"}
+                  {r.cost_usd != null && r.cost_usd > 0 && (
+                    <span className="ml-2 text-amber-400">${r.cost_usd.toFixed(6)}</span>
+                  )}
+                </summary>
+                <div className="mt-2 space-y-2 text-neutral-400">
+                  <div>Deck: {r.deck_summary ?? "—"}</div>
+                  <div>Hand: {r.hand_summary ?? "—"}</div>
+                  <div>
+                    LLM: {r.llm_used ? "yes" : "no"} • Model: {r.model_used ?? "—"} • Cached:{" "}
+                    {r.cached ? "yes" : "no"} • Tier: {r.effective_tier ?? "—"} • Gate:{" "}
+                    {r.gate_action ?? "—"}
+                  </div>
+                  {r.input_json != null ? (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-neutral-500">Input JSON</summary>
+                      <pre className="mt-1 p-2 bg-neutral-900 rounded overflow-auto max-h-32 font-mono text-[10px]">
+                        {JSON.stringify(r.input_json, null, 2)}
+                      </pre>
+                    </details>
+                  ) : null}
+                  {r.output_json != null ? (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-neutral-500">Output JSON</summary>
+                      <pre className="mt-1 p-2 bg-neutral-900 rounded overflow-auto max-h-32 font-mono text-[10px]">
+                        {JSON.stringify(r.output_json, null, 2)}
+                      </pre>
+                    </details>
+                  ) : null}
+                </div>
+              </details>
+            ))}
           </div>
         )}
       </section>

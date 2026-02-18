@@ -45,6 +45,11 @@ export const MAX_DECK_ANALYZE_DECK_TEXT_CHARS = 30_000;
 export const MULLIGAN_FREE = 5;
 export const MULLIGAN_PRO = 50;
 
+/** Mulligan AI Advice: guest 2/day, free 10/day, Pro 50/day. */
+export const MULLIGAN_ADVICE_GUEST = 2;
+export const MULLIGAN_ADVICE_FREE = 10;
+export const MULLIGAN_ADVICE_PRO = 50;
+
 /** Probability Tool: free 5/day, Pro 50/day. */
 export const PROBABILITY_FREE = 5;
 export const PROBABILITY_PRO = 50;

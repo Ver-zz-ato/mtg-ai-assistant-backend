@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
-import HandTestingWidget from "@/components/HandTestingWidget";
+import HandTestingWidget from "@/components/mulligan/HandTestingWidget";
 
 // Helper components for hide/show functionality
 function AssistantSection({ deckId, format }: { deckId: string; format?: string }) {
@@ -67,43 +67,62 @@ function AssistantSection({ deckId, format }: { deckId: string; format?: string 
   );
 }
 
-function HandTestingWidgetWithHide({ deckCards, deckId }: { deckCards: Array<{name: string; qty: number}>; deckId: string }) {
+function HandTestingWidgetWithHide({
+  deckCards,
+  deckId,
+  commanderName,
+}: {
+  deckCards: Array<{ name: string; qty: number }>;
+  deckId: string;
+  commanderName?: string | null;
+}) {
   const [open, setOpen] = React.useState(true);
-  
+
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
-      if (e.detail?.action === 'toggle-all') {
+      if (e.detail?.action === "toggle-all") {
         const shouldShow = e.detail?.show;
-        
-        setOpen(prev => {
-          const newValue = shouldShow !== undefined ? Boolean(shouldShow) : !prev;
-          return newValue;
-        });
+        setOpen((prev) =>
+          shouldShow !== undefined ? Boolean(shouldShow) : !prev
+        );
       }
     };
-    
-    window.addEventListener('side-panels-toggle' as any, handler as EventListener);
-    
-    return () => {
-      window.removeEventListener('side-panels-toggle' as any, handler as EventListener);
-    };
+    window.addEventListener("side-panels-toggle" as any, handler as EventListener);
+    return () =>
+      window.removeEventListener(
+        "side-panels-toggle" as any,
+        handler as EventListener
+      );
   }, []);
-  
+
   return (
     <section className="rounded-xl border border-neutral-800 min-w-0 w-full">
       <div className="flex items-center justify-between mb-2 p-2">
-        <div className="text-sm font-medium">Hand Testing</div>
-        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
-          {open ? 'Hide' : 'Show'}
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" />
+          <h3 className="text-sm font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+            Test opening hands with this deck
+          </h3>
+        </div>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors"
+        >
+          {open ? "Hide" : "Show"}
         </button>
       </div>
       {open && (
-        <HandTestingWidget 
-          deckCards={deckCards}
-          deckId={deckId}
-          compact={false}
-          className="w-full"
-        />
+        <div className="px-2 pb-2">
+          <HandTestingWidget
+            mode="DECK"
+            deckCards={deckCards}
+            deckId={deckId}
+            commanderName={commanderName}
+            placement="DECK_PAGE"
+            compact={false}
+            className="w-full border-0 rounded-none bg-transparent p-0"
+          />
+        </div>
       )}
     </section>
   );
@@ -366,9 +385,10 @@ export default function DeckSidebar({
           />
           
           {/* Hand Testing Widget */}
-          <HandTestingWidgetWithHide 
+          <HandTestingWidgetWithHide
             deckCards={deckCards}
             deckId={deckId}
+            commanderName={commander}
           />
         </div>
       </div>

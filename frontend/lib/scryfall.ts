@@ -11,6 +11,24 @@ function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 }
 
+/** Fetch English printing of a card by name. Scryfall collection can return non-English "newest" printings. Exported for use in server cache. */
+export async function fetchEnglishCardImages(name: string): Promise<ImageInfo | null> {
+  try {
+    const r = await fetch(
+      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${name.replace(/"/g, '')}"`)} lang:en`,
+      { cache: "no-store" }
+    );
+    if (!r.ok) return null;
+    const j: any = await r.json().catch(() => ({}));
+    const card = Array.isArray(j?.data) ? j.data[0] : null;
+    if (!card) return null;
+    const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
+    return { small: img.small, normal: img.normal, art_crop: img.art_crop };
+  } catch {
+    return null;
+  }
+}
+
 export async function getImagesForNames(names: string[]): Promise<Map<string, ImageInfo>> {
   const out = new Map<string, ImageInfo>();
   if (!Array.isArray(names) || names.length === 0) return out;
@@ -50,15 +68,21 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
       const ok = r.ok;
       const j: any = ok ? await r.json().catch(() => ({})) : {};
       const data = Array.isArray(j?.data) ? j.data : [];
-      for (const card of data) {
-        const key = norm(card?.name || "");
+      for (let idx = 0; idx < data.length; idx++) {
+        const card = data[idx];
+        const requestedName = identifiers[idx]?.name;
+        const key = requestedName ? norm(requestedName) : norm(card?.name || "");
+        if (!key) continue;
         const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-        const info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
-        if (key) {
-          memCache.set(key, info);
-          out.set(key, info);
-          unresolved.delete(key);
+        let info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
+        // Prefer English: Scryfall collection returns "newest" which can be non-English (e.g. Portuguese LCC)
+        if (card?.lang && card.lang !== "en" && requestedName) {
+          const enInfo = await fetchEnglishCardImages(requestedName);
+          if (enInfo?.normal || enInfo?.small) info = enInfo;
         }
+        memCache.set(key, info);
+        out.set(key, info);
+        unresolved.delete(key);
       }
 
       // Fuzzy fallback for any unresolved names in this batch (best-effort, small volume)
@@ -74,10 +98,14 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
               );
               if (!fr.ok) return;
               const card: any = await fr.json().catch(() => ({}));
-              const key = norm(card?.name || "");
+              const key = n; // use requested normalized name
               if (!key) return;
               const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-              const info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
+              let info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
+              if (card?.lang && card.lang !== "en") {
+                const enInfo = await fetchEnglishCardImages(orig);
+                if (enInfo?.normal || enInfo?.small) info = enInfo;
+              }
               memCache.set(key, info);
               out.set(key, info);
             } catch {}
