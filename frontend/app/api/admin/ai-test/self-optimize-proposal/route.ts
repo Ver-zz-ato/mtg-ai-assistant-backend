@@ -72,27 +72,7 @@ export async function POST(req: NextRequest) {
     const prevPrompt = prevVersion ? await getPromptVersionById(prevVersion.id, promptKind) : null;
     steps.push(prevPrompt ? `Baseline: Current vs Previous (${prevPrompt.version})` : "Baseline: No previous version (N/A)");
 
-    // 2. Ensure Golden Set exists
-    let { data: evalSets } = await supabase.from("ai_eval_sets").select("id, name, test_case_ids").order("created_at", { ascending: false });
-    if (!evalSets?.length) {
-      steps.push("Auto-generating Golden Set...");
-      const goldenRes = await fetch(`${baseUrl}/api/admin/ai-test/auto-golden-set`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: cookie },
-      });
-      const goldenData = await goldenRes.json();
-      if (!goldenData.ok) {
-        return NextResponse.json({ ok: false, error: goldenData.error || "Failed to create Golden Set" }, { status: 500 });
-      }
-      evidence.golden_set_created = true;
-      evidence.golden_set_id = goldenData.set?.id;
-      const { data: sets } = await supabase.from("ai_eval_sets").select("id, name, test_case_ids").order("created_at", { ascending: false });
-      evalSets = sets || [];
-    }
-    const goldenSet = evalSets[0];
-    const goldenCaseIds = (goldenSet?.test_case_ids || []) as string[];
-
-    // 3. Sample decks and create deck-sample test cases
+    // 2. Sample decks FIRST and create deck-sample test cases (so we have tests even when ai_test_cases is empty)
     steps.push("Sampling public decks...");
     const deckRes = await fetch(`${baseUrl}/api/admin/decks/sample-public?count=${deck_sample_count}`, { headers: { Cookie: cookie } });
     const deckData = await deckRes.json();
@@ -109,30 +89,56 @@ export async function POST(req: NextRequest) {
       const deckText = deck.decklist_text || deck.deck_text || "";
       if (!deckText) continue;
       for (let i = 0; i < Math.min(2, prompts.length); i++) {
+        const input = {
+          deckText,
+          userMessage: prompts[i],
+          format: deck.format || "Commander",
+          commander: deck.commander,
+          colors: deck.colors || [],
+        };
+        const tags = ["deck_sample", `deck_id:${deck.deck_id}`, deck.commander ? `commander:${deck.commander}` : ""].filter(Boolean);
         const { data: inserted } = await supabase
-          .from("ai_dynamic_test_cases")
+          .from("ai_test_cases")
           .insert({
-            deck_id: deck.deck_id,
             name: `Deck sample: ${deck.commander || deck.title} (${i + 1})`,
             type: "deck_analysis",
-            input: {
-              deckText,
-              userMessage: prompts[i],
-              format: deck.format || "Commander",
-              commander: deck.commander,
-              colors: deck.colors || [],
-            },
-            tags: ["deck_sample", `deck_id:${deck.deck_id}`, deck.commander ? `commander:${deck.commander}` : ""].filter(Boolean),
+            input,
+            expected_checks: null,
+            tags,
             source: "auto_deck_sample",
-            meta: { url: deck.url },
           })
-          .select("id, name, input, deck_id, tags")
+          .select("id, name, input, tags")
           .single();
         if (inserted) deckSampleCases.push({ ...inserted, expectedChecks: null, tags: inserted.tags || [] });
       }
     }
     evidence.deck_sample_ids = deckSampleCases.map((c: any) => c.id);
     evidence.deck_sample_count = deckSampleCases.length;
+
+    if (deckSampleCases.length === 0) {
+      return NextResponse.json({ ok: false, error: "No public decks with decklists to sample. Add public decks first." }, { status: 400 });
+    }
+
+    // 3. Ensure Golden Set exists (optional when ai_test_cases is empty - we'll use deck samples only)
+    let { data: evalSets } = await supabase.from("ai_eval_sets").select("id, name, test_case_ids").order("created_at", { ascending: false });
+    if (!evalSets?.length) {
+      steps.push("Auto-generating Golden Set (if ai_test_cases has data)...");
+      const goldenRes = await fetch(`${baseUrl}/api/admin/ai-test/auto-golden-set`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+      });
+      const goldenData = await goldenRes.json();
+      if (goldenData.ok) {
+        evidence.golden_set_created = true;
+        evidence.golden_set_id = goldenData.set?.id;
+        const { data: sets } = await supabase.from("ai_eval_sets").select("id, name, test_case_ids").order("created_at", { ascending: false });
+        evalSets = sets || [];
+      } else {
+        steps.push("No ai_test_cases yet — using deck samples only. Golden Set skipped.");
+      }
+    }
+    const goldenSet = evalSets?.[0] || null;
+    const goldenCaseIds = (goldenSet?.test_case_ids || []) as string[];
 
     // 4. Load suite test cases (from ai_test_cases)
     const { data: suiteCases } = await supabase
