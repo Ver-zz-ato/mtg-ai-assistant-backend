@@ -11,6 +11,8 @@ export type GoldenTestCase = {
   hands: string[][];
   /** Optional per-hand labels for dropdown (e.g. "stable keep", "truly bad") */
   handLabels?: string[];
+  /** Index of trap hand for regression tests (default 3) */
+  trapIndex?: number;
 };
 
 export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
@@ -57,10 +59,14 @@ export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
     hands: [
       ["Island", "Forest", "Sol Ring", "Arcane Signet", "Rhystic Study", "Force of Will", "Kinnan, Bonder Prodigy"],
       ["Island", "Island", "Mana Crypt", "Chrome Mox", "Demonic Tutor", "Peregrine Drake", "Hullbreaker Horror"],
+      // 1 land + fast mana + tutor — CALL_LLM (depends on velocity/pod)
+      ["Island", "Mana Crypt", "Demonic Tutor", "Peregrine Drake", "Hullbreaker Horror", "Force of Will", "Cyclonic Rift"],
       ["Forest", "Plains", "Birds of Paradise", "Swords to Plowshares", "Teferi's Protection", "Seedborn Muse", "Thrasios, Triton Hero"],
       // TRAP: 3 lands + big value + no accel/tutor — keepable in casual, wrong in turbo
       ["Island", "Forest", "Plains", "Hullbreaker Horror", "Seedborn Muse", "Teferi's Protection", "Thrasios, Triton Hero"],
     ],
+    handLabels: ["", "", "1 land+fast mana+tutor CALL_LLM", "", "trap"],
+    trapIndex: 4,
   },
   {
     id: "midrange_value",
@@ -107,8 +113,11 @@ export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
       ["Forest", "Island", "Forest", "Birds of Paradise", "Beast Within", "Rhystic Study", "Tatyova, Benthic Druid"],
       // Truly bad: 2 lands + no accel + 5 expensive spells (no draw) — expected MULLIGAN
       ["Forest", "Island", "Avenger of Zendikar", "Craterhoof Behemoth", "Oracle of Mul Daya", "Cyclonic Rift", "Scute Swarm"],
+      // 0 lands — SKIP_LLM, universal mulligan
+      ["Sol Ring", "Arcane Signet", "Rhystic Study", "Beast Within", "Cultivate", "Tatyova, Benthic Druid", "Avenger of Zendikar"],
     ],
-    handLabels: ["", "", "", "trap", "stable keep", "truly bad"],
+    handLabels: ["", "", "", "trap", "stable keep", "truly bad", "0 lands SKIP_LLM"],
+    trapIndex: 3,
   },
   {
     id: "control_heavy",
@@ -151,6 +160,36 @@ export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
       ["Island", "Plains", "Arcane Signet", "Esper Sentinel", "An Offer You Can't Refuse", "Dovin's Veto", "Consecrated Sphinx"],
       // TRAP: 1 land + 3 counters + no draw — looks interactive but dies
       ["Island", "Force of Will", "Counterspell", "Swan Song", "Grand Arbiter Augustin IV", "Smothering Tithe", "Dovin's Veto"],
+      // 2 lands color-screw: 2 Forests in UW deck — CALL_LLM (color requirements)
+      ["Forest", "Forest", "Rhystic Study", "Counterspell", "Swords to Plowshares", "Grand Arbiter Augustin IV", "Cyclonic Rift"],
     ],
+    handLabels: ["", "", "", "trap", "2 lands color-screw CALL_LLM"],
+    trapIndex: 3,
+  },
+  {
+    id: "weird_commander",
+    label: "Weird/unknown commander (low recognizability)",
+    commander: "Zimone, Quandrix Prodigy", // less common; may produce uncertainty
+    decklist: `1 Sol Ring
+1 Arcane Signet
+1 Cultivate
+1 Rampant Growth
+1 Rhystic Study
+1 Counterspell
+1 Cyclonic Rift
+1 Zimone, Quandrix Prodigy
+1 Tatyova, Benthic Druid
+1 Kodama of the East Tree
+1 Aesi, Tyrant of Gyre Strait
+38 Forest
+12 Island
+8 Breeding Pool`,
+    hands: [
+      // Should produce uncertaintyReasons (commander plan unknown) => CALL_LLM
+      ["Forest", "Island", "Forest", "Zimone, Quandrix Prodigy", "Cultivate", "Rhystic Study", "Counterspell"],
+      // Obvious keep: 3 lands + accel + engine => SKIP_LLM
+      ["Forest", "Island", "Forest", "Sol Ring", "Rhystic Study", "Counterspell", "Zimone, Quandrix Prodigy"],
+    ],
+    handLabels: ["weird commander CALL_LLM", "obvious keep SKIP_LLM"],
   },
 ];

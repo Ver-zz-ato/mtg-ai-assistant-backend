@@ -78,7 +78,14 @@ export default function MulliganAiPlayground() {
     cacheKey?: string;
     effectiveTier?: string;
     effectiveModelTier?: string;
-    handEval?: { score: number; tags: string[]; keepBias: string };
+    handEval?: {
+      score: number;
+      tags: string[];
+      keepBias: string;
+      confidence?: number;
+      uncertaintyReasons?: string[];
+    };
+    gate?: { band: string; action: string; reason: string };
   } | null>(null);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
@@ -332,6 +339,7 @@ export default function MulliganAiPlayground() {
         effectiveTier: data.effectiveTier,
         effectiveModelTier: data.effectiveModelTier,
         handEval: data.handEval,
+        gate: data.gate,
       });
       setRawJson(JSON.stringify(data, null, 2));
 
@@ -822,8 +830,11 @@ export default function MulliganAiPlayground() {
               )}
               {result.model && (
                 <span className="text-xs text-neutral-500 ml-auto" title={result.effectiveModelTier ? `effective tier: ${result.effectiveModelTier}` : undefined}>
-                  {result.model}
-                  {modelTier === "full" && result.effectiveModelTier === "mini" && (
+                  model: {result.model}
+                  {result.model === "deterministic" && (
+                    <span className="text-emerald-400/90"> (SKIP_LLM)</span>
+                  )}
+                  {modelTier === "full" && result.effectiveModelTier === "mini" && result.model !== "deterministic" && (
                     <span className="text-amber-400/80"> (→Mini, Pro-only)</span>
                   )}
                 </span>
@@ -840,11 +851,29 @@ export default function MulliganAiPlayground() {
                 <code className="block mt-1 p-2 bg-neutral-950 rounded break-all">{result.cacheKey}</code>
               </details>
             )}
+            {result.gate && (
+              <div className="text-xs">
+                <span className="text-neutral-400">Gate: </span>
+                <span className={result.gate.action === "SKIP_LLM" ? "text-emerald-400" : "text-amber-400"}>
+                  {result.gate.action}
+                </span>
+                <span className="text-neutral-500"> ({result.gate.band})</span>
+                {result.gate.reason && (
+                  <span className="text-neutral-500 block mt-0.5">— {result.gate.reason}</span>
+                )}
+              </div>
+            )}
             {result.handEval && (
               <details className="text-xs text-neutral-500">
-                <summary>Deterministic pre-score: {result.handEval.score} ({result.handEval.keepBias})</summary>
+                <summary>
+                  Deterministic: score {result.handEval.score} ({result.handEval.keepBias})
+                  {result.handEval.confidence != null && `, confidence ${result.handEval.confidence}%`}
+                </summary>
                 <div className="mt-1 p-2 bg-neutral-950 rounded space-y-1">
-                  <div>tags: {result.handEval.tags.join(", ")}</div>
+                  <div>reasons: {result.handEval.tags.join("; ")}</div>
+                  {result.handEval.uncertaintyReasons && result.handEval.uncertaintyReasons.length > 0 && (
+                    <div className="text-amber-400/90">uncertainty: {result.handEval.uncertaintyReasons.join("; ")}</div>
+                  )}
                 </div>
               </details>
             )}

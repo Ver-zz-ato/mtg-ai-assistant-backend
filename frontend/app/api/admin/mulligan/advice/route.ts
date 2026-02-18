@@ -8,7 +8,8 @@ import {
   setMulliganAdviceCache,
   CACHE_TTL_SECONDS,
 } from "@/lib/mulligan/advice-cache";
-import { evaluateHandDeterministically } from "@/lib/mulligan/hand-score";
+import { evaluateHandDeterministically } from "@/lib/mulligan/hand-eval";
+import { computeHandTags } from "@/lib/mulligan/hand-tags";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 
 export const runtime = "nodejs";
@@ -134,13 +135,94 @@ export async function POST(req: NextRequest) {
     computeHandFactsWithTypes(hand),
   ]);
 
-  const handEval = evaluateHandDeterministically({
+  const deterministicEval = evaluateHandDeterministically({
     profile,
     handFacts,
     hand,
     playDraw,
     mulliganCount,
+    commanderName: deck.commander ?? null,
   });
+
+  const handTags = computeHandTags(hand, handFacts, profile, deck.commander ?? null);
+
+  // Gate decision
+  type GateBand = "DETERMINISTIC_STRONG" | "NEEDS_AI";
+  let gateBand: GateBand = "NEEDS_AI";
+  let gateAction: "SKIP_LLM" | "CALL_LLM" = "CALL_LLM";
+  let gateReason = "";
+
+  // Hard universal overrides
+  if (handFacts.handLandCount === 0) {
+    gateAction = "SKIP_LLM";
+    gateBand = "DETERMINISTIC_STRONG";
+    gateReason = "0 lands; universal mulligan.";
+  } else if (
+    handFacts.handLandCount === 1 &&
+    !handFacts.hasRamp &&
+    !handFacts.hasFastMana
+  ) {
+    gateAction = "SKIP_LLM";
+    gateBand = "DETERMINISTIC_STRONG";
+    gateReason = "1 land with no acceleration; universal mulligan.";
+  } else if (
+    deterministicEval.confidence >= 85 &&
+    deterministicEval.keepBias !== "NEUTRAL" &&
+    deterministicEval.uncertaintyReasons.length === 0
+  ) {
+    gateAction = "SKIP_LLM";
+    gateBand = "DETERMINISTIC_STRONG";
+    gateReason = `Deterministic confident (${deterministicEval.confidence}%); ${deterministicEval.keepBias}.`;
+  } else {
+    gateAction = "CALL_LLM";
+    gateReason =
+      deterministicEval.uncertaintyReasons.length > 0
+        ? `Uncertainty: ${deterministicEval.uncertaintyReasons.join("; ")}`
+        : deterministicEval.keepBias === "NEUTRAL"
+          ? "Borderline hand; needs AI nuance."
+          : `Confidence ${deterministicEval.confidence}% below 85 or has uncertainty.`;
+  }
+
+  // SKIP_LLM: return deterministic advice
+  if (gateAction === "SKIP_LLM") {
+    const action = deterministicEval.keepBias === "KEEP" ? "KEEP" : "MULLIGAN";
+    const confidence =
+      handFacts.handLandCount === 0
+        ? 90
+        : handFacts.handLandCount === 1 && !handFacts.hasRamp && !handFacts.hasFastMana
+          ? 80
+          : Math.max(85, deterministicEval.confidence);
+    const suggestedLine =
+      action === "KEEP"
+        ? "Execute your curve; prioritize land drops and acceleration."
+        : "Mulligan for more lands and/or acceleration.";
+    return NextResponse.json({
+      ok: true,
+      action,
+      confidence,
+      reasons: deterministicEval.reasons,
+      suggestedLine,
+      warnings: deterministicEval.warnings,
+      dependsOn: [],
+      model: "deterministic",
+      modelUsed: "deterministic",
+      profileSummary: `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle}`,
+      handFacts,
+      handEval: {
+        score: deterministicEval.score,
+        tags: deterministicEval.reasons,
+        keepBias: deterministicEval.keepBias,
+        confidence: deterministicEval.confidence,
+        uncertaintyReasons: deterministicEval.uncertaintyReasons,
+      },
+      gate: { band: gateBand, action: gateAction, reason: gateReason },
+      cached: false,
+      cacheKey: null,
+      cacheTtlSeconds: 0,
+      effectiveTier,
+      effectiveModelTier,
+    });
+  }
 
   const cacheKey = buildMulliganAdviceCacheKey(
     deck,
@@ -168,7 +250,14 @@ export async function POST(req: NextRequest) {
         modelUsed: cached.model_used,
         profileSummary: `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle}`,
         handFacts,
-        handEval: { score: handEval.score, tags: handEval.tags, keepBias: handEval.keepBias },
+        handEval: {
+          score: deterministicEval.score,
+          tags: deterministicEval.reasons,
+          keepBias: deterministicEval.keepBias,
+          confidence: deterministicEval.confidence,
+          uncertaintyReasons: deterministicEval.uncertaintyReasons,
+        },
+        gate: { band: "NEEDS_AI", action: "CALL_LLM", reason: "cached" },
         cached: true,
         cacheKey,
         cacheTtlSeconds: CACHE_TTL_SECONDS,
@@ -203,15 +292,20 @@ ${JSON.stringify(profile)}
 handFacts (authoritative; do NOT claim hand has ramp/tutor/etc unless handFacts says so):
 ${JSON.stringify(handFacts)}
 
-deterministicKeepBias: ${handEval.keepBias}
-deterministicScore: ${handEval.score}
-deterministicTags: ${JSON.stringify(handEval.tags)}
+handTags: ${JSON.stringify(handTags)}
+
+deterministicEval:
+- keepBias: ${deterministicEval.keepBias}
+- score: ${deterministicEval.score}
+- confidence: ${deterministicEval.confidence}
+- reasons: ${JSON.stringify(deterministicEval.reasons)}
+- uncertaintyReasons: ${JSON.stringify(deterministicEval.uncertaintyReasons)}
 
 Hand: ${JSON.stringify(hand)}
 
 Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}
 
-Task: Decide KEEP or MULLIGAN for this specific deck. Respect deterministicKeepBias as policy anchor. Explain relative to the deck's profile. Output JSON only.`;
+Task: Decide KEEP or MULLIGAN. If deterministic keepBias is KEEP with high confidence, only recommend MULLIGAN if you cite a specific contradictory risk (colors, missing early plays for turbo, etc). If deterministic keepBias is MULLIGAN, only recommend KEEP if you cite specific stabilizers. Address uncertaintyReasons if present. Output JSON only.`;
 
   const model = effectiveModelTier === "mini" ? MINI_MODEL : FULL_MODEL;
 
@@ -322,15 +416,15 @@ Task: Decide KEEP or MULLIGAN for this specific deck. Respect deterministicKeepB
       result.confidence = Math.max(result.confidence, 75);
     }
 
-    // Post-process: enforce consistency with deterministicKeepBias (clamp confidence, add honesty)
-    if (handEval.keepBias === "KEEP" && result.action === "MULLIGAN" && result.confidence >= 75) {
+    // Post-process: enforce consistency with deterministic keepBias (clamp confidence, add honesty)
+    if (deterministicEval.keepBias === "KEEP" && result.action === "MULLIGAN" && result.confidence >= 75) {
       result.confidence = 60;
       result.reasons = [
         "Deterministic check rates this as a stable keep for this deck; mulligan only if pod is very fast.",
         ...result.reasons.slice(0, 3),
       ].slice(0, 5);
     } else if (
-      handEval.keepBias === "MULLIGAN" &&
+      deterministicEval.keepBias === "MULLIGAN" &&
       result.action === "KEEP" &&
       result.confidence >= 75
     ) {
@@ -339,6 +433,18 @@ Task: Decide KEEP or MULLIGAN for this specific deck. Respect deterministicKeepB
         "Deterministic check flags this as risky; keep only if you accept a slow start.",
         ...result.reasons.slice(0, 3),
       ].slice(0, 5);
+    }
+
+    // If model ignores deterministic uncertaintyReasons and gives confidence > 90, clamp
+    if (
+      deterministicEval.uncertaintyReasons.length > 0 &&
+      result.confidence > 90
+    ) {
+      result.confidence = 75;
+      result.warnings = [
+        ...(result.warnings || []),
+        "Deterministic flagged uncertainties; confidence capped.",
+      ].slice(0, 3);
     }
 
     const profileSummary = `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle} (${profile.landPercent}% lands, ${profile.fastManaCount} fastMana, ${profile.tutorCount} tutors)`;
@@ -355,7 +461,14 @@ Task: Decide KEEP or MULLIGAN for this specific deck. Respect deterministicKeepB
       modelUsed: response.actualModel,
       profileSummary,
       handFacts,
-      handEval: { score: handEval.score, tags: handEval.tags, keepBias: handEval.keepBias },
+      handEval: {
+        score: deterministicEval.score,
+        tags: deterministicEval.reasons,
+        keepBias: deterministicEval.keepBias,
+        confidence: deterministicEval.confidence,
+        uncertaintyReasons: deterministicEval.uncertaintyReasons,
+      },
+      gate: { band: "NEEDS_AI", action: "CALL_LLM", reason: gateReason },
       cached: false,
       cacheKey,
       cacheTtlSeconds: CACHE_TTL_SECONDS,
