@@ -585,6 +585,54 @@ const HandTestingWidgetInner = function HandTestingWidget({
     }
   }, [isPro, freeRunsRemaining, proLoading]);
 
+  const handleDrawClick = useCallback(async () => {
+    if (
+      gameState === "initial" &&
+      !ghostHandExiting &&
+      canRun &&
+      !isAnimating &&
+      !imagesLoading &&
+      expandedDeck.length >= 7 &&
+      (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested))
+    ) {
+      setGhostHandExiting(true);
+      await new Promise((r) => setTimeout(r, 250));
+      setGhostHandExiting(false);
+    }
+    await startHandTest();
+  }, [
+    gameState,
+    ghostHandExiting,
+    canRun,
+    isAnimating,
+    imagesLoading,
+    expandedDeck.length,
+    cardImages,
+    placement,
+    imagesRequested,
+    startHandTest,
+  ]);
+
+  const handleDrawRef = useRef(handleDrawClick);
+  handleDrawRef.current = handleDrawClick;
+  useEffect(() => {
+    if (widgetRef?.current) {
+      (widgetRef as React.MutableRefObject<HandTestingWidgetRef>).current = {
+        triggerDraw: () => handleDrawRef.current(),
+      };
+    }
+  });
+
+  const handleAiTeaserClick = useCallback(() => {
+    if (gameState !== "viewing" || currentHand.length === 0) {
+      setAiTeaserTooltip(true);
+      setTimeout(() => setAiTeaserTooltip(false), 2500);
+    } else {
+      const el = document.querySelector("[data-ai-advice-btn]");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [gameState, currentHand.length]);
+
   const shouldShowProGate =
     !proLoading &&
     !isPro &&
@@ -727,43 +775,6 @@ const HandTestingWidgetInner = function HandTestingWidget({
     expandedDeck.length >= 7 &&
     (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested));
 
-  const handleDrawClick = async () => {
-    if (
-      gameState === "initial" &&
-      !ghostHandExiting &&
-      canRun &&
-      !isAnimating &&
-      !imagesLoading &&
-      expandedDeck.length >= 7 &&
-      (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested))
-    ) {
-      setGhostHandExiting(true);
-      await new Promise((r) => setTimeout(r, 250));
-      setGhostHandExiting(false);
-    }
-    await startHandTest();
-  };
-
-  const handleDrawRef = useRef(handleDrawClick);
-  handleDrawRef.current = handleDrawClick;
-  useEffect(() => {
-    if (widgetRef?.current) {
-      (widgetRef as React.MutableRefObject<HandTestingWidgetRef>).current = {
-        triggerDraw: () => handleDrawRef.current(),
-      };
-    }
-  });
-
-  const handleAiTeaserClick = () => {
-    if (gameState !== "viewing" || currentHand.length === 0) {
-      setAiTeaserTooltip(true);
-      setTimeout(() => setAiTeaserTooltip(false), 2500);
-    } else {
-      const el = document.querySelector("[data-ai-advice-btn]");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  };
-
   return (
     <div
       ref={containerRef}
@@ -821,7 +832,7 @@ const HandTestingWidgetInner = function HandTestingWidget({
                 );
               })}
             </div>
-            <p className="text-[10px] text-neutral-500 mt-2">
+            <p className="text-sm font-medium text-neutral-400 mt-2">
               {imagesLoading
                 ? "Loading..."
                 : Object.keys(cardImages).length === 0 &&

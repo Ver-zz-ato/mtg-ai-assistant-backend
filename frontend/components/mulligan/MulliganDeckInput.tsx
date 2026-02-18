@@ -111,9 +111,9 @@ export default function MulliganDeckInput() {
 
   return (
     <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-5 sm:p-6 space-y-4 min-h-[280px] hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
-      {/* Header at very top - same size as "Recent public decks" */}
-      <div className="pb-2 border-b border-neutral-700/80">
-        <h3 className="text-lg font-semibold text-amber-200/95">Mulligan Simulator</h3>
+      {/* Header at very top - same size as "Recent public decks" / "Most liked decks" in sidebar */}
+      <div className="pb-2 border-b border-neutral-700/80 text-center">
+        <h3 className="text-2xl font-semibold text-amber-200/95">Mulligan Simulator</h3>
         <div className="flex items-baseline justify-between gap-2 mt-0.5">
           <p className="text-xs text-neutral-500">
             Testing:{" "}

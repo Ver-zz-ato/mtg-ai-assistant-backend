@@ -1197,13 +1197,17 @@ function Chat() {
 
   return (
     <div className="h-screen flex flex-col bg-black text-white overflow-hidden relative">
-      {/* Mobile-optimized Header */}
-      <div className="bg-neutral-900/80 p-3 sm:p-4 border-b border-neutral-800 flex-shrink-0">
-        <div className="flex items-center justify-center">
+      {/* Mobile-optimized Header - visually striking */}
+      <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/20" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(251,191,36,0.12),transparent)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+        <div className="relative flex items-center justify-center">
           <div className="flex flex-col items-center gap-1">
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-center text-neutral-100">
+                <h2 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.3)]">
                   ManaTap AI
                 </h2>
                 {isLoggedIn === false && (
@@ -1265,19 +1269,28 @@ function Chat() {
             <div className="space-y-1.5">
               <span className="text-xs text-neutral-500">Deck Mode</span>
               <div className="flex gap-0.5 p-0.5 rounded-lg bg-neutral-800/60 border border-neutral-700/50">
-                {(['beginner','intermediate','pro'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setDeckMode(m)}
-                    className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
-                      deckMode === m
-                        ? 'bg-neutral-600 text-white'
-                        : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-700/50'
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
+                {(['beginner','intermediate','pro'] as const).map((m) => {
+                  const colors = {
+                    beginner: deckMode === m
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-500/30'
+                      : 'text-emerald-300/70 hover:text-emerald-200 hover:bg-emerald-900/30 border border-transparent',
+                    intermediate: deckMode === m
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-500/30'
+                      : 'text-blue-300/70 hover:text-blue-200 hover:bg-blue-900/30 border border-transparent',
+                    pro: deckMode === m
+                      ? 'bg-amber-500 text-black border-amber-400 shadow-sm shadow-amber-500/30 font-semibold'
+                      : 'text-amber-300/70 hover:text-amber-200 hover:bg-amber-900/30 border border-transparent',
+                  };
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setDeckMode(m)}
+                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all border ${colors[m]}`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
