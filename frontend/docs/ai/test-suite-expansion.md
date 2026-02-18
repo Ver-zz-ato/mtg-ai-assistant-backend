@@ -2,6 +2,18 @@
 
 This document describes the expanded AI test suite features: Golden Sets, Pairwise A/B, Mutations, Cost Reporting, Alerting, and Human Review.
 
+## Using the Simple Interface (Recommended Flow)
+
+The AI Testing page has two modes: **Simple Mode** (default) and **Advanced Mode**. Toggle at the top of `/admin/ai-test`.
+
+**90% of users only need:**
+
+1. **Run Full Test** — Click "Run All" to run the main suite. See pass rate and "Safe to deploy?" badge.
+2. **Run Golden** — Click "Run: [set name]" to run a strict Golden Safety Check. All tests must pass.
+3. **Compare Versions** — Click "Compare Versions" to run A vs B pairwise. See which prompt wins.
+
+**Advanced tools** (Stress Tests, validator toggles, manual patching, prompt layers) are optional. Switch to Advanced Mode when you need them.
+
 ## Golden Sets
 
 Golden sets are curated collections of test cases (decks or chat prompts) that must pass with strict gating before deployment. They act as a **regression gate**, not a polite suggestion.

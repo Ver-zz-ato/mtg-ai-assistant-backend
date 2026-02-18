@@ -2,6 +2,24 @@
 import React from "react";
 import { ELI5, HelpTip } from "@/components/AdminHelp";
 
+/** Derive 1–3 human-readable failure reasons from validation */
+function getFailureReasons(validation: any): string[] {
+  const reasons: string[] = [];
+  if (!validation) return ["Unknown error"];
+  const v = validation;
+  if (v.validatorBreakdown?.categoryScores) {
+    const c = v.validatorBreakdown.categoryScores;
+    if (c.specificity < 70) reasons.push("Too generic");
+    if (c.actionability < 70) reasons.push("Weak prioritization");
+    if (c.legality < 70) reasons.push("Format or legality issues");
+    if (c.factuality < 70) reasons.push("Factual errors");
+  }
+  if (v.referenceResults?.passed === false) reasons.push("Missed key checks");
+  if (v.budgetResults?.passed === false) reasons.push("Missed budget constraint");
+  if (v.llmJudge?.issues?.length) reasons.push(v.llmJudge.issues[0]?.slice(0, 50) || "Issues found");
+  return reasons.slice(0, 3);
+}
+
 type TestCase = {
   id: string;
   name: string;
@@ -550,14 +568,33 @@ export default function AiTestPage() {
   const [pairwiseFilter, setPairwiseFilter] = React.useState<"all" | "disagreements">("all");
   const [costReport, setCostReport] = React.useState<any>(null);
   const [humanReviews, setHumanReviews] = React.useState<any[]>([]);
+  const [simpleMode, setSimpleMode] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const stored = localStorage.getItem("ai-test-simple-mode");
+    return stored !== "false";
+  });
+  const [showAdvancedTools, setShowAdvancedTools] = React.useState(false);
+  const [goldenRunning, setGoldenRunning] = React.useState<string | null>(null);
+  const [showValidationDetails, setShowValidationDetails] = React.useState(false);
+  const [showBatchDetails, setShowBatchDetails] = React.useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = React.useState(false);
 
-  // Load test cases
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ai-test-simple-mode", String(simpleMode));
+    }
+  }, [simpleMode]);
+
+  const advancedMode = !simpleMode;
+
+  // Load test cases and eval data
   React.useEffect(() => {
     loadTestCases();
     loadPromptVersions();
     loadTestHistory();
     loadTrendsData();
     loadTestSchedules();
+    loadEvalSets();
   }, []);
 
   async function loadEvalSets() {
@@ -1176,26 +1213,54 @@ export default function AiTestPage() {
     (r) => r.validation?.overall?.passed === false
   ).length;
 
+  // Status overview data for Simple Mode
+  const lastRun = evalRuns[0];
+  const lastRunPassRate = lastRun?.meta?.pass_rate ?? null;
+  const prevRun = evalRuns[1];
+  const prevRunPassRate = prevRun?.meta?.pass_rate ?? null;
+  const passRateChange = lastRunPassRate != null && prevRunPassRate != null ? lastRunPassRate - prevRunPassRate : null;
+  const goldenSetPass = evalSets.length > 0 ? null : null; // Would need last run per set
+  const lastGoldenRun = evalSets.flatMap((s: any) => s.last_run || []).find((r: any) => r);
+  const activePromptVersion = promptVersions.chat?.find((v: any) => v.id === activePromptVersions.chat)?.version ?? "—";
+
   return (
     <div className="max-w-[1800px] mx-auto p-4">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-xl font-semibold">AI Testing Interface</div>
-        <div className="flex gap-2">
-          {(["main", "eval-sets", "compare", "mutations", "cost", "human-review"] as const).map((t) => (
+      {/* Header + Simple/Advanced Toggle */}
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+        <div className="flex items-center gap-4">
+          <div className="text-xl font-semibold">AI Testing</div>
+          <div className="flex rounded-lg border border-neutral-700 p-0.5 bg-neutral-900">
             <button
-              key={t}
-              onClick={() => {
-                setSuiteToolTab(t);
-                if (t === "eval-sets") loadEvalSets();
-                if (t === "human-review") loadHumanReviews();
-              }}
-              className={`px-2 py-1 text-xs rounded ${suiteToolTab === t ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600"}`}
+              onClick={() => setSimpleMode(true)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${simpleMode ? "bg-blue-600 text-white" : "text-neutral-400 hover:text-white"}`}
             >
-              {t === "main" ? "Main" : t === "eval-sets" ? "Eval Sets" : t === "compare" ? "Compare A/B" : t === "mutations" ? "Mutations" : t === "cost" ? "Cost" : "Human Review"}
+              Simple Mode
             </button>
-          ))}
+            <button
+              onClick={() => setSimpleMode(false)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${!simpleMode ? "bg-blue-600 text-white" : "text-neutral-400 hover:text-white"}`}
+            >
+              Advanced Mode
+            </button>
+          </div>
         </div>
+        {advancedMode && (
+          <div className="flex gap-2">
+            {(["main", "eval-sets", "compare", "mutations", "cost", "human-review"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => {
+                  setSuiteToolTab(t);
+                  if (t === "eval-sets") loadEvalSets();
+                  if (t === "human-review") loadHumanReviews();
+                }}
+                className={`px-2 py-1 text-xs rounded ${suiteToolTab === t ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600"}`}
+              >
+                {t === "main" ? "Main" : t === "eval-sets" ? "Golden Safety Tests" : t === "compare" ? "Compare Versions" : t === "mutations" ? "Stress Tests" : t === "cost" ? "Cost & Speed" : "Review Real Answers"}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           onClick={async () => {
             try {
@@ -1225,7 +1290,218 @@ export default function AiTestPage() {
         </button>
       </div>
 
-      {/* Suite Tools: Eval Sets, Compare, Mutations, Cost, Human Review */}
+      {/* SIMPLE MODE: Status + 3 Big Actions */}
+      {simpleMode && (
+        <div className="space-y-8 mb-8">
+          {/* Status Overview Panel */}
+          <section className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50">
+            <div className="text-sm font-medium text-neutral-400 mb-4">AI Health Status</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3 rounded-lg bg-neutral-800/80">
+                <div className="text-xs text-neutral-500 mb-1">Last Full Test</div>
+                <div className={`text-xl font-semibold ${lastRunPassRate != null ? (lastRunPassRate >= 80 ? "text-green-400" : lastRunPassRate >= 60 ? "text-yellow-400" : "text-red-400") : "text-neutral-500"}`}>
+                  {lastRunPassRate != null ? `${lastRunPassRate}%` : "—"}
+                </div>
+                {passRateChange != null && (
+                  <div className={`text-xs mt-1 ${passRateChange >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {passRateChange >= 0 ? "↑" : "↓"} {Math.abs(passRateChange)}% from previous
+                  </div>
+                )}
+              </div>
+              <div className="p-3 rounded-lg bg-neutral-800/80">
+                <div className="text-xs text-neutral-500 mb-1">Prompt Version</div>
+                <div className="text-sm font-medium truncate">{activePromptVersion}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-neutral-800/80">
+                <div className="text-xs text-neutral-500 mb-1">Cost per Run</div>
+                <div className="text-sm">{costReport ? `$${(costReport.total_cost_usd || 0).toFixed(3)}` : "—"}</div>
+              </div>
+              <div className="p-3 rounded-lg bg-neutral-800/80">
+                <div className="text-xs text-neutral-500 mb-1">Golden Set</div>
+                <div className="text-sm">{evalSets.length > 0 ? "Configured" : "Not set up"}</div>
+              </div>
+            </div>
+          </section>
+
+          {/* 3 Big Actions */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* 1) Check Current AI */}
+            <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
+              <div className="text-2xl mb-2">🔍</div>
+              <div className="font-semibold text-lg mb-2">Check Current AI</div>
+              <p className="text-sm text-neutral-400 mb-4">Run all tests. See pass rate and whether it's safe to deploy.</p>
+              <button
+                onClick={runBatchTests}
+                disabled={runningBatch || filteredCases.length === 0}
+                className="w-full py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-medium"
+              >
+                {runningBatch ? "Running…" : `Run All (${filteredCases.length} tests)`}
+              </button>
+              {batchResults.length > 0 && (
+                <div className={`mt-4 p-3 rounded-lg ${passCount === batchResults.length ? "bg-green-950/50 border border-green-800" : "bg-neutral-800/80"}`}>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{passCount}/{batchResults.length} passed</div>
+                    <div className={`text-sm font-semibold mt-1 ${passCount === batchResults.length ? "text-green-400" : "text-yellow-400"}`}>
+                      {passCount === batchResults.length ? "✓ Safe to deploy" : "⚠ Needs work"}
+                    </div>
+                  </div>
+                  {failCount > 0 && (
+                    <div className="mt-3 pt-3 border-t border-neutral-700">
+                      <div className="text-xs font-medium text-neutral-400 mb-1">Main issues:</div>
+                      <ul className="text-xs space-y-0.5">
+                        {[...new Set(batchResults.filter((r: any) => !r.validation?.overall?.passed).flatMap((r: any) => getFailureReasons(r.validation)))].slice(0, 3).map((reason, i) => (
+                          <li key={i}>• {reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2) Run Golden Safety Check */}
+            <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
+              <div className="text-2xl mb-2">🛡</div>
+              <div className="font-semibold text-lg mb-2">Run Golden Safety Check</div>
+              <p className="text-sm text-neutral-400 mb-4">Strict gate. All tests must pass. Use before deploy.</p>
+              {evalSets.length === 0 ? (
+                <div className="text-sm text-neutral-500 py-3">No Golden Set configured. Use Advanced Mode to create one.</div>
+              ) : (
+                <>
+                  {evalSets.slice(0, 2).map((s: any) => (
+                    <button
+                      key={s.id}
+                      onClick={async () => {
+                        setGoldenRunning(s.id);
+                        try {
+                          const r = await fetch("/api/admin/ai-test/run-eval-set", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ eval_set_id: s.id, format_key: adminFormatKey }),
+                          });
+                          const j = await r.json();
+                          if (j.ok) {
+                            alert(j.summary?.setPassed ? "✓ Golden Set PASSED" : `✗ Golden Set FAILED (${j.summary?.passRate}%)`);
+                            loadEvalSets();
+                            loadEvalRuns();
+                          } else alert(j.error || "Failed");
+                        } catch (e: any) {
+                          alert(e?.message || "Failed");
+                        } finally {
+                          setGoldenRunning(null);
+                        }
+                      }}
+                      disabled={goldenRunning !== null}
+                      className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-500 font-medium mb-2 disabled:opacity-50"
+                    >
+                      {goldenRunning === s.id ? "Running…" : `Run: ${s.name}`}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* 3) Compare Prompt Versions */}
+            <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
+              <div className="text-2xl mb-2">🆚</div>
+              <div className="font-semibold text-lg mb-2">Compare Two Versions</div>
+              <p className="text-sm text-neutral-400 mb-4">Run A vs B on same tests. See which wins.</p>
+              <button
+                onClick={async () => {
+                  setSuiteToolTab("compare");
+                  setSimpleMode(false);
+                }}
+                className="w-full py-3 px-4 rounded-lg bg-purple-600 hover:bg-purple-500 font-medium mb-2"
+              >
+                Compare Versions
+              </button>
+              <p className="text-xs text-neutral-500">Opens Advanced Mode to select A & B</p>
+            </div>
+          </div>
+
+          {/* View Last Run + Cost Summary (compact) */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-neutral-700 p-4 bg-neutral-900/50">
+              <div className="font-medium mb-2">View Last Run</div>
+              {lastRun ? (
+                <div className="text-sm">
+                  <span className="opacity-70">{lastRun.suite}</span>
+                  <span className={`ml-2 font-semibold ${lastRun.meta?.pass_rate >= 80 ? "text-green-400" : "text-red-400"}`}>
+                    {lastRun.meta?.pass_rate ?? "—"}%
+                  </span>
+                </div>
+              ) : (
+                <div className="text-sm text-neutral-500">No runs yet. Click Run All above.</div>
+              )}
+            </div>
+            <div className="rounded-lg border border-neutral-700 p-4 bg-neutral-900/50">
+              <div className="font-medium mb-2">Cost & Speed</div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Run ID"
+                  id="simple-cost-eval-run-id"
+                  className="flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 text-sm"
+                />
+                <button
+                  onClick={async () => {
+                    const id = (document.getElementById("simple-cost-eval-run-id") as HTMLInputElement)?.value?.trim() || String(lastEvalRunId ?? "");
+                    if (!id) {
+                      alert("Enter run ID or run a test first");
+                      return;
+                    }
+                    try {
+                      const r = await fetch(`/api/admin/ai-test/cost-report?eval_run_id=${encodeURIComponent(id)}`);
+                      const j = await r.json();
+                      if (j.ok) setCostReport(j);
+                      else alert(j.error || "Failed");
+                    } catch (e: any) {
+                      alert(e?.message || "Failed");
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-sm"
+                >
+                  Load
+                </button>
+              </div>
+              {costReport && (
+                <div className="text-sm mt-2 text-green-400">
+                  ${(costReport.total_cost_usd || 0).toFixed(4)} · {costReport.total_tokens_in ?? 0} in / {costReport.total_tokens_out ?? 0} out
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Advanced Tools (collapsible) */}
+          <div className="rounded-lg border border-neutral-700">
+            <button
+              onClick={() => setShowAdvancedTools(!showAdvancedTools)}
+              className="w-full px-4 py-3 flex justify-between items-center text-left hover:bg-neutral-800/50"
+            >
+              <span className="text-sm font-medium">Advanced Tools</span>
+              <span className="text-neutral-500">{showAdvancedTools ? "▼" : "▶"}</span>
+            </button>
+            {showAdvancedTools && (
+              <div className="p-4 pt-0 border-t border-neutral-700">
+                <p className="text-xs text-neutral-500 mb-4">Stress tests, validator toggles, manual patching, prompt layers, and more.</p>
+                <button
+                  onClick={() => {
+                    setSimpleMode(false);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-neutral-700 hover:bg-neutral-600"
+                >
+                  Switch to Advanced Mode
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ADVANCED MODE: Full interface */}
+      {advancedMode && (
+        <>
+      {/* Suite Tools: Golden Safety Tests, Compare, Stress Tests, Cost, Human Review */}
       {suiteToolTab !== "main" && (
         <section className="rounded border border-neutral-800 p-4 mb-4">
           {suiteToolTab === "eval-sets" && (
@@ -1441,7 +1717,7 @@ export default function AiTestPage() {
         </section>
       )}
 
-      {/* 3-Layer Prompt System */}
+      {/* 3-Layer Prompt System - collapsible by default */}
       <section className="rounded border border-neutral-800 p-3 mb-4 space-y-3">
         <div className="flex justify-between items-center">
           <div className="font-medium">3-Layer Prompt System (Base + Format + Modules)</div>
@@ -1597,12 +1873,17 @@ export default function AiTestPage() {
         ]}
       />
 
-      {/* Validation Options */}
+      {/* Validation Options - collapsible */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
-        <div className="font-medium flex items-center gap-2">
-          How to Check Answers
-          <HelpTip text="These are different ways to check if the AI's answer is good. Turn them on/off like light switches." />
-        </div>
+        <button
+          onClick={() => setShowValidationDetails(!showValidationDetails)}
+          className="w-full flex justify-between items-center text-left"
+        >
+          <span className="font-medium">How to Check Answers</span>
+          <span className="text-neutral-500 text-sm">{showValidationDetails ? "▼ Hide" : "▶ Show Technical Details"}</span>
+        </button>
+        {showValidationDetails && (
+        <>
         <ELI5
           heading=""
           items={[
@@ -1674,6 +1955,8 @@ export default function AiTestPage() {
             <span className="text-yellow-400">Auto-Merge Passing Patches</span>
           </label>
         </div>
+        </>
+        )}
       </section>
 
       {/* Filters and Search */}
@@ -2672,10 +2955,20 @@ export default function AiTestPage() {
             </section>
           )}
 
-          {/* Test History */}
+          {/* Test History + Eval Runs - collapsible */}
+          <section className="rounded border border-neutral-800 p-3 space-y-2">
+            <button
+              onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+              className="w-full flex justify-between items-center text-left"
+            >
+              <span className="font-medium">Test & Run History</span>
+              <span className="text-neutral-500 text-sm">{showHistoryPanel ? "▼ Hide" : "▶ Show"}</span>
+            </button>
+            {showHistoryPanel && (
+            <div className="space-y-4 mt-3">
           {testHistory.length > 0 && (
-            <section className="rounded border border-neutral-800 p-3 space-y-2">
-              <div className="font-medium">Test History</div>
+            <div className="space-y-2 mb-4">
+              <div className="font-medium text-sm">Test History</div>
               <div className="space-y-1 max-h-64 overflow-y-auto text-xs">
                 {testHistory.slice(0, 10).map((entry: any) => (
                   <div key={entry.id} className="p-2 rounded border border-neutral-700 bg-neutral-950/40">
@@ -2701,13 +2994,13 @@ export default function AiTestPage() {
                   </div>
                 ))}
               </div>
-            </section>
+            </div>
           )}
 
           {/* Eval Runs History */}
           {evalRuns.length > 0 && (
-        <section className="rounded border border-neutral-800 p-3 space-y-2">
-          <div className="font-medium">Eval Runs History</div>
+        <div className="space-y-2">
+          <div className="font-medium text-sm">Eval Runs History</div>
           <div className="space-y-2">
             <div className="text-xs opacity-70 mb-2">Select two runs to compare. ID = use in Cost tab for cost report.</div>
             <div className="space-y-1 max-h-48 overflow-y-auto text-xs">
@@ -2867,8 +3160,11 @@ export default function AiTestPage() {
               </div>
             )}
           </div>
-          </section>
+          </div>
           )}
+            </div>
+            )}
+          </section>
 
           {/* Manual Prompt Replacement */}
           <section className="rounded border border-neutral-800 p-3 space-y-2">
@@ -3131,6 +3427,8 @@ export default function AiTestPage() {
           </section>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
