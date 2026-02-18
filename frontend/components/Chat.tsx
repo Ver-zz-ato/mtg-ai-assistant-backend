@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import HistoryDropdown from "@/components/HistoryDropdown";
-import ThreadMenu from "@/components/ThreadMenu";
+import BuilderOverflowMenu from "@/components/BuilderOverflowMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
 import GuestLimitModal from "@/components/GuestLimitModal";
 import FloatingSignupPrompt from "@/components/FloatingSignupPrompt";
@@ -104,6 +103,8 @@ function Chat() {
   const [fmt, setFmt] = useState<'commander'|'standard'|'modern'|'pioneer'|'pauper'>('commander');
   const [colors, setColors] = useState<{[k in 'W'|'U'|'B'|'R'|'G']: boolean}>({W:false,U:false,B:false,R:false,G:false});
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
+  // TODO: Deck mode for future AI integration - will alter prompt/behavior based on Beginner/Intermediate/Pro
+  const [deckMode, setDeckMode] = useState<'beginner'|'intermediate'|'pro'>('beginner');
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
@@ -1196,16 +1197,14 @@ function Chat() {
 
   return (
     <div className="h-screen flex flex-col bg-black text-white overflow-hidden relative">
-      {/* Subtle glow animation on chat container */}
-      <div className="absolute inset-0 pointer-events-none rounded-lg border-2 border-blue-500/20 animate-chatGlow" style={{ zIndex: 0 }}></div>
       {/* Mobile-optimized Header */}
-      <div className="bg-neutral-900 p-3 sm:p-4 border-b border-neutral-700 flex-shrink-0">
+      <div className="bg-neutral-900/80 p-3 sm:p-4 border-b border-neutral-800 flex-shrink-0">
         <div className="flex items-center justify-center">
           <div className="flex flex-col items-center gap-1">
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
-                  ManaTap AI — Your Deck-Building Companion
+                <h2 className="text-xl sm:text-2xl font-bold text-center text-neutral-100">
+                  ManaTap AI
                 </h2>
                 {isLoggedIn === false && (
                   <button
@@ -1254,50 +1253,79 @@ function Chat() {
                 </div>
               )}
             </div>
-            {/* Cycling mana-colored underline */}
-            <div className="h-0.5 w-32 bg-gradient-to-r from-yellow-400 via-blue-500 to-green-500 rounded-full animate-pulse" />
           </div>
         </div>
       </div>
       
-      {/* Collapsible preferences and thread selector for mobile */}
+      {/* Controls strip: Mode, Format, Value, overflow menu */}
       <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
-        {/* Preferences strip */}
         {extrasOn && (
           <div className="w-full space-y-3">
-            {/* Tier 1: Format and Value - Primary intent with background panel */}
-            <div className="border border-neutral-700/50 bg-neutral-800/40 rounded-lg px-3 py-3 space-y-3">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="opacity-90 text-xs sm:text-sm font-bold">Format:</span>
-                {(['commander','standard','modern','pioneer','pauper'] as const).map(f => (
+            {/* Deck Mode - UI only, TODO: future AI integration */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-neutral-500">Deck Mode</span>
+              <div className="flex gap-0.5 p-0.5 rounded-lg bg-neutral-800/60 border border-neutral-700/50">
+                {(['beginner','intermediate','pro'] as const).map((m) => (
                   <button
-                    key={f}
-                    onClick={()=>setFmt(f)}
-                    className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded border touch-manipulation text-xs sm:text-sm font-medium ${fmt===f?'bg-blue-700 text-white border-blue-600 shadow-lg shadow-blue-700/30':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
-                  >{f}</button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="opacity-90 text-xs sm:text-sm font-bold">Value:</span>
-                {(['budget','optimized','luxury'] as const).map(b => (
-                  <button
-                    key={b}
-                    onClick={()=>setBudget(b)}
-                    className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded border touch-manipulation text-xs sm:text-sm font-medium ${budget===b?'bg-emerald-700 text-white border-emerald-600 shadow-lg shadow-emerald-700/30':'bg-neutral-900 border-neutral-700 hover:bg-neutral-800'}`}
-                  >{b}</button>
+                    key={m}
+                    onClick={() => setDeckMode(m)}
+                    className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
+                      deckMode === m
+                        ? 'bg-neutral-600 text-white'
+                        : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-700/50'
+                    }`}
+                  >
+                    {m}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Tier 2: Colors - Less prominent */}
+            {/* Format and Value - reduced styling */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-neutral-500">Format:</span>
+                <div className="flex gap-0.5">
+                  {(['commander','standard','modern','pioneer','pauper'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={()=>setFmt(f)}
+                      className={`px-2.5 py-1.5 rounded text-xs font-medium ${
+                        fmt===f
+                          ? 'bg-neutral-600 text-white border border-neutral-500'
+                          : 'bg-neutral-800/80 text-neutral-400 border border-neutral-700 hover:bg-neutral-700/80 hover:text-neutral-300'
+                      }`}
+                    >{f}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-neutral-500">Value:</span>
+                <div className="flex gap-0.5">
+                  {(['budget','optimized','luxury'] as const).map(b => (
+                    <button
+                      key={b}
+                      onClick={()=>setBudget(b)}
+                      className={`px-2.5 py-1.5 rounded text-xs font-medium ${
+                        budget===b
+                          ? 'bg-neutral-600 text-white border border-neutral-500'
+                          : 'bg-neutral-800/80 text-neutral-400 border border-neutral-700 hover:bg-neutral-700/80 hover:text-neutral-300'
+                      }`}
+                    >{b}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Colors - collapsed by default, optional */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="opacity-60 text-xs sm:text-sm font-medium">Colors:</span>
+              <span className="text-xs text-neutral-500">Colors:</span>
               <div className="flex flex-wrap items-center gap-1.5">
                 {(['W','U','B','R','G'] as const).map(c => (
                   <button
                     key={c}
                     onClick={()=>setColors(s=>({...s,[c]:!s[c]}))}
-                    className={`px-1 py-1 sm:px-1.5 sm:py-1 rounded border touch-manipulation transition-all ${colors[c]?'bg-neutral-900 border-neutral-600':'bg-neutral-900/60 border-neutral-800/50 hover:bg-neutral-800/80 opacity-50 hover:opacity-70'} flex flex-col items-center gap-0.5`}
+                    className={`px-1 py-1 rounded border touch-manipulation transition-all ${colors[c]?'bg-neutral-700 border-neutral-600':'bg-neutral-800/60 border-neutral-700/50 hover:bg-neutral-700/80 opacity-60 hover:opacity-80'} flex flex-col items-center gap-0.5`}
                     title={`Color identity filter: ${COLOR_LABEL[c]}`}
                     aria-label={`Color identity filter: ${COLOR_LABEL[c]}`}
                   >
@@ -1309,65 +1337,27 @@ function Chat() {
                 ))}
                 <button
                   onClick={()=>setColors({W:false,U:false,B:false,R:false,G:false})}
-                  className="px-2 py-1 rounded border bg-neutral-900/60 border-neutral-800/50 hover:bg-neutral-800/80 touch-manipulation text-[10px] sm:text-xs opacity-60"
+                  className="px-2 py-1 rounded border bg-neutral-800/60 border-neutral-700/50 hover:bg-neutral-700/80 text-[10px] text-neutral-500"
                   title="Clear color identity filter"
                 >Clear</button>
               </div>
-              {Object.values(colors).every(v => !v) && (
-                <span className="text-[10px] sm:text-xs text-neutral-500 italic ml-1">
-                  Optional — inferred from Commander or decklist
-                </span>
-              )}
-            </div>
-
-            {/* Tier 3: Explanation depth - Grouped Teaching + Reasoning */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-800/50 pt-2">
-              <span className="opacity-70 text-xs sm:text-sm font-medium">Explanation depth:</span>
-              <label className="inline-flex items-center gap-2 text-xs sm:text-sm touch-manipulation cursor-pointer group" title="Turn this on if you want why, not just what">
-                <input 
-                  type="checkbox" 
-                  checked={!!teaching} 
-                  onChange={e=>setTeaching(e.target.checked)} 
-                  className="touch-manipulation w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500" 
-                />
-                <span className="opacity-80 group-hover:opacity-100">Explain in more detail</span>
-              </label>
-              {isPro && (
-                <label className="inline-flex items-center gap-2 text-xs sm:text-sm touch-manipulation cursor-pointer group" title="Turn this on if you want why, not just what">
-                  <input
-                    type="checkbox"
-                    checked={showReasoning}
-                    onChange={(e) => setShowReasoning(e.target.checked)}
-                    className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="opacity-80 group-hover:opacity-100">Show reasoning</span>
-                </label>
-              )}
             </div>
           </div>
         )}
         
-        {/* Thread selector */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <HistoryDropdown data-testid="history-dropdown" key={histKey} value={threadId} onChange={setThreadId} />
-          </div>
-        </div>
-
-        <div className="w-full">
-          <ThreadMenu
+        {/* Top bar: thread overflow menu (right) */}
+        <div className="flex items-center justify-end">
+          <BuilderOverflowMenu
             threadId={threadId}
-            onChanged={() => setHistKey((k: any) => k + 1)}
-            onDeleted={() => { setThreadId(null); setMessages([]); setHistKey((k: any) => k + 1); }}
+            value={threadId}
+            onChange={setThreadId}
+            onChanged={() => setHistKey((k: number) => k + 1)}
+            onDeleted={() => { setThreadId(null); setMessages([]); setHistKey((k: number) => k + 1); }}
             onNewChat={newChat}
             deckId={linkedDeckId}
             messageCount={messages.length}
+            refreshKey={histKey}
           />
-        </div>
-
-        {/* Assistant spotlight header */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold opacity-90">Your deck-building assistant</div>
         </div>
       </div>
       
@@ -1379,32 +1369,7 @@ function Chat() {
           </div>
         )}
         
-        {/* Context reminder bar */}
-        {(() => {
-          const activeFilters: string[] = [];
-          if (fmt && fmt !== 'commander') activeFilters.push(fmt.charAt(0).toUpperCase() + fmt.slice(1));
-          else if (fmt === 'commander') activeFilters.push('Commander');
-          
-          const activeColors = Object.entries(colors).filter(([_, v]) => v).map(([k]) => COLOR_LABEL[k as keyof typeof COLOR_LABEL]);
-          if (activeColors.length > 0) activeFilters.push(activeColors.join('-'));
-          
-          // Show budget if it's set (including 'optimized')
-          if (budget) activeFilters.push(budget.charAt(0).toUpperCase() + budget.slice(1));
-          
-          if (activeFilters.length > 0) {
-            // Build sentence-like context
-            const formatName = fmt === 'commander' ? 'Commander' : fmt ? fmt.charAt(0).toUpperCase() + fmt.slice(1) : 'Commander';
-            const valueDesc = budget === 'budget' ? 'budget-friendly' : budget === 'luxury' ? 'luxury' : 'optimized for power and consistency';
-            return (
-              <div className="mb-2 px-3 py-1.5 bg-neutral-900/60 border border-neutral-700 rounded text-neutral-300 text-xs flex-shrink-0">
-                <span className="opacity-90 break-words">You're building a <span className="font-medium">{formatName}</span> deck, <span className="font-medium">{valueDesc}</span>.</span>
-              </div>
-            );
-          }
-          return null;
-        })()}
-        
-        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border-2 border-neutral-700 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[200px] shadow-inner">
+        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain min-h-[200px]">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center">
@@ -1431,14 +1396,11 @@ function Chat() {
                           <div className="flex flex-col items-center">
                             <button
                               onClick={() => setShowQuizModal(true)}
-                              className="relative px-6 py-3 bg-gradient-to-r from-purple-500/90 via-pink-500/90 to-purple-500/90 text-white rounded-xl font-bold text-base hover:from-purple-500/80 hover:via-pink-500/80 hover:to-purple-500/80 transition-all shadow-lg hover:shadow-purple-500/30 hover:scale-105 transform duration-200 border-2 border-purple-400/40"
+                              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-base transition-colors"
                             >
-                              <span className="relative z-10 flex items-center gap-2">
+                              <span className="flex items-center gap-2">
                                 <span>🎯</span>
-                                <span>
-                                  <span className="block text-yellow-200 text-xs font-extrabold uppercase tracking-wider mb-0.5">FIND MY</span>
-                                  <span>Playstyle</span>
-                                </span>
+                                <span>Find my Playstyle</span>
                               </span>
                             </button>
                             <span className="mt-2 text-[10px] text-neutral-500 italic">Not sure what you like yet?</span>
@@ -1479,7 +1441,7 @@ function Chat() {
                             setHoveredPromptIndex(null);
                           }
                         }}
-                        className="px-4 py-2.5 md:px-5 md:py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 hover:border-blue-500/60 rounded-full text-xs md:text-sm text-neutral-300 transition-all hover:scale-105 max-w-full shadow-md hover:shadow-blue-500/20"
+                        className="px-4 py-2.5 md:px-5 md:py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs md:text-sm text-neutral-300 transition-colors max-w-full"
                         style={{ 
                           animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
                         }}
@@ -1499,7 +1461,7 @@ function Chat() {
                 <div
                   className={
                     "group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
-                    (isAssistant ? "bg-neutral-800" : "bg-blue-900/40")
+                    (isAssistant ? "bg-neutral-800" : "bg-neutral-700/80")
                   }
                 >
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
@@ -1556,12 +1518,11 @@ function Chat() {
         </div>
       </div>
       
-      {/* Mobile-optimized input area - sticky at bottom with background tint */}
-      <div className="p-3 sm:p-4 border-t border-neutral-800 bg-black flex-shrink-0">
-        {/* Background tint behind input area */}
-        <div className="bg-neutral-900/40 border-t border-neutral-800/50 rounded-lg p-3 -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 mb-3 sm:mb-4">
-          {/* Suggested prompt chips */}
-          <div className="mb-3 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] opacity-90">
+      {/* Input area */}
+      <div className="p-3 sm:p-4 border-t border-neutral-800 bg-neutral-950 flex-shrink-0">
+        <div className="space-y-3">
+          {/* Suggested prompt chips - de-emphasized */}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] text-neutral-500">
           {[
             { label: '“Analyze my Commander deck”', text: "Analyze this Commander deck and tell me what it's missing." },
             { label: '“Fix my 3-colour mana base”', text: "Fix the mana base for this 3-colour deck." },
@@ -1571,7 +1532,7 @@ function Chat() {
             <button 
               key={i} 
               onClick={()=>setText(p.text)} 
-              className="px-2 py-[2px] rounded border border-neutral-600 hover:bg-neutral-800 touch-manipulation"
+              className="px-2 py-[2px] rounded border border-neutral-700 hover:bg-neutral-800 hover:text-neutral-300 touch-manipulation"
             >
               {p.label}
             </button>
@@ -1630,7 +1591,7 @@ function Chat() {
 
           {/* Pro thank-you message - above text box */}
           {modelTier === 'pro' && (
-            <div className="mb-2 text-[11px] text-emerald-400/90">
+            <div className="mb-2 text-[11px] text-neutral-400">
               You're on the best model — thank you!
             </div>
           )}
@@ -1650,7 +1611,7 @@ function Chat() {
               }}
               placeholder={(!Array.isArray(messages) || messages.length === 0) ? "Paste a decklist, name a Commander, or ask a question…" : examplePrompts[currentPromptIndex]}
               rows={3}
-              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[80px] text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3.5 pr-12 resize-none min-h-[88px] text-base focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-600 transition-all"
               style={{
                 WebkitAppearance: 'none',
                 fontSize: '16px' // Prevents zoom on iOS
@@ -1718,7 +1679,7 @@ function Chat() {
                 Stop
               </button>
             ) : (
-              <button onClick={send} disabled={busy || !text.trim()} className="px-4 py-2 h-fit rounded bg-blue-600 text-white disabled:opacity-60" data-testid="chat-send">
+              <button onClick={send} disabled={busy || !text.trim()} className="px-5 py-2.5 h-fit rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" data-testid="chat-send">
                 {busy ? "…" : "Send"}
               </button>
             )}
@@ -1758,10 +1719,10 @@ function Chat() {
               <button 
                 onClick={send} 
                 disabled={busy || !text.trim()} 
-                className="w-full py-4 rounded-lg bg-blue-600 text-white text-lg font-medium disabled:opacity-60 disabled:cursor-not-allowed hover:bg-blue-700 active:bg-blue-800 transition-all touch-manipulation" 
+                className="w-full py-4 rounded-lg bg-blue-600 text-white text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 active:bg-blue-400 transition-colors touch-manipulation" 
                 data-testid="chat-send"
               >
-                {busy ? "Thinking..." : "Send Message"}
+                {busy ? "Thinking..." : "Send"}
               </button>
             )}
           </div>

@@ -67,6 +67,17 @@ function getDemoDeckCards(): Array<{ name: string; qty: number }> {
   return parseSampleDeckList(first.deckList);
 }
 
+/** Stacked cards icon for Hand Testing */
+function CardsIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="16" height="20" rx="2" />
+      <rect x="6" y="2" width="16" height="20" rx="2" />
+      <rect x="10" y="6" width="10" height="14" rx="1" />
+    </svg>
+  );
+}
+
 export default function HandTestingWidget({
   mode,
   deckId,
@@ -601,11 +612,12 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`bg-gradient-to-br from-amber-900/20 to-amber-800/10 border border-amber-700/40 rounded-lg p-4 ${className}`}
+        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-amber-900/20 to-neutral-950 border-2 border-amber-700/50 rounded-lg p-4 shadow-lg shadow-amber-900/20 transition-all duration-300 ${className}`}
       >
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
-            🃏
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
+        <div className="relative flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
+            <CardsIcon className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-semibold text-amber-200">
@@ -645,11 +657,12 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${className}`}
+        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/40 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/10 transition-all duration-300 ${className}`}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
-            🃏
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
+        <div className="relative flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
+            <CardsIcon className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-semibold text-amber-200">Hand Testing</h3>
@@ -669,11 +682,12 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${className}`}
+        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/40 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/10 transition-all duration-300 ${className}`}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
-            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
+        <div className="relative flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
           <div>
             <h3 className="font-semibold text-amber-200">Hand Testing</h3>
@@ -706,22 +720,32 @@ export default function HandTestingWidget({
       ? "Must Keep"
       : "Mulligan";
 
+  const isReadyToDraw =
+    canRun &&
+    gameState === "initial" &&
+    !isAnimating &&
+    !imagesLoading &&
+    expandedDeck.length >= 7 &&
+    (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested));
+
   return (
     <div
       ref={containerRef}
-      className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${compact ? "p-3" : ""} ${className}`}
+      className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/50 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/20 transition-all duration-300 ${compact ? "p-3" : ""} ${className}`}
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
+      <div className="relative">
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white transition-transform duration-300 hover:scale-105">
             {imagesLoading ? (
-              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              "🃏"
+              <CardsIcon className="w-4 h-4" />
             )}
           </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-amber-200">
+          <div className="min-w-0 border-b border-amber-600/30 pb-1">
+            <h3 className="font-semibold text-lg bg-gradient-to-r from-amber-200 to-amber-100 bg-clip-text text-transparent">
               {commanderName ? `Hand Testing: ${commanderName}` : "Hand Testing"}
             </h3>
             <p className="text-xs opacity-70 truncate">{statusText}</p>
@@ -737,7 +761,7 @@ export default function HandTestingWidget({
           {testSequence && gameState === "finished" && (
             <button
               onClick={shareSequence}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-all duration-300 hover:scale-[1.02]"
             >
               Share
             </button>
@@ -751,14 +775,15 @@ export default function HandTestingWidget({
               (Object.keys(cardImages).length === 0 &&
                 !(placement === "HOME" && !imagesRequested))
             }
-            className={`px-4 py-2 rounded-md font-medium ${
+            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${
               isAnimating ||
               imagesLoading ||
               expandedDeck.length < 7 ||
               (Object.keys(cardImages).length === 0 &&
                 !(placement === "HOME" && !imagesRequested))
                 ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-                : "bg-amber-600 hover:bg-amber-500 text-black"
+                : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.02]" +
+                  (isReadyToDraw ? " animate-[hand-testing-pulse_2.5s_ease-in-out_infinite]" : "")
             }`}
           >
             {imagesLoading
@@ -789,7 +814,7 @@ export default function HandTestingWidget({
               </h4>
             </div>
             <div
-              className={`grid gap-3 p-2 justify-items-center transition-all duration-500 ${
+              className={`grid gap-3 p-2 justify-items-center transition-all duration-500 [&>*]:transition-all [&>*]:duration-300 ${
                 isAnimating ? "scale-95 opacity-50" : "scale-100 opacity-100"
               } ${
                 currentHand.length === 1
@@ -863,14 +888,14 @@ export default function HandTestingWidget({
                 <div className="flex items-center justify-center gap-4 flex-wrap">
                   <button
                     onClick={() => handleDecision("keep")}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-medium"
+                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-medium transition-all duration-300 hover:scale-[1.02]"
                   >
                     Keep Hand
                   </button>
                   <button
                     onClick={() => handleDecision("mulligan")}
                     disabled={mulliganCount >= 6}
-                    className={`px-6 py-2 rounded-md font-medium ${
+                    className={`px-6 py-2 rounded-md font-medium transition-all duration-300 ${
                       mulliganCount >= 6
                         ? "bg-neutral-600 text-neutral-400 cursor-not-allowed"
                         : "bg-red-600 hover:bg-red-500 text-white"
@@ -886,7 +911,7 @@ export default function HandTestingWidget({
                   <button
                     onClick={handleGetAdvice}
                     disabled={adviceLoading}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black rounded-md font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black rounded-md font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.02]"
                   >
                     {adviceLoading ? "Loading…" : "Get AI Advice"}
                   </button>
@@ -957,7 +982,7 @@ export default function HandTestingWidget({
           Results copied to clipboard!
         </div>
       )}
-
+      </div>
       {pv.shown && typeof window !== "undefined" && (
         <div
           className="fixed z-[9999] pointer-events-none"

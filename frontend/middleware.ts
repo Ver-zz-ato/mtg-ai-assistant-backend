@@ -27,10 +27,10 @@ try {
   }
 }
 
-// Exclude sitemap from middleware so it always reaches the route on all hostnames (www + apex).
-// Middleware auth/cookies can cause 404 on www when host handling differs.
+// Exclude sitemap and static assets from middleware so they're served directly.
+// Static images (logo, tool buttons, deck snapshot) must bypass middleware to load reliably.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)'],
 };
 
 export async function middleware(req: NextRequest) {

@@ -174,7 +174,7 @@ export default function DeckAnalyzerExpandable() {
         
         <div className="p-5 relative z-10">
           <img
-            src="/Deck_Snapshot_Horizontal_cropped.png"
+            src="/deck-snapshot-horizontal.png"
             alt="Deck Snapshot / Judger - Click to analyze a decklist"
             className="w-full h-auto drop-shadow-lg"
           />

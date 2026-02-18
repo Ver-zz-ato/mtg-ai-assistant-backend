@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import Image from "next/image";
 import { track } from "@/lib/analytics/track";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
@@ -61,13 +60,11 @@ export default function TopToolsStrip() {
                 {tool.alt}
               </div>
             ) : (
-              <Image
+              <img
                 src={tool.img}
                 alt={tool.alt}
-                width={400}
-                height={200}
                 className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover transition-transform duration-300"
-                priority
+                loading="eager"
                 onError={() => setFailedImgs((s) => new Set(s).add(idx))}
               />
             )}

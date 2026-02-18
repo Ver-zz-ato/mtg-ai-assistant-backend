@@ -98,28 +98,37 @@ export default function MulliganDeckInput() {
   const hasDeck = mode === "DEMO" || deckCards.length > 0 || deckId;
 
   return (
-    <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-4 space-y-3">
+    <div className="relative overflow-hidden rounded-xl border-2 border-amber-700/50 bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-4 space-y-3 shadow-lg shadow-amber-900/20 transition-all duration-300">
+      {/* Subtle amber gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
+      <div className="relative">
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setDeckSource("example")}
-          className={`px-2 py-1.5 rounded text-xs ${
-            deckSource === "example" ? "bg-amber-600 text-black" : "bg-neutral-700 text-neutral-300"
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+            deckSource === "example"
+              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
+              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
           }`}
         >
           Example deck
         </button>
         <button
           onClick={() => setDeckSource("paste")}
-          className={`px-2 py-1.5 rounded text-xs ${
-            deckSource === "paste" ? "bg-amber-600 text-black" : "bg-neutral-700 text-neutral-300"
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+            deckSource === "paste"
+              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
+              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
           }`}
         >
           Paste
         </button>
         <button
           onClick={() => setDeckSource("load")}
-          className={`px-2 py-1.5 rounded text-xs ${
-            deckSource === "load" ? "bg-amber-600 text-black" : "bg-neutral-700 text-neutral-300"
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+            deckSource === "load"
+              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
+              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
           }`}
         >
           Load deck
@@ -191,6 +200,7 @@ export default function MulliganDeckInput() {
         placement="HOME"
         className="w-full border-0 rounded-none bg-transparent p-0"
       />
+      </div>
     </div>
   );
 }

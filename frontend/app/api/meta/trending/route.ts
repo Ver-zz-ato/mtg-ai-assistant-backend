@@ -9,22 +9,38 @@ export const revalidate = 300; // 5 minutes
  * Returns trending commanders, popular cards, and format distribution
  * from public decks
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
-    
-    // Get top commanders from public decks (last 6 months)
+    const url = new URL(request.url);
+    const windowParam = url.searchParams.get("window");
+    const useToday = windowParam === "today";
+
+    // Prefer "today" for homepage strip; fallback to 6 months
     const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
-    
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStartIso = todayStart.toISOString();
+
+    const fromDate = useToday ? todayStartIso : sixMonthsAgo;
+
     let { data: decks, error: decksError } = await supabase
       .from("decks")
       .select("commander, format, created_at")
       .eq("is_public", true)
-      .gte("created_at", sixMonthsAgo);
+      .gte("created_at", fromDate);
     
-    // Fallback 1: If no recent public decks, get ALL public decks (no date filter)
+    // Fallback 1: If no recent public decks (or today empty), try 6-month window then all public
+    if (!decksError && (!decks || decks.length === 0) && useToday) {
+      const { data: sixMonthDecks } = await supabase
+        .from("decks")
+        .select("commander, format, created_at")
+        .eq("is_public", true)
+        .gte("created_at", sixMonthsAgo);
+      decks = sixMonthDecks;
+    }
     if (!decksError && (!decks || decks.length === 0)) {
-      console.log('[Meta] No public decks in last 6 months, trying all public decks');
+      console.log('[Meta] No public decks in window, trying all public decks');
       const { data: allPublicDecks } = await supabase
         .from("decks")
         .select("commander, format, created_at")
