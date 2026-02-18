@@ -10,10 +10,11 @@ import { getMetaSignal } from "@/lib/meta-signals";
 type NameCountItem = { name: string; count: number };
 
 export async function getCommanderMetaBadge(
-  commanderSlug: string
+  commanderSlug: string,
+  commanderNameOverride?: string
 ): Promise<"Trending" | "Most Played" | null> {
   const profile = getCommanderBySlug(commanderSlug);
-  const commanderName = profile?.name?.trim() ?? "";
+  const commanderName = (commanderNameOverride ?? profile?.name ?? "").trim();
 
   const [trending, mostPlayed] = await Promise.all([
     getMetaSignal("trending-commanders"),

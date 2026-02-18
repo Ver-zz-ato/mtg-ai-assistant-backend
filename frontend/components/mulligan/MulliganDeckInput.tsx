@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { parseDecklist } from "@/lib/mulligan/parse-decklist";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
 import { useAuth } from "@/lib/auth-context";
 import HandTestingWidget from "./HandTestingWidget";
 
 const FIRST_SAMPLE = SAMPLE_DECKS[0];
+/** Example deck commander slug (The Ur-Dragon) - used for hotlink to commander page */
+const EXAMPLE_COMMANDER_SLUG = "the-ur-dragon";
 type DeckRow = { id: string; title?: string | null };
 
 export default function MulliganDeckInput() {
@@ -159,13 +162,23 @@ export default function MulliganDeckInput() {
       )}
       {hasDeck && (
         <div className="text-[10px] text-neutral-500">
-          {deckSource === "example"
-            ? `Using: ${FIRST_SAMPLE?.name ?? "Example"} (${FIRST_SAMPLE?.commander ?? ""})`
-            : deckSource === "load" && deckId
-              ? decks.find((d) => d.id === deckId)?.title ?? "Loaded"
-              : deckSource === "paste"
-                ? "Pasted deck"
-                : ""}
+          {deckSource === "example" ? (
+            <>
+              Using:{" "}
+              <Link
+                href={`/commanders/${EXAMPLE_COMMANDER_SLUG}`}
+                className="text-amber-500 hover:text-amber-400 underline"
+              >
+                {FIRST_SAMPLE?.name ?? "Example"} ({FIRST_SAMPLE?.commander ?? ""})
+              </Link>
+            </>
+          ) : deckSource === "load" && deckId ? (
+            decks.find((d) => d.id === deckId)?.title ?? "Loaded"
+          ) : deckSource === "paste" ? (
+            "Pasted deck"
+          ) : (
+            ""
+          )}
         </div>
       )}
       <HandTestingWidget

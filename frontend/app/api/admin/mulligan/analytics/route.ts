@@ -36,6 +36,18 @@ export async function GET() {
       .select("*", { count: "exact", head: true })
       .gte("created_at", sevenDaysAgo.toISOString());
 
+    // Cost (sum cost_usd for runs that used LLM)
+    const { data: costRows } = await supabase
+      .from("mulligan_advice_runs")
+      .select("cost_usd")
+      .gte("created_at", sevenDaysAgo.toISOString());
+
+    let totalCostUsd = 0;
+    for (const r of costRows || []) {
+      const c = Number(r.cost_usd);
+      if (!isNaN(c) && c > 0) totalCostUsd += c;
+    }
+
     // By tier
     const { data: byTier } = await supabase
       .from("mulligan_advice_runs")
@@ -80,26 +92,28 @@ export async function GET() {
       .slice(0, 20)
       .map(([id, count]) => ({ user_id: id, runs: count }));
 
-    // Daily breakdown (last 7 days)
+    // Daily breakdown (last 7 days) with cost
     const { data: dailyRuns } = await supabase
       .from("mulligan_advice_runs")
-      .select("created_at, effective_tier")
+      .select("created_at, effective_tier, cost_usd")
       .gte("created_at", sevenDaysAgo.toISOString())
       .eq("source", "production_widget");
 
-    const daily: Record<string, { total: number; guest: number; free: number; pro: number }> = {};
+    const daily: Record<string, { total: number; guest: number; free: number; pro: number; cost_usd: number }> = {};
     for (let i = 0; i < 7; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
-      daily[key] = { total: 0, guest: 0, free: 0, pro: 0 };
+      daily[key] = { total: 0, guest: 0, free: 0, pro: 0, cost_usd: 0 };
     }
     for (const r of dailyRuns || []) {
       const key = r.created_at?.slice(0, 10) || "";
-      if (!daily[key]) daily[key] = { total: 0, guest: 0, free: 0, pro: 0 };
+      if (!daily[key]) daily[key] = { total: 0, guest: 0, free: 0, pro: 0, cost_usd: 0 };
       daily[key].total++;
       const t = (r.effective_tier || "guest") as "guest" | "free" | "pro";
       if (daily[key][t] !== undefined) daily[key][t]++;
+      const c = Number((r as { cost_usd?: number }).cost_usd);
+      if (!isNaN(c) && c > 0) daily[key].cost_usd += c;
     }
 
     const dailySorted = Object.entries(daily).sort((a, b) => b[0].localeCompare(a[0]));
@@ -108,6 +122,7 @@ export async function GET() {
       ok: true,
       period: "7d",
       total_runs: totalRuns ?? 0,
+      total_cost_usd: totalCostUsd,
       by_tier: tierCounts,
       by_source: sourceCounts,
       unique_users: uniqueUsers,

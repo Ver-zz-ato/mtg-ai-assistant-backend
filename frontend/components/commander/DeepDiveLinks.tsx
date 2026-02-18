@@ -9,43 +9,46 @@ import { STRATEGIES } from "@/lib/data/strategies";
 
 type Props = {
   commanderSlug: string;
+  showCommanderGuides?: boolean;
 };
 
-export function DeepDiveLinks({ commanderSlug }: Props) {
+export function DeepDiveLinks({ commanderSlug, showCommanderGuides = true }: Props) {
   return (
     <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6">
       <h2 className="text-lg font-semibold text-neutral-100 mb-4">Deep Dive</h2>
       <p className="text-neutral-400 text-sm mb-4">
         Commander-specific guides and resources.
       </p>
-      <ul className="flex flex-wrap gap-3 mb-4">
-        <li>
-          <Link
-            href={`/commanders/${commanderSlug}/mulligan-guide`}
-            className="text-blue-400 hover:underline"
-          >
-            Mulligan Guide
-          </Link>
-        </li>
-        <li>
-          <Link
-            href={`/commanders/${commanderSlug}/budget-upgrades`}
-            className="text-blue-400 hover:underline"
-          >
-            Budget Upgrades
-          </Link>
-        </li>
-        <li>
-          <Link
-            href={`/commanders/${commanderSlug}/best-cards`}
-            className="text-blue-400 hover:underline"
-          >
-            Best Cards
-          </Link>
-        </li>
-      </ul>
+      {showCommanderGuides && (
+        <ul className="flex flex-wrap gap-3 mb-4">
+          <li>
+            <Link
+              href={`/commanders/${commanderSlug}/mulligan-guide`}
+              className="text-blue-400 hover:underline"
+            >
+              Mulligan Guide
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={`/commanders/${commanderSlug}/budget-upgrades`}
+              className="text-blue-400 hover:underline"
+            >
+              Budget Upgrades
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={`/commanders/${commanderSlug}/best-cards`}
+              className="text-blue-400 hover:underline"
+            >
+              Best Cards
+            </Link>
+          </li>
+        </ul>
+      )}
 
-      <div className="pt-4 border-t border-neutral-700">
+      <div className={showCommanderGuides ? "pt-4 border-t border-neutral-700" : ""}>
         <p className="text-neutral-400 text-sm mb-3">Explore archetypes, strategies, and cards:</p>
         <div className="flex flex-wrap gap-2 text-sm">
           <Link href="/commander-archetypes" className="text-blue-400 hover:underline">

@@ -71,11 +71,14 @@ export async function GET() {
       formatCounts[format] = (formatCounts[format] || 0) + 1;
     });
 
-    // Sort commanders by count
+    // Sort commanders by count; add slug for linking (curated + fallback pages)
+    function toSlug(n: string) {
+      return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
     const topCommanders = Object.entries(commanderCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
-      .map(([name, count]) => ({ name, count }));
+      .map(([name, count]) => ({ name, count, slug: toSlug(name) }));
 
     // Get most added cards (from recent deck_cards)
     const { data: cards, error: cardsError } = await supabase

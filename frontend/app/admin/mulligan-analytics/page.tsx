@@ -9,12 +9,13 @@ export default function MulliganAnalyticsPage() {
   const [err, setErr] = React.useState<string | null>(null);
   const [data, setData] = React.useState<{
     total_runs?: number;
+    total_cost_usd?: number;
     by_tier?: Record<string, number>;
     by_source?: Record<string, number>;
     unique_users?: number;
     repeat_users?: number;
     top_users?: { user_id: string; runs: number }[];
-    daily?: [string, { total: number; guest: number; free: number; pro: number }][];
+    daily?: [string, { total: number; guest: number; free: number; pro: number; cost_usd?: number }][];
   } | null>(null);
 
   async function load() {
@@ -50,6 +51,7 @@ export default function MulliganAnalyticsPage() {
             items={[
               "How often the hand testing / AI advice tool is used.",
               "Breakdown by tier (guest/free/pro) and repeat users.",
+              "AI cost from cost_usd (LLM runs only; cached/deterministic runs have no cost).",
               "Data from mulligan_advice_runs (last 7 days). PostHog also receives mulligan_* events.",
             ]}
           />
@@ -79,7 +81,7 @@ export default function MulliganAnalyticsPage() {
 
       <section className="rounded border border-neutral-800 p-4">
         <h2 className="font-medium mb-3">Summary (7 days)</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
             <div className="text-xs text-neutral-400">Total AI advice runs</div>
             <div className="text-2xl font-mono">{data?.total_runs ?? 0}</div>
@@ -98,6 +100,12 @@ export default function MulliganAnalyticsPage() {
               {data?.unique_users && data?.total_runs
                 ? (data.total_runs / data.unique_users).toFixed(1)
                 : "—"}
+            </div>
+          </div>
+          <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
+            <div className="text-xs text-neutral-400">AI cost (7d)</div>
+            <div className="text-2xl font-mono text-cyan-400">
+              ${(data?.total_cost_usd ?? 0).toFixed(4)}
             </div>
           </div>
         </div>
@@ -147,6 +155,7 @@ export default function MulliganAnalyticsPage() {
                 <th className="text-right py-2 px-2">Guest</th>
                 <th className="text-right py-2 px-2">Free</th>
                 <th className="text-right py-2 px-2">Pro</th>
+                <th className="text-right py-2 px-2">Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -157,6 +166,9 @@ export default function MulliganAnalyticsPage() {
                   <td className="py-2 px-2 text-right font-mono text-amber-400">{row.guest}</td>
                   <td className="py-2 px-2 text-right font-mono text-emerald-400">{row.free}</td>
                   <td className="py-2 px-2 text-right font-mono text-purple-400">{row.pro}</td>
+                  <td className="py-2 px-2 text-right font-mono text-cyan-400">
+                    ${(row.cost_usd ?? 0).toFixed(4)}
+                  </td>
                 </tr>
               ))}
             </tbody>

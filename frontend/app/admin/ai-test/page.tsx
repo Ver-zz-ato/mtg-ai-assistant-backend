@@ -846,6 +846,8 @@ export default function AiTestPage() {
   const [selfOptLoading, setSelfOptLoading] = React.useState(false);
   const [selfOptResult, setSelfOptResult] = React.useState<any>(null);
   const [selfOptProgress, setSelfOptProgress] = React.useState<{ step: string; progress: number } | null>(null);
+  const [selfOptDebugLog, setSelfOptDebugLog] = React.useState<{ ts: string; elapsed: number; type: string; msg: string; detail?: string }[]>([]);
+  const [selfOptDebugOpen, setSelfOptDebugOpen] = React.useState(false);
   const [currentProposal, setCurrentProposal] = React.useState<any>(null);
   const [proposalLoading, setProposalLoading] = React.useState(false);
   const [postAcceptCompareResult, setPostAcceptCompareResult] = React.useState<any>(null);
@@ -1600,46 +1602,105 @@ export default function AiTestPage() {
               </div>
               <button
                 onClick={async () => {
+                  const startTime = Date.now();
+                  const log = (type: string, msg: string, detail?: string) => {
+                    const elapsed = Math.round((Date.now() - startTime) / 1000);
+                    const entry = {
+                      ts: new Date().toISOString(),
+                      elapsed,
+                      type,
+                      msg,
+                      detail: detail ?? undefined,
+                    };
+                    setSelfOptDebugLog((prev) => [...prev, entry]);
+                  };
+
                   setSelfOptLoading(true);
                   setSelfOptResult(null);
                   setCurrentProposal(null);
                   setSelfOptProgress({ step: "Starting…", progress: 0 });
+                  setSelfOptDebugLog([]);
+                  setSelfOptDebugOpen(true);
+
+                  log("init", "Self-optimization started", `URL: /api/admin/ai-test/self-optimize-proposal, stream: true`);
+
                   try {
+                    log("fetch", "Initiating fetch...");
                     const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 50, stream: true }),
                     });
+
+                    log(
+                      "response",
+                      `Response received: ${r.status} ${r.statusText}`,
+                      `ok=${r.ok}, body=${r.body ? "present" : "null"}, headers=${JSON.stringify(Object.fromEntries(r.headers.entries()))}`
+                    );
+
                     if (!r.ok || !r.body) {
                       const j = await r.json().catch(() => ({}));
+                      log("error", "Non-OK or no body", JSON.stringify(j));
                       setSelfOptResult({ ok: false, error: j?.error || r.statusText });
                       return;
                     }
+
                     const reader = r.body.getReader();
                     const decoder = new TextDecoder();
                     let buffer = "";
                     let finalResult: any = null;
+                    let readCount = 0;
+                    let lastProgress = "";
+
+                    log("stream", "Starting stream read loop");
+
                     while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      buffer += decoder.decode(value, { stream: true });
-                      const lines = buffer.split("\n");
-                      buffer = lines.pop() || "";
-                      for (const line of lines) {
-                        if (!line.trim()) continue;
-                        try {
-                          const obj = JSON.parse(line);
-                          if (obj.type === "progress") {
-                            setSelfOptProgress({ step: obj.step, progress: obj.progress ?? 0 });
-                          } else if (obj.type === "complete") {
-                            finalResult = obj.result;
-                          } else if (obj.type === "error") {
-                            setSelfOptResult({ ok: false, error: obj.error });
+                      readCount++;
+                      try {
+                        const { done, value } = await reader.read();
+                        if (readCount <= 3 || readCount % 10 === 0 || done) {
+                          log("read", `Read #${readCount}: done=${done}`, value ? `chunk=${value?.byteLength ?? 0} bytes` : "no value");
+                        }
+                        if (done) {
+                          log("stream", "Stream done", `Total reads: ${readCount}`);
+                          break;
+                        }
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split("\n");
+                        buffer = lines.pop() || "";
+                        for (const line of lines) {
+                          if (!line.trim()) continue;
+                          try {
+                            const obj = JSON.parse(line);
+                            if (obj.type === "progress") {
+                              if (obj.step !== lastProgress) {
+                                log("progress", obj.step, `progress=${obj.progress}%`);
+                                lastProgress = obj.step;
+                              }
+                              setSelfOptProgress({ step: obj.step, progress: obj.progress ?? 0 });
+                            } else if (obj.type === "complete") {
+                              log("complete", "Received complete", `Proposal: ${obj.result?.proposal_id ?? "none"}`);
+                              finalResult = obj.result;
+                            } else if (obj.type === "error") {
+                              log("error", "Server error", obj.error);
+                              setSelfOptResult({ ok: false, error: obj.error });
+                            }
+                          } catch (parseErr) {
+                            log("parse", "Failed to parse line", line.slice(0, 200));
                           }
-                        } catch {}
+                        }
+                      } catch (readErr: any) {
+                        log(
+                          "error",
+                          "Read failed",
+                          `name=${readErr?.name}, message=${readErr?.message}, stack=${readErr?.stack?.slice(0, 500)}`
+                        );
+                        throw readErr;
                       }
                     }
+
                     if (finalResult) {
+                      log("success", "Proposal created", finalResult.proposal_id);
                       setSelfOptResult(finalResult);
                       if (finalResult.ok && finalResult.proposal_id) {
                         const fetchR = await fetch(`/api/admin/ai-test/proposals/${finalResult.proposal_id}`);
@@ -1652,10 +1713,30 @@ export default function AiTestPage() {
                       }
                     }
                   } catch (e: any) {
+                    const elapsed = Math.round((Date.now() - startTime) / 1000);
+                    const detail = [
+                      `name=${e?.name}`,
+                      `message=${e?.message}`,
+                      e?.cause ? `cause=${String(e.cause)}` : null,
+                      e?.stack ? `stack=${e.stack.slice(0, 800)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
+                    setSelfOptDebugLog((prev) => [
+                      ...prev,
+                      {
+                        ts: new Date().toISOString(),
+                        elapsed,
+                        type: "error",
+                        msg: `Caught: ${e?.message ?? String(e)}`,
+                        detail,
+                      },
+                    ]);
                     setSelfOptResult({ ok: false, error: e?.message });
                   } finally {
                     setSelfOptLoading(false);
                     setSelfOptProgress(null);
+                    setSelfOptDebugLog((prev) => [...prev, { ts: new Date().toISOString(), elapsed: Math.round((Date.now() - startTime) / 1000), type: "end", msg: "Run finished", detail: undefined }]);
                   }
                 }}
                 disabled={selfOptLoading}
@@ -1667,6 +1748,52 @@ export default function AiTestPage() {
             {selfOptResult && !selfOptResult.ok && (
               <div className="mt-4 p-4 rounded-lg bg-red-950/30 border border-red-800">
                 <div className="text-red-400">{selfOptResult.error}</div>
+              </div>
+            )}
+
+            {/* Debug log panel */}
+            {(selfOptDebugLog.length > 0 || selfOptResult) && (
+              <div className="mt-4 rounded-lg border border-neutral-600 bg-neutral-950 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSelfOptDebugOpen((o) => !o)}
+                  className="w-full px-4 py-2 text-left text-sm font-medium text-neutral-300 hover:bg-neutral-800/50 flex justify-between items-center"
+                >
+                  <span>Debug log ({selfOptDebugLog.length} entries)</span>
+                  <span className="text-neutral-500">{selfOptDebugOpen ? "▼" : "▶"}</span>
+                </button>
+                {selfOptDebugOpen && (
+                  <div className="border-t border-neutral-700 p-3 max-h-80 overflow-auto">
+                    <div className="flex justify-end gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = selfOptDebugLog.map((e) => `[+${e.elapsed}s] ${e.type}: ${e.msg}${e.detail ? ` | ${e.detail}` : ""}`).join("\n");
+                          navigator.clipboard.writeText(text);
+                        }}
+                        className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded"
+                      >
+                        Copy log
+                      </button>
+                      <button type="button" onClick={() => setSelfOptDebugLog([])} className="text-xs px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded">
+                        Clear
+                      </button>
+                    </div>
+                    <pre className="text-xs font-mono text-neutral-400 whitespace-pre-wrap break-words">
+                      {selfOptDebugLog.map((e, i) => (
+                        <div key={i} className={e.type === "error" ? "text-red-400" : e.type === "progress" ? "text-cyan-400" : ""}>
+                          [{e.ts}] +{e.elapsed}s {e.type}: {e.msg}
+                          {e.detail && (
+                            <>
+                              {" "}
+                              <span className="text-neutral-500">| {e.detail}</span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </section>

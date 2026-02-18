@@ -18,6 +18,7 @@ import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
 import { getCostLandingData } from "@/lib/seo/cost-landing-data";
+import { getCommanderFromDecksBySlug } from "@/lib/commander-fallback";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -52,23 +53,37 @@ function webPageJsonLd(slug: string, name: string, description: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
-  if (!profile) return { title: "Commander Not Found | ManaTap AI" };
-  return {
-    title: `${profile.name} Commander Tools: Mulligan, Cost, Swaps | ManaTap`,
-    description: `Tools for ${profile.name} Commander decks: mulligan simulator, cost to finish, budget swaps. Browse ${profile.name} decks. Try ManaTap's free EDH tools.`,
-    alternates: { canonical: `${BASE}/commanders/${slug}` },
-  };
+  if (profile) {
+    return {
+      title: `${profile.name} Commander Tools: Mulligan, Cost, Swaps | ManaTap`,
+      description: `Tools for ${profile.name} Commander decks: mulligan simulator, cost to finish, budget swaps. Browse ${profile.name} decks. Try ManaTap's free EDH tools.`,
+      alternates: { canonical: `${BASE}/commanders/${slug}` },
+    };
+  }
+  const fallback = await getCommanderFromDecksBySlug(slug);
+  if (fallback) {
+    return {
+      title: `${fallback.name} Commander Tools: Mulligan, Cost, Swaps | ManaTap`,
+      description: `Tools for ${fallback.name} Commander decks: mulligan simulator, cost to finish, budget swaps. Browse ${fallback.deckCount} community decks. Try ManaTap's free EDH tools.`,
+      alternates: { canonical: `${BASE}/commanders/${slug}` },
+    };
+  }
+  return { title: "Commander Not Found | ManaTap AI" };
 }
 
 export default async function CommanderHubPage({ params }: Props) {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
-  if (!profile) notFound();
+  const fallback = !profile ? await getCommanderFromDecksBySlug(slug) : null;
+  if (!profile && !fallback) notFound();
 
-  const { name } = profile;
-  const intro = renderCommanderIntro(profile, "hub");
+  const name = profile?.name ?? fallback!.name;
+  const isFallback = !!fallback && !profile;
+  const intro = profile
+    ? renderCommanderIntro(profile, "hub")
+    : `${name} Commander decks get better with the right tools. Browse community decks for inspiration and use ManaTap's free mulligan simulator, cost estimator, and budget swap finder.`;
   const description = `Tools for ${name} Commander decks: mulligan simulator, cost to finish, budget swaps. Browse ${name} decks.`;
-  const snapshot = deriveCommanderSnapshot(profile);
+  const snapshot = profile ? deriveCommanderSnapshot(profile) : { gameplan: "Build around your commander's strengths.", themes: "flexible", powerStyle: "Value" as const, difficulty: "Intermediate" as const };
 
   const browseUrl = `/decks/browse?search=${encodeURIComponent(name)}`;
   const mulliganUrl = `/tools/mulligan?commander=${encodeURIComponent(slug)}`;
@@ -79,15 +94,15 @@ export default async function CommanderHubPage({ params }: Props) {
   const [imgMap, aggregates, metaBadge, costLanding] = await Promise.all([
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
-    getCommanderMetaBadge(slug),
-    getCostLandingData(slug),
+    getCommanderMetaBadge(slug, name),
+    profile ? getCostLandingData(slug) : Promise.resolve({ costSnapshot: null, costDrivers: [], deckCount: 0 }),
   ]);
   const medianCostFallback =
     aggregates?.medianDeckCost == null && costLanding?.costSnapshot?.mid != null
       ? costLanding.costSnapshot.mid
       : null;
 
-  const deckCount = aggregates?.deckCount ?? 0;
+  const deckCount = aggregates?.deckCount ?? fallback?.deckCount ?? 0;
   const medianDeckCostUSD =
     (aggregates?.medianDeckCost != null && aggregates.medianDeckCost > 0
       ? Math.round(aggregates.medianDeckCost)
@@ -114,8 +129,10 @@ export default async function CommanderHubPage({ params }: Props) {
   const cmdImg = imgMap.get(norm(cleanName));
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
 
-  const winPlanBullets = getSynergyBullets(profile);
-  const recentDecks = aggregates?.recentDecks ?? [];
+  const winPlanBullets = profile
+    ? getSynergyBullets(profile)
+    : ["Ramp and card draw form the foundation", "Removal and interaction answer threats", "Browse community decks for strategy inspiration"];
+  const recentDecks = aggregates?.recentDecks ?? fallback?.recentDecks ?? [];
 
   return (
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -158,7 +175,7 @@ export default async function CommanderHubPage({ params }: Props) {
           />
         )}
 
-        <CommanderSynergyTeaser profile={profile} />
+        {profile && <CommanderSynergyTeaser profile={profile} />}
 
         <CommunityBuildsTabs
           commanderName={name}
@@ -168,7 +185,7 @@ export default async function CommanderHubPage({ params }: Props) {
 
         <SimilarCommanders currentSlug={slug} />
 
-        <DeepDiveLinks commanderSlug={slug} />
+        <DeepDiveLinks commanderSlug={slug} showCommanderGuides={!isFallback} />
 
         <RelatedTools
           tools={[
