@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useProStatus } from "@/hooks/useProStatus";
 import {
   trackProGateViewed,
@@ -78,7 +78,11 @@ function CardsIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-export default function HandTestingWidget({
+export interface HandTestingWidgetRef {
+  triggerDraw: () => void;
+}
+
+const HandTestingWidgetInner = function HandTestingWidget({
   mode,
   deckId,
   decklistText,
@@ -88,7 +92,8 @@ export default function HandTestingWidget({
   compact = false,
   placement = "DECK_PAGE",
   className = "",
-}: HandTestingWidgetProps) {
+  widgetRef,
+}: HandTestingWidgetProps & { widgetRef?: React.RefObject<HandTestingWidgetRef | null> }) {
   const { isPro, loading: proLoading } = useProStatus();
   const [resolvedDeckCards, setResolvedDeckCards] = useState<
     Array<{ name: string; qty: number }>
@@ -739,6 +744,16 @@ export default function HandTestingWidget({
     await startHandTest();
   };
 
+  const handleDrawRef = useRef(handleDrawClick);
+  handleDrawRef.current = handleDrawClick;
+  useEffect(() => {
+    if (widgetRef?.current) {
+      (widgetRef as React.MutableRefObject<HandTestingWidgetRef>).current = {
+        triggerDraw: () => handleDrawRef.current(),
+      };
+    }
+  });
+
   const handleAiTeaserClick = () => {
     if (gameState !== "viewing" || currentHand.length === 0) {
       setAiTeaserTooltip(true);
@@ -754,13 +769,32 @@ export default function HandTestingWidget({
       ref={containerRef}
       className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 sm:p-5 w-full min-w-0 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200 group ${compact ? "p-3" : ""} ${className}`}
     >
-      {/* Idle state: ghost hand + CTA + AI teaser */}
+      {/* Idle state: clickable ghost hand, then Want help? below */}
       {gameState === "initial" && (
         <div
-          className={`flex flex-col md:flex-row items-center gap-6 md:gap-8 py-4 md:py-6 ${ghostHandExiting ? "ghost-hand-exiting" : ""}`}
+          className={`flex flex-col items-center gap-6 py-4 md:py-6 ${ghostHandExiting ? "ghost-hand-exiting" : ""}`}
         >
-          {/* Ghost hand preview - fanned card backs (larger) */}
-          <div className="flex flex-col items-center shrink-0 order-2 md:order-1">
+          {/* Ghost hand - clickable, same action as Draw Opening Hand */}
+          <button
+            type="button"
+            onClick={handleDrawClick}
+            disabled={
+              isAnimating ||
+              imagesLoading ||
+              expandedDeck.length < 7 ||
+              (Object.keys(cardImages).length === 0 &&
+                !(placement === "HOME" && !imagesRequested))
+            }
+            className={`flex flex-col items-center shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded-lg transition-opacity ${
+              isAnimating ||
+              imagesLoading ||
+              expandedDeck.length < 7 ||
+              (Object.keys(cardImages).length === 0 &&
+                !(placement === "HOME" && !imagesRequested))
+                ? "opacity-60 cursor-not-allowed"
+                : "hover:opacity-100 opacity-90"
+            }`}
+          >
             <div className="relative h-24 w-40 md:h-32 md:w-52 flex justify-center items-end">
               <div
                 className="absolute inset-0 rounded-full opacity-15 blur-2xl bg-amber-500/40 group-hover:opacity-25 transition-opacity duration-200 pointer-events-none"
@@ -787,101 +821,55 @@ export default function HandTestingWidget({
                 );
               })}
             </div>
-            <p className="text-[10px] text-neutral-600 mt-2">Ready to draw 7</p>
-          </div>
+            <p className="text-[10px] text-neutral-500 mt-2">
+              {imagesLoading
+                ? "Loading..."
+                : Object.keys(cardImages).length === 0 &&
+                    !(placement === "HOME" && !imagesRequested)
+                  ? "Waiting for Images..."
+                  : "Click to draw 7 cards!"}
+            </p>
+          </button>
 
-          {/* CTA block - header moved to parent */}
-          <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0 order-1 md:order-2">
-            <div className="flex items-center gap-3 min-w-0 w-full md:justify-start justify-center">
-              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
-                {imagesLoading ? (
-                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <CardsIcon className="w-4 h-4" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-neutral-500 truncate">
-                  {imagesLoading ? "Loading..." : `${expandedDeck.length} cards`}
-                </p>
-                {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
-                  <p className="text-xs text-emerald-400 mt-1">
-                    {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? "s" : ""} remaining
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col items-center md:items-start gap-2 w-full md:w-auto">
+          {/* Want help? - under the cards */}
+          <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+            {/* AI advice teaser - prominent */}
+            <div className="relative w-full flex justify-center">
               <button
-                onClick={handleDrawClick}
-                disabled={
-                  isAnimating ||
-                  imagesLoading ||
-                  expandedDeck.length < 7 ||
-                  (Object.keys(cardImages).length === 0 &&
-                    !(placement === "HOME" && !imagesRequested))
-                }
-                className={`px-5 py-2.5 rounded-lg font-medium transition-colors ${
-                  isAnimating ||
-                  imagesLoading ||
-                  expandedDeck.length < 7 ||
-                  (Object.keys(cardImages).length === 0 &&
-                    !(placement === "HOME" && !imagesRequested))
-                    ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-                    : "bg-amber-600 hover:bg-amber-500 text-black"
-                }`}
+                type="button"
+                onClick={handleAiTeaserClick}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/60 text-amber-200/90 hover:text-amber-100 text-sm font-medium transition-all"
               >
-                {imagesLoading
-                  ? "Loading..."
-                  : Object.keys(cardImages).length === 0 &&
-                      !(placement === "HOME" && !imagesRequested)
-                    ? "Waiting for Images..."
-                    : "Draw Opening Hand"}
+                <span aria-hidden className="text-base">🧠</span>
+                Want help? Get AI advice for any opening hand.
               </button>
-              {/* AI advice teaser - prominent */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={handleAiTeaserClick}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/60 text-amber-200/90 hover:text-amber-100 text-sm font-medium transition-all"
-                >
-                  <span aria-hidden className="text-base">🧠</span>
-                  Want help? Get AI advice for any opening hand.
-                </button>
-                {aiTeaserTooltip && (
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-600 text-xs text-neutral-300 whitespace-nowrap z-10 shadow-xl">
-                    Draw a hand first, then click Get AI Advice.
-                  </div>
-                )}
-              </div>
+              {aiTeaserTooltip && (
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-600 text-xs text-neutral-300 whitespace-nowrap z-10 shadow-xl">
+                  Draw a hand first, then click Get AI Advice.
+                </div>
+              )}
             </div>
+            {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
+              <p className="text-xs text-emerald-400">
+                {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? "s" : ""} remaining
+              </p>
+            )}
           </div>
         </div>
       )}
 
       {/* Non-initial: header row + actions (viewing/finished) */}
       {gameState !== "initial" && (
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
-              <CardsIcon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
-              <p className="text-xs text-neutral-500 truncate">
-                Testing: {commanderName ?? "Deck"} · {expandedDeck.length} cards
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-            {testSequence && gameState === "finished" && (
-              <button
-                onClick={shareSequence}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-colors"
-              >
-                Share
-              </button>
-            )}
+        <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+          {testSequence && gameState === "finished" && (
+            <button
+              onClick={shareSequence}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-colors"
+            >
+              Share
+            </button>
+          )}
+          {!widgetRef && (
             <button
               onClick={handleDrawClick}
               disabled={
@@ -891,19 +879,19 @@ export default function HandTestingWidget({
                 (Object.keys(cardImages).length === 0 &&
                   !(placement === "HOME" && !imagesRequested))
               }
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
                 isAnimating ||
                 imagesLoading ||
                 expandedDeck.length < 7 ||
                 (Object.keys(cardImages).length === 0 &&
                   !(placement === "HOME" && !imagesRequested))
                   ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-                  : "bg-amber-600 hover:bg-amber-500 text-black"
+                  : "bg-amber-600 hover:bg-amber-500 text-black border border-amber-500"
               }`}
             >
               {isAnimating ? "Shuffling..." : "New Test"}
             </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -917,7 +905,6 @@ export default function HandTestingWidget({
               <p className="text-xs text-neutral-500">
                 {mulliganCount} mulligan{mulliganCount !== 1 ? "s" : ""} taken
               </p>
-              <p className="text-xs text-neutral-500">Deck: {commanderName ?? "Deck"}</p>
             </div>
             <div
               className={`grid gap-4 p-2 justify-items-center transition-all duration-500 [&>*]:transition-all [&>*]:duration-300 [&>*]:hover:scale-[1.02] ${
@@ -1015,7 +1002,6 @@ export default function HandTestingWidget({
                     {mulliganButtonLabel}
                   </button>
                 </div>
-                <p className="text-[10px] text-neutral-600 text-center">London mulligan rule.</p>
                 <div className="text-center pt-3">
                   <p className="text-sm font-medium text-amber-200/90 mb-2">Need help deciding?</p>
                   <button
@@ -1115,4 +1101,6 @@ export default function HandTestingWidget({
       )}
     </div>
   );
-}
+};
+
+export default HandTestingWidgetInner;

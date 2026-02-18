@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { parseDecklist } from "@/lib/mulligan/parse-decklist";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
 import { useAuth } from "@/lib/auth-context";
-import HandTestingWidget from "./HandTestingWidget";
+import HandTestingWidget, { type HandTestingWidgetRef } from "./HandTestingWidget";
 
 const FIRST_SAMPLE = SAMPLE_DECKS[0];
 /** Example deck commander slug (The Ur-Dragon) - used for hotlink to commander page */
@@ -14,6 +14,7 @@ type DeckRow = { id: string; title?: string | null };
 
 export default function MulliganDeckInput() {
   const { user, loading: authLoading } = useAuth();
+  const widgetRef = useRef<HandTestingWidgetRef>(null);
   const [deckSource, setDeckSource] = useState<"example" | "paste" | "load">("example");
   const [deckText, setDeckText] = useState("");
   const [deckId, setDeckId] = useState("");
@@ -106,24 +107,31 @@ export default function MulliganDeckInput() {
           ? "Pasted deck"
           : "Select a deck";
 
+  const totalCards = deckCards.reduce((s, c) => s + c.qty, 0);
+
   return (
     <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-5 sm:p-6 space-y-4 min-h-[280px] hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
-      {/* Header at very top */}
+      {/* Header at very top - same size as "Recent public decks" */}
       <div className="pb-2 border-b border-neutral-700/80">
-        <h3 className="font-semibold text-neutral-200">Mulligan Simulator</h3>
-        <p className="text-xs text-neutral-500 mt-0.5">
-          Testing:{" "}
-          {deckSource === "example" && FIRST_SAMPLE ? (
-            <Link
-              href={`/commanders/${EXAMPLE_COMMANDER_SLUG}`}
-              className="text-amber-200/90 hover:text-amber-100 underline"
-            >
-              {FIRST_SAMPLE.commander} (Example)
-            </Link>
-          ) : (
-            testingLabel
+        <h3 className="text-lg font-semibold text-amber-200/95">Mulligan Simulator</h3>
+        <div className="flex items-baseline justify-between gap-2 mt-0.5">
+          <p className="text-xs text-neutral-500">
+            Testing:{" "}
+            {deckSource === "example" && FIRST_SAMPLE ? (
+              <Link
+                href={`/commanders/${EXAMPLE_COMMANDER_SLUG}`}
+                className="text-amber-200/90 hover:text-amber-100 underline"
+              >
+                {FIRST_SAMPLE.commander} (Example)
+              </Link>
+            ) : (
+              testingLabel
+            )}
+          </p>
+          {hasDeck && totalCards > 0 && (
+            <span className="text-xs text-neutral-500 shrink-0">{totalCards} cards</span>
           )}
-        </p>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <button
@@ -156,6 +164,14 @@ export default function MulliganDeckInput() {
         >
           Load deck
         </button>
+        {hasDeck && (
+          <button
+            onClick={() => widgetRef.current?.triggerDraw()}
+            className="px-2 py-1.5 rounded text-xs font-medium transition-colors bg-amber-600 hover:bg-amber-500 text-black border border-amber-500"
+          >
+            New Test
+          </button>
+        )}
       </div>
       {deckSource === "paste" && (
         <div className="space-y-1">
@@ -214,6 +230,7 @@ export default function MulliganDeckInput() {
         compact={false}
         placement="HOME"
         className="w-full border-0 rounded-none bg-transparent p-0"
+        widgetRef={widgetRef}
       />
     </div>
   );
