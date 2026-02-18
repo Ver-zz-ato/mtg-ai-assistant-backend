@@ -1,14 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMetaSignal, META_SLUGS, getMetaTitle, type MetaSlug } from "@/lib/meta-signals";
-import { getCommanderBySlug } from "@/lib/commanders";
+import { getMetaTitle, META_SLUGS, type MetaSlug } from "@/lib/meta-signals";
+import { MetaLayout } from "@/components/meta/MetaLayout";
+import { MetaSectionHeader } from "@/components/meta/MetaSectionHeader";
+import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
+import { CommanderCard } from "@/components/meta/CommanderCard";
+import { CardMetaCard } from "@/components/meta/CardMetaCard";
+import { getTrendingCommanders } from "@/lib/meta/getTrendingCommanders";
+import { getMostPlayedCommanders } from "@/lib/meta/getMostPlayedCommanders";
+import { getBudgetCommanders } from "@/lib/meta/getBudgetCommanders";
+import { getTrendingCards } from "@/lib/meta/getTrendingCards";
+import { getMostPlayedCards } from "@/lib/meta/getMostPlayedCards";
+import { formatRelative } from "@/lib/meta/getMetaSnapshot";
 
-function toSlug(name: string): string {
-  return name
+const BASE = "https://www.manatap.ai";
+
+function norm(name: string): string {
+  return String(name || "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function generateStaticParams() {
@@ -17,11 +31,10 @@ export async function generateStaticParams() {
 
 type Props = { params: Promise<{ slug: string }> };
 
-const BASE = "https://www.manatap.ai";
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  if (!META_SLUGS.includes(slug as MetaSlug)) return { title: "Not Found | ManaTap AI" };
+  if (!META_SLUGS.includes(slug as MetaSlug))
+    return { title: "Not Found | ManaTap AI" };
   return {
     title: `${getMetaTitle(slug as MetaSlug)} | ManaTap`,
     description: `Discover ${getMetaTitle(slug as MetaSlug).toLowerCase()} in Commander. Based on public deck data.`,
@@ -29,83 +42,158 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// Revalidate every hour - meta data refreshed daily by cron
+export const revalidate = 3600;
+
 export default async function MetaPage({ params }: Props) {
   const { slug } = await params;
   if (!META_SLUGS.includes(slug as MetaSlug)) notFound();
 
-  const data = await getMetaSignal(slug);
   const title = getMetaTitle(slug as MetaSlug);
+  const isCommander =
+    slug === "trending-commanders" ||
+    slug === "most-played-commanders" ||
+    slug === "budget-commanders";
+  const isCard = slug === "trending-cards" || slug === "most-played-cards";
 
-  const isCommander = slug.includes("commander");
-  const isCard = slug.includes("card");
+  let items: unknown[] = [];
+  let imageMap = new Map<string, string>();
+  let updatedAt: string | null = null;
+  let description = "Based on public Commander deck data. Updated daily.";
+
+  if (slug === "trending-commanders") {
+    const data = await getTrendingCommanders();
+    items = data.items;
+    imageMap = data.imageMap;
+    updatedAt = data.updatedAt;
+    description = "Commanders with the most new decks in the last 30 days.";
+  } else if (slug === "most-played-commanders") {
+    const data = await getMostPlayedCommanders();
+    items = data.items;
+    imageMap = data.imageMap;
+    updatedAt = data.updatedAt;
+    description = "Top commanders by total public deck count.";
+  } else if (slug === "budget-commanders") {
+    const data = await getBudgetCommanders();
+    items = data.items;
+    imageMap = data.imageMap;
+    updatedAt = data.updatedAt;
+    description = "Lowest median deck cost. Build on a budget.";
+  } else if (slug === "trending-cards") {
+    const data = await getTrendingCards();
+    items = data.items;
+    imageMap = data.imageMap;
+    updatedAt = data.updatedAt;
+    description = "Cards appearing most in recently created decks.";
+  } else if (slug === "most-played-cards") {
+    const data = await getMostPlayedCards();
+    items = data.items;
+    imageMap = data.imageMap;
+    updatedAt = data.updatedAt;
+    description = "Most included cards across all public Commander decks.";
+  }
+
+  const statStripStats = [
+    ...(updatedAt
+      ? [{ label: "Updated", value: formatRelative(updatedAt) }]
+      : []),
+    ...(items.length > 0
+      ? [
+          {
+            label: isCommander ? "Commanders tracked" : "Cards tracked",
+            value: items.length.toString(),
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MetaLayout narrow={items.length === 0}>
       <article className="text-neutral-200">
-        <nav className="text-sm text-neutral-400 mb-4">
-          <Link href="/" className="hover:text-white">Home</Link>
+        <nav className="text-sm text-neutral-400 mb-6">
+          <Link href="/" className="hover:text-white">
+            Home
+          </Link>
           <span className="mx-2">/</span>
-          <Link href="/meta" className="hover:text-white">Meta</Link>
+          <Link href="/meta" className="hover:text-white">
+            Meta
+          </Link>
           <span className="mx-2">/</span>
           <span className="text-neutral-200">{title}</span>
         </nav>
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{title}</h1>
-        <p className="text-neutral-300 mb-8 text-lg">
-          Based on public Commander deck data. Updated daily.
-        </p>
 
-        {data && Array.isArray(data) && data.length > 0 ? (
-          <ul className="space-y-2">
-            {data.map((item: Record<string, unknown>, i: number) => {
-              const name = item.name as string;
-              const count = item.count as number | undefined;
-              const medianCost = item.medianCost as number | undefined;
-              const itemSlug = item.slug as string | undefined;
+        <MetaSectionHeader
+          title={title}
+          description={description}
+          stats={
+            statStripStats.length > 0 ? (
+              <MetaStatStrip stats={statStripStats} />
+            ) : undefined
+          }
+        />
 
-              if (isCommander && name) {
-                const cmdSlug = itemSlug ?? getCommanderBySlug(toSlug(name))?.slug ?? toSlug(name);
-                return (
-                  <li key={i}>
-                    <Link href={`/commanders/${cmdSlug}`} className="text-blue-400 hover:underline">
-                      {name}
-                    </Link>
-                    {count != null && <span className="text-neutral-500 text-sm ml-2">({count} decks)</span>}
-                    {medianCost != null && <span className="text-neutral-500 text-sm ml-2">~${Math.round(medianCost).toLocaleString()}</span>}
-                  </li>
-                );
-              }
-              if (isCard && name) {
-                const cardSlug = toSlug(name);
-                return (
-                  <li key={i}>
-                    <Link href={`/cards/${cardSlug}`} className="text-blue-400 hover:underline">
-                      {name}
-                    </Link>
-                    {count != null && <span className="text-neutral-500 text-sm ml-2">({count})</span>}
-                  </li>
-                );
-              }
-              return null;
-            })}
-          </ul>
+        {items.length > 0 ? (
+          <>
+            {isCommander ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {(items as Array<{
+                  name: string;
+                  slug: string;
+                  count?: number;
+                  medianCost?: number;
+                  rank?: number;
+                }>).map((item) => (
+                  <CommanderCard
+                    key={item.slug}
+                    item={{
+                      name: item.name,
+                      slug: item.slug,
+                      count: item.count,
+                      medianCost: item.medianCost,
+                      rank: item.rank,
+                    }}
+                    imageUrl={imageMap.get(norm(item.name))}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {(items as Array<{ name: string; count: number; rank?: number }>).map(
+                  (item) => (
+                    <CardMetaCard
+                      key={item.name}
+                      item={{
+                        name: item.name,
+                        count: item.count,
+                        rank: item.rank,
+                      }}
+                      imageUrl={imageMap.get(norm(item.name))}
+                    />
+                  )
+                )}
+              </div>
+            )}
+
+            <div className="mt-10 pt-6 border-t border-neutral-700 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              <Link href="/meta" className="text-blue-400 hover:underline">
+                Browse all meta pages
+              </Link>
+              <span className="text-neutral-500">|</span>
+              <Link href="/commanders" className="text-blue-400 hover:underline">
+                Commanders
+              </Link>
+              <span className="text-neutral-500">|</span>
+              <Link href="/cards" className="text-blue-400 hover:underline">
+                Cards
+              </Link>
+            </div>
+          </>
         ) : (
-          <p className="text-neutral-400">No data yet. Check back after the daily meta refresh.</p>
+          <p className="text-neutral-400">
+            No data yet. Check back after the daily meta refresh.
+          </p>
         )}
-
-        <div className="mt-8 pt-6 border-t border-neutral-700">
-          <Link href="/meta" className="text-blue-400 hover:underline">
-            Browse all meta pages
-          </Link>
-          <span className="mx-2 text-neutral-500">|</span>
-          <Link href="/commanders" className="text-blue-400 hover:underline">
-            Commanders
-          </Link>
-          <span className="mx-2 text-neutral-500">|</span>
-          <Link href="/cards" className="text-blue-400 hover:underline">
-            Cards
-          </Link>
-        </div>
       </article>
-    </main>
+    </MetaLayout>
   );
 }
