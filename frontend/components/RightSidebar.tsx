@@ -169,7 +169,7 @@ export default function RightSidebar() {
       </div>
 
       {/* Hand Testing Widget - compact demo, collapsible on mobile */}
-      <div className={`w-full sticky top-[90px] z-20 ${debugSpace ? "outline outline-2 outline-amber-500" : ""}`}>
+      <div className={`w-full ${debugSpace ? "outline outline-2 outline-amber-500" : ""}`}>
         <div className="lg:hidden">
           <button
             onClick={() => setHandTestCollapsed(!handTestCollapsed)}

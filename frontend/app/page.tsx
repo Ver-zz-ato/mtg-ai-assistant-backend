@@ -116,7 +116,7 @@ export default function Page() {
           </nav>
         </div>
         
-        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:pr-[min(400px,28vw)]">
+        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">
             <MetaDeckPanel />
@@ -129,12 +129,10 @@ export default function Page() {
             <Chat />
           </section>
           
-          {/* Right sidebar - stacked below on mobile/tablet; fixed on desktop so it never moves when scrolling */}
-          <div className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none">
-            <aside className="lg:fixed lg:right-4 lg:top-4 lg:w-[min(400px,28vw)] lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:z-20">
-              <RightSidebar />
-            </aside>
-          </div>
+          {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop; scrolls with page like left sidebar */}
+          <aside className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none">
+            <RightSidebar />
+          </aside>
         </div>
       </div>
       <FeedbackFab />
