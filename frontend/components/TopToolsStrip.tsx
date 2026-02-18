@@ -39,11 +39,11 @@ export default function TopToolsStrip() {
   };
 
   const tools = [
-    { href: "/collections/cost-to-finish", img: "/Cost%20To%20Finish.png", alt: "Cost to Finish", tour: "cost-to-finish" },
-    { href: "/deck/swap-suggestions", img: "/Budget%20Swaps.png", alt: "Budget Swaps", tour: "budget-swaps" },
-    ...(riskyOn ? [{ href: "/price-tracker", img: "/Price%20Tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
+    { href: "/collections/cost-to-finish", img: "/cost-to-finish.png", alt: "Cost to Finish", tour: "cost-to-finish" },
+    { href: "/deck/swap-suggestions", img: "/budget-swaps.png", alt: "Budget Swaps", tour: "budget-swaps" },
+    ...(riskyOn ? [{ href: "/price-tracker", img: "/price-tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
     { href: "/tools/mulligan", img: "/mulligan-simulator.png", alt: "Mulligan Simulator", tour: "mulligan" },
-    { href: "/tools/probability", img: "/Probability%20Helpers.png", alt: "Probability Helpers", tour: "probability" },
+    { href: "/tools/probability", img: "/probability-helpers.png", alt: "Probability Helpers", tour: "probability" },
   ];
 
   return (
