@@ -152,6 +152,13 @@ export const AnalyticsEvents = {
   SHORTCUT_USED: 'shortcut_used',
   SHORTCUTS_HELP_OPENED: 'shortcuts_help_opened',
   
+  // ===== MULLIGAN / HAND TESTING =====
+  MULLIGAN_HAND_DRAWN: 'mulligan_hand_drawn',
+  MULLIGAN_ADVICE_REQUESTED: 'mulligan_advice_requested',
+  MULLIGAN_ADVICE_RECEIVED: 'mulligan_advice_received',
+  MULLIGAN_DECISION: 'mulligan_decision',
+  MULLIGAN_GATE_VIEWED: 'mulligan_gate_viewed',
+
   // ===== RATE LIMITING =====
   RATE_LIMIT_WARNING_SHOWN: 'rate_limit_warning_shown',
   RATE_LIMIT_INDICATOR_CLICKED: 'rate_limit_indicator_clicked',

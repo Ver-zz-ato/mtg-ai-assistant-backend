@@ -110,5 +110,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result, { status: 500 });
   }
 
+  try {
+    const { captureServer } = await import("@/lib/server/analytics");
+    const visitorId = cookieStore.get("visitor_id")?.value ?? null;
+    const distinctId = user?.id ?? visitorId ?? `anon_${Date.now()}`;
+    const res = result as { ok: boolean; action?: string; cached?: boolean };
+    await captureServer("mulligan_advice_requested", {
+      user_id: user?.id ?? null,
+      visitor_id: visitorId,
+      effective_tier: effectiveTier,
+      placement: "production_widget",
+      hand_size: parsed.data.hand.length,
+      mulligan_count: parsed.data.mulliganCount,
+      action: res.ok ? res.action ?? null : null,
+      cached: res.ok ? res.cached ?? null : null,
+    }, distinctId);
+  } catch {}
+
   return NextResponse.json(result);
 }

@@ -44,6 +44,7 @@ const SECTIONS: Section[] = [
       { href: '/admin/chat-levers', label: 'Chat Levers', eli5: 'Defaults, answer packs, rules tuning, model/cost policy.' },
       { href: '/admin/ai-test', label: 'AI Test Suite', eli5: 'Run test cases against the AI, compare prompt versions, find failures.' },
       { href: '/admin/mulligan-ai', label: 'Mulligan AI Playground', eli5: 'Test AI mulligan advice flow before homepage. Paste deck, draw hand, get keep/mulligan advice.' },
+      { href: '/admin/mulligan-analytics', label: 'Mulligan Analytics', eli5: 'Usage by tier (guest/free/pro), repeat users, daily breakdown. PostHog mulligan_* events.' },
     ],
   },
   {

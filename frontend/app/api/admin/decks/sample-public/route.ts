@@ -15,6 +15,19 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
+/** Build deck_text from deck_cards when deck_text is empty or too short */
+async function ensureDeckText(admin: any, deck: any): Promise<string> {
+  const dt = deck.deck_text;
+  if (typeof dt === "string" && dt.trim().length >= 50) return dt;
+  const { data: cards } = await admin
+    .from("deck_cards")
+    .select("name, qty")
+    .eq("deck_id", deck.id)
+    .order("created_at", { ascending: true });
+  if (!cards?.length) return "";
+  return cards.map((c: any) => `${c.qty || 1} ${c.name}`).join("\n");
+}
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
@@ -31,19 +44,43 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const count = Math.min(50, Math.max(1, parseInt(url.searchParams.get("count") || "10", 10)));
     const seed = url.searchParams.get("seed") || String(Date.now());
-
-    // Sample diverse public decks: different commanders, formats, colors
-    const { data: decks, error } = await admin
+    // 1) Try public decks first (no deck_text filter - browse uses deck_cards for count)
+    let { data: decks, error } = await admin
       .from("decks")
       .select("id, title, commander, format, colors, deck_text, created_at")
       .or("is_public.eq.true,public.eq.true")
-      .not("deck_text", "is", null)
       .order("updated_at", { ascending: false })
-      .limit(count * 4); // Over-fetch for diversity
+      .limit(count * 6);
+
+    // 2) Fallback: if no public decks, sample from ALL decks (including user's)
+    if (error || !decks?.length) {
+      const fallback = await admin
+        .from("decks")
+        .select("id, title, commander, format, colors, deck_text, created_at")
+        .order("updated_at", { ascending: false })
+        .limit(count * 6);
+      decks = fallback.data || [];
+      error = fallback.error;
+    }
 
     if (error || !decks?.length) {
-      return NextResponse.json({ ok: false, error: error?.message || "No public decks found" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: error?.message || "No decks found" }, { status: 400 });
     }
+
+    // Enrich deck_text from deck_cards when empty (source of truth like Browse page)
+    const enriched: any[] = [];
+    for (const d of decks) {
+      if (enriched.length >= count) break;
+      const deckText = await ensureDeckText(admin, d);
+      if (deckText.length < 20) continue; // skip decks with no real list
+      enriched.push({ ...d, deck_text: deckText });
+    }
+
+    if (enriched.length === 0) {
+      return NextResponse.json({ ok: false, error: "No decks with decklists (deck_text or deck_cards) found" }, { status: 400 });
+    }
+
+    const decksToUse = enriched;
 
     // Simple diversity: prefer different commanders, shuffle by seed
     const hash = (s: string) => {
@@ -51,14 +88,14 @@ export async function GET(req: NextRequest) {
       for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
       return Math.abs(h);
     };
-    const shuffled = [...decks].sort((a, b) => {
+    const shuffled = [...decksToUse].sort((a, b) => {
       const ha = hash(seed + (a.commander || a.id));
       const hb = hash(seed + (b.commander || b.id));
       return (ha % 1000) - (hb % 1000);
     });
 
     const seen = new Set<string>();
-    const diverse: typeof decks = [];
+    const diverse: typeof decksToUse = [];
     for (const d of shuffled) {
       const key = (d.commander || d.id) + (d.format || "");
       if (seen.has(key) && diverse.length >= count) continue;

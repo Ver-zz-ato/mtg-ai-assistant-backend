@@ -8,6 +8,8 @@ import {
   trackProUpgradeStarted,
   trackProFeatureUsed,
 } from "@/lib/analytics-pro";
+import { capture } from "@/lib/ph";
+import { AnalyticsEvents } from "@/lib/analytics/events";
 import { parseDecklist } from "@/lib/mulligan/parse-decklist";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
 
@@ -399,6 +401,13 @@ export default function HandTestingWidget({
     setCurrentHand(hand);
     setGameState("viewing");
     setIsAnimating(false);
+
+    capture(AnalyticsEvents.MULLIGAN_HAND_DRAWN, {
+      placement,
+      is_pro: isPro,
+      deck_size: expandedDeck.length,
+      hand_size: 7,
+    }, { isAuthenticated: !!isPro || freeRunsRemaining !== null });
   }, [
     canRun,
     isPro,
@@ -415,6 +424,14 @@ export default function HandTestingWidget({
   const handleDecision = useCallback(
     (decision: "keep" | "mulligan") => {
       if (!testSequence || !canRun) return;
+
+      capture(AnalyticsEvents.MULLIGAN_DECISION, {
+        placement,
+        is_pro: isPro,
+        decision,
+        hand_size: currentHand.length,
+        mulligan_count: mulliganCount,
+      }, { isAuthenticated: !!isPro || freeRunsRemaining !== null });
 
       const newDecision = {
         hand: [...currentHand],
@@ -461,7 +478,7 @@ export default function HandTestingWidget({
         setTestSequence(updatedSequence);
       }, 800);
     },
-    [testSequence, canRun, currentHand, mulliganCount, format, drawHand]
+    [testSequence, canRun, currentHand, mulliganCount, format, drawHand, placement, isPro]
   );
 
   const handleGetAdvice = useCallback(async () => {
@@ -469,6 +486,14 @@ export default function HandTestingWidget({
     setAdviceLoading(true);
     setAdviceError(null);
     setAdviceResult(null);
+
+    capture(AnalyticsEvents.MULLIGAN_ADVICE_REQUESTED, {
+      placement,
+      is_pro: isPro,
+      hand_size: currentHand.length,
+      mulligan_count: mulliganCount,
+    }, { isAuthenticated: !!isPro || freeRunsRemaining !== null });
+
     try {
       const res = await fetch("/api/mulligan/advice", {
         method: "POST",
@@ -500,13 +525,19 @@ export default function HandTestingWidget({
           reasons: data.reasons || [],
           suggestedLine: data.suggestedLine,
         });
+        capture(AnalyticsEvents.MULLIGAN_ADVICE_RECEIVED, {
+          placement,
+          is_pro: isPro,
+          action: data.action,
+          confidence: data.confidence,
+        }, { isAuthenticated: !!isPro || freeRunsRemaining !== null });
       }
     } catch (e) {
       setAdviceError(e instanceof Error ? e.message : "Request failed");
     } finally {
       setAdviceLoading(false);
     }
-  }, [currentHand, resolvedDeckCards, commanderName, mulliganCount]);
+  }, [currentHand, resolvedDeckCards, commanderName, mulliganCount, placement, isPro, freeRunsRemaining]);
 
   const shareSequence = useCallback(() => {
     if (!testSequence) return;
