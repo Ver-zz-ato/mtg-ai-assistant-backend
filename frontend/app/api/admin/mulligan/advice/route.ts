@@ -8,6 +8,7 @@ import {
   setMulliganAdviceCache,
   CACHE_TTL_SECONDS,
 } from "@/lib/mulligan/advice-cache";
+import { evaluateHandDeterministically } from "@/lib/mulligan/hand-score";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 
 export const runtime = "nodejs";
@@ -133,6 +134,14 @@ export async function POST(req: NextRequest) {
     computeHandFactsWithTypes(hand),
   ]);
 
+  const handEval = evaluateHandDeterministically({
+    profile,
+    handFacts,
+    hand,
+    playDraw,
+    mulliganCount,
+  });
+
   const cacheKey = buildMulliganAdviceCacheKey(
     deck,
     hand,
@@ -159,6 +168,7 @@ export async function POST(req: NextRequest) {
         modelUsed: cached.model_used,
         profileSummary: `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle}`,
         handFacts,
+        handEval: { score: handEval.score, tags: handEval.tags, keepBias: handEval.keepBias },
         cached: true,
         cacheKey,
         cacheTtlSeconds: CACHE_TTL_SECONDS,
@@ -174,7 +184,7 @@ RULES:
 - Use the DeckProfile and keepHeuristics. Compare the hand RELATIVE to this deck's density only.
 - Do NOT reference "average commander land count", "typical commander", or "in commander you usually" at all. Only talk about this deck's landPercent and density.
 - You MUST NOT claim the hand contains ramp/tutor/draw/interaction/protection/fast mana unless handFacts says so. handFacts is authoritative.
-- If DeckProfile has commanderPlan (early_engine, late_engine, not_central), you MAY cite it in reasons. Example: "Deck plan is early_engine; this hand doesn't enable commander by T2/T3." That helps users accept aggressive mulligans.
+- deterministicKeepBias is a policy anchor: If KEEP, only output MULLIGAN if you can cite a specific strong reason (e.g. 0 lands, uncastable colors). If MULLIGAN, only output KEEP if you can cite specific stabilizers (e.g. multiple lands + acceleration + engine).
 - Every reason MUST reference either: (a) a specific card actually in the hand, or (b) a profile baseline (e.g. "deck expects early acceleration").
 - Do not invent cards. If uncertain, say so briefly.
 
@@ -193,11 +203,15 @@ ${JSON.stringify(profile)}
 handFacts (authoritative; do NOT claim hand has ramp/tutor/etc unless handFacts says so):
 ${JSON.stringify(handFacts)}
 
+deterministicKeepBias: ${handEval.keepBias}
+deterministicScore: ${handEval.score}
+deterministicTags: ${JSON.stringify(handEval.tags)}
+
 Hand: ${JSON.stringify(hand)}
 
 Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}
 
-Task: Decide KEEP or MULLIGAN for this specific deck. Explain relative to the deck's profile. Output JSON only.`;
+Task: Decide KEEP or MULLIGAN for this specific deck. Respect deterministicKeepBias as policy anchor. Explain relative to the deck's profile. Output JSON only.`;
 
   const model = effectiveModelTier === "mini" ? MINI_MODEL : FULL_MODEL;
 
@@ -295,6 +309,38 @@ Task: Decide KEEP or MULLIGAN for this specific deck. Explain relative to the de
     }
     result.confidence = Math.max(0, Math.min(100, Number(result.confidence)));
 
+    // Hard overrides: universal rules
+    if (handFacts.handLandCount === 0) {
+      result.action = "MULLIGAN";
+      result.confidence = Math.max(result.confidence, 85);
+    } else if (
+      handFacts.handLandCount === 1 &&
+      !handFacts.hasRamp &&
+      !handFacts.hasFastMana
+    ) {
+      result.action = "MULLIGAN";
+      result.confidence = Math.max(result.confidence, 75);
+    }
+
+    // Post-process: enforce consistency with deterministicKeepBias (clamp confidence, add honesty)
+    if (handEval.keepBias === "KEEP" && result.action === "MULLIGAN" && result.confidence >= 75) {
+      result.confidence = 60;
+      result.reasons = [
+        "Deterministic check rates this as a stable keep for this deck; mulligan only if pod is very fast.",
+        ...result.reasons.slice(0, 3),
+      ].slice(0, 5);
+    } else if (
+      handEval.keepBias === "MULLIGAN" &&
+      result.action === "KEEP" &&
+      result.confidence >= 75
+    ) {
+      result.confidence = 60;
+      result.reasons = [
+        "Deterministic check flags this as risky; keep only if you accept a slow start.",
+        ...result.reasons.slice(0, 3),
+      ].slice(0, 5);
+    }
+
     const profileSummary = `${profile.archetype} v${profile.velocityScore} ${profile.mulliganStyle} (${profile.landPercent}% lands, ${profile.fastManaCount} fastMana, ${profile.tutorCount} tutors)`;
 
     const payload = {
@@ -309,6 +355,7 @@ Task: Decide KEEP or MULLIGAN for this specific deck. Explain relative to the de
       modelUsed: response.actualModel,
       profileSummary,
       handFacts,
+      handEval: { score: handEval.score, tags: handEval.tags, keepBias: handEval.keepBias },
       cached: false,
       cacheKey,
       cacheTtlSeconds: CACHE_TTL_SECONDS,

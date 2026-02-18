@@ -78,6 +78,7 @@ export default function MulliganAiPlayground() {
     cacheKey?: string;
     effectiveTier?: string;
     effectiveModelTier?: string;
+    handEval?: { score: number; tags: string[]; keepBias: string };
   } | null>(null);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
@@ -330,6 +331,7 @@ export default function MulliganAiPlayground() {
         cacheKey: data.cacheKey,
         effectiveTier: data.effectiveTier,
         effectiveModelTier: data.effectiveModelTier,
+        handEval: data.handEval,
       });
       setRawJson(JSON.stringify(data, null, 2));
 
@@ -453,7 +455,7 @@ export default function MulliganAiPlayground() {
                   tc.hands.map((_, i) => (
                     <option key={`${tc.id}-${i}`} value={`${tc.id}:${i}`}>
                       {tc.label} — Hand {i + 1}
-                      {i === 3 ? " (trap)" : ""}
+                      {tc.handLabels?.[i] ? ` (${tc.handLabels[i]})` : i === 3 && !tc.handLabels ? " (trap)" : ""}
                     </option>
                   ))
                 )}
@@ -836,6 +838,14 @@ export default function MulliganAiPlayground() {
               <details className="text-xs text-neutral-500">
                 <summary>Cache key (debug)</summary>
                 <code className="block mt-1 p-2 bg-neutral-950 rounded break-all">{result.cacheKey}</code>
+              </details>
+            )}
+            {result.handEval && (
+              <details className="text-xs text-neutral-500">
+                <summary>Deterministic pre-score: {result.handEval.score} ({result.handEval.keepBias})</summary>
+                <div className="mt-1 p-2 bg-neutral-950 rounded space-y-1">
+                  <div>tags: {result.handEval.tags.join(", ")}</div>
+                </div>
               </details>
             )}
             {result.dependsOn && result.dependsOn.length > 0 && (

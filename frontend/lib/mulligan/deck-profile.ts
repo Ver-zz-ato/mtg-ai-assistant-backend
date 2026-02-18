@@ -269,9 +269,12 @@ export function buildDeckProfile(
     }
   }
   if (commanderPlan !== "unknown") {
+    const earlyEngineStrong = mulliganStyle === "aggressive" || velocityScore >= 7;
     keepHeuristics.push(
       commanderPlan === "early_engine"
-        ? "Enable commander by T2/T3; hands that can't deploy commander early are below average."
+        ? earlyEngineStrong
+          ? "Enable commander by T2/T3; hands that can't deploy commander early are below average."
+          : "Prefer enabling commander early; however stable mana + acceleration is still a keep in balanced builds."
         : commanderPlan === "late_engine"
           ? "Commander is a value engine; prefer mana + draw to reach it."
           : "Commander is not central; evaluate hand on its own merits."
@@ -428,9 +431,12 @@ export async function buildDeckProfileWithTypes(
     }
   }
   if (commanderPlan !== "unknown") {
+    const earlyEngineStrong = mulliganStyle === "aggressive" || velocityScore >= 7;
     keepHeuristics.push(
       commanderPlan === "early_engine"
-        ? "Enable commander by T2/T3; hands that can't deploy commander early are below average."
+        ? earlyEngineStrong
+          ? "Enable commander by T2/T3; hands that can't deploy commander early are below average."
+          : "Prefer enabling commander early; however stable mana + acceleration is still a keep in balanced builds."
         : commanderPlan === "late_engine"
           ? "Commander is a value engine; prefer mana + draw to reach it."
           : "Commander is not central; evaluate hand on its own merits."

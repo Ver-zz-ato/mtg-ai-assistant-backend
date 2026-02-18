@@ -9,6 +9,8 @@ export type GoldenTestCase = {
   decklist: string;
   commander: string;
   hands: string[][];
+  /** Optional per-hand labels for dropdown (e.g. "stable keep", "truly bad") */
+  handLabels?: string[];
 };
 
 export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
@@ -101,7 +103,12 @@ export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
       ["Island", "Forest", "Plains", "Arcane Signet", "Sylvan Library", "Counterspell", "Exploration"],
       // TRAP: 2 lands + 2 ramp + no payoff — keeps spinning wheels
       ["Forest", "Island", "Rampant Growth", "Cultivate", "Kodama's Reach", "Farseek", "Nature's Lore"],
+      // Stable keep: 3 lands + Birds + interaction + engine — expected KEEP or NEUTRAL
+      ["Forest", "Island", "Forest", "Birds of Paradise", "Beast Within", "Rhystic Study", "Tatyova, Benthic Druid"],
+      // Truly bad: 2 lands + no accel + 5 expensive spells (no draw) — expected MULLIGAN
+      ["Forest", "Island", "Avenger of Zendikar", "Craterhoof Behemoth", "Oracle of Mul Daya", "Cyclonic Rift", "Scute Swarm"],
     ],
+    handLabels: ["", "", "", "trap", "stable keep", "truly bad"],
   },
   {
     id: "control_heavy",
