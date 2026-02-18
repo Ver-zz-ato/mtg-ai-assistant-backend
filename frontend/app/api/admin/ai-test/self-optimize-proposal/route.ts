@@ -85,9 +85,10 @@ export async function POST(req: NextRequest) {
       "Analyze this Commander deck. Identify 3 upgrades and 3 cuts with reasons. Respect color identity.",
       "Find potential combos/synergies and 2 weak slots.",
     ];
+    let lastInsertError: string | null = null;
     for (const deck of deckData.decks) {
       const deckText = deck.decklist_text || deck.deck_text || "";
-      if (!deckText) continue;
+      if (!deckText || deckText.length < 20) continue;
       for (let i = 0; i < Math.min(2, prompts.length); i++) {
         const input = {
           deckText,
@@ -97,18 +98,19 @@ export async function POST(req: NextRequest) {
           colors: deck.colors || [],
         };
         const tags = ["deck_sample", `deck_id:${deck.deck_id}`, deck.commander ? `commander:${deck.commander}` : ""].filter(Boolean);
-        const { data: inserted } = await supabase
+        const { data: inserted, error: insertErr } = await supabase
           .from("ai_test_cases")
           .insert({
             name: `Deck sample: ${deck.commander || deck.title} (${i + 1})`,
             type: "deck_analysis",
             input,
-            expected_checks: null,
+            expected_checks: {},
             tags,
             source: "auto_deck_sample",
           })
           .select("id, name, input, tags")
           .single();
+        if (insertErr) lastInsertError = insertErr.message;
         if (inserted) deckSampleCases.push({ ...inserted, expectedChecks: null, tags: inserted.tags || [] });
       }
     }
@@ -116,7 +118,8 @@ export async function POST(req: NextRequest) {
     evidence.deck_sample_count = deckSampleCases.length;
 
     if (deckSampleCases.length === 0) {
-      return NextResponse.json({ ok: false, error: "No public decks with decklists to sample. Add public decks first." }, { status: 400 });
+      const hint = lastInsertError ? ` (Insert error: ${lastInsertError})` : deckData.decks?.length ? " (All decks had empty decklists?)" : "";
+      return NextResponse.json({ ok: false, error: `No decks with decklists could be sampled.${hint}` }, { status: 400 });
     }
 
     // 3. Ensure Golden Set exists (optional when ai_test_cases is empty - we'll use deck samples only)
