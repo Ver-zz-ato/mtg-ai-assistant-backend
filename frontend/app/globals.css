@@ -32,6 +32,26 @@
   0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.25); }
   50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
 }
+
+/* Ghost hand fan - hover lift */
+.ghost-hand-card {
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+.group:hover .ghost-hand-card:nth-child(1) { transform: translateY(-6px) rotate(-12deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(2) { transform: translateY(-5px) rotate(-8deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(3) { transform: translateY(-4px) rotate(-4deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(4) { transform: translateY(-3px) rotate(0deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(5) { transform: translateY(-4px) rotate(4deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(6) { transform: translateY(-5px) rotate(8deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(7) { transform: translateY(-6px) rotate(12deg); filter: blur(0); opacity: 0.9; }
+
+/* Ghost hand exit animation */
+.ghost-hand-exiting .ghost-hand-card {
+  opacity: 0;
+  transform: translateY(8px) scale(0.95) !important;
+  filter: blur(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+}
 .skeleton-shimmer {
   background-image: linear-gradient(90deg, rgba(38,38,38,0.6) 0%, rgba(64,64,64,0.85) 50%, rgba(38,38,38,0.6) 100%);
   background-size: 200% 100%;

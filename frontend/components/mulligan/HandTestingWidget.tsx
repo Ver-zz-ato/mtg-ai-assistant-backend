@@ -125,6 +125,8 @@ export default function HandTestingWidget({
     suggestedLine?: string;
   } | null>(null);
   const [adviceError, setAdviceError] = useState<string | null>(null);
+  const [ghostHandExiting, setGhostHandExiting] = useState(false);
+  const [aiTeaserTooltip, setAiTeaserTooltip] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const canRun =
@@ -720,89 +722,200 @@ export default function HandTestingWidget({
     expandedDeck.length >= 7 &&
     (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested));
 
+  const handleDrawClick = async () => {
+    if (
+      gameState === "initial" &&
+      !ghostHandExiting &&
+      canRun &&
+      !isAnimating &&
+      !imagesLoading &&
+      expandedDeck.length >= 7 &&
+      (Object.keys(cardImages).length > 0 || (placement === "HOME" && !imagesRequested))
+    ) {
+      setGhostHandExiting(true);
+      await new Promise((r) => setTimeout(r, 250));
+      setGhostHandExiting(false);
+    }
+    await startHandTest();
+  };
+
+  const handleAiTeaserClick = () => {
+    if (gameState !== "viewing" || currentHand.length === 0) {
+      setAiTeaserTooltip(true);
+      setTimeout(() => setAiTeaserTooltip(false), 2500);
+    } else {
+      const el = document.querySelector("[data-ai-advice-btn]");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
   return (
     <div
       ref={containerRef}
-      className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 w-full min-w-0 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200 ${compact ? "p-3" : ""} ${className}`}
+      className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 sm:p-5 w-full min-w-0 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200 group ${compact ? "p-3" : ""} ${className}`}
     >
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
-            {imagesLoading ? (
-              <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
+      {/* Idle state: ghost hand + CTA + AI teaser */}
+      {gameState === "initial" && (
+        <div
+          className={`flex flex-col md:flex-row items-center gap-6 md:gap-8 py-4 md:py-6 ${ghostHandExiting ? "ghost-hand-exiting" : ""}`}
+        >
+          {/* Ghost hand preview - fanned card backs */}
+          <div className="flex flex-col items-center shrink-0 order-2 md:order-1">
+            <div className="relative h-16 w-28 md:h-20 md:w-36 flex justify-center items-end">
+              <div
+                className="absolute inset-0 rounded-full opacity-15 blur-2xl bg-amber-500/40 group-hover:opacity-25 transition-opacity duration-200 pointer-events-none"
+                style={{ width: "160%", left: "-30%", top: "10%" }}
+              />
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="ghost-hand-card absolute rounded border border-neutral-600/70 bg-gradient-to-br from-neutral-800 to-neutral-900"
+                  style={{
+                    width: 22,
+                    height: 30,
+                    left: `calc(50% - 11px + ${(i - 3) * 12}px)`,
+                    bottom: 0,
+                    transform: `rotate(${(i - 3) * 6}deg)`,
+                    filter: "blur(0.5px)",
+                    opacity: 0.8,
+                    transformOrigin: "bottom center",
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-neutral-600 mt-2">Ready to draw 7</p>
+          </div>
+
+          {/* CTA + header block */}
+          <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0 order-1 md:order-2">
+            <div className="flex items-center gap-3 min-w-0 w-full md:justify-start justify-center">
+              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
+                {imagesLoading ? (
+                  <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <CardsIcon className="w-4 h-4" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+                <p className="text-xs text-neutral-500 truncate">
+                  Testing: {commanderName ?? "Deck"}
+                  {mode === "DEMO" && (
+                    <span className="ml-1 text-neutral-600">(Example)</span>
+                  )}
+                </p>
+                <p className="text-xs text-neutral-500 truncate">
+                  {imagesLoading ? "Loading..." : `${expandedDeck.length} cards`}
+                </p>
+                {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
+                  <p className="text-xs text-emerald-400 mt-1">
+                    {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? "s" : ""} remaining
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col items-center md:items-start gap-2 w-full md:w-auto">
+              <button
+                onClick={handleDrawClick}
+                disabled={
+                  isAnimating ||
+                  imagesLoading ||
+                  expandedDeck.length < 7 ||
+                  (Object.keys(cardImages).length === 0 &&
+                    !(placement === "HOME" && !imagesRequested))
+                }
+                className={`px-5 py-2.5 rounded-lg font-medium transition-colors ${
+                  isAnimating ||
+                  imagesLoading ||
+                  expandedDeck.length < 7 ||
+                  (Object.keys(cardImages).length === 0 &&
+                    !(placement === "HOME" && !imagesRequested))
+                    ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
+                    : "bg-amber-600 hover:bg-amber-500 text-black"
+                }`}
+              >
+                {imagesLoading
+                  ? "Loading..."
+                  : Object.keys(cardImages).length === 0 &&
+                      !(placement === "HOME" && !imagesRequested)
+                    ? "Waiting for Images..."
+                    : "Draw Opening Hand"}
+              </button>
+              {/* AI advice teaser - prominent */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={handleAiTeaserClick}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/60 text-amber-200/90 hover:text-amber-100 text-sm font-medium transition-all"
+                >
+                  <span aria-hidden className="text-base">🧠</span>
+                  Want help? Get AI advice for any opening hand.
+                </button>
+                {aiTeaserTooltip && (
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-600 text-xs text-neutral-300 whitespace-nowrap z-10 shadow-xl">
+                    Draw a hand first, then click Get AI Advice.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Non-initial: header row + actions (viewing/finished) */}
+      {gameState !== "initial" && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
               <CardsIcon className="w-4 h-4" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-neutral-200">
-              🃏 Mulligan Simulator
-            </h3>
-            <p className="text-xs text-neutral-500 truncate">
-              Testing: {commanderName ?? "Deck"}
-              {mode === "DEMO" && (
-                <span className="ml-1 text-neutral-600">(Example)</span>
-              )}
-            </p>
-            <p className="text-xs text-neutral-500 truncate">
-              {imagesLoading ? "Loading..." : `${expandedDeck.length} cards`}
-            </p>
-            {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
-              <p className="text-xs text-emerald-400 mt-1">
-                {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? "s" : ""}{" "}
-                remaining
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+              <p className="text-xs text-neutral-500 truncate">
+                Testing: {commanderName ?? "Deck"} · {expandedDeck.length} cards
               </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+            {testSequence && gameState === "finished" && (
+              <button
+                onClick={shareSequence}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-colors"
+              >
+                Share
+              </button>
             )}
+            <button
+              onClick={handleDrawClick}
+              disabled={
+                isAnimating ||
+                imagesLoading ||
+                expandedDeck.length < 7 ||
+                (Object.keys(cardImages).length === 0 &&
+                  !(placement === "HOME" && !imagesRequested))
+              }
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isAnimating ||
+                imagesLoading ||
+                expandedDeck.length < 7 ||
+                (Object.keys(cardImages).length === 0 &&
+                  !(placement === "HOME" && !imagesRequested))
+                  ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
+                  : "bg-amber-600 hover:bg-amber-500 text-black"
+              }`}
+            >
+              {isAnimating ? "Shuffling..." : "New Test"}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-          {testSequence && gameState === "finished" && (
-            <button
-              onClick={shareSequence}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-all duration-300 hover:scale-[1.02]"
-            >
-              Share
-            </button>
-          )}
-          <button
-            onClick={startHandTest}
-            disabled={
-              isAnimating ||
-              imagesLoading ||
-              expandedDeck.length < 7 ||
-              (Object.keys(cardImages).length === 0 &&
-                !(placement === "HOME" && !imagesRequested))
-            }
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              isAnimating ||
-              imagesLoading ||
-              expandedDeck.length < 7 ||
-              (Object.keys(cardImages).length === 0 &&
-                !(placement === "HOME" && !imagesRequested))
-                ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-                : "bg-amber-600 hover:bg-amber-500 text-black"
-            }`}
-          >
-            {imagesLoading
-              ? "Loading..."
-              : Object.keys(cardImages).length === 0 &&
-                  !(placement === "HOME" && !imagesRequested)
-                ? "Waiting for Images..."
-                : gameState === "initial"
-                  ? "Draw Opening Hand"
-                  : isAnimating
-                    ? "Shuffling..."
-                    : "New Test"}
-          </button>
-        </div>
-      </div>
+      )}
 
       {(gameState === "viewing" || gameState === "finished") &&
         currentHand.length > 0 && (
           <div className="mb-4">
             <div className="mb-2">
               <h4 className="text-sm font-medium text-neutral-200">
-                Hand #{testSequence ? testSequence.decisions.length : 1}
+                Hand #{testSequence ? testSequence.decisions.length + 1 : 1}
               </h4>
               <p className="text-xs text-neutral-500">
                 {mulliganCount} mulligan{mulliganCount !== 1 ? "s" : ""} taken
@@ -906,14 +1019,15 @@ export default function HandTestingWidget({
                   </button>
                 </div>
                 <p className="text-[10px] text-neutral-600 text-center">London mulligan rule.</p>
-                <div className="text-center pt-1">
-                  <p className="text-xs text-neutral-500 mb-1">Need help deciding?</p>
+                <div className="text-center pt-3">
+                  <p className="text-sm font-medium text-amber-200/90 mb-2">Need help deciding?</p>
                   <button
+                    data-ai-advice-btn
                     onClick={handleGetAdvice}
                     disabled={adviceLoading}
-                    className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors inline-flex items-center gap-1.5"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-amber-500/60 bg-amber-500/15 hover:bg-amber-500/25 hover:border-amber-500/80 text-amber-100 font-medium transition-all"
                   >
-                    <span aria-hidden>🧠</span>
+                    <span aria-hidden className="text-lg">🧠</span>
                     {adviceLoading ? "Loading…" : "Get AI Advice on this hand"}
                   </button>
                 </div>

@@ -98,7 +98,7 @@ export default function MulliganDeckInput() {
   const hasDeck = mode === "DEMO" || deckCards.length > 0 || deckId;
 
   return (
-    <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 space-y-3 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
+    <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-5 sm:p-6 space-y-4 min-h-[280px] hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setDeckSource("example")}
@@ -185,7 +185,7 @@ export default function MulliganDeckInput() {
         decklistText={deckSource === "paste" ? deckText : undefined}
         deckCards={deckCards.length > 0 ? deckCards : undefined}
         commanderName={commander}
-        compact={true}
+        compact={false}
         placement="HOME"
         className="w-full border-0 rounded-none bg-transparent p-0"
       />
