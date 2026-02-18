@@ -112,6 +112,18 @@ export default function MetaDeckPanel() {
             </div>
           </div>
 
+          {/* Meta hub link */}
+          <div className="mb-4">
+            <Link
+              href="/meta"
+              className="flex items-center gap-2 text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors py-2 px-3 rounded-lg bg-purple-900/20 hover:bg-purple-900/30 border border-purple-700/30"
+            >
+              <span>📈</span>
+              Stay Ahead of the Commander Meta
+            </Link>
+            <p className="text-xs text-gray-500 mt-1 px-3">Trending commanders, cards & budget builds. Updated daily.</p>
+          </div>
+
           {/* Format Distribution */}
           <div>
             <h4 className="text-sm font-semibold text-gray-300 mb-2">📝 Formats</h4>

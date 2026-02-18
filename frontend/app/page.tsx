@@ -109,43 +109,22 @@ export default function Page() {
         {/* Trending Commanders - product strip below builder */}
         <TrendingCommandersStrip />
 
-        {/* SEO text block - collapsible, below builder for shorter above-the-fold */}
-        <details className="max-w-[1600px] mx-auto px-4 py-4 mt-2 border-t border-neutral-800 [&>summary::-webkit-details-marker]:hidden">
-          <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300 list-none py-2 select-none">
-            <span className="inline-flex items-center gap-2">
-              <span className="text-neutral-500">▸</span>
-              Explore popular commanders
-            </span>
-          </summary>
-          <div className="pt-4 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              MTG AI Deck Builder
-            </h1>
-            <p className="text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
-              Build, analyze, and optimize Magic: The Gathering decks with AI-powered suggestions.
-              Free to start—no signup required.
-            </p>
-            <nav className="text-sm text-neutral-400 mt-4" aria-label="Tools and discovery">
-              <span className="font-medium text-neutral-300">Tools: </span>
-              <a href="/tools/mulligan" className="hover:text-white">Mulligan Simulator</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/tools/probability" className="hover:text-white">Probability Calculator</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/collections/cost-to-finish" className="hover:text-white">Deck Cost Calculator</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/deck/swap-suggestions" className="hover:text-white">Budget Swap Optimizer</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/price-tracker" className="hover:text-white">Price Tracker</a>
-              <span className="mx-2 text-neutral-600">|</span>
-              <span className="font-medium text-neutral-300">Explore: </span>
-              <a href="/commanders" className="hover:text-white">Commanders</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/meta/trending-commanders" className="hover:text-white">Top Commanders</a>
-              <span className="mx-2 text-neutral-600">·</span>
-              <a href="/meta" className="hover:text-white">Meta</a>
-            </nav>
-          </div>
-        </details>
+        {/* SEO nav links - minimal, no collapsible */}
+        <nav className="max-w-[1600px] mx-auto px-4 py-3 mt-2 border-t border-neutral-800 text-center text-sm text-neutral-500" aria-label="Tools and discovery">
+          <a href="/tools/mulligan" className="hover:text-white">Mulligan</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/tools/probability" className="hover:text-white">Probability</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/collections/cost-to-finish" className="hover:text-white">Cost to Finish</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/deck/swap-suggestions" className="hover:text-white">Budget Swaps</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/price-tracker" className="hover:text-white">Price Tracker</a>
+          <span className="mx-2 text-neutral-600">|</span>
+          <a href="/commanders" className="hover:text-white">Commanders</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/meta" className="hover:text-white">Meta</a>
+        </nav>
       </div>
       <FeedbackFab />
       <EmailVerificationSuccessPopup />

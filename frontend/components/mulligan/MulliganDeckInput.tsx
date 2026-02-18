@@ -98,37 +98,34 @@ export default function MulliganDeckInput() {
   const hasDeck = mode === "DEMO" || deckCards.length > 0 || deckId;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border-2 border-amber-700/50 bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-4 space-y-3 shadow-lg shadow-amber-900/20 transition-all duration-300">
-      {/* Subtle amber gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
-      <div className="relative">
+    <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 space-y-3 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setDeckSource("example")}
-          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
             deckSource === "example"
-              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
-              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
+              ? "bg-neutral-700 text-white border border-neutral-600"
+              : "bg-transparent border border-neutral-600 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-300"
           }`}
         >
           Example deck
         </button>
         <button
           onClick={() => setDeckSource("paste")}
-          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
             deckSource === "paste"
-              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
-              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
+              ? "bg-neutral-700 text-white border border-neutral-600"
+              : "bg-transparent border border-neutral-600 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-300"
           }`}
         >
           Paste
         </button>
         <button
           onClick={() => setDeckSource("load")}
-          className={`px-2 py-1.5 rounded text-xs font-medium transition-all duration-300 ${
+          className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
             deckSource === "load"
-              ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/25"
-              : "bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-amber-500/50"
+              ? "bg-neutral-700 text-white border border-neutral-600"
+              : "bg-transparent border border-neutral-600 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-300"
           }`}
         >
           Load deck
@@ -145,15 +142,17 @@ export default function MulliganDeckInput() {
         </div>
       )}
       {deckSource === "load" && !user && !authLoading && (
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "signup" } }))}
-          className="w-full rounded-lg border-2 border-dashed border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/80 transition-all py-4 px-4 flex flex-col items-center gap-2 group"
-        >
-          <span className="text-amber-400 font-semibold text-sm">Sign in to load your decks</span>
-          <span className="text-neutral-400 text-xs">Save decks and test opening hands anytime</span>
-          <span className="text-amber-500 text-xs font-medium group-hover:text-amber-400">Sign up free →</span>
-        </button>
+        <div className="rounded-lg border border-neutral-700 bg-neutral-800/60 py-6 px-4 flex flex-col items-center gap-2 text-center">
+          <span className="text-neutral-200 font-medium text-sm">Sign in to load your decks</span>
+          <span className="text-neutral-500 text-xs">Save decks and test opening hands anytime.</span>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "signup" } }))}
+            className="mt-1 px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black text-sm font-medium transition-colors"
+          >
+            Sign up free →
+          </button>
+        </div>
       )}
       {deckSource === "load" && (user || authLoading) && (
         <select
@@ -169,19 +168,9 @@ export default function MulliganDeckInput() {
           ))}
         </select>
       )}
-      {hasDeck && (
+      {hasDeck && deckSource !== "example" && (
         <div className="text-[10px] text-neutral-500">
-          {deckSource === "example" ? (
-            <>
-              Using:{" "}
-              <Link
-                href={`/commanders/${EXAMPLE_COMMANDER_SLUG}`}
-                className="text-amber-500 hover:text-amber-400 underline"
-              >
-                {FIRST_SAMPLE?.name ?? "Example"} ({FIRST_SAMPLE?.commander ?? ""})
-              </Link>
-            </>
-          ) : deckSource === "load" && deckId ? (
+          {deckSource === "load" && deckId ? (
             decks.find((d) => d.id === deckId)?.title ?? "Loaded"
           ) : deckSource === "paste" ? (
             "Pasted deck"
@@ -200,7 +189,6 @@ export default function MulliganDeckInput() {
         placement="HOME"
         className="w-full border-0 rounded-none bg-transparent p-0"
       />
-      </div>
     </div>
   );
 }

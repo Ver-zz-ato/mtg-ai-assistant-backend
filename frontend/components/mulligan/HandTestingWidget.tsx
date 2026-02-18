@@ -593,15 +593,15 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`bg-neutral-900 border border-neutral-700 rounded-lg p-4 w-full min-w-0 ${className}`}
+        className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 w-full min-w-0 ${className}`}
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
-            🃏
+          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center">
+            <CardsIcon className="w-4 h-4 text-neutral-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-amber-200">Hand Testing Widget</h3>
-            <p className="text-xs opacity-70">Checking Pro status...</p>
+            <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+            <p className="text-xs text-neutral-500">Checking Pro status...</p>
           </div>
         </div>
       </div>
@@ -612,27 +612,21 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-amber-900/20 to-neutral-950 border-2 border-amber-700/50 rounded-lg p-4 shadow-lg shadow-amber-900/20 transition-all duration-300 ${className}`}
+        className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 ${className}`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
-        <div className="relative flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
-            <CardsIcon className="w-4 h-4" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0">
+            <CardsIcon className="w-4 h-4 text-neutral-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-amber-200">
-              Hand Testing Widget - PRO Feature
-            </h3>
-            <p className="text-sm opacity-80">
-              You&apos;ve used your 3 free runs. Upgrade to Pro for unlimited
-              access!
+            <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+            <p className="text-sm text-neutral-400">
+              You&apos;ve used your 3 free runs. Upgrade to Pro for unlimited access!
             </p>
           </div>
-          <div className="ml-auto">
-            <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-2 py-1 uppercase">
-              PRO
-            </span>
-          </div>
+          <span className="ml-auto inline-flex items-center rounded bg-amber-600/80 text-black text-[10px] font-bold px-2 py-1 uppercase">
+            PRO
+          </span>
         </div>
         <div className="text-center">
           <button
@@ -644,7 +638,7 @@ export default function HandTestingWidget({
               });
               window.location.href = "/pricing";
             }}
-            className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-black font-semibold rounded-lg hover:from-amber-500 hover:to-amber-400"
+            className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-medium rounded-lg transition-colors"
           >
             Upgrade to Pro
           </button>
@@ -657,16 +651,15 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/40 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/10 transition-all duration-300 ${className}`}
+        className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 w-full min-w-0 ${className}`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
-        <div className="relative flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
-            <CardsIcon className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0">
+            <CardsIcon className="w-4 h-4 text-neutral-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-amber-200">Hand Testing</h3>
-            <p className="text-xs opacity-70">
+            <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+            <p className="text-xs text-neutral-500">
               {deckResolveError ||
                 (placement === "MULLIGAN_PAGE"
                   ? "Paste a decklist above to test hands"
@@ -682,16 +675,15 @@ export default function HandTestingWidget({
     return (
       <div
         ref={containerRef}
-        className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/40 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/10 transition-all duration-300 ${className}`}
+        className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 w-full min-w-0 ${className}`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
-        <div className="relative flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0">
+            <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
           </div>
           <div>
-            <h3 className="font-semibold text-amber-200">Hand Testing</h3>
-            <p className="text-xs opacity-70">Loading deck...</p>
+            <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
+            <p className="text-xs text-neutral-500">Loading deck...</p>
           </div>
         </div>
       </div>
@@ -731,24 +723,30 @@ export default function HandTestingWidget({
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 border-2 border-amber-700/50 rounded-lg p-4 w-full min-w-0 shadow-lg shadow-amber-900/20 transition-all duration-300 ${compact ? "p-3" : ""} ${className}`}
+      className={`rounded-lg border border-neutral-700 bg-neutral-900/80 p-4 w-full min-w-0 hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200 ${compact ? "p-3" : ""} ${className}`}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-amber-600/5 pointer-events-none" />
-      <div className="relative">
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 text-white transition-transform duration-300 hover:scale-105">
+          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
             {imagesLoading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
             ) : (
               <CardsIcon className="w-4 h-4" />
             )}
           </div>
-          <div className="min-w-0 border-b border-amber-600/30 pb-1">
-            <h3 className="font-semibold text-lg bg-gradient-to-r from-amber-200 to-amber-100 bg-clip-text text-transparent">
-              {commanderName ? `Hand Testing: ${commanderName}` : "Hand Testing"}
+          <div className="min-w-0">
+            <h3 className="font-semibold text-neutral-200">
+              🃏 Mulligan Simulator
             </h3>
-            <p className="text-xs opacity-70 truncate">{statusText}</p>
+            <p className="text-xs text-neutral-500 truncate">
+              Testing: {commanderName ?? "Deck"}
+              {mode === "DEMO" && (
+                <span className="ml-1 text-neutral-600">(Example)</span>
+              )}
+            </p>
+            <p className="text-xs text-neutral-500 truncate">
+              {imagesLoading ? "Loading..." : `${expandedDeck.length} cards`}
+            </p>
             {!isPro && freeRunsRemaining !== null && freeRunsRemaining > 0 && (
               <p className="text-xs text-emerald-400 mt-1">
                 {freeRunsRemaining} free run{freeRunsRemaining !== 1 ? "s" : ""}{" "}
@@ -775,15 +773,14 @@ export default function HandTestingWidget({
               (Object.keys(cardImages).length === 0 &&
                 !(placement === "HOME" && !imagesRequested))
             }
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               isAnimating ||
               imagesLoading ||
               expandedDeck.length < 7 ||
               (Object.keys(cardImages).length === 0 &&
                 !(placement === "HOME" && !imagesRequested))
                 ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.02]" +
-                  (isReadyToDraw ? " animate-[hand-testing-pulse_2.5s_ease-in-out_infinite]" : "")
+                : "bg-amber-600 hover:bg-amber-500 text-black"
             }`}
           >
             {imagesLoading
@@ -803,18 +800,17 @@ export default function HandTestingWidget({
       {(gameState === "viewing" || gameState === "finished") &&
         currentHand.length > 0 && (
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium">
-                Current Hand ({currentHand.length} cards)
-                {mulliganCount > 0 && (
-                  <span className="ml-2 text-xs bg-orange-600 text-white px-2 py-0.5 rounded">
-                    {mulliganCount} mulligan{mulliganCount > 1 ? "s" : ""}
-                  </span>
-                )}
+            <div className="mb-2">
+              <h4 className="text-sm font-medium text-neutral-200">
+                Hand #{testSequence ? testSequence.decisions.length : 1}
               </h4>
+              <p className="text-xs text-neutral-500">
+                {mulliganCount} mulligan{mulliganCount !== 1 ? "s" : ""} taken
+              </p>
+              <p className="text-xs text-neutral-500">Deck: {commanderName ?? "Deck"}</p>
             </div>
             <div
-              className={`grid gap-3 p-2 justify-items-center transition-all duration-500 [&>*]:transition-all [&>*]:duration-300 ${
+              className={`grid gap-4 p-2 justify-items-center transition-all duration-500 [&>*]:transition-all [&>*]:duration-300 [&>*]:hover:scale-[1.02] ${
                 isAnimating ? "scale-95 opacity-50" : "scale-100 opacity-100"
               } ${
                 currentHand.length === 1
@@ -829,7 +825,7 @@ export default function HandTestingWidget({
               {currentHand.map((card) => (
                 <div
                   key={card.id}
-                  className={`bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/20 group relative ${
+                  className={`bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden hover:border-neutral-500 group relative transition-transform duration-200 ${
                     compact ? "w-20" : "w-24 sm:w-28 md:w-32"
                   }`}
                   style={{ aspectRatio: "63/88" }}
@@ -885,20 +881,20 @@ export default function HandTestingWidget({
 
             {gameState === "viewing" && (
               <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex items-center justify-center gap-3 flex-wrap">
                   <button
                     onClick={() => handleDecision("keep")}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-medium transition-all duration-300 hover:scale-[1.02]"
+                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-medium transition-colors"
                   >
                     Keep Hand
                   </button>
                   <button
                     onClick={() => handleDecision("mulligan")}
                     disabled={mulliganCount >= 6}
-                    className={`px-6 py-2 rounded-md font-medium transition-all duration-300 ${
+                    className={`px-6 py-2 rounded-md font-medium transition-colors border ${
                       mulliganCount >= 6
-                        ? "bg-neutral-600 text-neutral-400 cursor-not-allowed"
-                        : "bg-red-600 hover:bg-red-500 text-white"
+                        ? "bg-neutral-700 text-neutral-400 cursor-not-allowed border-neutral-600"
+                        : "bg-transparent border-amber-600/60 text-amber-200 hover:bg-amber-600/20 hover:border-amber-500/80"
                     }`}
                     title={
                       showFreeMulliganButton
@@ -908,12 +904,17 @@ export default function HandTestingWidget({
                   >
                     {mulliganButtonLabel}
                   </button>
+                </div>
+                <p className="text-[10px] text-neutral-600 text-center">London mulligan rule.</p>
+                <div className="text-center pt-1">
+                  <p className="text-xs text-neutral-500 mb-1">Need help deciding?</p>
                   <button
                     onClick={handleGetAdvice}
                     disabled={adviceLoading}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black rounded-md font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.02]"
+                    className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors inline-flex items-center gap-1.5"
                   >
-                    {adviceLoading ? "Loading…" : "Get AI Advice"}
+                    <span aria-hidden>🧠</span>
+                    {adviceLoading ? "Loading…" : "Get AI Advice on this hand"}
                   </button>
                 </div>
                 {adviceError && (
@@ -982,7 +983,6 @@ export default function HandTestingWidget({
           Results copied to clipboard!
         </div>
       )}
-      </div>
       {pv.shown && typeof window !== "undefined" && (
         <div
           className="fixed z-[9999] pointer-events-none"

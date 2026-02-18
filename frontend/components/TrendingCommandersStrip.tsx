@@ -11,6 +11,7 @@ type TrendingCommander = {
 
 export function TrendingCommandersStrip() {
   const [commanders, setCommanders] = useState<TrendingCommander[]>([]);
+  const [artMap, setArtMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +21,22 @@ export function TrendingCommandersStrip() {
         const res = await fetch("/api/meta/trending?window=today", { cache: "no-store" });
         const data = await res.json();
         if (!cancelled && data?.ok && Array.isArray(data.topCommanders)) {
-          setCommanders(data.topCommanders.slice(0, 12));
+          const list = data.topCommanders.slice(0, 12);
+          setCommanders(list);
+          const map: Record<string, string> = {};
+          await Promise.all(
+            list.map(async (cmd: TrendingCommander) => {
+              try {
+                const r = await fetch(
+                  `/api/commander-art?name=${encodeURIComponent(cmd.name)}`,
+                  { cache: "force-cache" }
+                );
+                const j = await r.json();
+                if (j?.ok && j?.art) map[cmd.name] = j.art;
+              } catch {}
+            })
+          );
+          if (!cancelled) setArtMap(map);
         }
       } catch {
         // Silently fail
@@ -109,8 +125,23 @@ export function TrendingCommandersStrip() {
           {commanders.map((cmd) => (
             <div
               key={cmd.name}
-              className="shrink-0 w-44 min-w-[11rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 p-3 flex flex-col"
+              className="shrink-0 w-44 min-w-[11rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
             >
+              {/* Art pill */}
+              <div className="h-20 bg-neutral-800 relative overflow-hidden">
+                {artMap[cmd.name] ? (
+                  <img
+                    src={artMap[cmd.name]}
+                    alt=""
+                    className="w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
+                    🃏
+                  </div>
+                )}
+              </div>
+              <div className="p-3 flex flex-col flex-1">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <span className="font-bold text-white text-sm truncate flex-1">
                   {cmd.name}
@@ -123,7 +154,7 @@ export function TrendingCommandersStrip() {
                 <button
                   type="button"
                   onClick={() => handleAnalyze(cmd.name, cmd.slug)}
-                  className="flex-1 px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-500 text-black rounded-md transition-all duration-200 hover:scale-[1.02]"
+                  className="flex-1 px-3 py-1.5 text-xs font-medium bg-neutral-600 hover:bg-neutral-500 text-white rounded-md transition-colors"
                 >
                   Analyze this commander
                 </button>
@@ -135,6 +166,7 @@ export function TrendingCommandersStrip() {
                     View
                   </Link>
                 )}
+              </div>
               </div>
             </div>
           ))}
