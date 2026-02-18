@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const {
       scope = "golden+suite+deck_samples",
       candidate_count = 2,
-      deck_sample_count = 10,
+      deck_sample_count = 50,
       judge_mode = "close_calls",
       close_call_threshold = 5,
       cost_guardrails = { max_cost_increase_pct: 10, max_latency_increase_pct: 10 },
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     const { data: suiteCases } = await supabase
       .from("ai_test_cases")
       .select("id, name, type, input, expected_checks, tags")
-      .limit(30);
+      .limit(50);
     const suiteCaseList = (suiteCases || []).map((c: any) => ({
       id: c.id,
       name: c.name,
@@ -282,8 +282,8 @@ export async function POST(req: NextRequest) {
     // Restore current
     await setActivePromptVersion(promptKind, currentPrompt.id, currentPrompt.version);
 
-    // 9. Run pairwise: A vs Prev, A vs B, A vs C
-    const pairwiseTests = testCaseIds.slice(0, 15);
+    // 9. Run pairwise: A vs Prev, A vs B, A vs C (use suite IDs only - pairwise queries ai_test_cases)
+    const pairwiseTests = suiteCaseList.map((c: any) => c.id).slice(0, 30);
     const runPairwise = async (promptAId: string, promptBId: string) => {
       const r = await fetch(`${baseUrl}/api/admin/ai-test/pairwise`, {
         method: "POST",

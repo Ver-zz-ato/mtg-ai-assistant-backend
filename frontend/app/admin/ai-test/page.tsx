@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { ELI5, HelpTip } from "@/components/AdminHelp";
+import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 
 /** Derive 1–3 human-readable failure reasons from validation */
 function getFailureReasons(validation: any): string[] {
@@ -388,6 +389,84 @@ function ProposalReviewPanel({
   );
 }
 
+function HumanReviewCard({
+  rev,
+  onLabel,
+  onConvertToTest,
+  onSuggestPatch,
+}: {
+  rev: any;
+  onLabel: (labels: any, status: string) => Promise<void>;
+  onConvertToTest: () => Promise<void>;
+  onSuggestPatch: () => Promise<void>;
+}) {
+  const [inputExpanded, setInputExpanded] = React.useState(false);
+  const [outputExpanded, setOutputExpanded] = React.useState(true);
+  const inputText = typeof rev.input === "object" && rev.input?.prompt_preview
+    ? rev.input.prompt_preview
+    : typeof rev.input === "string"
+      ? rev.input
+      : JSON.stringify(rev.input || {}, null, 2);
+  const outputText = String(rev.output || "(empty)");
+
+  return (
+    <div className="p-4 bg-neutral-900 rounded-lg border border-neutral-700 space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="text-xs font-mono text-neutral-500">{rev.route} • {rev.source}{rev.meta?.deck_id ? ` • deck:${rev.meta.deck_id}` : ""}</div>
+        {(rev.created_at || rev.meta?.created_at) && (
+          <div className="text-xs text-neutral-500">{new Date(rev.created_at || rev.meta.created_at).toLocaleString()}</div>
+        )}
+      </div>
+      <div>
+        <button onClick={() => setInputExpanded(!inputExpanded)} className="text-xs font-medium text-neutral-400 mb-1 flex items-center gap-1">
+          {inputExpanded ? "−" : "+"} Input / Prompt
+        </button>
+        {inputExpanded && (
+          <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+            {inputText}
+          </div>
+        )}
+      </div>
+      <div>
+        <button onClick={() => setOutputExpanded(!outputExpanded)} className="text-xs font-medium text-neutral-400 mb-1 flex items-center gap-1">
+          {outputExpanded ? "−" : "+"} Output (markdown)
+        </button>
+        {outputExpanded && (
+          <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm max-h-64 overflow-y-auto prose prose-invert prose-sm max-w-none">
+            {renderMarkdown(outputText)}
+          </div>
+        )}
+      </div>
+      {rev.meta?.validatorBreakdown && (
+        <div>
+          <div className="text-xs font-medium text-neutral-400 mb-1">Category Breakdown</div>
+          <div className="p-2 bg-neutral-950 rounded border border-neutral-800 text-xs">
+            {Object.entries(rev.meta.validatorBreakdown.categoryScores || {}).map(([k, v]: [string, any]) => (
+              <div key={k} className="flex justify-between">
+                <span>{k}</span>
+                <span className={typeof v === "number" && v < 70 ? "text-yellow-400" : ""}>{typeof v === "number" ? `${v}%` : String(v)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {rev.meta?.flags?.hallucinationRisk && (
+        <div className="p-2 bg-amber-950/50 border border-amber-800 rounded text-amber-400 text-xs">⚠ Suspected hallucination</div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => onLabel({ ...rev.labels, quick: "good" }, "reviewed")} className="px-2 py-1 text-xs rounded bg-green-600 hover:bg-green-500">Good</button>
+        <button onClick={() => onLabel({ ...rev.labels, quick: "too_generic" }, "reviewed")} className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500">Too Generic</button>
+        <button onClick={() => onLabel({ ...rev.labels, quick: "missed_constraint" }, "reviewed")} className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-500">Missed Constraint</button>
+        <button onClick={() => onLabel({ ...rev.labels, quick: "hallucination" }, "reviewed")} className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-500">Hallucination</button>
+        <button onClick={() => onLabel({ ...rev.labels, quick: "tone_issue" }, "reviewed")} className="px-2 py-1 text-xs rounded bg-purple-600 hover:bg-purple-500">Tone Issue</button>
+        <button onClick={() => onLabel(rev.labels || {}, "reviewed")} className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500">Mark Reviewed</button>
+        <button onClick={onConvertToTest} className="px-2 py-1 text-xs rounded bg-neutral-700 hover:bg-neutral-600">Convert to Test Case</button>
+        <button onClick={onSuggestPatch} className="px-2 py-1 text-xs rounded bg-amber-700 hover:bg-amber-600">Suggest Prompt Patch</button>
+      </div>
+    </div>
+  );
+}
+
 const DIFFICULTY_PRESETS = [
   { value: "standard", label: "Standard" },
   { value: "strict", label: "Strict (brutal)" },
@@ -768,6 +847,8 @@ export default function AiTestPage() {
   const [selfOptResult, setSelfOptResult] = React.useState<any>(null);
   const [currentProposal, setCurrentProposal] = React.useState<any>(null);
   const [proposalLoading, setProposalLoading] = React.useState(false);
+  const [postAcceptCompareResult, setPostAcceptCompareResult] = React.useState<any>(null);
+  const [humanReviewFilter, setHumanReviewFilter] = React.useState<{ route?: string; label?: string; deck_id?: string; unreviewed_only?: boolean }>({ unreviewed_only: true });
   const [latestImprovementReport, setLatestImprovementReport] = React.useState<any>(null);
   const [showValidationDetails, setShowValidationDetails] = React.useState(false);
   const [showBatchDetails, setShowBatchDetails] = React.useState(false);
@@ -818,7 +899,14 @@ export default function AiTestPage() {
 
   async function loadHumanReviews() {
     try {
-      const r = await fetch("/api/admin/ai-test/human-reviews?status=pending&limit=50", { cache: "no-store" });
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (humanReviewFilter.unreviewed_only) params.set("unreviewed_only", "true");
+      else params.set("status", "all");
+      if (humanReviewFilter.route) params.set("route", humanReviewFilter.route);
+      if (humanReviewFilter.label) params.set("label", humanReviewFilter.label);
+      if (humanReviewFilter.deck_id) params.set("deck_id", humanReviewFilter.deck_id);
+      const r = await fetch(`/api/admin/ai-test/human-reviews?${params}`, { cache: "no-store" });
       const j = await r.json();
       if (j?.ok) setHumanReviews(j.reviews || []);
     } catch (e) {
@@ -1518,7 +1606,7 @@ export default function AiTestPage() {
                     const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 10 }),
+                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 50 }),
                     });
                     const j = await r.json();
                     setSelfOptResult(j);
@@ -1788,7 +1876,7 @@ export default function AiTestPage() {
                     const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 10 }),
+                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 50 }),
                     });
                     const j = await r.json();
                     setAutoChallengeResult(j);
@@ -1860,10 +1948,27 @@ export default function AiTestPage() {
                   });
                   const j = await r.json();
                   if (j.ok) {
+                    const oldPromptId = currentProposal.active_prompt_version_id;
                     setCurrentProposal(null);
                     loadPromptVersions();
                     loadLatestImprovementReport();
-                    alert("Approved. Active prompt updated.");
+                    alert("Approved. Running Compare A vs B (new vs old)...");
+                    try {
+                      const pwRes = await fetch("/api/admin/ai-test/pairwise", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          test_case_ids: filteredCases.slice(0, 15).map((c) => c.id),
+                          prompt_version_id_a: approvedPromptVersionId,
+                          prompt_version_id_b: oldPromptId,
+                        }),
+                      });
+                      const pwJ = await pwRes.json();
+                      if (pwJ.ok) setPostAcceptCompareResult(pwJ);
+                      else setPostAcceptCompareResult({ ok: false, error: pwJ.error });
+                    } catch (e: any) {
+                      setPostAcceptCompareResult({ ok: false, error: e?.message });
+                    }
                   } else alert(j.error || "Failed");
                 } catch (e: any) {
                   alert(e?.message || "Failed");
@@ -1905,6 +2010,51 @@ export default function AiTestPage() {
               }}
               onClose={() => setCurrentProposal(null)}
             />
+          )}
+
+          {/* Post-Accept Compare Result: A (new) vs B (old) */}
+          {postAcceptCompareResult && (
+            <section className="rounded-xl border-2 border-green-600/50 p-6 bg-green-950/20 mt-8">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-xl font-bold">Compare Result: New vs Old</h2>
+                <button onClick={() => setPostAcceptCompareResult(null)} className="px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-sm">Close</button>
+              </div>
+              {postAcceptCompareResult.ok ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-neutral-900/80">
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1">A (new) win rate (judge)</div>
+                      <div className="font-semibold text-green-400">{postAcceptCompareResult.summary?.winRateAByJudge?.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1">B (old) win rate (judge)</div>
+                      <div className="font-semibold">{postAcceptCompareResult.summary?.winRateBByJudge?.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1">Ties</div>
+                      <div>{postAcceptCompareResult.summary?.tieRateByJudge?.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1">Disagreement rate</div>
+                      <div>{postAcceptCompareResult.summary?.disagreementRate?.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-neutral-400">A = newly adopted prompt. B = previous prompt. Judge = rubric-based. Review disagreements in Advanced Mode → Compare tab.</p>
+                  <button
+                    onClick={() => {
+                      setPairwiseResult(postAcceptCompareResult);
+                      setSuiteToolTab("compare");
+                      setSimpleMode(false);
+                    }}
+                    className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 font-medium"
+                  >
+                    Open in Compare Tab
+                  </button>
+                </div>
+              ) : (
+                <div className="text-red-400">{postAcceptCompareResult.error || "Compare failed"}</div>
+              )}
+            </section>
           )}
 
           {/* View Last Run + Cost Summary (compact) */}
@@ -2151,14 +2301,14 @@ export default function AiTestPage() {
                 ]}
               />
               <div className="font-medium">Human Review Queue</div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 <button
                   onClick={async () => {
                     try {
                       const r = await fetch("/api/admin/ai-test/sample-production", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ count: 10 }),
+                        body: JSON.stringify({ count: 50 }),
                       });
                       const j = await r.json();
                       if (j.ok) {
@@ -2171,169 +2321,96 @@ export default function AiTestPage() {
                   }}
                   className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600"
                 >
-                  Sample from Production
+                  Sample from Production (50)
                 </button>
                 <button onClick={loadHumanReviews} className="px-2 py-1 text-xs rounded bg-neutral-600">Refresh</button>
+                <span className="text-xs text-neutral-500">Filter:</span>
+                <input
+                  type="text"
+                  placeholder="Route"
+                  value={humanReviewFilter.route || ""}
+                  onChange={(e) => setHumanReviewFilter((f) => ({ ...f, route: e.target.value || undefined }))}
+                  className="w-28 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs"
+                />
+                <select
+                  value={humanReviewFilter.label || ""}
+                  onChange={(e) => setHumanReviewFilter((f) => ({ ...f, label: e.target.value || undefined }))}
+                  className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs"
+                >
+                  <option value="">Label</option>
+                  <option value="good">Good</option>
+                  <option value="too_generic">Too Generic</option>
+                  <option value="missed_constraint">Missed Constraint</option>
+                  <option value="hallucination">Hallucination</option>
+                  <option value="tone_issue">Tone Issue</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Deck ID"
+                  value={humanReviewFilter.deck_id || ""}
+                  onChange={(e) => setHumanReviewFilter((f) => ({ ...f, deck_id: e.target.value || undefined }))}
+                  className="w-36 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs"
+                />
+                <label className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={humanReviewFilter.unreviewed_only !== false}
+                    onChange={(e) => setHumanReviewFilter((f) => ({ ...f, unreviewed_only: e.target.checked }))}
+                  />
+                  Unreviewed only
+                </label>
+                <button onClick={loadHumanReviews} className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500">Apply</button>
               </div>
               <div className="space-y-4 max-h-[600px] overflow-auto">
                 {humanReviews.map((rev: any) => (
-                  <div key={rev.id} className="p-4 bg-neutral-900 rounded-lg border border-neutral-700 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs font-mono text-neutral-500">{rev.route} • {rev.source}</div>
-                      {(rev.created_at || rev.meta?.created_at) && (
-                        <div className="text-xs text-neutral-500">{new Date(rev.created_at || rev.meta.created_at).toLocaleString()}</div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-xs font-medium text-neutral-400 mb-1">Input / Prompt</div>
-                      <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm whitespace-pre-wrap max-h-40 overflow-y-auto">
-                        {typeof rev.input === "object" && rev.input?.prompt_preview
-                          ? rev.input.prompt_preview
-                          : typeof rev.input === "string"
-                            ? rev.input
-                            : JSON.stringify(rev.input || {}, null, 2)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-medium text-neutral-400 mb-1">Output</div>
-                      <div className="p-3 bg-neutral-950 rounded border border-neutral-800 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                        {String(rev.output || "(empty)")}
-                      </div>
-                    </div>
-                    {rev.meta?.validatorBreakdown && (
-                      <div>
-                        <div className="text-xs font-medium text-neutral-400 mb-1">Category Breakdown</div>
-                        <div className="p-2 bg-neutral-950 rounded border border-neutral-800 text-xs">
-                          {Object.entries(rev.meta.validatorBreakdown.categoryScores || {}).map(([k, v]: [string, any]) => (
-                            <div key={k} className="flex justify-between">
-                              <span>{k}</span>
-                              <span className={typeof v === "number" && v < 70 ? "text-yellow-400" : ""}>{typeof v === "number" ? `${v}%` : String(v)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {rev.meta?.flags?.hallucinationRisk && (
-                      <div className="p-2 bg-amber-950/50 border border-amber-800 rounded text-amber-400 text-xs">
-                        ⚠ Suspected hallucination
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "good" }, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
+                  <HumanReviewCard
+                    key={rev.id}
+                    rev={rev}
+                    onLabel={async (labels: any, status: string) => {
+                      await fetch("/api/admin/ai-test/human-reviews", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: rev.id, labels, status, reviewer: "admin" }),
+                      });
+                      loadHumanReviews();
+                    }}
+                    onConvertToTest={async () => {
+                      try {
+                        const r = await fetch("/api/admin/ai-test/human-reviews/convert-to-test", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ review_id: rev.id }),
+                        });
+                        const j = await r.json();
+                        if (j.ok) {
+                          alert(`Test case created: ${j.name}. Add expected checks in Advanced Mode.`);
+                          loadTestCases();
+                        } else alert(j.error || "Failed");
+                      } catch (e: any) {
+                        alert(e?.message || "Failed");
+                      }
+                    }}
+                    onSuggestPatch={async () => {
+                      try {
+                        const r = await fetch("/api/admin/ai-test/human-reviews/suggest-prompt-patch", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ review_id: rev.id }),
+                        });
+                        const j = await r.json();
+                        if (j.ok) {
+                          alert(j.message || "Patch created. Check Proposal panel.");
+                          if (j.proposal_id) {
+                            const fetchR = await fetch(`/api/admin/ai-test/proposals/${j.proposal_id}`);
+                            const fetchJ = await fetchR.json();
+                            if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
                           }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-green-600 hover:bg-green-500"
-                      >
-                        Good
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "too_generic" }, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-neutral-600 hover:bg-neutral-500"
-                      >
-                        Too Generic
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "missed_constraint" }, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-500"
-                      >
-                        Missed Constraint
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "hallucination" }, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-500"
-                      >
-                        Hallucination
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: { ...rev.labels, quick: "tone_issue" }, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-purple-600 hover:bg-purple-500"
-                      >
-                        Tone Issue
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/admin/ai-test/human-reviews", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: rev.id, labels: rev.labels || {}, status: "reviewed", reviewer: "admin" }),
-                            });
-                            loadHumanReviews();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500"
-                      >
-                        Mark Reviewed
-                      </button>
-                      <button
-                        onClick={() => {
-                          const input = rev.input?.prompt_preview || (typeof rev.input === "string" ? rev.input : "");
-                          const output = rev.output || "";
-                          navigator.clipboard.writeText(JSON.stringify({ input, output, route: rev.route }, null, 2));
-                          alert("Copied to clipboard. Use Advanced Mode → Import to add as test case.");
-                        }}
-                        className="px-2 py-1 text-xs rounded bg-neutral-700 hover:bg-neutral-600"
-                      >
-                        Convert to Test Case
-                      </button>
-                    </div>
-                  </div>
+                        } else alert(j.error || "Failed");
+                      } catch (e: any) {
+                        alert(e?.message || "Failed");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             </div>

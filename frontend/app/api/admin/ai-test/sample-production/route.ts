@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     let query = supabase
       .from("ai_usage")
-      .select("id, route, prompt_preview, response_preview, created_at")
+      .select("id, route, prompt_preview, response_preview, created_at, deck_id")
       .not("route", "is", null)
       .order("created_at", { ascending: false })
       .limit(n * 3);
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           output: (r as any).response_preview || "",
           labels: {},
           status: "pending",
-          meta: { ai_usage_id: r.id },
+          meta: { ai_usage_id: r.id, deck_id: (r as any).deck_id || null },
         })
         .select("id")
         .single();

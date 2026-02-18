@@ -23,15 +23,27 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const status = url.searchParams.get("status") || "pending";
+    const statusParam = url.searchParams.get("status");
+    const status = statusParam === "all" ? undefined : (statusParam || "pending");
     const limit = parseInt(url.searchParams.get("limit") || "50");
+    const route = url.searchParams.get("route") || undefined;
+    const label = url.searchParams.get("label") || undefined;
+    const deckId = url.searchParams.get("deck_id") || undefined;
+    const unreviewedOnly = url.searchParams.get("unreviewed_only") === "true";
 
-    const { data: rows, error } = await supabase
+    let query = supabase
       .from("ai_human_reviews")
       .select("*")
-      .eq("status", status)
       .order("created_at", { ascending: false })
       .limit(limit);
+
+    if (status) query = query.eq("status", status);
+    if (unreviewedOnly) query = query.eq("status", "pending");
+    if (route) query = query.eq("route", route);
+    if (deckId) query = query.filter("meta->>deck_id", "eq", deckId);
+    if (label) query = query.eq("labels->>quick", label);
+
+    const { data: rows, error } = await query;
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
