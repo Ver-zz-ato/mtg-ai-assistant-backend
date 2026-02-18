@@ -29,13 +29,13 @@ export default function ProfileCardEditor({ value, onChange, mode = 'edit', rand
     try{
       setBusy(true);
       const CURATED: { label: string; color: string; names: string[] }[] = [
-        { label: 'White', color:'W', names: ['Sun Titan','Elspeth, Sun\u0019s Champion','Path to Exile','Swords to Plowshares','Angel of Serenity','The Wandering Emperor','Brave the Elements','Serra Angel','March of Otherworldly Light','Emeria\'s Call'] },
+        { label: 'White', color:'W', names: ['Sun Titan','Elspeth, Sun\'s Champion','Path to Exile','Swords to Plowshares','Angel of Serenity','The Wandering Emperor','Brave the Elements','Serra Angel','March of Otherworldly Light','Emeria\'s Call'] },
         { label: 'Blue', color:'U', names: ['Counterspell','Ponder','Jace Beleren','Rhystic Study','Mystic Remora','Talrand, Sky Summoner','Archmage\'s Charm','Thassa, God of the Sea','Fact or Fiction','Cryptic Command'] },
         { label: 'Black', color:'B', names: ['Thoughtseize','Sheoldred, the Apocalypse','Liliana of the Veil','Demonic Tutor','Necromancy','Grave Titan','Phyrexian Arena','Vindicate','Reanimate','Damnation'] },
         { label: 'Red',  color:'R', names: ['Lightning Bolt','Ragavan, Nimble Pilferer','Krenko, Mob Boss','Chandra, Torch of Defiance','Chaos Warp','Fury','Torbran, Thane of Red Fell','Chain Lightning','Skullcrack','Seething Song'] },
         { label: 'Green', color:'G', names: ['Llanowar Elves','Craterhoof Behemoth','Nissa, Who Shakes the World','Eternal Witness','Cultivate','Avenger of Zendikar','Beast Whisperer','Rishkar, Peema Renegade','The Great Henge','Finale of Devastation'] },
         { label: 'Colorless', color:'C', names: ['Sol Ring','Mana Vault','Sensei\'s Divining Top','Ugin, the Spirit Dragon','Wurmcoil Engine'] },
-        { label: 'Lands', color:'L', names: ['Plains','Island','Swamp','Mountain','Forest','Theros Plains','Theros Island','Theros Swamp','Theros Mountain','Theros Forest'] },
+        { label: 'Lands', color:'L', names: ['Plains','Island','Swamp','Mountain','Forest','Evolving Wilds','Terramorphic Expanse','Command Tower','Exotic Orchard','Path of Ancestry'] },
       ];
       const names: string[] = CURATED.flatMap(g=>g.names);
       const identifiers = Array.from(new Set(names)).map(n=>({ name:n }));

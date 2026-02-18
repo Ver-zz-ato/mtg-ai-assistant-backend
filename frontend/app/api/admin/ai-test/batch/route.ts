@@ -4,6 +4,7 @@ import { getPromptVersion } from "@/lib/config/prompts";
 import { validateResponse } from "@/lib/ai/test-validator";
 
 export const runtime = "nodejs";
+export const maxDuration = 600; // 10 min for large batches (self-optimize runs 50+ tests)
 
 function isAdmin(user: any): boolean {
   const ids = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean);

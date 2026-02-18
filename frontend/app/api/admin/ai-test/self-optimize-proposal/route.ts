@@ -463,7 +463,9 @@ export async function POST(req: NextRequest) {
             const result = await run((step, progress) => enc({ type: "progress", step, progress }));
             enc({ type: "complete", result });
           } catch (e: any) {
-            enc({ type: "error", error: e?.message || "server_error" });
+            const msg = e?.message || "server_error";
+            const detail = e?.cause ? ` (cause: ${String(e.cause)})` : "";
+            enc({ type: "error", error: `${msg}${detail}`, step: "stream" });
           } finally {
             controller.close();
           }

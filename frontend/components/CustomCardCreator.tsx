@@ -12,13 +12,13 @@ const TITLE = ["Destroyer","Whisper","Weaver","Walker","Breaker","Herald","Keepe
 
 // Curated art pack names grouped by color identity tag
 const CURATED: { label: string; color: string; names: string[] }[] = [
-  { label: 'White', color:'W', names: ['Sun Titan','Elspeth, Suns Champion','Path to Exile','Swords to Plowshares','Angel of Serenity','The Wandering Emperor','Brave the Elements','Serra Angel','March of Otherworldly Light','Emeria\'s Call'] },
+  { label: 'White', color:'W', names: ['Sun Titan','Elspeth, Sun\'s Champion','Path to Exile','Swords to Plowshares','Angel of Serenity','The Wandering Emperor','Brave the Elements','Serra Angel','March of Otherworldly Light','Emeria\'s Call'] },
   { label: 'Blue', color:'U', names: ['Counterspell','Ponder','Jace Beleren','Rhystic Study','Mystic Remora','Talrand, Sky Summoner','Archmage\'s Charm','Thassa, God of the Sea','Fact or Fiction','Cryptic Command'] },
   { label: 'Black', color:'B', names: ['Thoughtseize','Sheoldred, the Apocalypse','Liliana of the Veil','Demonic Tutor','Necromancy','Grave Titan','Phyrexian Arena','Vindicate','Reanimate','Damnation'] },
   { label: 'Red',  color:'R', names: ['Lightning Bolt','Ragavan, Nimble Pilferer','Krenko, Mob Boss','Chandra, Torch of Defiance','Chaos Warp','Fury','Torbran, Thane of Red Fell','Chain Lightning','Skullcrack','Seething Song'] },
   { label: 'Green', color:'G', names: ['Llanowar Elves','Craterhoof Behemoth','Nissa, Who Shakes the World','Eternal Witness','Cultivate','Avenger of Zendikar','Beast Whisperer','Rishkar, Peema Renegade','The Great Henge','Finale of Devastation'] },
   { label: 'Colorless', color:'C', names: ['Sol Ring','Mana Vault','Sensei\'s Divining Top','Ugin, the Spirit Dragon','Wurmcoil Engine'] },
-  { label: 'Lands', color:'L', names: ['Plains','Island','Swamp','Mountain','Forest','Theros Plains','Theros Island','Theros Swamp','Theros Mountain','Theros Forest'] },
+  { label: 'Lands', color:'L', names: ['Plains','Island','Swamp','Mountain','Forest','Evolving Wilds','Terramorphic Expanse','Command Tower','Exotic Orchard','Path of Ancestry'] },
 ];
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
@@ -30,6 +30,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
   const [toast,setToast]=React.useState<string|null>(null);
   const [artOptions, setArtOptions] = React.useState<any[]>([]);
   const [loadingArt, setLoadingArt] = React.useState(true);
+  const [artError, setArtError] = React.useState<string | null>(null);
   const [userEditedSub, setUserEditedSub] = React.useState(false);
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
 
@@ -225,6 +226,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
     (async () => {
       try {
         setLoadingArt(true);
+        setArtError(null);
         const names: string[] = CURATED.flatMap(g => g.names);
         const identifiers = Array.from(new Set(names)).map(n => ({ name: n }));
         // Use our backend proxy to avoid CORS issues
@@ -235,6 +237,10 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         });
         const j: any = await r.json().catch(() => ({}));
         const data: any[] = Array.isArray(j?.data) ? j.data : [];
+        if (!r.ok || (j?.object === 'error' && !data.length)) {
+          setArtError(j?.details || j?.error || 'Failed to load artwork');
+          return;
+        }
         const mapColor = (raw: any): string => { 
           const ci = Array.isArray(raw?.color_identity) ? raw.color_identity : []; 
           if (!ci.length) return 'C'; 
@@ -252,8 +258,9 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
           }; 
         }).filter((x: any) => x.url);
         setArtOptions(out);
-      } catch (e) {
-        // Silently fail
+        if (out.length === 0) setArtError('No artwork found');
+      } catch (e: any) {
+        setArtError(e?.message || 'Failed to load artwork');
       } finally {
         setLoadingArt(false);
       }
@@ -330,6 +337,19 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mt-2">
           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400"></div>
           <span>Loading art choices...</span>
+        </div>
+      )}
+      {/* Art load error - show retry option */}
+      {artError && !loadingArt && (
+        <div className="text-xs text-amber-400 text-center mt-2">
+          {artError}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="ml-2 underline hover:text-amber-300"
+          >
+            Retry
+          </button>
         </div>
       )}
 
