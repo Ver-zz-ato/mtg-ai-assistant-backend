@@ -759,34 +759,38 @@ export default function HandTestingWidget({
         <div
           className={`flex flex-col md:flex-row items-center gap-6 md:gap-8 py-4 md:py-6 ${ghostHandExiting ? "ghost-hand-exiting" : ""}`}
         >
-          {/* Ghost hand preview - fanned card backs */}
+          {/* Ghost hand preview - fanned card backs (larger) */}
           <div className="flex flex-col items-center shrink-0 order-2 md:order-1">
-            <div className="relative h-16 w-28 md:h-20 md:w-36 flex justify-center items-end">
+            <div className="relative h-24 w-40 md:h-32 md:w-52 flex justify-center items-end">
               <div
                 className="absolute inset-0 rounded-full opacity-15 blur-2xl bg-amber-500/40 group-hover:opacity-25 transition-opacity duration-200 pointer-events-none"
                 style={{ width: "160%", left: "-30%", top: "10%" }}
               />
-              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="ghost-hand-card absolute rounded border border-neutral-600/70 bg-gradient-to-br from-neutral-800 to-neutral-900"
-                  style={{
-                    width: 22,
-                    height: 30,
-                    left: `calc(50% - 11px + ${(i - 3) * 12}px)`,
-                    bottom: 0,
-                    transform: `rotate(${(i - 3) * 6}deg)`,
-                    filter: "blur(0.5px)",
-                    opacity: 0.8,
-                    transformOrigin: "bottom center",
-                  }}
-                />
-              ))}
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+                const w = 36;
+                const h = 50;
+                return (
+                  <div
+                    key={i}
+                    className="ghost-hand-card absolute rounded-md border border-neutral-600/70 bg-gradient-to-br from-neutral-800 to-neutral-900"
+                    style={{
+                      width: w,
+                      height: h,
+                      left: `calc(50% - ${w / 2}px + ${(i - 3) * 18}px)`,
+                      bottom: 0,
+                      transform: `rotate(${(i - 3) * 6}deg)`,
+                      filter: "blur(0.5px)",
+                      opacity: 0.8,
+                      transformOrigin: "bottom center",
+                    }}
+                  />
+                );
+              })}
             </div>
             <p className="text-[10px] text-neutral-600 mt-2">Ready to draw 7</p>
           </div>
 
-          {/* CTA + header block */}
+          {/* CTA block - header moved to parent */}
           <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0 order-1 md:order-2">
             <div className="flex items-center gap-3 min-w-0 w-full md:justify-start justify-center">
               <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 text-neutral-300">
@@ -797,13 +801,6 @@ export default function HandTestingWidget({
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="font-semibold text-neutral-200">🃏 Mulligan Simulator</h3>
-                <p className="text-xs text-neutral-500 truncate">
-                  Testing: {commanderName ?? "Deck"}
-                  {mode === "DEMO" && (
-                    <span className="ml-1 text-neutral-600">(Example)</span>
-                  )}
-                </p>
                 <p className="text-xs text-neutral-500 truncate">
                   {imagesLoading ? "Loading..." : `${expandedDeck.length} cards`}
                 </p>

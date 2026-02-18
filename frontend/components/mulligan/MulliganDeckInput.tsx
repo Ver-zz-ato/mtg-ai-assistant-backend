@@ -97,8 +97,34 @@ export default function MulliganDeckInput() {
   const mode = deckSource === "example" ? "DEMO" : "DECK";
   const hasDeck = mode === "DEMO" || deckCards.length > 0 || deckId;
 
+  const testingLabel =
+    deckSource === "example"
+      ? FIRST_SAMPLE?.commander ?? "Example"
+      : deckSource === "load" && deckId
+        ? decks.find((d) => d.id === deckId)?.title ?? "Loaded"
+        : deckSource === "paste"
+          ? "Pasted deck"
+          : "Select a deck";
+
   return (
     <div className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-5 sm:p-6 space-y-4 min-h-[280px] hover:shadow-lg hover:shadow-neutral-900/50 transition-shadow duration-200">
+      {/* Header at very top */}
+      <div className="pb-2 border-b border-neutral-700/80">
+        <h3 className="font-semibold text-neutral-200">Mulligan Simulator</h3>
+        <p className="text-xs text-neutral-500 mt-0.5">
+          Testing:{" "}
+          {deckSource === "example" && FIRST_SAMPLE ? (
+            <Link
+              href={`/commanders/${EXAMPLE_COMMANDER_SLUG}`}
+              className="text-amber-200/90 hover:text-amber-100 underline"
+            >
+              {FIRST_SAMPLE.commander} (Example)
+            </Link>
+          ) : (
+            testingLabel
+          )}
+        </p>
+      </div>
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setDeckSource("example")}

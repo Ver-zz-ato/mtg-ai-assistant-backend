@@ -33,17 +33,18 @@
   50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
 }
 
-/* Ghost hand fan - hover lift */
+/* Ghost hand fan - hover lift (larger cards need more lift) */
 .ghost-hand-card {
   transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
 }
-.group:hover .ghost-hand-card:nth-child(1) { transform: translateY(-6px) rotate(-12deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(2) { transform: translateY(-5px) rotate(-8deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(3) { transform: translateY(-4px) rotate(-4deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(4) { transform: translateY(-3px) rotate(0deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(5) { transform: translateY(-4px) rotate(4deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(6) { transform: translateY(-5px) rotate(8deg); filter: blur(0); opacity: 0.9; }
-.group:hover .ghost-hand-card:nth-child(7) { transform: translateY(-6px) rotate(12deg); filter: blur(0); opacity: 0.9; }
+/* Blur div is 1st child; ghost cards are 2–8 */
+.group:hover .ghost-hand-card:nth-child(2) { transform: translateY(-10px) rotate(-12deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(3) { transform: translateY(-8px) rotate(-8deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(4) { transform: translateY(-6px) rotate(-4deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(5) { transform: translateY(-4px) rotate(0deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(6) { transform: translateY(-6px) rotate(4deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(7) { transform: translateY(-8px) rotate(8deg); filter: blur(0); opacity: 0.9; }
+.group:hover .ghost-hand-card:nth-child(8) { transform: translateY(-10px) rotate(12deg); filter: blur(0); opacity: 0.9; }
 
 /* Ghost hand exit animation */
 .ghost-hand-exiting .ghost-hand-card {
