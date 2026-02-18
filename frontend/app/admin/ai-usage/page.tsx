@@ -673,17 +673,26 @@ export default function AdminAIUsagePage() {
               {!usageListLoading && usageList.length === 0 && <div className="p-4 text-sm text-neutral-500">No rows.</div>}
               {usageList.length > 0 && (
                 <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Called from</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
+                  <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Page · Component</th><th className="text-left px-2 py-1">source_page</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
                   <tbody>
                     {usageList.map((r: any) => {
                       const origin = getCallOrigin(r.route, r.source_page);
                       const display = getCallOriginDisplay(r.route, r.source_page);
-                      const fallback = getCalledFromDisplay(r.route, r.source_page);
+                      const untracked = !r.source_page?.trim();
+                      const title = origin
+                        ? `${origin.page}\n${origin.component}\n${origin.description}\nTrigger: ${origin.trigger}\nCost impact: ${origin.costImpact}`
+                        : untracked
+                          ? `Origin not tracked. Route: ${r.route || "—"}. Add sourcePage to the API caller (see call-origin-map.ts)`
+                          : r.source_page;
                       return (
-                      <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => loadUsageDetail(r.id)}>
+                      <tr key={r.id} className={`border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer ${untracked ? "bg-amber-950/20" : ""}`} onClick={() => loadUsageDetail(r.id)}>
                         <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.route ?? "—"}</td>
-                        <td className="px-2 py-1 text-xs text-neutral-400" title={origin ? `${origin.page}\n${origin.component}\n${origin.description}\nTrigger: ${origin.trigger}` : `${r.source_page || ""}`}>{display || fallback}</td>
+                        <td className="px-2 py-1 text-xs" title={title}>
+                          <span className={display === "—" ? "text-amber-400" : "text-neutral-400"}>{display}</span>
+                          {untracked && <span className="ml-1 text-[10px] text-amber-500" title="Add sourcePage to caller">⚠</span>}
+                        </td>
+                        <td className="px-2 py-1 font-mono text-[11px] text-neutral-500" title={r.source_page || "Not set — add to caller"}>{r.source_page || "—"}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
                         <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
                         <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
@@ -710,21 +719,32 @@ export default function AdminAIUsagePage() {
                       <span className="text-neutral-500 ml-2">({usageDetail.row.input_tokens ?? 0} in / {usageDetail.row.output_tokens ?? 0} out tokens, {usageDetail.row.model ?? "—"})</span>
                     </div>
                     {(() => {
-                      const origin = getCallOrigin(usageDetail.row.route, usageDetail.row.source_page);
-                      if (!origin) return null;
-                      return (
-                        <div className="mb-3 p-3 rounded bg-blue-950/30 border border-blue-800/50 text-sm space-y-2">
-                          <div className="text-xs font-medium text-blue-300 uppercase tracking-wide">Exact call origin</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <div><span className="text-neutral-500">Page:</span> <span className="font-mono text-blue-200">{origin.page}</span></div>
-                            <div><span className="text-neutral-500">Component:</span> <span className="font-mono text-blue-200">{origin.component}</span></div>
-                            <div><span className="text-neutral-500">Trigger:</span> <span className={origin.trigger === "auto" ? "text-amber-400" : "text-emerald-400"}>{origin.trigger}</span></div>
-                            <div><span className="text-neutral-500">Cost impact:</span> <span className={origin.costImpact === "high" ? "text-amber-400" : origin.costImpact === "medium" ? "text-yellow-400" : "text-neutral-400"}>{origin.costImpact}</span></div>
+                      const hasSourcePage = !!usageDetail.row.source_page?.trim();
+                      const origin = hasSourcePage ? getCallOrigin(usageDetail.row.route, usageDetail.row.source_page) : null;
+                      if (hasSourcePage && origin) {
+                        return (
+                          <div className="mb-3 p-3 rounded bg-blue-950/30 border border-blue-800/50 text-sm space-y-2">
+                            <div className="text-xs font-medium text-blue-300 uppercase tracking-wide">Exact call origin</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              <div><span className="text-neutral-500">Page:</span> <span className="font-mono text-blue-200">{origin.page}</span></div>
+                              <div><span className="text-neutral-500">Component:</span> <span className="font-mono text-blue-200">{origin.component}</span></div>
+                              <div><span className="text-neutral-500">Trigger:</span> <span className={origin.trigger === "auto" ? "text-amber-400" : "text-emerald-400"}>{origin.trigger}</span></div>
+                              <div><span className="text-neutral-500">Cost impact:</span> <span className={origin.costImpact === "high" ? "text-amber-400" : origin.costImpact === "medium" ? "text-yellow-400" : "text-neutral-400"}>{origin.costImpact}</span></div>
+                            </div>
+                            <div className="text-xs text-neutral-400">{origin.description}</div>
+                            <div className="text-[11px] text-neutral-500 font-mono">source_page: {usageDetail.row.source_page}</div>
                           </div>
-                          <div className="text-xs text-neutral-400">{origin.description}</div>
-                          {usageDetail.row.source_page && <div className="text-[11px] text-neutral-500 font-mono">source_page: {usageDetail.row.source_page}</div>}
-                        </div>
-                      );
+                        );
+                      }
+                      if (!hasSourcePage) {
+                        return (
+                          <div className="mb-3 p-3 rounded bg-amber-950/30 border border-amber-800/50 text-sm">
+                            <div className="text-xs font-medium text-amber-400 uppercase tracking-wide">Origin not tracked</div>
+                            <div className="text-xs text-neutral-400 mt-1">Route: <span className="font-mono">{usageDetail.row.route || "—"}</span>. Add <code className="text-amber-300">sourcePage</code> to the API caller to track. See <code className="text-amber-300">lib/ai/call-origin-map.ts</code>.</div>
+                          </div>
+                        );
+                      }
+                      return null;
                     })()}
                   </>
                 )}

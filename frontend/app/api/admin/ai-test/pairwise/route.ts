@@ -152,6 +152,7 @@ export async function POST(req: NextRequest) {
               colors: tc.input.colors || [],
               forceModel: process.env.MODEL_AI_TEST || "gpt-4o-mini",
               eval_run_id: evalRun.id,
+              sourcePage: "admin_ai_test",
             }),
           });
           const dataA = await resA.json();
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest) {
               colors: tc.input.colors || [],
               forceModel: process.env.MODEL_AI_TEST || "gpt-4o-mini",
               eval_run_id: evalRun.id,
+              sourcePage: "admin_ai_test",
             }),
           });
           const dataB = await resB.json();

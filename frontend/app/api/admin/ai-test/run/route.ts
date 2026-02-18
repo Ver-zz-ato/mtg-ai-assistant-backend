@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
             colors: input.colors || [],
             plan: input.context?.plan || "Optimized",
             currency: input.context?.currency || "USD",
+            sourcePage: "admin_ai_test",
           }),
         });
 

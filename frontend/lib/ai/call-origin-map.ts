@@ -209,13 +209,16 @@ export function getCallOrigin(
   return null;
 }
 
+/** Display string for admin: page · component when tracked, else "Not tracked" */
 export function getCallOriginDisplay(
   route: string | null | undefined,
   sourcePage: string | null | undefined
 ): string {
-  const origin = getCallOrigin(route, sourcePage);
-  if (origin) {
-    return `${origin.page} · ${origin.component}`;
+  const src = sourcePage?.trim();
+  if (src && SOURCE_PAGE_ORIGINS[src]) {
+    const o = SOURCE_PAGE_ORIGINS[src];
+    return `${o.page} · ${o.component}`;
   }
-  return sourcePage || route || "—";
+  if (src) return src; // Unknown source_page, show raw
+  return "—"; // Not tracked: add sourcePage to API caller
 }

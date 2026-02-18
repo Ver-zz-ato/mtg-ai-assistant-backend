@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
               format: testCase.input.format || "Commander",
               commander: testCase.input.commander,
               colors: testCase.input.colors || [],
+              sourcePage: "admin_ai_test",
             }),
           });
 

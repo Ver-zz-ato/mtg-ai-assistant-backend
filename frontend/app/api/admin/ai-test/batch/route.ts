@@ -175,6 +175,7 @@ export async function POST(req: NextRequest) {
                 currency: input.context?.currency || "USD",
                 forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
                 eval_run_id: evalRunId,
+                sourcePage: "admin_ai_test",
               }),
             });
 

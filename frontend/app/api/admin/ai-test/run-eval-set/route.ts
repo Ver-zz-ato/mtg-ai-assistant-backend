@@ -256,6 +256,7 @@ export async function POST(req: NextRequest) {
                 currency: testCase.input.context?.currency || "USD",
                 forceModel: process.env.MODEL_AI_TEST || "gpt-4o-mini",
                 eval_run_id: evalRun.id,
+                sourcePage: "admin_ai_test",
               }),
             });
             const analysisData = await analysisResponse.json();
