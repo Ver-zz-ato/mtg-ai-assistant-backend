@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
-import { getPromptVersion } from "@/lib/config/prompts";
+import { getPromptVersion, setActivePromptVersion } from "@/lib/config/prompts";
 import { validateResponse } from "@/lib/ai/test-validator";
 import { runPairwiseJudge, fallbackJudgeResult } from "@/lib/ai/pairwise-judge";
 
@@ -76,12 +76,16 @@ export async function POST(req: NextRequest) {
       }));
     }
 
-    const promptA = prompt_version_id_a || (await getPromptVersion(testCases[0]?.type === "deck_analysis" ? "deck_analysis" : "chat"))?.id;
+    const promptKind = testCases[0]?.type === "deck_analysis" ? "deck_analysis" : "chat";
+    const currentPrompt = await getPromptVersion(promptKind);
+    const promptA = prompt_version_id_a || currentPrompt?.id;
     const promptB = prompt_version_id_b || promptA;
 
     if (!promptA || !promptB) {
       return NextResponse.json({ ok: false, error: "Could not resolve prompt versions" }, { status: 400 });
     }
+
+    const usePromptOverride = promptA !== promptB;
 
     const suiteName = `pairwise-${promptA}-vs-${promptB}-${Date.now()}`;
     const { data: evalRun, error: evalError } = await supabase
@@ -105,15 +109,20 @@ export async function POST(req: NextRequest) {
 
     const results: any[] = [];
     let batchTestThreadId: string | null = null;
+    const restoreActive = usePromptOverride && currentPrompt
+      ? () => setActivePromptVersion(promptKind, currentPrompt.id, currentPrompt.version)
+      : () => {};
     const { data: existingThread } = await supabase.from("chat_threads").select("id").eq("user_id", user.id).eq("title", "Batch Test Thread").order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (existingThread) batchTestThreadId = existingThread.id;
 
+    try {
     for (const tc of testCases) {
       let responseA = "";
       let responseB = "";
 
       try {
         if (tc.type === "chat") {
+          if (usePromptOverride) await setActivePromptVersion(promptKind, promptA);
           const resA = await fetch(`${baseUrl}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Cookie: req.headers.get("cookie") || "" },
@@ -122,6 +131,7 @@ export async function POST(req: NextRequest) {
           const dataA = await resA.json();
           responseA = dataA.text || "";
 
+          if (usePromptOverride) await setActivePromptVersion(promptKind, promptB);
           const resB = await fetch(`${baseUrl}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Cookie: req.headers.get("cookie") || "" },
@@ -130,6 +140,7 @@ export async function POST(req: NextRequest) {
           const dataB = await resB.json();
           responseB = dataB.text || "";
         } else {
+          if (usePromptOverride) await setActivePromptVersion(promptKind, promptA);
           const resA = await fetch(`${baseUrl}/api/deck/analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Cookie: req.headers.get("cookie") || "" },
@@ -150,6 +161,7 @@ export async function POST(req: NextRequest) {
             ...(dataA.suggestions || []).map((s: any) => `💡 ${s.card}: ${s.reason || ""}`),
           ].join("\n");
 
+          if (usePromptOverride) await setActivePromptVersion(promptKind, promptB);
           const resB = await fetch(`${baseUrl}/api/deck/analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Cookie: req.headers.get("cookie") || "" },
@@ -254,6 +266,9 @@ export async function POST(req: NextRequest) {
         winnerByJudge,
         judgeConfidence,
       });
+    }
+    } finally {
+      restoreActive();
     }
 
     const n = results.length;

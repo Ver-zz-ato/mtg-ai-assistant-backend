@@ -126,6 +126,32 @@ export async function getPromptVersionById(
 }
 
 /**
+ * Set active prompt version (for eval/pairwise - switch before each run)
+ */
+export async function setActivePromptVersion(
+  kind: "chat" | "deck_analysis",
+  promptVersionId: string,
+  versionLabel?: string
+): Promise<void> {
+  try {
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const db = getAdmin();
+    if (!db) return;
+    await db
+      .from("app_config")
+      .upsert(
+        {
+          key: `active_prompt_version_${kind}`,
+          value: { id: promptVersionId, version: versionLabel || "temp" },
+        },
+        { onConflict: "key" }
+      );
+  } catch (e) {
+    console.warn("[setActivePromptVersion] Failed:", e);
+  }
+}
+
+/**
  * Get active prompt version (for backward compatibility with existing code)
  */
 export function getActivePromptVersion(): string {

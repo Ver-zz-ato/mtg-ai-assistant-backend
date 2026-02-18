@@ -201,6 +201,193 @@ function PairwiseComparePanel({
   );
 }
 
+function ProposalReviewPanel({
+  proposal,
+  selfOptResult,
+  promptVersions,
+  onApprove,
+  onReject,
+  onRegenerate,
+  onClose,
+}: {
+  proposal: any;
+  selfOptResult: any;
+  promptVersions: { chat: any[]; deck_analysis: any[] };
+  onApprove: (approvedPromptVersionId: string, notes?: string) => Promise<void>;
+  onReject: (notes?: string, reasonCode?: string) => Promise<void>;
+  onRegenerate: (direction: string, notes?: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [evidenceTab, setEvidenceTab] = React.useState<"metrics" | "fixes" | "regressions" | "deck_samples" | "diff">("metrics");
+  const [selectedCandidateId, setSelectedCandidateId] = React.useState<string | null>(proposal.recommended_prompt_version_id || (proposal.candidate_prompt_version_ids || [])[0]);
+  const [regenerateDirection, setRegenerateDirection] = React.useState("more_strict");
+  const [regenerateNotes, setRegenerateNotes] = React.useState("");
+  const [rejectNotes, setRejectNotes] = React.useState("");
+  const [regenerating, setRegenerating] = React.useState(false);
+
+  const summary = selfOptResult?.summary || {};
+  const evidence = proposal.evidence || {};
+  const risk = proposal.risk_assessment || {};
+  const candidates = (proposal.candidate_prompt_version_ids || []) as string[];
+  const chatVersions = promptVersions.chat || [];
+  const candidateVersions = candidates.map((id: string) => chatVersions.find((v: any) => v.id === id)).filter(Boolean);
+
+  const recLabel = proposal.recommended_prompt_version_id
+    ? candidateVersions.find((v: any) => v.id === proposal.recommended_prompt_version_id)?.version || "Candidate"
+    : "Keep Current";
+
+  return (
+    <section className="rounded-xl border-2 border-amber-600/50 p-6 bg-amber-950/20 mt-8">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h2 className="text-xl font-bold">Proposal Review</h2>
+          <p className="text-sm text-neutral-400">Human makes the final decision. No auto-adopt.</p>
+        </div>
+        <button onClick={onClose} className="px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-sm">Close</button>
+      </div>
+
+      {/* A) Big header */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 p-4 rounded-lg bg-neutral-900/80">
+        <div>
+          <div className="text-xs text-neutral-500 mb-1">Recommendation</div>
+          <div className="font-semibold text-amber-400">{recLabel}</div>
+        </div>
+        <div>
+          <div className="text-xs text-neutral-500 mb-1">Confidence</div>
+          <div>{(risk.confidence ?? 0.7) * 100}%</div>
+        </div>
+        <div>
+          <div className="text-xs text-neutral-500 mb-1">Golden</div>
+          <div className={summary.golden_pass_B || summary.golden_pass_C ? "text-green-400" : "text-amber-400"}>
+            {summary.golden_pass_B || summary.golden_pass_C ? "PASS" : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-neutral-500 mb-1">Cost delta</div>
+          <div>{risk.cost_delta_pct != null ? `${risk.cost_delta_pct}%` : "—"}</div>
+        </div>
+        <div>
+          <div className="text-xs text-neutral-500 mb-1">Latency delta</div>
+          <div>{risk.latency_delta_pct != null ? `${risk.latency_delta_pct}%` : "—"}</div>
+        </div>
+      </div>
+
+      {/* B) ELI5 Summary */}
+      <div className="mb-6">
+        <div className="text-sm font-medium mb-2">ELI5 Summary</div>
+        <div className="text-sm text-neutral-300 whitespace-pre-wrap space-y-1">
+          {(proposal.rationale_eli5 || "").split("\n").map((line: string, i: number) => (
+            <div key={i}>• {line}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* C) Evidence Tabs */}
+      <div className="mb-6">
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {(["metrics", "fixes", "regressions", "deck_samples", "diff"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setEvidenceTab(t)}
+              className={`px-3 py-1.5 rounded text-sm ${evidenceTab === t ? "bg-amber-600" : "bg-neutral-700 hover:bg-neutral-600"}`}
+            >
+              {t === "metrics" ? "Metrics" : t === "fixes" ? "Top Fixes" : t === "regressions" ? "Regressions" : t === "deck_samples" ? "Deck Samples" : "Prompt Diff"}
+            </button>
+          ))}
+        </div>
+        <div className="p-4 rounded-lg bg-neutral-900/80 min-h-[120px]">
+          {evidenceTab === "metrics" && (
+            <div className="space-y-2 text-sm">
+              <div>Pass rate A: {summary.pass_rate_A ?? "—"}% | B: {summary.pass_rate_B ?? "—"}% | C: {summary.pass_rate_C ?? "—"}%</div>
+              <div>Win rate delta B: {summary.win_rate_delta_B != null ? `${summary.win_rate_delta_B.toFixed(1)}%` : "—"} | C: {summary.win_rate_delta_C != null ? `${summary.win_rate_delta_C.toFixed(1)}%` : "—"}</div>
+              <div>Deck samples: {evidence.deck_sample_count ?? 0}</div>
+              {summary.pairwise_A_vs_Prev && (
+                <div className="text-neutral-400">Baseline A vs Prev: Judge A {summary.pairwise_A_vs_Prev.winRateAByJudge?.toFixed(1)}% | B {summary.pairwise_A_vs_Prev.winRateBByJudge?.toFixed(1)}%</div>
+              )}
+            </div>
+          )}
+          {evidenceTab === "fixes" && (
+            <div className="text-sm text-neutral-400">Top fixes from evidence. See rationale_full for details.</div>
+          )}
+          {evidenceTab === "regressions" && (
+            <div className="text-sm text-neutral-400">{(risk.regression_risks || []).length ? risk.regression_risks.map((r: string, i: number) => <div key={i}>• {r}</div>) : "None identified."}</div>
+          )}
+          {evidenceTab === "deck_samples" && (
+            <div className="text-sm">Deck sample count: {evidence.deck_sample_count ?? 0}. Run IDs: {evidence.eval_run_id_A ?? "—"}</div>
+          )}
+          {evidenceTab === "diff" && (
+            <div className="text-sm">
+              <div>Current length: {proposal.diff_summary?.current_length ?? "—"} chars</div>
+              <div>B length: {proposal.diff_summary?.B_length ?? "—"} | C length: {proposal.diff_summary?.C_length ?? "—"}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* D) Actions */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">Approve & Adopt:</span>
+          <select
+            value={selectedCandidateId || ""}
+            onChange={(e) => setSelectedCandidateId(e.target.value || null)}
+            className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm"
+          >
+            <option value="">—</option>
+            {candidateVersions.map((v: any) => (
+              <option key={v.id} value={v.id}>{v.version}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => selectedCandidateId && onApprove(selectedCandidateId)}
+            disabled={!selectedCandidateId}
+            className="px-4 py-2 rounded bg-green-600 hover:bg-green-500 font-medium disabled:opacity-50"
+          >
+            Approve & Adopt
+          </button>
+        </div>
+        <button onClick={() => onReject(rejectNotes)} className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 font-medium">
+          Reject
+        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={regenerateDirection}
+            onChange={(e) => setRegenerateDirection(e.target.value)}
+            className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm"
+          >
+            <option value="more_strict">More strict</option>
+            <option value="more_concise">More concise</option>
+            <option value="more_helpful">More helpful</option>
+            <option value="more_budget_focus">More budget focus</option>
+            <option value="more_rules_focus">More rules focus</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Notes (optional)"
+            value={regenerateNotes}
+            onChange={(e) => setRegenerateNotes(e.target.value)}
+            className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm w-40"
+          />
+          <button
+            onClick={async () => {
+              setRegenerating(true);
+              try {
+                await onRegenerate(regenerateDirection, regenerateNotes || undefined);
+              } finally {
+                setRegenerating(false);
+              }
+            }}
+            disabled={regenerating}
+            className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 font-medium disabled:opacity-50"
+          >
+            {regenerating ? "Running…" : "Generate Another Option"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const DIFFICULTY_PRESETS = [
   { value: "standard", label: "Standard" },
   { value: "strict", label: "Strict (brutal)" },
@@ -579,6 +766,8 @@ export default function AiTestPage() {
   const [autoChallengeLoading, setAutoChallengeLoading] = React.useState(false);
   const [selfOptLoading, setSelfOptLoading] = React.useState(false);
   const [selfOptResult, setSelfOptResult] = React.useState<any>(null);
+  const [currentProposal, setCurrentProposal] = React.useState<any>(null);
+  const [proposalLoading, setProposalLoading] = React.useState(false);
   const [latestImprovementReport, setLatestImprovementReport] = React.useState<any>(null);
   const [showValidationDetails, setShowValidationDetails] = React.useState(false);
   const [showBatchDetails, setShowBatchDetails] = React.useState(false);
@@ -1313,22 +1502,30 @@ export default function AiTestPage() {
       {/* SIMPLE MODE: Status + 3 Big Actions */}
       {simpleMode && (
         <div className="space-y-8 mb-8">
-          {/* Run Self-Optimization - primary CTA */}
+          {/* Run Self-Optimization - proposal flow (no auto-adopt) */}
           <section className="rounded-xl border-2 border-blue-600/50 p-6 bg-blue-950/20">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <div className="text-lg font-semibold mb-1">AI Auto-Improve Engine</div>
-                <div className="text-sm text-neutral-400">Run full self-optimization: run suite, generate Golden Set, challenge prompts, adopt best.</div>
+                <div className="text-sm text-neutral-400">Run self-optimization: generate candidates, run tests, pairwise compare. Human approves or rejects.</div>
               </div>
               <button
                 onClick={async () => {
                   setSelfOptLoading(true);
                   setSelfOptResult(null);
+                  setCurrentProposal(null);
                   try {
-                    const r = await fetch("/api/admin/ai-test/self-optimization", { method: "POST", headers: { "Content-Type": "application/json" } });
+                    const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 10 }),
+                    });
                     const j = await r.json();
                     setSelfOptResult(j);
-                    if (j.ok) {
+                    if (j.ok && j.proposal_id) {
+                      const fetchR = await fetch(`/api/admin/ai-test/proposals/${j.proposal_id}`);
+                      const fetchJ = await fetchR.json();
+                      if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
                       loadEvalSets();
                       loadEvalRuns();
                       loadPromptVersions();
@@ -1346,22 +1543,9 @@ export default function AiTestPage() {
                 {selfOptLoading ? "Running…" : "Run Self-Optimization"}
               </button>
             </div>
-            {selfOptResult && (
-              <div className={`mt-4 p-4 rounded-lg ${selfOptResult.ok ? "bg-green-950/30 border border-green-800" : "bg-red-950/30 border border-red-800"}`}>
-                {selfOptResult.ok ? (
-                  <>
-                    <div className="font-medium text-green-400">✓ AI Improved</div>
-                    <div className="text-sm mt-2 space-y-1">
-                      <div>Pass rate: {selfOptResult.summary?.pass_rate_before}% → {selfOptResult.summary?.pass_rate_after}%</div>
-                      {selfOptResult.summary?.adopted && <div>Adopted automatically.</div>}
-                      {selfOptResult.summary?.recommendation && (
-                        <div className="text-neutral-400">{selfOptResult.summary.recommendation.message}</div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-red-400">{selfOptResult.error}</div>
-                )}
+            {selfOptResult && !selfOptResult.ok && (
+              <div className="mt-4 p-4 rounded-lg bg-red-950/30 border border-red-800">
+                <div className="text-red-400">{selfOptResult.error}</div>
               </div>
             )}
           </section>
@@ -1543,88 +1727,91 @@ export default function AiTestPage() {
             {/* 3) Compare Prompt Versions */}
             <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
               <div className="text-2xl mb-2">🆚</div>
-              <div className="font-semibold text-lg mb-2">Compare Two Versions</div>
-              <p className="text-sm text-neutral-400 mb-4">Run A vs B on same tests. See which wins.</p>
-              <button
-                onClick={async () => {
-                  setSuiteToolTab("compare");
-                  setSimpleMode(false);
-                }}
-                className="w-full py-3 px-4 rounded-lg bg-purple-600 hover:bg-purple-500 font-medium mb-2"
-              >
-                Compare Versions
-              </button>
-              <p className="text-xs text-neutral-500">Opens Advanced Mode to select A & B</p>
+              <div className="font-semibold text-lg mb-2">Compare Current vs Previous</div>
+              <p className="text-sm text-neutral-400 mb-4">Run pairwise: Active vs Previous prompt on same tests.</p>
+              {(() => {
+                const chatVers = promptVersions.chat || [];
+                const activeId = activePromptVersions.chat;
+                const sorted = [...chatVers].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+                const prevVer = sorted.find((v: any) => v.id !== activeId);
+                const hasPrevious = !!prevVer;
+                return (
+                  <>
+                    <button
+                      onClick={async () => {
+                        if (!hasPrevious) return;
+                        try {
+                          const r = await fetch("/api/admin/ai-test/pairwise", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              test_case_ids: filteredCases.slice(0, 10).map((c) => c.id),
+                              prompt_version_id_a: activeId,
+                              prompt_version_id_b: prevVer.id,
+                            }),
+                          });
+                          const j = await r.json();
+                          if (j.ok) {
+                            setPairwiseResult(j);
+                            setSuiteToolTab("compare");
+                            setSimpleMode(false);
+                          } else alert(j.error || "Failed");
+                        } catch (e: any) {
+                          alert(e?.message || "Failed");
+                        }
+                      }}
+                      disabled={!hasPrevious || filteredCases.length === 0}
+                      className="w-full py-3 px-4 rounded-lg bg-purple-600 hover:bg-purple-500 font-medium mb-2 disabled:opacity-50"
+                    >
+                      {hasPrevious ? "Compare Current vs Previous" : "No previous version yet"}
+                    </button>
+                    {hasPrevious && <p className="text-xs text-neutral-500">Opens Advanced Mode with results. Or compare to proposal candidates there.</p>}
+                    {!hasPrevious && <p className="text-xs text-neutral-500">Run a proposal and approve a change to get a previous version.</p>}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
-          {/* Let AI Improve Prompt + Rollback */}
+          {/* Let AI Improve Prompt - same proposal flow */}
           <div className="grid md:grid-cols-2 gap-6">
             <div className="rounded-xl border border-neutral-700 p-6 bg-neutral-900/50 hover:border-neutral-600 transition-colors">
               <div className="text-2xl mb-2">🤖</div>
               <div className="font-semibold text-lg mb-2">Let AI Improve Prompt</div>
-              <p className="text-sm text-neutral-400 mb-4">Generate variants, run challenge, get recommendation.</p>
+              <p className="text-sm text-neutral-400 mb-4">Same as Run Self-Optimization: generate candidates, run tests, get proposal. You approve or reject.</p>
               <button
                 onClick={async () => {
-                  setAutoChallengeLoading(true);
+                  setProposalLoading(true);
                   setAutoChallengeResult(null);
+                  setCurrentProposal(null);
                   try {
-                    const r = await fetch("/api/admin/ai-test/auto-challenge", {
+                    const r = await fetch("/api/admin/ai-test/self-optimize-proposal", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ kind: "chat", testLimit: 15 }),
+                      body: JSON.stringify({ kind: "chat", scope: "golden+suite+deck_samples", candidate_count: 2, deck_sample_count: 10 }),
                     });
                     const j = await r.json();
                     setAutoChallengeResult(j);
+                    if (j.ok && j.proposal_id) {
+                      const fetchR = await fetch(`/api/admin/ai-test/proposals/${j.proposal_id}`);
+                      const fetchJ = await fetchR.json();
+                      if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
+                      loadEvalSets();
+                      loadEvalRuns();
+                      loadPromptVersions();
+                      loadLatestImprovementReport();
+                    }
                   } catch (e: any) {
                     setAutoChallengeResult({ ok: false, error: e?.message });
                   } finally {
-                    setAutoChallengeLoading(false);
+                    setProposalLoading(false);
                   }
                 }}
-                disabled={autoChallengeLoading}
+                disabled={proposalLoading}
                 className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium disabled:opacity-50"
               >
-                {autoChallengeLoading ? "Running…" : "Let AI Improve Prompt"}
+                {proposalLoading ? "Running…" : "Let AI Improve Prompt"}
               </button>
-              {autoChallengeResult?.ok && (
-                <div className="mt-4 p-4 rounded-lg bg-neutral-800/80 space-y-3">
-                  <div className="font-medium">
-                    Winner: Prompt {autoChallengeResult.recommended_prompt} (+{autoChallengeResult.performance_diff?.win_rate_delta ?? 0}% win rate)
-                  </div>
-                  <div className="text-sm text-neutral-400">{autoChallengeResult.risk_assessment}</div>
-                  {autoChallengeResult.adopt_prompt_id && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => {
-                          try {
-                            const r = await fetch("/api/admin/ai-test/adopt-prompt", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                prompt_version_id: autoChallengeResult.adopt_prompt_id,
-                                kind: "chat",
-                                test_evidence: { win_rate_delta: autoChallengeResult.performance_diff?.win_rate_delta },
-                              }),
-                            });
-                            const j = await r.json();
-                            if (j.ok) {
-                              loadPromptVersions();
-                              loadLatestImprovementReport();
-                              alert("Adopted. Rollback available if needed.");
-                            } else alert(j.error || "Failed");
-                          } catch (e: any) {
-                            alert(e?.message || "Failed");
-                          }
-                        }}
-                        className="px-4 py-2 rounded bg-green-600 hover:bg-green-500 text-sm font-medium"
-                      >
-                        Adopt Prompt
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
               {autoChallengeResult && !autoChallengeResult.ok && (
                 <div className="mt-4 p-3 rounded-lg bg-red-950/30 text-red-400 text-sm">{autoChallengeResult.error}</div>
               )}
@@ -1657,6 +1844,68 @@ export default function AiTestPage() {
               </button>
             </div>
           </div>
+
+          {/* Proposal Review Panel - shown when we have a proposal */}
+          {currentProposal && currentProposal.status === "pending" && (
+            <ProposalReviewPanel
+              proposal={currentProposal}
+              selfOptResult={selfOptResult}
+              promptVersions={promptVersions}
+              onApprove={async (approvedPromptVersionId: string, notes?: string) => {
+                try {
+                  const r = await fetch(`/api/admin/ai-test/proposals/${currentProposal.id}/approve`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ approved_prompt_version_id: approvedPromptVersionId, notes }),
+                  });
+                  const j = await r.json();
+                  if (j.ok) {
+                    setCurrentProposal(null);
+                    loadPromptVersions();
+                    loadLatestImprovementReport();
+                    alert("Approved. Active prompt updated.");
+                  } else alert(j.error || "Failed");
+                } catch (e: any) {
+                  alert(e?.message || "Failed");
+                }
+              }}
+              onReject={async (notes?: string, reasonCode?: string) => {
+                try {
+                  const r = await fetch(`/api/admin/ai-test/proposals/${currentProposal.id}/reject`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ notes, reason_code: reasonCode }),
+                  });
+                  const j = await r.json();
+                  if (j.ok) {
+                    setCurrentProposal(null);
+                    alert("Proposal rejected.");
+                  } else alert(j.error || "Failed");
+                } catch (e: any) {
+                  alert(e?.message || "Failed");
+                }
+              }}
+              onRegenerate={async (direction: string, notes?: string) => {
+                try {
+                  const r = await fetch(`/api/admin/ai-test/proposals/${currentProposal.id}/regenerate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ direction, notes }),
+                  });
+                  const j = await r.json();
+                  if (j.ok) {
+                    const fetchR = await fetch(`/api/admin/ai-test/proposals/${currentProposal.id}`);
+                    const fetchJ = await fetchR.json();
+                    if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
+                    alert(j.message || "Added new candidate.");
+                  } else alert(j.error || "Failed");
+                } catch (e: any) {
+                  alert(e?.message || "Failed");
+                }
+              }}
+              onClose={() => setCurrentProposal(null)}
+            />
+          )}
 
           {/* View Last Run + Cost Summary (compact) */}
           <div className="grid md:grid-cols-2 gap-4">
