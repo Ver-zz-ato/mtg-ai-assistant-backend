@@ -544,7 +544,7 @@ export default function HandTestingWidget({
     const shareText = `Hand Testing Sequence - ${testSequence.decisions.length} decisions, Final: ${testSequence.finalDecision}`;
     const baseUrl =
       typeof window !== "undefined" && window.location.hostname === "localhost"
-        ? "https://manatap.ai"
+        ? "https://www.manatap.ai"
         : typeof window !== "undefined"
           ? window.location.origin
           : "";

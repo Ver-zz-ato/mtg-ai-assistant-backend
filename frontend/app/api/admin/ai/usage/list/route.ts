@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     const deck_id = sp.get('deck_id') || undefined;
     const thread_id = sp.get('thread_id') || undefined;
     const user_id = sp.get('user_id') || undefined;
+    const source_page = sp.get('source_page') || undefined;
     const exclude_legacy_cost = sp.get('exclude_legacy_cost') === 'true';
 
     let q = admin
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest) {
     if (deck_id) q = q.eq('deck_id', deck_id);
     if (thread_id) q = q.eq('thread_id', thread_id);
     if (user_id) q = q.eq('user_id', user_id);
+    if (source_page) q = q.eq('source_page', source_page);
     if (exclude_legacy_cost) q = q.gte('pricing_version', LEGACY_PRICING_CUTOFF);
 
     const { data: rows, error } = await q;

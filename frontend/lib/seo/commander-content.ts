@@ -317,6 +317,31 @@ export function deriveCommanderSnapshot(profile: CommanderProfile): CommanderSna
   return { gameplan, themes, powerStyle, difficulty };
 }
 
+/** How this deck wins - template for content thickness */
+export function renderHowDeckWins(profile: CommanderProfile): string {
+  const { name } = profile;
+  const snapshot = deriveCommanderSnapshot(profile);
+  const v = pickVariation(profile.slug, "how-wins");
+  const templates = [
+    `${name} decks typically win through ${snapshot.powerStyle.toLowerCase()}—building board presence, outvaluing opponents, or closing with a decisive combo or combat swing. The ${snapshot.themes} theme supports this plan.`,
+    `How ${name} wins: ${snapshot.gameplan}. Most builds leverage ${snapshot.themes} to generate value or pressure. Expect wins via combat, combo, or incremental advantage.`,
+    `${name} closes games by capitalizing on ${snapshot.themes}. The ${snapshot.powerStyle} angle means you're either pressuring early, controlling the board, or assembling a winning combination.`,
+  ];
+  return templates[v % templates.length];
+}
+
+/** Common mistakes - template for content thickness */
+export function renderCommonMistakes(profile: CommanderProfile): string {
+  const { name } = profile;
+  const v = pickVariation(profile.slug, "mistakes");
+  const templates = [
+    `Common mistakes with ${name}: skimping on ramp (you need to cast your commander on curve), running too many high-cost cards without early plays, and neglecting interaction. Include enough removal and protection for your key pieces.`,
+    `Avoid these ${name} pitfalls: too few lands or ramp, cutting interaction for more "fun" cards, and overcommitting to the board before you can protect it. Balance your curve and include answers.`,
+    `When building ${name}, don't forget ramp, card draw, and removal. Many lists fail by running too many payoff cards and not enough setup. Test your mulligans and ensure your opener supports your plan.`,
+  ];
+  return templates[v % templates.length];
+}
+
 /** Strategy Snapshot: 2–3 sentence SSR summary from template */
 export function renderStrategySnapshot(profile: CommanderProfile): string {
   const { name } = profile;

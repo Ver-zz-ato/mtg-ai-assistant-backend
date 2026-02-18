@@ -5,6 +5,8 @@ import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
 import {
   renderCommanderIntro,
   deriveCommanderSnapshot,
+  renderHowDeckWins,
+  renderCommonMistakes,
 } from "@/lib/seo/commander-content";
 import { RelatedTools } from "@/components/RelatedTools";
 import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
@@ -91,11 +93,12 @@ export default async function CommanderHubPage({ params }: Props) {
   const swapsUrl = `/deck/swap-suggestions?commander=${encodeURIComponent(slug)}`;
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
+  // Guard DB calls: on failure, render fallback so page returns 200 (avoid 5xx)
   const [imgMap, aggregates, metaBadge, costLanding] = await Promise.all([
-    getImagesForNamesCached([cleanName]),
-    getCommanderAggregates(slug),
-    getCommanderMetaBadge(slug, name),
-    profile ? getCostLandingData(slug) : Promise.resolve({ costSnapshot: null, costDrivers: [], deckCount: 0 }),
+    getImagesForNamesCached([cleanName]).catch(() => new Map<string, { art_crop?: string; normal?: string; small?: string }>()),
+    getCommanderAggregates(slug).catch(() => null),
+    getCommanderMetaBadge(slug, name).catch(() => null),
+    profile ? getCostLandingData(slug).catch(() => ({ costSnapshot: null, costDrivers: [], deckCount: 0 })) : Promise.resolve({ costSnapshot: null, costDrivers: [], deckCount: 0 }),
   ]);
   const medianCostFallback =
     aggregates?.medianDeckCost == null && costLanding?.costSnapshot?.mid != null
@@ -155,6 +158,20 @@ export default async function CommanderHubPage({ params }: Props) {
           {intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")}
         </p>
 
+        {/* Content thickness: Commander overview, how deck wins, key synergies, common mistakes - SSR for indexability */}
+        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6 space-y-4">
+          <h2 className="text-lg font-semibold text-neutral-100">Commander overview</h2>
+          <p className="text-neutral-300 text-sm leading-relaxed">{intro}</p>
+          {profile && (
+            <>
+              <h2 className="text-lg font-semibold text-neutral-100 pt-2">How this deck wins</h2>
+              <p className="text-neutral-300 text-sm leading-relaxed">{renderHowDeckWins(profile)}</p>
+              <h2 className="text-lg font-semibold text-neutral-100 pt-2">Common mistakes</h2>
+              <p className="text-neutral-300 text-sm leading-relaxed">{renderCommonMistakes(profile)}</p>
+            </>
+          )}
+        </section>
+
         <CommanderHero
           commanderName={name}
           commanderSlug={slug}
@@ -184,6 +201,27 @@ export default async function CommanderHubPage({ params }: Props) {
         />
 
         <SimilarCommanders currentSlug={slug} />
+
+        {/* Popular Archetypes / Strategies - internal links for crawlability */}
+        <section className="rounded-xl border border-neutral-700 bg-neutral-800/60 p-5 mb-6">
+          <h2 className="text-lg font-semibold text-neutral-100 mb-3">
+            Popular Archetypes & Strategies
+          </h2>
+          <p className="text-neutral-400 text-sm mb-3">
+            Explore commanders by playstyle and archetype.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a href="/commander-archetypes" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+              Commander Archetypes
+            </a>
+            <a href="/strategies" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+              Deck Strategies
+            </a>
+            <a href="/meta/trending-commanders" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+              Trending Commanders
+            </a>
+          </div>
+        </section>
 
         <DeepDiveLinks commanderSlug={slug} showCommanderGuides={!isFallback} />
 

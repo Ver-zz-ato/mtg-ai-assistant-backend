@@ -2,6 +2,7 @@
 import React from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { getRouteContext, getCalledFromDisplay } from "@/lib/ai/route-to-page";
+import { getCallOrigin, getCallOriginDisplay, SOURCE_PAGE_ORIGINS, ROUTE_ORIGINS } from "@/lib/ai/call-origin-map";
 import { ELI5 } from "@/components/AdminHelp";
 
 function SnapshotInfo(){
@@ -140,6 +141,7 @@ export default function AdminAIUsagePage() {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [requestSort, setRequestSort] = React.useState<"time" | "cost" | "tokens">("cost");
   const [requestRouteFilter, setRequestRouteFilter] = React.useState<string>("");
+  const [sourcePageFilter, setSourcePageFilter] = React.useState<string>("");
 
   // Board: new overview API
   const [overview, setOverview] = React.useState<any | null>(null);
@@ -236,6 +238,7 @@ export default function AdminAIUsagePage() {
       const params = new URLSearchParams({ limit: "50", days: String(boardDays) });
       if (cursor) params.set("next_cursor", cursor);
       if (excludeLegacyCost) params.set("exclude_legacy_cost", "true");
+      if (sourcePageFilter) params.set("source_page", sourcePageFilter);
       const res = await fetch(`/api/admin/ai/usage/list?${params}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (j?.ok) {
@@ -291,7 +294,7 @@ export default function AdminAIUsagePage() {
       loadRecommendations();
       loadOpenAIUsage();
     }
-  }, [tab, boardDays, excludeLegacyCost]);
+  }, [tab, boardDays, excludeLegacyCost, sourcePageFilter]);
 
   React.useEffect(() => {
     if (tab !== "board") return;
@@ -568,6 +571,29 @@ export default function AdminAIUsagePage() {
                   </div>
                 </div>
                 <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
+                  <div className="px-4 py-2 border-b border-neutral-800 text-sm font-semibold text-neutral-200">By source (page · component)</div>
+                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table className="min-w-full text-sm">
+                      <tbody>
+                        {(overview.by_source_page || []).slice(0, 12).map((s: any) => {
+                          const isSourcePage = !String(s.id).startsWith("(route:");
+                          const routeKey = String(s.id).replace(/^\(route:(.+)\)$/, "$1");
+                          const origin = isSourcePage ? SOURCE_PAGE_ORIGINS[s.id] : ROUTE_ORIGINS[routeKey];
+                          return (
+                            <tr key={s.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => { if (isSourcePage) { setSourcePageFilter(s.id); loadUsageList(undefined); } else { setRequestRouteFilter(routeKey); setTab("requests"); } }}>
+                              <td className="px-4 py-1.5 font-mono text-xs" title={origin ? `${origin.page} · ${origin.component}\n${origin.description}` : s.id}>
+                                {origin ? `${origin.page} · ${origin.component}` : s.id}
+                              </td>
+                              <td className="px-4 py-1.5 text-right tabular-nums">{s.requests}</td>
+                              <td className="px-4 py-1.5 text-right font-mono">${s.cost_usd}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
                   <div className="px-4 py-2 border-b border-neutral-800 text-sm font-semibold text-neutral-200">By request kind</div>
                   <div className="overflow-x-auto max-h-48 overflow-y-auto">
                     <table className="min-w-full text-sm">
@@ -605,9 +631,22 @@ export default function AdminAIUsagePage() {
             </>
           )}
           <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40">
-            <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between">
+            <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-sm font-semibold text-neutral-200">Usage log</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="text-xs flex items-center gap-1">
+                  <span className="opacity-70">Source</span>
+                  <select
+                    value={sourcePageFilter}
+                    onChange={(e) => { setSourcePageFilter(e.target.value); loadUsageList(undefined); }}
+                    className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs max-w-[200px]"
+                  >
+                    <option value="">All sources</option>
+                    {Object.keys(SOURCE_PAGE_ORIGINS).map((k) => (
+                      <option key={k} value={k}>{SOURCE_PAGE_ORIGINS[k].page} · {SOURCE_PAGE_ORIGINS[k].component}</option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   onClick={async () => {
                     const params = new URLSearchParams({ limit: "2000", days: String(boardDays) });
@@ -637,13 +676,14 @@ export default function AdminAIUsagePage() {
                   <thead className="sticky top-0 bg-neutral-900"><tr className="border-b border-neutral-800"><th className="text-left px-2 py-1">Time</th><th className="text-left px-2 py-1">Route</th><th className="text-left px-2 py-1">Called from</th><th className="text-left px-2 py-1">Model</th><th className="text-right px-2 py-1">Cost</th><th className="text-left px-2 py-1"></th></tr></thead>
                   <tbody>
                     {usageList.map((r: any) => {
-                      const ctx = getRouteContext(r.route);
-                      const calledFrom = getCalledFromDisplay(r.route, r.source_page);
+                      const origin = getCallOrigin(r.route, r.source_page);
+                      const display = getCallOriginDisplay(r.route, r.source_page);
+                      const fallback = getCalledFromDisplay(r.route, r.source_page);
                       return (
                       <tr key={r.id} className="border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer" onClick={() => loadUsageDetail(r.id)}>
                         <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.route ?? "—"}</td>
-                        <td className="px-2 py-1 text-xs text-neutral-400" title={r.source_page ? `${calledFrom} (${r.source_page})` : ctx?.description}>{calledFrom}</td>
+                        <td className="px-2 py-1 text-xs text-neutral-400" title={origin ? `${origin.page}\n${origin.component}\n${origin.description}\nTrigger: ${origin.trigger}` : `${r.source_page || ""}`}>{display || fallback}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
                         <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
                         <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
@@ -669,13 +709,23 @@ export default function AdminAIUsagePage() {
                       <span className="text-neutral-500 ml-3">per request</span>
                       <span className="text-neutral-500 ml-2">({usageDetail.row.input_tokens ?? 0} in / {usageDetail.row.output_tokens ?? 0} out tokens, {usageDetail.row.model ?? "—"})</span>
                     </div>
-                    {(usageDetail.route_context || usageDetail.row.source_page || (usageDetail.row.route && getRouteContext(usageDetail.row.route))) && (
-                      <div className="mb-3 p-2 rounded bg-blue-950/30 border border-blue-800/50 text-sm">
-                        <div className="text-xs font-medium text-blue-300 uppercase tracking-wide mb-1">Called from (site location)</div>
-                        <div className="font-medium text-blue-200">{getCalledFromDisplay(usageDetail.row.route, usageDetail.row.source_page) || (usageDetail.route_context || getRouteContext(usageDetail.row.route))?.page || usageDetail.row.route || "—"}</div>
-                        <div className="text-xs text-neutral-400 mt-0.5">{usageDetail.row.source_page ? `source_page: ${usageDetail.row.source_page}` : (usageDetail.route_context || getRouteContext(usageDetail.row.route))?.description}</div>
-                      </div>
-                    )}
+                    {(() => {
+                      const origin = getCallOrigin(usageDetail.row.route, usageDetail.row.source_page);
+                      if (!origin) return null;
+                      return (
+                        <div className="mb-3 p-3 rounded bg-blue-950/30 border border-blue-800/50 text-sm space-y-2">
+                          <div className="text-xs font-medium text-blue-300 uppercase tracking-wide">Exact call origin</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div><span className="text-neutral-500">Page:</span> <span className="font-mono text-blue-200">{origin.page}</span></div>
+                            <div><span className="text-neutral-500">Component:</span> <span className="font-mono text-blue-200">{origin.component}</span></div>
+                            <div><span className="text-neutral-500">Trigger:</span> <span className={origin.trigger === "auto" ? "text-amber-400" : "text-emerald-400"}>{origin.trigger}</span></div>
+                            <div><span className="text-neutral-500">Cost impact:</span> <span className={origin.costImpact === "high" ? "text-amber-400" : origin.costImpact === "medium" ? "text-yellow-400" : "text-neutral-400"}>{origin.costImpact}</span></div>
+                          </div>
+                          <div className="text-xs text-neutral-400">{origin.description}</div>
+                          {usageDetail.row.source_page && <div className="text-[11px] text-neutral-500 font-mono">source_page: {usageDetail.row.source_page}</div>}
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
                 {usageDetail?.prompt_preview ? (
@@ -726,6 +776,38 @@ export default function AdminAIUsagePage() {
               </div>
             </div>
           )}
+          <details className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
+            <summary className="text-sm font-semibold text-neutral-200 cursor-pointer hover:text-white">Call origins reference (page · component · trigger)</summary>
+            <div className="mt-3 space-y-4">
+              <div>
+                <div className="text-xs font-medium text-neutral-400 uppercase mb-2">By source_page (deck_analyze)</div>
+                <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-neutral-800">
+                  <table className="min-w-full text-xs">
+                    <thead><tr className="border-b border-neutral-700 bg-neutral-900"><th className="text-left py-1.5 px-2">source_page</th><th className="text-left py-1.5 px-2">Page</th><th className="text-left py-1.5 px-2">Component</th><th className="text-left py-1.5 px-2">Trigger</th><th className="text-left py-1.5 px-2">Cost</th></tr></thead>
+                    <tbody>
+                      {Object.entries(SOURCE_PAGE_ORIGINS).map(([k, o]) => (
+                        <tr key={k} className="border-b border-neutral-800/50"><td className="py-1 px-2 font-mono">{k}</td><td className="py-1 px-2">{o.page}</td><td className="py-1 px-2">{o.component}</td><td className="py-1 px-2">{o.trigger}</td><td className="py-1 px-2">{o.costImpact}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-neutral-400 uppercase mb-2">By route</div>
+                <div className="overflow-x-auto max-h-48 overflow-y-auto rounded border border-neutral-800">
+                  <table className="min-w-full text-xs">
+                    <thead><tr className="border-b border-neutral-700 bg-neutral-900"><th className="text-left py-1.5 px-2">route</th><th className="text-left py-1.5 px-2">Page</th><th className="text-left py-1.5 px-2">Component</th><th className="text-left py-1.5 px-2">Trigger</th><th className="text-left py-1.5 px-2">Cost</th></tr></thead>
+                    <tbody>
+                      {Object.entries(ROUTE_ORIGINS).map(([k, o]) => (
+                        <tr key={k} className="border-b border-neutral-800/50"><td className="py-1 px-2 font-mono">{k}</td><td className="py-1 px-2">{o.page}</td><td className="py-1 px-2">{o.component}</td><td className="py-1 px-2">{o.trigger}</td><td className="py-1 px-2">{o.costImpact}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500">Filter Usage log by Source to see calls from a specific page/component. Click a row for full detail.</p>
+            </div>
+          </details>
           <section className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900/40 p-4">
             <h2 className="text-sm font-semibold text-neutral-200 mb-2">Config switchboard</h2>
             {configLoading && !config && <div className="text-sm text-neutral-500">Loading config…</div>}

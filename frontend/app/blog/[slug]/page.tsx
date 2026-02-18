@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: {
-      canonical: `/blog/${slug}`,
+      canonical: `https://www.manatap.ai/blog/${slug}`,
     },
     openGraph: {
       title: post.title,
@@ -892,7 +892,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
       "name": "ManaTap AI",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://manatap.ai/manatap-og-image.png"
+        "url": "https://www.manatap.ai/manatap-og-image.png"
       }
     },
     "mainEntityOfPage": {
@@ -970,6 +970,15 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
+        {/* Breadcrumb - server-rendered for crawlability */}
+        <nav className="text-sm text-gray-500 dark:text-gray-400 mb-6" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-gray-700 dark:hover:text-gray-300">Home</Link>
+          <span className="mx-2">/</span>
+          <Link href="/blog" className="hover:text-gray-700 dark:hover:text-gray-300">Blog</Link>
+          <span className="mx-2">/</span>
+          <span className="text-gray-700 dark:text-gray-200">{post.title.replace(/[🚀🎉💰📊💎🔧🤖]/g, "").trim()}</span>
+        </nav>
+
         {/* Back link */}
         <Link
           href="/blog"
@@ -1280,6 +1289,28 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             })()}} />
           </div>
         </article>
+
+        {/* Related content - internal links for crawlability */}
+        <section className="mt-12 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Related content</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Explore commanders, cards, and tools to build better decks.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <a href="/commanders" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
+              Browse Commanders
+            </a>
+            <a href="/cards" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
+              Top Commander Cards
+            </a>
+            <a href="/deck/swap-suggestions" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
+              Budget Swap Tool
+            </a>
+            <a href="/tools/mulligan" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
+              Mulligan Simulator
+            </a>
+          </div>
+        </section>
 
         {/* CTA */}
         <div className={`mt-12 bg-gradient-to-r ${post.gradient} relative overflow-hidden rounded-2xl p-8 md:p-12 text-center shadow-2xl`}>

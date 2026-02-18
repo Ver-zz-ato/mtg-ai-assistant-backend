@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export const revalidate = 86400;
 
 export default async function CardsIndexPage() {
-  const cards = await getTopCards();
+  const cards = await getTopCards().catch(() => []);
 
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -25,8 +25,11 @@ export default async function CardsIndexPage() {
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">
           Top Commander Cards
         </h1>
-        <p className="text-neutral-300 mb-8 text-lg leading-relaxed">
+        <p className="text-neutral-300 mb-4 text-lg leading-relaxed">
           Most-played cards in public Commander decks. Updated daily. Click any card for details, oracle text, and commanders.
+        </p>
+        <p className="text-neutral-400 mb-6 text-base leading-relaxed max-w-2xl">
+          Building a Commander deck starts with knowing which cards the community actually plays. This list ranks the top 200 cards by appearance in public decks on ManaTap. Staples like Sol Ring, Arcane Signet, and Command Tower appear in most lists. Card draw engines, removal, and ramp form the backbone of every deck. Use this hub to discover popular choices, compare deck counts, and find cards that fit your commander&apos;s strategy. Each card page shows oracle text, price data, and which commanders run it most often.
         </p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {cards.map((c) => (

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: 'Discover the best budget Magic: The Gathering staples under $5 that every Commander player should own. Build competitive decks without breaking the bank.',
   keywords: 'budget MTG staples, cheap commander cards, budget Magic cards 2025, affordable MTG staples',
   alternates: {
-    canonical: '/blog/top-budget-staples-every-mtg-player-should-know-2025',
+    canonical: 'https://www.manatap.ai/blog/top-budget-staples-every-mtg-player-should-know-2025',
   },
 };
 

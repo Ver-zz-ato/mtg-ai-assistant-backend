@@ -16,7 +16,10 @@ export async function fetchEnglishCardImages(name: string): Promise<ImageInfo | 
   try {
     const r = await fetch(
       `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${name.replace(/"/g, '')}"`)} lang:en`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: { Accept: "application/json", "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)" },
+      }
     );
     if (!r.ok) return null;
     const j: any = await r.json().catch(() => ({}));
@@ -61,7 +64,11 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
     try {
       const r = await fetch("https://api.scryfall.com/cards/collection", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)",
+        },
         body: JSON.stringify(body),
         cache: "no-store",
       });
@@ -94,7 +101,10 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
             try {
               const fr = await fetch(
                 `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(orig)}`,
-                { cache: "no-store" }
+                {
+                  cache: "no-store",
+                  headers: { Accept: "application/json", "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)" },
+                }
               );
               if (!fr.ok) return;
               const card: any = await fr.json().catch(() => ({}));

@@ -14,6 +14,7 @@ import LivePresenceBanner from "../components/LivePresenceBanner";
 import HomepageSignupBanner from "../components/HomepageSignupBanner";
 import HomeVariantB from "../components/HomeVariantB";
 import HomepageFAQ from "../components/HomepageFAQ";
+import { TopCommandersSection } from "../components/TopCommandersSection";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
@@ -43,7 +44,7 @@ function jsonLd() {
     "publisher": {
       "@type": "Organization",
       "name": "ManaTap.ai",
-      "url": "https://manatap.ai"
+      "url": "https://www.manatap.ai"
     },
     "dateModified": "2025-10-22T00:00:00Z",
     "featureList": [
@@ -114,6 +115,7 @@ export default function Page() {
             <span className="mx-2 text-neutral-600">·</span>
             <a href="/meta" className="hover:text-white">Meta</a>
           </nav>
+          <TopCommandersSection />
         </div>
         
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">

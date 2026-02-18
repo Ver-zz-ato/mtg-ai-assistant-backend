@@ -35,7 +35,22 @@ export const config = {
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
-  
+
+  // B) Canonical URL normalization: trailing slash + lowercase
+  // Redirect trailing slash to no-trailing-slash (consistent canonical format)
+  if (path !== "/" && path.endsWith("/")) {
+    const url = req.nextUrl.clone();
+    url.pathname = path.slice(0, -1);
+    return new NextResponse(null, { status: 308, headers: { Location: url.toString() } });
+  }
+  // Redirect uppercase paths to lowercase (avoid duplicate without user-selected canonical)
+  const lowerPath = path.toLowerCase();
+  if (path !== lowerPath) {
+    const url = req.nextUrl.clone();
+    url.pathname = lowerPath;
+    return new NextResponse(null, { status: 308, headers: { Location: url.toString() } });
+  }
+
   // WWW redirect: Ensure bare domain (manatap.ai) redirects to www.manatap.ai (single hop)
   // Do NOT redirect other subdomains (e.g., app.manatap.ai)
   const host = req.headers.get('host') || '';

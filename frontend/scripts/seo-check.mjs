@@ -22,7 +22,7 @@ function get(path) {
     if (r.status === 200 && r.body) {
       const hasAdmin = r.body.includes("Disallow: /admin/");
       const hasApi = r.body.includes("Disallow: /api/");
-      const hasSitemap = r.body.includes("Sitemap: https://manatap.ai/sitemap.xml");
+      const hasSitemap = r.body.includes("Sitemap: https://www.manatap.ai/sitemap.xml");
       console.log(`   - Admin blocked: ${hasAdmin ? "✅" : "❌"}`);
       console.log(`   - API blocked: ${hasApi ? "✅" : "❌"}`);
       console.log(`   - Sitemap declared: ${hasSitemap ? "✅" : "❌"}`);
@@ -33,7 +33,7 @@ function get(path) {
     console.log(`🗺️  sitemap.xml: ${s.status === 200 ? "✅ OK" : "❌ FAIL"} (${s.status})`);
     if (s.status === 200 && s.body) {
       const urlCount = (s.body.match(/<url>/g) || []).length;
-      const hasManaTapDomain = s.body.includes("https://manatap.ai/");
+      const hasManaTapDomain = s.body.includes("https://www.manatap.ai/");
       console.log(`   - URLs found: ${urlCount}`);
       console.log(`   - ManaTap domain: ${hasManaTapDomain ? "✅" : "❌"}`);
     }

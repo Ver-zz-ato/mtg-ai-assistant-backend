@@ -9,19 +9,24 @@ type ColorIdentityBannerProps = {
   format?: string;
 };
 
+function isWithinColorIdentity(cardColors: string[], allowedColors: string[]): boolean {
+  if (cardColors.length === 0) return true; // Colorless allowed
+  if (allowedColors.length === 0) return false;
+  const allowed = new Set(allowedColors.map((c) => c.toUpperCase()));
+  return cardColors.every((c) => allowed.has(c.toUpperCase()));
+}
+
 /**
- * Banner that checks for illegal color identity cards in Commander decks
- * Appears when deck has cards outside the commander's color identity
+ * Banner that checks for illegal color identity cards in Commander decks.
+ * Uses batch-metadata (Scryfall cache) - no LLM / deck analyze API.
  */
 export default function ColorIdentityBanner({ deckId, commander, allowedColors, format }: ColorIdentityBannerProps) {
   const [checking, setChecking] = React.useState(true);
   const [illegalCards, setIllegalCards] = React.useState<Array<{ name: string; colors: string[] }>>([]);
   const [dismissed, setDismissed] = React.useState(false);
 
-  // Only check for Commander format with a commander and allowed colors
   const shouldCheck = format?.toLowerCase() === 'commander' && commander && allowedColors.length > 0;
 
-  // Check for illegal color identity cards
   React.useEffect(() => {
     if (!shouldCheck) {
       setChecking(false);
@@ -29,12 +34,11 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
     }
 
     let mounted = true;
-    
+
     async function checkColorIdentity() {
       try {
         setChecking(true);
-        
-        // Fetch deck cards
+
         const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
         if (res.status === 401 || res.status === 403) {
           if (mounted) {
@@ -43,7 +47,7 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
           }
           return;
         }
-        
+
         const data = await res.json().catch(() => ({ ok: false }));
         if (!mounted || !data?.ok) {
           if (mounted) {
@@ -54,55 +58,33 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
         }
 
         const cards = Array.isArray(data.cards) ? data.cards : [];
-        
-        // Use deck analyze API to check for illegal colors (it already does this check efficiently)
-        const deckText = cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
-        try {
-          const analyzeRes = await fetch('/api/deck/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              deckText,
-              format: 'Commander',
-              useScryfall: true,
-              colors: allowedColors,
-              sourcePage: 'color_identity_banner',
-            })
-          });
-          
-          const analyzeJson = await analyzeRes.json().catch(() => ({ ok: false }));
-          if (analyzeJson?.ok && Array.isArray(analyzeJson.illegalExamples)) {
-            // Map illegal examples to card objects with colors
-            const illegalExamples = analyzeJson.illegalExamples || [];
-            const illegal: Array<{ name: string; colors: string[] }> = [];
-            
-            // For each illegal card, fetch its color identity to display
-            for (const cardName of illegalExamples.slice(0, 20)) { // Limit to first 20
-              try {
-                const colorCheckRes = await fetch(`/api/cards/color-check?name=${encodeURIComponent(cardName)}&allowedColors=${allowedColors.join(',')}`);
-                const colorCheckJson = await colorCheckRes.json().catch(() => ({ ok: false }));
-                if (colorCheckJson.cardColors) {
-                  illegal.push({ name: cardName, colors: colorCheckJson.cardColors });
-                } else {
-                  illegal.push({ name: cardName, colors: [] });
-                }
-              } catch (e) {
-                illegal.push({ name: cardName, colors: [] });
-              }
-            }
-            
-            if (mounted) {
-              setIllegalCards(illegal);
-            }
-            return;
-          }
-        } catch (e) {
-          console.warn('[ColorIdentityBanner] Analyze API check failed:', e);
+        const names = cards.map((c: { name: string }) => String(c.name || '').trim()).filter(Boolean);
+        if (names.length === 0) {
+          if (mounted) setIllegalCards([]);
+          return;
         }
-        
-        // Fallback: if analyze API fails, set empty
+
+        const metaRes = await fetch('/api/cards/batch-metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+        });
+        const metaJson = await metaRes.json().catch(() => ({ data: [] }));
+        const metaList = Array.isArray(metaJson.data) ? metaJson.data : [];
+
+        const illegal: Array<{ name: string; colors: string[] }> = [];
+        for (const m of metaList) {
+          const cardColors = Array.isArray(m.color_identity) ? m.color_identity : [];
+          if (!isWithinColorIdentity(cardColors, allowedColors)) {
+            illegal.push({
+              name: m.name || '',
+              colors: cardColors,
+            });
+          }
+        }
+
         if (mounted) {
-          setIllegalCards([]);
+          setIllegalCards(illegal);
         }
       } catch (error) {
         if (!mounted) return;
@@ -115,10 +97,8 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
       }
     }
 
-    // Small delay to avoid blocking initial render
     const timeoutId = setTimeout(checkColorIdentity, 500);
-    
-    // Listen for deck changes to re-check
+
     const handleChange = () => {
       if (mounted) {
         setDismissed(false);
@@ -126,7 +106,7 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
       }
     };
     window.addEventListener('deck:changed', handleChange);
-    
+
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
@@ -134,7 +114,6 @@ export default function ColorIdentityBanner({ deckId, commander, allowedColors, 
     };
   }, [deckId, commander, allowedColors.join(','), shouldCheck]);
 
-  // Don't show if checking, dismissed, or no illegal cards
   if (!shouldCheck || checking || dismissed || illegalCards.length === 0) {
     return null;
   }

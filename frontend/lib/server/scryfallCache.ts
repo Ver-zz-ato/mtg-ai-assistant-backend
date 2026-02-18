@@ -96,7 +96,11 @@ export async function getDetailsForNamesCached(names: string[]) {
       const identifiers = toFetch.map((n) => ({ name: uniq[keys.indexOf(n)] }));
       const r = await fetch("https://api.scryfall.com/cards/collection", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)",
+        },
         body: JSON.stringify({ identifiers }),
       });
       const j: any = await r.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { BANNED_LISTS } from "@/lib/deck/banned-cards";
 
 type BannedCardsBannerProps = {
   deckId: string;
@@ -8,7 +9,8 @@ type BannedCardsBannerProps = {
 };
 
 /**
- * Banner that checks for banned cards in the deck based on format
+ * Banner that checks for banned cards in the deck based on format.
+ * Uses direct banned list lookup (no LLM / deck analyze API).
  */
 export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerProps) {
   const [checking, setChecking] = React.useState(true);
@@ -18,7 +20,7 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
   const formatLower = format?.toLowerCase() || '';
   const shouldCheck = formatLower && ['commander', 'standard', 'modern', 'pioneer', 'pauper'].includes(formatLower);
 
-  // Check for banned cards
+  // Check for banned cards via direct lookup (no AI)
   React.useEffect(() => {
     if (!shouldCheck) {
       setChecking(false);
@@ -26,12 +28,11 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
     }
 
     let mounted = true;
-    
+
     async function checkBannedCards() {
       try {
         setChecking(true);
-        
-        // Fetch deck cards
+
         const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
         if (res.status === 401 || res.status === 403) {
           if (mounted) {
@@ -40,7 +41,7 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
           }
           return;
         }
-        
+
         const data = await res.json().catch(() => ({ ok: false }));
         if (!mounted || !data?.ok) {
           if (mounted) {
@@ -51,55 +52,20 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
         }
 
         const cards = Array.isArray(data.cards) ? data.cards : [];
-        const deckText = cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
-        
-        // Use deck analyze API to check for banned cards
-        try {
-          const formatCapitalized = formatLower.charAt(0).toUpperCase() + formatLower.slice(1);
-          const analyzeRes = await fetch('/api/deck/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              deckText,
-              format: formatCapitalized,
-              useScryfall: true,
-              sourcePage: 'banned_cards_banner',
-            })
-          });
-          
-          const analyzeJson = await analyzeRes.json().catch(() => ({ ok: false }));
-          if (analyzeJson?.ok && Array.isArray(analyzeJson.illegalExamples)) {
-            // Filter for banned cards (illegalExamples may include color violations too)
-            // We'll check against the banned list directly
-            const bannedList: string[] = [];
-            
-            // Import banned cards data
-            try {
-              const { BANNED_LISTS } = await import('@/lib/deck/banned-cards');
-              const bannedMap = BANNED_LISTS[formatCapitalized] || {};
-              
-              for (const card of cards) {
-                const cardName = String(card.name || '').trim();
-                if (bannedMap[cardName]) {
-                  bannedList.push(cardName);
-                }
-              }
-            } catch (e) {
-              console.warn('[BannedCardsBanner] Failed to load banned cards:', e);
-            }
-            
-            if (mounted) {
-              setBannedCards(bannedList.map(name => ({ name })));
-            }
-            return;
+        const formatCapitalized = formatLower.charAt(0).toUpperCase() + formatLower.slice(1);
+        const bannedMap = BANNED_LISTS[formatCapitalized] || {};
+        const bannedSet = new Set(Object.keys(bannedMap).map((k) => k.toLowerCase()));
+
+        const bannedList: Array<{ name: string }> = [];
+        for (const card of cards) {
+          const cardName = String(card.name || '').trim();
+          if (bannedSet.has(cardName.toLowerCase())) {
+            bannedList.push({ name: cardName });
           }
-        } catch (e) {
-          console.warn('[BannedCardsBanner] Analyze API check failed:', e);
         }
-        
-        // Fallback: if analyze API fails, set empty
+
         if (mounted) {
-          setBannedCards([]);
+          setBannedCards(bannedList);
         }
       } catch (error) {
         if (!mounted) return;
@@ -112,10 +78,8 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
       }
     }
 
-    // Small delay to avoid blocking initial render
     const timeoutId = setTimeout(checkBannedCards, 500);
-    
-    // Listen for deck changes to re-check
+
     const handleChange = () => {
       if (mounted) {
         setDismissed(false);
@@ -123,7 +87,7 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
       }
     };
     window.addEventListener('deck:changed', handleChange);
-    
+
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
@@ -131,7 +95,6 @@ export default function BannedCardsBanner({ deckId, format }: BannedCardsBannerP
     };
   }, [deckId, formatLower, shouldCheck]);
 
-  // Don't show if checking, dismissed, or no banned cards
   if (!shouldCheck || checking || dismissed || bannedCards.length === 0) {
     return null;
   }

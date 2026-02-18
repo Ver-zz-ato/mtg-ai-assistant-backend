@@ -169,24 +169,38 @@ export async function POST(req: NextRequest) {
     const goldenCases = allTestCases.filter((c: any) => goldenCaseIds.includes(c.id));
     const testCaseIds = allTestCases.map((c: any) => c.id);
 
+    const CHUNK_SIZE = 12; // Stay under 5min HeadersTimeoutError (Node fetch default)
     const runBatchWithPrompt = async (promptId: string): Promise<{ passRate: number; passCount: number; total: number; evalRunId?: number }> => {
       await setActivePromptVersion(promptKind, promptId);
-      const r = await fetch(`${baseUrl}/api/admin/ai-test/batch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: cookie },
-        body: JSON.stringify({
-          testCases: allTestCases,
-          formatKey: "commander",
-        }),
-      });
-      const j = await r.json();
-      const passCount = j.results?.filter((x: any) => x.validation?.overall?.passed).length ?? 0;
-      const total = j.results?.length ?? allTestCases.length;
+      const chunks: typeof allTestCases[] = [];
+      for (let i = 0; i < allTestCases.length; i += CHUNK_SIZE) {
+        chunks.push(allTestCases.slice(i, i + CHUNK_SIZE));
+      }
+      let totalPass = 0;
+      let totalRan = 0;
+      let firstEvalRunId: number | undefined;
+      for (let i = 0; i < chunks.length; i++) {
+        const r = await fetch(`${baseUrl}/api/admin/ai-test/batch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: cookie },
+          body: JSON.stringify({
+            testCases: chunks[i],
+            formatKey: "commander",
+          }),
+        });
+        const j = await r.json();
+        if (!j.ok && j.error) throw new Error(`Batch chunk ${i + 1}/${chunks.length}: ${j.error}`);
+        const passCount = j.results?.filter((x: any) => x.validation?.overall?.passed).length ?? 0;
+        const total = j.results?.length ?? chunks[i].length;
+        totalPass += passCount;
+        totalRan += total;
+        if (firstEvalRunId == null) firstEvalRunId = j.evalRunId;
+      }
       return {
-        passRate: total > 0 ? Math.round((passCount / total) * 100) : 0,
-        passCount,
-        total,
-        evalRunId: j.evalRunId,
+        passRate: totalRan > 0 ? Math.round((totalPass / totalRan) * 100) : 0,
+        passCount: totalPass,
+        total: totalRan,
+        evalRunId: firstEvalRunId,
       };
     };
 

@@ -108,6 +108,36 @@ export default async function CommandersIndexPage() {
           </section>
         )}
 
+        {/* Related hubs - internal links for crawl depth */}
+        <section className="mb-10 rounded-xl border border-neutral-600 bg-neutral-700/30 p-5">
+          <h2 className="text-lg font-semibold text-neutral-100 mb-3">
+            Explore by Strategy
+          </h2>
+          <p className="text-neutral-400 text-sm mb-3">
+            Find commanders by archetype and playstyle.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/commander-archetypes"
+              className="px-4 py-2 rounded-lg bg-neutral-600/80 hover:bg-neutral-500 text-blue-400 hover:text-blue-300 text-sm font-medium border border-neutral-500"
+            >
+              Commander Archetypes
+            </Link>
+            <Link
+              href="/strategies"
+              className="px-4 py-2 rounded-lg bg-neutral-600/80 hover:bg-neutral-500 text-blue-400 hover:text-blue-300 text-sm font-medium border border-neutral-500"
+            >
+              Deck Strategies
+            </Link>
+            <Link
+              href="/meta/trending-commanders"
+              className="px-4 py-2 rounded-lg bg-neutral-600/80 hover:bg-neutral-500 text-blue-400 hover:text-blue-300 text-sm font-medium border border-neutral-500"
+            >
+              Trending Commanders
+            </Link>
+          </div>
+        </section>
+
         {/* Commander Directory Grid */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-6">

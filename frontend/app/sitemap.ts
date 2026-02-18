@@ -120,7 +120,7 @@ export default async function sitemap(props: {
     }
 
     case "commanders": {
-      const commanders = await getCommanderSlugsWithUpdatedAt();
+      const commanders = await getCommanderSlugsWithUpdatedAt().catch(() => []);
       const entries = commanders.map(({ slug, updated_at }) => ({
         url: `${BASE}/commanders/${slug}`,
         lastModified: new Date(updated_at),
@@ -132,7 +132,7 @@ export default async function sitemap(props: {
     }
 
     case "commander-content": {
-      const commanders = await getCommanderSlugsWithUpdatedAt();
+      const commanders = await getCommanderSlugsWithUpdatedAt().catch(() => []);
       const entries: MetadataRoute.Sitemap = [];
       for (const { slug, updated_at } of commanders) {
         for (const page of CONTENT_PAGES) {
@@ -225,7 +225,7 @@ export default async function sitemap(props: {
     }
 
     case "cards": {
-      const topCards = await getTopCards();
+      const topCards = await getTopCards().catch(() => []);
       const now = new Date();
       const entries = [
         { url: `${BASE}/cards`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
@@ -241,7 +241,7 @@ export default async function sitemap(props: {
     }
 
     case "seo-pages": {
-      const pages = await getPublishedSeoPagesForSitemap(500);
+      const pages = await getPublishedSeoPagesForSitemap(500).catch(() => []);
       const entries = pages.map(({ slug, updated_at }) => ({
         url: `${BASE}/q/${slug}`,
         lastModified: new Date(updated_at),

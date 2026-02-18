@@ -10,11 +10,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // Forward to Scryfall
+    // Forward to Scryfall (User-Agent and Accept required per Scryfall API docs)
     const response = await fetch('https://api.scryfall.com/cards/collection', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'ManaTap-AI/1.0 (https://manatap.ai)',
       },
       body: JSON.stringify(body),
     });
