@@ -849,6 +849,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     signatureSet={!!signatureDeckId}
                     likesMap={likes}
                   />
+                  <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
+                    <div className="text-lg font-semibold flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
+                    <ProfileAchievementProgress />
+                  </section>
                 </aside>
               </div>
             </>
@@ -1257,7 +1261,6 @@ function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
         <div className="p-4 pt-0 space-y-3 overflow-y-auto max-h-[55vh]">
           {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
           <PinnedBadgesSelector badges={badges} username={username} />
-          <ProfileAchievementProgress />
           <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedCount} signatureSet={signatureSet} likesMap={likesMap} />
         </div>
       </div>
@@ -1279,12 +1282,10 @@ function ProfileAchievementProgress(){
       finally { setLoading(false); }
     })();
   }, []);
-  if (loading) return <div className="mt-3 text-xs opacity-70">Loading achievements…</div>;
+  if (loading) return <div className="text-xs opacity-70">Loading achievements…</div>;
   if (badges.length === 0) return null;
   return (
-    <div className="mt-3 space-y-2">
-      <div className="text-sm font-medium flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
-      <ul className="space-y-2">
+    <ul className="space-y-2">
         {badges.map(b => (
           <li key={b.id} className="text-xs">
             <div className="flex items-center justify-between">
@@ -1296,8 +1297,7 @@ function ProfileAchievementProgress(){
             </div>
           </li>
         ))}
-      </ul>
-    </div>
+    </ul>
   );
 }
 

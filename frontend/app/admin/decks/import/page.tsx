@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 
-type Result = { title: string; success: boolean; error?: string; deckId?: string; url?: string };
+type Result = { title: string; success: boolean; error?: string; deckId?: string; url?: string; commander?: string };
 
 export default function BulkImportDecksPage() {
   const [uploading, setUploading] = React.useState(false);
@@ -86,7 +86,7 @@ export default function BulkImportDecksPage() {
       const r = await fetch("/api/admin/decks/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ use_popular: true, decks_per: 3 }),
+        body: JSON.stringify({ use_popular: true, decks_per: 3, max_commanders: 20 }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -141,12 +141,15 @@ export default function BulkImportDecksPage() {
       <p className="text-sm text-neutral-400">
         Discover decks on Moxfield, fetch by URL, or upload CSV. All imported as public decks.
       </p>
+      <p className="text-xs text-amber-400/90">
+        Note: Moxfield may block server-side discover (403). If so, use Fetch from URLs or CSV upload instead.
+      </p>
 
       {/* Discover & Import */}
       <div className="rounded border border-emerald-900/50 bg-emerald-950/20 p-4 space-y-3">
         <p className="text-sm font-medium text-emerald-200">Discover & Import (Commander)</p>
         <p className="text-xs text-neutral-400">
-          Searches Moxfield for 100 popular commanders and imports the top 3 decks per commander. One click.
+          Searches Moxfield for 20 popular commanders and imports the top 3 decks each. Rate-limited to avoid Moxfield blocks.
         </p>
         <button
           onClick={handleDiscover}
@@ -249,7 +252,32 @@ https://archidekt.com/decks/12345"
       )}
 
       {results && results.length > 0 && (
-        <div className="rounded border border-neutral-700 overflow-hidden">
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                const hasCommander = results!.some((r) => "commander" in r && r.commander);
+                const headers = hasCommander ? ["Commander", "Title", "Status", "Details"] : ["Title", "Status", "Details"];
+                const rows = results!.map((r) => {
+                  const base = hasCommander
+                    ? [(r as Result).commander ?? "", r.title || "", r.success ? "✓" : "✗", r.success ? (r.deckId ? `/decks/${r.deckId}` : "—") : (r.error ?? "—")]
+                    : [r.title || "", r.success ? "✓" : "✗", r.success ? (r.deckId ? `/decks/${r.deckId}` : "—") : (r.error ?? "—")];
+                  return base;
+                });
+                const csv = [headers.join(","), ...rows.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `import-results-${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+              className="px-3 py-1.5 rounded border border-neutral-600 hover:bg-neutral-800 text-sm"
+            >
+              Export CSV
+            </button>
+          </div>
+          <div className="rounded border border-neutral-700 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-neutral-900 border-b border-neutral-700">
@@ -286,6 +314,7 @@ https://archidekt.com/decks/12345"
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -179,24 +179,72 @@ const POPULAR_COMMANDERS = [
   "Gandalf the White",
 ];
 
-async function searchMoxfield(commander: string): Promise<Array<{ publicId?: string; id?: string }>> {
-  const url = `https://api.moxfield.com/v2/decks/search?q=${encodeURIComponent(`commander:"${commander}"`)}&sort=popularity&page=1&pageSize=10`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "ManaTap-AI/1.0", Accept: "application/json" },
-  });
-  if (!res.ok) return [];
+const MOXFIELD_API = "https://api2.moxfield.com";
+const MOXFIELD_LEGACY = "https://api.moxfield.com";
+const HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  Accept: "application/json",
+  "Content-Type": "application/json; charset=utf-8",
+  Referer: "https://www.moxfield.com/",
+  Origin: "https://www.moxfield.com",
+} as const;
+const DEBUG = process.env.NODE_ENV === "development";
+const DELAY_MS = 600;
+const RETRY_429_MS = 3000;
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchWithRetry(url: string, label: string): Promise<Response> {
+  let res = await fetch(url, { headers: HEADERS });
+  if (res.status === 429 && RETRY_429_MS > 0) {
+    if (DEBUG) console.log(`[discover] 429 rate limited, waiting ${RETRY_429_MS}ms before retry`, { label });
+    await sleep(RETRY_429_MS);
+    res = await fetch(url, { headers: HEADERS });
+  }
+  return res;
+}
+
+async function searchMoxfield(commander: string): Promise<{ hits: Array<{ publicId?: string; id?: string }>; blocked?: boolean }> {
+  const q = `commander:"${commander}"`;
+  const api2Url = `${MOXFIELD_API}/v2/decks/search?q=${encodeURIComponent(q)}&sort=popularity&page=1&pageSize=10`;
+  if (DEBUG) console.log("[discover] search api2", { commander, url: api2Url });
+  let res = await fetchWithRetry(api2Url, `search ${commander}`);
+  if (DEBUG) console.log("[discover] search api2 response", { commander, status: res.status, ok: res.ok });
+  if (res.status === 403) return { hits: [], blocked: true };
+  if (!res.ok) {
+    const legacyUrl = `${MOXFIELD_LEGACY}/v2/decks/search?q=${encodeURIComponent(q)}&sort=popularity&page=1&pageSize=10`;
+    if (DEBUG) console.log("[discover] search legacy", { commander, body: (await res.text()).slice(0, 300) });
+    await sleep(DELAY_MS);
+    res = await fetchWithRetry(legacyUrl, `search legacy ${commander}`);
+    if (DEBUG) console.log("[discover] search legacy response", { commander, status: res.status });
+    if (res.status === 403) return { hits: [], blocked: true };
+    if (!res.ok) return { hits: [] };
+  }
   const data = (await res.json()) as { data?: Array<{ publicId?: string; id?: string }> };
-  return data.data ?? [];
+  const hits = data.data ?? [];
+  if (DEBUG) console.log("[discover] search hits", { commander, count: hits.length, sample: hits[0] });
+  return { hits };
 }
 
 async function fetchMoxfieldDeck(deckId: string): Promise<{ commander: string; title: string; cards: Array<{ name: string; qty: number }> } | null> {
-  const res = await fetch(`https://api.moxfield.com/v2/decks/all/${deckId}`, {
-    headers: { "User-Agent": "ManaTap-AI/1.0", Accept: "application/json" },
-  });
-  if (!res.ok) return null;
+  if (DEBUG) console.log("[discover] fetch deck", { deckId });
+  let res = await fetchWithRetry(`${MOXFIELD_API}/v2/decks/all/${deckId}`, `fetch ${deckId}`);
+  if (DEBUG) console.log("[discover] fetch api2", { deckId, status: res.status });
+  if (!res.ok) {
+    await sleep(DELAY_MS);
+    res = await fetchWithRetry(`${MOXFIELD_LEGACY}/v2/decks/all/${deckId}`, `fetch legacy ${deckId}`);
+    if (DEBUG) console.log("[discover] fetch legacy", { deckId, status: res.status });
+    if (!res.ok) {
+      if (DEBUG) console.log("[discover] fetch failed", { deckId, body: (await res.text()).slice(0, 300) });
+      return null;
+    }
+  }
   const data = (await res.json()) as Record<string, unknown>;
   const commanders = data.commanders as Record<string, { card?: { name?: string }; quantity?: number }> | undefined;
   const mainboard = data.mainboard as Record<string, { quantity?: number }> | undefined;
+  if (DEBUG) console.log("[discover] deck parse", { deckId, hasCommanders: !!commanders, hasMainboard: !!mainboard, mainKeys: mainboard ? Object.keys(mainboard).length : 0 });
   if (!commanders || !mainboard) return null;
   const commanderEntry = Object.values(commanders)[0];
   const commander = commanderEntry?.card?.name;
@@ -209,7 +257,10 @@ async function fetchMoxfieldDeck(deckId: string): Promise<{ commander: string; t
   }
   cards.push({ name: commander, qty: 1 });
   const total = cards.reduce((s, c) => s + c.qty, 0);
-  if (total < 96 || total > 101) return null;
+  if (total < 96 || total > 101) {
+    if (DEBUG) console.log("[discover] deck rejected card count", { deckId, total });
+    return null;
+  }
   return {
     commander,
     title: (data.name as string) || `${commander} - Imported`,
@@ -219,6 +270,7 @@ async function fetchMoxfieldDeck(deckId: string): Promise<{ commander: string; t
 
 export async function POST(req: NextRequest) {
   try {
+    if (DEBUG) console.log("[discover] POST start");
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) {
@@ -228,36 +280,52 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const usePopular = body.use_popular === true;
     const commandersRaw = Array.isArray(body.commanders) ? body.commanders : [];
-    const commanders = usePopular
-      ? POPULAR_COMMANDERS
-      : commandersRaw
-          .filter((c: unknown) => typeof c === "string")
-          .map((c: string) => c.trim())
-          .filter(Boolean)
-          .slice(0, MAX_COMMANDERS);
+    const maxCommanders = Math.min(Math.max(1, Number(body.max_commanders) || MAX_COMMANDERS), MAX_COMMANDERS);
+    const commanders = (usePopular ? POPULAR_COMMANDERS : commandersRaw
+      .filter((c: unknown) => typeof c === "string")
+      .map((c: string) => c.trim())
+      .filter(Boolean))
+      .slice(0, maxCommanders);
     const decksPer = Math.min(Math.max(1, Number(body.decks_per) || DEFAULT_DECKS_PER), 5);
 
     if (commanders.length === 0) {
       return NextResponse.json({ ok: false, error: "No commanders. Pass commanders[] or use_popular: true" }, { status: 400 });
     }
+    if (DEBUG) console.log("[discover] params", { commandersCount: commanders.length, decksPer, firstFew: commanders.slice(0, 3) });
 
     const admin = getAdmin();
     if (!admin) {
       return NextResponse.json({ ok: false, error: "Admin client unavailable" }, { status: 500 });
     }
 
+    // Use public decks user if it exists; fallback to admin when FK fails (system user may not exist)
+    let effectiveUserId = PUBLIC_DECKS_USER_ID;
+
     const results: Array<{ commander: string; title: string; success: boolean; error?: string; deckId?: string }> = [];
     const seenTitles = new Set<string>();
 
     for (const commander of commanders) {
-      const searchResults = await searchMoxfield(commander);
+      await sleep(DELAY_MS);
+      const { hits: searchResults, blocked } = await searchMoxfield(commander);
+      if (blocked) {
+        if (DEBUG) console.log("[discover] Moxfield blocked (403), stopping");
+        return NextResponse.json({
+          ok: false,
+          error: "Moxfield is blocking server-side requests (Cloudflare). Use CSV upload or paste deck URLs in Fetch from URLs instead.",
+          results: results.length > 0 ? results : undefined,
+          summary: results.length > 0 ? { total: results.length, successful: results.filter((r) => r.success).length, failed: results.filter((r) => !r.success).length } : undefined,
+        });
+      }
       const toFetch = searchResults.slice(0, decksPer);
+      if (DEBUG) console.log("[discover] commander loop", { commander, searchCount: searchResults.length, toFetch: toFetch.length });
       for (const hit of toFetch) {
         const deckId = hit.publicId ?? hit.id;
         if (!deckId) continue;
         try {
+          await sleep(DELAY_MS);
           const deck = await fetchMoxfieldDeck(deckId);
           if (!deck) {
+            if (DEBUG) console.log("[discover] invalid deck", { commander, deckId });
             results.push({ commander, title: "", success: false, error: "Invalid deck" });
             continue;
           }
@@ -274,17 +342,17 @@ export async function POST(req: NextRequest) {
             .from("decks")
             .select("id")
             .eq("title", deck.title)
-            .eq("user_id", PUBLIC_DECKS_USER_ID)
+            .eq("user_id", effectiveUserId)
             .maybeSingle();
           if (existing) {
             results.push({ commander, title: deck.title, success: false, error: "Already exists", deckId: existing.id });
             continue;
           }
           const deckText = deck.cards.map((c) => `${c.qty} ${c.name}`).join("\n");
-          const { data: newDeck, error: deckErr } = await admin
+          let { data: newDeck, error: deckErr } = await admin
             .from("decks")
             .insert({
-              user_id: PUBLIC_DECKS_USER_ID,
+              user_id: effectiveUserId,
               title: deck.title,
               format: "Commander",
               plan: "Optimized",
@@ -298,8 +366,31 @@ export async function POST(req: NextRequest) {
             .select("id")
             .single();
           if (deckErr || !newDeck) {
-            results.push({ commander, title: deck.title, success: false, error: deckErr?.message ?? "Insert failed" });
-            continue;
+            const isFkUser = effectiveUserId === PUBLIC_DECKS_USER_ID && deckErr?.message && /foreign key|fkey|user_id/i.test(deckErr.message);
+            if (isFkUser) {
+              effectiveUserId = user.id;
+              const retry = await admin.from("decks").insert({
+                user_id: effectiveUserId,
+                title: deck.title,
+                format: "Commander",
+                plan: "Optimized",
+                colors: [],
+                currency: "USD",
+                deck_text: deckText,
+                commander: deck.commander,
+                is_public: true,
+                public: true,
+              }).select("id").single();
+              if (retry.data && !retry.error) {
+                newDeck = retry.data;
+                deckErr = null;
+              }
+            }
+            if (deckErr || !newDeck) {
+              if (DEBUG) console.log("[discover] insert failed", { commander, title: deck.title, error: deckErr?.message });
+              results.push({ commander, title: deck.title, success: false, error: deckErr?.message ?? "Insert failed" });
+              continue;
+            }
           }
           const did = newDeck.id as string;
           for (const c of deck.cards) {
@@ -329,6 +420,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: unknown) {
     const err = e instanceof Error ? e.message : String(e);
+    if (DEBUG) console.error("[discover] error", e);
     return NextResponse.json({ ok: false, error: err }, { status: 500 });
   }
 }
