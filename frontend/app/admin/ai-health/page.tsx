@@ -63,7 +63,7 @@ export default function AiHealthPage() {
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">← Admin</Link>
+        <Link href="/admin/justfordavy" className="text-sm text-neutral-400 hover:text-white">← Admin</Link>
         <h1 className="text-xl font-semibold">AI Health &amp; Test</h1>
       </div>
       <p className="text-sm text-neutral-400">

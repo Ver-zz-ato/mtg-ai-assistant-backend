@@ -26,6 +26,10 @@ const MetaDeckPanel = nextDynamic(() => import("../components/MetaDeckPanel"), {
   loading: () => <div className="animate-pulse bg-purple-900/20 rounded-2xl h-32 border border-purple-800/30" />
 });
 
+const Shoutbox = nextDynamic(() => import("../components/Shoutbox"), {
+  loading: () => <div className="animate-pulse bg-neutral-900 rounded-2xl h-48" />
+});
+
 function jsonLd() {
   const data = {
     "@context": "https://schema.org",
@@ -90,6 +94,7 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">
+            <Shoutbox />
             <MetaDeckPanel />
             <LeftSidebar />
           </aside>

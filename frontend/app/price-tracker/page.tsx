@@ -340,9 +340,9 @@ export default function PriceTrackerPage(){
             transition={{ duration: 0.3 }}
             className="rounded border border-neutral-800 p-3 bg-gradient-to-br from-neutral-900/50 to-neutral-900/20"
           >
-            <div ref={chartRef} className="h-[320px] w-full">
-              {chartSize.w > 0 && chartSize.h > 0 ? (
-                <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} width={Math.floor(chartSize.w)} height={Math.floor(chartSize.h)} data={chartData} margin={{ top: 8, right: 12 + Y_AXIS_WIDTH, bottom: 8, left: 12 }}>
+            <div ref={chartRef} className="h-[320px] w-full min-h-[200px] min-w-[200px]">
+              {(chartSize.w > 0 || chartSize.h > 0 || names.trim()) ? (
+                <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} width={Math.max(Math.floor(chartSize.w || 400), 200)} height={Math.max(Math.floor(chartSize.h || 320), 200)} data={chartData} margin={{ top: 8, right: 12 + Y_AXIS_WIDTH, bottom: 8, left: 12 }}>
                   <XAxis dataKey="date" type="category" allowDuplicatedCategory={false} tick={{ fontSize: 11 }} angle={0} minTickGap={28}/>
                   <YAxis tick={{ fontSize: 11 }} width={Y_AXIS_WIDTH} domain={[0, 'auto']} allowDecimals={false}/>
                   <Tooltip formatter={(v:any)=>[`$${Number(v).toFixed(2)}`, 'Price']} labelFormatter={(l:any)=>String(l)} />
@@ -368,8 +368,11 @@ export default function PriceTrackerPage(){
                 </div>
               )}
             </div>
-            {series.length===0 && chartSize.w > 0 && (
-              <div className="text-xs opacity-70 mt-2">Enter one or more card names to see price history.</div>
+            {names.trim() && series.length===0 && !loading && (
+              <div className="text-xs opacity-70 mt-2">No price history yet. Data appears after daily snapshots run.</div>
+            )}
+            {names.trim() && series.length===0 && loading && (
+              <div className="text-xs opacity-70 mt-2">Loading price data…</div>
             )}
             <div className="mt-3 text-[10px] opacity-60">Disclaimer: Prices are sourced from daily snapshots and provided for informational purposes only. We cannot be held responsible for price fluctuations or market availability.</div>
           </motion.section>

@@ -57,7 +57,7 @@ export default function AdminAttributionPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="flex items-center justify-between">
           <div>
-            <Link href="/admin/JustForDavy" className="text-sm text-neutral-500 hover:text-neutral-300 mb-2 inline-block">
+            <Link href="/admin/justfordavy" className="text-sm text-neutral-500 hover:text-neutral-300 mb-2 inline-block">
               ← Back to Admin
             </Link>
             <h1 className="text-2xl font-semibold">Attribution & Funnels</h1>

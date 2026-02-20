@@ -44,11 +44,18 @@ export async function middleware(req: NextRequest) {
     return new NextResponse(null, { status: 308, headers: { Location: url.toString() } });
   }
   // Redirect uppercase paths to lowercase (avoid duplicate without user-selected canonical)
+  // Skip for /admin/* so admin routes work regardless of casing
   const lowerPath = path.toLowerCase();
-  if (path !== lowerPath) {
+  if (path !== lowerPath && !path.startsWith("/admin")) {
     const url = req.nextUrl.clone();
     url.pathname = lowerPath;
     return new NextResponse(null, { status: 308, headers: { Location: url.toString() } });
+  }
+  // Rewrite /admin/justfordavy -> /admin/JustForDavy so the route matches the folder (case-sensitive FS)
+  if (path === "/admin/justfordavy") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/admin/JustForDavy";
+    return NextResponse.rewrite(url);
   }
 
   // WWW redirect: Ensure bare domain (manatap.ai) redirects to www.manatap.ai (single hop)

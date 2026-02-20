@@ -937,7 +937,6 @@ export default function CostToFinishClient() {
               </div>
             </div>
           )}
-          <label className="block text-sm opacity-80">Choose one of your decks</label>
           {!user && (
             <div className="mb-3 rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
               <p className="text-sm text-amber-200/90 mb-2">Sign up or sign in to run Cost to Finish on your own saved decks and compare against your collection!</p>
@@ -950,19 +949,24 @@ export default function CostToFinishClient() {
               </button>
             </div>
           )}
-          {user && decks.length === 0 && (
-            <div className="text-xs text-neutral-500 mb-2">No saved decks yet. Paste a decklist below or create one.</div>
+          {user && (
+            <>
+              <label className="block text-sm opacity-80">Choose one of your decks</label>
+              {decks.length === 0 && (
+                <div className="text-xs text-neutral-500 mb-2">No saved decks yet. Paste a decklist below or create one.</div>
+              )}
+              <select
+                className="w-full rounded-md border bg-neutral-950 px-3 py-2"
+                value={deckId}
+                onChange={(e) => setDeckId(e.target.value)}
+              >
+                <option value="">— None (paste below) —</option>
+                {decks.map(d => (
+                  <option key={d.id} value={d.id}>{d.title}</option>
+                ))}
+              </select>
+            </>
           )}
-          <select
-            className="w-full rounded-md border bg-neutral-950 px-3 py-2"
-            value={deckId}
-            onChange={(e) => setDeckId(e.target.value)}
-          >
-            <option value="">— None (paste below) —</option>
-            {decks.map(d => (
-              <option key={d.id} value={d.id}>{d.title}</option>
-            ))}
-          </select>
 
           <label className="block text-sm opacity-80">Deck text</label>
           <textarea
@@ -972,33 +976,33 @@ export default function CostToFinishClient() {
             placeholder="Paste a deck list here..."
           />
 
-          {/* Collection & pricing selectors */}
-          <div>
-            <label className={`mb-2 inline-flex items-center gap-2 text-sm ${!user ? 'opacity-60' : ''}`}>
-              <input
-                type="checkbox"
-                checked={useOwned}
-                onChange={(e) => setUseOwned(e.target.checked)}
-                disabled={!user}
-              />
-              Subtract cards I already own
-              {!user && <span className="text-xs text-amber-400/80">(sign in to use)</span>}
-            </label>
-            <label className="block text-sm opacity-80">Collection</label>
-            <div className="flex items-center gap-2">
-              <select
-                className="w-full rounded-md border bg-black/20 px-3 py-2"
-                value={collectionId}
-                disabled={!useOwned}
-                onChange={(e) => setCollectionId(e.target.value)}
-              >
-                <option value="">— None —</option>
-                {collections.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+          {/* Collection & pricing selectors - only when logged in */}
+          {user && (
+            <div>
+              <label className="mb-2 inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useOwned}
+                  onChange={(e) => setUseOwned(e.target.checked)}
+                />
+                Subtract cards I already own
+              </label>
+              <label className="block text-sm opacity-80">Collection</label>
+              <div className="flex items-center gap-2">
+                <select
+                  className="w-full rounded-md border bg-black/20 px-3 py-2"
+                  value={collectionId}
+                  disabled={!useOwned}
+                  onChange={(e) => setCollectionId(e.target.value)}
+                >
+                  <option value="">— None —</option>
+                  {collections.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <div>

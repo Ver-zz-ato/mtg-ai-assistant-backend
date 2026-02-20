@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
 
     if (!names.length) return NextResponse.json({ ok: true, currency, from, series: [] });
 
-    // Normalize names (server side) to align with price_snapshots.name_norm
-    const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+    // Normalize names (server side) - match price_cache card_name format (apostrophes, diacritics)
+    const norm = (s: string) => String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/['\u2019\u2018`]/g,"'").replace(/\s+/g," ").trim();
     const wanted = Array.from(new Set(names.map(norm))).slice(0, 10); // cap to 10 series for MVP
 
     let q = supabase
@@ -43,6 +43,54 @@ export async function GET(req: NextRequest) {
       if (!byName.has(n)) byName.set(n, []);
       byName.get(n)!.push({ snapshot_date: row.snapshot_date, unit: Number(row.unit) });
     }
+
+    // Fallback: when no price_snapshots data, use price_cache then Scryfall for today's price
+    const today = new Date().toISOString().slice(0, 10);
+    const stillMissing = wanted.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
+    for (const n of stillMissing) {
+      // 1) price_cache (card_name + usd_price)
+      let pc: { usd_price?: number; eur_price?: number } | null = null;
+      const variants = [n, n.replace(/'/g, "\u2019"), n.replace(/\u2019/g, "'")];
+      for (const v of variants) {
+        const { data } = await supabase.from("price_cache").select("usd_price, eur_price").eq("card_name", v).maybeSingle();
+        if (data) { pc = data as any; break; }
+      }
+      if (pc) {
+        const usdVal = Number(pc.usd_price) || 0;
+        const eurVal = Number(pc.eur_price) || (usdVal ? usdVal * 0.92 : 0);
+        const unit = currency === "USD" ? usdVal : currency === "EUR" ? eurVal : usdVal * 0.78;
+        if (typeof unit === "number" && isFinite(unit) && unit > 0) {
+          byName.set(n, [{ snapshot_date: today, unit }]);
+        }
+      }
+    }
+    // 2) Scryfall fallback for any still missing (same source as watchlist /api/price)
+    const stillMissing2 = stillMissing.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
+    if (stillMissing2.length > 0) {
+      try {
+        const res = await fetch("https://api.scryfall.com/cards/collection", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifiers: stillMissing2.map((name) => ({ name })) }),
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { data?: Array<{ name: string; prices?: { usd?: string; eur?: string } }> };
+          const USD_EUR = 0.92;
+          const USD_GBP = 0.78;
+          for (const c of json.data ?? []) {
+            const normName = norm(c.name);
+            if (!byName.has(normName) || byName.get(normName)!.length === 0) {
+              const usd = c.prices?.usd ? parseFloat(c.prices.usd) : 0;
+              const eur = c.prices?.eur ? parseFloat(c.prices.eur) : usd * USD_EUR;
+              const unit = currency === "USD" ? usd : currency === "EUR" ? eur : usd * USD_GBP;
+              if (unit > 0) byName.set(normName, [{ snapshot_date: today, unit }]);
+            }
+          }
+        }
+      } catch {}
+    }
+
     const series = Array.from(byName.entries()).map(([name, rows]) => ({
       name,
       points: rows.map(r => ({ date: r.snapshot_date, unit: r.unit })),

@@ -67,7 +67,7 @@ export default function AdminFeedbackPage() {
     <main className="max-w-5xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white mb-2 inline-block">
+          <Link href="/admin/justfordavy" className="text-sm text-neutral-400 hover:text-white mb-2 inline-block">
             ← Admin
           </Link>
           <h1 className="text-xl font-semibold">User Feedback</h1>

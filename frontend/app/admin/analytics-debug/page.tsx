@@ -37,7 +37,7 @@ export default function AnalyticsDebugPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Analytics Debug</h1>
-          <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">
+          <Link href="/admin/justfordavy" className="text-sm text-neutral-400 hover:text-white">
             ← Admin
           </Link>
         </div>

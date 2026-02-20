@@ -54,6 +54,10 @@ export async function POST(req: NextRequest) {
     if (isFallback) (props as Record<string, unknown>).anonymous_fallback_id = distinctId;
 
     await captureServer(type, props, distinctId);
+    // Also send auth_login_success for login_completed (dashboard backward compatibility - client-side can be lost on reload)
+    if (type === 'login_completed') {
+      await captureServer('auth_login_success', { ...props, method: props.method === 'oauth' ? 'oauth' : 'email_password' }, distinctId);
+    }
     const res = NextResponse.json({ ok: true });
     if (isNew) {
       res.cookies.set(FALLBACK_ID_COOKIE, distinctId, {

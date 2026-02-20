@@ -24,8 +24,9 @@ export default function GuestExitWarning() {
         const isGuest = !session?.user;
         
         const messages = guestMessages ? JSON.parse(guestMessages) : [];
-        // Trigger after 2+ messages (earlier than before)
-        setHasGuestChat(isGuest && messages.length >= 2);
+        // Only show exit warning when guest has 2+ messages AND chatted this session (avoids showing on stale localStorage from prior session)
+        const hasSessionActivity = !!sessionStorage.getItem('guest_chat_has_session_activity');
+        setHasGuestChat(isGuest && messages.length >= 2 && hasSessionActivity);
       } catch {
         setHasGuestChat(false);
       }

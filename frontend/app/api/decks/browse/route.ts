@@ -160,9 +160,16 @@ export async function GET(req: Request) {
       }
     }
 
-    // Filter decks with at least 10 cards (use deck_cards count, not deck_text)
+    // Filter decks with at least 10 cards
+    const getCardCount = (d: any) => {
+      const fromDeckCards = cardCountByDeck.get(d.id) ?? 0;
+      const fromDeckText = countCards(d.deck_text);
+      return fromDeckCards >= 50 || (fromDeckCards === 0 && fromDeckText > 0)
+        ? (fromDeckCards || fromDeckText)
+        : Math.max(fromDeckCards, fromDeckText);
+    };
     const filteredDecks = (data || []).filter(d => {
-      const cardCount = cardCountByDeck.get(d.id) ?? countCards(d.deck_text);
+      const cardCount = getCardCount(d);
       if (cardCount < 10) {
         logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
       }
@@ -181,8 +188,7 @@ export async function GET(req: Request) {
         ? deck.profiles[0] 
         : deck.profiles;
       const username = profile?.username || 'Anonymous';
-      // Use deck_cards count (source of truth); fallback to deck_text parse if no deck_cards
-      const cardCount = cardCountByDeck.get(deck.id) ?? countCards(deck.deck_text);
+      const cardCount = getCardCount(deck);
       
       return {
         id: deck.id,

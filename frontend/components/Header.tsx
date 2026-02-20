@@ -700,7 +700,8 @@ export default function Header() {
                       setSignupEmail('');
                       setSignupPassword('');
                       setEmailFormMode('signup');
-                      window.location.reload();
+                      // Brief delay so PostHog can flush before reload (auth-event API also sends auth_login_success server-side)
+                      setTimeout(() => window.location.reload(), 300);
                     } catch (err: any) {
                       setSignupPasswordError(err?.message || 'Sign in failed');
                     }

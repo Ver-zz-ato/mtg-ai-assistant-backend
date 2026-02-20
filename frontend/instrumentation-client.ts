@@ -44,10 +44,22 @@ Sentry.init({
 
   // Filter out known SDK/internal noise and malicious external script errors
   beforeSend(event, hint) {
+    const errorValue = event.exception?.values?.[0]?.value || '';
+    const errorType = event.exception?.values?.[0]?.type || '';
+
     // Sentry SDK internal: Replay/tracing may request "performanceMetrics" feature that isn't
     // registered in some builds or browsers (e.g. DuckDuckGo Mobile). Not an app bug.
-    const errorValue = event.exception?.values?.[0]?.value || '';
     if (errorValue.includes('feature named') && errorValue.includes('performanceMetrics') && errorValue.includes('was not found')) {
+      return null;
+    }
+
+    // PostHog: AbortError when fetch is aborted (user navigates away, timeout). Benign.
+    if (errorType === 'AbortError' && (errorValue.includes('aborted') || errorValue.includes('signal is aborted'))) {
+      return null;
+    }
+
+    // Scryfall CDN: Image load failures (network, ad blockers, mobile flakiness). Not actionable.
+    if (errorValue.includes('Load failed') && errorValue.includes('cards.scryfall.io')) {
       return null;
     }
 
@@ -57,8 +69,7 @@ Sentry.init({
       'secdomcheck.online',
     ];
     
-    // Build a comprehensive search string from all error-related fields
-    const errorType = event.exception?.values?.[0]?.type || '';
+    // Build a comprehensive search string from all error-related fields (errorType already declared above)
     // Access title and message safely (they may not be on the base Event type)
     const eventTitle = (event as any).title || '';
     const eventMessage = (event as any).message || '';

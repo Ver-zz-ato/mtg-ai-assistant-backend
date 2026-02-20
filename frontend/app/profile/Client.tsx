@@ -840,12 +840,15 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       <div>Collections<div className="font-mono text-lg">{collectionCount}</div></div>
                     </div>
                   </section>
-                  <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-                    <div className="text-lg font-semibold">Badges & Progress</div>
-                    {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
-                    <PinnedBadgesSelector badges={[...badges, ...extraBadges]} username={username} />
-                    <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedDeckIds.length} signatureSet={!!signatureDeckId} likesMap={likes} />
-                  </section>
+                  <BadgesAndProgressSection
+                    badges={[...badges, ...extraBadges]}
+                    username={username}
+                    deckCount={deckCount}
+                    collectionCount={collectionCount}
+                    pinnedCount={pinnedDeckIds.length}
+                    signatureSet={!!signatureDeckId}
+                    likesMap={likes}
+                  />
                 </aside>
               </div>
             </>
@@ -1226,6 +1229,77 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   );
 }
 
+
+type BadgesAndProgressSectionProps = {
+  badges: Array<{ key:string; label:string; emoji:string; desc:string }>;
+  username: string;
+  deckCount: number;
+  collectionCount: number;
+  pinnedCount: number;
+  signatureSet: boolean;
+  likesMap: Record<string, {count:number; liked:boolean}>;
+};
+function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
+  const { badges, username, deckCount, collectionCount, pinnedCount, signatureSet, likesMap } = props;
+  const [collapsed, setCollapsed] = React.useState(false);
+  return (
+    <section className="rounded-xl border border-neutral-800 overflow-hidden">
+      <button
+        onClick={()=>setCollapsed(!collapsed)}
+        className="w-full flex items-center justify-between p-4 hover:bg-neutral-900/50 transition-colors text-left"
+      >
+        <div className="text-lg font-semibold">Badges & Progress</div>
+        <svg className={`w-5 h-5 text-neutral-400 transition-transform ${collapsed ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div className={`overflow-hidden transition-all duration-300 ${collapsed ? 'max-h-0' : 'max-h-[60vh]'}`}>
+        <div className="p-4 pt-0 space-y-3 overflow-y-auto max-h-[55vh]">
+          {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
+          <PinnedBadgesSelector badges={badges} username={username} />
+          <ProfileAchievementProgress />
+          <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedCount} signatureSet={signatureSet} likesMap={likesMap} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type BadgeProgressItem = { id:string; name:string; description:string; icon:string; current:number; target:number; progress:number; unlocked:boolean };
+function ProfileAchievementProgress(){
+  const [badges, setBadges] = React.useState<BadgeProgressItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(()=>{
+    (async()=>{
+      try{
+        const r = await fetch('/api/profile/badge-progress', { cache:'no-store' });
+        const j = await r.json().catch(()=>({}));
+        if (r.ok && j?.ok) setBadges(Array.isArray(j.allBadges)? j.allBadges : (Array.isArray(j.badges)? j.badges : []));
+      } catch{}
+      finally { setLoading(false); }
+    })();
+  }, []);
+  if (loading) return <div className="mt-3 text-xs opacity-70">Loading achievements…</div>;
+  if (badges.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="text-sm font-medium flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
+      <ul className="space-y-2">
+        {badges.map(b => (
+          <li key={b.id} className="text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">✓</span>}</div>
+              <div className="font-mono">{b.current}/{b.target}</div>
+            </div>
+            <div className="mt-1 h-2 w-full rounded bg-neutral-800 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500" style={{ width: `${b.progress}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 type NextBadgesProgressProps = { deckCount:number; collectionCount:number; pinnedCount:number; signatureSet:boolean; likesMap: Record<string, {count:number; liked:boolean}> };
 function NextBadgesProgress(props: NextBadgesProgressProps){
