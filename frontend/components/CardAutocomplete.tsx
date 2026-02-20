@@ -122,7 +122,7 @@ export default function CardAutocomplete({
   };
 
   return (
-    <div ref={wrapRef} className="relative w-full">
+    <div ref={wrapRef} className="relative w-full overflow-visible">
       <input
         value={value}
         placeholder={placeholder}

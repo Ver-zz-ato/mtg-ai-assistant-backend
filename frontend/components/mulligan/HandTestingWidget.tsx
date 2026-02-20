@@ -817,7 +817,7 @@ const HandTestingWidgetInner = function HandTestingWidget({
                 return (
                   <div
                     key={i}
-                    className="ghost-hand-card absolute rounded-md border border-neutral-600/70 bg-gradient-to-br from-neutral-800 to-neutral-900"
+                    className="ghost-hand-card absolute rounded-md border border-amber-500/60 bg-gradient-to-br from-amber-500 to-amber-700"
                     style={{
                       width: w,
                       height: h,

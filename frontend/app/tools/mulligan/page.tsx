@@ -464,11 +464,25 @@ export default function MulliganSimulatorPage() {
       </div>
 
       {result && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-2">
-          <div className="text-sm">Keep on 7: <span className="font-mono">{result.keep7}</span></div>
-          <div className="text-sm">Keep on 6: <span className="font-mono">{result.keep6}</span></div>
-          <div className="text-sm">Keep on 5: <span className="font-mono">{result.keep5}</span></div>
-          <div className="text-lg mt-1">Success rate: <span className="font-semibold text-emerald-400">{(result.successRate*100).toFixed(2)}%</span> <span className="text-xs opacity-70">(95% CI {Math.round(result.ciLow*10000)/100}% – {Math.round(result.ciHigh*10000)/100}%)</span></div>
+        <div className="bg-neutral-900 border-2 border-amber-600/40 rounded-xl p-5 space-y-4 shadow-lg shadow-amber-900/20">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-amber-950/40 rounded-lg p-4 text-center border border-amber-600/30">
+              <div className="text-xs uppercase tracking-wider text-amber-300/80 mb-1">Keep on 7</div>
+              <div className="text-3xl font-bold text-amber-200 font-mono">{result.keep7}</div>
+            </div>
+            <div className="bg-amber-950/40 rounded-lg p-4 text-center border border-amber-600/30">
+              <div className="text-xs uppercase tracking-wider text-amber-300/80 mb-1">Keep on 6</div>
+              <div className="text-3xl font-bold text-amber-200 font-mono">{result.keep6}</div>
+            </div>
+            <div className="bg-amber-950/40 rounded-lg p-4 text-center border border-amber-600/30">
+              <div className="text-xs uppercase tracking-wider text-amber-300/80 mb-1">Keep on 5</div>
+              <div className="text-3xl font-bold text-amber-200 font-mono">{result.keep5}</div>
+            </div>
+          </div>
+          <div className="text-xl font-semibold text-center">
+            Success rate: <span className="text-2xl font-bold text-emerald-400">{(result.successRate*100).toFixed(2)}%</span>
+            <span className="text-sm opacity-70 ml-2">(95% CI {Math.round(result.ciLow*10000)/100}% – {Math.round(result.ciHigh*10000)/100}%)</span>
+          </div>
           <div className="text-xs opacity-60">Model: London with simple bottom priorities (excess lands → non-essential). Free 7 toggle simulates the Commander mulligan.</div>
           {advanced && <ExamplesBlock />}
           {advanced && <AdviceBlock deckSize={deckSize} successCards={successCards} landsInDeck={landsInDeck} minKeep={minKeep} minLands={minLands} maxLands={maxLands} iterations={Math.min(4000, Math.max(500, Math.floor(iterations/5)))} />}

@@ -35,6 +35,22 @@ export default function Header() {
   useEffect(() => {
     setIsHydrated(true);
   }, []); // Run once on mount
+
+  // Prevent body scroll when auth modal is open
+  useEffect(() => {
+    if (showSignUp) {
+      const prev = document.body.style.overflow;
+      const prevPos = document.body.style.position;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      return () => {
+        document.body.style.overflow = prev;
+        document.body.style.position = prevPos;
+        document.body.style.width = '';
+      };
+    }
+  }, [showSignUp]);
   
   // Sync auth state from AuthProvider (single source of truth)
   useEffect(() => {
@@ -543,8 +559,8 @@ export default function Header() {
 
       {/* Sign up modal */}
       {showSignUp && (
-        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6 relative my-auto max-h-[90vh] overflow-y-auto overscroll-contain">
             {!signupSuccess ? (
               <>
                 <button

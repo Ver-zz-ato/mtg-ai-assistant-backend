@@ -364,11 +364,7 @@ export default function PriceTrackerPage(){
                 </LineChart>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center space-y-3">
-                  <div className="animate-pulse space-y-2 w-full max-w-md">
-                    <div className="h-4 w-3/4 bg-neutral-800 rounded mx-auto" />
-                    <div className="h-4 w-1/2 bg-neutral-800 rounded mx-auto" />
-                  </div>
-                  <div className="text-xs opacity-70 text-center">Enter one or more card names to see price history.</div>
+                  <div className="text-sm text-neutral-400 text-center">Enter one or more card names to see price history.</div>
                 </div>
               )}
             </div>

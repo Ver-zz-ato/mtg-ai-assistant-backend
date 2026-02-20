@@ -47,7 +47,7 @@ const IntroBlock = () => (
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">Opening hand and draw odds</h2>
     <p className="text-neutral-300 mb-3 text-sm">
-      Set deck size (99 for Commander), number of &quot;hits&quot; in the deck
+      Set deck size (100 for Commander), number of &quot;hits&quot; in the deck
       (e.g. lands or a specific card), hand size, and turns.
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">Color requirements and ramp</h2>

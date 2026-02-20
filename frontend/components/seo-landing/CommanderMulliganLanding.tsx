@@ -14,7 +14,7 @@ export function CommanderMulliganLanding({ commanderSlug, commanderName, query, 
 
 With ${commanderName}, your mulligan priorities depend on your deck's curve and strategy. Most decks want at least two or three lands in the opener. If you're running aggressive ramp, you might keep a hand with a mana rock and fewer lands. If your strategy requires specific combo pieces, weigh the odds of drawing them versus keeping a solid mana base.
 
-ManaTap's Mulligan Simulator lets you simulate thousands of opening hands for your exact deck. Set your deck size (99 for Commander), land count, and success criteria. You'll see keep rates for 7-, 6-, and 5-card hands so you can optimize your mulligan decisions. Try it with your ${commanderName} deck to see how often you'll keep with the right mix of lands and ramp.`;
+ManaTap's Mulligan Simulator lets you simulate thousands of opening hands for your exact deck. Set your deck size (100 for Commander), land count, and success criteria. You'll see keep rates for 7-, 6-, and 5-card hands so you can optimize your mulligan decisions. Try it with your ${commanderName} deck to see how often you'll keep with the right mix of lands and ramp.`;
 
   return (
     <>

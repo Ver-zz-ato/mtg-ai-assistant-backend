@@ -57,7 +57,7 @@ export default function Page() {
           Opening Hand and Draw Odds
         </h2>
         <p className="text-neutral-300 mb-4">
-          Set deck size (99 for Commander), number of &quot;hits&quot; in the deck (e.g. lands or a
+          Set deck size (100 for Commander), number of &quot;hits&quot; in the deck (e.g. lands or a
           specific card), hand size, and turns. The calculator shows the probability of drawing
           at least N of your target cards by the given turn. Play or draw affects your card count
           — toggle for accuracy.

@@ -938,10 +938,20 @@ export default function CostToFinishClient() {
             </div>
           )}
           <label className="block text-sm opacity-80">Choose one of your decks</label>
-          {decks.length === 0 && (
-            <div className="text-xs text-yellow-400 mb-2 italic">
-              Please sign in to select from your saved decks, or paste a decklist below.
+          {!user && (
+            <div className="mb-3 rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
+              <p className="text-sm text-amber-200/90 mb-2">Sign up or sign in to run Cost to Finish on your own saved decks and compare against your collection!</p>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }))}
+                className="w-full px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+              >
+                Sign up free →
+              </button>
             </div>
+          )}
+          {user && decks.length === 0 && (
+            <div className="text-xs text-neutral-500 mb-2">No saved decks yet. Paste a decklist below or create one.</div>
           )}
           <select
             className="w-full rounded-md border bg-neutral-950 px-3 py-2"
@@ -964,13 +974,15 @@ export default function CostToFinishClient() {
 
           {/* Collection & pricing selectors */}
           <div>
-            <label className="mb-2 inline-flex items-center gap-2 text-sm">
+            <label className={`mb-2 inline-flex items-center gap-2 text-sm ${!user ? 'opacity-60' : ''}`}>
               <input
                 type="checkbox"
                 checked={useOwned}
                 onChange={(e) => setUseOwned(e.target.checked)}
+                disabled={!user}
               />
               Subtract cards I already own
+              {!user && <span className="text-xs text-amber-400/80">(sign in to use)</span>}
             </label>
             <label className="block text-sm opacity-80">Collection</label>
             <div className="flex items-center gap-2">
@@ -1001,10 +1013,6 @@ export default function CostToFinishClient() {
                 <option value="GBP">GBP</option>
               </select>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm mt-5">
-              <input type="checkbox" checked={useSnapshot} onChange={(e)=>setUseSnapshot(e.target.checked)} />
-              Use today’s snapshot prices
-            </label>
             <label className="inline-flex items-center gap-2 text-sm mt-5">
               <input type="checkbox" checked={excludeLands} onChange={(e)=>setExcludeLands(e.target.checked)} />
               Exclude lands

@@ -379,6 +379,10 @@ export async function POST(req: NextRequest) {
     }
     }
 
+    // User level: tailor language, tone, and depth (beginner/intermediate/pro)
+    const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
+    sys += getUserLevelInstruction(prefs?.userLevel);
+
     // Runtime AI config (env overrides when explicitly off)
     const streamRuntimeConfig = await (await import("@/lib/ai/runtime-config")).getRuntimeAIConfig(supabase);
     // LLM v2 context (Phase A). Kill-switch: LLM_V2_CONTEXT=off or runtime forces raw path.

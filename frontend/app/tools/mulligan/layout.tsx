@@ -46,7 +46,7 @@ const IntroBlock = () => (
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">How it works</h2>
     <p className="text-neutral-300 mb-3 text-sm">
-      Set your deck size (typically 99 for Commander), how many &quot;success&quot;
+      Set your deck size (typically 100 for Commander), how many &quot;success&quot;
       cards you need (e.g. lands, ramp, or combo pieces), and your land
       count. The simulator runs thousands of iterations to estimate keep
       rates for 7, 6, and 5 cards.

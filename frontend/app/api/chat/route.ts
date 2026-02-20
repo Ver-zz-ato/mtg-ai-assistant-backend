@@ -1047,6 +1047,9 @@ export async function POST(req: NextRequest) {
       // Add specific guidance for snapshot requests
       sys += `\n\nFor deck snapshot requests: Use these preferences automatically. Simply ask for the decklist without requesting format/budget/currency details again.`;
     }
+    // User level: tailor language, tone, and depth (beginner/intermediate/pro)
+    const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
+    sys += getUserLevelInstruction(prefs?.userLevel);
     // Task 7: Optimize system prompts - shorten teaching mode formatting
     if (teachingFlag) {
       sys += `\n\nTeaching mode: Answer in 3 parts: 1) Concept/explanation, 2) Categorized examples (land ramp, rocks, dorks), 3) Application to deck. Define jargon first time (ETB=enters battlefield). Match examples to format.`;

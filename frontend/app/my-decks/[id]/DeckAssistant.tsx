@@ -41,6 +41,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [fmt, setFmt] = React.useState<string>(initialFormat?.toLowerCase() || "commander");
   const [plan, setPlan] = React.useState<string>("optimized");
   const [teaching, setTeaching] = React.useState<boolean>(false);
+  const [userLevel, setUserLevel] = React.useState<'beginner'|'intermediate'|'pro'>('beginner');
   
   // Sync format with prop changes
   React.useEffect(() => {
@@ -481,7 +482,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       }
       
       // Stream assistant reply with prefs and context
-      const prefs: any = { format: fmt, budget: plan, colors: Array.isArray(deckCI)?deckCI:[], teaching };
+      const prefs: any = { format: fmt, budget: plan, colors: Array.isArray(deckCI)?deckCI:[], teaching, userLevel };
       const context = { deckId }; // Pass deckId via context, not as text
       
       await postMessageStream(
@@ -948,6 +949,25 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         </div>
       </div>
       <div className="shrink-0 border-t border-neutral-800 pt-4">
+        {/* User level: tailors AI language/tone/depth */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-neutral-500">Level:</span>
+          <div className="flex gap-0.5 p-0.5 rounded-lg bg-neutral-800/60 border border-neutral-700/50">
+            {(['beginner','intermediate','pro'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setUserLevel(m)}
+                className={`px-2 py-1 rounded text-xs font-medium capitalize transition-all ${
+                  userLevel === m
+                    ? 'bg-purple-600 text-white border border-purple-500'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/50 border border-transparent'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2 flex-col sm:flex-row">
           <div className="relative flex-1">
             <textarea

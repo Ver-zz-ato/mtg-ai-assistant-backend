@@ -350,7 +350,7 @@ function BrowseDecksContent() {
                   )}
                   <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
                     <span>{deck.owner_username}</span>
-                    <span>{deck.card_count}</span>
+                    <span>{deck.card_count} cards</span>
                   </div>
                 </div>
               </PrefetchLink>

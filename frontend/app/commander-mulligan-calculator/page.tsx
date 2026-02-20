@@ -58,7 +58,7 @@ export default function Page() {
           How the Mulligan Simulator Works
         </h2>
         <p className="text-neutral-300 mb-4">
-          Set your deck size (typically 99 for Commander), land count, and how many &quot;success&quot;
+          Set your deck size (typically 100 for Commander), land count, and how many &quot;success&quot;
           cards you need (e.g. two lands plus a ramp spell). The simulator runs thousands of
           iterations to estimate the probability of keeping hands of 7, 6, or 5 cards. You can
           require minimum or maximum lands, add color requirements for mana fixing, and toggle

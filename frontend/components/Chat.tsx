@@ -103,7 +103,6 @@ function Chat() {
   const [fmt, setFmt] = useState<'commander'|'standard'|'modern'|'pioneer'|'pauper'>('commander');
   const [colors, setColors] = useState<{[k in 'W'|'U'|'B'|'R'|'G']: boolean}>({W:false,U:false,B:false,R:false,G:false});
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
-  // TODO: Deck mode for future AI integration - will alter prompt/behavior based on Beginner/Intermediate/Pro
   const [deckMode, setDeckMode] = useState<'beginner'|'intermediate'|'pro'>('beginner');
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
@@ -603,7 +602,7 @@ function Chat() {
       }
     ));
 
-    const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching };
+    const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching, userLevel: deckMode };
     
     // Build enhanced context with deck-aware problem analysis
     let deckContext = '';
@@ -1196,7 +1195,7 @@ function Chat() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-black text-white overflow-hidden relative">
+    <div className="min-h-[500px] h-[calc(100vh-80px)] max-h-[90vh] flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1265,7 +1264,7 @@ function Chat() {
       <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
         {extrasOn && (
           <div className="w-full space-y-3">
-            {/* Deck Mode - UI only, TODO: future AI integration */}
+            {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
             <div className="space-y-1.5">
               <span className="text-xs text-neutral-500">Deck Mode</span>
               <div className="flex gap-0.5 p-0.5 rounded-lg bg-neutral-800/60 border border-neutral-700/50">
