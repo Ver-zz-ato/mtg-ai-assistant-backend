@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-[600px] xl:h-[calc(100vh-80px)] xl:max-h-[90vh] flex flex-col bg-black text-white overflow-visible xl:overflow-hidden relative">
+    <div className="min-h-[600px] xl:min-h-[1500px] flex flex-col bg-black text-white overflow-visible relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1379,15 +1379,15 @@ function Chat() {
         </div>
       </div>
       
-      {/* Messages area - generous min-height so conversation is visible; min-h-0 on xl so it flexes within fixed container */}
-      <div className="flex-1 min-h-[400px] sm:min-h-[480px] xl:min-h-0 flex flex-col overflow-hidden">
+      {/* Messages area - mobile: 400/480px; desktop: 2.5x larger (~1200px) */}
+      <div className="flex-1 min-h-[400px] sm:min-h-[480px] xl:min-h-[1200px] flex flex-col overflow-hidden">
         {fallbackBanner && (
           <div className="mb-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded text-yellow-200 text-sm flex-shrink-0">
             {fallbackBanner}
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-[360px] sm:min-h-[420px] md:min-h-[480px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain">
+        <div ref={messagesContainerRef} className="flex-1 min-h-[360px] sm:min-h-[420px] md:min-h-[480px] xl:min-h-[1100px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center">
