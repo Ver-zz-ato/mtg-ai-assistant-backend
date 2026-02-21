@@ -77,7 +77,7 @@ async function appendAssistant(threadId: string, content: string) {
   return true;
 }
 
-function Chat({ className }: { className?: string }) {
+function Chat() {
   // Rotating example prompts
   const examplePrompts = [
     "Analyze this Commander deck and tell me what it's missing.",
@@ -1201,7 +1201,7 @@ function Chat({ className }: { className?: string }) {
   }
 
   return (
-    <div className={`flex flex-col bg-black text-white overflow-hidden relative${className ? ` ${className}` : ''}`}>
+    <div className="h-[70dvh] md:h-[75dvh] lg:h-[80dvh] max-h-[800px] flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1387,7 +1387,7 @@ function Chat({ className }: { className?: string }) {
           </div>
         )}
         
-        <div ref={messagesContainerRef} className={`flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain${DEV ? ' debug-scroll' : ''}`}>
+        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
