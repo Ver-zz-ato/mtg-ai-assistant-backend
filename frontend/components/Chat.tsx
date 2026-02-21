@@ -77,7 +77,7 @@ async function appendAssistant(threadId: string, content: string) {
   return true;
 }
 
-function Chat() {
+function Chat({ className }: { className?: string }) {
   // Rotating example prompts
   const examplePrompts = [
     "Analyze this Commander deck and tell me what it's missing.",
@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="h-[calc(100dvh-120px)] max-h-[calc(100dvh-120px)] min-h-0 flex flex-col bg-black text-white overflow-hidden relative">
+    <div className={`flex flex-col bg-black text-white overflow-hidden relative${className ? ` ${className}` : ''}`}>
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1387,10 +1387,10 @@ function Chat() {
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+        <div ref={messagesContainerRef} className={`flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain${DEV ? ' debug-scroll' : ''}`}>
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center">
+            <div className="flex flex-col items-center justify-center p-8 text-center">
               <div className="text-8xl mb-6 opacity-80">💬</div>
               <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-3">
                 Paste a decklist or name a Commander.
