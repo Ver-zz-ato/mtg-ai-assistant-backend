@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col bg-black text-white overflow-hidden relative">
+    <div className="h-[calc(100dvh-120px)] max-h-[calc(100dvh-120px)] min-h-0 flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1266,8 +1266,8 @@ function Chat() {
         </div>
       </div>
       
-      {/* Controls strip: Mode, Format, Value, overflow menu - max-h so it doesn't steal space on short screens */}
-      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0 max-h-[30dvh] overflow-y-auto">
+      {/* Controls strip: Mode, Format, Value, overflow menu - no scroll, never scrolls */}
+      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
         {extrasOn && (
           <div className="w-full space-y-3">
             {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
@@ -1379,7 +1379,7 @@ function Chat() {
         </div>
       </div>
       
-      {/* Messages area - min-h-0 so flex child can shrink; outer wrapper min-h handles tiny screens */}
+      {/* Messages area - only scrollable region; flex-1 min-h-0 so it can shrink */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {fallbackBanner && (
           <div className="mb-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded text-yellow-200 text-sm flex-shrink-0">
