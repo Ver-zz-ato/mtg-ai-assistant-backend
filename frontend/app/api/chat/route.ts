@@ -17,15 +17,75 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
 const DEV = process.env.NODE_ENV !== "production";
 
-const TOOLS_AWARENESS = `
-When relevant to the user's question, suggest ManaTap tools using markdown links:
-- Budget questions: [Budget Swaps](/deck/swap-suggestions) finds cheaper alternatives
-- Cost questions: [Cost to Finish](/collections/cost-to-finish) estimates deck completion cost
-- Opening hands: [Mulligan Simulator](/tools/mulligan) tests opening hands
-- Draw odds: [Probability Calculator](/tools/probability) calculates draw chances
-- Price trends: [Price Tracker](/price-tracker) shows card price history
+// Deterministic tool suggestions based on keywords in user message
+type ToolSuggestion = {
+  keywords: RegExp;
+  text: string;
+  url: string;
+  description: string;
+};
 
-Only mention tools when they're genuinely helpful to the user's question. Use natural language like "You can use our [Mulligan Simulator](/tools/mulligan) to test this."`.trim();
+const TOOL_SUGGESTIONS: ToolSuggestion[] = [
+  {
+    keywords: /\b(budget|cheap|afford|expensive|cost|price|money|dollar|\$|£|€|under\s?\d+|save)\b/i,
+    text: "Budget Swaps",
+    url: "/deck/swap-suggestions",
+    description: "find cheaper alternatives for expensive cards"
+  },
+  {
+    keywords: /\b(finish|complete|missing|need|buy|purchase|how much|total cost|collection)\b/i,
+    text: "Cost to Finish",
+    url: "/collections/cost-to-finish",
+    description: "see what cards you still need and estimated cost"
+  },
+  {
+    keywords: /\b(mulligan|opening hand|starting hand|keep|mull|7 cards|first hand)\b/i,
+    text: "Mulligan Simulator",
+    url: "/tools/mulligan",
+    description: "test opening hands for your deck"
+  },
+  {
+    keywords: /\b(probability|odds|chance|draw|percent|%|likelihood|how likely|how often)\b/i,
+    text: "Probability Calculator",
+    url: "/tools/probability",
+    description: "calculate draw probabilities"
+  },
+  {
+    keywords: /\b(price history|price trend|price check|card price|market|going up|going down|spike|crash)\b/i,
+    text: "Price Tracker",
+    url: "/price-tracker",
+    description: "view price history and trends"
+  },
+];
+
+function getToolSuggestionsForMessage(userMessage: string): ToolSuggestion[] {
+  const matched: ToolSuggestion[] = [];
+  const lowerMsg = userMessage.toLowerCase();
+  
+  for (const tool of TOOL_SUGGESTIONS) {
+    if (tool.keywords.test(lowerMsg)) {
+      // Avoid duplicates
+      if (!matched.find(t => t.url === tool.url)) {
+        matched.push(tool);
+      }
+    }
+  }
+  
+  // Limit to 2 most relevant suggestions to avoid overwhelming
+  return matched.slice(0, 2);
+}
+
+function formatToolSuggestions(tools: ToolSuggestion[]): string {
+  if (tools.length === 0) return '';
+  
+  const links = tools.map(t => `[${t.text}](${t.url}) to ${t.description}`);
+  
+  if (links.length === 1) {
+    return `\n\n💡 **Try our ${links[0]}**`;
+  }
+  
+  return `\n\n💡 **Helpful tools:** ${links.join(' • ')}`;
+}
 
 const COMMANDER_BANNED: Record<string, true> = {
   "Ancestral Recall": true,
@@ -853,8 +913,7 @@ export async function POST(req: NextRequest) {
       promptVersionId = promptResult.promptVersionId ?? null;
     }
 
-    // Add tool awareness so AI can suggest ManaTap tools with links when relevant
-    sys += "\n\n" + TOOLS_AWARENESS;
+    // Tool suggestions are now added deterministically after the AI response (see getToolSuggestionsForMessage)
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
     let promptLogged = false;
@@ -1751,6 +1810,13 @@ Return the corrected answer with concise, user-facing tone.`;
     } catch (error) {
       // Silently fail - price injection is nice-to-have
       console.warn('[chat] Price injection failed:', error);
+    }
+    
+    // Append deterministic tool suggestions based on keywords in user's message
+    const toolSuggestions = getToolSuggestionsForMessage(text);
+    if (toolSuggestions.length > 0) {
+      const toolText = formatToolSuggestions(toolSuggestions);
+      outText += toolText;
     }
     
     try {

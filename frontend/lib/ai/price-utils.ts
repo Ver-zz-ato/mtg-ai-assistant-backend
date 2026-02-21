@@ -27,18 +27,20 @@ export async function getCachedPrices(names: string[]): Promise<Record<string, {
     const supabase = await createClient();
     const normalizedNames = names.map(normalizeName);
     
+    // Note: price_cache uses card_name, usd_price, eur_price columns (from bulk-price-import)
     const { data } = await supabase
       .from('price_cache')
-      .select('name, usd, eur, gbp, updated_at')
-      .in('name', normalizedNames)
+      .select('card_name, usd_price, eur_price, updated_at')
+      .in('card_name', normalizedNames)
       .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // 24 hours ago
     
     const cached: Record<string, { usd?: number; eur?: number; gbp?: number }> = {};
     for (const row of (data || [])) {
-      cached[row.name] = {
-        usd: row.usd ? Number(row.usd) : undefined,
-        eur: row.eur ? Number(row.eur) : undefined,
-        gbp: row.gbp ? Number(row.gbp) : undefined
+      const usd = row.usd_price ? Number(row.usd_price) : undefined;
+      cached[row.card_name] = {
+        usd,
+        eur: row.eur_price ? Number(row.eur_price) : undefined,
+        gbp: usd ? Number((usd * 0.78).toFixed(2)) : undefined // GBP derived from USD (approx rate)
       };
     }
     

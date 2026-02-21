@@ -82,18 +82,22 @@ async function getCachedPrices(names: string[]): Promise<Record<string, { usd?: 
     const supabase = await createClient();
     const normalizedNames = names.map(normalizeName);
     
+    // Note: price_cache uses card_name, usd_price, eur_price columns (from bulk-price-import)
     const { data } = await supabase
       .from('price_cache')
-      .select('name, usd, eur, gbp, updated_at')
-      .in('name', normalizedNames)
+      .select('card_name, usd_price, eur_price, updated_at')
+      .in('card_name', normalizedNames)
       .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // 24 hours ago
     
     const cached: Record<string, { usd?: number; eur?: number; gbp?: number }> = {};
+    const { USD_GBP } = await getFxRates();
+    
     for (const row of (data || [])) {
-      cached[row.name] = {
-        usd: row.usd ? Number(row.usd) : undefined,
-        eur: row.eur ? Number(row.eur) : undefined,
-        gbp: row.gbp ? Number(row.gbp) : undefined
+      const usd = row.usd_price ? Number(row.usd_price) : undefined;
+      cached[row.card_name] = {
+        usd,
+        eur: row.eur_price ? Number(row.eur_price) : undefined,
+        gbp: usd ? Number((usd * USD_GBP).toFixed(2)) : undefined // GBP derived from USD
       };
     }
     
@@ -111,18 +115,18 @@ async function cachePrices(priceData: Record<string, { usd?: number; eur?: numbe
   try {
     const supabase = await createClient();
     
+    // Note: price_cache uses card_name, usd_price, eur_price columns (matching bulk-price-import schema)
     const rows = Object.entries(priceData).map(([name, prices]) => ({
-      name,
-      usd: prices.usd || null,
-      eur: prices.eur || null,
-      gbp: prices.gbp || null,
+      card_name: name,
+      usd_price: prices.usd || null,
+      eur_price: prices.eur || null,
       updated_at: new Date().toISOString()
     }));
     
     if (rows.length > 0) {
       await supabase
         .from('price_cache')
-        .upsert(rows, { onConflict: 'name' });
+        .upsert(rows, { onConflict: 'card_name' });
     }
   } catch (error) {
     console.warn('Price caching failed:', error);
@@ -130,12 +134,31 @@ async function cachePrices(priceData: Record<string, { usd?: number; eur?: numbe
 }
 
 /**
- * Fetches one representative printing for each name via Scryfall's collection API.
- * We dedupe the input and cap to Scryfall's limit (75 ids per request).
+ * Fetches one representative printing for each name via Scryfall's named endpoint.
+ * Uses /cards/named?exact= which returns paper printings with prices by default.
+ * Falls back to collection API for batch efficiency but prefers priced printings.
  */
 async function fetchScryfallPrices(names: string[]): Promise<Record<string, ScryfallCard>> {
   const byNorm: Record<string, ScryfallCard> = {};
   const unique = Array.from(new Set(names.map(normalizeName)));
+
+  // For single cards, use /cards/named which returns better default printings
+  if (unique.length === 1) {
+    const name = unique[0];
+    try {
+      const res = await fetch(
+        `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`,
+        { cache: "no-store", headers: { "User-Agent": "ManaTap/1.0" } }
+      );
+      if (res.ok) {
+        const card = (await res.json()) as ScryfallCard;
+        if (card.prices?.usd || card.prices?.eur) {
+          byNorm[name] = card;
+          return byNorm;
+        }
+      }
+    } catch {}
+  }
 
   // Scryfall /cards/collection allows up to 75 identifiers per call
   for (const batch of chunk(unique, 75)) {
@@ -144,23 +167,38 @@ async function fetchScryfallPrices(names: string[]): Promise<Record<string, Scry
     };
     const res = await fetch("https://api.scryfall.com/cards/collection", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "User-Agent": "ManaTap/1.0" },
       body: JSON.stringify(body),
-      // no-store so we don't get stale prices
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      // keep going for other batches; the client will gracefully handle missing prices
-      continue;
-    }
+    if (!res.ok) continue;
     const data = (await res.json()) as { data?: ScryfallCard[] };
 
     for (const c of data?.data ?? []) {
       const norm = normalizeName(c.name);
-      // only set the first time we see it (dedupe by normalized name)
-      if (!byNorm[norm]) byNorm[norm] = c;
+      // Prefer printings with prices
+      if (!byNorm[norm] || (!byNorm[norm].prices?.usd && (c.prices?.usd || c.prices?.eur))) {
+        byNorm[norm] = c;
+      }
     }
+  }
+
+  // For cards without prices, try /cards/named endpoint as fallback
+  const noPriceCards = unique.filter(n => byNorm[n] && !byNorm[n].prices?.usd && !byNorm[n].prices?.eur);
+  for (const name of noPriceCards.slice(0, 5)) { // Limit fallback calls
+    try {
+      const res = await fetch(
+        `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`,
+        { cache: "no-store", headers: { "User-Agent": "ManaTap/1.0" } }
+      );
+      if (res.ok) {
+        const card = (await res.json()) as ScryfallCard;
+        if (card.prices?.usd || card.prices?.eur) {
+          byNorm[normalizeName(card.name)] = card;
+        }
+      }
+    } catch {}
   }
 
   return byNorm;

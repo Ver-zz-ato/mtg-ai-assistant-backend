@@ -24,10 +24,24 @@ try {
     $Endpoint = "$LocalUrl/api/cron/bulk-scryfall"
     $CronKey = $env:CRON_KEY
 
+    # Auto-load CRON_KEY from .env.local if not set
     if (-not $CronKey) {
-        Write-Host "WARNING: CRON_KEY not found in environment variables" -ForegroundColor Yellow
-        Write-Host "TIP: You can set it in your .env.local file or export it" -ForegroundColor Gray
-        Write-Host "TIP: Alternatively, run: `$env:CRON_KEY='your-key'; .\scripts\run-bulk-scryfall-local.ps1" -ForegroundColor Gray
+        $EnvLocalPath = Join-Path $FrontendDir ".env.local"
+        if (Test-Path $EnvLocalPath) {
+            $envContent = Get-Content $EnvLocalPath -ErrorAction SilentlyContinue
+            foreach ($line in $envContent) {
+                if ($line -match "^CRON_KEY=(.+)$") {
+                    $CronKey = $Matches[1].Trim()
+                    Write-Host "Loaded CRON_KEY from .env.local" -ForegroundColor Green
+                    break
+                }
+            }
+        }
+    }
+
+    if (-not $CronKey) {
+        Write-Host "WARNING: CRON_KEY not found in environment or .env.local" -ForegroundColor Yellow
+        Write-Host "TIP: Add CRON_KEY=your-key to your .env.local file" -ForegroundColor Gray
         Write-Host ""
         $prompt = Read-Host "Enter CRON_KEY (or press Enter to skip auth - requires admin session)"
         if ($prompt) {
