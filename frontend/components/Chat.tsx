@@ -1266,10 +1266,10 @@ function Chat() {
         </div>
       </div>
       
-      {/* Controls strip: Mode, Format, Value, overflow menu - can scroll on very small screens */}
-      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0 max-h-[30vh] overflow-y-auto">
+      {/* Controls strip: Mode, Format, Value, overflow menu - hidden on mobile to maximize messages space */}
+      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
         {extrasOn && (
-          <div className="w-full space-y-3">
+          <div className="hidden md:block w-full space-y-3">
             {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
             <div className="space-y-1.5">
               <span className="text-xs text-neutral-500">Deck Mode</span>
@@ -1387,7 +1387,7 @@ function Chat() {
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-[200px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+        <div ref={messagesContainerRef} className="flex-1 min-h-[300px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
