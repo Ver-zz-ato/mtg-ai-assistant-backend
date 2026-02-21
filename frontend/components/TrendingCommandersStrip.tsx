@@ -76,7 +76,7 @@ export function TrendingCommandersStrip() {
             </p>
           </div>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
@@ -117,9 +117,9 @@ export function TrendingCommandersStrip() {
         </Link>
       </div>
 
-      <div className="relative">
+      <div className="relative min-w-0 overflow-hidden">
         <div
-          className="flex gap-3 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1 scrollbar-hide"
+          className="flex gap-3 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1 custom-scrollbar"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {commanders.map((cmd) => (

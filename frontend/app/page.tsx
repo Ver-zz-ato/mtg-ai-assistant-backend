@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 import LeftSidebar from "../components/LeftSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab";
+import ResponsiveLeftSidebar from "../components/ResponsiveLeftSidebar";
+import CommunityDrawer from "../components/CommunityDrawer";
+import CommunityDrawerContent from "../components/CommunityDrawerContent";
+import MobileOnlyContent from "../components/MobileOnlyContent";
 import TopToolsStrip from "../components/TopToolsStrip";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
@@ -91,22 +95,22 @@ export default function Page() {
           </div>
         )}
         
-        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          {/* Left sidebar - hidden on mobile, shown on large screens */}
-          <aside className="hidden lg:block lg:col-span-2 space-y-4">
+        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+          {/* Left sidebar - only rendered at md (768px+); CommunityDrawer on mobile */}
+          <ResponsiveLeftSidebar>
             <Shoutbox />
             <MetaDeckPanel />
             <LeftSidebar />
-          </aside>
+          </ResponsiveLeftSidebar>
           
           {/* Main chat area - 1.5x wider */}
-          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3 pt-2 h-full min-h-0" data-chat-area>
+          <section className="col-span-1 md:col-span-7 xl:col-span-7 flex flex-col gap-3 pt-2 h-full min-h-0" data-chat-area>
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
           
-          {/* Right sidebar - stacked below on mobile/tablet, side panel on desktop; scrolls with page like left sidebar */}
-          <aside className="col-span-1 lg:col-span-3 xl:col-span-3 order-last lg:order-none">
+          {/* Right sidebar - stacked below on mobile, side panel at md+; scrolls with page like left sidebar */}
+          <aside className="col-span-1 md:col-span-3 xl:col-span-3 order-last md:order-none">
             <RightSidebar />
           </aside>
         </div>
@@ -114,23 +118,28 @@ export default function Page() {
         {/* Trending Commanders - product strip below builder */}
         <TrendingCommandersStrip />
 
-        {/* SEO nav links - minimal, no collapsible */}
-        <nav className="max-w-[1600px] mx-auto px-4 py-3 mt-2 border-t border-neutral-800 text-center text-sm text-neutral-500" aria-label="Tools and discovery">
-          <a href="/tools/mulligan" className="hover:text-white">Mulligan</a>
+        {/* SEO nav links - minimal, no collapsible; distinct colors to draw attention */}
+        <nav className="max-w-[1600px] mx-auto px-4 py-3 mt-2 border-t border-neutral-800 text-center text-sm" aria-label="Tools and discovery">
+          <a href="/tools/mulligan" className="text-amber-400 hover:text-amber-300 transition-colors">Mulligan</a>
           <span className="mx-2 text-neutral-600">·</span>
-          <a href="/tools/probability" className="hover:text-white">Probability</a>
+          <a href="/tools/probability" className="text-cyan-400 hover:text-cyan-300 transition-colors">Probability</a>
           <span className="mx-2 text-neutral-600">·</span>
-          <a href="/collections/cost-to-finish" className="hover:text-white">Cost to Finish</a>
+          <a href="/collections/cost-to-finish" className="text-emerald-400 hover:text-emerald-300 transition-colors">Cost to Finish</a>
           <span className="mx-2 text-neutral-600">·</span>
-          <a href="/deck/swap-suggestions" className="hover:text-white">Budget Swaps</a>
+          <a href="/deck/swap-suggestions" className="text-lime-400 hover:text-lime-300 transition-colors">Budget Swaps</a>
           <span className="mx-2 text-neutral-600">·</span>
-          <a href="/price-tracker" className="hover:text-white">Price Tracker</a>
+          <a href="/price-tracker" className="text-blue-400 hover:text-blue-300 transition-colors">Price Tracker</a>
           <span className="mx-2 text-neutral-600">|</span>
-          <a href="/commanders" className="hover:text-white">Commanders</a>
+          <a href="/commanders" className="text-violet-400 hover:text-violet-300 transition-colors">Commanders</a>
           <span className="mx-2 text-neutral-600">·</span>
-          <a href="/meta" className="hover:text-white">Meta</a>
+          <a href="/meta" className="text-fuchsia-400 hover:text-fuchsia-300 transition-colors">Meta</a>
         </nav>
       </div>
+      <CommunityDrawer>
+        <MobileOnlyContent>
+          <CommunityDrawerContent />
+        </MobileOnlyContent>
+      </CommunityDrawer>
       <FeedbackFab />
       <EmailVerificationSuccessPopup />
     </>

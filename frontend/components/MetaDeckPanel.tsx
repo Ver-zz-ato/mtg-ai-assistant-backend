@@ -112,44 +112,24 @@ export default function MetaDeckPanel() {
             </div>
           </div>
 
-          {/* Meta hub link */}
-          <div className="mb-4">
-            <Link
-              href="/meta"
-              className="flex items-center gap-2 text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors py-2 px-3 rounded-lg bg-purple-900/20 hover:bg-purple-900/30 border border-purple-700/30"
-            >
-              <span>📈</span>
-              Stay Ahead of the Commander Meta
-            </Link>
-            <p className="text-xs text-gray-500 mt-1 px-3">Trending commanders, cards & budget builds. Updated daily.</p>
-          </div>
-
-          {/* Format Distribution */}
-          <div>
-            <h4 className="text-sm font-semibold text-gray-300 mb-2">📝 Formats</h4>
-            <div className="space-y-2">
-              {Object.entries(meta.formatDistribution)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([format, count]) => {
-                  const percentage = meta.totalDecks > 0 ? (count / meta.totalDecks * 100).toFixed(1) : 0;
-                  return (
-                    <div key={format} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">{format}</span>
-                        <span className="text-gray-500">{percentage}%</span>
-                      </div>
-                      <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-purple-600 to-blue-600 rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* Meta hub CTA - eye-catching, clearly clickable */}
+          <Link
+            href="/meta"
+            className="group block rounded-xl border-2 border-purple-500/60 bg-gradient-to-br from-purple-900/40 via-purple-800/30 to-blue-900/40 p-4 hover:border-purple-400 hover:from-purple-800/50 hover:to-blue-800/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-200 cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📈</span>
+              <div>
+                <div className="font-bold text-purple-200 group-hover:text-purple-100 transition-colors">
+                  Stay Ahead of the Commander Meta
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5 group-hover:text-gray-300 transition-colors">
+                  Trending commanders, cards & budget builds · Updated daily
+                </div>
+              </div>
+              <span className="ml-auto text-purple-400 group-hover:translate-x-1 transition-transform">→</span>
             </div>
-          </div>
+          </Link>
     </div>
   );
 }
