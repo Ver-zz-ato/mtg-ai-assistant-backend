@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-[600px] xl:h-[calc(100dvh-80px)] flex flex-col bg-black text-white overflow-visible xl:overflow-hidden relative">
+    <div className="min-h-[520px] lg:h-[calc(100dvh-80px)] flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
