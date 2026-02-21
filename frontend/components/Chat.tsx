@@ -1379,15 +1379,15 @@ function Chat() {
         </div>
       </div>
       
-      {/* Messages area - flexible with scrolling; strong min-height so it never collapses on small screens */}
-      <div className="flex-1 min-h-[280px] sm:min-h-[360px] flex flex-col overflow-hidden">
+      {/* Messages area - flexible with scrolling; min-h-0 so it can shrink on small screens and input stays visible */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {fallbackBanner && (
           <div className="mb-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded text-yellow-200 text-sm flex-shrink-0">
             {fallbackBanner}
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-[260px] sm:min-h-[320px] md:min-h-[400px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain">
+        <div ref={messagesContainerRef} className="flex-1 min-h-[120px] sm:min-h-[200px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-behavior-y-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center">
