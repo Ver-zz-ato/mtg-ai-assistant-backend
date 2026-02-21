@@ -17,6 +17,16 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
 const DEV = process.env.NODE_ENV !== "production";
 
+const TOOLS_AWARENESS = `
+When relevant to the user's question, suggest ManaTap tools using markdown links:
+- Budget questions: [Budget Swaps](/deck/swap-suggestions) finds cheaper alternatives
+- Cost questions: [Cost to Finish](/collections/cost-to-finish) estimates deck completion cost
+- Opening hands: [Mulligan Simulator](/tools/mulligan) tests opening hands
+- Draw odds: [Probability Calculator](/tools/probability) calculates draw chances
+- Price trends: [Price Tracker](/price-tracker) shows card price history
+
+Only mention tools when they're genuinely helpful to the user's question. Use natural language like "You can use our [Mulligan Simulator](/tools/mulligan) to test this."`.trim();
+
 const COMMANDER_BANNED: Record<string, true> = {
   "Ancestral Recall": true,
   "Balance": true,
@@ -842,6 +852,9 @@ export async function POST(req: NextRequest) {
       sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = promptResult.promptVersionId ?? null;
     }
+
+    // Add tool awareness so AI can suggest ManaTap tools with links when relevant
+    sys += "\n\n" + TOOLS_AWARENESS;
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
     let promptLogged = false;

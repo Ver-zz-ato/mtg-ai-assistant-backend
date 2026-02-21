@@ -220,5 +220,11 @@ export function getCallOriginDisplay(
     return `${o.page} · ${o.component}`;
   }
   if (src) return src; // Unknown source_page, show raw
+  // Fall back to route-based origin when source_page is not set
+  const r = route?.trim();
+  if (r && ROUTE_ORIGINS[r]) {
+    const o = ROUTE_ORIGINS[r];
+    return `${o.page} · ${o.component}`;
+  }
   return "—"; // Not tracked: add sourcePage to API caller
 }

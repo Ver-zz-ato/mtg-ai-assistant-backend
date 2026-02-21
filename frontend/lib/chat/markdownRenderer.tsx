@@ -23,7 +23,7 @@ function normalizeAiSpacing(line: string): string {
 
 /**
  * Parse and render basic markdown in chat messages
- * Supports: ### headers, bold, italic, inline code, lists
+ * Supports: ### headers, bold, italic, inline code, lists, links
  */
 export function renderMarkdown(text: string): React.ReactNode {
   if (!text) return null;
@@ -105,14 +105,43 @@ export function renderMarkdown(text: string): React.ReactNode {
 }
 
 /**
- * Parse inline markdown (bold, italic, code) within a line
+ * Parse inline markdown (bold, italic, code, links) within a line
  */
 function parseInlineMarkdown(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let currentIndex = 0;
   let keyCounter = 0;
   
-  // Regex patterns (order matters - check longer patterns first)
+  // Find all matches
+  const matches: Array<{ start: number; end: number; element: React.ReactNode }> = [];
+  
+  // Process links first (they have two capture groups: text and URL)
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let linkMatch;
+  while ((linkMatch = linkRegex.exec(text)) !== null) {
+    const start = linkMatch.index;
+    const end = linkRegex.lastIndex;
+    const linkText = linkMatch[1];
+    const url = linkMatch[2];
+    const isInternal = url.startsWith('/');
+    
+    matches.push({
+      start,
+      end,
+      element: (
+        <a
+          key={keyCounter++}
+          href={url}
+          className="text-blue-400 hover:text-blue-300 underline"
+          {...(isInternal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+        >
+          {linkText}
+        </a>
+      )
+    });
+  }
+  
+  // Regex patterns for other inline formatting (order matters - check longer patterns first)
   const patterns = [
     { regex: /\*\*([^*]+)\*\*/g, render: (match: string) => <strong key={keyCounter++}>{match}</strong> }, // **bold**
     { regex: /__([^_]+)__/g, render: (match: string) => <strong key={keyCounter++}>{match}</strong> }, // __bold__
@@ -120,9 +149,6 @@ function parseInlineMarkdown(text: string): React.ReactNode {
     { regex: /_([^_]+)_/g, render: (match: string) => <em key={keyCounter++}>{match}</em> }, // _italic_
     { regex: /`([^`]+)`/g, render: (match: string) => <code key={keyCounter++} className="bg-neutral-700 px-1 rounded text-xs">{match}</code> }, // `code`
   ];
-  
-  // Find all matches
-  const matches: Array<{ start: number; end: number; element: React.ReactNode }> = [];
   
   for (const pattern of patterns) {
     pattern.regex.lastIndex = 0; // Reset regex state
