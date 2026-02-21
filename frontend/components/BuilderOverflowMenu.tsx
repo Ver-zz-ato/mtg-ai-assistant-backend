@@ -177,7 +177,13 @@ export default function BuilderOverflowMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-xl z-50">
+        <div 
+          className="fixed w-56 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-xl z-[100]" 
+          style={{ 
+            top: (menuRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+            right: Math.max(8, window.innerWidth - (menuRef.current?.getBoundingClientRect().right ?? 0))
+          }}
+        >
           <button
             onClick={handleNewChat}
             className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-800"

@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="h-[85dvh] flex flex-col bg-black text-white overflow-hidden relative">
+    <div className="flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - compact on mobile, visually striking on larger screens */}
       <div className="relative p-2 sm:p-4 md:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1266,10 +1266,10 @@ function Chat() {
         </div>
       </div>
       
-      {/* Controls strip: Mode, Format, Value, overflow menu - hidden on mobile to maximize messages space */}
-      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
+      {/* Controls strip: Mode, Format, Value, overflow menu - compact, no scroll to allow menu popout */}
+      <div className="p-2 sm:p-3 space-y-2 border-b border-neutral-800 flex-shrink-0 overflow-visible">
         {extrasOn && (
-          <div className="hidden md:block w-full space-y-3">
+          <div className="w-full space-y-2">
             {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
             <div className="space-y-1.5">
               <span className="text-xs text-neutral-500">Deck Mode</span>
@@ -1379,15 +1379,15 @@ function Chat() {
         </div>
       </div>
       
-      {/* Messages area - only scrollable region; flex-1 min-h-0 so it can shrink */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      {/* Messages area - EXPLICIT HEIGHT to guarantee visibility on all screens */}
+      <div className="flex flex-col overflow-hidden">
         {fallbackBanner && (
           <div className="mb-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded text-yellow-200 text-sm flex-shrink-0">
             {fallbackBanner}
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-[300px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+        <div ref={messagesContainerRef} className="h-[50vh] md:h-[55vh] lg:h-[60vh] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -1475,11 +1475,11 @@ function Chat() {
           ) : messages.map((m) => {
             const isAssistant = m.role === "assistant";
             return (
-              <div key={m.id} className={isAssistant ? "text-left" : "text-right"}>
+              <div key={m.id} className={isAssistant ? "flex justify-start" : "flex justify-end"}>
                 <div
                   className={
-                    "group inline-block max-w-[95%] sm:max-w-[85%] md:max-w-[80%] rounded px-3 py-2 align-top whitespace-pre-wrap relative overflow-visible " +
-                    (isAssistant ? "bg-neutral-800" : "bg-neutral-700/80")
+                    "group max-w-[85%] sm:max-w-[80%] md:max-w-[75%] rounded-lg px-3 py-2 whitespace-pre-wrap relative overflow-visible " +
+                    (isAssistant ? "bg-neutral-800 text-left" : "bg-blue-600/80 text-left")
                   }
                 >
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
