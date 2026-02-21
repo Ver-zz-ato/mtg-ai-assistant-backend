@@ -91,7 +91,7 @@ export default function Page() {
           </div>
         )}
         
-        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Left sidebar - hidden on mobile, shown on large screens */}
           <aside className="hidden lg:block lg:col-span-2 space-y-4">
             <Shoutbox />
@@ -100,7 +100,7 @@ export default function Page() {
           </aside>
           
           {/* Main chat area - 1.5x wider */}
-          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3 pt-2" data-chat-area>
+          <section className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col gap-3 pt-2 h-full min-h-0" data-chat-area>
             <AIMemoryGreeting className="mb-3" />
             <Chat />
           </section>
