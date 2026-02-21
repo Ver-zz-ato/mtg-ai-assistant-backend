@@ -1201,7 +1201,7 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-[520px] lg:h-[calc(100dvh-80px)] flex flex-col bg-black text-white overflow-hidden relative">
+    <div className="h-[calc(100dvh-120px)] min-h-[420px] max-h-[calc(100dvh-120px)] flex flex-col bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - visually striking */}
       <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1266,8 +1266,8 @@ function Chat() {
         </div>
       </div>
       
-      {/* Controls strip: Mode, Format, Value, overflow menu */}
-      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
+      {/* Controls strip: Mode, Format, Value, overflow menu - max-h so it doesn't steal space on short screens */}
+      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0 max-h-[30dvh] overflow-y-auto">
         {extrasOn && (
           <div className="w-full space-y-3">
             {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
