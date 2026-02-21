@@ -1201,9 +1201,9 @@ function Chat() {
   }
 
   return (
-    <div className="h-[70dvh] md:h-[75dvh] lg:h-[80dvh] max-h-[800px] flex flex-col bg-black text-white overflow-hidden relative">
-      {/* Mobile-optimized Header - visually striking */}
-      <div className="relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
+    <div className="h-[85dvh] flex flex-col bg-black text-white overflow-hidden relative">
+      {/* Mobile-optimized Header - compact on mobile, visually striking on larger screens */}
+      <div className="relative p-2 sm:p-4 md:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/20" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(251,191,36,0.12),transparent)]" />
@@ -1212,7 +1212,7 @@ function Chat() {
           <div className="flex flex-col items-center gap-1">
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.3)]">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-center bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.3)]">
                   ManaTap AI
                 </h2>
                 {isLoggedIn === false && (
@@ -1266,8 +1266,8 @@ function Chat() {
         </div>
       </div>
       
-      {/* Controls strip: Mode, Format, Value, overflow menu - no scroll, never scrolls */}
-      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0">
+      {/* Controls strip: Mode, Format, Value, overflow menu - can scroll on very small screens */}
+      <div className="p-2 sm:p-4 space-y-3 border-b border-neutral-800 flex-shrink-0 max-h-[30vh] overflow-y-auto">
         {extrasOn && (
           <div className="w-full space-y-3">
             {/* Deck Mode - tailors AI language/tone/depth (beginner/intermediate/pro) */}
@@ -1387,7 +1387,7 @@ function Chat() {
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="flex-1 min-h-0 flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+        <div ref={messagesContainerRef} className="flex-1 min-h-[200px] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
