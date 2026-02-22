@@ -19,6 +19,7 @@ import HomepageSignupBanner from "../components/HomepageSignupBanner";
 import HomeVariantB from "../components/HomeVariantB";
 import HomepageFAQ from "../components/HomepageFAQ";
 import { TrendingCommandersStrip } from "../components/TrendingCommandersStrip";
+import PopularCommanderGuides from "../components/PopularCommanderGuides";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
@@ -118,6 +119,9 @@ export default function Page() {
         {/* Trending Commanders - product strip below builder */}
         <TrendingCommandersStrip />
 
+        {/* Popular Commander Guides - internal linking for SEO */}
+        <PopularCommanderGuides />
+
         {/* SEO nav links - minimal, no collapsible; distinct colors to draw attention */}
         <nav className="max-w-[1600px] mx-auto px-4 py-3 mt-2 border-t border-neutral-800 text-center text-sm" aria-label="Tools and discovery">
           <a href="/tools/mulligan" className="text-amber-400 hover:text-amber-300 transition-colors">Mulligan</a>
@@ -129,8 +133,12 @@ export default function Page() {
           <a href="/deck/swap-suggestions" className="text-lime-400 hover:text-lime-300 transition-colors">Budget Swaps</a>
           <span className="mx-2 text-neutral-600">·</span>
           <a href="/price-tracker" className="text-blue-400 hover:text-blue-300 transition-colors">Price Tracker</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/decks/browse" className="text-orange-400 hover:text-orange-300 transition-colors">Browse Decks</a>
           <span className="mx-2 text-neutral-600">|</span>
           <a href="/commanders" className="text-violet-400 hover:text-violet-300 transition-colors">Commanders</a>
+          <span className="mx-2 text-neutral-600">·</span>
+          <a href="/commander-archetypes" className="text-pink-400 hover:text-pink-300 transition-colors">Archetypes</a>
           <span className="mx-2 text-neutral-600">·</span>
           <a href="/meta" className="text-fuchsia-400 hover:text-fuchsia-300 transition-colors">Meta</a>
         </nav>

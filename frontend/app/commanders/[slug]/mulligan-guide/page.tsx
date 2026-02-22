@@ -50,10 +50,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
   if (!profile) return { title: "Not Found | ManaTap" };
+  
+  // Color identity snippet
+  const colorNames: Record<string, string> = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
+  const colors = profile.colors?.map(c => colorNames[c] || c).join("/") || "";
+  const colorSnippet = colors ? ` (${colors})` : "";
+  
   return {
-    title: `How to Mulligan ${profile.name} | Commander Guide | ManaTap`,
-    description: `Mulligan strategy for ${profile.name} Commander. London mulligan rules, land requirements, when to keep or ship. Use the ManaTap mulligan simulator.`,
+    title: `${profile.name} Mulligan Guide | Keep or Ship? EDH Strategy`,
+    description: `When to keep or mulligan with ${profile.name}${colorSnippet}. Ideal opening hands, land count targets & London mulligan tips. Free hand simulator included.`,
     alternates: { canonical: `${BASE}/commanders/${slug}/mulligan-guide` },
+    openGraph: {
+      title: `How to Mulligan ${profile.name} - Commander Strategy`,
+      description: `Master the London mulligan with ${profile.name}. Learn what makes a keepable hand and simulate 1000s of openers.`,
+      type: "article",
+    },
   };
 }
 

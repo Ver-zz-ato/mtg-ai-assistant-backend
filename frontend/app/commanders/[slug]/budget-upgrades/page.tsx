@@ -50,10 +50,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
   if (!profile) return { title: "Not Found | ManaTap" };
+  
+  // Color identity snippet for richer description
+  const colorNames: Record<string, string> = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
+  const colors = profile.colors?.map(c => colorNames[c] || c).join("/") || "";
+  const colorSnippet = colors ? ` (${colors})` : "";
+  
   return {
-    title: `Budget Upgrades for ${profile.name} | Commander Guide | ManaTap`,
-    description: `Budget upgrade guide for ${profile.name} Commander. Mana base, interaction, draw. Use ManaTap cost-to-finish and budget swap tools.`,
+    title: `${profile.name} Budget Upgrades 2026 | $50-$200 EDH Deck Guide`,
+    description: `Upgrade your ${profile.name}${colorSnippet} Commander deck on a budget. Top 10 affordable staples, mana base fixes, and $5-under swaps. Free deck cost calculator included.`,
     alternates: { canonical: `${BASE}/commanders/${slug}/budget-upgrades` },
+    openGraph: {
+      title: `${profile.name} Budget Upgrades - EDH on a Budget`,
+      description: `Transform your ${profile.name} precon into a powerful Commander deck without breaking the bank. Budget-friendly upgrades and swap suggestions.`,
+      type: "article",
+    },
   };
 }
 

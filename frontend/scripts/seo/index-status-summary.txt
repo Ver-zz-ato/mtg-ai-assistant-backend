@@ -1,0 +1,68 @@
+
+═══════════════════════════════════════════════════════════════════
+              COMMANDER PAGE INDEX STATUS REPORT
+═══════════════════════════════════════════════════════════════════
+
+SUMMARY
+───────────────────────────────────────────────────────────────────
+Total Commander Pages: 204
+  ├─ Appearing in GSC: 13 (6.4%)
+  └─ Not in GSC:       191 (93.6%)
+
+BY PAGE TYPE
+───────────────────────────────────────────────────────────────────
+  Main Pages:       1 indexed / 50 not indexed
+  Best Cards:       7 indexed / 44 not indexed
+  Budget Upgrades:  4 indexed / 47 not indexed
+  Mulligan Guides:  1 indexed / 50 not indexed
+
+TOP 10 PERFORMING PAGES (by impressions)
+───────────────────────────────────────────────────────────────────
+  1. /commanders/hakbal-of-the-surging-soul/best-cards
+     22 impressions, 2 clicks, position 8.2
+  2. /commanders/ms-bumbleflower/budget-upgrades
+     19 impressions, 2 clicks, position 10.1
+  3. /commanders/krenko-mob-boss/budget-upgrades
+     16 impressions, 0 clicks, position 7.6
+  4. /commanders/wilhelt-the-rotcleaver/best-cards
+     9 impressions, 0 clicks, position 8.8
+  5. /commanders/meren-of-clan-nel-toth/budget-upgrades
+     8 impressions, 0 clicks, position 9.0
+  6. /commanders/breya-etherium-shaper/best-cards
+     6 impressions, 1 clicks, position 8.5
+  7. /commanders/brago-king-eternal/best-cards
+     4 impressions, 0 clicks, position 8.3
+  8. /commanders/rhys-the-redeemed/best-cards
+     3 impressions, 0 clicks, position 7.0
+  9. /commanders/atraxa-praetors-voice
+     2 impressions, 0 clicks, position 10.0
+  10. /commanders/sauron-the-dark-lord/mulligan-guide
+     2 impressions, 0 clicks, position 9.0
+
+HIGH-PRIORITY FOR INDEXING (request in GSC)
+───────────────────────────────────────────────────────────────────
+  1. https://www.manatap.ai/commanders/the-ur-dragon/best-cards
+  2. https://www.manatap.ai/commanders/the-ur-dragon/budget-upgrades
+  3. https://www.manatap.ai/commanders/edgar-markov/best-cards
+  4. https://www.manatap.ai/commanders/edgar-markov/budget-upgrades
+  5. https://www.manatap.ai/commanders/atraxa-praetors-voice/best-cards
+  6. https://www.manatap.ai/commanders/atraxa-praetors-voice/budget-upgrades
+  7. https://www.manatap.ai/commanders/krenko-mob-boss/best-cards
+  8. https://www.manatap.ai/commanders/kaalia-of-the-vast/best-cards
+  9. https://www.manatap.ai/commanders/kaalia-of-the-vast/budget-upgrades
+  10. https://www.manatap.ai/commanders/pantlaza-sun-favored/best-cards
+  11. https://www.manatap.ai/commanders/pantlaza-sun-favored/budget-upgrades
+  12. https://www.manatap.ai/commanders/sauron-the-dark-lord/best-cards
+  13. https://www.manatap.ai/commanders/sauron-the-dark-lord/budget-upgrades
+  14. https://www.manatap.ai/commanders/yuriko-the-tigers-shadow/best-cards
+  15. https://www.manatap.ai/commanders/yuriko-the-tigers-shadow/budget-upgrades
+
+NEXT STEPS
+───────────────────────────────────────────────────────────────────
+1. Go to Google Search Console: https://search.google.com/search-console
+2. Use URL Inspection tool for each high-priority URL
+3. Click "Request Indexing" for pages not yet indexed
+4. For pages with impressions but 0 clicks, improve title/meta description
+5. Add internal links from homepage to key commander pages
+
+Full details exported to: scripts/seo/index-status-report.csv

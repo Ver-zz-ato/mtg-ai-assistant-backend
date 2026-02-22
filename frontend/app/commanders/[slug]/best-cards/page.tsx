@@ -50,10 +50,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
   if (!profile) return { title: "Not Found | ManaTap" };
+  
+  // Color identity snippet for richer description
+  const colorNames: Record<string, string> = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
+  const colors = profile.colors?.map(c => colorNames[c] || c).join("/") || "";
+  const colorSnippet = colors ? ` (${colors})` : "";
+  
+  // Tags for archetype hint
+  const archetype = profile.tags?.[0] || "synergy";
+  
   return {
-    title: `Best Cards for ${profile.name} | Commander Guide | ManaTap`,
-    description: `Card role framework for ${profile.name} Commander. Ramp, draw, removal, synergy payoffs. Browse decks and analyze with ManaTap.`,
+    title: `Top 50 Best Cards for ${profile.name} | EDH Staples 2026`,
+    description: `Must-have cards for ${profile.name}${colorSnippet} Commander. Essential ramp, card draw, removal & ${archetype} payoffs ranked by win rate. Updated for 2026.`,
     alternates: { canonical: `${BASE}/commanders/${slug}/best-cards` },
+    openGraph: {
+      title: `Best Cards for ${profile.name} - EDH/Commander Guide`,
+      description: `Discover the highest win-rate cards for ${profile.name} decks. Includes budget alternatives and synergy breakdowns.`,
+      type: "article",
+    },
   };
 }
 
