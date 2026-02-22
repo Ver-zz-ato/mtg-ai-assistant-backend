@@ -14,6 +14,71 @@ import { containsProfanity } from "@/lib/profanity";
 const PUBLIC_DECKS_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 const MAX_DECKS = 500;
 
+/** Card patterns → fun strategy nicknames */
+const STRATEGY_NICKNAMES: [string | RegExp, string][] = [
+  ["phoenix", "Phoenix Rising"],
+  ["delver", "Delver's Edge"],
+  ["prowess", "Prowess Punch"],
+  ["rhinos", "Rhino Stampede"],
+  ["murktide", "Murktide Mayhem"],
+  ["crashing", "Crashing Footfalls"],
+  ["footfalls", "Footfalls"],
+  ["hammer", "Hammer Time"],
+  ["yawgmoth", "Yawgmoth's Will"],
+  ["burn", "Burn & Blaze"],
+  ["storm", "Storm Chaser"],
+  ["tron", "Tron Town"],
+  ["eldrazi", "Eldrazi Invasion"],
+  ["shadow", "Death's Shadow"],
+  ["grief", "Grief & Fury"],
+  ["elementals", "Elemental Fury"],
+  ["coffers", "Coffers Control"],
+  ["reanimator", "Reanimator"],
+  ["living end", "Living End"],
+  ["oops", "Oops All Spells"],
+  ["devotion", "Devotion"],
+  ["scapeshift", "Valakut's Fury"],
+  ["infect", "Infect"],
+  ["affinity", "Affinity"],
+  ["tokens", "Token Army"],
+  ["sacrifice", "Sacrifice"],
+  ["aristocrats", "Aristocrats"],
+  ["graveyard", "Grave Business"],
+  ["control", "Control Freak"],
+  ["midrange", "Midrange Muscle"],
+  ["tempo", "Tempo Kings"],
+  ["combo", "Combo Finish"],
+  ["aggro", "Aggro Assault"],
+  ["greasefang", "Greasefang Garage"],
+  ["cauldron", "Cauldron Brew"],
+  ["lesson", "Lesson Learned"],
+  ["energy", "Energy Surge"],
+  ["ouroboros", "Ouroboros"],
+  ["ouroboroid", "Ouroboros"],
+];
+
+/** Fallback fun names when no strategy match */
+const FALLBACK_NICKNAMES = [
+  "Stormbreaker", "Glass Cannon", "Value Town", "The Long Game",
+  "Grindhouse", "Bolt & Go", "Big Mana", "Midnight Run",
+  "Hellbent", "Top Deck", "Curve Out",
+  "Over the Top", "Underworld", "Silver Bullet", "Plan A",
+  "Plan B", "All In", "Slow Roll", "Fast Break",
+  "Full Send", "Kitchen Sink", "Swiss Army", "Sleight of Hand",
+];
+
+function pickStrategyNickname(cardNames: string[], decklistHash: string): string {
+  const lowerNames = cardNames.map((n) => n.toLowerCase()).join(" ");
+  for (const [pattern, nickname] of STRATEGY_NICKNAMES) {
+    const matches = typeof pattern === "string"
+      ? lowerNames.includes(pattern)
+      : pattern.test(lowerNames);
+    if (matches) return nickname;
+  }
+  const idx = parseInt(decklistHash.slice(0, 4), 16) % FALLBACK_NICKNAMES.length;
+  return FALLBACK_NICKNAMES[idx];
+}
+
 function parseCSV(csvContent: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = csvContent.split(/\n/).filter((l) => l.trim());
   if (lines.length < 2) return { headers: [], rows: [] };
@@ -227,16 +292,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // If title exists, disambiguate with decklist hash so each deck has a unique name
+      // If title exists, disambiguate with strategy-implied or fun nickname
       const decklistHash = createHash("sha256").update(deckText.trim()).digest("hex").slice(0, 6).toLowerCase();
+      const allCardNames = [...parsed.cards, ...parsed.sideboard].flatMap((c) => Array(c.qty).fill(c.name));
+      const nickname = pickStrategyNickname(allCardNames, decklistHash);
       let finalTitle = title;
-      
+
       const { data: existingByTitle } = await admin
         .from("decks")
         .select("id, deck_text")
         .eq("title", title)
         .eq("user_id", PUBLIC_DECKS_USER_ID);
-      
+
       // Exact duplicate (same title + same decklist)?
       const isExactDuplicate = existingByTitle?.some(
         (d) => (d.deck_text || "").trim() === deckText.trim()
@@ -245,12 +312,12 @@ export async function POST(req: NextRequest) {
         results.push({ title, success: false, error: "Already exists (exact duplicate)" });
         continue;
       }
-      
-      // Same title but different decklist → use unique name with hash
+
+      // Same title but different decklist → use unique name with strategy/fun nickname
       if (existingByTitle && existingByTitle.length > 0) {
-        finalTitle = `${title} (${decklistHash})`;
-        // Handle hash collision: if that name exists, fall back to #2, #3
-        let suffix = 1;
+        finalTitle = `${title} — ${nickname}`;
+        // Handle collision: if that name exists, append hash
+        let suffix = 0;
         while (suffix <= 50) {
           const { data: coll } = await admin
             .from("decks")
@@ -260,7 +327,9 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
           if (!coll) break;
           suffix++;
-          finalTitle = `${title} (${decklistHash}-${suffix})`;
+          finalTitle = suffix === 1
+            ? `${title} — ${nickname} (${decklistHash})`
+            : `${title} — ${nickname} #${suffix}`;
         }
       }
 
