@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { QUIZ_QUESTIONS, calculateProfile, type QuizQuestion } from '@/lib/quiz/quiz-data';
-import { getCommanderSuggestions, getArchetypeSuggestions, getColorIdentitySuggestions } from '@/lib/quiz/commander-suggestions';
+import { QUIZ_QUESTIONS, calculateProfile, computeTraits, type QuizQuestion } from '@/lib/quiz/quiz-data';
+import { getCommanderSuggestions, getArchetypeSuggestions, getColorIdentitySuggestions, getCommanderSuggestionsWithMatch, getArchetypeSuggestionsWithMatch } from '@/lib/quiz/commander-suggestions';
 import PlaystyleQuizResults from './PlaystyleQuizResults';
 import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
@@ -31,21 +31,24 @@ export default function PlaystyleQuizModal({ onClose }: PlaystyleQuizModalProps)
     setAnswers(newAnswers);
 
     if (isLastQuestion) {
-      // Calculate results
+      // Calculate results with numeric traits
       const profile = calculateProfile(newAnswers);
-      const commanders = getCommanderSuggestions(profile);
-      const archetypes = getArchetypeSuggestions(profile);
+      const traits = computeTraits(newAnswers);
+      const commanders = getCommanderSuggestionsWithMatch(profile, traits);
+      const archetypes = getArchetypeSuggestionsWithMatch(profile, traits);
       const colorIdentities = getColorIdentitySuggestions(profile);
 
-      // Store results in localStorage
+      // Store results in localStorage (including traits)
       try {
         localStorage.setItem('playstyle_quiz_results', JSON.stringify({
           profile,
+          traits,
           commanders,
           archetypes,
           colorIdentities,
           answers: newAnswers,
           completedAt: new Date().toISOString(),
+          version: 2, // Version for trait-enhanced results
         }));
       } catch {}
 
@@ -73,13 +76,15 @@ export default function PlaystyleQuizModal({ onClose }: PlaystyleQuizModalProps)
 
   if (showResults) {
     const profile = calculateProfile(answers);
-    const commanders = getCommanderSuggestions(profile);
-    const archetypes = getArchetypeSuggestions(profile);
+    const traits = computeTraits(answers);
+    const commanders = getCommanderSuggestionsWithMatch(profile, traits);
+    const archetypes = getArchetypeSuggestionsWithMatch(profile, traits);
     const colorIdentities = getColorIdentitySuggestions(profile);
 
     return (
       <PlaystyleQuizResults
         profile={profile}
+        traits={traits}
         commanders={commanders}
         archetypes={archetypes}
         colorIdentities={colorIdentities}

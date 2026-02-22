@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { usePriceTrends, getTrendDisplay, formatTrendPct } from '@/hooks/usePriceTrends';
 
 type Card = {
   name: string;
@@ -12,12 +13,28 @@ type CardImageMap = Record<string, { small?: string; normal?: string }>;
 interface PublicDeckCardListProps {
   cards: Card[];
   priceMap?: Map<string, number>;
+  showTrends?: boolean;
+  currency?: 'USD' | 'EUR' | 'GBP';
 }
 
-export default function PublicDeckCardList({ cards, priceMap = new Map() }: PublicDeckCardListProps) {
+export default function PublicDeckCardList({ 
+  cards, 
+  priceMap = new Map(), 
+  showTrends = true,
+  currency = 'USD' 
+}: PublicDeckCardListProps) {
   const [imgMap, setImgMap] = useState<CardImageMap>({});
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ 
     src: "", x: 0, y: 0, shown: false, below: false 
+  });
+  
+  // Get card names for trend fetching
+  const cardNames = useMemo(() => cards.map(c => c.name), [cards]);
+  
+  // Fetch price trends for cards that have prices
+  const { trends } = usePriceTrends(cardNames, { 
+    currency, 
+    enabled: showTrends && cards.length > 0 
   });
 
   // Load card images
@@ -131,9 +148,25 @@ export default function PublicDeckCardList({ cards, priceMap = new Map() }: Publ
                 
                 <span className="flex-1 font-medium text-neutral-100">{c.name}</span>
                 
+                {/* Price with trend glyph */}
                 {valueDisplay && (
-                  <span className="text-xs font-mono text-green-400 bg-green-950/40 px-2 py-1 rounded border border-green-900/50" title={typeof unitPrice === 'number' && unitPrice > 0 ? `$${unitPrice.toFixed(2)} each × ${c.qty}` : ''}>
-                    {valueDisplay}
+                  <span className="inline-flex items-center gap-1.5">
+                    {/* Trend glyph */}
+                    {showTrends && trends[c.name] && trends[c.name].direction !== 'flat' && (() => {
+                      const { glyph, color, label } = getTrendDisplay(trends[c.name].direction);
+                      const pctLabel = formatTrendPct(trends[c.name].pctChange);
+                      return (
+                        <span 
+                          className={`text-xs font-bold ${color}`} 
+                          title={`${label} ${pctLabel} (7d)`}
+                        >
+                          {glyph}
+                        </span>
+                      );
+                    })()}
+                    <span className="text-xs font-mono text-green-400 bg-green-950/40 px-2 py-1 rounded border border-green-900/50" title={typeof unitPrice === 'number' && unitPrice > 0 ? `$${unitPrice.toFixed(2)} each × ${c.qty}` : ''}>
+                      {valueDisplay}
+                    </span>
                   </span>
                 )}
               </li>

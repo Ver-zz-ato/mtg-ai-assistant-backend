@@ -195,3 +195,241 @@ export function calculateProfile(answers: Record<string, string>): PlaystyleProf
     description,
   };
 }
+
+// ============================================
+// NUMERIC TRAITS SYSTEM (0-100 scale)
+// ============================================
+
+/**
+ * Numeric traits for granular playstyle analysis.
+ * All values are 0-100 where 50 is neutral.
+ */
+export interface PlaystyleTraits {
+  control: number;            // 0=aggro, 100=full control
+  aggression: number;         // 0=passive, 100=aggressive
+  comboAppetite: number;      // 0=no combos, 100=combo-focused
+  varianceTolerance: number;  // 0=consistency, 100=high variance
+  interactionPref: number;    // 0=solitaire, 100=highly interactive
+  gameLengthPref: number;     // 0=short games, 100=long games
+  budgetElasticity: number;   // 0=strict budget, 100=no budget concerns
+}
+
+/**
+ * Trait delta mappings for each answer.
+ * Deltas are applied to a base of 50 for each trait.
+ */
+const TRAIT_DELTAS: Record<string, Partial<PlaystyleTraits>> = {
+  // Win style question
+  'calculated': { control: 25, aggression: -15, comboAppetite: 10, varianceTolerance: -20, interactionPref: 15 },
+  'explosive': { control: -20, aggression: 25, comboAppetite: 15, varianceTolerance: 20, interactionPref: -10 },
+  'inevitable': { control: 20, aggression: -10, comboAppetite: -5, varianceTolerance: -15, gameLengthPref: 20 },
+  'funny': { control: -10, aggression: 0, comboAppetite: 0, varianceTolerance: 25, interactionPref: 20 },
+  
+  // Game length question
+  'love-long': { control: 15, gameLengthPref: 30, varianceTolerance: -10 },
+  'controlled': { control: 20, gameLengthPref: 10, interactionPref: 10 },
+  'shuffle-up': { aggression: 15, gameLengthPref: -25, varianceTolerance: 10 },
+  'stories': { varianceTolerance: 15, interactionPref: 15, gameLengthPref: 5 },
+  
+  // Consistency question
+  'consistency': { varianceTolerance: -25, control: 15, comboAppetite: 10 },
+  'variance': { varianceTolerance: 25, control: -10, aggression: 10 },
+  'plans': { varianceTolerance: 0, control: 10, comboAppetite: 5 },
+  'once': { varianceTolerance: 20, comboAppetite: 20, aggression: 15 },
+  
+  // Annoyance question
+  'misplay': { control: 10, interactionPref: 10 },
+  'forever': { gameLengthPref: -20, aggression: 10 },
+  'uninteractive': { interactionPref: 25, comboAppetite: -15 },
+  'samey': { varianceTolerance: 15, control: -5 },
+  
+  // Budget question
+  'spend': { budgetElasticity: 30 },
+  'budget': { budgetElasticity: -15, control: 5 },
+  'proxy': { budgetElasticity: 20, comboAppetite: 5 },
+  'own': { budgetElasticity: -25 },
+  
+  // Favorite moment question
+  'outplay': { control: 15, interactionPref: 20, aggression: 5 },
+  'combo': { comboAppetite: 25, control: 5, interactionPref: -10 },
+  'survive': { control: 20, gameLengthPref: 10, varianceTolerance: 10 },
+  'laugh': { varianceTolerance: 20, interactionPref: 15, comboAppetite: -10 },
+};
+
+/**
+ * Compute numeric traits from quiz answers.
+ * Returns 0-100 values for each trait dimension.
+ */
+export function computeTraits(answers: Record<string, string>): PlaystyleTraits {
+  // Start with neutral values
+  const traits: PlaystyleTraits = {
+    control: 50,
+    aggression: 50,
+    comboAppetite: 50,
+    varianceTolerance: 50,
+    interactionPref: 50,
+    gameLengthPref: 50,
+    budgetElasticity: 50,
+  };
+
+  // Apply deltas from each answer
+  for (const questionId in answers) {
+    const answerId = answers[questionId];
+    const deltas = TRAIT_DELTAS[answerId];
+    if (deltas) {
+      for (const key in deltas) {
+        const traitKey = key as keyof PlaystyleTraits;
+        traits[traitKey] += deltas[traitKey] || 0;
+      }
+    }
+  }
+
+  // Clamp all values to 0-100
+  for (const key in traits) {
+    const traitKey = key as keyof PlaystyleTraits;
+    traits[traitKey] = Math.max(0, Math.min(100, traits[traitKey]));
+  }
+
+  return traits;
+}
+
+/**
+ * Avoid list item with explanation.
+ */
+export interface AvoidItem {
+  label: string;
+  why: string;
+}
+
+/**
+ * Compute playstyle "avoid list" - things the player likely dislikes.
+ * Based on trait analysis.
+ */
+export function computeAvoidList(traits: PlaystyleTraits): AvoidItem[] {
+  const avoidList: AvoidItem[] = [];
+
+  // High control + low variance = avoid chaos decks
+  if (traits.control > 65 && traits.varianceTolerance < 40) {
+    avoidList.push({
+      label: 'Chaos/Random Effects',
+      why: 'You prefer predictable outcomes over coin flips and random effects.',
+    });
+  }
+
+  // Low interaction preference = avoid stax/heavy interaction
+  if (traits.interactionPref < 35) {
+    avoidList.push({
+      label: 'Heavy Stax/Control',
+      why: 'You prefer developing your own board over policing others.',
+    });
+  }
+
+  // High interaction + low combo = avoid solitaire combos
+  if (traits.interactionPref > 65 && traits.comboAppetite < 40) {
+    avoidList.push({
+      label: 'Solitaire Combos',
+      why: 'You want games where players interact, not watch one person combo off.',
+    });
+  }
+
+  // Low game length preference = avoid grindy strategies
+  if (traits.gameLengthPref < 35) {
+    avoidList.push({
+      label: 'Grindy/Slow Decks',
+      why: 'You prefer games that reach a conclusion rather than grinding for hours.',
+    });
+  }
+
+  // High game length + high control = avoid fast aggro
+  if (traits.gameLengthPref > 65 && traits.control > 60) {
+    avoidList.push({
+      label: 'All-in Aggro',
+      why: 'You prefer building to a late game rather than racing to kill early.',
+    });
+  }
+
+  // Low variance + high combo = avoid inconsistent combo
+  if (traits.varianceTolerance < 35 && traits.comboAppetite > 60) {
+    avoidList.push({
+      label: 'Glass Cannon Builds',
+      why: 'You want reliable combo lines, not high-risk all-in strategies.',
+    });
+  }
+
+  // Low budget elasticity = avoid expensive staples
+  if (traits.budgetElasticity < 30) {
+    avoidList.push({
+      label: 'Budget-Breaking Staples',
+      why: 'You prefer creative solutions over expensive auto-includes.',
+    });
+  }
+
+  // High aggression + low control = avoid pillow fort
+  if (traits.aggression > 65 && traits.control < 40) {
+    avoidList.push({
+      label: 'Pillow Fort/Turbo Fog',
+      why: 'You want to attack and deal damage, not hide behind walls.',
+    });
+  }
+
+  // Return top 3 most relevant
+  return avoidList.slice(0, 3);
+}
+
+/**
+ * Get trait label for display (e.g., "Control: 75%")
+ */
+export function getTraitLabel(key: keyof PlaystyleTraits): string {
+  const labels: Record<keyof PlaystyleTraits, string> = {
+    control: 'Control',
+    aggression: 'Aggression',
+    comboAppetite: 'Combo Appetite',
+    varianceTolerance: 'Variance Tolerance',
+    interactionPref: 'Interaction',
+    gameLengthPref: 'Game Length',
+    budgetElasticity: 'Budget Flexibility',
+  };
+  return labels[key];
+}
+
+/**
+ * Get trait description based on value.
+ */
+export function getTraitDescription(key: keyof PlaystyleTraits, value: number): string {
+  if (key === 'control') {
+    if (value < 35) return 'Prefers proactive strategies';
+    if (value > 65) return 'Prefers reactive control';
+    return 'Balanced approach';
+  }
+  if (key === 'aggression') {
+    if (value < 35) return 'Patient and defensive';
+    if (value > 65) return 'Aggressive and fast';
+    return 'Tempo-oriented';
+  }
+  if (key === 'comboAppetite') {
+    if (value < 35) return 'Fair magic preferred';
+    if (value > 65) return 'Combo-focused';
+    return 'Some combo potential';
+  }
+  if (key === 'varianceTolerance') {
+    if (value < 35) return 'Consistency is key';
+    if (value > 65) return 'Embraces chaos';
+    return 'Moderate variance';
+  }
+  if (key === 'interactionPref') {
+    if (value < 35) return 'Solitaire-style';
+    if (value > 65) return 'Highly interactive';
+    return 'Balanced interaction';
+  }
+  if (key === 'gameLengthPref') {
+    if (value < 35) return 'Quick games';
+    if (value > 65) return 'Long grindy games';
+    return 'Medium length';
+  }
+  if (key === 'budgetElasticity') {
+    if (value < 35) return 'Strict budget';
+    if (value > 65) return 'No budget concerns';
+    return 'Flexible budget';
+  }
+  return '';
+}

@@ -56,29 +56,62 @@ function parseCSV(csvContent: string): { headers: string[]; rows: Record<string,
   return { headers, rows };
 }
 
-function parseDecklist(text: string): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number } {
-  const lines = text.split(/\r?\n/).filter((l) => {
+function parseDecklist(text: string, format: string = "Commander"): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number; sideboard: Array<{ name: string; qty: number }> } {
+  // Split on blank lines to separate main deck from sideboard
+  const sections = text.split(/\n\s*\n/);
+  const mainDeckText = sections[0] || "";
+  const sideboardText = sections[1] || "";
+  
+  const lines = mainDeckText.split(/\r?\n/).filter((l) => {
     const t = l.trim();
-    return t && !t.startsWith("#") && !t.startsWith("//");
+    return t && !t.startsWith("#") && !t.startsWith("//") && !t.toLowerCase().startsWith("sideboard");
   });
-  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0 };
-  const first = lines[0].trim();
-  const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-  const commander = m ? m[2] : first;
+  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0, sideboard: [] };
+  
+  // For 60-card formats, first card is NOT a commander - it's just a regular card
+  const is60Card = format !== "Commander";
+  
   const cards: Array<{ name: string; qty: number }> = [];
+  let commander = "";
   let total = 0;
-  for (let i = 1; i < lines.length; i++) {
+  
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
     const qty = match ? parseInt(match[1], 10) || 1 : 1;
     const name = match ? match[2] : line;
-    if (name.toLowerCase() !== commander.toLowerCase()) {
-      cards.push({ name, qty });
-      total += qty;
+    
+    // For Commander format, first line is the commander
+    if (!is60Card && i === 0) {
+      commander = name;
+      continue;
+    }
+    
+    cards.push({ name, qty });
+    total += qty;
+  }
+  
+  // For Commander, add 1 for the commander
+  if (!is60Card) {
+    total += 1;
+  }
+  
+  // Parse sideboard (for future use, currently ignored)
+  const sideboard: Array<{ name: string; qty: number }> = [];
+  if (sideboardText) {
+    const sbLines = sideboardText.split(/\r?\n/).filter((l) => {
+      const t = l.trim();
+      return t && !t.startsWith("#") && !t.startsWith("//") && !t.toLowerCase().startsWith("sideboard");
+    });
+    for (const line of sbLines) {
+      const match = line.trim().match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      const qty = match ? parseInt(match[1], 10) || 1 : 1;
+      const name = match ? match[2] : line.trim();
+      if (name) sideboard.push({ name, qty });
     }
   }
-  total += 1;
-  return { commander, cards, totalCards: total };
+  
+  return { commander, cards, totalCards: total, sideboard };
 }
 
 export async function POST(req: NextRequest) {
@@ -129,21 +162,28 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const parsed = parseDecklist(decklistText);
+      const parsed = parseDecklist(decklistText, format);
+      const is60Card = format !== "Commander";
+      
+      // For 60-card formats, commander is optional (can be empty)
       const finalCommander = parsed.commander || commander;
-      if (!finalCommander) {
+      if (!is60Card && !finalCommander) {
         results.push({ title, success: false, error: "No commander found" });
         continue;
       }
 
-      const minCards = format === "Commander" ? 96 : 58;
-      const maxCards = format === "Commander" ? 101 : 61;
+      const minCards = is60Card ? 58 : 96;
+      const maxCards = is60Card ? 61 : 101;
       if (parsed.totalCards < minCards || parsed.totalCards > maxCards) {
         results.push({ title, success: false, error: `Has ${parsed.totalCards} cards (expected ${format === "Commander" ? "99+1" : "60"} for ${format})` });
         continue;
       }
 
-      let deckText = `${finalCommander}\n`;
+      // Build deck text - for 60-card formats, no commander line
+      let deckText = "";
+      if (!is60Card && finalCommander) {
+        deckText = `${finalCommander}\n`;
+      }
       for (const c of parsed.cards) {
         deckText += `${c.qty} ${c.name}\n`;
       }
@@ -170,7 +210,7 @@ export async function POST(req: NextRequest) {
           colors: [],
           currency: "USD",
           deck_text: deckText.trim(),
-          commander: finalCommander,
+          commander: is60Card ? null : finalCommander,
           is_public: true,
           public: true,
         })
@@ -190,10 +230,13 @@ export async function POST(req: NextRequest) {
           /* ignore */
         }
       }
-      try {
-        await admin.from("deck_cards").insert({ deck_id: deckId, name: finalCommander, qty: 1 });
-      } catch {
-        /* ignore */
+      // Insert commander only for Commander format
+      if (!is60Card && finalCommander) {
+        try {
+          await admin.from("deck_cards").insert({ deck_id: deckId, name: finalCommander, qty: 1 });
+        } catch {
+          /* ignore */
+        }
       }
 
       results.push({ title, success: true, deckId });

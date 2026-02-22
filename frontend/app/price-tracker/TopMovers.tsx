@@ -61,7 +61,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
         if (r.status === 429 && j?.proUpsell) {
           try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {}
         }
-        if (r.ok && j?.ok) setRows(j.rows || []);
+        if (r.ok && j?.ok && Array.isArray(j.rows)) setRows(j.rows);
         else setRows([]);
       } finally {
         setLoading(false);
@@ -71,7 +71,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
 
   // Load card images
   React.useEffect(() => {
-    if (rows.length === 0) return;
+    if (!Array.isArray(rows) || rows.length === 0) return;
     (async () => {
       try {
         const names = rows.slice(0, 50).map(r => r.name);
@@ -87,7 +87,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
 
   // Load price trends for sparklines
   React.useEffect(() => {
-    if (!isPro || rows.length === 0) return;
+    if (!isPro || !Array.isArray(rows) || rows.length === 0) return;
     (async () => {
       const names = rows.slice(0, 20).map(r => r.name);
       try {
@@ -102,7 +102,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
         if (r.ok && j?.ok && Array.isArray(j.series)) {
           const trends: Record<string, Array<{ date: string; unit: number }>> = {};
           for (const s of j.series) {
-            if (s.points && Array.isArray(s.points)) {
+            if (s && s.name && Array.isArray(s.points)) {
               trends[s.name] = s.points.map((p: any) => ({ date: p.date, unit: Number(p.unit || 0) }));
             }
           }
@@ -113,6 +113,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
   }, [isPro, rows.map(r => r.name).join('|'), currency]);
 
   const filtered = React.useMemo(() => {
+    if (!Array.isArray(rows)) return [];
     let result = rows.filter(r => r.latest >= (minPrice || 0));
     if (watchOnly) result = result.filter(r => watch.includes(r.name));
     return result;

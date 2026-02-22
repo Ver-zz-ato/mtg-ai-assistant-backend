@@ -431,7 +431,7 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   const [showMA30, setShowMA30] = React.useState(false); // #12 Moving average 30-day
   const [zoomRange, setZoomRange] = React.useState<[number, number]>([0, 1]); // #11 Zoom state (0-1 normalized)
   
-  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.status === 429 && j?.proUpsell) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {} } if (r.ok && j?.ok) setPoints(j.points||[]); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
+  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.status === 429 && j?.proUpsell) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {} } if (r.ok && j?.ok && Array.isArray(j.points)) setPoints(j.points); else setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
   
   if (!deckId) return <div className="text-xs opacity-70">Select a deck to see its total value over time.</div>;
   
@@ -463,8 +463,9 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   const weekChangePct = weekAgo > 0 ? (weekChange / weekAgo) * 100 : 0;
   const allTimeHigh = Math.max(...points.map(p => p.total));
   const allTimeLow = Math.min(...points.map(p => p.total));
-  const fiftyTwoWeekHigh = Math.max(...points.slice(-365).map(p => p.total));
-  const fiftyTwoWeekLow = Math.min(...points.slice(-365).map(p => p.total));
+  const recentPoints = Array.isArray(points) ? points.slice(-365) : [];
+  const fiftyTwoWeekHigh = recentPoints.length > 0 ? Math.max(...recentPoints.map(p => p.total)) : 0;
+  const fiftyTwoWeekLow = recentPoints.length > 0 ? Math.min(...recentPoints.map(p => p.total)) : 0;
   
   // #12: Calculate moving averages
   const calculateMA = (period: number) => {
@@ -972,7 +973,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
       setLoading(true);
       const res = await fetch('/api/watchlist/list', { cache: 'no-store' });
       const data = await res.json();
-      if (data.ok && data.watchlist?.items) {
+      if (data.ok && data.watchlist?.items && Array.isArray(data.watchlist.items)) {
         setItems(data.watchlist.items.map((item: any) => ({
           id: item.id,
           name: item.name
