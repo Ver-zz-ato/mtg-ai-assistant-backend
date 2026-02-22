@@ -5,7 +5,7 @@ import { getAdmin } from "@/app/api/_lib/supa";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 900; // 15 min - matches vercel.json
 
 function isAdmin(user: any): boolean {
   const ids = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean);
