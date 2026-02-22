@@ -106,3 +106,18 @@ export async function getServerSupabase() {
 
 // Alias exported name expected by some legacy routes
 export const getSupabaseServer = getServerSupabase;
+
+/**
+ * Create a Supabase client authenticated with a Bearer token.
+ * Used by mobile app and other clients that pass Authorization: Bearer <access_token>.
+ */
+export function createClientWithBearerToken(accessToken: string) {
+  return createSupabaseClient(SUPABASE_URL, ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}

@@ -359,14 +359,29 @@ export async function POST(req: NextRequest) {
   let guestToken: string | null = null;
   
   try {
-    const supabase = await getServerSupabase();
+    let supabase = await getServerSupabase();
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Mobile app: support Authorization: Bearer when cookies have no session
+    if (!user) {
+      const authHeader = req.headers.get('Authorization');
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
-    
+
     if (!user) {
       // Allow guest users with server-side enforced message limits
       const { cookies } = await import('next/headers');
