@@ -50,17 +50,23 @@ export async function GET(req: NextRequest){
     }
     let fallbackProfiles: any[] = [];
     if (authUsers.length === 0) {
-      // Fallback when listUsers fails: fetch from profiles (has user ids via auth.users FK)
-      const { data: profileRows } = await admin.from('profiles').select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at').limit(perPage * 2);
+      // Fallback when listUsers fails: fetch from profiles, then enrich with email via getUserById
+      const limit = q ? 150 : perPage; // When searching, fetch more to filter (getUserById x N)
+      const offset = q ? 0 : (page - 1) * perPage;
+      const { data: profileRows } = await admin.from('profiles').select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
       if (profileRows?.length) {
         fallbackProfiles = profileRows;
-        authUsers = profileRows.map((p: any) => ({
-          id: p.id,
-          email: null,
-          user_metadata: { username: p.username, display_name: p.username },
-          created_at: p.created_at,
-          last_sign_in_at: null,
+        const enriched = await Promise.all(profileRows.map(async (p: any) => {
+          const { data: authUser } = await admin.auth.admin.getUserById(p.id);
+          return {
+            id: p.id,
+            email: authUser?.user?.email ?? null,
+            user_metadata: { username: p.username, display_name: p.username },
+            created_at: p.created_at,
+            last_sign_in_at: authUser?.user?.last_sign_in_at ?? null,
+          };
         }));
+        authUsers = enriched;
       }
     }
     const userIds = authUsers.map((u: any) => u.id);
@@ -131,13 +137,14 @@ export async function GET(req: NextRequest){
       return [u.id, u.email, u.username, u.display_name].some(v => norm(v||"").includes(needle));
     });
 
+    const hasMore = !q && authUsers.length >= perPage;
     return NextResponse.json({
       ok: true,
       users,
       total: users.length,
       page,
       perPage,
-      hasMore: !q && authUsers.length >= perPage,
+      hasMore,
     });
   }catch(e:any){
     return NextResponse.json({ ok:false, error:e?.message||"server_error" }, { status:500 });

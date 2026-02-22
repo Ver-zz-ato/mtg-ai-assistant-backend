@@ -1,27 +1,48 @@
 "use client";
 import React from "react";
-import { ELI5, HelpTip } from "@/components/AdminHelp";
-
-function norm(s:string){return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
+import { ELI5 } from "@/components/AdminHelp";
 
 type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean; pro_plan?: string|null; billing_active?: boolean };
 
 export default function AdminUsersPage(){
   const [q, setQ] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const [rows, setRows] = React.useState<UserRow[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [hasMore, setHasMore] = React.useState(false);
 
-  async function load(){
+  async function load(reset = true){
     setLoading(true);
+    if (reset) setPage(1);
     try{
-      const r = await fetch(`/api/admin/users/search?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+      const params = new URLSearchParams({ q, page: "1", perPage: "50" });
+      const r = await fetch(`/api/admin/users/search?${params}`, { cache: 'no-store' });
       const j = await r.json();
       if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
       setRows((j.users||[]) as UserRow[]);
+      setHasMore(!!j.hasMore);
     } catch(e:any){
       alert(e?.message || 'failed');
       setRows([]);
     } finally { setLoading(false); }
+  }
+
+  async function loadMore(){
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    try{
+      const params = new URLSearchParams({ q, page: String(nextPage), perPage: "50" });
+      const r = await fetch(`/api/admin/users/search?${params}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
+      setRows(prev => [...prev, ...(j.users||[])]);
+      setHasMore(!!j.hasMore);
+      setPage(nextPage);
+    } catch(e:any){
+      alert(e?.message || 'failed');
+    } finally { setLoadingMore(false); }
   }
 
   React.useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
@@ -74,10 +95,10 @@ export default function AdminUsersPage(){
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="davy@… or uuid or username"
             className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
         </label>
-        <button onClick={load} disabled={loading} className="px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Search</button>
+        <button onClick={() => load()} disabled={loading} className="px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Search</button>
       </div>
 
-      <div className="rounded border border-neutral-800 overflow-x-auto">
+      <div className="rounded border border-neutral-800 overflow-auto max-h-[60vh]">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-800">
@@ -121,14 +142,21 @@ export default function AdminUsersPage(){
               </tr>
             ))}
             {rows.length===0 && !loading && (
-              <tr><td colSpan={4} className="py-6 text-center text-sm opacity-70">No results</td></tr>
+              <tr><td colSpan={5} className="py-6 text-center text-sm opacity-70">No results</td></tr>
             )}
             {loading && (
-              <tr><td colSpan={4} className="py-6 text-center text-sm opacity-70">Loading…</td></tr>
+              <tr><td colSpan={5} className="py-6 text-center text-sm opacity-70">Loading…</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      {hasMore && !loading && (
+        <div className="flex justify-center pt-2">
+          <button onClick={loadMore} disabled={loadingMore} className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm disabled:opacity-50">
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
