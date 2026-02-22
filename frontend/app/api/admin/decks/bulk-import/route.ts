@@ -56,24 +56,35 @@ function parseCSV(csvContent: string): { headers: string[]; rows: Record<string,
   return { headers, rows };
 }
 
-function parseDecklist(text: string, format: string = "Commander"): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number; sideboard: Array<{ name: string; qty: number }> } {
-  // Split on blank lines to separate main deck from sideboard
-  const sections = text.split(/\n\s*\n/);
-  const mainDeckText = sections[0] || "";
-  const sideboardText = sections[1] || "";
+function parseDecklist(text: string, format: string = "Commander"): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number; mainboardCount: number; sideboard: Array<{ name: string; qty: number }> } {
+  // Split by "Sideboard" header or blank lines to separate main deck from sideboard
+  let mainDeckText = text;
+  let sideboardText = "";
+  
+  // Check for "Sideboard" marker (common in MTGGoldfish exports)
+  const sideboardMatch = text.match(/\n\s*(sideboard|side board|sb)\s*:?\s*\n/i);
+  if (sideboardMatch && sideboardMatch.index !== undefined) {
+    mainDeckText = text.substring(0, sideboardMatch.index);
+    sideboardText = text.substring(sideboardMatch.index + sideboardMatch[0].length);
+  } else {
+    // Try splitting on blank lines
+    const sections = text.split(/\n\s*\n/);
+    mainDeckText = sections[0] || "";
+    sideboardText = sections.slice(1).join("\n\n") || "";
+  }
   
   const lines = mainDeckText.split(/\r?\n/).filter((l) => {
     const t = l.trim();
-    return t && !t.startsWith("#") && !t.startsWith("//") && !t.toLowerCase().startsWith("sideboard");
+    return t && !t.startsWith("#") && !t.startsWith("//") && !t.toLowerCase().startsWith("sideboard") && !t.toLowerCase().startsWith("companion");
   });
-  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0, sideboard: [] };
+  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0, mainboardCount: 0, sideboard: [] };
   
   // For 60-card formats, first card is NOT a commander - it's just a regular card
   const is60Card = format !== "Commander";
   
   const cards: Array<{ name: string; qty: number }> = [];
   let commander = "";
-  let total = 0;
+  let mainboardTotal = 0;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -88,16 +99,12 @@ function parseDecklist(text: string, format: string = "Commander"): { commander:
     }
     
     cards.push({ name, qty });
-    total += qty;
+    mainboardTotal += qty;
   }
   
-  // For Commander, add 1 for the commander
-  if (!is60Card) {
-    total += 1;
-  }
-  
-  // Parse sideboard (for future use, currently ignored)
+  // Parse sideboard
   const sideboard: Array<{ name: string; qty: number }> = [];
+  let sideboardTotal = 0;
   if (sideboardText) {
     const sbLines = sideboardText.split(/\r?\n/).filter((l) => {
       const t = l.trim();
@@ -107,11 +114,20 @@ function parseDecklist(text: string, format: string = "Commander"): { commander:
       const match = line.trim().match(/^(\d+)\s*[xX]?\s+(.+)$/);
       const qty = match ? parseInt(match[1], 10) || 1 : 1;
       const name = match ? match[2] : line.trim();
-      if (name) sideboard.push({ name, qty });
+      if (name) {
+        sideboard.push({ name, qty });
+        sideboardTotal += qty;
+      }
     }
   }
   
-  return { commander, cards, totalCards: total, sideboard };
+  // Total cards: mainboard + sideboard (+ commander for EDH)
+  let totalCards = mainboardTotal + sideboardTotal;
+  if (!is60Card) {
+    totalCards += 1; // Add commander
+  }
+  
+  return { commander, cards, totalCards, mainboardCount: mainboardTotal, sideboard };
 }
 
 export async function POST(req: NextRequest) {
@@ -172,11 +188,25 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const minCards = is60Card ? 58 : 96;
-      const maxCards = is60Card ? 61 : 101;
-      if (parsed.totalCards < minCards || parsed.totalCards > maxCards) {
-        results.push({ title, success: false, error: `Has ${parsed.totalCards} cards (expected ${format === "Commander" ? "99+1" : "60"} for ${format})` });
-        continue;
+      // Validation: Check mainboard count for 60-card formats, total for Commander
+      if (is60Card) {
+        // 60-card formats: mainboard should be 58-62, sideboard 0-15
+        const mainCount = parsed.mainboardCount;
+        const sideCount = parsed.sideboard.reduce((sum, c) => sum + c.qty, 0);
+        if (mainCount < 58 || mainCount > 62) {
+          results.push({ title, success: false, error: `Mainboard has ${mainCount} cards (expected ~60 for ${format})` });
+          continue;
+        }
+        if (sideCount > 15) {
+          results.push({ title, success: false, error: `Sideboard has ${sideCount} cards (max 15 for ${format})` });
+          continue;
+        }
+      } else {
+        // Commander: 99 cards + 1 commander = 100
+        if (parsed.totalCards < 96 || parsed.totalCards > 101) {
+          results.push({ title, success: false, error: `Has ${parsed.totalCards} cards (expected 99+1 for Commander)` });
+          continue;
+        }
       }
 
       // Build deck text - for 60-card formats, no commander line
@@ -186,6 +216,13 @@ export async function POST(req: NextRequest) {
       }
       for (const c of parsed.cards) {
         deckText += `${c.qty} ${c.name}\n`;
+      }
+      // Add sideboard if present
+      if (parsed.sideboard.length > 0) {
+        deckText += "\nSideboard\n";
+        for (const c of parsed.sideboard) {
+          deckText += `${c.qty} ${c.name}\n`;
+        }
       }
 
       const { data: existing } = await admin
@@ -223,6 +260,7 @@ export async function POST(req: NextRequest) {
       }
 
       const deckId = newDeck.id as string;
+      // Insert mainboard cards
       for (const c of parsed.cards) {
         try {
           await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty });
@@ -236,6 +274,19 @@ export async function POST(req: NextRequest) {
           await admin.from("deck_cards").insert({ deck_id: deckId, name: finalCommander, qty: 1 });
         } catch {
           /* ignore */
+        }
+      }
+      // Insert sideboard cards (marked with is_sideboard if column exists, otherwise just add)
+      for (const c of parsed.sideboard) {
+        try {
+          await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty, is_sideboard: true });
+        } catch {
+          // If is_sideboard column doesn't exist, try without it
+          try {
+            await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty });
+          } catch {
+            /* ignore */
+          }
         }
       }
 
