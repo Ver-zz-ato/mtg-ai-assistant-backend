@@ -27,32 +27,62 @@ export async function GET(req: NextRequest){
     const perPage = Math.min(100, Math.max(10, parseInt(req.nextUrl.searchParams.get("perPage") || "50", 10) || 50));
 
     // When searching, fetch multiple pages (auth has no native search). Otherwise single page.
-    const authUsers: any[] = [];
+    let authUsers: any[] = [];
     if (q) {
       for (let p = 1; p <= 10; p++) {
         const { data, error } = await admin.auth.admin.listUsers({ page: p, perPage });
-        if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+        if (error) {
+          // Fallback: listUsers can fail with "Database error finding users" (auth schema perms/triggers)
+          console.warn('[admin/users/search] listUsers failed:', error.message);
+          break;
+        }
         const batch = data?.users || [];
         authUsers.push(...batch);
         if (batch.length < perPage) break;
       }
     } else {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-      if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
-      authUsers.push(...(data?.users || []));
+      if (error) {
+        console.warn('[admin/users/search] listUsers failed:', error.message);
+      } else {
+        authUsers = data?.users || [];
+      }
     }
-    const userIds = authUsers.map((u:any) => u.id);
+    let fallbackProfiles: any[] = [];
+    if (authUsers.length === 0) {
+      // Fallback when listUsers fails: fetch from profiles (has user ids via auth.users FK)
+      const { data: profileRows } = await admin.from('profiles').select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at').limit(perPage * 2);
+      if (profileRows?.length) {
+        fallbackProfiles = profileRows;
+        authUsers = profileRows.map((p: any) => ({
+          id: p.id,
+          email: null,
+          user_metadata: { username: p.username, display_name: p.username },
+          created_at: p.created_at,
+          last_sign_in_at: null,
+        }));
+      }
+    }
+    const userIds = authUsers.map((u: any) => u.id);
     if (userIds.length === 0) {
       return NextResponse.json({ ok: true, users: [], total: 0, page, perPage });
     }
 
-    // Fetch profiles (Pro status, Stripe, etc.) - profiles table has id, username, is_pro, pro_plan, stripe_*, pro_since (no email/display_name)
-    const { data: profiles, error: profilesError } = await admin
-      .from('profiles')
-      .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
-      .in('id', userIds);
-    if (profilesError) return NextResponse.json({ ok: false, error: `Database error finding users: ${profilesError.message}` }, { status: 500 });
-    const profilesMap = new Map((profiles || []).map((p:any) => [p.id, p]));
+    // Fetch profiles (Pro status, Stripe, etc.) - profiles has id, username, is_pro, pro_plan, stripe_*, pro_since (no email/display_name)
+    let profilesMap = new Map<string, any>();
+    if (fallbackProfiles.length) {
+      profilesMap = new Map(fallbackProfiles.map((p: any) => [p.id, p]));
+    } else {
+      const { data: profiles, error: profilesError } = await admin
+        .from('profiles')
+        .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
+        .in('id', userIds);
+      if (profilesError) {
+        console.warn('[admin/users/search] profiles query failed:', profilesError.message);
+      } else {
+        profilesMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      }
+    }
 
     // Deck counts per user
     const { data: deckCounts } = await admin
