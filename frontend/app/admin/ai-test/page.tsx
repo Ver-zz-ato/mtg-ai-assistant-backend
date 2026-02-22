@@ -1661,13 +1661,13 @@ export default function AiTestPage() {
                         if (readCount <= 3 || readCount % 10 === 0 || done) {
                           log("read", `Read #${readCount}: done=${done}`, value ? `chunk=${value?.byteLength ?? 0} bytes` : "no value");
                         }
-                        if (done) {
-                          log("stream", "Stream done", `Total reads: ${readCount}`);
-                          break;
-                        }
-                        buffer += decoder.decode(value, { stream: true });
+                        if (value) buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
+                        if (done && buffer.trim()) {
+                          lines.push(buffer);
+                          buffer = "";
+                        }
                         for (const line of lines) {
                           if (!line.trim()) continue;
                           try {
@@ -1689,6 +1689,10 @@ export default function AiTestPage() {
                             log("parse", "Failed to parse line", line.slice(0, 200));
                           }
                         }
+                        if (done) {
+                          log("stream", "Stream done", `Total reads: ${readCount}`);
+                          break;
+                        }
                       } catch (readErr: any) {
                         log(
                           "error",
@@ -1703,14 +1707,31 @@ export default function AiTestPage() {
                       log("success", "Proposal created", finalResult.proposal_id);
                       setSelfOptResult(finalResult);
                       if (finalResult.ok && finalResult.proposal_id) {
-                        const fetchR = await fetch(`/api/admin/ai-test/proposals/${finalResult.proposal_id}`);
-                        const fetchJ = await fetchR.json();
-                        if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
-                        loadEvalSets();
-                        loadEvalRuns();
-                        loadPromptVersions();
-                        loadLatestImprovementReport();
+                        try {
+                          const fetchR = await fetch(`/api/admin/ai-test/proposals/${finalResult.proposal_id}`);
+                          const text = await fetchR.text();
+                          let fetchJ: any;
+                          try {
+                            fetchJ = JSON.parse(text);
+                          } catch {
+                            setSelfOptResult({ ok: false, error: `Proposal fetch returned non-JSON: ${text.slice(0, 100)}` });
+                            return;
+                          }
+                          if (fetchJ.ok && fetchJ.proposal) setCurrentProposal(fetchJ.proposal);
+                          loadEvalSets();
+                          loadEvalRuns();
+                          loadPromptVersions();
+                          loadLatestImprovementReport();
+                        } catch (fetchErr: any) {
+                          setSelfOptResult({ ok: false, error: `Failed to load proposal: ${fetchErr?.message}` });
+                        }
                       }
+                    } else {
+                      const elapsed = Math.round((Date.now() - startTime) / 1000);
+                      setSelfOptResult({
+                        ok: false,
+                        error: `Stream ended without result${elapsed >= 570 ? " (server likely timed out after ~10 min)" : ""}. Check debug log.`,
+                      });
                     }
                   } catch (e: any) {
                     const elapsed = Math.round((Date.now() - startTime) / 1000);

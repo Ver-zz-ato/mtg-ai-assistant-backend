@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "app/api/admin/ai-test/self-optimize-proposal/route.ts": { "maxDuration": 900 },
+    "app/api/admin/ai-test/batch/route.ts": { "maxDuration": 600 }
+  },
   "crons": [
     { "path": "/api/cron/cleanup-price-cache", "schedule": "0 4 * * *" },
     { "path": "/api/cron/deck-costs", "schedule": "30 4 * * *" },
