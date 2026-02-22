@@ -316,8 +316,8 @@ export async function POST(req: NextRequest) {
       // Same title but different decklist → use unique name with strategy/fun nickname
       if (existingByTitle && existingByTitle.length > 0) {
         finalTitle = `${title} — ${nickname}`;
-        // Handle collision: if that name exists, append hash
-        let suffix = 0;
+        // Handle collision: if that name exists, use #2, #3, etc. (no random codes)
+        let suffix = 1;
         while (suffix <= 50) {
           const { data: coll } = await admin
             .from("decks")
@@ -327,9 +327,7 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
           if (!coll) break;
           suffix++;
-          finalTitle = suffix === 1
-            ? `${title} — ${nickname} (${decklistHash})`
-            : `${title} — ${nickname} #${suffix}`;
+          finalTitle = `${title} — ${nickname} #${suffix}`;
         }
       }
 
