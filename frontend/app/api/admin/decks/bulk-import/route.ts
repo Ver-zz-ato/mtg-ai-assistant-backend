@@ -4,6 +4,7 @@
  * No web scraping - you provide the CSV.
  */
 
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
@@ -226,27 +227,42 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // If title exists, disambiguate with #2, #3, etc. so we import more decks
+      // If title exists, disambiguate with decklist hash so each deck has a unique name
+      const decklistHash = createHash("sha256").update(deckText.trim()).digest("hex").slice(0, 6).toLowerCase();
       let finalTitle = title;
-      let suffix = 1;
-      let skipDeck = false;
-      while (true) {
-        const { data: existing } = await admin
-          .from("decks")
-          .select("id")
-          .eq("title", finalTitle)
-          .eq("user_id", PUBLIC_DECKS_USER_ID)
-          .maybeSingle();
-        if (!existing) break;
-        suffix++;
-        finalTitle = `${title} #${suffix}`;
-        if (suffix > 50) {
-          results.push({ title, success: false, error: "Too many duplicates, skipping" });
-          skipDeck = true;
-          break;
+      
+      const { data: existingByTitle } = await admin
+        .from("decks")
+        .select("id, deck_text")
+        .eq("title", title)
+        .eq("user_id", PUBLIC_DECKS_USER_ID);
+      
+      // Exact duplicate (same title + same decklist)?
+      const isExactDuplicate = existingByTitle?.some(
+        (d) => (d.deck_text || "").trim() === deckText.trim()
+      );
+      if (isExactDuplicate) {
+        results.push({ title, success: false, error: "Already exists (exact duplicate)" });
+        continue;
+      }
+      
+      // Same title but different decklist → use unique name with hash
+      if (existingByTitle && existingByTitle.length > 0) {
+        finalTitle = `${title} (${decklistHash})`;
+        // Handle hash collision: if that name exists, fall back to #2, #3
+        let suffix = 1;
+        while (suffix <= 50) {
+          const { data: coll } = await admin
+            .from("decks")
+            .select("id")
+            .eq("title", finalTitle)
+            .eq("user_id", PUBLIC_DECKS_USER_ID)
+            .maybeSingle();
+          if (!coll) break;
+          suffix++;
+          finalTitle = `${title} (${decklistHash}-${suffix})`;
         }
       }
-      if (skipDeck) continue;
 
       const { data: newDeck, error: deckErr } = await admin
         .from("decks")
