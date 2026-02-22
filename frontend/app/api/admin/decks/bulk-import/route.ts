@@ -226,23 +226,33 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const { data: existing } = await admin
-        .from("decks")
-        .select("id")
-        .eq("title", title)
-        .eq("user_id", PUBLIC_DECKS_USER_ID)
-        .maybeSingle();
-
-      if (existing) {
-        results.push({ title, success: false, error: "Already exists", deckId: existing.id });
-        continue;
+      // If title exists, disambiguate with #2, #3, etc. so we import more decks
+      let finalTitle = title;
+      let suffix = 1;
+      let skipDeck = false;
+      while (true) {
+        const { data: existing } = await admin
+          .from("decks")
+          .select("id")
+          .eq("title", finalTitle)
+          .eq("user_id", PUBLIC_DECKS_USER_ID)
+          .maybeSingle();
+        if (!existing) break;
+        suffix++;
+        finalTitle = `${title} #${suffix}`;
+        if (suffix > 50) {
+          results.push({ title, success: false, error: "Too many duplicates, skipping" });
+          skipDeck = true;
+          break;
+        }
       }
+      if (skipDeck) continue;
 
       const { data: newDeck, error: deckErr } = await admin
         .from("decks")
         .insert({
           user_id: PUBLIC_DECKS_USER_ID,
-          title,
+          title: finalTitle,
           format,
           plan: "Optimized",
           colors: [],
@@ -291,7 +301,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      results.push({ title, success: true, deckId });
+      results.push({ title: finalTitle, success: true, deckId });
     }
 
     const successful = results.filter((r) => r.success).length;
