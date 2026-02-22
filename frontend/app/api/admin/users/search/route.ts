@@ -46,11 +46,12 @@ export async function GET(req: NextRequest){
       return NextResponse.json({ ok: true, users: [], total: 0, page, perPage });
     }
 
-    // Fetch profiles (Pro status, Stripe, etc.)
-    const { data: profiles } = await admin
+    // Fetch profiles (Pro status, Stripe, etc.) - profiles table has id, username, is_pro, pro_plan, stripe_*, pro_since (no email/display_name)
+    const { data: profiles, error: profilesError } = await admin
       .from('profiles')
-      .select('id, email, username, display_name, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
+      .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
       .in('id', userIds);
+    if (profilesError) return NextResponse.json({ ok: false, error: `Database error finding users: ${profilesError.message}` }, { status: 500 });
     const profilesMap = new Map((profiles || []).map((p:any) => [p.id, p]));
 
     // Deck counts per user
