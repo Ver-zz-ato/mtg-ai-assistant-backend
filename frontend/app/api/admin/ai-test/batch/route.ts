@@ -19,11 +19,28 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Allow internal server-to-server calls (e.g. from self-optimize-proposal) - avoids session expiry during long runs
+    const internalKey = req.headers.get("x-internal-admin-key");
+    const expectedKey = process.env.CRON_SECRET || process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
+    const isInternalCall = !!expectedKey && internalKey === expectedKey;
 
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    let supabase = await getServerSupabase();
+    let userId: string | null = null;
+    if (!isInternalCall) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !isAdmin(user)) {
+        return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+      }
+      userId = user.id;
+    } else {
+      // Use admin client for internal calls (no session)
+      const { getAdmin } = await import("@/app/api/_lib/supa");
+      const admin = getAdmin();
+      if (!admin) return NextResponse.json({ ok: false, error: "Admin client required" }, { status: 500 });
+      supabase = admin as any;
+      // Use first admin ID for batch thread (internal calls have no session)
+      const firstAdminId = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean)[0];
+      userId = firstAdminId || null;
     }
 
     const { checkMaintenance } = await import('@/lib/maintenance-check');
@@ -76,39 +93,41 @@ export async function POST(req: NextRequest) {
     // Create or find a single "batch-test" thread to reuse for all chat tests
     // This prevents hitting the 30-thread limit when running many tests
     let batchTestThreadId: string | null = null;
-    try {
-      // Try to find an existing batch test thread
-      const { data: existingThread } = await supabase
-        .from("chat_threads")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("title", "Batch Test Thread")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existingThread) {
-        batchTestThreadId = existingThread.id;
-        console.log(`[batch] Reusing existing batch test thread: ${batchTestThreadId}`);
-      } else {
-        // Create a new batch test thread
-        const { data: newThread, error: threadError } = await supabase
+    if (userId) {
+      try {
+        // Try to find an existing batch test thread
+        const { data: existingThread } = await supabase
           .from("chat_threads")
-          .insert({ user_id: user.id, title: "Batch Test Thread" })
+          .select("id")
+          .eq("user_id", userId)
+          .eq("title", "Batch Test Thread")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingThread) {
+          batchTestThreadId = existingThread.id;
+          console.log(`[batch] Reusing existing batch test thread: ${batchTestThreadId}`);
+        } else {
+          // Create a new batch test thread
+          const { data: newThread, error: threadError } = await supabase
+            .from("chat_threads")
+            .insert({ user_id: userId, title: "Batch Test Thread" })
           .select("id")
           .single();
 
-        if (threadError) {
-          console.warn(`[batch] Failed to create batch test thread:`, threadError);
-          // Continue without thread - tests will create their own or fail
-        } else {
-          batchTestThreadId = newThread.id;
-          console.log(`[batch] Created new batch test thread: ${batchTestThreadId}`);
+          if (threadError) {
+            console.warn(`[batch] Failed to create batch test thread:`, threadError);
+            // Continue without thread - tests will create their own or fail
+          } else {
+            batchTestThreadId = newThread.id;
+            console.log(`[batch] Created new batch test thread: ${batchTestThreadId}`);
+          }
         }
+      } catch (e) {
+        console.warn(`[batch] Error setting up batch test thread:`, e);
+        // Continue without thread - tests will create their own or fail
       }
-    } catch (e) {
-      console.warn(`[batch] Error setting up batch test thread:`, e);
-      // Continue without thread - tests will create their own or fail
     }
 
     // Helper function to run a single test case

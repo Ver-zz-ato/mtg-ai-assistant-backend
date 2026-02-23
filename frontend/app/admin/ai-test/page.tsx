@@ -1360,17 +1360,20 @@ export default function AiTestPage() {
     setPreviewPrompt(preview);
   }
 
+  const RUN_ALL_MAX = 50; // Cap batch size to avoid long runs / timeouts
+
   async function runBatchTests() {
     setRunningBatch(true);
     setBatchResults([]);
     const filtered = getFilteredTestCases();
+    const toRun = filtered.slice(0, RUN_ALL_MAX);
 
     try {
       const batchRes = await fetch("/api/admin/ai-test/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          testCases: filtered,
+          testCases: toRun,
           suite: `batch-${new Date().toISOString().slice(0, 10)}`,
           validationOptions,
           formatKey: adminFormatKey,
@@ -1505,6 +1508,10 @@ export default function AiTestPage() {
   }
 
   const filteredCases = getFilteredTestCases();
+  const runAllCount = Math.min(filteredCases.length, RUN_ALL_MAX);
+  const runAllLabel = filteredCases.length > RUN_ALL_MAX
+    ? `Run All (${runAllCount} of ${filteredCases.length} tests)`
+    : `Run All (${runAllCount} tests)`;
   const allTags = getUniqueTags();
   const passCount = batchResults.filter(
     (r) => r.validation?.overall?.passed === true
@@ -1891,7 +1898,7 @@ export default function AiTestPage() {
                 disabled={runningBatch || filteredCases.length === 0}
                 className="w-full py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-medium"
               >
-                {runningBatch ? "Running…" : `Run All (${filteredCases.length} tests)`}
+                {runningBatch ? "Running…" : runAllLabel}
               </button>
               {batchResults.length > 0 && (
                 <div className={`mt-4 p-3 rounded-lg ${passCount === batchResults.length ? "bg-green-950/50 border border-green-800" : "bg-neutral-800/80"}`}>
@@ -2998,7 +3005,7 @@ export default function AiTestPage() {
             disabled={runningBatch || filteredCases.length === 0}
             className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-sm"
           >
-            {runningBatch ? "Running..." : `Run All (${filteredCases.length})`}
+            {runningBatch ? "Running..." : runAllLabel}
           </button>
           {batchResults.length > 0 && (
             <button

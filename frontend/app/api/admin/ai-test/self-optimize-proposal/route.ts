@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
     type ProgressFn = (step: string, progress: number) => void;
     const noop: ProgressFn = () => {};
     const cookie = req.headers.get("cookie") || "";
+    // Use internal key for batch calls to avoid 403 when session expires during long runs (~20+ min)
+    const internalKey = process.env.CRON_SECRET || process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
     const promptKind = kind === "deck_analysis" ? "deck_analysis" : "chat";
 
     const evidence: Record<string, unknown> = {};
@@ -165,7 +167,8 @@ export async function POST(req: NextRequest) {
       tags: c.tags || [],
     }));
 
-    const allTestCases = [...suiteCaseList, ...deckSampleCases];
+    const MAX_SELF_OPT_TESTS = 50; // Cap to avoid long runs / timeouts (matches Run All)
+    const allTestCases = [...suiteCaseList, ...deckSampleCases].slice(0, MAX_SELF_OPT_TESTS);
     const goldenCases = allTestCases.filter((c: any) => goldenCaseIds.includes(c.id));
     const testCaseIds = allTestCases.map((c: any) => c.id);
 
@@ -182,7 +185,11 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < chunks.length; i++) {
         const r = await fetch(`${baseUrl}/api/admin/ai-test/batch`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: cookie },
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: cookie,
+            ...(internalKey ? { "x-internal-admin-key": internalKey } : {}),
+          },
           body: JSON.stringify({
             testCases: chunks[i],
             formatKey: "commander",
@@ -360,7 +367,11 @@ export async function POST(req: NextRequest) {
       await setActivePromptVersion(promptKind, promptId);
       const r = await fetch(`${baseUrl}/api/admin/ai-test/batch`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: cookie },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+          ...(internalKey ? { "x-internal-admin-key": internalKey } : {}),
+        },
         body: JSON.stringify({ testCases: goldenCases, formatKey: "commander" }),
       });
       const j = await r.json();
