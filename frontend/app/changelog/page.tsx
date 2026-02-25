@@ -42,7 +42,10 @@ export default function ChangelogPage() {
       const data = await res.json();
       
       if (data.ok) {
-        setEntries(data.changelog?.entries || []);
+        const sorted = (data.changelog?.entries || []).sort((a: ChangelogEntry, b: ChangelogEntry) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setEntries(sorted);
       } else {
         setError(data.error || 'Failed to load changelog');
       }

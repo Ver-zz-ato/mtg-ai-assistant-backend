@@ -86,12 +86,17 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') {
         return NextResponse.json({ ok: true, recorded: false });
       }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[attribution] insert error:', error.code, error.message);
+      }
+      return NextResponse.json({ ok: false, error: 'attribution_failed' }, { status: 200 });
     }
 
     return NextResponse.json({ ok: true, recorded: true });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'server_error';
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[attribution] unexpected error:', e);
+    }
+    return NextResponse.json({ ok: false, error: 'attribution_failed' }, { status: 200 });
   }
 }

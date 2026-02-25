@@ -16,6 +16,8 @@ import {
   formatPvLast,
 } from './lib/analytics/middleware-helpers';
 
+let maintenanceCache: { value: any; ts: number } = { value: null, ts: 0 };
+
 // Validate environment variables at startup (fail fast)
 try {
   validateEnv();
@@ -151,10 +153,14 @@ export async function middleware(req: NextRequest) {
           return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message:'Maintenance mode (env) — writes paused' }), { status: 503, headers: { 'content-type': 'application/json' } });
         }
         try {
-          const cfgUrl = new URL('/api/config?key=maintenance', req.url);
-          const r = await fetch(cfgUrl.toString(), { cache: 'no-store' });
-          const j = await r.json();
-          const m = j?.config?.maintenance;
+          const now = Date.now();
+          if (!maintenanceCache.value || now - maintenanceCache.ts > 30_000) {
+            const cfgUrl = new URL('/api/config?key=maintenance', req.url);
+            const r = await fetch(cfgUrl.toString(), { cache: 'no-store' });
+            const j = await r.json();
+            maintenanceCache = { value: j?.config?.maintenance ?? null, ts: now };
+          }
+          const m = maintenanceCache.value;
           if (m?.enabled) {
             const msg = String(m?.message || 'Maintenance mode — writes paused');
             return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message: msg }), { status: 503, headers: { 'content-type': 'application/json' } });

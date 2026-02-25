@@ -65,20 +65,6 @@ export function useProStatus() {
           } catch {
             // Fallback to metadata
           }
-        } else {
-          try {
-            const apiRes = await fetch('/api/user/pro-status');
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData.ok && apiData.modelTier != null) {
-                tier = apiData.modelTier;
-                label = apiData.modelLabel ?? label;
-                message = apiData.upgradeMessage ?? message;
-              }
-            }
-          } catch {
-            // Keep tier/label/message from profile
-          }
         }
 
         setModelTier(tier);

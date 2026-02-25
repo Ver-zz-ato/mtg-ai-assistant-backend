@@ -263,6 +263,15 @@ function Chat() {
 
   const extrasOn = flags ? (flags.chat_extras !== false) : true;
 
+  // Clear guest state when user logs in
+  useEffect(() => {
+    if (isLoggedIn === true) {
+      setGuestMessageCount(0);
+      setShowGuestLimitModal(false);
+      try { localStorage.removeItem('guest_message_count'); } catch {}
+    }
+  }, [isLoggedIn]);
+
   // Guest chat persistence - save messages to localStorage
   useEffect(() => {
     if (!isLoggedIn && messages.length > 0) {

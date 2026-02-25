@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     const insMsg = await supabase.from("chat_messages").insert({ thread_id: tid, role: message.role, content: message.content });
-    if (insMsg.error) return NextResponse.json<Envelope<never>>({ ok: false, error: `Failed to insert message: ${insMsg.error.message}` }, { status: 500 });
+    if (insMsg.error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[chat/messages] insert error:', insMsg.error.code, insMsg.error.message, { tid, role: message.role, contentLen: message.content?.length });
+      }
+      return NextResponse.json<Envelope<never>>({ ok: false, error: `Failed to insert message: ${insMsg.error.message}` }, { status: 500 });
+    }
 
     const res = NextResponse.json<Envelope<{ threadId: string }>>({ ok: true, data: { threadId: tid! } });
     res.headers.set("X-Debug-Payload", JSON.stringify(body).slice(0, 2000));

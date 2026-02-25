@@ -129,10 +129,14 @@ export default async function Page() {
   let bannerDebug: { source: string; method: 'collection'|'fuzzy'|null; candidates: string[]; art: string|null } = { source: 'none', method: null, candidates: [], art: null };
   if (u?.id) {
     try {
-      const profQueryStart = Date.now();
-      const { data: prof } = await sb.from('profiles_public').select('signature_deck_id,favorite_commander').eq('id', u.id).maybeSingle();
-      logTiming('profiles_public query', profQueryStart);
+      const parallelStart = Date.now();
+      const [profResult, decksResult] = await Promise.all([
+        sb.from('profiles_public').select('signature_deck_id,favorite_commander').eq('id', u.id).maybeSingle(),
+        sb.from('decks').select('id').eq('user_id', u.id).order('updated_at', { ascending: false }).limit(1),
+      ]);
+      logTiming('parallel profile+decks queries', parallelStart);
       
+      const prof = profResult.data;
       const sig = (prof as any)?.signature_deck_id || null;
       const fav = (prof as any)?.favorite_commander || '';
       
@@ -165,10 +169,7 @@ export default async function Page() {
       }
       
       if (!bannerArt) {
-        if (DEBUG_PROFILE_LOAD) console.log('[PROFILE DEBUG] Fetching banner art from recent deck');
-        const recentStart = Date.now();
-        const { data: decks } = await sb.from('decks').select('id').eq('user_id', u.id).order('updated_at', { ascending: false }).limit(1);
-        logTiming('decks query (recent)', recentStart);
+        const decks = decksResult.data;
         const first = Array.isArray(decks) && decks[0]?.id ? String(decks[0].id) : '';
         if (first) { 
           const dbg={candidates:[],method:null as any}; 

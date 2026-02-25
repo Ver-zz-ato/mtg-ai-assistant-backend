@@ -8,6 +8,7 @@ import { getSessionContext } from '@/lib/analytics/session-bootstrap';
 import { pushCaptureEvent } from '@/lib/analytics/capture-buffer';
 
 type Props = Record<string, any> | undefined;
+let droppedEventWarned = false;
 
 function hasWindow(): boolean {
   return typeof window !== 'undefined';
@@ -57,10 +58,10 @@ export function capture(
     // @ts-ignore - posthog is attached globally by the provider init
     const ph = (window as any).posthog;
     if (!ph?._loaded) {
-      // PostHog not ready - event will be dropped (safe no-op)
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === 'development' && !droppedEventWarned) {
+        droppedEventWarned = true;
         // eslint-disable-next-line no-console
-        console.warn('[analytics] PostHog not ready, event dropped:', event);
+        console.warn('[analytics] PostHog not ready, events will be dropped until initialized');
       }
       return;
     }

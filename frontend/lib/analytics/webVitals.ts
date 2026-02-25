@@ -32,6 +32,8 @@ function sendToPostHog(metric: Metric) {
 }
 
 let initialized = false;
+let retryCount = 0;
+const MAX_RETRIES = 5;
 
 /**
  * Initialize Web Vitals tracking
@@ -42,16 +44,21 @@ let initialized = false;
 export function initWebVitals() {
   if (typeof window === 'undefined' || initialized) return;
   
-  // Lightweight sanity check: verify PostHog is ready before registering callbacks
   const ph: any = (typeof window !== 'undefined' && (window as any).posthog) || null;
   if (!ph?._loaded) {
-    // PostHog not ready yet - defer initialization (should not happen if called correctly)
-    if (process.env.NODE_ENV === 'development') {
+    if (retryCount >= MAX_RETRIES) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[webVitals] PostHog not ready after max retries, skipping');
+      }
+      return;
+    }
+    retryCount++;
+    if (process.env.NODE_ENV === 'development' && retryCount === 1) {
       console.warn('[webVitals] PostHog not ready, deferring initialization');
     }
     setTimeout(() => {
-      if (!initialized) initWebVitals(); // Retry once
-    }, 200);
+      if (!initialized) initWebVitals();
+    }, 500 * retryCount);
     return;
   }
   
@@ -65,4 +72,3 @@ export function initWebVitals() {
   onLCP(sendToPostHog);
   onTTFB(sendToPostHog);
 }
-
