@@ -666,11 +666,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <label className="text-sm">
                     <div className="opacity-70 mb-1">Username</div>
-                    <input value={username} onChange={(e)=>setUsername(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Display name" />
+                    <input id="profile-username" name="username" value={username} onChange={(e)=>setUsername(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Display name" />
                   </label>
                   <label className="text-sm">
                     <div className="opacity-70 mb-1">Favorite Commander</div>
-                    <input value={favCommander} onChange={(e)=>setFavCommander(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Atraxa, Praetors' Voice" />
+                    <input id="profile-fav-commander" name="favorite_commander" value={favCommander} onChange={(e)=>setFavCommander(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Atraxa, Praetors' Voice" />
                   </label>
                 </div>
                 {/* Signature deck, avatars, formats, color align - reuse existing UI */}
@@ -995,11 +995,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="text-sm">
                       <div className="opacity-70 mb-1">Current password</div>
-                      <input type="password" value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Current password" autoComplete="current-password" />
+                      <input id="profile-current-password" name="current_password" type="password" value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="Current password" autoComplete="current-password" />
                     </label>
                     <label className="text-sm">
                       <div className="opacity-70 mb-1">New password</div>
-                      <input type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="New password (min 8 chars)" autoComplete="new-password" />
+                      <input id="profile-new-password" name="new_password" type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder="New password (min 8 chars)" autoComplete="new-password" />
                     </label>
                   </div>
                   <div className="text-right">

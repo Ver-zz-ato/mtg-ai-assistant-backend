@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/ingest/:path*",
-        destination: "https://eu.i.posthog.com/:path*",
+        destination: "[REDACTED]/:path*",
       },
     ];
   },
@@ -61,7 +61,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com https://eu-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.scryfall.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
+      "connect-src 'self' https://api.scryfall.com [REDACTED] https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
       "frame-src https://js.stripe.com https://ko-fi.com",
       "worker-src 'self' blob:",
     ].join('; ');
@@ -117,7 +117,7 @@ export default withSentryConfig(nextConfig, {
   // This can increase your server load as well as your hosting bill.
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
   // side errors will fail.
-  tunnelRoute: "/monitoring",
+  tunnelRoute: process.env.NODE_ENV === 'production' ? "/monitoring" : undefined,
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
