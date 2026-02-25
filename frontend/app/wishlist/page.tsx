@@ -696,15 +696,28 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             <option>GBP</option>
           </select>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          {wishlistId ? <WishlistCsvUpload wishlistId={wishlistId} onDone={async()=>{ const qs=new URLSearchParams({ wishlistId, currency }); const r=await fetch(`/api/wishlists/items?${qs.toString()}`,{cache:'no-store'}); const j=await r.json().catch(()=>({})); if (r.ok&&j?.ok){ setItems(Array.isArray(j.items)?j.items:[]); setTotal(Number(j.total||0)); } }} /> : null}
-          {wishlistId ? <ExportWishlistCSV wishlistId={wishlistId} small /> : null}
-          <button onClick={()=>setFixOpen(true)} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">
-            <span className="flex items-center gap-1.5">
-              <span>✏️</span>
-              <span>Fix names</span>
-            </span>
-          </button>
+        <div className="flex items-center gap-2 ml-auto relative">
+          <div className="relative group">
+            <button className="px-3 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-medium transition-all">
+              <span className="flex items-center gap-1.5">
+                <span>⚙️</span>
+                <span>More</span>
+                <span className="text-[10px]">▾</span>
+              </span>
+            </button>
+            <div className="absolute right-0 top-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl z-50 min-w-[160px] hidden group-hover:block group-focus-within:block">
+              <div className="p-1.5 space-y-0.5">
+                {wishlistId ? <div className="[&>button]:w-full [&>button]:text-left [&>button]:rounded-md [&>button]:px-3 [&>button]:py-1.5 [&>button]:text-xs"><WishlistCsvUpload wishlistId={wishlistId} onDone={async()=>{ const qs=new URLSearchParams({ wishlistId, currency }); const r=await fetch(`/api/wishlists/items?${qs.toString()}`,{cache:'no-store'}); const j=await r.json().catch(()=>({})); if (r.ok&&j?.ok){ setItems(Array.isArray(j.items)?j.items:[]); setTotal(Number(j.total||0)); } }} /></div> : null}
+                {wishlistId ? <div className="[&>button]:w-full [&>button]:text-left [&>button]:rounded-md [&>button]:px-3 [&>button]:py-1.5 [&>button]:text-xs"><ExportWishlistCSV wishlistId={wishlistId} small /></div> : null}
+                <button onClick={()=>setFixOpen(true)} className="w-full text-left rounded-md px-3 py-1.5 text-xs text-white hover:bg-neutral-700 transition-colors">
+                  <span className="flex items-center gap-1.5">
+                    <span>✏️</span>
+                    <span>Fix names</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

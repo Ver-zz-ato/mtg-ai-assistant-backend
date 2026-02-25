@@ -156,7 +156,7 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
           return (
             <li key={d.id} className="relative border rounded-md hover:border-gray-600 transition-all duration-200 hover:shadow-md hover:scale-[1.02] cursor-pointer">
               {art && (<div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${art})` }} />)}
-              {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
+              {!art && (<div className="absolute inset-0 bg-neutral-900 flex items-center justify-center"><span className="text-neutral-700 text-2xl">🃏</span></div>)}
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
               <Link href={`/decks/${d.id}`} prefetch className="block relative p-3">
                 <div className="flex items-center justify-between gap-3">

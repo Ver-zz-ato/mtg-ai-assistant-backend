@@ -178,8 +178,23 @@ export async function GET(req: Request) {
     
     logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks (from ${data?.length || 0} fetched, total available: ${count || 0})`);
 
+    // Diversify results: avoid consecutive decks with the same base title
+    const diversified = [];
+    const seen = new Set<string>();
+    const deferred = [];
+    for (const d of filteredDecks) {
+      const base = String(d.title || '').replace(/\s*[#—–-]\s*\d+\s*$/, '').trim().toLowerCase();
+      if (seen.has(base)) {
+        deferred.push(d);
+      } else {
+        seen.add(base);
+        diversified.push(d);
+      }
+    }
+    diversified.push(...deferred);
+
     // Enrich deck data - username already fetched via nested select (no separate query needed)
-    const decks = filteredDecks.map((deck: any) => {
+    const decks = diversified.map((deck: any) => {
       // Handle nested profile data from Supabase join
       // If profiles is an array (can happen with some relationships), take first item
       // If profiles is an object, use it directly

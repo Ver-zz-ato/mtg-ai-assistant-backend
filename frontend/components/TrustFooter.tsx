@@ -258,7 +258,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
         </div>
 
         {/* Legal disclaimer */}
-        <div className="pt-4 border-t border-gray-700 text-xs text-gray-500 leading-relaxed text-center">
+        <div className="pt-4 border-t border-gray-700 text-[13px] text-gray-500 leading-relaxed text-center space-y-3">
           <p className="mb-2">
             This assistant uses AI to help with Magic: The Gathering deck building and strategy. 
             Card information is sourced from Scryfall's comprehensive database. 

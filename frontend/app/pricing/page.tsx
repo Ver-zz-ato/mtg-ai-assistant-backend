@@ -225,7 +225,7 @@ export default function PricingPage() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-5xl font-bold text-white mb-4">
             Unlock Your MTG Potential
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6">
@@ -308,19 +308,19 @@ export default function PricingPage() {
             <div className="space-y-4 mb-8">
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Basic deck analysis (50/day)</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Basic deck analysis (50/day)</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Collection tracking</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Collection tracking</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Current card prices</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Current card prices</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Community support</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Community support</span>
               </div>
             </div>
 

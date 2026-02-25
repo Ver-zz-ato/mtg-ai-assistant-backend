@@ -51,10 +51,10 @@ async function getDeckArt(sb: any, deckId: string, dbg: { candidates: string[]; 
     for (const n of list) { 
       const normalized = norm(n);
       const img = imgMap.get(normalized);
-      if (img?.art_crop || img?.normal || img?.small) { 
+      if (img?.normal || img?.art_crop || img?.small) { 
         dbg.method = 'collection'; 
         logTiming(`getDeckArt total (cache match)`, startTime);
-        return img.art_crop || img.normal || img.small; 
+        return img.normal || img.art_crop || img.small; 
       } 
     }
     

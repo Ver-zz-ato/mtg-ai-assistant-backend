@@ -27,14 +27,14 @@ export function TopCommandersSection() {
         />
         {/* Right edge fade */}
         <div
-          className="absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none shrink-0"
+          className="absolute right-0 top-0 bottom-0 w-12 z-10 pointer-events-none shrink-0"
           style={{
             background: "linear-gradient(to left, rgb(17 24 39) 0%, transparent 100%)",
           }}
           aria-hidden
         />
         <div
-          className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1 snap-x snap-mandatory scroll-smooth scrollbar-hide"
+          className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1 pr-12 snap-x snap-mandatory scroll-smooth scrollbar-hide"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {commanders.map((c) => (

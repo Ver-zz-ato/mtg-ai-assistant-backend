@@ -25,8 +25,19 @@ export default function MyDecksPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-lg">Loading decks…</div>
+        <div className="mx-auto max-w-6xl p-6">
+          <div className="h-8 w-32 bg-neutral-800 rounded mb-6 animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 animate-pulse">
+                <div className="h-40 bg-neutral-900" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 w-2/3 bg-neutral-800 rounded" />
+                  <div className="h-3 w-1/2 bg-neutral-800/50 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       }
     >
