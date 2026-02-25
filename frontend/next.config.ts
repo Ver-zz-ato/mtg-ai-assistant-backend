@@ -43,16 +43,20 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return [
+    const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || '';
+    const rewrites: Array<{ source: string; destination: string }> = [
       {
         source: "/ingest/static/:path*",
         destination: "https://eu-assets.i.posthog.com/static/:path*",
       },
-      {
-        source: "/ingest/:path*",
-        destination: "[REDACTED]/:path*",
-      },
     ];
+    if (posthogHost && posthogHost.startsWith('http')) {
+      rewrites.push({
+        source: "/ingest/:path*",
+        destination: `${posthogHost}/:path*`,
+      });
+    }
+    return rewrites;
   },
   async headers() {
     const csp = [
@@ -61,7 +65,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://storage.ko-fi.com https://eu-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.scryfall.com [REDACTED] https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io",
+      `connect-src 'self' https://api.scryfall.com ${process.env.NEXT_PUBLIC_POSTHOG_HOST || ''} https://eu-assets.i.posthog.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://app.manatap.ai https://*.ingest.de.sentry.io`,
       "frame-src https://js.stripe.com https://ko-fi.com",
       "worker-src 'self' blob:",
     ].join('; ');
