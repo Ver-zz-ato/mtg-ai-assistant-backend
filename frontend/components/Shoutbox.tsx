@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 
 type Shout = { id: number; user: string; text: string; ts: number };
@@ -12,6 +12,14 @@ export default function Shoutbox() {
   const [posting, setPosting] = useState<boolean>(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const evRef = useRef<EventSource | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+  }, []);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -69,6 +77,10 @@ export default function Shoutbox() {
     return () => clearTimeout(id);
   }, [toast]);
 
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [text, adjustTextareaHeight]);
+
   async function post() {
     const clean = text.trim();
     if (!clean || posting) return;
@@ -97,8 +109,8 @@ export default function Shoutbox() {
     }
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       post();
     }
@@ -127,30 +139,37 @@ export default function Shoutbox() {
           </div>
         ))}
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); post(); }} className="mt-2 flex gap-2 items-center overflow-hidden">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-24 shrink-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm"
-          placeholder="Anon"
-        />
-        <input
-          type="text"
+      <form onSubmit={(e) => { e.preventDefault(); post(); }} className="mt-2 flex flex-col gap-2 overflow-hidden">
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-24 shrink-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm"
+            placeholder="Anon"
+          />
+          <button
+            type="submit"
+            onClick={(e) => { e.preventDefault(); post(); }}
+            disabled={posting || !text.trim()}
+            className="px-3 py-2 shrink-0 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {posting ? "Posting..." : "Post"}
+          </button>
+        </div>
+        <textarea
+          ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            adjustTextareaHeight();
+          }}
           onKeyDown={onKeyDown}
-          className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          onFocus={adjustTextareaHeight}
+          rows={2}
+          className="w-full min-h-[3rem] resize-none overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder:text-gray-500"
           placeholder="Say something…"
         />
-        <button
-          type="submit"
-          onClick={(e) => { e.preventDefault(); post(); }}
-          disabled={posting || !text.trim()}
-          className="px-3 py-2 shrink-0 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {posting ? "Posting..." : "Post"}
-        </button>
       </form>
       {toast && (
         <div className="mt-2 text-xs text-red-300" aria-live="polite">
