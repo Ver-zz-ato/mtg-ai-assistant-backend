@@ -127,30 +127,32 @@ export default function Shoutbox() {
           </div>
         ))}
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); post(); }} className="mt-2 flex gap-2 items-center overflow-hidden">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-24 shrink-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm"
-          placeholder="Anon"
-        />
+      <form onSubmit={(e) => { e.preventDefault(); post(); }} className="mt-2 space-y-2">
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-20 shrink-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs"
+            placeholder="Anon"
+          />
+          <button
+            type="submit"
+            onClick={(e) => { e.preventDefault(); post(); }}
+            disabled={posting || !text.trim()}
+            className="px-3 py-1.5 shrink-0 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {posting ? "..." : "Post"}
+          </button>
+        </div>
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
-          className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
           placeholder="Say something…"
         />
-        <button
-          type="submit"
-          onClick={(e) => { e.preventDefault(); post(); }}
-          disabled={posting || !text.trim()}
-          className="px-3 py-2 shrink-0 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {posting ? "Posting..." : "Post"}
-        </button>
       </form>
       {toast && (
         <div className="mt-2 text-xs text-red-300" aria-live="polite">
