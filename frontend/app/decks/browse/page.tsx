@@ -66,7 +66,7 @@ function BrowseDecksContent() {
 
   // Filters (initialize search from URL for commander hub links)
   const [search, setSearch] = useState(initialSearch);
-  const [format, setFormat] = useState('all');
+  const [format, setFormat] = useState('Commander');
   const [colors, setColors] = useState('all');
   const [sort, setSort] = useState('recent');
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(defaultAdvancedFilters);
