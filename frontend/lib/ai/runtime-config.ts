@@ -35,7 +35,7 @@ export type RuntimeAIConfig = {
 const DEFAULT_FLAGS: RuntimeAIFlags = {
   ai_admin_enabled: false,
   llm_v2_context: true,
-  llm_layer0: false,
+  llm_layer0: true,
   llm_two_stage: true,
   llm_stop_sequences: true,
   llm_dynamic_ceilings: true,

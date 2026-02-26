@@ -50,9 +50,14 @@ export type CacheKeyPayload = {
   scope?: string; // user_id or token_hash for private
 };
 
-/** Hash canonical payload for cache key. Never store raw prompts. */
+/** Hash canonical payload for cache key. Never store raw prompts.
+ * For public cache (no scope), model is excluded from key to improve hit rate across tiers.
+ */
 export async function hashCacheKey(payload: CacheKeyPayload): Promise<string> {
-  const canonical = stableStringify(payload);
+  const forHash = payload.scope
+    ? payload
+    : { ...payload, model: '__public__' };
+  const canonical = stableStringify(forHash);
   return hashString(canonical);
 }
 

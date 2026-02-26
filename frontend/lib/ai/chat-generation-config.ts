@@ -8,6 +8,8 @@ export type TokenCeilingOpts = {
   deckCardCount?: number;
   /** Optional floor from llm_min_tokens_per_route (panic switch) */
   minTokenFloor?: number;
+  /** User tier — free gets lower ceilings to reduce cost */
+  tier?: 'guest' | 'free' | 'pro';
 };
 
 /** Non-stream (single completion) ceilings. Kept conservative to reduce cost. */
@@ -29,11 +31,15 @@ const CAP_STREAM = 2000;
  * Scales with complexity and deck size to avoid over-generation on simple queries.
  * Future: clamp by user_tier (e.g. pro gets longer analysis ceiling).
  */
+/** Tier-based caps: free/guest get lower ceilings to reduce cost */
+const TIER_STREAM_CAP: Record<string, number> = { guest: 600, free: 800, pro: 2000 };
+const TIER_NON_STREAM_CAP: Record<string, number> = { guest: 256, free: 384, pro: 512 };
+
 export function getDynamicTokenCeiling(
   opts: TokenCeilingOpts,
   forStream: boolean = false
 ): number {
-  const { isComplex, deckCardCount = 0, minTokenFloor } = opts;
+  const { isComplex, deckCardCount = 0, minTokenFloor, tier } = opts;
   const hasDeck = deckCardCount > 0;
   const deckBonus = hasDeck
     ? deckCardCount >= LARGE_DECK_THRESHOLD
@@ -41,13 +47,18 @@ export function getDynamicTokenCeiling(
       : (forStream ? Math.min(STREAM_DECK_BONUS, 128) : DECK_BONUS_SMALL)
     : 0;
 
+  const tierKey = tier || 'pro';
+  const tierCap = forStream
+    ? (TIER_STREAM_CAP[tierKey] ?? CAP_STREAM)
+    : (TIER_NON_STREAM_CAP[tierKey] ?? CAP_NON_STREAM);
+
   let result: number;
   if (forStream) {
     const base = isComplex ? STREAM_BASE_COMPLEX : STREAM_BASE_SIMPLE;
-    result = Math.min(base + deckBonus, CAP_STREAM);
+    result = Math.min(base + deckBonus, tierCap);
   } else {
     const base = isComplex ? BASE_COMPLEX : BASE_SIMPLE;
-    result = Math.min(base + deckBonus, CAP_NON_STREAM);
+    result = Math.min(base + deckBonus, tierCap);
   }
   if (minTokenFloor != null && minTokenFloor > 0) {
     result = Math.max(result, minTokenFloor);

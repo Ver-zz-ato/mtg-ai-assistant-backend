@@ -21,7 +21,7 @@ export type ModelForTierResult = {
 const CHAT_PRO_DEFAULT = "gpt-4o";
 const DECK_PRO_DEFAULT = "gpt-4o";
 const GUEST_DEFAULT = "gpt-4o-mini";
-const FREE_DEFAULT = "gpt-4o";
+const FREE_DEFAULT = "gpt-4o-mini";
 const FALLBACK_DEFAULT = "gpt-4o-mini";
 
 function env(name: string): string | undefined {
