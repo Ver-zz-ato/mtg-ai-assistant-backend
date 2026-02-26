@@ -1477,6 +1477,11 @@ export async function POST(req: Request) {
   }
   
   // Durable rate limiting (expensive AI operation - limit abuse)
+  // Admin users bypass limits (for AI test batches, self-optimization, etc.)
+  const { isAdmin } = await import('@/lib/admin-check');
+  const isAdminUser = user && isAdmin(user);
+
+  if (!isAdminUser) {
   try {
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
@@ -1514,6 +1519,7 @@ export async function POST(req: Request) {
   } catch (error) {
     // Fail open - don't block requests if rate limit check fails
     console.error('[deck/analyze] Rate limit check failed:', error);
+  }
   }
 
   let anonId: string | null = null;
