@@ -77,18 +77,18 @@ export default function HomepageFAQ({ defaultCollapsed = false }: { defaultColla
           {faqItems.map((item, index) => (
             <div
               key={index}
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300"
+              className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden transition-all duration-300"
             >
               <button
                 onClick={() => toggleItem(index)}
-                className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-gray-700 transition-colors text-left"
                 aria-expanded={openIndex === index}
               >
-                <h3 className="text-base md:text-lg font-bold text-gray-900 dark:text-white pr-4">
+                <h3 className="text-base md:text-lg font-bold text-white pr-4">
                   {item.question}
                 </h3>
                 <svg
-                  className={`w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform duration-300 ${
+                  className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-300 ${
                     openIndex === index ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -105,7 +105,7 @@ export default function HomepageFAQ({ defaultCollapsed = false }: { defaultColla
                 }`}
               >
                 <div className="px-4 md:px-6 pb-4 md:pb-6 pt-0">
-                  <div className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <div className="text-sm md:text-base text-gray-400 leading-relaxed">
                     {item.answer}
                   </div>
                 </div>
