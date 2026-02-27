@@ -117,8 +117,8 @@ export default function Shoutbox() {
   }
 
   return (
-    <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 md:min-h-[16rem] flex flex-col max-h-[50vh] md:max-h-none">
-      <div className="flex flex-col items-center gap-1.5 mb-4">
+    <div className="relative z-20 bg-neutral-950 border border-neutral-800 rounded-xl p-4 flex flex-col h-[420px]">
+      <div className="flex flex-col items-center gap-1.5 mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"></div>
           <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent">
@@ -128,7 +128,7 @@ export default function Shoutbox() {
         </div>
         <div className="h-0.5 w-24 bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 rounded-full animate-pulse"></div>
       </div>
-      <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm min-h-0">
+      <div ref={listRef} className="flex-1 overflow-y-auto space-y-3 text-sm min-h-0 max-h-[220px]">
         {items.map((t, idx) => (
           <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">
             <div className="bg-emerald-950/40 border border-emerald-700 text-emerald-100 rounded-lg px-3 py-2">
