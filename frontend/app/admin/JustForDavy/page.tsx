@@ -28,6 +28,7 @@ const GROUPS = [
     links: [
       { href: "/admin/monetize", label: "Monetize", eli5: "Stripe sync, subscribers" },
       { href: "/admin/pricing", label: "Pricing", eli5: "Pricing analytics" },
+      { href: "/admin/pro-gate", label: "Pro Gate", eli5: "Where users see the Pro paywall, conversion funnel" },
       { href: "/admin/ops", label: "Ops", eli5: "Run crons, edit config, rollback snapshots" },
       { href: "/admin/changelog", label: "Changelog", eli5: "Edit What's New entries" },
     ],
