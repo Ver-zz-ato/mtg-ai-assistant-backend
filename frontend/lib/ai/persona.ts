@@ -22,7 +22,7 @@ export function selectPersona(input: PersonaInput = {}): Persona {
   // Format-specific guardrails
   if (fmt.includes('commander') || fmt === 'edh') {
     parts.push(
-      "Commander persona: Respect 100-card singleton and commander color identity. Emphasize synergy with the commander and table politics."
+      "Commander persona: Respect 100-card singleton. CRITICAL: Every card you suggest MUST match the commander's color identity - check EVERY card before recommending. Never suggest cards with mana symbols outside the commander's colors, even if they would be strategically good. Emphasize synergy with the commander and table politics."
     );
   } else if (fmt.includes('modern')) {
     parts.push("Modern persona: Respect Modern legality; suggest efficient, low-curve options and meta-resilient plans.");

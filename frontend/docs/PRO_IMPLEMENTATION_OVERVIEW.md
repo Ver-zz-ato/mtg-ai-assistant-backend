@@ -94,7 +94,6 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 | Route | Check | Behavior if not Pro |
 |-------|--------|----------------------|
 | **`/api/deck/health-suggestions`** | `checkProStatus` | 403, "Deck Health features are Pro-only…" |
-| **`/api/wishlists/fix-names/apply`** | `checkProStatus` | 403, `pro_required` |
 | **`/api/watchlist/update`** | `checkProStatus` | 403 |
 | **`/api/watchlist/add`** | Profile `is_pro` or `user_metadata.pro` | 403 |
 
@@ -132,7 +131,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 ### 6.6 Wishlist
 
-- **Batch Fix Names modal / apply:** Pro. Wishlist editor uses Pro guard for fix-names.
+- **Batch Fix Names modal / apply:** **FREE** feature (no longer Pro-gated).
 
 ### 6.7 Watchlist
 

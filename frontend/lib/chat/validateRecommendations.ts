@@ -166,6 +166,40 @@ export const REPAIR_SYSTEM_MESSAGE =
   "Previous suggestions included invalid, duplicate, or illegal cards. Regenerate recommendations using only legal, non-duplicate cards for this format. Preserve the original structure and tone; only repair the invalid recommendations.";
 
 /**
+ * Fetch commander color identity dynamically from Scryfall cache.
+ * Returns empty array if not found.
+ */
+async function fetchCommanderColorIdentity(commanderName: string): Promise<string[]> {
+  try {
+    const { getDetailsForNamesCached } = await import("@/lib/server/scryfallCache");
+    const cardMap = await getDetailsForNamesCached([commanderName]);
+    
+    // Try exact match first
+    const key = cacheNorm(commanderName);
+    let entry = cardMap.get(key);
+    
+    // Try finding by normalized key if not found
+    if (!entry) {
+      for (const [k, v] of cardMap.entries()) {
+        if (cacheNorm(k) === key || norm(k) === norm(commanderName)) {
+          entry = v;
+          break;
+        }
+      }
+    }
+    
+    if (entry?.color_identity?.length) {
+      return entry.color_identity.map((c: string) => c.toUpperCase());
+    }
+    
+    return [];
+  } catch (err) {
+    console.warn("[validateRecommendations] Failed to fetch commander color identity:", err);
+    return [];
+  }
+}
+
+/**
  * Validate and repair LLM recommendation text. Does not re-run the model.
  */
 export async function validateRecommendations(
@@ -184,12 +218,19 @@ export async function validateRecommendations(
     deckCounts.set(n, (deckCounts.get(n) ?? 0) + (c.count ?? 1));
   }
 
-  const allowedColors: string[] =
-    (colorIdentity?.length ?? 0) > 0
-      ? colorIdentity!
-      : commanderName
-        ? COMMANDER_COLOR_MAP[norm(commanderName).replace(/\s+/g, "")] ?? []
-        : [];
+  // Determine allowed colors: use provided colorIdentity, or dynamically fetch from commander
+  let allowedColors: string[] = [];
+  if (colorIdentity?.length) {
+    allowedColors = colorIdentity.map((c) => c.toUpperCase());
+  } else if (formatKey === "commander" && commanderName) {
+    // Dynamically fetch commander's color identity from Scryfall cache
+    allowedColors = await fetchCommanderColorIdentity(commanderName);
+    if (allowedColors.length > 0) {
+      console.log(`[validateRecommendations] Fetched color identity for ${commanderName}: ${allowedColors.join(",")}`);
+    } else {
+      console.warn(`[validateRecommendations] Could not determine color identity for commander: ${commanderName}`);
+    }
+  }
 
   const addNames = parseAddNames(rawText, formatKey);
   const cutNames = parseCutNames(rawText);
@@ -337,15 +378,3 @@ export async function validateRecommendations(
   };
 }
 
-/** Commander name (normalized, no spaces) -> color identity. */
-const COMMANDER_COLOR_MAP: Record<string, string[]> = {
-  muldrothathegravetide: ["U", "B", "G"],
-  merenofclanneltoth: ["B", "G"],
-  karadorghostchieftain: ["W", "B", "G"],
-  sidisibroodtyrant: ["U", "B", "G"],
-  chainerdementiamaster: ["B"],
-  tasigurthegoldenfang: ["U", "B", "G"],
-  themimeoplasm: ["U", "B", "G"],
-  thescarabgod: ["U", "B"],
-  jaradgolgarilichlord: ["B", "G"],
-};

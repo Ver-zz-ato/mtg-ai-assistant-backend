@@ -358,46 +358,14 @@ export type CollectionEditorProps = {
 type Item = { id?: string; name: string; qty: number; created_at?: string };
 
 function FixNamesButton({ collectionId, onOpenModal }: { collectionId: string; onOpenModal: () => void }){
-  const { isPro } = useProStatus();
-  
-  // Track PRO gate view when component renders for non-PRO users
-  React.useEffect(() => {
-    if (!isPro) {
-      trackProGateViewed('fix_card_names', 'collection_editor');
-    }
-  }, [isPro]);
-  
-  if (!isPro) {
-    return (
-      <button 
-        disabled 
-        title="PRO only"
-        onClick={() => {
-          trackProGateClicked('fix_card_names', 'collection_editor');
-        }}
-        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600/40 to-red-600/40 text-white font-medium text-xs transition-all shadow-md opacity-60 cursor-not-allowed border border-orange-500/30"
-      >
-        <span className="flex items-center gap-1.5">
-          <span>✏️</span>
-          <span>Fix names</span>
-          <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
-            PRO
-          </span>
-        </span>
-      </button>
-    );
-  }
   return (
     <button 
-      onClick={() => {
-        trackProFeatureUsed('fix_card_names');
-        onOpenModal();
-      }} 
-      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
+      onClick={onOpenModal} 
+      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg hover:scale-105"
     >
       <span className="flex items-center gap-1.5">
         <span>✏️</span>
-        <span>Fix names</span>
+        <span>Fix card names</span>
       </span>
     </button>
   );

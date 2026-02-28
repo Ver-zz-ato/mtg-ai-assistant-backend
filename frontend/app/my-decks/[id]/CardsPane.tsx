@@ -22,8 +22,37 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
   const [addValidationItems, setAddValidationItems] = useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
   const [pendingAddName, setPendingAddName] = useState<string>('');
   const [pendingAddQty, setPendingAddQty] = useState<number>(1);
+  const [offColorCards, setOffColorCards] = useState<Set<string>>(new Set());
   const addBarRef = React.useRef<HTMLDivElement|null>(null);
   const listRef = React.useRef<HTMLDivElement|null>(null);
+  
+  // Check color identity for all cards when cards or allowedColors change (Commander format only)
+  useEffect(() => {
+    if (format?.toLowerCase() !== 'commander' || allowedColors.length === 0 || cards.length === 0) {
+      setOffColorCards(new Set());
+      return;
+    }
+    
+    async function checkColorIdentity() {
+      try {
+        const cardNames = cards.map(c => c.name);
+        const res = await fetch('/api/cards/batch-color-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: cardNames, allowedColors })
+        });
+        const json = await res.json().catch(() => ({ ok: false }));
+        
+        if (json.ok && json.violations) {
+          setOffColorCards(new Set(json.violations));
+        }
+      } catch (err) {
+        console.warn('[CardsPane] Color identity check failed:', err);
+      }
+    }
+    
+    checkColorIdentity();
+  }, [cards, allowedColors, format]);
 
   async function load() {
     if (!deckId) return;
@@ -743,12 +772,19 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       </div>
 
       <div className="mt-3 flex flex-col gap-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2" ref={listRef}>
-        {rows.map((c, idx) => (
+        {rows.map((c, idx) => {
+          const isOffColor = offColorCards.has(c.name);
+          return (
           <div
             key={c.id}
             data-row-index={idx}
-            className="flex items-center justify-between rounded border border-neutral-700 px-3 py-2 md:px-4 md:py-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-emerald-600 hover:bg-neutral-800/50 transition-colors cursor-pointer"
+            className={`flex items-center justify-between rounded border px-3 py-2 md:px-4 md:py-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-emerald-600 hover:bg-neutral-800/50 transition-colors cursor-pointer ${
+              isOffColor 
+                ? 'border-red-500/70 bg-red-950/20' 
+                : 'border-neutral-700'
+            }`}
             tabIndex={0}
+            title={isOffColor ? `⚠️ This card is outside your commander's color identity` : undefined}
             onKeyDown={(e)=>{
               if ((e.target as HTMLElement)?.tagName?.toLowerCase() === 'input') return;
               if (/^[1-9]$/.test(e.key)) { const to = parseInt(e.key,10); if (Number.isFinite(to)) { const diff = to - c.qty; if (diff !== 0) delta(c.id, diff); e.preventDefault(); } }
@@ -822,6 +858,14 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                 ) : null; 
               })()}
               <a className="hover:underline truncate max-w-[40vw]" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
+              {isOffColor && (
+                <span 
+                  className="ml-1.5 text-red-400 text-sm flex-shrink-0" 
+                  title="Outside commander's color identity"
+                >
+                  ⚠️
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -905,7 +949,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
               </button>
             </div>
           </div>
-        ))}
+        );})}
 
         {rows.length === 0 && !status && (
           <p className="text-sm opacity-70">No cards yet — try adding <em>Sol Ring</em>?</p>

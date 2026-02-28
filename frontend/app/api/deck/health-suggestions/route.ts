@@ -92,6 +92,25 @@ export async function POST(req: NextRequest) {
     const deckContext = `Deck: ${title}${commander ? ` | Commander: ${commander}` : ''} | Format: ${format} | Full Decklist: ${cardList}`;
     const fullPrompt = `${prompt}\n\n${deckContext}`;
 
+    // Get commander's color identity for the prompt
+    let colorIdentityHint = '';
+    if (commander && (format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh'))) {
+      try {
+        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+        const commanderDetails = await getDetailsForNamesCached([commander]);
+        const commanderEntry = commanderDetails.get(commander.toLowerCase()) || 
+          Array.from(commanderDetails.values())[0];
+        const allowedColors = (commanderEntry?.color_identity || []).map((c: string) => c.toUpperCase());
+        if (allowedColors.length > 0) {
+          const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+          const colorNamesStr = allowedColors.map((c: string) => colorNames[c] || c).join(', ');
+          colorIdentityHint = `\n\n**CRITICAL - COLOR IDENTITY**: This is a Commander deck. The commander ${commander} has color identity: ${allowedColors.join('')} (${colorNamesStr}). You MUST ONLY suggest cards within this color identity. Do NOT suggest any cards that contain mana symbols outside of ${allowedColors.join(', ')}.`;
+        }
+      } catch (e) {
+        console.warn('[health-suggestions] Could not fetch commander color identity for prompt:', e);
+      }
+    }
+
     // Minimal system prompt - deck_analysis prompt is 4k+ tokens and overkill for "suggest 5-7 cards"
     const systemPrompt = `You are ManaTap AI, an expert Magic: The Gathering assistant.
 
@@ -102,7 +121,7 @@ Example:
 2. Sol Ring - Essential mana acceleration
 
 Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played. Do not suggest cards already in the decklist.
-Output ONLY the numbered list, no preamble.`;
+Output ONLY the numbered list, no preamble.${colorIdentityHint}`;
 
     // Use gpt-4o-mini for cost efficiency - card suggestions don't need flagship model (~$0.70/call → ~$0.05/call)
     const model = process.env.MODEL_DECK_SCAN || 'gpt-4o-mini';
@@ -211,8 +230,66 @@ Output ONLY the numbered list, no preamble.`;
         console.warn('⚠️ [health-suggestions] Full content for debugging:', content);
       }
 
-      console.log('✅ [health-suggestions] Returning response with', suggestions.length, 'suggestions');
-      return NextResponse.json({ ok: true, suggestions });
+      // COLOR IDENTITY VALIDATION: Filter out off-color cards for Commander format
+      let validatedSuggestions = suggestions;
+      const isCommanderFormat = format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh');
+      
+      if (isCommanderFormat && commander && suggestions.length > 0) {
+        try {
+          const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+          const { isWithinColorIdentity } = await import('@/lib/deck/mtgValidators');
+          
+          // Get commander's color identity
+          const commanderDetails = await getDetailsForNamesCached([commander]);
+          const commanderEntry = commanderDetails.get(commander.toLowerCase()) || 
+            Array.from(commanderDetails.values())[0];
+          const allowedColors = (commanderEntry?.color_identity || []).map((c: string) => c.toUpperCase());
+          
+          if (allowedColors.length > 0) {
+            console.log('🎨 [health-suggestions] Commander color identity:', allowedColors.join(','));
+            
+            // Fetch color identity for all suggested cards
+            const cardNames = suggestions.map(s => s.card);
+            const cardDetails = await getDetailsForNamesCached(cardNames);
+            
+            // Filter out off-color suggestions
+            const beforeCount = suggestions.length;
+            validatedSuggestions = suggestions.filter(s => {
+              const cardKey = s.card.toLowerCase();
+              const cardEntry = cardDetails.get(cardKey) || 
+                Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
+              
+              if (!cardEntry) {
+                // Card not found in cache - keep it (might be valid)
+                console.warn(`⚠️ [health-suggestions] Card not in cache: ${s.card}`);
+                return true;
+              }
+              
+              const cardColors = cardEntry.color_identity || [];
+              const isValid = isWithinColorIdentity({ color_identity: cardColors } as any, allowedColors);
+              
+              if (!isValid) {
+                console.log(`🚫 [health-suggestions] Filtered off-color card: ${s.card} (${cardColors.join(',')}) not in ${allowedColors.join(',')}`);
+              }
+              
+              return isValid;
+            });
+            
+            const removedCount = beforeCount - validatedSuggestions.length;
+            if (removedCount > 0) {
+              console.log(`🎨 [health-suggestions] Removed ${removedCount} off-color suggestions`);
+            }
+          } else {
+            console.warn('⚠️ [health-suggestions] Could not determine commander color identity');
+          }
+        } catch (colorErr) {
+          console.error('❌ [health-suggestions] Color identity validation error:', colorErr);
+          // Continue with unfiltered suggestions on error
+        }
+      }
+
+      console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');
+      return NextResponse.json({ ok: true, suggestions: validatedSuggestions });
     } catch (e: any) {
       console.error('💥 [health-suggestions] OpenAI call failed:', e);
       console.error('💥 [health-suggestions] Error details:', {

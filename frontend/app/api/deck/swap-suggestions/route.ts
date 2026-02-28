@@ -85,9 +85,20 @@ async function aiSuggest(
   budget: number,
   userId?: string | null,
   isPro?: boolean,
-  anonId?: string | null
+  anonId?: string | null,
+  commander?: string | null,
+  allowedColors?: string[] | null
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
   const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
+  
+  // Build color identity instruction if available
+  let colorIdentityRule = '5. Format & color: All suggestions must be legal and match deck\'s color identity.';
+  if (commander && allowedColors && allowedColors.length > 0) {
+    const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+    const colorNamesStr = allowedColors.map(c => colorNames[c] || c).join(', ');
+    colorIdentityRule = `5. **COLOR IDENTITY (CRITICAL)**: Commander is ${commander} with color identity ${allowedColors.join('')} (${colorNamesStr}). You MUST ONLY suggest replacement cards within this color identity. Do NOT suggest any cards with mana symbols outside of ${allowedColors.join(', ')}. This is non-negotiable.`;
+  }
+  
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
 
 CRITICAL RULES:
@@ -95,13 +106,13 @@ CRITICAL RULES:
 2. Role: Replacement must fill the SAME role (ramp, removal, draw, win condition, etc.)
 3. Function: Cards must have similar functions (e.g., both board wipes, both mana rocks)
 4. Synergy: If original is part of a synergy, replacement must maintain it. Name enabler and payoff.
-5. Format & color: All suggestions must be legal and match deck's color identity.
+${colorIdentityRule}
 
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both provide mana acceleration for creature-heavy decks."}]
 Quality over quantity.`;
   
-  const input = `Currency: ${currency}\nThreshold: ${budget}\nDeck:\n${deckText}`;
+  const input = `Currency: ${currency}\nThreshold: ${budget}${commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
   
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
@@ -161,6 +172,8 @@ export async function POST(req: NextRequest) {
     const useAI = Boolean(body.ai || (body.provider === "ai"));
     const useSnapshot = Boolean(body.useSnapshot || body.use_snapshot);
     const snapshotDate = String(body.snapshotDate || body.snapshot_date || new Date().toISOString().slice(0,10)).slice(0,10);
+    const commander = String(body.commander || "").trim();
+    const format = String(body.format || "Commander").trim();
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -203,6 +216,24 @@ export async function POST(req: NextRequest) {
     const names = parseDeck(deckText);
     const suggestions: Suggestion[] = [];
 
+    // Fetch commander's color identity for validation
+    let allowedColors: string[] = [];
+    const isCommanderFormat = format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh');
+    if (isCommanderFormat && commander) {
+      try {
+        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+        const commanderDetails = await getDetailsForNamesCached([commander]);
+        const commanderEntry = commanderDetails.get(commander.toLowerCase()) || 
+          Array.from(commanderDetails.values())[0];
+        allowedColors = (commanderEntry?.color_identity || []).map((c: string) => c.toUpperCase());
+        if (allowedColors.length > 0) {
+          console.log('[swap-suggestions] Commander color identity:', allowedColors.join(','));
+        }
+      } catch (e) {
+        console.warn('[swap-suggestions] Failed to fetch commander color identity:', e);
+      }
+    }
+
     // If AI requested, try it first
     if (useAI) {
       const { data: { user } } = await supabase.auth.getUser();
@@ -214,7 +245,7 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
-      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId);
+      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId, commander || null, allowedColors.length > 0 ? allowedColors : null);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;
@@ -251,7 +282,53 @@ export async function POST(req: NextRequest) {
 
     suggestions.sort((a, b) => (a.price_to - a.price_from) - (b.price_to - b.price_from));
 
-    return NextResponse.json({ ok: true, currency, budget, suggestions });
+    // COLOR IDENTITY VALIDATION: Filter out off-color swaps for Commander format
+    let validatedSuggestions = suggestions;
+    
+    if (isCommanderFormat && commander && suggestions.length > 0 && allowedColors.length > 0) {
+      try {
+        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+        const { isWithinColorIdentity } = await import('@/lib/deck/mtgValidators');
+        
+        console.log('[swap-suggestions] Validating color identity:', allowedColors.join(','));
+        
+        // Fetch color identity for all "to" cards
+        const toCardNames = suggestions.map(s => s.to);
+        const cardDetails = await getDetailsForNamesCached(toCardNames);
+        
+        // Filter out off-color suggestions
+        const beforeCount = suggestions.length;
+        validatedSuggestions = suggestions.filter(s => {
+          const cardKey = s.to.toLowerCase();
+          const cardEntry = cardDetails.get(cardKey) || 
+            Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
+          
+          if (!cardEntry) {
+            // Card not found in cache - keep it (might be valid)
+            return true;
+          }
+          
+          const cardColors = cardEntry.color_identity || [];
+          const isValid = isWithinColorIdentity({ color_identity: cardColors } as any, allowedColors);
+          
+          if (!isValid) {
+            console.log(`[swap-suggestions] Filtered off-color swap: ${s.to} (${cardColors.join(',')}) not in ${allowedColors.join(',')}`);
+          }
+          
+          return isValid;
+        });
+        
+        const removedCount = beforeCount - validatedSuggestions.length;
+        if (removedCount > 0) {
+          console.log(`[swap-suggestions] Removed ${removedCount} off-color suggestions`);
+        }
+      } catch (colorErr) {
+        console.error('[swap-suggestions] Color identity validation error:', colorErr);
+        // Continue with unfiltered suggestions on error
+      }
+    }
+
+    return NextResponse.json({ ok: true, currency, budget, suggestions: validatedSuggestions });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "swap failed" }, { status: 500 });
   }

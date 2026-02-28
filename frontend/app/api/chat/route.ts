@@ -1217,6 +1217,25 @@ export async function POST(req: NextRequest) {
     }
     }
 
+    // COMMANDER CLARIFICATION: When user pastes a decklist without specifying commander
+    // and we're in Commander format, instruct the AI to ask for clarification FIRST
+    const isCommanderFormat = formatKey === "commander" || formatKey === "edh" || !formatKey;
+    const hasLinkedCommander = !!d?.commander;
+    const hasPastedDecklist = !!pastedDecklistForCompose?.deckCards?.length;
+    const pastedCommanderDetected = !!pastedDecklistForCompose?.commanderName;
+    
+    if (isCommanderFormat && hasPastedDecklist && !hasLinkedCommander && !pastedCommanderDetected) {
+      // Get first few card names from the decklist to help user identify commander
+      const firstCards = pastedDecklistForCompose?.deckCards?.slice(0, 5).map(c => c.name) || [];
+      const cardList = firstCards.length > 0 ? firstCards.join(", ") : "the cards";
+      
+      sys += `\n\n**CRITICAL - COMMANDER UNKNOWN**: The user pasted a Commander decklist but I could NOT detect which card is their commander. Before giving ANY card recommendations:
+1. Ask the user: "Which card is your commander? I see ${cardList}... - please confirm which one leads your deck."
+2. Do NOT suggest any cards until you know the commander (you cannot validate color identity without it).
+3. Once they tell you, note the commander's color identity and ONLY recommend cards within those colors.
+4. If they mention their commander in their message, use that and proceed with recommendations.`;
+    }
+
     // If prefs exist, short-circuit with an acknowledgement to avoid any fallback question flicker
     // BUT skip this if streaming is being used (to prevent duplicate messages)
     const ackFromPrefs = () => {
@@ -1676,11 +1695,18 @@ Return the corrected answer with concise, user-facing tone.`;
       try {
         const formatKeyForValidate = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
         const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer" ? formatKeyForValidate : "commander") as "commander" | "modern" | "pioneer";
+        
+        // Get color identity from: inferredContext > prefs.colors > null (let validator fetch it)
+        const colorIdentityForValidate: string[] | null = 
+          (inferredContext?.colors?.length > 0) ? inferredContext.colors :
+          (Array.isArray(prefs?.colors) && prefs.colors.length > 0) ? prefs.colors :
+          null;
+        
         const { validateRecommendations, REPAIR_SYSTEM_MESSAGE } = await import("@/lib/chat/validateRecommendations");
         let result = await validateRecommendations({
           deckCards: deckCardsForValidate.map((c) => ({ name: c.name })),
           formatKey: formatKeyVal,
-          colorIdentity: null,
+          colorIdentity: colorIdentityForValidate,
           commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
           rawText: outText,
         });
@@ -1699,7 +1725,7 @@ Return the corrected answer with concise, user-facing tone.`;
               result = await validateRecommendations({
                 deckCards: deckCardsForValidate.map((c) => ({ name: c.name })),
                 formatKey: formatKeyVal,
-                colorIdentity: null,
+                colorIdentity: colorIdentityForValidate,
                 commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
                 rawText: outText,
                 isRegenPass: true,

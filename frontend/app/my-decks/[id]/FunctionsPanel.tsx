@@ -84,7 +84,7 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
           {/* Regular function buttons - reduced visual weight */}
           <div className="flex flex-wrap gap-2 items-center">
             <ExportDropdown deckId={deckId} />
-            <DeckCsvUpload deckId={deckId} />
+            <DeckCsvUpload deckId={deckId} onFixNames={() => setFixOpen(true)} />
             <RecomputeButton />
             {pub && (<a href={`/decks/${deckId}`} className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300" title="View public page" target="_blank" rel="noreferrer">Public preview</a>)}
             <ShareButton
@@ -100,8 +100,7 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
               compact
               className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300"
             />
-            <button onClick={async()=>{ if (!isPro) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { /* fallback */ alert('This is a Pro feature. Upgrade to unlock.'); } return; } setFixOpen(true); }} className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300">Fix card names</button>
-            {!isPro && (<span className="text-[9px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300 font-bold uppercase">Pro</span>)}
+            <button onClick={()=>setFixOpen(true)} className="text-xs border border-orange-600/50 bg-gradient-to-r from-orange-600/20 to-red-600/20 hover:from-orange-600/30 hover:to-red-600/30 rounded px-2.5 py-1.5 transition-colors font-medium text-orange-300 hover:text-orange-200">✏️ Fix card names</button>
           </div>
           
           {/* Deck Versioning (Pro feature) */}

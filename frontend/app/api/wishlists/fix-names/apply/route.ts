@@ -9,11 +9,6 @@ export async function POST(req: NextRequest){
     const { data: ures } = await (supabase as any).auth.getUser();
     const user = ures?.user; 
     if (!user) return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
-    
-    // Use standardized Pro check that checks both database and metadata
-    const { checkProStatus } = await import('@/lib/server-pro-check');
-    const isPro = await checkProStatus(user.id);
-    if (!isPro) return NextResponse.json({ ok:false, error:'pro_required' }, { status:403 });
 
     const body = await req.json().catch(()=>({}));
     const wishlist_id = String(body?.wishlist_id||'');
