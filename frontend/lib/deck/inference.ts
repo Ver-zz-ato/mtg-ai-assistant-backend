@@ -11,6 +11,7 @@ export type SfCard = {
   cmc?: number;
   legalities?: Record<string, string>;
   mana_cost?: string; // e.g. "{1}{R}{G}"
+  set?: string; // Set code e.g. "woe", "mkm"
 };
 
 function norm(name: string): string {
@@ -403,6 +404,10 @@ export type InferredDeckContext = {
     highEndCount: number; // 6+ drops
     lowCurve: boolean; // avg <= 3
     tightManabase: boolean; // limited sources relative to pips
+    buckets: { '0-1': number; '2': number; '3': number; '4': number; '5': number; '6+': number };
+    gaps: number[]; // CMC values with 0 nonland cards (e.g., [2, 3] means no 2 or 3 drops)
+    shape: 'aggressive' | 'midrange' | 'control' | 'battlecruiser' | 'combo' | 'uneven';
+    warnings: string[]; // e.g., "No 2-drops in aggressive deck"
   };
   roleDistribution?: {
     byRole: Record<CardRole, number>; // Count per role
@@ -760,12 +765,29 @@ export function analyzeCurve(
   let totalCards = 0;
   let highEndCount = 0;
   
+  // Initialize buckets
+  const buckets: { '0-1': number; '2': number; '3': number; '4': number; '5': number; '6+': number } = {
+    '0-1': 0,
+    '2': 0,
+    '3': 0,
+    '4': 0,
+    '5': 0,
+    '6+': 0,
+  };
+  
+  // Track individual CMC counts for gap detection
+  const cmcCounts: Record<number, number> = {};
+  
+  // Track interaction count for shape detection
+  let interactionCount = 0;
+  
   for (const { name, count } of entries) {
     const c = byName.get(name.toLowerCase());
     if (!c) continue;
     
     const cmc = c.cmc || 0;
     const typeLine = (c.type_line || '').toLowerCase();
+    const oracleText = (c.oracle_text || '').toLowerCase();
     
     // Skip lands from curve calculation
     if (/land/i.test(typeLine)) continue;
@@ -773,13 +795,103 @@ export function analyzeCurve(
     totalCMC += cmc * count;
     totalCards += count;
     
-    if (cmc >= 6) {
+    // Count by CMC for bucket and gap analysis
+    cmcCounts[cmc] = (cmcCounts[cmc] || 0) + count;
+    
+    // Assign to buckets
+    if (cmc <= 1) {
+      buckets['0-1'] += count;
+    } else if (cmc === 2) {
+      buckets['2'] += count;
+    } else if (cmc === 3) {
+      buckets['3'] += count;
+    } else if (cmc === 4) {
+      buckets['4'] += count;
+    } else if (cmc === 5) {
+      buckets['5'] += count;
+    } else {
+      buckets['6+'] += count;
       highEndCount += count;
+    }
+    
+    // Check for interaction (removal, counters)
+    if (/destroy|exile|counter|return.*to.*hand|deal.*damage/i.test(oracleText) ||
+        /instant/i.test(typeLine)) {
+      interactionCount += count;
     }
   }
   
   const averageCMC = totalCards > 0 ? totalCMC / totalCards : 0;
   const lowCurve = averageCMC <= 3;
+  
+  // Detect gaps (CMC values 1-5 with 0 nonland cards)
+  const gaps: number[] = [];
+  for (let cmc = 1; cmc <= 5; cmc++) {
+    if (!cmcCounts[cmc] || cmcCounts[cmc] === 0) {
+      gaps.push(cmc);
+    }
+  }
+  
+  // Determine curve shape
+  let shape: 'aggressive' | 'midrange' | 'control' | 'battlecruiser' | 'combo' | 'uneven' = 'midrange';
+  
+  // Aggressive: low average CMC, heavy on 1-3 drops
+  if (averageCMC < 2.5 && buckets['0-1'] + buckets['2'] + buckets['3'] >= totalCards * 0.7) {
+    shape = 'aggressive';
+  }
+  // Battlecruiser: high average CMC, lots of 5+ drops
+  else if (averageCMC > 4.0 && buckets['5'] + buckets['6+'] >= totalCards * 0.3) {
+    shape = 'battlecruiser';
+  }
+  // Control: higher CMC with heavy interaction
+  else if (averageCMC > 3.2 && interactionCount >= totalCards * 0.25) {
+    shape = 'control';
+  }
+  // Combo: typically lower curve with specific pieces (hard to detect without combo detection)
+  // For now, detect as low curve with few creatures
+  else if (averageCMC < 3.0 && buckets['0-1'] + buckets['2'] >= totalCards * 0.4) {
+    // Could be combo or fast midrange - check for uneven distribution
+    if (gaps.length >= 2 || (buckets['4'] === 0 && buckets['5'] > 0)) {
+      shape = 'combo';
+    }
+  }
+  // Uneven: significant gaps or unusual distribution
+  else if (gaps.length >= 2 || (buckets['2'] === 0 && buckets['3'] === 0)) {
+    shape = 'uneven';
+  }
+  
+  // Generate warnings based on shape and distribution
+  const warnings: string[] = [];
+  
+  // No 1-drops in aggressive deck
+  if (shape === 'aggressive' && buckets['0-1'] < 4) {
+    warnings.push('Few 1-drops for an aggressive curve - consider adding more early plays');
+  }
+  
+  // No 2-drops is almost always a problem
+  if (buckets['2'] < 3 && totalCards >= 30) {
+    warnings.push('Very few 2-drops - this may lead to slow starts');
+  }
+  
+  // Gap at 3 CMC
+  if (buckets['3'] < 3 && shape !== 'aggressive' && totalCards >= 30) {
+    warnings.push('Few 3-drops - consider adding midgame plays');
+  }
+  
+  // Too many high-end cards
+  if (buckets['6+'] > 10 && shape !== 'battlecruiser') {
+    warnings.push('Many 6+ CMC cards - ensure you have enough ramp to cast them');
+  }
+  
+  // Check for double-gap (e.g., no 2s AND no 3s)
+  if (gaps.includes(2) && gaps.includes(3)) {
+    warnings.push('Missing both 2 and 3-drops - curve may be inconsistent');
+  }
+  
+  // Control deck with low interaction
+  if (averageCMC > 3.5 && interactionCount < 8 && totalCards >= 30) {
+    warnings.push('Higher curve deck with limited interaction - may be vulnerable to aggro');
+  }
   
   // Check if manabase is tight (sources < pips * 0.9 for any color)
   let tightManabase = false;
@@ -800,6 +912,10 @@ export function analyzeCurve(
     highEndCount,
     lowCurve,
     tightManabase,
+    buckets,
+    gaps,
+    shape,
+    warnings,
   };
 }
 

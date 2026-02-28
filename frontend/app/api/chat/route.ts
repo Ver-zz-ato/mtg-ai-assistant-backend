@@ -11,6 +11,7 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
+import { COMMANDER_BANNED } from "@/lib/deck/banned-cards";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -86,48 +87,6 @@ function formatToolSuggestions(tools: ToolSuggestion[]): string {
   
   return `\n\n💡 **Helpful tools:** ${links.join(' • ')}`;
 }
-
-const COMMANDER_BANNED: Record<string, true> = {
-  "Ancestral Recall": true,
-  "Balance": true,
-  "Biorhythm": true,
-  "Black Lotus": true,
-  "Channel": true,
-  "Emrakul, the Aeons Torn": true,
-  "Falling Star": true,
-  "Fastbond": true,
-  "Flash": true,
-  "Gifts Ungiven": true,
-  "Golos, Tireless Pilgrim": true,
-  "Griselbrand": true,
-  "Hullbreacher": true,
-  "Iona, Shield of Emeria": true,
-  "Kokusho, the Evening Star": true,
-  "Leovold, Emissary of Trest": true,
-  "Library of Alexandria": true,
-  "Limited Resources": true,
-  "Mox Emerald": true,
-  "Mox Jet": true,
-  "Mox Pearl": true,
-  "Mox Ruby": true,
-  "Mox Sapphire": true,
-  "Painter's Servant": true,
-  "Panoptic Mirror": true,
-  "Paradox Engine": true,
-  "Primeval Titan": true,
-  "Prophet of Kruphix": true,
-  "Recurring Nightmare": true,
-  "Sundering Titan": true,
-  "Sway of the Stars": true,
-  "Sylvan Primordial": true,
-  "Time Vault": true,
-  "Time Walk": true,
-  "Tinker": true,
-  "Tolarian Academy": true,
-  "Trade Secrets": true,
-  "Upheaval": true,
-  "Yawgmoth's Bargain": true,
-};
 
 // simple 10-min cache for rules hints
 // eslint-disable-next-line no-var

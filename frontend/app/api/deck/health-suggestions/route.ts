@@ -80,6 +80,46 @@ export async function POST(req: NextRequest) {
     const title = String(deck.title || 'Untitled');
     const format = String(deck.format || 'Commander');
 
+    // Analyze current deck composition for context
+    let compositionContext = '';
+    try {
+      const cardNamesLower = (deckCards || []).map((c: any) => c.name.toLowerCase());
+      
+      // Detect current role counts (simplified heuristics)
+      const rampKeywords = ['sol ring', 'arcane signet', 'signet', 'talisman', 'mana crypt', 'mana vault', 'cultivate', 'kodama\'s reach', 'farseek', 'rampant growth', 'three visits', 'nature\'s lore', 'llanowar', 'birds of paradise', 'elvish mystic', 'land tax'];
+      const drawKeywords = ['brainstorm', 'ponder', 'preordain', 'rhystic study', 'mystic remora', 'sylvan library', 'phyrexian arena', 'necropotence', 'harmonize', 'read the bones', 'sign in blood', 'divination', 'night\'s whisper', 'impulse', 'fact or fiction'];
+      const removalKeywords = ['swords to plowshares', 'path to exile', 'beast within', 'chaos warp', 'counterspell', 'swan song', 'force of will', 'cyclonic rift', 'wrath of god', 'damnation', 'toxic deluge', 'terminate', 'mortify', 'anguished unmaking', 'vindicate', 'assassin\'s trophy'];
+      
+      let rampCount = 0;
+      let drawCount = 0;
+      let removalCount = 0;
+      let landCount = 0;
+      
+      for (const name of cardNamesLower) {
+        if (rampKeywords.some(k => name.includes(k))) rampCount++;
+        if (drawKeywords.some(k => name.includes(k))) drawCount++;
+        if (removalKeywords.some(k => name.includes(k))) removalCount++;
+        if (name.includes('land') || name.includes('forest') || name.includes('island') || name.includes('swamp') || name.includes('mountain') || name.includes('plains') || name.includes('command tower') || name.includes('shock') || name.includes('fetch')) landCount++;
+      }
+      
+      // Add basic land count from deck_text pattern matching
+      const deckText = String(deck.deck_text || '');
+      const basicLandMatch = deckText.match(/\d+x?\s*(basic\s+)?(forest|island|swamp|mountain|plains)/gi);
+      if (basicLandMatch) landCount += basicLandMatch.length;
+      
+      compositionContext = `\n\n**DECK COMPOSITION ANALYSIS**:
+- Current ramp sources: ~${rampCount} cards
+- Current draw sources: ~${drawCount} cards  
+- Current removal/interaction: ~${removalCount} cards
+- Approximate land count: ~${landCount} lands
+
+Use this context to make targeted suggestions that fill gaps. For example, if ramp count is low (<8), prioritize ramp suggestions. If removal is lacking (<8), prioritize interaction.`;
+      
+      console.log('📊 [health-suggestions] Deck composition:', { rampCount, drawCount, removalCount, landCount });
+    } catch (compErr) {
+      console.warn('[health-suggestions] Could not analyze deck composition:', compErr);
+    }
+
     // Generate category-specific prompt
     const categoryPrompts: Record<string, string> = {
       'mana_base': 'Suggest 5-7 lands or mana fixing cards to improve the mana base for this deck. Focus on lands that produce the deck\'s colors efficiently.',
@@ -121,7 +161,7 @@ Example:
 2. Sol Ring - Essential mana acceleration
 
 Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played. Do not suggest cards already in the decklist.
-Output ONLY the numbered list, no preamble.${colorIdentityHint}`;
+Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 
     // Use gpt-4o-mini for cost efficiency - card suggestions don't need flagship model (~$0.70/call → ~$0.05/call)
     const model = process.env.MODEL_DECK_SCAN || 'gpt-4o-mini';

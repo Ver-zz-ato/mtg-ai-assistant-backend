@@ -57,9 +57,67 @@ export async function GET(req: NextRequest) {
       });
     }
     
+    // Get commander's color identity and filter cards
+    let filteredCardCounts = cardCounts;
+    try {
+      // Normalize commander name for lookup
+      const normName = commanderName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+      
+      const { data: cmdCache } = await supabase
+        .from('scryfall_cache')
+        .select('color_identity')
+        .eq('name', normName)
+        .maybeSingle();
+      
+      const allowedColors = (cmdCache?.color_identity || []).map((c: string) => c.toUpperCase());
+      
+      if (allowedColors.length > 0) {
+        console.log(`[popular-cards] Commander ${commanderName} color identity: ${allowedColors.join(',')}`);
+        
+        // Fetch color identity for all popular cards
+        const cardNames = Object.keys(cardCounts);
+        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+        const { isWithinColorIdentity } = await import('@/lib/deck/mtgValidators');
+        
+        const cardDetails = await getDetailsForNamesCached(cardNames);
+        
+        // Filter out off-color cards
+        filteredCardCounts = {};
+        let removedCount = 0;
+        
+        for (const [cardName, count] of Object.entries(cardCounts)) {
+          const normCard = cardName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+          const entry = cardDetails.get(normCard) || 
+            Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === normCard)?.[1];
+          
+          if (!entry) {
+            // Card not found in cache - include it (might be valid)
+            filteredCardCounts[cardName] = count;
+            continue;
+          }
+          
+          const cardColors = entry.color_identity || [];
+          const isValid = isWithinColorIdentity({ color_identity: cardColors } as any, allowedColors);
+          
+          if (isValid) {
+            filteredCardCounts[cardName] = count;
+          } else {
+            removedCount++;
+          }
+        }
+        
+        if (removedCount > 0) {
+          console.log(`[popular-cards] Filtered out ${removedCount} off-color cards`);
+        }
+      }
+    } catch (colorErr) {
+      console.warn('[popular-cards] Color identity filtering failed, returning unfiltered:', colorErr);
+      // Continue with unfiltered results
+    }
+    
     // Calculate inclusion rates and sort
     const totalDecks = decks.length;
-    const popularCards = Object.entries(cardCounts)
+    const popularCards = Object.entries(filteredCardCounts)
       .map(([card, count]) => ({
         card,
         inclusion_rate: `${Math.round((count / totalDecks) * 100)}%`,

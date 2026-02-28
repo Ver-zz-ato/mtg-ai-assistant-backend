@@ -103,14 +103,23 @@ async function aiSuggest(
 
 CRITICAL RULES:
 1. Price: Only suggest swaps where the replacement costs LESS than the threshold.
-2. Role: Replacement must fill the SAME role (ramp, removal, draw, win condition, etc.)
-3. Function: Cards must have similar functions (e.g., both board wipes, both mana rocks)
-4. Synergy: If original is part of a synergy, replacement must maintain it. Name enabler and payoff.
+2. Role: Replacement MUST fill the SAME deck role:
+   - Ramp → Ramp only (mana rocks, land fetch, dorks)
+   - Removal → Removal only (destroy, exile, bounce, counter)
+   - Card draw → Card draw only (draw spells, cantrips, card selection)
+   - Win condition → Win condition only (finishers, combo pieces)
+   - Protection → Protection only (hexproof, indestructible, phasing)
+   NEVER swap between categories (e.g., don't replace removal with ramp)
+3. CMC Match: Try to match mana cost within 1-2 CMC when possible
+4. Synergy Protection: NEVER suggest swapping:
+   - Known combo pieces (Thassa's Oracle, Thoracle, Demonic Consultation, etc.)
+   - Cards that reference specific other cards by name
+   - Cards with "you win the game" or infinite combo potential
 ${colorIdentityRule}
 
-RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences).
-Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both provide mana acceleration for creature-heavy decks."}]
-Quality over quantity.`;
+RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
+Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]
+Quality over quantity. If no good swaps exist, return empty array [].`;
   
   const input = `Currency: ${currency}\nThreshold: ${budget}${commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
   
@@ -216,6 +225,27 @@ export async function POST(req: NextRequest) {
     const names = parseDeck(deckText);
     const suggestions: Suggestion[] = [];
 
+    // Detect combo pieces - these should NOT be suggested for swapping
+    let comboPieces = new Set<string>();
+    try {
+      const { detectCombos, normalizeDeckNames } = await import('@/lib/combos/detect');
+      const normalizedNames = normalizeDeckNames(deckText);
+      const { present } = detectCombos(normalizedNames);
+      
+      // Collect all pieces from detected combos
+      for (const combo of present) {
+        for (const piece of combo.pieces) {
+          comboPieces.add(piece.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim());
+        }
+      }
+      
+      if (comboPieces.size > 0) {
+        console.log('[swap-suggestions] Protected combo pieces:', Array.from(comboPieces).join(', '));
+      }
+    } catch (comboErr) {
+      console.warn('[swap-suggestions] Combo detection failed:', comboErr);
+    }
+
     // Fetch commander's color identity for validation
     let allowedColors: string[] = [];
     const isCommanderFormat = format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh');
@@ -250,6 +280,14 @@ export async function POST(req: NextRequest) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;
         if (!from || !toCanon) continue;
+        
+        // Skip combo pieces - don't suggest swapping them
+        const fromNorm = from.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
+        if (comboPieces.has(fromNorm)) {
+          console.log(`[swap-suggestions] Skipping combo piece: ${from}`);
+          continue;
+        }
+        
         const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
         const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
         if (!(pf > 0 && pt > 0) || pt >= pf) continue; // must be cheaper
@@ -262,6 +300,13 @@ export async function POST(req: NextRequest) {
 
     // Built-in fallbacks for common staples
     for (const from of names) {
+      // Skip combo pieces - don't suggest swapping them
+      const fromNorm = from.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
+      if (comboPieces.has(fromNorm)) {
+        console.log(`[swap-suggestions] Skipping combo piece (builtin): ${from}`);
+        continue;
+      }
+      
       const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
       const key = from.toLowerCase();
       const cands = BUILTIN_SWAPS[key] || [];

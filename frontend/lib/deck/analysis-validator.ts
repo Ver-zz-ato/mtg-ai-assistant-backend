@@ -4,11 +4,13 @@
 import { fetchCard } from "./inference";
 import { normalizeCardName, isWithinColorIdentity, isLegalForFormat } from "./mtgValidators";
 import { BANNED_LISTS } from "./banned-cards";
+import { detectAntiSynergies, type AntiSynergyResult } from "./antiSynergy";
 
 export type ValidationResult = {
   valid: boolean;
   errors: string[];
   warnings: string[];
+  antiSynergies?: AntiSynergyResult[];
 };
 
 export type DeckAnalysisJSON = {
@@ -164,10 +166,30 @@ export async function validateDeckAnalysis(
     }
   }
 
+  // Detect anti-synergies in the deck
+  const cardLines = context.deckText.split('\n').filter(l => l.trim());
+  const cardNames: string[] = [];
+  for (const line of cardLines) {
+    const match = line.match(/^\d*\s*x?\s*(.+?)(?:\s*\*|$)/i);
+    if (match) {
+      cardNames.push(match[1].trim());
+    }
+  }
+  
+  const antiSynergies = detectAntiSynergies(cardNames, context.commander);
+  
+  // Add severe anti-synergies to warnings
+  for (const as of antiSynergies) {
+    if (as.severity === 'severe') {
+      warnings.push(`Anti-synergy: ${as.description} (${as.cards.slice(0, 3).join(', ')})`);
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
     warnings,
+    antiSynergies,
   };
 }
 
