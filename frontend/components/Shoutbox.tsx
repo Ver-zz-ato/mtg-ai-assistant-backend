@@ -1,8 +1,22 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-
 type Shout = { id: number; user: string; text: string; ts: number };
+
+// Format timestamp as relative time (e.g., "2m", "1h", "1d")
+function formatRelativeTime(ts: number): string {
+  const now = Date.now();
+  const diffMs = now - ts;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  
+  if (diffSec < 60) return "now";
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHour < 24) return `${diffHour}h`;
+  return `${diffDay}d`;
+}
 
 export default function Shoutbox() {
   const [items, setItems] = useState<Shout[]>([]);
@@ -132,8 +146,15 @@ export default function Shoutbox() {
         {items.map((t, idx) => (
           <div key={`${t.id}-${idx}`} className="relative max-w-[92%]">
             <div className="bg-emerald-950/40 border border-emerald-700 text-emerald-100 rounded-lg px-3 py-2">
-              <span className="text-emerald-300 mr-2">{t.user}:</span>
-              <span>{t.text}</span>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="text-emerald-300 mr-1.5">{t.user}:</span>
+                  <span className="break-words">{t.text}</span>
+                </div>
+                <span className="text-[10px] text-emerald-500/60 shrink-0 mt-0.5">
+                  {formatRelativeTime(t.ts)}
+                </span>
+              </div>
             </div>
             <div className="absolute left-2 -bottom-1 w-0 h-0 border-t-8 border-t-emerald-700 border-l-8 border-l-transparent"></div>
           </div>

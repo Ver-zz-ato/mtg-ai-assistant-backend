@@ -1,18 +1,37 @@
 import { getHistory, type Shout } from "../hub";
 import { createClient } from "@/lib/supabase/server";
 
+const RETENTION_MS = 48 * 60 * 60 * 1000; // 48 hours
+
 export async function GET() {
-  const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+  const cutoffTime = Date.now() - RETENTION_MS;
+  const cutoffISO = new Date(cutoffTime).toISOString();
   
-  // Get messages from database
+  const supabase = await createClient();
+  
+  // Auto-delete old messages (older than 48 hours)
+  try {
+    const { error: deleteError, count } = await supabase
+      .from('shoutbox_messages')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoffISO);
+    
+    if (deleteError) {
+      console.error('Failed to cleanup old shoutbox messages:', deleteError.message);
+    } else if (count && count > 0) {
+      console.log(`[Shoutbox] Cleaned up ${count} message(s) older than 48 hours`);
+    }
+  } catch (err) {
+    console.error('Shoutbox cleanup error:', err);
+  }
+  
+  // Get messages from database (only within retention window)
   let dbMessages: Shout[] = [];
   try {
-    const supabase = await createClient();
-    const threeDaysAgoISO = new Date(threeDaysAgo).toISOString();
     const { data, error } = await supabase
       .from('shoutbox_messages')
       .select('id, user_name, message_text, created_at')
-      .gte('created_at', threeDaysAgoISO)
+      .gte('created_at', cutoffISO)
       .order('created_at', { ascending: false })
       .limit(100);
     
@@ -34,8 +53,8 @@ export async function GET() {
   // Combine and deduplicate (prefer database messages for real ones, keep seed messages from memory)
   const messageMap = new Map<number, Shout>();
   
-  // Add seed messages (negative IDs) from memory
-  memoryHistory.filter(msg => msg.id < 0).forEach(msg => {
+  // Add seed messages (negative IDs) from memory - only if within retention window
+  memoryHistory.filter(msg => msg.id < 0 && msg.ts >= cutoffTime).forEach(msg => {
     messageMap.set(msg.id, msg);
   });
   
@@ -46,7 +65,7 @@ export async function GET() {
   
   // Convert back to array, filter by time, and sort
   const allMessages = Array.from(messageMap.values())
-    .filter(msg => msg.ts >= threeDaysAgo)
+    .filter(msg => msg.ts >= cutoffTime)
     .sort((a, b) => b.ts - a.ts)
     .slice(0, 100);
   

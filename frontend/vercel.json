@@ -14,6 +14,7 @@
     { "path": "/api/cron/cleanup-request-metrics", "schedule": "30 6 * * 0" },
     { "path": "/api/cron/ops-report/daily", "schedule": "0 6 * * *" },
     { "path": "/api/cron/ops-report/weekly", "schedule": "0 7 * * 0" },
-    { "path": "/api/shout/auto-generate", "schedule": "17 */2 * * *" }
+    { "path": "/api/shout/auto-generate", "schedule": "17 */2 * * *" },
+    { "path": "/api/shout/cleanup", "schedule": "0 3 * * *" }
   ]
 }
