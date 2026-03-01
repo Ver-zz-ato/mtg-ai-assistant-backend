@@ -48,7 +48,7 @@ export default function Shoutbox() {
           const j = await r.json().catch(() => ({ items: [] }));
           if (!closed) {
             const items = (j.items as Shout[]) || [];
-            setItems(items.sort((a, b) => b.ts - a.ts));
+            setItems(items.sort((a, b) => a.ts - b.ts)); // oldest first, newest at bottom
           }
         } catch {}
 
@@ -60,7 +60,7 @@ export default function Shoutbox() {
           try {
             const msg = JSON.parse((e as MessageEvent).data) as Shout;
             setItems((prev) =>
-              [...prev, msg].sort((a, b) => b.ts - a.ts).slice(0, 100)
+              [...prev, msg].sort((a, b) => a.ts - b.ts).slice(-100) // oldest first, newest at bottom
             );
           } catch {}
         };

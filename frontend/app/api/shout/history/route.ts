@@ -63,11 +63,11 @@ export async function GET() {
     messageMap.set(msg.id, msg);
   });
   
-  // Convert back to array, filter by time, and sort
+  // Convert back to array, filter by time, and sort (oldest first, newest at bottom)
   const allMessages = Array.from(messageMap.values())
     .filter(msg => msg.ts >= cutoffTime)
-    .sort((a, b) => b.ts - a.ts)
-    .slice(0, 100);
+    .sort((a, b) => a.ts - b.ts)
+    .slice(-100);
   
   return Response.json({ items: allMessages });
 }
