@@ -25,10 +25,6 @@ const FORMATS: Array<{ value: string; label: string }> = [
   { value: "Other", label: "Other / Unknown" },
 ];
 
-const PLANS: Array<{ value: "Optimized" | "Budget"; label: string }> = [
-  { value: "Optimized", label: "Optimized" },
-  { value: "Budget", label: "Budget" },
-];
 
 type ImportMode = "paste" | "csv" | "csv-batch";
 
@@ -37,8 +33,6 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   const [title, setTitle] = useState("Imported Deck");
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState<string>("Commander");
-  const [plan, setPlan] = useState<"Optimized" | "Budget">("Optimized");
-  const [currency, setCurrency] = useState("USD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [csvStatus, setCsvStatus] = useState<string | null>(null);
@@ -49,7 +43,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   // Pre-import validation state
   const [showFixModal, setShowFixModal] = useState(false);
   const [unrecognizedCards, setUnrecognizedCards] = useState<UnrecognizedCard[]>([]);
-  const [validatedDeckText, setValidatedDeckText] = useState<string>("");
+  const [validatedCards, setValidatedCards] = useState<Array<{ name: string; qty: number }>>([]);
   const [validationStatus, setValidationStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,14 +53,12 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setDeckText("");
       setTitle("Imported Deck");
       setFormat("Commander");
-      setPlan("Optimized");
-      setCurrency("USD");
       setImportMode("paste");
       setCsvStatus(null);
       setCsvProgress(0);
       setShowFixModal(false);
       setUnrecognizedCards([]);
-      setValidatedDeckText("");
+      setValidatedCards([]);
       setValidationStatus(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -93,14 +85,14 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       title: title.trim() || "Imported Deck",
       deckText: finalDeckText.trim(),
       format: format === "Other" ? undefined : format,
-      plan,
-      currency,
+      plan: "Optimized" as const,
+      currency: "USD", // Default to USD, users can change on deck page
     };
 
     try {
       capture("deck_import_attempted", {
         format: payload.format || "Other",
-        plan: payload.plan,
+        plan: "Optimized",
         card_count: cardCount,
         mode: importMode,
       });
@@ -121,7 +113,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       try {
         capture("deck_import_completed", {
           format: payload.format || "Other",
-          plan: payload.plan,
+          plan: "Optimized",
           card_count: cardCount,
           mode: importMode,
         });
@@ -132,66 +124,43 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setBusy(false);
       setError(err?.message || "Import failed");
     }
-  }, [title, format, plan, currency, cardCount, importMode, onImported]);
+  }, [title, format, cardCount, importMode, onImported]);
 
   // Apply fixes and complete import
   const handleApplyFixes = useCallback(() => {
-    // Build the fixed deck text
-    const lines = validatedDeckText.split(/\r?\n/);
-    const fixedLines: string[] = [];
-    
-    // Create a map of original names to their fixes
+    // Create a map of original names (lowercase) to their user-selected fixes
     const fixMap = new Map<string, string | null>();
     unrecognizedCards.forEach(card => {
       fixMap.set(card.originalName.toLowerCase(), card.selectedFix);
     });
     
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        fixedLines.push(line);
-        continue;
-      }
+    // Build the final deck text from validated cards, applying user fixes
+    const finalLines: string[] = [];
+    
+    for (const card of validatedCards) {
+      const lowerName = card.name.toLowerCase();
       
-      // Parse line to get card name
-      const match = trimmed.match(/^(\d+)\s*[xX]?\s+(.+)$/) || 
-                    trimmed.match(/^(.+?)\s+[xX]\s*(\d+)$/) ||
-                    trimmed.match(/^(.+?)\s*,\s*(\d+)$/);
-      
-      let qty = 1;
-      let name = trimmed;
-      
-      if (match) {
-        if (/^\d+$/.test(match[1])) {
-          qty = parseInt(match[1], 10) || 1;
-          name = match[2].trim();
-        } else {
-          name = match[1].trim();
-          qty = parseInt(match[2], 10) || 1;
-        }
-      }
-      
-      // Check if this card needs fixing
-      const lowerName = name.toLowerCase();
+      // Check if this card needs user-selected fix
       if (fixMap.has(lowerName)) {
         const fix = fixMap.get(lowerName);
         if (fix === null) {
-          // Skip this card (user chose to remove it)
+          // User chose to remove this card - skip it
           continue;
         } else {
-          // Use the fixed name
-          fixedLines.push(`${qty} ${fix}`);
+          // Use the user-selected fix
+          finalLines.push(`${card.qty} ${fix}`);
         }
       } else {
-        // No fix needed, keep original
-        fixedLines.push(line);
+        // Card was already matched - use the corrected name from API
+        finalLines.push(`${card.qty} ${card.name}`);
       }
     }
     
-    const finalDeckText = fixedLines.join('\n');
+    const finalDeckText = finalLines.join('\n');
     setShowFixModal(false);
+    setBusy(true);
     completeImport(finalDeckText);
-  }, [validatedDeckText, unrecognizedCards, completeImport]);
+  }, [validatedCards, unrecognizedCards, completeImport]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -237,7 +206,9 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           suggestions: item.suggestions || [],
           selectedFix: item.suggestions?.[0] || null, // Default to first suggestion
         })));
-        setValidatedDeckText(deckText.trim());
+        // Store the corrected cards from API (includes both matched and unmatched)
+        const correctedCards = validateJson.cards || [];
+        setValidatedCards(correctedCards.map((c: any) => ({ name: c.name, qty: c.qty })));
         setShowFixModal(true);
         setBusy(false);
         return;
@@ -350,14 +321,14 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           title: title.trim() || "Imported Deck",
           deckText: finalDeckText.trim(),
           format: format === "Other" ? undefined : format,
-          plan,
-          currency,
+          plan: "Optimized" as const,
+          currency: "USD",
         };
 
         try {
           capture("deck_import_attempted", {
             format: payload.format || "Other",
-            plan: payload.plan,
+            plan: "Optimized",
             card_count: parsedCards.length,
             mode: "csv",
           });
@@ -375,14 +346,14 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
             throw new Error(json?.error || res.statusText || "Failed to import deck");
           }
 
-          try {
-            capture("deck_import_completed", {
-              format: payload.format || "Other",
-              plan: payload.plan,
-              card_count: parsedCards.length,
-              mode: "csv",
-            });
-          } catch {}
+        try {
+          capture("deck_import_completed", {
+            format: payload.format || "Other",
+            plan: "Optimized",
+            card_count: parsedCards.length,
+            mode: "csv",
+          });
+        } catch {}
 
           onImported(String(json.id));
         } catch (err: any) {
@@ -459,62 +430,22 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-xs text-neutral-400" htmlFor="import-deck-format">
-              Format
-            </label>
-            <select
-              id="import-deck-format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-              disabled={busy}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-            >
-              {FORMATS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-neutral-400" htmlFor="import-deck-plan">
-              Plan
-            </label>
-            <select
-              id="import-deck-plan"
-              value={plan}
-              onChange={(e) => setPlan(e.target.value as "Optimized" | "Budget")}
-              disabled={busy}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-            >
-              {PLANS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <div className="space-y-1">
-          <label className="text-xs text-neutral-400" htmlFor="import-deck-currency">
-            Currency
+          <label className="text-xs text-neutral-400" htmlFor="import-deck-format">
+            Format
           </label>
           <select
-            id="import-deck-currency"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            id="import-deck-format"
+            value={format}
+            onChange={(e) => setFormat(e.target.value)}
             disabled={busy}
             className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
           >
-            <option value="USD">USD – US Dollar</option>
-            <option value="EUR">EUR – Euro</option>
-            <option value="GBP">GBP – British Pound</option>
-            <option value="CAD">CAD – Canadian Dollar</option>
-            <option value="AUD">AUD – Australian Dollar</option>
+            {FORMATS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
           </select>
         </div>
 

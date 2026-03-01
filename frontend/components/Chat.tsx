@@ -152,10 +152,15 @@ function Chat() {
     return () => clearInterval(interval);
   }, [examplePrompts.length]);
 
+  // Ref to track pending auto-submit from quiz
+  const pendingQuizSubmitRef = useRef<string | null>(null);
+  
   // Listen for quiz-build-deck event
   useEffect(() => {
     const handleQuizBuildDeck = (e: CustomEvent) => {
       if (e.detail?.message) {
+        // Store the message to auto-submit
+        pendingQuizSubmitRef.current = e.detail.message;
         setText(e.detail.message);
       }
     };
@@ -164,6 +169,18 @@ function Chat() {
       window.removeEventListener('quiz-build-deck', handleQuizBuildDeck as EventListener);
     };
   }, []);
+  
+  // Auto-submit when quiz message is set
+  useEffect(() => {
+    if (pendingQuizSubmitRef.current && text === pendingQuizSubmitRef.current && !busy) {
+      pendingQuizSubmitRef.current = null;
+      // Small delay to ensure UI updates first
+      const timer = setTimeout(() => {
+        send();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [text, busy]);
 
   // Listen for open-sample-deck-modal event
   useEffect(() => {

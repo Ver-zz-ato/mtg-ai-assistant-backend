@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 
-function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+function norm(s: string) { 
+  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[''`´]/g, "'").replace(/\s+/g,' ').trim(); 
+}
 
 export const runtime = "nodejs";
 
@@ -19,110 +22,143 @@ export async function GET(req: NextRequest) {
       .limit(1000);
     const cards = Array.isArray(rows) ? rows as any[] : [];
 
-    // Find names not present in scryfall_cache
-    const names = Array.from(new Set(cards.map(r=>r.name)));
+    if (cards.length === 0) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
+
+    // Get unique card names
+    const names = Array.from(new Set(cards.map(r => r.name)));
     
-    // Check which names exist in cache using case-insensitive matching
-    // Build a map of normalized name -> proper cache name for later correction
+    // Multi-pass matching strategy (same as import flow)
     const cacheNameMap = new Map<string, string>(); // normalized -> actual cache name
-    const batchSize = 50; // Smaller batches for case-insensitive queries
     
+    // ===== PASS 1: Exact case-insensitive matches (batch query) =====
+    const batchSize = 100;
     for (let i = 0; i < names.length; i += batchSize) {
       const batch = names.slice(i, i + batchSize);
       
-      for (const deckCardName of batch) {
-        const isDFC = deckCardName.includes('//');
-        
-        // For DFCs with identical front/back faces, always flag as needing fix
-        if (isDFC) {
-          const parts = deckCardName.split('//').map((p: string) => p.trim());
-          const frontNorm = norm(parts[0]);
-          const backNorm = norm(parts[1] || '');
-          
-          if (frontNorm === backNorm) {
-            // DFC with same name on both faces - this is almost always wrong
-            // Skip this and let it go to suggestions
-            continue;
-          }
+      const orConditions = batch.map(name => {
+        const escaped = name.replace(/[%_]/g, '\\$&');
+        return `name.ilike.${escaped}`;
+      }).join(',');
+      
+      const { data: exactMatches } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .or(orConditions);
+      
+      if (exactMatches) {
+        for (const row of exactMatches) {
+          cacheNameMap.set(norm(row.name), row.name);
         }
-        
-        // Try exact case-insensitive match
-        const { data: exactMatch } = await supabase
+      }
+    }
+    
+    // Check what's still unmatched
+    let unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 2: Clean the name and try again =====
+    // The stored name might have artifacts that weren't cleaned on import
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      
+      const cleaned = cleanCardName(cardName);
+      if (cleaned !== cardName) {
+        const escaped = cleaned.replace(/[%_]/g, '\\$&');
+        const { data: cleanedMatch } = await supabase
           .from('scryfall_cache')
           .select('name')
-          .ilike('name', deckCardName)
+          .ilike('name', escaped)
           .limit(1);
         
-        if (exactMatch && exactMatch.length > 0) {
-          const cacheNorm = norm(exactMatch[0].name);
-          const deckNorm = norm(deckCardName);
-          
-          // For DFCs, verify it's not a duplicate/incorrect cache entry
-          if (isDFC) {
-            const cacheParts = exactMatch[0].name.split('//').map((p: string) => p.trim());
-            const cacheFrontNorm = norm(cacheParts[0]);
-            const cacheBackNorm = norm(cacheParts[1] || '');
-            
-            if (cacheFrontNorm === cacheBackNorm) {
-              // Cache has incorrect DFC (same face twice) - need to find the right one
-              // Don't mark as found
-            } else if (cacheNorm === deckNorm) {
-              // Valid DFC match
-              cacheNameMap.set(deckNorm, exactMatch[0].name);
-              continue;
-            }
-          } else {
-            // Non-DFC - simple match
-            cacheNameMap.set(deckNorm, exactMatch[0].name);
-            continue;
-          }
+        if (cleanedMatch && cleanedMatch.length > 0) {
+          cacheNameMap.set(norm(cardName), cleanedMatch[0].name);
         }
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 3: Prefix matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      if (cardName.length < 3) continue;
+      
+      const cleaned = cleanCardName(cardName);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
+      const { data: prefixMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `${escaped}%`)
+        .limit(5);
+      
+      if (prefixMatch && prefixMatch.length > 0) {
+        const exactLen = prefixMatch.find(m => norm(m.name).length === norm(cleaned).length);
+        cacheNameMap.set(norm(cardName), exactLen?.name || prefixMatch[0].name);
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 4: Contains matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      if (cardName.length < 5) continue;
+      
+      const cleaned = cleanCardName(cardName);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
+      const { data: containsMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `%${escaped}%`)
+        .limit(5);
+      
+      if (containsMatch && containsMatch.length === 1) {
+        cacheNameMap.set(norm(cardName), containsMatch[0].name);
+      } else if (containsMatch && containsMatch.length > 1) {
+        const best = containsMatch
+          .map(m => ({ name: m.name, score: stringSimilarity(cleaned, m.name) }))
+          .sort((a, b) => b.score - a.score)[0];
         
-        // For DFCs, search for the correct card by front face
-        if (isDFC) {
-          const frontPart = deckCardName.split('//')[0].trim();
-          const { data: dfcMatches } = await supabase
-            .from('scryfall_cache')
-            .select('name')
-            .ilike('name', `${frontPart} //%`)
-            .limit(10);
-          
-          if (dfcMatches && dfcMatches.length > 0) {
-            const frontNorm = norm(frontPart);
-            
-            // Prefer DFCs where front ≠ back (the correct format)
-            const validDFCs = dfcMatches.filter((r: any) => {
-              const cacheParts = r.name.split('//').map((p: string) => p.trim());
-              const cacheFrontNorm = norm(cacheParts[0]);
-              const cacheBackNorm = norm(cacheParts[1] || '');
-              return cacheFrontNorm === frontNorm && cacheFrontNorm !== cacheBackNorm;
-            });
-            
-            if (validDFCs.length > 0) {
-              // Use the first valid DFC
-              const bestMatch = validDFCs[0];
-              
-              // Check if it's different from what we have
-              if (norm(bestMatch.name) !== norm(deckCardName)) {
-                // Different - needs fixing, don't mark as found
-              } else {
-                // Exact match
-                cacheNameMap.set(norm(deckCardName), bestMatch.name);
-              }
-            }
-          }
+        if (best && best.score > 0.6) {
+          cacheNameMap.set(norm(cardName), best.name);
+        }
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 5: DFC front-face matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      
+      const cleaned = cleanCardName(cardName);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
+      const { data: dfcMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `${escaped} // %`)
+        .limit(3);
+      
+      if (dfcMatch && dfcMatch.length > 0) {
+        const best = dfcMatch
+          .map(m => ({ name: m.name, score: stringSimilarity(cleaned, m.name.split('//')[0].trim()) }))
+          .sort((a, b) => b.score - a.score)[0];
+        
+        if (best) {
+          cacheNameMap.set(norm(cardName), best.name);
         }
       }
     }
 
-    // Filter cards that don't have matches in cache
+    // Filter cards that still don't have matches in cache
     const unknown = cards.filter(r => !cacheNameMap.has(norm(r.name)));
     
     if (unknown.length === 0) return NextResponse.json({ ok:true, items: [] });
 
-    // Ask fuzzy endpoint for suggestions in batch (limit to 50 distinct names)
+    // Ask fuzzy endpoint for suggestions (limit to 50 distinct names)
     const uniq = Array.from(new Set(unknown.map(r=>r.name))).slice(0,50);
-    // Call fuzzy handler directly to avoid network TLS/proxy issues
+    
     try {
       const { POST: fuzzy } = await import("@/app/api/cards/fuzzy/route");
       const fuzzyReq = new (await import('next/server')).NextRequest(new URL('/api/cards/fuzzy', req.url), {
@@ -142,7 +178,7 @@ export async function GET(req: NextRequest) {
           
           // Look up each suggestion in cache to get proper capitalization
           const properSuggestions: string[] = [];
-          for (const suggestion of all.slice(0, 10)) { // Limit to top 10 suggestions
+          for (const suggestion of all.slice(0, 10)) {
             const { data: cacheMatch } = await supabase
               .from('scryfall_cache')
               .select('name')
@@ -152,7 +188,6 @@ export async function GET(req: NextRequest) {
             if (cacheMatch && cacheMatch.length > 0) {
               properSuggestions.push(cacheMatch[0].name);
             } else {
-              // Fallback to fuzzy suggestion if not in cache
               properSuggestions.push(suggestion);
             }
           }
@@ -161,19 +196,17 @@ export async function GET(req: NextRequest) {
         })
       );
       
-      // For DFCs, enhance suggestions by adding all valid cache variants
+      // For DFCs, enhance suggestions
       const enhancedItems = await Promise.all(
         itemsWithProperNames.filter(Boolean).map(async (item: any) => {
           if (!item) return null;
           
-          // Check if this is a DFC
-          const isDFC = item.name.includes('//');
+          const cleaned = cleanCardName(item.name);
+          const isDFC = cleaned.includes('//');
           if (!isDFC) return item;
           
-          // Get the front face
-          const frontFace = item.name.split('//')[0].trim();
+          const frontFace = cleaned.split('//')[0].trim();
           
-          // Query cache for ALL DFCs with this front face
           const { data: allDFCs } = await supabase
             .from('scryfall_cache')
             .select('name')
@@ -181,7 +214,6 @@ export async function GET(req: NextRequest) {
             .limit(20);
           
           if (allDFCs && allDFCs.length > 1) {
-            // Filter to only valid DFCs (front ≠ back)
             const validDFCs = allDFCs.filter((r: any) => {
               const parts = r.name.split('//').map((p: string) => p.trim());
               const frontNorm = norm(parts[0]);
@@ -189,16 +221,11 @@ export async function GET(req: NextRequest) {
               return frontNorm !== backNorm && frontNorm === norm(frontFace);
             });
             
-            // Add all valid variants to suggestions (deduplicate)
             const existingSuggestions = new Set(item.suggestions.map((s: string) => norm(s)));
-            const newSuggestions = validDFCs
-              .map((r: any) => r.name)
-              .filter((name: string) => !existingSuggestions.has(norm(name)));
             
             return {
               ...item,
               suggestions: [...validDFCs.map((r: any) => r.name), ...item.suggestions.filter((s: string) => {
-                // Keep non-DFC suggestions or invalid ones that weren't replaced
                 const isValidDFC = validDFCs.some((r: any) => norm(r.name) === norm(s));
                 return !isValidDFC;
               })]

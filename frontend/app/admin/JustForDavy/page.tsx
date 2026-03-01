@@ -10,6 +10,7 @@ const GROUPS = [
       { href: "/admin/feedback", label: "Feedback", eli5: "Thumbs up/down and comments from the widget + chat" },
       { href: "/admin/support", label: "User Support", eli5: "Grant Pro, resend emails, GDPR export/delete" },
       { href: "/admin/users", label: "User Search", eli5: "Find users by email or ID" },
+      { href: "/admin/shoutbox", label: "Shoutbox", eli5: "Moderate messages, ban users, trigger AI posts" },
     ],
   },
   {

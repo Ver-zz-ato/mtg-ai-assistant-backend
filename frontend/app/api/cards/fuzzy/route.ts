@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 
 export const runtime = "nodejs";
 
-function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim(); }
+function norm(s: string) { 
+  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[''`´]/g, "'").trim(); 
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,53 +17,84 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const results: Record<string, { suggestion?: string; all?: string[] }> = {};
 
-  function cleanup(raw: string): string {
-      let s = String(raw||'').trim();
-      // Strip sideboard prefix
-      s = s.replace(/^SB:\s*/i, '');
-      // Ampersand-delimited like "2x&Swamp&Warhammer" => take middle token as name
-      if (s.includes('&')) {
-        const parts = s.split('&').map(t=>t.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-          // If first token is a qty like 2 or 2x, use second
-          const first = parts[0].toLowerCase();
-          if (/^\d+x?$/.test(first)) return parts[1];
-          // Otherwise if we have 3 tokens, likely [qty, name, set]
-          if (parts.length >= 3) return parts[1];
-        }
-      }
-      // Quantity prefix: "2x Card" or "2 Card"
-      let m = s.match(/^\s*(\d+)\s*[xX]?\s+(.+)$/); if (m) return m[2];
-      // Bullet/dash prefix: "- Card"
-      m = s.match(/^[-•]\s*(.+)$/); if (m) return m[1];
-      // CSV-like "Card,18" => take name
-      m = s.match(/^(.+?),(?:\s*)"?\d+"?\s*$/); if (m) return m[1];
-      // Quotes
-      s = s.replace(/^"|"$/g, '');
-      return s.trim();
-    }
-
-  for (const raw of names) {
+    for (const raw of names) {
       const q = String(raw||'').trim();
-      const q0 = cleanup(q);
+      // Clean the card name using comprehensive utility
+      const q0 = cleanCardName(q);
       const qn = norm(q0);
       let all: string[] = [];
 
-      // 1) Our cache (scryfall_cache) first: exact, startsWith, contains
+      // 1) Database search: try multiple strategies
       try {
-        const { data } = await supabase
+        // Strategy 1a: Exact case-insensitive match
+        const { data: exactData } = await supabase
           .from('scryfall_cache')
           .select('name')
-          .ilike('name', `%${q0.replace(/%/g,'').replace(/_/g,' ')}%`)
-          .limit(12);
-        const fromDb = Array.isArray(data) ? (data as any[]).map(r=>String(r.name)) : [];
-        // Prefer startsWith matches first
-        const starts = fromDb.filter(n => norm(n).startsWith(qn));
-        const rest = fromDb.filter(n => !norm(n).startsWith(qn));
-        all = Array.from(new Set([ ...starts, ...rest ])).slice(0, 12);
+          .ilike('name', q0)
+          .limit(1);
+        
+        if (exactData && exactData.length > 0) {
+          all = [exactData[0].name];
+        }
+        
+        // Strategy 1b: Contains match (if no exact match)
+        if (all.length === 0) {
+          const escaped = q0.replace(/[%_]/g, '\\$&');
+          const { data: containsData } = await supabase
+            .from('scryfall_cache')
+            .select('name')
+            .ilike('name', `%${escaped}%`)
+            .limit(12);
+          
+          if (containsData && containsData.length > 0) {
+            // Sort by similarity and whether it starts with the query
+            const sorted = containsData
+              .map(r => ({
+                name: r.name,
+                score: stringSimilarity(qn, norm(r.name)),
+                startsWith: norm(r.name).startsWith(qn)
+              }))
+              .sort((a, b) => {
+                // Prefer startsWith matches
+                if (a.startsWith && !b.startsWith) return -1;
+                if (!a.startsWith && b.startsWith) return 1;
+                return b.score - a.score;
+              });
+            
+            all = sorted.slice(0, 12).map(r => r.name);
+          }
+        }
+        
+        // Strategy 1c: Prefix match (if still nothing)
+        if (all.length === 0 && q0.length >= 3) {
+          const escaped = q0.replace(/[%_]/g, '\\$&');
+          const { data: prefixData } = await supabase
+            .from('scryfall_cache')
+            .select('name')
+            .ilike('name', `${escaped}%`)
+            .limit(12);
+          
+          if (prefixData && prefixData.length > 0) {
+            all = prefixData.map(r => r.name);
+          }
+        }
+        
+        // Strategy 1d: DFC front-face match
+        if (all.length === 0) {
+          const escaped = q0.replace(/[%_]/g, '\\$&');
+          const { data: dfcData } = await supabase
+            .from('scryfall_cache')
+            .select('name')
+            .ilike('name', `${escaped} // %`)
+            .limit(5);
+          
+          if (dfcData && dfcData.length > 0) {
+            all = dfcData.map(r => r.name);
+          }
+        }
       } catch {}
 
-      // 2) If still empty, use Scryfall autocomplete (cheap) instead of named for many calls
+      // 2) If still empty, use Scryfall autocomplete
       if (all.length === 0) {
         try {
           const r = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q0)}`, { cache: 'no-store' });
@@ -70,7 +104,7 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
 
-      // 3) If still empty, try named?fuzzy with the whole string
+      // 3) If still empty, try Scryfall named?fuzzy
       if (all.length === 0) {
         try {
           const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(q0)}`, { cache: 'no-store' });
@@ -80,15 +114,33 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
 
-      // 4) If still empty, try a trimmed token before comma or first word
-      if (all.length === 0) {
-        const token = q0.split(',')[0].split(/\s+/)[0] || q0;
+      // 4) If still empty, try with first few words
+      if (all.length === 0 && q0.includes(' ')) {
+        const words = q0.split(/\s+/);
+        const firstWords = words.slice(0, Math.min(2, words.length)).join(' ');
         try {
-          const r = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(token)}`, { cache: 'no-store' });
+          const r = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(firstWords)}`, { cache: 'no-store' });
           const j:any = await r.json().catch(()=>({}));
           const arr = Array.isArray(j?.data) ? j.data : [];
-          all = arr.slice(0, 12).map((s:any)=>String(s));
+          // Filter to only include results that are reasonably similar
+          const filtered = arr.filter((s: string) => stringSimilarity(q0, s) > 0.3);
+          all = filtered.slice(0, 12).map((s:any)=>String(s));
         } catch {}
+      }
+      
+      // 5) Last resort: try first word only
+      if (all.length === 0) {
+        const firstWord = q0.split(/\s+/)[0];
+        if (firstWord && firstWord.length >= 3) {
+          try {
+            const r = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(firstWord)}`, { cache: 'no-store' });
+            const j:any = await r.json().catch(()=>({}));
+            const arr = Array.isArray(j?.data) ? j.data : [];
+            // Only include if somewhat similar to original
+            const filtered = arr.filter((s: string) => stringSimilarity(q0, s) > 0.25);
+            all = filtered.slice(0, 12).map((s:any)=>String(s));
+          } catch {}
+        }
       }
 
       const suggestion = all[0];

@@ -1,58 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { stringSimilarity } from "@/lib/deck/cleanCardName";
 
 function norm(s: string) { 
-  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); 
-}
-
-function parseDeckText(text: string): Array<{ name: string; qty: number }> {
-  const cards: Array<{ name: string; qty: number }> = [];
-  if (!text) return cards;
-  
-  const lines = text.split(/\r?\n/);
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    
-    // Skip comment lines and headers
-    if (/^(#|\/\/|SB:|COMMANDER|SIDEBOARD|LANDS|CREATURES|INSTANTS|SORCERIES|ARTIFACTS|ENCHANTMENTS|PLANESWALKERS)/i.test(line)) continue;
-    
-    let qty = 1;
-    let name = line;
-    
-    // Try patterns:
-    // "1 Sol Ring"
-    // "Sol Ring x1"
-    // "4x Lightning Bolt"
-    // "Sol Ring,1" (CSV format)
-    // "Card Name, 2" (CSV with space)
-    const mLead = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-    if (mLead) {
-      qty = Math.max(1, parseInt(mLead[1], 10));
-      name = mLead[2].trim();
-    } else {
-      const mTrail = line.match(/^(.+?)\s+[xX]\s*(\d+)$/);
-      if (mTrail) {
-        name = mTrail[1].trim();
-        qty = Math.max(1, parseInt(mTrail[2], 10));
-      } else {
-        const mComma = line.match(/^(.+?)\s*,\s*(\d+)$/);
-        if (mComma) {
-          name = mComma[1].trim();
-          qty = Math.max(1, parseInt(mComma[2], 10));
-        }
-      }
-    }
-    
-    // Remove quotes if present
-    name = name.replace(/^["']|["']$/g, '').trim();
-    
-    if (name) {
-      cards.push({ name, qty });
-    }
-  }
-  
-  return cards;
+  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[''`´]/g, "'").replace(/\s+/g,' ').trim(); 
 }
 
 export const runtime = "nodejs";
@@ -66,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'deckText required' }, { status: 400 });
     }
     
-    // Parse deck text
+    // Parse deck text using shared utility (handles all formats)
     const cards = parseDeckText(deckText);
     
     if (cards.length === 0) {
@@ -76,71 +28,139 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const names = Array.from(new Set(cards.map(c => c.name)));
     
-    // Check which names exist in cache
+    // Multi-pass matching strategy
     const cacheNameMap = new Map<string, string>(); // normalized -> actual cache name
-    const batchSize = 50;
     
+    // ===== PASS 1: Exact case-insensitive matches (batch query) =====
+    const batchSize = 100;
     for (let i = 0; i < names.length; i += batchSize) {
       const batch = names.slice(i, i + batchSize);
       
-      for (const cardName of batch) {
-        const isDFC = cardName.includes('//');
-        
-        if (isDFC) {
-          const parts = cardName.split('//').map((p: string) => p.trim());
-          const frontNorm = norm(parts[0]);
-          const backNorm = norm(parts[1] || '');
-          
-          if (frontNorm === backNorm) {
-            continue; // Invalid DFC, needs fixing
-          }
+      const orConditions = batch.map(name => {
+        const escaped = name.replace(/[%_]/g, '\\$&');
+        return `name.ilike.${escaped}`;
+      }).join(',');
+      
+      const { data: exactMatches } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .or(orConditions);
+      
+      if (exactMatches) {
+        for (const row of exactMatches) {
+          cacheNameMap.set(norm(row.name), row.name);
         }
+      }
+    }
+    
+    // Check what's still unmatched
+    let unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 2: Prefix matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      if (cardName.length < 3) continue;
+      
+      const escaped = cardName.replace(/[%_]/g, '\\$&');
+      const { data: prefixMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `${escaped}%`)
+        .limit(5);
+      
+      if (prefixMatch && prefixMatch.length > 0) {
+        // Prefer exact length match, otherwise first
+        const exactLen = prefixMatch.find(m => norm(m.name).length === norm(cardName).length);
+        cacheNameMap.set(norm(cardName), exactLen?.name || prefixMatch[0].name);
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 3: Contains matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      if (cardName.length < 5) continue;
+      
+      const escaped = cardName.replace(/[%_]/g, '\\$&');
+      const { data: containsMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `%${escaped}%`)
+        .limit(5);
+      
+      if (containsMatch && containsMatch.length === 1) {
+        // Single match - use it
+        cacheNameMap.set(norm(cardName), containsMatch[0].name);
+      } else if (containsMatch && containsMatch.length > 1) {
+        // Multiple matches - pick best by similarity
+        const best = containsMatch
+          .map(m => ({ name: m.name, score: stringSimilarity(cardName, m.name) }))
+          .sort((a, b) => b.score - a.score)[0];
         
-        // Try exact case-insensitive match first
-        const { data: exactMatch } = await supabase
+        if (best && best.score > 0.6) {
+          cacheNameMap.set(norm(cardName), best.name);
+        }
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 4: DFC front-face matching =====
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      
+      const escaped = cardName.replace(/[%_]/g, '\\$&');
+      const { data: dfcMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `${escaped} // %`)
+        .limit(3);
+      
+      if (dfcMatch && dfcMatch.length > 0) {
+        // Pick best match
+        const best = dfcMatch
+          .map(m => ({ name: m.name, score: stringSimilarity(cardName, m.name.split('//')[0].trim()) }))
+          .sort((a, b) => b.score - a.score)[0];
+        
+        if (best) {
+          cacheNameMap.set(norm(cardName), best.name);
+        }
+      }
+    }
+    
+    unmatched = names.filter(name => !cacheNameMap.has(norm(name)));
+    
+    // ===== PASS 5: Fuzzy word-based matching =====
+    // Try matching first few words (for truncated names)
+    for (const cardName of unmatched) {
+      if (cacheNameMap.has(norm(cardName))) continue;
+      
+      const words = cardName.split(/\s+/);
+      if (words.length >= 2) {
+        // Try first 2-3 words as prefix
+        const prefix = words.slice(0, Math.min(3, words.length)).join(' ');
+        const escaped = prefix.replace(/[%_]/g, '\\$&');
+        
+        const { data: wordMatch } = await supabase
           .from('scryfall_cache')
           .select('name')
-          .ilike('name', cardName)
-          .limit(1);
+          .ilike('name', `${escaped}%`)
+          .limit(5);
         
-        if (exactMatch && exactMatch.length > 0) {
-          const cacheNorm = norm(exactMatch[0].name);
-          const cardNorm = norm(cardName);
+        if (wordMatch && wordMatch.length > 0) {
+          const best = wordMatch
+            .map(m => ({ name: m.name, score: stringSimilarity(cardName, m.name) }))
+            .sort((a, b) => b.score - a.score)[0];
           
-          if (isDFC) {
-            const cacheParts = exactMatch[0].name.split('//').map((p: string) => p.trim());
-            const cacheFrontNorm = norm(cacheParts[0]);
-            const cacheBackNorm = norm(cacheParts[1] || '');
-            
-            if (cacheFrontNorm === cacheBackNorm) {
-              // Invalid cache entry, skip
-            } else if (cacheNorm === cardNorm) {
-              cacheNameMap.set(cardNorm, exactMatch[0].name);
-              continue;
-            }
-          } else {
-            cacheNameMap.set(cardNorm, exactMatch[0].name);
-            continue;
-          }
-        }
-        
-        // Try prefix match for partial names like "mizzix" -> "Mizzix of the Izmagnus"
-        if (cardName.length >= 4) {
-          const { data: prefixMatch } = await supabase
-            .from('scryfall_cache')
-            .select('name')
-            .ilike('name', `${cardName}%`)
-            .limit(1);
-          
-          if (prefixMatch && prefixMatch.length > 0) {
-            cacheNameMap.set(norm(cardName), prefixMatch[0].name);
-            continue;
+          if (best && best.score > 0.5) {
+            cacheNameMap.set(norm(cardName), best.name);
           }
         }
       }
     }
     
-    // Find cards that don't have matches
+    // Find cards that still don't have matches
     const unknown = cards.filter(c => !cacheNameMap.has(norm(c.name)));
     
     if (unknown.length === 0) {
@@ -151,7 +171,7 @@ export async function POST(req: NextRequest) {
       });
     }
     
-    // Get fuzzy suggestions for unknown cards
+    // Get fuzzy suggestions for remaining unknown cards
     const uniq = Array.from(new Set(unknown.map(c => c.name))).slice(0, 50);
     
     try {
@@ -200,18 +220,13 @@ export async function POST(req: NextRequest) {
       
       const items = itemsWithSuggestions.filter(Boolean);
       
-      // Build corrected cards list (known cards + unknown with first suggestion as default)
+      // Build corrected cards list
       const correctedCards = cards.map(c => {
         const normalized = norm(c.name);
         if (cacheNameMap.has(normalized)) {
           return { name: cacheNameMap.get(normalized)!, qty: c.qty };
         }
-        // Find the item for this card
-        const item = items.find(it => it.originalName === c.name);
-        return { 
-          name: item && item.suggestions.length > 0 ? item.suggestions[0] : c.name, 
-          qty: c.qty 
-        };
+        return { name: c.name, qty: c.qty };
       });
       
       return NextResponse.json({ 
@@ -232,4 +247,3 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
-

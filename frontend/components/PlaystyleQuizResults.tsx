@@ -284,14 +284,22 @@ export default function PlaystyleQuizResults({
           <div className="mb-6">
             <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
               <span>AI Analysis</span>
-              {depth.showAiExplanation && (
+              {depth.showAiExplanation && !proLoading && (
                 <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded">
                   {depth.aiExplanationLevel === 'full' ? 'Full' : 'Standard'}
                 </span>
               )}
             </h3>
             
-            {!depth.showAiExplanation ? (
+            {/* Show loading state while checking auth/pro status */}
+            {(proLoading || authLoading) ? (
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-4 bg-neutral-800 rounded w-1/2" />
+                  <div className="h-4 bg-neutral-800 rounded w-3/4" />
+                </div>
+              </div>
+            ) : !depth.showAiExplanation ? (
               <LockedCard 
                 title="AI Playstyle Breakdown"
                 message="Sign in to get a personalized AI analysis of your playstyle."

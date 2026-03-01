@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 
 function norm(s: string) { 
-  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); 
+  return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[''`´]/g, "'").replace(/\s+/g,' ').trim(); 
 }
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const runtime = "nodejs";
 /**
  * Fast count-only endpoint for unrecognized cards in collections
  * Used by the banner to quickly check if there are cards needing attention
+ * Uses multi-pass matching: exact, cleaned, prefix, contains, DFC
  */
 export async function GET(req: NextRequest) {
   try {
@@ -37,8 +39,8 @@ export async function GET(req: NextRequest) {
     // Track which names we've found matches for
     const foundNames = new Set<string>();
     
-    // First pass: exact case-insensitive matching (fast batch query)
-    const batchSize = 50;
+    // ===== PASS 1: Exact case-insensitive matching (fast batch query) =====
+    const batchSize = 100;
     for (let i = 0; i < uniqueNames.length; i += batchSize) {
       const batch = uniqueNames.slice(i, i + batchSize);
       
@@ -53,11 +55,9 @@ export async function GET(req: NextRequest) {
         .or(orConditions);
       
       if (cacheMatches) {
-        // Mark normalized versions as found
         cacheMatches.forEach((row: any) => {
           foundNames.add(norm(row.name));
         });
-        // Also check if collection card name normalizes to match
         batch.forEach(collectionName => {
           if (cacheMatches.some((row: any) => norm(row.name) === norm(collectionName))) {
             foundNames.add(norm(collectionName));
@@ -66,21 +66,90 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Second pass: prefix matching for remaining unmatched names
-    // This catches cases like "mizzix" matching "Mizzix of the Izmagnus"
-    const stillUnmatched = uniqueNames.filter(name => !foundNames.has(norm(name)));
+    let unmatched = uniqueNames.filter(name => !foundNames.has(norm(name)));
     
-    for (const name of stillUnmatched) {
-      // Skip very short names (too ambiguous)
-      if (name.length < 4) continue;
+    // ===== PASS 2: Clean names and try exact match =====
+    for (const name of unmatched) {
+      if (foundNames.has(norm(name))) continue;
       
+      const cleaned = cleanCardName(name);
+      if (cleaned !== name) {
+        const escaped = cleaned.replace(/[%_]/g, '\\$&');
+        const { data: match } = await supabase
+          .from('scryfall_cache')
+          .select('name')
+          .ilike('name', escaped)
+          .limit(1);
+        
+        if (match && match.length > 0) {
+          foundNames.add(norm(name));
+        }
+      }
+    }
+    
+    unmatched = uniqueNames.filter(name => !foundNames.has(norm(name)));
+    
+    // ===== PASS 3: Prefix matching =====
+    for (const name of unmatched) {
+      if (foundNames.has(norm(name))) continue;
+      if (name.length < 3) continue;
+      
+      const cleaned = cleanCardName(name);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
       const { data: prefixMatches } = await supabase
         .from('scryfall_cache')
         .select('name')
-        .ilike('name', `${name}%`)
+        .ilike('name', `${escaped}%`)
         .limit(1);
       
       if (prefixMatches && prefixMatches.length > 0) {
+        foundNames.add(norm(name));
+      }
+    }
+    
+    unmatched = uniqueNames.filter(name => !foundNames.has(norm(name)));
+    
+    // ===== PASS 4: Contains matching (for partial names) =====
+    for (const name of unmatched) {
+      if (foundNames.has(norm(name))) continue;
+      if (name.length < 5) continue;
+      
+      const cleaned = cleanCardName(name);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
+      const { data: containsMatches } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `%${escaped}%`)
+        .limit(3);
+      
+      if (containsMatches && containsMatches.length === 1) {
+        foundNames.add(norm(name));
+      } else if (containsMatches && containsMatches.length > 1) {
+        const best = containsMatches
+          .map(m => ({ name: m.name, score: stringSimilarity(cleaned, m.name) }))
+          .sort((a, b) => b.score - a.score)[0];
+        
+        if (best && best.score > 0.6) {
+          foundNames.add(norm(name));
+        }
+      }
+    }
+    
+    unmatched = uniqueNames.filter(name => !foundNames.has(norm(name)));
+    
+    // ===== PASS 5: DFC front-face matching =====
+    for (const name of unmatched) {
+      if (foundNames.has(norm(name))) continue;
+      
+      const cleaned = cleanCardName(name);
+      const escaped = cleaned.replace(/[%_]/g, '\\$&');
+      const { data: dfcMatch } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .ilike('name', `${escaped} // %`)
+        .limit(1);
+      
+      if (dfcMatch && dfcMatch.length > 0) {
         foundNames.add(norm(name));
       }
     }

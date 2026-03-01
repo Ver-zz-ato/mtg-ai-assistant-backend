@@ -140,76 +140,130 @@ export default function PricingPage() {
   };
 
   const features = [
+    // AI & Analysis
     {
-      icon: '🎯',
-      title: 'Hand Testing Widget',
-      description: 'Interactive London mulligan simulation with real MTG card artwork',
-      free: false,
-      pro: 'Full simulator'
-    },
-    {
-      icon: '📊',
-      title: 'Deck Probability Analysis',
-      description: 'Advanced probability calculations and statistical insights',
-      free: 'View only',
-      pro: 'Full calculations'
+      icon: '🤖',
+      title: 'AI Deck Assistant',
+      description: 'Get personalized card recommendations, strategy advice, and deck optimization tips',
+      free: '5 questions/day',
+      pro: 'Unlimited + Pro models',
+      category: 'ai'
     },
     {
       icon: '💡',
       title: 'AI Budget Swaps',
-      description: 'Smart card suggestions to optimize your deck within budget',
-      free: 'Basic swaps',
-      pro: 'AI-powered + Export'
+      description: 'Find cheaper alternatives for expensive cards without losing deck power',
+      free: '3 swaps/day',
+      pro: 'Unlimited + bulk export',
+      category: 'ai'
+    },
+    {
+      icon: '🎯',
+      title: 'Hand Testing Widget',
+      description: 'Simulate opening hands with London mulligan rules and real card art',
+      free: false,
+      pro: 'Full simulator',
+      category: 'analysis'
+    },
+    {
+      icon: '📊',
+      title: 'Probability Calculator',
+      description: 'Calculate odds of drawing specific cards, combos, and land drops',
+      free: 'Basic view',
+      pro: 'Full calculations + export',
+      category: 'analysis'
+    },
+    // Deck Management
+    {
+      icon: '📥',
+      title: 'Smart Deck Import',
+      description: 'Import from Moxfield, Archidekt, MTGO, Arena with automatic card name fixing',
+      free: 'Unlimited imports',
+      pro: 'Unlimited imports',
+      category: 'deck'
     },
     {
       icon: '🔧',
       title: 'Fix Card Names',
-      description: 'Automatically fix and normalize card names in collections and decks',
-      free: false,
-      pro: 'Batch processing'
-    },
-    {
-      icon: '📈',
-      title: 'Price Snapshots',
-      description: 'Historical price tracking and trend analysis',
-      free: 'Current prices only',
-      pro: 'Full history + alerts'
+      description: 'Auto-detect and fix unrecognized card names in your decks',
+      free: 'Unlimited fixes',
+      pro: 'Unlimited fixes',
+      category: 'deck'
     },
     {
       icon: '📋',
-      title: 'Export to Moxfield/MTGO',
-      description: 'Export your decks and collections to popular platforms',
+      title: 'Export to Platforms',
+      description: 'Export decks to Moxfield, MTGO, Arena, and other formats',
+      free: 'Basic text',
+      pro: 'All formats + batch',
+      category: 'deck'
+    },
+    {
+      icon: '🔄',
+      title: 'Deck Comparison',
+      description: 'Compare two decks side-by-side to see differences and overlaps',
+      free: 'Basic compare',
+      pro: 'Advanced diff + stats',
+      category: 'deck'
+    },
+    // Pricing & Collection
+    {
+      icon: '💰',
+      title: 'Deck Price Tracking',
+      description: 'See total deck cost with TCGPlayer and CardKingdom prices',
+      free: 'Current prices',
+      pro: 'History + alerts',
+      category: 'price'
+    },
+    {
+      icon: '📈',
+      title: 'Price History Charts',
+      description: 'View price trends over time for any card in your collection',
       free: false,
-      pro: 'All formats'
+      pro: 'Full history + sparklines',
+      category: 'price'
     },
     {
-      icon: '🛠️',
-      title: 'Collection Bulk Operations',
-      description: 'Set to playset, batch fixes, and advanced collection management',
-      free: 'Basic editing',
-      pro: 'Bulk operations'
+      icon: '🔔',
+      title: 'Price Alerts',
+      description: 'Get notified when cards hit your target buy/sell price',
+      free: false,
+      pro: 'Unlimited alerts',
+      category: 'price'
     },
     {
-      icon: '🎲',
-      title: 'AI Deck Assistant',
-      description: 'Advanced AI-powered deck building and optimization suggestions',
-      free: 'Basic suggestions',
-      pro: 'Auto-toggle + Pro features'
+      icon: '📦',
+      title: 'Collection Management',
+      description: 'Track your cards, see total value, and manage inventory',
+      free: 'Basic tracking',
+      pro: 'Bulk ops + analytics',
+      category: 'collection'
     },
+    // Premium Perks
     {
-      icon: '📊',
-      title: 'Advanced Analytics',
-      description: 'Price trend sparklines, watchlists, and deck value tracking',
-      free: 'Basic stats',
-      pro: 'Full analytics suite'
+      icon: '⚡',
+      title: 'Priority Processing',
+      description: 'Faster AI responses and priority queue during peak times',
+      free: false,
+      pro: 'Always priority',
+      category: 'premium'
     },
     {
       icon: '🌟',
-      title: 'Pro Badge & Priority',
-      description: 'Show your support with a Pro badge and priority feature access',
+      title: 'Pro Badge',
+      description: 'Show your support with a Pro badge on your profile',
       free: false,
-      pro: 'Exclusive Pro features'
-    }
+      pro: 'Exclusive badge',
+      category: 'premium'
+    },
+    {
+      icon: '🚀',
+      title: 'Early Access',
+      description: 'Be first to try new features before they launch publicly',
+      free: false,
+      pro: 'Beta features',
+      category: 'premium'
+    },
   ];
 
   if (loading) {
@@ -456,65 +510,204 @@ export default function PricingPage() {
 
         {/* Feature Comparison */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 mb-16 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-4">
             Feature Comparison
           </h2>
+          <p className="text-center text-gray-600 dark:text-gray-400 mb-12">
+            Everything you need to build better decks and track your collection
+          </p>
           
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-600">
-                  <th className="text-left py-4 text-gray-900 dark:text-white font-medium">Feature</th>
-                  <th className="text-center py-4 text-gray-600 dark:text-gray-400 font-medium">Free</th>
-                  <th className="text-center py-4 text-blue-600 font-medium">Pro</th>
+                <tr className="border-b-2 border-gray-200 dark:border-gray-600">
+                  <th className="text-left py-4 text-gray-900 dark:text-white font-semibold">Feature</th>
+                  <th className="text-center py-4 w-32 text-gray-600 dark:text-gray-400 font-semibold">Free</th>
+                  <th className="text-center py-4 w-40 font-semibold">
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Pro</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {features.map((feature, index) => (
-                  <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="py-6">
+                {/* AI & Analysis Section */}
+                <tr className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                  <td colSpan={3} className="py-3 px-4">
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                      🤖 AI & Analysis
+                    </span>
+                  </td>
+                </tr>
+                {features.filter(f => f.category === 'ai' || f.category === 'analysis').map((feature, index) => (
+                  <tr key={`ai-${index}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="py-5 pr-4">
                       <div className="flex items-start space-x-3">
-                        <span className="text-2xl">{feature.icon}</span>
+                        <span className="text-xl flex-shrink-0">{feature.icon}</span>
                         <div>
-                          <div className="font-medium text-gray-900 dark:text-white mb-1">
+                          <div className="font-medium text-gray-900 dark:text-white">
                             {feature.title}
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             {feature.description}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-6 text-center">
+                    <td className="py-5 text-center">
                       {feature.free ? (
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="text-sm text-gray-600 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
                           {feature.free}
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
                       )}
                     </td>
-                    <td className="py-6 text-center">
-                      <ProValueTooltip
-                        trigger={
-                          <span className="text-sm text-blue-600 dark:text-blue-400 font-medium cursor-help border-b border-dotted border-blue-400">
-                            {feature.pro}
+                    <td className="py-5 text-center">
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded">
+                        {feature.pro}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Deck Management Section */}
+                <tr className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
+                  <td colSpan={3} className="py-3 px-4">
+                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                      📋 Deck Management
+                    </span>
+                  </td>
+                </tr>
+                {features.filter(f => f.category === 'deck').map((feature, index) => (
+                  <tr key={`deck-${index}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="py-5 pr-4">
+                      <div className="flex items-start space-x-3">
+                        <span className="text-xl flex-shrink-0">{feature.icon}</span>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {feature.title}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            {feature.description}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-5 text-center">
+                      {feature.free ? (
+                        feature.free === feature.pro ? (
+                          <span className="text-sm text-emerald-600 dark:text-emerald-400">✓</span>
+                        ) : (
+                          <span className="text-sm text-gray-600 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+                            {feature.free}
                           </span>
-                        }
-                        featureName={feature.title}
-                        benefits={[
-                          feature.description,
-                          feature.title.includes('AI') ? 'Powered by advanced machine learning' : 'Professional-grade tools',
-                          feature.title.includes('Export') ? 'Multiple format support' : 'Unlimited usage',
-                          'Priority customer support'
-                        ]}
-                        placement="top"
-                      />
+                        )
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-5 text-center">
+                      {feature.free === feature.pro ? (
+                        <span className="text-sm text-emerald-600 dark:text-emerald-400">✓</span>
+                      ) : (
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded">
+                          {feature.pro}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Pricing & Collection Section */}
+                <tr className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
+                  <td colSpan={3} className="py-3 px-4">
+                    <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+                      💰 Pricing & Collection
+                    </span>
+                  </td>
+                </tr>
+                {features.filter(f => f.category === 'price' || f.category === 'collection').map((feature, index) => (
+                  <tr key={`price-${index}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="py-5 pr-4">
+                      <div className="flex items-start space-x-3">
+                        <span className="text-xl flex-shrink-0">{feature.icon}</span>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {feature.title}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            {feature.description}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-5 text-center">
+                      {feature.free ? (
+                        <span className="text-sm text-gray-600 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+                          {feature.free}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-5 text-center">
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded">
+                        {feature.pro}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Premium Perks Section */}
+                <tr className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+                  <td colSpan={3} className="py-3 px-4">
+                    <span className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                      ⭐ Premium Perks
+                    </span>
+                  </td>
+                </tr>
+                {features.filter(f => f.category === 'premium').map((feature, index) => (
+                  <tr key={`premium-${index}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="py-5 pr-4">
+                      <div className="flex items-start space-x-3">
+                        <span className="text-xl flex-shrink-0">{feature.icon}</span>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {feature.title}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            {feature.description}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-5 text-center">
+                      <span className="text-gray-300 dark:text-gray-600">—</span>
+                    </td>
+                    <td className="py-5 text-center">
+                      <span className="text-sm font-medium text-purple-600 dark:text-purple-400 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 rounded">
+                        {feature.pro}
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          {/* Bottom CTA in table */}
+          <div className="mt-8 text-center pt-8 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Not sure? Try the free tier first — upgrade anytime!
+            </p>
+            {!showManageUI && (
+              <button 
+                onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
+                disabled={upgrading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-8 rounded-lg font-semibold transition-all disabled:opacity-50"
+              >
+                {upgrading ? 'Processing...' : 'Upgrade to Pro'}
+              </button>
+            )}
           </div>
         </div>
 
