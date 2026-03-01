@@ -27,6 +27,7 @@ import type { ChatMessage } from "@/types/chat";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
 import { logger } from "@/lib/logger";
+import SourceReceipts from "@/components/SourceReceipts";
 // Enhanced chat functionality
 import { 
   analyzeDeckProblems, 
@@ -1014,11 +1015,16 @@ function Chat() {
   // Render helper components
   function InlineFeedback({ msgId, content }: { msgId: string; content: string }) {
     const [open, setOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [text, setText] = useState("");
     const [len, setLen] = useState(0);
     const maxLen = 500;
     const taRef = useRef<HTMLTextAreaElement | null>(null);
+    
+    // Report modal state
+    const [reportIssues, setReportIssues] = useState<string[]>([]);
+    const [reportDescription, setReportDescription] = useState("");
     
     function onChangeText(v: string) {
       setText(v.slice(0, maxLen));
@@ -1066,13 +1072,61 @@ function Chat() {
       await send(score);
     }
     
+    function toggleReportIssue(issue: string) {
+      setReportIssues(prev => 
+        prev.includes(issue) ? prev.filter(i => i !== issue) : [...prev, issue]
+      );
+    }
+    
+    async function submitReport() {
+      if (reportIssues.length === 0) {
+        try { const tc = await import("@/lib/toast-client"); tc.toastError('Please select at least one issue type'); } catch {}
+        return;
+      }
+      setBusy(true);
+      try {
+        // Get the user message that preceded this assistant message
+        const messageIndex = messages.findIndex((m: any) => String(m.id) === msgId);
+        const userMessage = messageIndex > 0 ? messages[messageIndex - 1]?.content : null;
+        
+        const res = await fetch('/api/chat/report', { 
+          method: 'POST', 
+          headers: { 'content-type': 'application/json' }, 
+          body: JSON.stringify({ 
+            threadId: threadId ?? null,
+            messageId: msgId,
+            issueTypes: reportIssues,
+            description: reportDescription,
+            aiResponseText: content,
+            userMessageText: userMessage
+          }) 
+        });
+        if (!res.ok) throw new Error('Failed to submit report');
+        try { const tc = await import("@/lib/toast-client"); tc.toast('Report submitted. Thank you!', 'success'); } catch {}
+        setReportOpen(false);
+        setReportIssues([]);
+        setReportDescription("");
+      } catch (e: any) {
+        try { const tc = await import("@/lib/toast-client"); tc.toastError(e?.message || 'Failed to submit report'); } catch {}
+      } finally { setBusy(false); }
+    }
+    
+    const issueOptions = [
+      { id: 'invented_card', label: 'Invented/fake card name' },
+      { id: 'wrong_format', label: 'Wrong format legality' },
+      { id: 'bad_recommendation', label: 'Bad recommendation' },
+      { id: 'incorrect_data', label: 'Incorrect price/data' },
+      { id: 'other', label: 'Other' }
+    ];
+    
     return (
       <>
-        {!open && (
+        {!open && !reportOpen && (
           <div className="pointer-events-auto absolute right-1 bottom-2 md:bottom-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-[10px]">
             <button title="Helpful" onClick={()=>send(1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👍</button>
             <button title="Not helpful" onClick={()=>send(-1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👎</button>
             <button title="Comment" onClick={()=>setOpen(true)} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">💬</button>
+            <button title="Report issue" onClick={()=>setReportOpen(true)} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">🚩</button>
           </div>
         )}
         {open && (
@@ -1094,6 +1148,38 @@ function Chat() {
                 <button onClick={()=>send(-1)} disabled={busy} className="px-2 py-[2px] rounded bg-red-700 text-white">Send 👎</button>
                 <button onClick={()=>setOpen(false)} disabled={busy} className="px-2 py-[2px] rounded border border-neutral-600">Cancel</button>
               </div>
+            </div>
+          </div>
+        )}
+        {reportOpen && (
+          <div className="mt-2 w-full p-3 rounded border border-neutral-700 bg-neutral-900">
+            <div className="font-medium mb-2">Report an issue</div>
+            <div className="space-y-1 mb-3">
+              {issueOptions.map(opt => (
+                <label key={opt.id} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-800 px-2 py-1 rounded">
+                  <input 
+                    type="checkbox" 
+                    checked={reportIssues.includes(opt.id)} 
+                    onChange={() => toggleReportIssue(opt.id)}
+                    className="accent-amber-500"
+                  />
+                  <span className="text-sm">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            {reportIssues.includes('other') && (
+              <textarea
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value.slice(0, 500))}
+                placeholder="Describe the issue..."
+                rows={2}
+                className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 resize-none mb-2 text-sm"
+                maxLength={500}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={()=>{ setReportOpen(false); setReportIssues([]); setReportDescription(""); }} disabled={busy} className="px-3 py-1 rounded border border-neutral-600 text-sm">Cancel</button>
+              <button onClick={submitReport} disabled={busy || reportIssues.length === 0} className="px-3 py-1 rounded bg-amber-600 text-white text-sm disabled:opacity-50">Submit Report</button>
             </div>
           </div>
         )}
@@ -1164,15 +1250,13 @@ function Chat() {
   }
   
   function ManaIcon({ c, active }: { c: 'W'|'U'|'B'|'R'|'G'; active: boolean }){
-    const srcCdn = c==='W' ? 'https://svgs.scryfall.io/card-symbols/W.svg'
-      : c==='U' ? 'https://svgs.scryfall.io/card-symbols/U.svg'
-      : c==='B' ? 'https://svgs.scryfall.io/card-symbols/B.svg'
-      : c==='R' ? 'https://svgs.scryfall.io/card-symbols/R.svg'
-      : 'https://svgs.scryfall.io/card-symbols/G.svg';
+    // Use local files first to avoid CDN failures on iOS Safari
+    const localSrc = `/mana/${c.toLowerCase()}.svg`;
+    const cdnSrc = `https://svgs.scryfall.io/card-symbols/${c}.svg`;
     
     return (
       <img
-        src={srcCdn}
+        src={localSrc}
         alt={`${COLOR_LABEL[c]} mana`}
         width={16}
         height={16}
@@ -1182,8 +1266,13 @@ function Chat() {
           opacity: active ? 1 : 0.6
         }}
         onError={(e) => {
-          // Fallback to colored circle if image fails with more vibrant colors
           const target = e.currentTarget;
+          // Try CDN as fallback if local fails
+          if (target.src.includes('/mana/')) {
+            target.src = cdnSrc;
+            return;
+          }
+          // If CDN also fails, show colored circle
           const color = c==='W'?'#FFF8DC':c==='U'?'#1E90FF':c==='B'?'#2F2F2F':c==='R'?'#FF4500':'#228B22';
           target.style.display = 'none';
           const fallback = document.createElement('div');
@@ -1506,9 +1595,12 @@ function Chat() {
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
                   {isAssistant && (
-                    <div className="mt-2">
-                      <InlineFeedback msgId={String(m.id)} content={String(m.content || '')} />
-                    </div>
+                    <>
+                      <SourceReceipts sources={generateSourceAttribution(String(m.content || ''), { deckId: linkedDeckId || undefined })} />
+                      <div className="mt-2">
+                        <InlineFeedback msgId={String(m.id)} content={String(m.content || '')} />
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

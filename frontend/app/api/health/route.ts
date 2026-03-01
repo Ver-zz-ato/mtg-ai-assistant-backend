@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { stripe } from "@/lib/stripe";
+import { withMetrics } from "@/lib/observability/withMetrics";
 
 async function time<F extends (...a: any[]) => Promise<any>>(fn: F): Promise<{ ok: boolean; ms: number; error?: string; extra?: any }> {
   const t0 = Date.now();
@@ -14,7 +14,7 @@ async function time<F extends (...a: any[]) => Promise<any>>(fn: F): Promise<{ o
   }
 }
 
-export async function GET() {
+async function getHandler() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const sb = createClient(url, key);
@@ -62,8 +62,6 @@ export async function GET() {
 
   // All critical checks must pass (database and scryfall are critical)
   const criticalOk = supabaseCheck.ok && scryfallCheck.ok;
-  // All checks (including optional services)
-  const allOk = Object.values(checks).every(c => c.ok);
 
   return NextResponse.json({
     ok: criticalOk,
@@ -71,3 +69,5 @@ export async function GET() {
     ts: new Date().toISOString(),
   }, { status: criticalOk ? 200 : 503 });
 }
+
+export const GET = withMetrics(getHandler);

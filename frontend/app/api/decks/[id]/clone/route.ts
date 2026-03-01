@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, context: { params: Promise<Params> 
     // Fetch the source deck (must be public or owned by user)
     const { data: sourceDeck, error: deckError } = await supabase
       .from("decks")
-      .select("title, commander, format, description, is_public, user_id")
+      .select("title, commander, format, colors, description, is_public, user_id")
       .eq("id", id)
       .single();
 
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest, context: { params: Promise<Params> 
         title: newDeckTitle,
         commander: sourceDeck.commander,
         format: sourceDeck.format,
+        colors: sourceDeck.colors || null,
         description: sourceDeck.description ? `Cloned from public deck. ${sourceDeck.description}` : "Cloned from public deck.",
         is_public: false, // New deck is private by default
       })

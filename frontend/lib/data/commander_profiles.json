@@ -1,4 +1,4 @@
-﻿{
+{
   "The Ur-Dragon": {
     "plan": "Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects.",
     "preferTags": ["dragons", "treasure", "flying", "anthem"],
@@ -118,5 +118,125 @@
     "preferTags": ["wheels", "+1/+1 counters", "group hug", "cantrips"],
     "avoid": ["hard control locks", "tribal-only subthemes"],
     "notes": "Support with pillow-fort pieces and payoff creatures that scale with draw." 
+  },
+  "Teysa Karlov": {
+    "plan": "Orzhov aristocrats strategy doubling death triggers to drain opponents and generate value from creature sacrifice.",
+    "preferTags": ["aristocrats", "tokens", "sacrifice", "death triggers", "lifedrain"],
+    "avoid": ["combat-focused strategies", "large vanilla creatures", "non-creature spell-heavy builds"],
+    "notes": "Prioritize Blood Artist effects, token generators like Bitterblossom, and free sacrifice outlets such as Viscera Seer. Key engines include Pitiless Plunderer and Grave Pact. Keep curve low for repeatable sacrifice loops."
+  },
+  "Korvold, Fae-Cursed King": {
+    "plan": "Jund sacrifice engine that turns permanents into cards and +1/+1 counters, often combo-finishing through treasure or food loops.",
+    "preferTags": ["sacrifice", "treasures", "food", "aristocrats", "combo"],
+    "avoid": ["low-permanent spell-heavy builds", "defensive pillowfort strategies"],
+    "notes": "Dockside Extortionist and Mayhem Devil are premium. Include fetchlands and token producers to ensure consistent sacrifice fodder. Avoid too many nonpermanent spells; Korvold thrives on permanents."
+  },
+  "Meren of Clan Nel Toth": {
+    "plan": "Graveyard recursion engine using experience counters to repeatedly reanimate value creatures.",
+    "preferTags": ["graveyard", "recursion", "sacrifice", "aristocrats", "self-mill"],
+    "avoid": ["exile-based recursion", "low creature count builds"],
+    "notes": "Include Sakura-Tribe Elder, Fleshbag Marauder, and Spore Frog loops. Prioritize cheap creatures that sacrifice themselves. Avoid too many high-CMC threats that don't generate immediate value."
+  },
+  "Animar, Soul of Elements": {
+    "plan": "Creature combo deck reducing creature costs with +1/+1 counters to enable explosive chains and combo finishes.",
+    "preferTags": ["creature combo", "cost reduction", "ETB", "bounce", "+1/+1 counters"],
+    "avoid": ["noncreature-heavy builds", "control spell packages"],
+    "notes": "Ancestral Statue enables infinite counters. Prioritize low-cost creatures and ETB value like Cloud of Faeries. Animar rewards creature density above all else."
+  },
+  "Prosper, Tome-Bound": {
+    "plan": "Rakdos value engine generating Treasures from exile-based card advantage.",
+    "preferTags": ["treasures", "impulse draw", "aristocrats", "combo", "spell value"],
+    "avoid": ["pure creature aggro", "low exile synergy builds"],
+    "notes": "Include Jeska's Will, Reckless Impulse effects, and Marionette Master as a finisher. Prosper thrives when nearly every turn generates exile value."
+  },
+  "Winota, Joiner of Forces": {
+    "plan": "Explosive combat strategy cheating powerful Humans into play via non-Human attackers.",
+    "preferTags": ["humans", "combat", "cheat into play", "aggro", "stax"],
+    "avoid": ["non-human heavy builds", "slow control shells"],
+    "notes": "Include cheap non-Humans like Ornithopter and powerful Humans like Angrath's Marauders. Avoid diluting Human count. Fast mana accelerates lethal turns."
+  },
+  "Selvala, Heart of the Wilds": {
+    "plan": "Green ramp engine generating explosive mana through high-power creatures, often enabling combo wins.",
+    "preferTags": ["big creatures", "mana ramp", "combo", "creature combo", "untap"],
+    "avoid": ["low-power creature builds", "control-focused shells"],
+    "notes": "Umbral Mantle enables infinite mana. Include high-power creatures like Regal Force. Selvala rewards power-based scaling."
+  },
+  "Urza, Lord High Artificer": {
+    "plan": "Artifact combo/control deck leveraging artifact density for mana and value.",
+    "preferTags": ["artifacts", "combo", "stax", "control", "mana rocks"],
+    "avoid": ["creature-heavy builds", "low artifact count"],
+    "notes": "Include cheap artifacts and mana rocks. Dramatic Reversal combos with Isochron Scepter. Urza requires high artifact density to function."
+  },
+  "Najeela, the Blade-Blossom": {
+    "plan": "Warrior tribal combat combo deck capable of infinite combat steps with sufficient mana.",
+    "preferTags": ["warriors", "combat", "extra combat", "combo", "tokens"],
+    "avoid": ["non-warrior heavy builds", "slow control packages"],
+    "notes": "Derevi, Empyrial Tactician or Druids' Repository enable infinite combats. Prioritize cheap Warriors and combat enablers."
+  },
+  "Arcades, the Strategist": {
+    "plan": "Defender tribal deck turning high-toughness creatures into card draw and combat threats.",
+    "preferTags": ["defenders", "walls", "toughness matters", "card draw", "combat"],
+    "avoid": ["low-toughness creatures", "non-defender creature focus"],
+    "notes": "Wall of Omens and Overgrown Battlement are core. Focus on cheap defenders to maximize draw triggers."
+  },
+  "Wilhelt, the Rotcleaver": {
+    "plan": "Zombie tribal aristocrats deck generating decayed tokens and leveraging death triggers.",
+    "preferTags": ["zombies", "aristocrats", "tokens", "graveyard", "sacrifice"],
+    "avoid": ["non-zombie tribal dilution", "spell-heavy builds"],
+    "notes": "Include Rooftop Storm and Gravecrawler loops. Wilhelt rewards Zombie density and sacrifice engines."
+  },
+  "Sythis, Harvest's Hand": {
+    "plan": "Enchantress value engine drawing cards and gaining life from enchantment casts.",
+    "preferTags": ["enchantress", "auras", "pillowfort", "stax", "lifegain"],
+    "avoid": ["creature-heavy builds", "low enchantment count"],
+    "notes": "Argothian Enchantress and Sterling Grove are premium. Sythis thrives with 30+ enchantments."
+  },
+  "Kess, Dissident Mage": {
+    "plan": "Grixis spell-slinger combo deck recasting key instants and sorceries from graveyard.",
+    "preferTags": ["spellslinger", "graveyard", "combo", "storm", "control"],
+    "avoid": ["creature-heavy builds", "low instant/sorcery count"],
+    "notes": "Demonic Consultation and Underworld Breach combos are common. Protect Kess to maximize spell recursion."
+  },
+  "Brago, King Eternal": {
+    "plan": "Blink control deck abusing ETB triggers through repeated flicker effects.",
+    "preferTags": ["blink", "ETB", "control", "value engine", "stax"],
+    "avoid": ["low ETB density", "creatureless control shells"],
+    "notes": "Strionic Resonator and mana rocks enable infinite flicker loops. Prioritize strong ETB creatures."
+  },
+  "Chatterfang, Squirrel General": {
+    "plan": "Token swarm aristocrats deck converting token production into removal and combo finishes.",
+    "preferTags": ["tokens", "aristocrats", "sacrifice", "combo", "lifedrain"],
+    "avoid": ["low token generation", "big creature focus"],
+    "notes": "Pitiless Plunderer and Earthcraft are powerful. Chatterfang scales explosively with token multipliers."
+  },
+  "Zada, Hedron Grinder": {
+    "plan": "Mono-red spell combo deck copying single-target spells across a wide board for explosive turns.",
+    "preferTags": ["spellslinger", "tokens", "storm", "combat", "combo"],
+    "avoid": ["high-cost spells", "low creature count"],
+    "notes": "Expedite and Crimson Wisps become massive draw engines. Maintain wide board presence."
+  },
+  "Feather, the Redeemed": {
+    "plan": "Boros value engine recurring targeted instants to generate continuous card advantage.",
+    "preferTags": ["spellslinger", "combat tricks", "heroic", "value engine", "tempo"],
+    "avoid": ["non-targeted spells", "creature-light builds"],
+    "notes": "Defiant Strike and Shelter are core. Feather requires cheap spells that target your own creatures."
+  },
+  "Omnath, Locus of Creation": {
+    "plan": "Landfall value deck generating incremental advantage and burst mana from land drops.",
+    "preferTags": ["landfall", "ramp", "value engine", "elementals", "combo"],
+    "avoid": ["low land count", "spell-heavy non-land synergy builds"],
+    "notes": "Fetchlands maximize triggers. Include Scute Swarm and Omnath synergy loops."
+  },
+  "Tasigur, the Golden Fang": {
+    "plan": "Sultai control/combo deck leveraging delve and political recursion.",
+    "preferTags": ["control", "graveyard", "politics", "combo", "value recursion"],
+    "avoid": ["creature-heavy midrange", "low instant density"],
+    "notes": "Fill graveyard efficiently. Infinite mana with Deadeye Navigator loops is common."
+  },
+  "Muldrotha, the Gravetide": {
+    "plan": "Permanent-based recursion engine replaying permanents from graveyard each turn.",
+    "preferTags": ["graveyard", "recursion", "value engine", "self-mill", "permanents"],
+    "avoid": ["spell-heavy builds", "exile-dependent effects"],
+    "notes": "Include permanent-based removal and ramp like Seal of Primordium and Sakura-Tribe Elder. Avoid too many instants and sorceries."
   }
 }

@@ -114,6 +114,33 @@ export default function DeckOverview({
     })();
   }, [commander]);
 
+  // Auto-detect colors if commander is set but colors are missing
+  React.useEffect(() => {
+    if (readOnly) return;
+    if (!commander || colors.length > 0) return;
+    
+    // Trigger a re-save of commander to fetch colors (API now returns colors)
+    const detectColors = async () => {
+      try {
+        const res = await fetch(`/api/decks/${deckId}/commander`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ commander }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (json?.ok && Array.isArray(json?.colors) && json.colors.length > 0) {
+          setColors(json.colors);
+        }
+      } catch {
+        // Silently fail - non-critical
+      }
+    };
+    
+    // Debounce to avoid multiple calls
+    const timer = setTimeout(detectColors, 500);
+    return () => clearTimeout(timer);
+  }, [deckId, commander, colors.length, readOnly]);
+
   async function saveCommander(newCommander: string) {
     const c = newCommander.trim();
     if (c === commander) return setEditingCommander(false);
@@ -128,6 +155,10 @@ export default function DeckOverview({
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       setCommander(c);
+      // Update colors if returned from API (auto-detected from commander)
+      if (Array.isArray(json?.colors)) {
+        setColors(json.colors);
+      }
       setEditingCommander(false);
       window.dispatchEvent(new Event('deck:changed'));
     } catch (e: any) {

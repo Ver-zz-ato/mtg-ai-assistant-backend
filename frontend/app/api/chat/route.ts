@@ -1661,7 +1661,8 @@ Return the corrected answer with concise, user-facing tone.`;
           (Array.isArray(prefs?.colors) && prefs.colors.length > 0) ? prefs.colors :
           null;
         
-        const { validateRecommendations, REPAIR_SYSTEM_MESSAGE } = await import("@/lib/chat/validateRecommendations");
+        const { validateRecommendations, REPAIR_SYSTEM_MESSAGE, formatValidationWarning, shouldAutoEscalate } = await import("@/lib/chat/validateRecommendations");
+        const originalOutText = outText; // Save for auto-escalation
         let result = await validateRecommendations({
           deckCards: deckCardsForValidate.map((c) => ({ name: c.name })),
           formatKey: formatKeyVal,
@@ -1669,9 +1670,29 @@ Return the corrected answer with concise, user-facing tone.`;
           commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
           rawText: outText,
         });
+        let validationWarning: string | null = null;
         if (!result.valid && result.issues.length > 0) {
           if (DEV) console.warn("[chat] Recommendation validation issues:", result.issues.map((i) => i.message));
           outText = result.repairedText;
+          validationWarning = formatValidationWarning(result.issues);
+          
+          // Auto-escalate serious issues for human review
+          if (shouldAutoEscalate(result.issues)) {
+            try {
+              await supabase.from('ai_human_reviews').insert({
+                source: 'auto_escalation',
+                route: '/api/chat',
+                input: { user_message: text, thread_id: tid, deck_id: deckIdToUse, format: formatKeyVal },
+                output: outText,
+                labels: { issues: result.issues.map(i => ({ kind: i.kind, card: i.card, message: i.message })) },
+                status: 'pending',
+                meta: { original_response: originalOutText, repaired: true }
+              });
+              console.log('[chat] Auto-escalated response for human review due to:', result.issues.map(i => i.kind).join(', '));
+            } catch (escErr) {
+              console.warn('[chat] Failed to auto-escalate:', escErr);
+            }
+          }
         }
         // Max 1 retry: re-invoke with repair message when needsRegeneration (atomic replace, no streaming)
         if (result.needsRegeneration) {
@@ -1700,6 +1721,10 @@ Return the corrected answer with concise, user-facing tone.`;
         outText = stripIncompleteTruncation(outText);
         outText = applyOutputCleanupFilter(outText);
         outText = applyBracketEnforcement(outText);
+        // Append validation warning if any cards were removed
+        if (validationWarning) {
+          outText = outText + validationWarning;
+        }
         if (DEV) {
           const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
           const flags = humanSanityCheck(outText);

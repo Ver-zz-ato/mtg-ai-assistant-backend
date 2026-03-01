@@ -62,13 +62,20 @@ async function getDeckArtForMetadata(supabase: any, deckId: string, commander: s
 // Generate dynamic metadata for public deck pages (SEO + Social Sharing)
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
   
-  const { data: deck } = await supabase
-    .from("decks")
-    .select("title, format, commander, is_public")
-    .eq("id", id)
-    .maybeSingle();
+  // Guard metadata generation: on failure, return fallback metadata (avoid 5xx)
+  const supabase = await createClient();
+  let deck: { title?: string; format?: string; commander?: string; is_public?: boolean } | null = null;
+  try {
+    const { data } = await supabase
+      .from("decks")
+      .select("title, format, commander, is_public")
+      .eq("id", id)
+      .maybeSingle();
+    deck = data;
+  } catch (e) {
+    console.error('[Deck Page] generateMetadata error:', e);
+  }
   
   if (!deck || !deck.is_public) {
     return {
@@ -130,10 +137,29 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  
+  // Guard all DB calls: on failure, render gracefully (avoid 5xx)
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    supabase = await createClient();
+  } catch (e) {
+    console.error('[Deck Page] Failed to create Supabase client:', e);
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <div className="text-center py-16">
+          <h1 className="text-2xl font-bold text-white mb-4">Unable to load deck</h1>
+          <p className="text-neutral-400">Please try again later.</p>
+        </div>
+      </main>
+    );
+  }
   
   // Check if user is authenticated (for showing deck ID)
-  const { data: { user } } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user ?? null;
+  } catch {}
 
   function norm(name: string): string {
     return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -231,13 +257,33 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     return out;
   }
 
-  // Fetch deck meta (public visibility enforced by RLS)
-  const { data: deckRow } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim").eq("id", id).maybeSingle();
+  // Fetch deck meta (public visibility enforced by RLS) - guard against failures
+  let deckRow: any = null;
+  try {
+    const { data } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim").eq("id", id).maybeSingle();
+    deckRow = data;
+  } catch (e) {
+    console.error('[Deck Page] Failed to fetch deck row:', e);
+  }
+  
+  // If deck not found or not public, show a graceful message
+  if (!deckRow) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <div className="text-center py-16">
+          <h1 className="text-2xl font-bold text-white mb-4">Deck not found</h1>
+          <p className="text-neutral-400 mb-4">This deck may be private or no longer available.</p>
+          <a href="/decks/browse" className="text-cyan-400 hover:underline">Browse public decks</a>
+        </div>
+      </main>
+    );
+  }
+  
   const title = deckRow?.title ?? "Deck";
   const format = String(deckRow?.format || "Commander");
   const commander = deckRow?.commander || "";
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
-  const isOwner = user?.id && (deckRow as any)?.user_id === user.id;
+  const isOwner = user?.id && (deckRow as any)?.user_id === user?.id;
 
   // Infer color identity from commander when deck.colors is empty (common for public decks)
   let deckColors: string[] = Array.isArray((deckRow as any)?.colors) ? (deckRow as any).colors : [];
@@ -255,12 +301,19 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     }
   }
 
-  // Fetch cards
-    const { data: cards } = await supabase
-    .from("deck_cards")
-    .select("name, qty")
-    .eq("deck_id", id)
-    .order("name", { ascending: true });
+  // Fetch cards - guard against failures
+  let cards: Array<{ name: string; qty: number }> | null = null;
+  try {
+    const { data } = await supabase
+      .from("deck_cards")
+      .select("name, qty")
+      .eq("deck_id", id)
+      .order("name", { ascending: true });
+    cards = data as Array<{ name: string; qty: number }> | null;
+  } catch (e) {
+    console.error('[Deck Page] Failed to fetch deck cards:', e);
+    cards = [];
+  }
 
   // Snapshot prices for per-card "each" (USD default)
   const names = Array.from(new Set(((cards||[]) as any[]).map(c=>String(c.name))));

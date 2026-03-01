@@ -166,6 +166,64 @@ export const REPAIR_SYSTEM_MESSAGE =
   "Previous suggestions included invalid, duplicate, or illegal cards. Regenerate recommendations using only legal, non-duplicate cards for this format. Preserve the original structure and tone; only repair the invalid recommendations.";
 
 /**
+ * Check if validation issues are serious enough to auto-escalate for human review.
+ * Escalate if: any hallucination (invented card), OR >= 2 serious issues.
+ */
+export function shouldAutoEscalate(issues: ValidationIssue[]): boolean {
+  // Hallucination (invented card) is always serious
+  const hasHallucination = issues.some(i => i.kind === 'invented_card');
+  if (hasHallucination) return true;
+  
+  // Count serious issues (off_color, illegal_format)
+  const seriousIssues = issues.filter(i => 
+    i.kind === 'off_color' || 
+    i.kind === 'illegal_format' ||
+    i.kind === 'invented_card'
+  );
+  
+  return seriousIssues.length >= 2;
+}
+
+/**
+ * Format validation issues as a user-visible warning message.
+ * Only includes issues worth surfacing (invented cards, off-color, format illegal).
+ */
+export function formatValidationWarning(issues: ValidationIssue[]): string | null {
+  // Filter to user-facing issues (not internal like already_in_deck, not_in_deck)
+  const userFacingIssues = issues.filter(i => 
+    i.kind === 'invented_card' || 
+    i.kind === 'off_color' || 
+    i.kind === 'illegal_format' ||
+    i.kind === 'over_copy_limit'
+  );
+  
+  if (userFacingIssues.length === 0) return null;
+  
+  // Group by type
+  const inventedCards = userFacingIssues.filter(i => i.kind === 'invented_card').map(i => i.card).filter(Boolean);
+  const offColorCards = userFacingIssues.filter(i => i.kind === 'off_color').map(i => i.card).filter(Boolean);
+  const overLimitCards = userFacingIssues.filter(i => i.kind === 'over_copy_limit').map(i => i.card).filter(Boolean);
+  
+  const parts: string[] = [];
+  
+  if (inventedCards.length > 0) {
+    parts.push(`couldn't verify: ${inventedCards.slice(0, 3).join(', ')}${inventedCards.length > 3 ? ` (+${inventedCards.length - 3} more)` : ''}`);
+  }
+  
+  if (offColorCards.length > 0) {
+    parts.push(`off-color for your commander: ${offColorCards.slice(0, 3).join(', ')}${offColorCards.length > 3 ? ` (+${offColorCards.length - 3} more)` : ''}`);
+  }
+  
+  if (overLimitCards.length > 0) {
+    parts.push(`would exceed copy limit: ${overLimitCards.slice(0, 3).join(', ')}`);
+  }
+  
+  if (parts.length === 0) return null;
+  
+  return `\n\n_Note: I removed some suggestions that ${parts.join('; ')}._`;
+}
+
+/**
  * Fetch commander color identity dynamically from Scryfall cache.
  * Returns empty array if not found.
  */

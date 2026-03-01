@@ -70,6 +70,9 @@ export const AnalyticsEvents = {
   BACK_TO_TOP_CLICKED: 'back_to_top_clicked',
   ADVANCED_FILTERS_APPLIED: 'advanced_filters_applied',
   
+  // ===== API REQUEST (billing forensics) =====
+  API_REQUEST: 'api_request',
+
   // ===== AI & CHAT EVENTS =====
   CHAT_SENT: 'chat_sent',
   CHAT_STREAM_STOP: 'chat_stream_stop',

@@ -1,7 +1,8 @@
 // app/api/stats/activity/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
+import { withMetrics } from "@/lib/observability/withMetrics";
 
 const MINUTE = 60 * 1000;
 const FIVE_MINUTES = 5 * MINUTE;
@@ -66,7 +67,7 @@ function generatePlaceholderActivities(count: number, recentTimestamp: boolean =
   return activities;
 }
 
-export async function GET() {
+async function getHandler(_req: NextRequest) {
   try {
     // Check cache first
     const cacheKey = 'activity_stats';
@@ -181,4 +182,6 @@ export async function GET() {
     }, { status: 200 }); // Return 200 with fallback data
   }
 }
+
+export const GET = withMetrics(getHandler);
 

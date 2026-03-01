@@ -11,6 +11,7 @@
     { "path": "/api/cron/meta-signals", "schedule": "15 5 * * *" },
     { "path": "/api/cron/top-cards", "schedule": "30 5 * * *" },
     { "path": "/api/cron/cleanup-rate-limits", "schedule": "0 6 * * 0" },
+    { "path": "/api/cron/cleanup-request-metrics", "schedule": "30 6 * * 0" },
     { "path": "/api/cron/ops-report/daily", "schedule": "0 6 * * *" },
     { "path": "/api/cron/ops-report/weekly", "schedule": "0 7 * * 0" },
     { "path": "/api/shout/auto-generate", "schedule": "17 */2 * * *" }

@@ -1,6 +1,7 @@
 // app/api/decks/recent/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { withMetrics } from "@/lib/observability/withMetrics";
 
 export const runtime = 'edge';
 export const revalidate = 60; // 1 minute
@@ -10,7 +11,7 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(url, anon, { auth: { persistSession: false } });
 
-export async function GET(request: Request) {
+async function getHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") || "12", 10) || 12, 24);
 
@@ -28,3 +29,5 @@ export async function GET(request: Request) {
     }
   });
 }
+
+export const GET = withMetrics(getHandler);

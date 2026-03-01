@@ -5,33 +5,63 @@ import { z } from "zod";
 import { withLogging } from "@/lib/api/withLogging";
 
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
+import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
+
+function norm(name: string): string {
+  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
 
 /**
- * Check if a card can be a commander by querying Scryfall
+ * Check if a card can be a commander by querying cache/Scryfall
+ * Returns { isCommander, colorIdentity }
  */
-async function checkIfCommander(cardName: string): Promise<boolean> {
+async function checkIfCommanderWithColors(cardName: string): Promise<{ isCommander: boolean; colorIdentity: string[] }> {
   try {
-    const response = await fetch(
-      `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`,
-      { next: { revalidate: 86400 } } // Cache for 24 hours
-    );
+    const details = await getDetailsForNamesCached([cardName]);
+    const card = details.get(norm(cardName));
     
-    if (!response.ok) return false;
+    if (!card) return { isCommander: false, colorIdentity: [] };
     
-    const card = await response.json();
     const typeLine = (card.type_line || '').toLowerCase();
     const oracleText = (card.oracle_text || '').toLowerCase();
+    const colorIdentity = Array.isArray(card.color_identity) ? card.color_identity.map((c: string) => c.toUpperCase()) : [];
     
     // Check if it's a legendary creature or planeswalker
-    if (typeLine.includes('legendary creature')) return true;
-    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return true;
+    if (typeLine.includes('legendary creature')) return { isCommander: true, colorIdentity };
+    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return { isCommander: true, colorIdentity };
     
     // Check for special commander abilities (Partner, etc.)
-    if (oracleText.includes('can be your commander')) return true;
+    if (oracleText.includes('can be your commander')) return { isCommander: true, colorIdentity };
     
-    return false;
+    return { isCommander: false, colorIdentity };
   } catch {
-    return false;
+    return { isCommander: false, colorIdentity: [] };
+  }
+}
+
+/**
+ * Fetch color identity for a commander (handles partner commanders with //)
+ */
+async function getCommanderColorIdentity(commanderName: string): Promise<string[]> {
+  if (!commanderName?.trim()) return [];
+  
+  const parts = commanderName.split(/\s*\/\/\s*/);
+  const allColors = new Set<string>();
+  
+  try {
+    const details = await getDetailsForNamesCached(parts);
+    
+    for (const part of parts) {
+      const cardData = details.get(norm(part));
+      if (cardData?.color_identity && Array.isArray(cardData.color_identity)) {
+        cardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
+      }
+    }
+    
+    const wubrgOrder = ['W', 'U', 'B', 'R', 'G'];
+    return wubrgOrder.filter(c => allColors.has(c));
+  } catch {
+    return [];
   }
 }
 
@@ -93,19 +123,29 @@ async function _POST(req: NextRequest) {
 
     // Extract commander from deck_text (first valid commander for Commander format)
     let commander: string | null = null;
+    let colors: string[] = payload.colors || [];
+    
     if (payload.format === "Commander" && payload.deck_text) {
       const allCards = parseDeckText(payload.deck_text);
       // Check each card until we find a valid commander
       for (const card of allCards.slice(0, 10)) { // Check first 10 cards
-        const isCommander = await checkIfCommander(card.name);
-        if (isCommander) {
+        const result = await checkIfCommanderWithColors(card.name);
+        if (result.isCommander) {
           commander = card.name;
+          // Only use detected colors if none were provided
+          if (colors.length === 0 && result.colorIdentity.length > 0) {
+            colors = result.colorIdentity;
+          }
           break;
         }
       }
       // Fallback: if no valid commander found, use first card anyway
       if (!commander && allCards.length > 0) {
         commander = allCards[0].name;
+        // Try to get colors for the fallback commander
+        if (colors.length === 0) {
+          colors = await getCommanderColorIdentity(commander);
+        }
       }
     }
 
@@ -117,10 +157,10 @@ async function _POST(req: NextRequest) {
         title: cleanTitle || "Untitled Deck",
         format: payload.format,
         plan: payload.plan,
-        colors: payload.colors,
+        colors: colors.length > 0 ? colors : null,
         currency: payload.currency,
         deck_text: payload.deck_text,
-        commander: commander, // NEW: Set commander field
+        commander: commander,
         data: payload.data ?? null,
         is_public: false,
       })

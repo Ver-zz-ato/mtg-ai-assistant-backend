@@ -1,7 +1,14 @@
 // frontend/lib/server/analytics.ts
 // Server-side PostHog helper (safe no-op if keys are missing)
 import type { PostHog } from 'posthog-node';
-import { randomUUID } from 'crypto';
+
+// Runtime-agnostic UUID generation (works in both Node.js and Edge)
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
 
 let ph: PostHog | null = null;
 
@@ -40,7 +47,7 @@ export async function captureServer(event: string, properties: Record<string, an
       ph = new PostHog(key, { host: getHost(), flushAt: 1, flushInterval: 100 });
     }
     let id = distinctId ?? properties.user_id ?? properties.visitor_id ?? properties.anonymous_fallback_id;
-    if (!id || id === 'anon') id = `fallback_${randomUUID()}`;
+    if (!id || id === 'anon') id = `fallback_${generateId()}`;
     ph!.capture({ event, distinctId: id, properties });
   } catch {}
 }

@@ -15,6 +15,12 @@ import {
   parsePvLast,
   formatPvLast,
 } from './lib/analytics/middleware-helpers';
+import { runBillingGuards } from './lib/observability/botProtection';
+import {
+  shouldSamplePageRequest,
+  buildPageMetricsContext,
+  logPageMetrics,
+} from './lib/observability/pageMetrics';
 
 // Validate environment variables at startup (fail fast)
 try {
@@ -96,7 +102,16 @@ export async function middleware(req: NextRequest) {
 
   // Handle API routes (Supabase auth + maintenance mode)
   if (path.startsWith('/api/')) {
-    response = NextResponse.next();
+    // Billing guards (env-gated: BILLING_GUARD_BOT_BLOCK, BILLING_GUARD_RATE_LIMIT, BILLING_GUARD_POLL_THROTTLE)
+    const guardResponse = runBillingGuards(req, path);
+    if (guardResponse) return guardResponse;
+
+    // Add x-request-id for billing forensics and tracing
+    const requestHeaders = new Headers(req.headers);
+    if (!requestHeaders.get('x-request-id')) {
+      requestHeaders.set('x-request-id', typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    }
+    response = NextResponse.next({ request: { headers: requestHeaders } });
 
     // Cookie log hygiene: auth-helpers may log before throwing when cookies have base64- prefix.
     // Suppress only those messages in this scope; restore console in finally so other requests are unaffected.
@@ -163,7 +178,8 @@ export async function middleware(req: NextRequest) {
       }
     }
   } else {
-    // Handle page routes (first visit + pageview_server)
+    // Handle page routes (first visit + pageview_server + billing forensics)
+    const pageMetricsStart = Date.now();
     response = NextResponse.next();
     const method = req.method.toUpperCase();
     const accept = req.headers.get('accept');
@@ -240,6 +256,17 @@ export async function middleware(req: NextRequest) {
           }
         }
       }
+    }
+
+    // Billing forensics: log sampled non-API requests
+    // This helps identify cost drivers from page renders, ISR, and image optimization
+    if (shouldSamplePageRequest(path)) {
+      const pageMetricsDuration = Date.now() - pageMetricsStart;
+      const ctx = buildPageMetricsContext(req, {
+        duration_ms: pageMetricsDuration,
+        // Note: status is null because middleware can't see downstream response status
+      });
+      logPageMetrics(ctx);
     }
   }
 

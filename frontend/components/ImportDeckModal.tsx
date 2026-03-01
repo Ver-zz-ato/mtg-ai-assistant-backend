@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "@/components/Modal";
 import { capture } from "@/lib/ph";
 
@@ -8,6 +8,13 @@ type ImportDeckModalProps = {
   open: boolean;
   onClose: () => void;
   onImported: (deckId: string) => void;
+};
+
+type UnrecognizedCard = {
+  originalName: string;
+  qty: number;
+  suggestions: string[];
+  selectedFix: string | null; // null means skip/remove
 };
 
 const FORMATS: Array<{ value: string; label: string }> = [
@@ -38,6 +45,12 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   const [csvProgress, setCsvProgress] = useState(0);
   const [batchResults, setBatchResults] = useState<Array<{ title: string; success: boolean; error?: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  
+  // Pre-import validation state
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [unrecognizedCards, setUnrecognizedCards] = useState<UnrecognizedCard[]>([]);
+  const [validatedDeckText, setValidatedDeckText] = useState<string>("");
+  const [validationStatus, setValidationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -51,6 +64,10 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setImportMode("paste");
       setCsvStatus(null);
       setCsvProgress(0);
+      setShowFixModal(false);
+      setUnrecognizedCards([]);
+      setValidatedDeckText("");
+      setValidationStatus(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -70,27 +87,11 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
     onClose();
   };
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (importMode === "paste" && !deckText.trim()) {
-      setError("Paste a decklist first.");
-      return;
-    }
-    if (importMode === "csv" && !deckText.trim()) {
-      setError("Upload a CSV file first.");
-      return;
-    }
-    if (importMode === "csv-batch") {
-      setError("Use the file input to upload CSV file for batch import.");
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-
+  // Complete the import with validated/fixed deck text
+  const completeImport = useCallback(async (finalDeckText: string) => {
     const payload = {
       title: title.trim() || "Imported Deck",
-      deckText: deckText.trim(),
+      deckText: finalDeckText.trim(),
       format: format === "Other" ? undefined : format,
       plan,
       currency,
@@ -130,6 +131,130 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
     } catch (err: any) {
       setBusy(false);
       setError(err?.message || "Import failed");
+    }
+  }, [title, format, plan, currency, cardCount, importMode, onImported]);
+
+  // Apply fixes and complete import
+  const handleApplyFixes = useCallback(() => {
+    // Build the fixed deck text
+    const lines = validatedDeckText.split(/\r?\n/);
+    const fixedLines: string[] = [];
+    
+    // Create a map of original names to their fixes
+    const fixMap = new Map<string, string | null>();
+    unrecognizedCards.forEach(card => {
+      fixMap.set(card.originalName.toLowerCase(), card.selectedFix);
+    });
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        fixedLines.push(line);
+        continue;
+      }
+      
+      // Parse line to get card name
+      const match = trimmed.match(/^(\d+)\s*[xX]?\s+(.+)$/) || 
+                    trimmed.match(/^(.+?)\s+[xX]\s*(\d+)$/) ||
+                    trimmed.match(/^(.+?)\s*,\s*(\d+)$/);
+      
+      let qty = 1;
+      let name = trimmed;
+      
+      if (match) {
+        if (/^\d+$/.test(match[1])) {
+          qty = parseInt(match[1], 10) || 1;
+          name = match[2].trim();
+        } else {
+          name = match[1].trim();
+          qty = parseInt(match[2], 10) || 1;
+        }
+      }
+      
+      // Check if this card needs fixing
+      const lowerName = name.toLowerCase();
+      if (fixMap.has(lowerName)) {
+        const fix = fixMap.get(lowerName);
+        if (fix === null) {
+          // Skip this card (user chose to remove it)
+          continue;
+        } else {
+          // Use the fixed name
+          fixedLines.push(`${qty} ${fix}`);
+        }
+      } else {
+        // No fix needed, keep original
+        fixedLines.push(line);
+      }
+    }
+    
+    const finalDeckText = fixedLines.join('\n');
+    setShowFixModal(false);
+    completeImport(finalDeckText);
+  }, [validatedDeckText, unrecognizedCards, completeImport]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (importMode === "paste" && !deckText.trim()) {
+      setError("Paste a decklist first.");
+      return;
+    }
+    if (importMode === "csv" && !deckText.trim()) {
+      setError("Upload a CSV file first.");
+      return;
+    }
+    if (importMode === "csv-batch") {
+      setError("Use the file input to upload CSV file for batch import.");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setValidationStatus("Validating card names...");
+
+    try {
+      // First validate and get unrecognized cards
+      const validateRes = await fetch("/api/deck/parse-and-fix-names", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckText: deckText.trim() }),
+      });
+
+      const validateJson = await validateRes.json().catch(() => ({}));
+      setValidationStatus(null);
+      
+      if (!validateRes.ok || !validateJson?.ok) {
+        throw new Error(validateJson?.error || "Failed to validate cards");
+      }
+
+      const items = validateJson.items || [];
+      
+      if (items.length > 0) {
+        // There are unrecognized cards - show the fix modal
+        setUnrecognizedCards(items.map((item: any) => ({
+          originalName: item.originalName,
+          qty: item.qty || 1,
+          suggestions: item.suggestions || [],
+          selectedFix: item.suggestions?.[0] || null, // Default to first suggestion
+        })));
+        setValidatedDeckText(deckText.trim());
+        setShowFixModal(true);
+        setBusy(false);
+        return;
+      }
+
+      // No unrecognized cards - complete the import directly
+      // Use the corrected cards from the API (properly capitalized)
+      const correctedCards = validateJson.cards || [];
+      const correctedDeckText = correctedCards
+        .map((c: any) => `${c.qty} ${c.name}`)
+        .join('\n');
+      
+      await completeImport(correctedDeckText || deckText.trim());
+    } catch (err: any) {
+      setBusy(false);
+      setValidationStatus(null);
+      setError(err?.message || "Validation failed");
     }
   }
 
@@ -553,6 +678,16 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </div>
         )}
 
+        {validationStatus && (
+          <div className="rounded-lg border border-blue-500/60 bg-blue-900/20 px-3 py-2 text-xs text-blue-200 flex items-center gap-2">
+            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {validationStatus}
+          </div>
+        )}
+
         {error && (
           <div className="rounded-lg border border-red-500/60 bg-red-900/20 px-3 py-2 text-xs text-red-200">
             {error}
@@ -574,7 +709,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
             className="rounded-lg bg-gradient-to-r from-emerald-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:from-emerald-500 hover:to-blue-500 disabled:opacity-50"
           >
             {busy 
-              ? (importMode === "csv" && csvProgress > 0 && csvProgress < 100 ? "Matching cards…" : "Importing…") 
+              ? (validationStatus ? "Validating…" : importMode === "csv" && csvProgress > 0 && csvProgress < 100 ? "Matching cards…" : "Importing…") 
               : importMode === "csv-batch" 
                 ? "Upload CSV file above"
                 : "Import Deck"
@@ -582,6 +717,107 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </button>
         </div>
       </form>
+
+      {/* Fix Unrecognized Cards Modal */}
+      <Modal 
+        open={showFixModal} 
+        title="Fix Unrecognized Cards" 
+        onClose={() => {
+          setShowFixModal(false);
+          setBusy(false);
+        }}
+      >
+        <div className="space-y-4">
+          <div className="text-sm text-neutral-300">
+            <span className="text-amber-400 font-medium">{unrecognizedCards.length} cards</span> couldn&apos;t be matched to our database.
+            Select the correct card or remove from your deck.
+          </div>
+
+          <div className="max-h-80 overflow-y-auto space-y-3 pr-2">
+            {unrecognizedCards.map((card, idx) => (
+              <div key={idx} className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">
+                      {card.qty}x <span className="text-amber-300">{card.originalName}</span>
+                    </div>
+                    {card.suggestions.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-xs text-neutral-400">Did you mean:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {card.suggestions.slice(0, 5).map((suggestion, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => {
+                                const updated = [...unrecognizedCards];
+                                updated[idx].selectedFix = suggestion;
+                                setUnrecognizedCards(updated);
+                              }}
+                              className={`px-2 py-1 text-xs rounded transition-colors ${
+                                card.selectedFix === suggestion
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                              }`}
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-neutral-500">No suggestions found</div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = [...unrecognizedCards];
+                      updated[idx].selectedFix = updated[idx].selectedFix === null ? updated[idx].suggestions[0] || null : null;
+                      setUnrecognizedCards(updated);
+                    }}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      card.selectedFix === null
+                        ? "bg-red-600 text-white"
+                        : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                    }`}
+                  >
+                    {card.selectedFix === null ? "Removing" : "Remove"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-neutral-700 pt-4">
+            <div className="flex items-center justify-between text-xs text-neutral-400 mb-3">
+              <span>
+                {unrecognizedCards.filter(c => c.selectedFix !== null).length} cards will be fixed, {" "}
+                {unrecognizedCards.filter(c => c.selectedFix === null).length} will be removed
+              </span>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFixModal(false);
+                  setBusy(false);
+                }}
+                className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-white transition-colors hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyFixes}
+                className="rounded-lg bg-gradient-to-r from-emerald-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:from-emerald-500 hover:to-blue-500"
+              >
+                Apply Fixes & Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 }

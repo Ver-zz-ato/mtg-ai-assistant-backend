@@ -858,7 +858,8 @@ export async function POST(req: NextRequest) {
           if (deckCards.length > 0 && outputText) {
             try {
               const formatKeyVal = (formatKey === "modern" || formatKey === "pioneer" ? formatKey : "commander") as "commander" | "modern" | "pioneer";
-              const { validateRecommendations, REPAIR_SYSTEM_MESSAGE } = await import("@/lib/chat/validateRecommendations");
+              const { validateRecommendations, REPAIR_SYSTEM_MESSAGE, formatValidationWarning, shouldAutoEscalate } = await import("@/lib/chat/validateRecommendations");
+              const originalOutputText = outputText; // Save for auto-escalation
               let result = await validateRecommendations({
                 deckCards: deckCards.map((c) => ({ name: c.name })),
                 formatKey: formatKeyVal,
@@ -866,9 +867,30 @@ export async function POST(req: NextRequest) {
                 commanderName: deckContextForCompose?.commanderName ?? null,
                 rawText: outputText,
               });
+              let validationWarning: string | null = null;
               if (!result.valid && result.issues.length > 0) {
                 if (DEV) console.warn("[stream] Recommendation validation issues:", result.issues.map((i) => i.message));
                 outputText = result.repairedText;
+                validationWarning = formatValidationWarning(result.issues);
+                
+                // Auto-escalate serious issues for human review
+                if (shouldAutoEscalate(result.issues)) {
+                  try {
+                    const supabase = await getServerSupabase();
+                    await supabase.from('ai_human_reviews').insert({
+                      source: 'auto_escalation',
+                      route: '/api/chat/stream',
+                      input: { user_message: text, thread_id: tid, format: formatKeyVal },
+                      output: outputText,
+                      labels: { issues: result.issues.map(i => ({ kind: i.kind, card: i.card, message: i.message })) },
+                      status: 'pending',
+                      meta: { original_response: originalOutputText, repaired: true }
+                    });
+                    console.log('[stream] Auto-escalated response for human review due to:', result.issues.map(i => i.kind).join(', '));
+                  } catch (escErr) {
+                    console.warn('[stream] Failed to auto-escalate:', escErr);
+                  }
+                }
               }
               // Max 1 retry: re-invoke with repair message when needsRegeneration (no streaming on second pass)
               if (result.needsRegeneration) {
@@ -914,6 +936,10 @@ export async function POST(req: NextRequest) {
               outputText = stripIncompleteTruncation(outputText);
               outputText = applyOutputCleanupFilter(outputText);
               outputText = applyBracketEnforcement(outputText);
+              // Append validation warning if any cards were removed
+              if (validationWarning) {
+                outputText = outputText + validationWarning;
+              }
               if (DEV) {
                 const { humanSanityCheck } = await import("@/lib/chat/humanSanityCheck");
                 const flags = humanSanityCheck(outputText);

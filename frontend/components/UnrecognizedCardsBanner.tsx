@@ -25,9 +25,11 @@ export default function UnrecognizedCardsBanner({ type, id, onFix }: Unrecognize
     async function checkUnrecognized() {
       try {
         setChecking(true);
+        
+        // Use fast count-only endpoints for both decks and collections
         const endpoint = type === 'deck' 
-          ? `/api/decks/fix-names?deckId=${encodeURIComponent(id)}`
-          : `/api/collections/fix-names?collectionId=${encodeURIComponent(id)}`;
+          ? `/api/decks/unrecognized-count?deckId=${encodeURIComponent(id)}`
+          : `/api/collections/unrecognized-count?collectionId=${encodeURIComponent(id)}`;
         
         const res = await fetch(endpoint, { cache: 'no-store' });
         
@@ -45,8 +47,11 @@ export default function UnrecognizedCardsBanner({ type, id, onFix }: Unrecognize
         if (!mounted) return;
         
         if (data?.ok === true) {
-          const items = Array.isArray(data.items) ? data.items : [];
-          setUnrecognizedCount(items.length);
+          // Fast endpoint returns count directly, full endpoint returns items array
+          const count = typeof data.count === 'number' 
+            ? data.count 
+            : (Array.isArray(data.items) ? data.items.length : 0);
+          setUnrecognizedCount(count);
         } else {
           setUnrecognizedCount(null);
         }
@@ -61,8 +66,8 @@ export default function UnrecognizedCardsBanner({ type, id, onFix }: Unrecognize
       }
     }
 
-    // Small delay to avoid blocking initial render
-    const timeoutId = setTimeout(checkUnrecognized, 500);
+    // Check immediately on mount
+    checkUnrecognized();
     
     // Also listen for deck/collection changes to re-check (e.g., after fixes are applied)
     const handleChange = () => {
@@ -77,14 +82,19 @@ export default function UnrecognizedCardsBanner({ type, id, onFix }: Unrecognize
     
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
       window.removeEventListener('deck:changed', handleChange);
       window.removeEventListener('collection:changed', handleChange);
     };
   }, [type, id]);
 
-  // Don't show if checking, dismissed, or no unrecognized cards
-  if (checking || dismissed || unrecognizedCount === null || unrecognizedCount === 0) {
+  // Don't show if dismissed or no unrecognized cards (after check completes)
+  if (dismissed || (!checking && (unrecognizedCount === null || unrecognizedCount === 0))) {
+    return null;
+  }
+
+  // Show checking state briefly (skeleton) only if we have a previous count or it's a fresh check
+  if (checking && unrecognizedCount === null) {
+    // Don't show skeleton for initial check - wait for result
     return null;
   }
 

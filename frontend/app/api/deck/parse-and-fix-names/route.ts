@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Try exact case-insensitive match
+        // Try exact case-insensitive match first
         const { data: exactMatch } = await supabase
           .from('scryfall_cache')
           .select('name')
@@ -120,6 +120,20 @@ export async function POST(req: NextRequest) {
             }
           } else {
             cacheNameMap.set(cardNorm, exactMatch[0].name);
+            continue;
+          }
+        }
+        
+        // Try prefix match for partial names like "mizzix" -> "Mizzix of the Izmagnus"
+        if (cardName.length >= 4) {
+          const { data: prefixMatch } = await supabase
+            .from('scryfall_cache')
+            .select('name')
+            .ilike('name', `${cardName}%`)
+            .limit(1);
+          
+          if (prefixMatch && prefixMatch.length > 0) {
+            cacheNameMap.set(norm(cardName), prefixMatch[0].name);
             continue;
           }
         }

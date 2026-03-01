@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { withMetrics } from '@/lib/observability/withMetrics';
 
 // Note: Removed edge runtime - Supabase client may not work properly on edge
 export const revalidate = 0; // No cache - always fetch fresh data
 
-export async function GET() {
+async function getHandler(_req: NextRequest) {
   try {
     const supabase = await createClient();
 
@@ -41,3 +42,5 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 });
   }
 }
+
+export const GET = withMetrics(getHandler);

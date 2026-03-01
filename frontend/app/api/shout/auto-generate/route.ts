@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { broadcast, pushHistory, type Shout, getHistory } from "../hub";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -270,15 +271,19 @@ async function handleGenerate(req: NextRequest) {
   const hdr = req.headers.get("x-cron-key") || "";
   const isDev = process.env.NODE_ENV === "development";
   
-  if (!isDev && cronKey && hdr !== cronKey) {
+  // Check for force flag (admin bypass)
+  const url = new URL(req.url);
+  const forceGenerate = url.searchParams.get('force') === 'true';
+  
+  if (!isDev && !forceGenerate && cronKey && hdr !== cronKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
   const now = Date.now();
   const lastTime = globalThis.__lastAutoGenTime ?? 0;
   
-  // Check interval (skip in dev for testing)
-  if (!isDev && now - lastTime < MIN_INTERVAL_MS) {
+  // Check interval (skip in dev for testing, skip if force flag)
+  if (!isDev && !forceGenerate && now - lastTime < MIN_INTERVAL_MS) {
     const minutesRemaining = Math.ceil((MIN_INTERVAL_MS - (now - lastTime)) / 60000);
     return NextResponse.json({ 
       ok: false, 
@@ -287,14 +292,14 @@ async function handleGenerate(req: NextRequest) {
     });
   }
   
-  // Check for recent real activity
+  // Check for recent real activity (skip if force flag)
   const history = getHistory();
   const recentRealMessages = history.filter(m => 
     m.id > 0 && // positive IDs are real user messages
     now - m.ts < 30 * 60 * 1000 // within last 30 minutes
   );
   
-  if (!isDev && recentRealMessages.length >= 3) {
+  if (!isDev && !forceGenerate && recentRealMessages.length >= 3) {
     return NextResponse.json({ 
       ok: false, 
       reason: "Enough recent real activity" 
@@ -319,19 +324,56 @@ async function handleGenerate(req: NextRequest) {
   // Post messages with staggered delays
   const posted: Array<{ user: string; text: string }> = [];
   
+  // Initialize supabase for persistence
+  const supabase = await createClient();
+  
+  // Check for banned usernames
+  const { data: bannedUsers } = await supabase
+    .from('banned_shoutbox_users')
+    .select('user_name')
+    .in('user_name', messages.map(m => m.user));
+  
+  const bannedSet = new Set((bannedUsers || []).map(b => b.user_name.toLowerCase()));
+  
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
+    
+    // Skip if username is banned
+    if (bannedSet.has(msg.user.toLowerCase())) {
+      console.log(`🗣️ Shoutbox: Skipping banned username: ${msg.user}`);
+      continue;
+    }
     
     // Apply delay for messages after the first (only if not in dev quick-test mode)
     if (i > 0 && msg.delay_seconds > 0 && !isDev) {
       await sleep(msg.delay_seconds * 1000);
     }
     
+    // Persist to database first to get the real ID
+    const now_ts = Date.now();
+    const { data: inserted, error: insertError } = await supabase
+      .from('shoutbox_messages')
+      .insert({
+        user_name: msg.user,
+        message_text: msg.text,
+        is_ai_generated: true,
+        created_at: new Date(now_ts).toISOString()
+      })
+      .select('id')
+      .single();
+    
+    // Use database ID if available, otherwise fallback to negative ID
+    const shoutId = inserted?.id ? Number(inserted.id) : -nextIdNum();
+    
+    if (insertError) {
+      console.warn(`🗣️ Shoutbox: Failed to persist AI message:`, insertError.message);
+    }
+    
     const shout: Shout = {
-      id: -nextIdNum(), // Negative ID = auto-generated
+      id: shoutId,
       user: msg.user,
       text: msg.text,
-      ts: Date.now(),
+      ts: now_ts,
     };
     
     pushHistory(shout);

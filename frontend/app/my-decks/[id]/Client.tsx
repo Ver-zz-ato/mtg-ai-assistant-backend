@@ -129,11 +129,15 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
 }
 
 function DeckCardRecommendationsWithHide({ deckId, onAddCard }: { deckId: string; onAddCard: (cardName: string) => Promise<void> }) {
-  // Start hidden on mobile, open on desktop
-  const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
+  // Start with consistent default for SSR, then adjust on client
+  const [open, setOpen] = React.useState(true);
+  
+  // Adjust based on viewport after mount to avoid hydration mismatch
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setOpen(false);
+    }
+  }, []);
   
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {

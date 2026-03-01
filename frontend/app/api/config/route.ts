@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { withMetrics } from '@/lib/observability/withMetrics';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
     const url = new URL(req.url);
@@ -42,3 +43,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, monetize: { stripe: true, kofi: true, paypal: true } }, { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } });
   }
 }
+
+export const GET = withMetrics(getHandler);

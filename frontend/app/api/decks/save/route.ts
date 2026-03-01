@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 
 type SaveBody = {
   title?: string;
@@ -111,12 +112,19 @@ export async function POST(req: NextRequest) {
 
     const deckId = deckRow.id as string;
 
-    // 2) Parse and insert cards (best-effort; ignore RLS errors so save still succeeds)
+    // 2) Parse and normalize card names (auto-correct capitalization)
     const parsed = parseDeckText(body.deckText);
+    let unrecognizedCards: Array<{ originalName: string; qty: number; suggestions: string[] }> = [];
+    
     if (parsed.length > 0) {
-      const rows = parsed.map((c) => ({
+      // Normalize card names to proper capitalization
+      const normalized = await normalizeCardNames(parsed);
+      unrecognizedCards = normalized.unrecognized;
+      
+      // Use normalized names (properly capitalized) for cards that matched
+      const rows = normalized.cards.map((c) => ({
         deck_id: deckId,
-        name: c.name,
+        name: c.name, // This is now properly capitalized from cache
         qty: c.qty,
       }));
 
@@ -132,6 +140,7 @@ export async function POST(req: NextRequest) {
             id: deckId,
             warning: "Deck saved, but some cards were not inserted (RLS or constraint).",
             card_error: cardErr.message,
+            unrecognizedCards,
           }, { status: 200 });
         }
       }
@@ -158,7 +167,11 @@ export async function POST(req: NextRequest) {
       });
     } catch {}
 
-    return NextResponse.json({ ok: true, id: deckId }, { status: 200 });
+    return NextResponse.json({ 
+      ok: true, 
+      id: deckId,
+      unrecognizedCards: unrecognizedCards.length > 0 ? unrecognizedCards : undefined
+    }, { status: 200 });
   } catch (e: any) {
     const msg = typeof e?.message === "string" ? e.message : "Unexpected error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
