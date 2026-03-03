@@ -1383,7 +1383,7 @@ function Chat() {
                 {([
                   { id: 'beginner' as const, label: 'Beginner', tip: 'Simple language, step-by-step. Best for new deck builders. AI explains basics and walks you through choices.' },
                   { id: 'intermediate' as const, label: 'Intermediate', tip: 'Balanced depth. Assumes you know basics. Adds strategy, synergies, and meta context.' },
-                  { id: 'pro' as const, label: 'Pro', tip: 'Concise & advanced. Card names, lines, meta talk. For experienced players who want direct answers.' },
+                  { id: 'pro' as const, label: 'Pro', tip: 'Concise and advanced. Card names, lines, meta talk. For experienced players who want direct answers.' },
                 ].map(({ id: m, label, tip }) => {
                   const colors = {
                     beginner: deckMode === m
@@ -1410,11 +1410,11 @@ function Chat() {
                         aria-label={`${label} mode: ${tip}`}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        i
+                        {'i'}
                       </span>
                     </div>
                   );
-                })}
+                }))}
               </div>
             </div>
 
