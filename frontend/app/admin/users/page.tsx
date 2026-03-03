@@ -114,8 +114,8 @@ export default function AdminUsersPage(){
               <th className="text-left py-2 px-3">ID</th>
               <th
                 className="text-center py-2 px-3 cursor-pointer hover:bg-neutral-800/80 select-none"
-                onClick={() => setProFilter(prev => (prev === 'all' ? 'yes' : prev === 'yes' ? 'no' : 'all'))}
-                title="Click to filter: All → Pro only → Non-Pro → All"
+                onClick={() => setProFilter(prev => (prev === 'all' ? 'no' : prev === 'no' ? 'yes' : 'all'))}
+                title="Click to filter: All → Non-Pro → Pro only → All"
               >
                 Pro {proFilter !== 'all' && <span className="opacity-70">({proFilter === 'yes' ? '✓' : '✗'})</span>}
               </th>
