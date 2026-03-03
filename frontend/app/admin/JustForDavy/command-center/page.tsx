@@ -52,6 +52,29 @@ type MulliganDays = 1 | 7 | 30;
 
 const CRON_KEYS = ['deck-costs', 'commander-aggregates', 'meta-signals', 'top-cards'] as const;
 
+const CRON_INFO: Record<(typeof CRON_KEYS)[number], { eli5: string; schedule: string; when: string }> = {
+  'deck-costs': {
+    eli5: 'Adds up card prices so we know how much each public deck costs',
+    schedule: 'Daily 04:30 UTC',
+    when: 'Run after bulk deck import if deck values look stale',
+  },
+  'commander-aggregates': {
+    eli5: 'For each commander: which cards appear most, median deck cost, recent decks',
+    schedule: 'Daily 05:00 UTC',
+    when: 'Run after deck-costs; needed if commander hub stats are stale',
+  },
+  'meta-signals': {
+    eli5: 'Trending commanders, budget picks, most-played cards — powers discovery widgets',
+    schedule: 'Daily 05:15 UTC',
+    when: 'Run after commander-aggregates; refresh if trending/budget widgets look wrong',
+  },
+  'top-cards': {
+    eli5: 'Which cards are in the most decks for each commander (for commander pages)',
+    schedule: 'Daily 05:30 UTC',
+    when: 'Run last; refreshes top cards on each commander page',
+  },
+};
+
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [pinboard, setPinboard] = useState<Pinboard | null>(null);
@@ -63,6 +86,8 @@ export default function CommandCenterPage() {
   const [mulliganDays, setMulliganDays] = useState<MulliganDays>(7);
   const [cronLastRun, setCronLastRun] = useState<Record<string, string>>({});
   const [cronRunBusy, setCronRunBusy] = useState<string | null>(null);
+  const [reportRunBusy, setReportRunBusy] = useState<'daily' | 'weekly' | null>(null);
+  const [opsReports, setOpsReports] = useState<{ latest_daily?: { created_at: string; status: string }; latest_weekly?: { created_at: string; status: string } } | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
 
   const load = useCallback(async () => {
@@ -75,6 +100,7 @@ export default function CommandCenterPage() {
         proRes,
         mullRes,
         configRes,
+        reportsRes,
       ] = await Promise.all([
         fetch('/api/admin/audit-pinboard', { cache: 'no-store' }),
         fetch('/api/admin/ai/health', { cache: 'no-store' }),
@@ -82,6 +108,7 @@ export default function CommandCenterPage() {
         fetch(`/api/admin/pro-gate-analytics?range=${proGateRange}`, { cache: 'no-store' }),
         fetch(`/api/admin/mulligan/analytics?days=${mulliganDays}`, { cache: 'no-store' }),
         fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards', { cache: 'no-store' }),
+        fetch('/api/admin/ops-reports/list?limit=5', { cache: 'no-store' }),
       ]);
 
       const pinJ = await pinRes.json().catch(() => ({}));
@@ -90,6 +117,7 @@ export default function CommandCenterPage() {
       const proJ = await proRes.json().catch(() => ({}));
       const mullJ = await mullRes.json().catch(() => ({}));
       const configJ = await configRes.json().catch(() => ({}));
+      const reportsJ = await reportsRes.json().catch(() => ({}));
 
       if (pinJ?.ok && pinJ?.pinboard) setPinboard(pinJ.pinboard);
       else setPinboard(null);
@@ -112,6 +140,9 @@ export default function CommandCenterPage() {
 
       if (configJ?.config) setCronLastRun(configJ.config);
       else setCronLastRun({});
+
+      if (reportsJ?.ok) setOpsReports({ latest_daily: reportsJ.latest_daily, latest_weekly: reportsJ.latest_weekly });
+      else setOpsReports(null);
 
       setLastRefresh(new Date().toLocaleTimeString());
     } catch (e) {
@@ -144,6 +175,28 @@ export default function CommandCenterPage() {
       alert(`❌ ${name} failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setCronRunBusy(null);
+    }
+  }
+
+  async function runReport(type: 'daily' | 'weekly') {
+    setReportRunBusy(type);
+    try {
+      const r = await fetch('/api/admin/ops-reports/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        load();
+        alert(`${type === 'daily' ? 'Daily' : 'Weekly'} report completed. Status: ${j.status}`);
+      } else {
+        alert(j?.error || 'Run failed');
+      }
+    } catch (e: unknown) {
+      alert(`Report failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setReportRunBusy(null);
     }
   }
 
@@ -406,10 +459,15 @@ export default function CommandCenterPage() {
         </section>
       </div>
 
-      {/* Discovery Crons */}
+      {/* Discovery Crons (from Ops) */}
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Discovery Crons</h2>
+          <div>
+            <h2 className="text-sm font-semibold">Discovery Crons</h2>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              Auto-run daily 04:30–05:30 UTC. Run order: deck-costs → commander-aggregates → meta-signals → top-cards.
+            </p>
+          </div>
           <Link href="/admin/ops" className="text-xs text-blue-400 hover:text-blue-300">
             Ops page →
           </Link>
@@ -418,8 +476,17 @@ export default function CommandCenterPage() {
           {CRON_KEYS.map((name) => (
             <div key={name} className="p-2 rounded bg-neutral-800/60 border border-neutral-700 flex flex-col gap-2">
               <div className="font-mono text-neutral-300">{name}</div>
+              <div className="text-[11px] text-neutral-500 leading-tight">
+                {CRON_INFO[name].eli5}
+              </div>
+              <div className="text-[10px] text-neutral-600">
+                Auto: {CRON_INFO[name].schedule}
+              </div>
+              <div className="text-[10px] text-neutral-600 italic">
+                Run when: {CRON_INFO[name].when}
+              </div>
               <div className="text-neutral-500">
-                {cronLastRun[`job:last:${name}`]
+                Last: {cronLastRun[`job:last:${name}`]
                   ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString()
                   : '—'}
               </div>
@@ -432,6 +499,59 @@ export default function CommandCenterPage() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Manual checks (from Ops — daily/weekly reports) */}
+      <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Manual checks</h2>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              Ops health reports. Daily 06:00 UTC, weekly Sundays 07:00 UTC. Run here if you want a fresh report now.
+            </p>
+          </div>
+          <Link href="/admin/ops" className="text-xs text-blue-400 hover:text-blue-300">
+            Ops page →
+          </Link>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700 flex flex-col gap-2 min-w-[140px]">
+            <div className="font-medium text-neutral-300">Daily report</div>
+            <div className="text-[11px] text-neutral-500">
+              Errors, spend, price data, perf. Stored in ops_reports + Discord.
+            </div>
+            {opsReports?.latest_daily && (
+              <div className="text-[10px] text-neutral-600">
+                Last: {new Date(opsReports.latest_daily.created_at).toLocaleString()} · {opsReports.latest_daily.status}
+              </div>
+            )}
+            <button
+              onClick={() => runReport('daily')}
+              disabled={!!reportRunBusy}
+              className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs disabled:opacity-50 w-fit"
+            >
+              {reportRunBusy === 'daily' ? 'Running…' : 'Run daily'}
+            </button>
+          </div>
+          <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700 flex flex-col gap-2 min-w-[140px]">
+            <div className="font-medium text-neutral-300">Weekly report</div>
+            <div className="text-[11px] text-neutral-500">
+              Full ops health. Sundays 07:00 UTC.
+            </div>
+            {opsReports?.latest_weekly && (
+              <div className="text-[10px] text-neutral-600">
+                Last: {new Date(opsReports.latest_weekly.created_at).toLocaleString()} · {opsReports.latest_weekly.status}
+              </div>
+            )}
+            <button
+              onClick={() => runReport('weekly')}
+              disabled={!!reportRunBusy}
+              className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs disabled:opacity-50 w-fit"
+            >
+              {reportRunBusy === 'weekly' ? 'Running…' : 'Run weekly'}
+            </button>
+          </div>
         </div>
       </section>
 
