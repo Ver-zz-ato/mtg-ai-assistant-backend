@@ -4,8 +4,11 @@ import { ELI5 } from "@/components/AdminHelp";
 
 type UserRow = { id: string; email: string|null; username: string|null; avatar: string|null; pro: boolean; pro_plan?: string|null; billing_active?: boolean };
 
+type ProFilter = 'all' | 'yes' | 'no';
+
 export default function AdminUsersPage(){
   const [q, setQ] = React.useState("");
+  const [proFilter, setProFilter] = React.useState<ProFilter>('all');
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [rows, setRows] = React.useState<UserRow[]>([]);
@@ -60,6 +63,10 @@ export default function AdminUsersPage(){
     }
   }
 
+  const filteredRows = rows.filter(u =>
+    proFilter === 'all' || (proFilter === 'yes' && u.pro) || (proFilter === 'no' && !u.pro)
+  );
+
   async function setBilling(userId: string, active: boolean){
     const prev = rows.slice();
     setRows(rows => rows.map(r => r.id===userId? { ...r, billing_active: active }: r));
@@ -105,12 +112,18 @@ export default function AdminUsersPage(){
               <th className="text-left py-2 px-3">User</th>
               <th className="text-left py-2 px-3">Email</th>
               <th className="text-left py-2 px-3">ID</th>
-              <th className="text-center py-2 px-3">Pro</th>
+              <th
+                className="text-center py-2 px-3 cursor-pointer hover:bg-neutral-800/80 select-none"
+                onClick={() => setProFilter(prev => (prev === 'all' ? 'yes' : prev === 'yes' ? 'no' : 'all'))}
+                title="Click to filter: All → Pro only → Non-Pro → All"
+              >
+                Pro {proFilter !== 'all' && <span className="opacity-70">({proFilter === 'yes' ? '✓' : '✗'})</span>}
+              </th>
               <th className="text-center py-2 px-3">Billing</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(u => (
+            {filteredRows.map(u => (
               <tr key={u.id} className="border-b border-neutral-900">
                 <td className="py-2 px-3">
                   <div className="flex items-center gap-2 min-w-0">
@@ -141,8 +154,18 @@ export default function AdminUsersPage(){
                 </td>
               </tr>
             ))}
-            {rows.length===0 && !loading && (
-              <tr><td colSpan={5} className="py-6 text-center text-sm opacity-70">No results</td></tr>
+            {(rows.length === 0 || filteredRows.length === 0) && !loading && (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-sm opacity-70">
+                  {rows.length === 0
+                    ? 'No results'
+                    : proFilter === 'yes'
+                    ? 'No Pro users in this set'
+                    : proFilter === 'no'
+                    ? 'No non-Pro users in this set'
+                    : 'No results'}
+                </td>
+              </tr>
             )}
             {loading && (
               <tr><td colSpan={5} className="py-6 text-center text-sm opacity-70">Loading…</td></tr>
