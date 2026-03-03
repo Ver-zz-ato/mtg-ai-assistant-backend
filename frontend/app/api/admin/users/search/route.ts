@@ -26,26 +26,53 @@ export async function GET(req: NextRequest){
     const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
     const perPage = Math.min(100, Math.max(10, parseInt(req.nextUrl.searchParams.get("perPage") || "50", 10) || 50));
 
-    // When searching, fetch multiple pages (auth has no native search). Otherwise single page.
     let authUsers: any[] = [];
-    if (q) {
-      for (let p = 1; p <= 10; p++) {
-        const { data, error } = await admin.auth.admin.listUsers({ page: p, perPage });
-        if (error) {
-          // Fallback: listUsers can fail with "Database error finding users" (auth schema perms/triggers)
-          console.warn('[admin/users/search] listUsers failed:', error.message);
-          break;
+
+    // When searching: use RPC to query auth.users + profiles directly (finds any user by email/id/username)
+    if (q && q.length >= 2) {
+      try {
+        const { data: searchIds, error: rpcError } = await admin.rpc('admin_search_auth_users', { p_search: q });
+        if (!rpcError && Array.isArray(searchIds) && searchIds.length > 0) {
+          const ids = (searchIds as { id: string }[]).map(r => r.id).filter(Boolean);
+          const enriched = await Promise.all(ids.map(async (id) => {
+            const { data: authUser } = await admin.auth.admin.getUserById(id);
+            if (!authUser?.user) return null;
+            const u = authUser.user;
+            return {
+              id: u.id,
+              email: u.email ?? null,
+              user_metadata: u.user_metadata || {},
+              created_at: u.created_at,
+              last_sign_in_at: u.last_sign_in_at,
+            };
+          }));
+          authUsers = enriched.filter(Boolean) as any[];
         }
-        const batch = data?.users || [];
-        authUsers.push(...batch);
-        if (batch.length < perPage) break;
+      } catch (e) {
+        console.warn('[admin/users/search] RPC admin_search_auth_users failed:', e);
       }
-    } else {
-      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-      if (error) {
-        console.warn('[admin/users/search] listUsers failed:', error.message);
+    }
+
+    // Fallback: listUsers pagination (limited to first ~500 users when searching)
+    if (authUsers.length === 0) {
+      if (q) {
+        for (let p = 1; p <= 10; p++) {
+          const { data, error } = await admin.auth.admin.listUsers({ page: p, perPage });
+          if (error) {
+            console.warn('[admin/users/search] listUsers failed:', error.message);
+            break;
+          }
+          const batch = data?.users || [];
+          authUsers.push(...batch);
+          if (batch.length < perPage) break;
+        }
       } else {
-        authUsers = data?.users || [];
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+        if (error) {
+          console.warn('[admin/users/search] listUsers failed:', error.message);
+        } else {
+          authUsers = data?.users || [];
+        }
       }
     }
     let fallbackProfiles: any[] = [];

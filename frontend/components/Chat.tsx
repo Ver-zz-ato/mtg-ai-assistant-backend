@@ -1380,7 +1380,11 @@ function Chat() {
             <div className="space-y-1.5">
               <span className="text-xs text-neutral-500">Deck Mode</span>
               <div className="flex gap-0.5 p-0.5 rounded-lg bg-neutral-800/60 border border-neutral-700/50">
-                {(['beginner','intermediate','pro'] as const).map((m) => {
+                {([
+                  { id: 'beginner' as const, label: 'Beginner', tip: 'Simple language, step-by-step. Best for new deck builders. AI explains basics and walks you through choices.' },
+                  { id: 'intermediate' as const, label: 'Intermediate', tip: 'Balanced depth. Assumes you know basics. Adds strategy, synergies, and meta context.' },
+                  { id: 'pro' as const, label: 'Pro', tip: 'Concise & advanced. Card names, lines, meta talk. For experienced players who want direct answers.' },
+                ].map(({ id: m, label, tip }) => {
                   const colors = {
                     beginner: deckMode === m
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-500/30'
@@ -1393,13 +1397,22 @@ function Chat() {
                       : 'text-amber-300/70 hover:text-amber-200 hover:bg-amber-900/30 border border-transparent',
                   };
                   return (
-                    <button
-                      key={m}
-                      onClick={() => setDeckMode(m)}
-                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all border ${colors[m]}`}
-                    >
-                      {m}
-                    </button>
+                    <div key={m} className="flex-1 relative">
+                      <button
+                        onClick={() => setDeckMode(m)}
+                        className={`w-full px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all border ${colors[m]}`}
+                      >
+                        {label}
+                      </button>
+                      <span
+                        className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-medium text-neutral-500 hover:text-neutral-300 cursor-help border border-neutral-600 bg-neutral-900/80"
+                        title={tip}
+                        aria-label={`${label} mode: ${tip}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        i
+                      </span>
+                    </div>
                   );
                 })}
               </div>
