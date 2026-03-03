@@ -65,10 +65,20 @@ const GROUPS = [
 export default function AdminDashboardPage() {
   return (
     <main className="max-w-4xl mx-auto p-4 space-y-8">
-      <h1 className="text-xl font-semibold">Admin Dashboard</h1>
-      <p className="text-sm text-neutral-400">
-        Grouped by purpose. Each section has an ELI5 (Explain Like I'm 5) so you know what it does.
-      </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          <p className="text-sm text-neutral-400">
+            Grouped by purpose. Each section has an ELI5 (Explain Like I'm 5) so you know what it does.
+          </p>
+        </div>
+        <Link
+          href="/admin/JustForDavy/command-center"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium text-sm"
+        >
+          Daily Command Center
+        </Link>
+      </div>
       {GROUPS.map((group) => (
         <section key={group.label} className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-1">{group.label}</h2>
