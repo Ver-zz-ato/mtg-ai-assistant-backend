@@ -47,14 +47,22 @@ type Mulligan = {
   total_cost_usd?: number;
 };
 
+type ProGateRange = '24h' | '7d' | '30d';
+type MulliganDays = 1 | 7 | 30;
+
+const CRON_KEYS = ['deck-costs', 'commander-aggregates', 'meta-signals', 'top-cards'] as const;
+
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [pinboard, setPinboard] = useState<Pinboard | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null);
   const [proGate, setProGate] = useState<ProGate | null>(null);
+  const [proGateRange, setProGateRange] = useState<ProGateRange>('7d');
   const [mulligan, setMulligan] = useState<Mulligan | null>(null);
+  const [mulliganDays, setMulliganDays] = useState<MulliganDays>(7);
   const [cronLastRun, setCronLastRun] = useState<Record<string, string>>({});
+  const [cronRunBusy, setCronRunBusy] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
 
   const load = useCallback(async () => {
@@ -71,8 +79,8 @@ export default function CommandCenterPage() {
         fetch('/api/admin/audit-pinboard', { cache: 'no-store' }),
         fetch('/api/admin/ai/health', { cache: 'no-store' }),
         fetch('/api/admin/ai-usage/summary?days=7&limit=5000', { cache: 'no-store' }),
-        fetch('/api/admin/pro-gate-analytics?range=7d', { cache: 'no-store' }),
-        fetch('/api/admin/mulligan/analytics', { cache: 'no-store' }),
+        fetch(`/api/admin/pro-gate-analytics?range=${proGateRange}`, { cache: 'no-store' }),
+        fetch(`/api/admin/mulligan/analytics?days=${mulliganDays}`, { cache: 'no-store' }),
         fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards', { cache: 'no-store' }),
       ]);
 
@@ -111,11 +119,33 @@ export default function CommandCenterPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [proGateRange, mulliganDays]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  async function runCron(name: (typeof CRON_KEYS)[number]) {
+    setCronRunBusy(name);
+    try {
+      const r = await fetch('/api/admin/cron/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cron: name }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        load();
+        alert(`✅ ${name} completed. ${j.updated != null ? `Updated: ${j.updated}` : ''}`);
+      } else {
+        alert(`❌ ${name} failed: ${j?.error || r.statusText}`);
+      }
+    } catch (e: unknown) {
+      alert(`❌ ${name} failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setCronRunBusy(null);
+    }
+  }
 
   if (loading && !pinboard && !health) {
     return (
@@ -177,7 +207,7 @@ export default function CommandCenterPage() {
                   : 'bg-green-900/20 border-green-700/50'
               }`}
             >
-              <div className="text-xs text-neutral-400">AI Spend</div>
+              <div className="text-xs text-neutral-400">AI Spend (matches AI Usage)</div>
               <div className="text-sm">
                 Today ${Number(pinboard.ai_spending.today_usd).toFixed(2)} ({pinboard.ai_spending.daily_usage_pct}%)
               </div>
@@ -289,8 +319,21 @@ export default function CommandCenterPage() {
       {/* Pro Gate + Mulligan */}
       <div className="grid md:grid-cols-2 gap-4">
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Pro Gate (7d)</h2>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Pro Gate</h2>
+              <div className="flex rounded bg-neutral-800 p-0.5">
+                {(['24h', '7d', '30d'] as ProGateRange[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setProGateRange(r)}
+                    className={`px-2 py-0.5 text-xs rounded ${proGateRange === r ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                    {r === '24h' ? '1d' : r}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Link href="/admin/pro-gate" className="text-xs text-blue-400 hover:text-blue-300">
               Full Pro Gate →
             </Link>
@@ -323,8 +366,21 @@ export default function CommandCenterPage() {
         </section>
 
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Mulligan (7d)</h2>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Mulligan</h2>
+              <div className="flex rounded bg-neutral-800 p-0.5">
+                {([1, 7, 30] as MulliganDays[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setMulliganDays(d)}
+                    className={`px-2 py-0.5 text-xs rounded ${mulliganDays === d ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                    {d}d
+                  </button>
+                ))}
+              </div>
+            </div>
             <Link href="/admin/mulligan-analytics" className="text-xs text-blue-400 hover:text-blue-300">
               Full Mulligan →
             </Link>
@@ -355,18 +411,25 @@ export default function CommandCenterPage() {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold">Discovery Crons</h2>
           <Link href="/admin/ops" className="text-xs text-blue-400 hover:text-blue-300">
-            Run crons on Ops →
+            Ops page →
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-          {['deck-costs', 'commander-aggregates', 'meta-signals', 'top-cards'].map((name) => (
-            <div key={name} className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+          {CRON_KEYS.map((name) => (
+            <div key={name} className="p-2 rounded bg-neutral-800/60 border border-neutral-700 flex flex-col gap-2">
               <div className="font-mono text-neutral-300">{name}</div>
-              <div className="text-neutral-500 mt-0.5">
+              <div className="text-neutral-500">
                 {cronLastRun[`job:last:${name}`]
                   ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString()
                   : '—'}
               </div>
+              <button
+                onClick={() => runCron(name)}
+                disabled={!!cronRunBusy}
+                className="px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-xs disabled:opacity-50 w-fit"
+              >
+                {cronRunBusy === name ? 'Running…' : 'Run now'}
+              </button>
             </div>
           ))}
         </div>

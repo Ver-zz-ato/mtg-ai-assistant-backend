@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdminForApi } from "@/lib/server-admin";
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,7 +13,7 @@ function getSupabaseAdmin() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const admin = await requireAdminForApi();
   if (!admin.ok) return admin.response;
 
@@ -26,21 +26,25 @@ export async function GET() {
   }
 
   try {
+    const reqUrl = new URL(req.url);
+    const daysParam = reqUrl.searchParams.get("days");
+    const days = daysParam ? Math.min(90, Math.max(1, parseInt(daysParam, 10) || 7)) : 7;
+
     const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - days);
 
     // Total runs
     const { count: totalRuns } = await supabase
       .from("mulligan_advice_runs")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", sevenDaysAgo.toISOString());
+      .gte("created_at", cutoff.toISOString());
 
     // Cost (sum cost_usd for runs that used LLM)
     const { data: costRows } = await supabase
       .from("mulligan_advice_runs")
       .select("cost_usd")
-      .gte("created_at", sevenDaysAgo.toISOString());
+      .gte("created_at", cutoff.toISOString());
 
     let totalCostUsd = 0;
     for (const r of costRows || []) {
@@ -52,7 +56,7 @@ export async function GET() {
     const { data: byTier } = await supabase
       .from("mulligan_advice_runs")
       .select("effective_tier")
-      .gte("created_at", sevenDaysAgo.toISOString())
+      .gte("created_at", cutoff.toISOString())
       .eq("source", "production_widget");
 
     const tierCounts: Record<string, number> = { guest: 0, free: 0, pro: 0 };
@@ -65,7 +69,7 @@ export async function GET() {
     const { data: bySource } = await supabase
       .from("mulligan_advice_runs")
       .select("source")
-      .gte("created_at", sevenDaysAgo.toISOString());
+      .gte("created_at", cutoff.toISOString());
 
     const sourceCounts: Record<string, number> = {};
     for (const r of bySource || []) {
@@ -77,7 +81,7 @@ export async function GET() {
     const { data: runs } = await supabase
       .from("mulligan_advice_runs")
       .select("user_id")
-      .gte("created_at", sevenDaysAgo.toISOString())
+      .gte("created_at", cutoff.toISOString())
       .eq("source", "production_widget");
 
     const userRunCount: Record<string, number> = {};
@@ -96,11 +100,11 @@ export async function GET() {
     const { data: dailyRuns } = await supabase
       .from("mulligan_advice_runs")
       .select("created_at, effective_tier, cost_usd")
-      .gte("created_at", sevenDaysAgo.toISOString())
+      .gte("created_at", cutoff.toISOString())
       .eq("source", "production_widget");
 
     const daily: Record<string, { total: number; guest: number; free: number; pro: number; cost_usd: number }> = {};
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < days; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
@@ -120,7 +124,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      period: "7d",
+      period: `${days}d`,
       total_runs: totalRuns ?? 0,
       total_cost_usd: totalCostUsd,
       by_tier: tierCounts,

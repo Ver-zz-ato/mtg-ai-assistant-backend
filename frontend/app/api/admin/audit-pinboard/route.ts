@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { getAdmin } from '@/app/api/_lib/supa';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
+    const admin = getAdmin();
+    const db = admin ?? supabase;
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
@@ -37,22 +40,22 @@ export async function GET(req: NextRequest) {
       }
     } catch {}
     
-    // 3. AI spending (today and this week)
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // 3. AI spending (today UTC and this week) - use admin client to match AI usage summary
+    const todayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     
     let todayCost = 0;
     let weekCost = 0;
     try {
-      const { data: todayData } = await supabase
+      const { data: todayData } = await db
         .from('ai_usage')
         .select('cost_usd')
-        .gte('created_at', todayStart.toISOString());
+        .gte('created_at', todayStartUTC);
       
-      const { data: weekData } = await supabase
+      const { data: weekData } = await db
         .from('ai_usage')
         .select('cost_usd')
-        .gte('created_at', weekStart.toISOString());
+        .gte('created_at', weekStart);
       
       todayCost = (todayData || []).reduce((sum: number, row: any) => sum + (Number(row.cost_usd) || 0), 0);
       weekCost = (weekData || []).reduce((sum: number, row: any) => sum + (Number(row.cost_usd) || 0), 0);
