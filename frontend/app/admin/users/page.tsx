@@ -14,19 +14,37 @@ export default function AdminUsersPage(){
   const [rows, setRows] = React.useState<UserRow[]>([]);
   const [page, setPage] = React.useState(1);
   const [hasMore, setHasMore] = React.useState(false);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = React.useRef<HTMLTableCellElement | null>(null);
+
+  const PER_PAGE = 100;
+
+  React.useEffect(() => {
+    const el = loadMoreSentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!el || !root || !hasMore || loading || loadingMore) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMore(); },
+      { root, rootMargin: "100px", threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, loadingMore, rows.length]);
 
   async function load(reset = true){
     setLoading(true);
     if (reset) setPage(1);
     try{
-      const params = new URLSearchParams({ q, page: "1", perPage: "50" });
-      const r = await fetch(`/api/admin/users/search?${params}`, { cache: 'no-store' });
+      const params = new URLSearchParams({ q, page: "1", perPage: String(PER_PAGE) });
+      if (proFilter !== "all") params.set("pro", proFilter);
+      const r = await fetch(`/api/admin/users/search?${params}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
       setRows((j.users||[]) as UserRow[]);
       setHasMore(!!j.hasMore);
     } catch(e:any){
-      alert(e?.message || 'failed');
+      alert(e?.message || "failed");
       setRows([]);
     } finally { setLoading(false); }
   }
@@ -36,7 +54,8 @@ export default function AdminUsersPage(){
     setLoadingMore(true);
     const nextPage = page + 1;
     try{
-      const params = new URLSearchParams({ q, page: String(nextPage), perPage: "50" });
+      const params = new URLSearchParams({ q, page: String(nextPage), perPage: String(PER_PAGE) });
+      if (proFilter !== "all") params.set("pro", proFilter);
       const r = await fetch(`/api/admin/users/search?${params}`, { cache: 'no-store' });
       const j = await r.json();
       if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
@@ -48,7 +67,7 @@ export default function AdminUsersPage(){
     } finally { setLoadingMore(false); }
   }
 
-  React.useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  React.useEffect(() => { load(); }, [proFilter]);
 
   async function setPro(userId: string, pro: boolean){
     const prev = rows.slice();
@@ -62,10 +81,6 @@ export default function AdminUsersPage(){
       setRows(prev);
     }
   }
-
-  const filteredRows = rows.filter(u =>
-    proFilter === 'all' || (proFilter === 'yes' && u.pro) || (proFilter === 'no' && !u.pro)
-  );
 
   async function setBilling(userId: string, active: boolean){
     const prev = rows.slice();
@@ -105,7 +120,7 @@ export default function AdminUsersPage(){
         <button onClick={() => load()} disabled={loading} className="px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm disabled:opacity-60">Search</button>
       </div>
 
-      <div className="rounded border border-neutral-800 overflow-auto max-h-[60vh]">
+      <div ref={scrollContainerRef} className="rounded border border-neutral-800 overflow-auto max-h-[60vh]">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-800">
@@ -114,8 +129,8 @@ export default function AdminUsersPage(){
               <th className="text-left py-2 px-3">ID</th>
               <th
                 className="text-center py-2 px-3 cursor-pointer hover:bg-neutral-800/80 select-none"
-                onClick={() => setProFilter(prev => (prev === 'all' ? 'no' : prev === 'no' ? 'yes' : 'all'))}
-                title="Click to filter: All → Non-Pro → Pro only → All"
+                onClick={() => { setProFilter(prev => (prev === "all" ? "no" : prev === "no" ? "yes" : "all")); }}
+                title="Click to filter: All → Non-Pro → Pro only → All (refetches from server)"
               >
                 Pro {proFilter !== 'all' && <span className="opacity-70">({proFilter === 'yes' ? '✓' : '✗'})</span>}
               </th>
@@ -123,7 +138,7 @@ export default function AdminUsersPage(){
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map(u => (
+            {rows.map(u => (
               <tr key={u.id} className="border-b border-neutral-900">
                 <td className="py-2 px-3">
                   <div className="flex items-center gap-2 min-w-0">
@@ -154,22 +169,17 @@ export default function AdminUsersPage(){
                 </td>
               </tr>
             ))}
-            {(rows.length === 0 || filteredRows.length === 0) && !loading && (
+            {rows.length === 0 && !loading && (
               <tr>
                 <td colSpan={5} className="py-6 text-center text-sm opacity-70">
-                  {rows.length === 0
-                    ? 'No results'
-                    : proFilter === 'yes'
-                    ? 'No Pro users in this set'
-                    : proFilter === 'no'
-                    ? 'No non-Pro users in this set'
-                    : 'No results'}
+                  {proFilter === "yes" ? "No Pro users found" : proFilter === "no" ? "No non-Pro users found" : "No results"}
                 </td>
               </tr>
             )}
             {loading && (
               <tr><td colSpan={5} className="py-6 text-center text-sm opacity-70">Loading…</td></tr>
             )}
+            {hasMore && !loading && !loadingMore ? <tr><td colSpan={5} ref={loadMoreSentinelRef} className="h-1" /></tr> : null}
           </tbody>
         </table>
       </div>

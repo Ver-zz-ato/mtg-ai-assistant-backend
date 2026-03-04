@@ -23,13 +23,40 @@ export async function GET(req: NextRequest){
     if (!admin) return NextResponse.json({ ok:false, error:"missing_service_role_key" }, { status:500 });
 
     const q = String(req.nextUrl.searchParams.get("q") || "").trim();
+    const pro = String(req.nextUrl.searchParams.get("pro") || "all").toLowerCase() as "all" | "yes" | "no";
     const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
-    const perPage = Math.min(100, Math.max(10, parseInt(req.nextUrl.searchParams.get("perPage") || "50", 10) || 50));
+    const perPage = Math.min(200, Math.max(10, parseInt(req.nextUrl.searchParams.get("perPage") || "100", 10) || 100));
 
     let authUsers: any[] = [];
+    let fallbackProfiles: any[] = [];
 
-    // When searching: use RPC to query auth.users + profiles directly (finds any user by email/id/username)
-    if (q && q.length >= 2) {
+    // When pro filter is set: query profiles first by is_pro, then enrich with auth
+    if (pro === "yes" || pro === "no") {
+      const offset = (page - 1) * perPage;
+      const { data: profileRows, error: profErr } = await admin
+        .from("profiles")
+        .select("id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at")
+        .eq("is_pro", pro === "yes")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + perPage - 1);
+      if (!profErr && profileRows?.length) {
+        fallbackProfiles = profileRows;
+        const enriched = await Promise.all(profileRows.map(async (p: any) => {
+          const { data: authUser } = await admin.auth.admin.getUserById(p.id);
+          return {
+            id: p.id,
+            email: authUser?.user?.email ?? null,
+            user_metadata: authUser?.user?.user_metadata || { username: p.username, display_name: p.username },
+            created_at: p.created_at,
+            last_sign_in_at: authUser?.user?.last_sign_in_at ?? null,
+          };
+        }));
+        authUsers = enriched;
+      }
+    }
+
+    // When searching (no pro filter or pro path returned nothing): use RPC to query auth.users + profiles
+    if (authUsers.length === 0 && q && q.length >= 2) {
       try {
         const { data: searchIds, error: rpcError } = await admin.rpc('admin_search_auth_users', { p_search: q });
         if (!rpcError && Array.isArray(searchIds) && searchIds.length > 0) {
@@ -75,7 +102,6 @@ export async function GET(req: NextRequest){
         }
       }
     }
-    let fallbackProfiles: any[] = [];
     if (authUsers.length === 0) {
       // Fallback when listUsers fails: fetch from profiles, then enrich with email via getUserById
       const limit = q ? 150 : perPage; // When searching, fetch more to filter (getUserById x N)
@@ -164,7 +190,7 @@ export async function GET(req: NextRequest){
       return [u.id, u.email, u.username, u.display_name].some(v => norm(v||"").includes(needle));
     });
 
-    const hasMore = !q && authUsers.length >= perPage;
+    const hasMore = (pro === "yes" || pro === "no" ? authUsers.length >= perPage : !q && authUsers.length >= perPage);
     return NextResponse.json({
       ok: true,
       users,
