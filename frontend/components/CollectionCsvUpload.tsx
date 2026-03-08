@@ -134,18 +134,11 @@ export default function CollectionCsvUpload({
       
       setPreviewCards(preview);
       
-      // If mode is 'new', skip preview and import directly
-      if (mode === 'new') {
-        // Auto-import all found cards (skip notfound ones)
-        const foundCards = preview.filter(c => c.matchStatus !== 'notfound');
-        await directImport(foundCards, actualCollectionId, actualCollectionName);
-      } else {
-        // Show preview modal for existing collection
-        setProgress(100);
-        setStatusText('');
-        setBusy(false);
-        setShowPreview(true);
-      }
+      // Always show preview modal (same as deck import) — user reviews matches before importing
+      setProgress(100);
+      setStatusText('');
+      setBusy(false);
+      setShowPreview(true);
       
     } catch (e: any) {
       trackCollectionImportWorkflow('abandoned', { current_step: 3, abandon_reason: 'parse_failed' });
