@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTopCards } from "@/lib/top-cards";
 
+// Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE when served from Vercel suspense cache / ISR
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Top Commander Cards | ManaTap",
   description:

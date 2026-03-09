@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { ProTagLink } from "@/components/ProBadge";
 import { hypergeomCDFAtLeast, buildProbabilityNarrative } from "@/lib/math/hypergeometric";
 
 export default function DeckProbabilityPanel({ deckId, isPro }: { deckId: string; isPro: boolean }) {
@@ -80,7 +81,7 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
         <h3 className="text-sm font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">
           Probability Calculator
         </h3>
-        {!isPro && (<span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase">Pro</span>)}
+        {!isPro && (<ProTagLink />)}
       </div>
       {!isPro && (<div className="text-[11px] opacity-70">Pro only — estimate odds (hypergeometric) such as drawing key cards by a given turn.</div>)}
 

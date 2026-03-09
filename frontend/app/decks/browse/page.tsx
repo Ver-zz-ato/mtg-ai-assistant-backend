@@ -55,6 +55,7 @@ const SORT_OPTIONS = [
 function BrowseDecksContent() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('search') ?? '';
+  const initialCommander = searchParams.get('commander') ?? '';
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,16 +65,18 @@ function BrowseDecksContent() {
   const [hasMore, setHasMore] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  // Filters (initialize search from URL for commander hub links)
+  // Filters (initialize from URL for commander hub links)
   const [search, setSearch] = useState(initialSearch);
+  const [commander, setCommander] = useState(initialCommander);
   const [format, setFormat] = useState('Commander'); // Default to Commander format
   const [colors, setColors] = useState('all');
   const [sort, setSort] = useState('recent');
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(defaultAdvancedFilters);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   
-  // Debounce search to reduce API calls (300ms delay)
+  // Debounce search and commander to reduce API calls (300ms delay)
   const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedCommander = useDebouncedValue(commander, 300);
   
   // Ref for infinite scroll observer
   const observerTarget = React.useRef<HTMLDivElement>(null);
@@ -87,7 +90,7 @@ function BrowseDecksContent() {
     setPage(1);
     setDecks([]);
     loadDecks(1, false);
-  }, [format, colors, sort, debouncedSearch]);
+  }, [format, colors, sort, debouncedSearch, debouncedCommander]);
 
   // Load more when page changes (but not on filter changes)
   useEffect(() => {
@@ -108,6 +111,7 @@ function BrowseDecksContent() {
         page: pageNum.toString(),
         limit: '24',
         ...(debouncedSearch && { search: debouncedSearch }),
+        ...(debouncedCommander && { commander: debouncedCommander }),
         ...(format !== 'all' && { format }),
         ...(colors !== 'all' && { colors }),
         ...(sort && { sort }),
@@ -131,7 +135,7 @@ function BrowseDecksContent() {
           count: newDecks.length,
           page: pageNum,
           append,
-          filters: { format, colors, sort, search: !!search },
+          filters: { format, colors, sort, search: !!search, commander: !!commander },
         });
       }
     } catch (error) {
@@ -208,8 +212,15 @@ function BrowseDecksContent() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search deck, commander, or cards..."
+            placeholder="Search deck, title, or cards..."
             className="flex-1 min-w-[200px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            value={commander}
+            onChange={(e) => setCommander(e.target.value)}
+            placeholder="Commander..."
+            className="min-w-[140px] max-w-[180px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={format}
@@ -254,9 +265,15 @@ function BrowseDecksContent() {
         </form>
 
         {/* Active Filters */}
-        {(format !== 'all' || colors !== 'all' || search) && (
+        {(format !== 'all' || colors !== 'all' || search || commander) && (
           <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-400">Active filters:</span>
+            {commander && (
+              <span className="bg-cyan-600/20 border border-cyan-600/30 text-cyan-300 px-3 py-1 rounded-full text-sm">
+                Commander: {commander}
+                <button onClick={() => setCommander('')} className="ml-2 hover:text-cyan-200">×</button>
+              </span>
+            )}
             {format !== 'all' && (
               <span className="bg-blue-600/20 border border-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm">
                 {format}
@@ -276,7 +293,7 @@ function BrowseDecksContent() {
               </span>
             )}
             <button
-              onClick={() => { setFormat('all'); setColors('all'); setSearch(''); setPage(1); }}
+              onClick={() => { setFormat('all'); setColors('all'); setSearch(''); setCommander(''); setPage(1); }}
               className="text-sm text-red-400 hover:text-red-300 underline"
             >
               Clear all

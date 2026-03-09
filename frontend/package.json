@@ -18,6 +18,7 @@
     "verify:ai": "node scripts/verify-ai-cost-quality.mjs",
     "verify:ai:strict": "node scripts/verify-ai-cost-quality.mjs --require-db",
     "backfill:ai-cost": "node scripts/backfill-ai-usage-cost.mjs",
+    "backfill:commander-colors": "tsx scripts/backfill-commander-colors.ts",
     "test:unit:openai": "tsx tests/unit/openai-params.test.ts",
     "test:assistant": "tsx tests/unit/build_assistant.test.ts",
     "seo:check": "node scripts/seo-check.mjs",

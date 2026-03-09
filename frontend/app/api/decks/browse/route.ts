@@ -58,6 +58,7 @@ export async function GET(req: Request) {
     
     // Filters
     const search = searchParams.get('search') || '';
+    const commander = searchParams.get('commander') || '';
     const format = searchParams.get('format') || '';
     const colors = searchParams.get('colors') || '';
     const sort = searchParams.get('sort') || 'recent'; // recent, popular, budget, expensive
@@ -76,6 +77,10 @@ export async function GET(req: Request) {
     // Apply filters
     if (search) {
       query = query.or(`title.ilike.%${search}%,commander.ilike.%${search}%,deck_text.ilike.%${search}%`);
+    }
+
+    if (commander && commander.trim()) {
+      query = query.ilike('commander', `%${commander.trim()}%`);
     }
 
     if (format && format !== 'all') {

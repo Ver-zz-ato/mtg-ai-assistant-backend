@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { usePro } from '@/components/ProContext';
 import { capture } from '@/lib/ph';
 import { trackProGateViewed, trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
@@ -18,12 +19,12 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
     }
   }, [showUpgradeTooltip, isPro]);
 
-  // For Pro users, show Pro badge
+  // For Pro users, show Pro badge (link to pricing)
   if (isPro) {
     return (
-      <span className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
+      <Link href="/pricing" className="inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide hover:bg-amber-200 transition-colors">
         Pro
-      </span>
+      </Link>
     );
   }
 
@@ -66,4 +67,17 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
 
   // For non-Pro users without upgrade tooltip, show nothing
   return null;
+}
+
+/** Yellow Pro tag as a link to /pricing - use for feature labels (e.g. "Deck value Pro") */
+export function ProTagLink({ className = '', onClick }: { className?: string; onClick?: (e: React.MouseEvent) => void }) {
+  return (
+    <Link
+      href="/pricing"
+      onClick={onClick}
+      className={`inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase hover:bg-amber-200 transition-colors ${className}`.trim()}
+    >
+      Pro
+    </Link>
+  );
 }

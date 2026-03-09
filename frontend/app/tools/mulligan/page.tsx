@@ -73,6 +73,34 @@ export default function MulliganSimulatorPage() {
 
   React.useEffect(()=>{ try{ localStorage.setItem('mull:adv', advanced ? '1':'0'); } catch{} }, [advanced]);
 
+  // Load example deck on mount so users can try the widget immediately
+  const hasLoadedExample = React.useRef(false);
+  React.useEffect(() => {
+    if (hasLoadedExample.current || !SAMPLE_DECKS[0]) return;
+    hasLoadedExample.current = true;
+    const ex = SAMPLE_DECKS[0];
+    const lines = ex.deckList.split(/\r?\n/);
+    let totalCards = 0;
+    let landCount = 0;
+    const landKeywords = /\b(land|forest|island|mountain|plains|swamp)\b/i;
+    const basicLands = /^(island|mountain|forest|plains|swamp)$/i;
+    const parsedCards: Array<{ name: string; qty: number }> = [];
+    for (const line of lines) {
+      const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+      const qty = match ? parseInt(match[1], 10) : 1;
+      const cardName = match ? match[2] : line;
+      if (cardName.startsWith("//") || cardName.startsWith("#")) continue;
+      totalCards += qty;
+      parsedCards.push({ name: cardName.trim(), qty });
+      if (landKeywords.test(cardName) || basicLands.test(cardName)) landCount += qty;
+    }
+    setDeckSize(totalCards);
+    setLandsInDeck(landCount);
+    setDeckCards(parsedCards);
+    setDeckId("");
+    setTimeout(() => run(), 100);
+  }, []);
+
   // Persist + update URL
   React.useEffect(() => {
     try {
@@ -200,7 +228,8 @@ export default function MulliganSimulatorPage() {
   // Suggested k values for quick clicks
   const kChips = [1, 2, 3];
 
-  const [deckText, setDeckText] = React.useState("");
+  const exampleDeckText = SAMPLE_DECKS[0]?.deckList ?? "";
+  const [deckText, setDeckText] = React.useState(exampleDeckText);
   const [parseError, setParseError] = React.useState("");
   
   const parseDecklistAndRun = () => {
@@ -332,6 +361,11 @@ export default function MulliganSimulatorPage() {
         <textarea
           value={deckText}
           onChange={(e) => setDeckText(e.target.value)}
+          onFocus={() => {
+            if (exampleDeckText && deckText.trim() === exampleDeckText.trim()) {
+              setDeckText("");
+            }
+          }}
           placeholder="Paste your decklist here (e.g., '1 Sol Ring', '36 Forest', etc.)"
           className="w-full h-32 bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-sm font-mono resize-none"
         />

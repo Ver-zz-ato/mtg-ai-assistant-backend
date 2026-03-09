@@ -38,9 +38,16 @@ export default function FixNamesModal({ deckId, open, onClose }: { deckId: strin
     finally { setSaving(false); }
   }
 
+  const handleClose = () => {
+    if (items.length === 0 && !loading) {
+      window.dispatchEvent(new Event('deck:changed'));
+    }
+    onClose();
+  };
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={handleClose}>
       <div className="max-w-xl w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">✏️</span>
@@ -83,7 +90,7 @@ export default function FixNamesModal({ deckId, open, onClose }: { deckId: strin
           </>
         )}
         <div className="mt-5 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
+          <button onClick={handleClose} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">
             Close
           </button>
           <button onClick={apply} disabled={saving || loading || items.length===0} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">

@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { canonicalize } from "@/lib/cards/canonicalize";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
 import swapsData from "@/lib/data/budget-swaps.json";
@@ -50,18 +51,13 @@ async function scryPrice(name: string, currency = "USD"): Promise<number> {
   } catch { return 0; }
 }
 
+/** Parse deck text using shared parser (handles Moxfield, Archidekt, etc.) then canonicalize. */
 function parseDeck(text: string): string[] {
-  const out: string[] = [];
-  // Handle both \n and \\n (escaped newlines)
   const normalized = (text || "").replace(/\\n/g, '\n').replace(/\\r/g, '\r');
-  for (const raw of normalized.split(/\r?\n/)) {
-    const s = raw.trim();
-    if (!s) continue;
-    // Match: "1 Card Name" or "1x Card Name" or just "Card Name"
-    const m = s.match(/^(\d+)?\s*[xX]?\s*(.+)$/);
-    const name = m ? m[2].trim() : s.trim();
-    if (!name) continue;
-    const { canonicalName } = canonicalize(name);
+  const cards = parseDeckText(normalized);
+  const out: string[] = [];
+  for (const c of cards) {
+    const { canonicalName } = canonicalize(c.name);
     if (canonicalName) out.push(canonicalName);
   }
   return Array.from(new Set(out));

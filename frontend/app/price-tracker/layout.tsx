@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 const FAQ = [
   { q: "Where do ManaTap prices come from?", a: "Prices are sourced from TCGPlayer (USD) and Cardmarket (EUR/GBP) via Scryfall's API." },
-  { q: "How far back does price history go?", a: "Charts support 30, 90, or 365 days. Sign in to load a deck and see its total value over time." },
+  { q: "How far back does price history go?", a: "Charts support 30 or 60 days (we retain 60 days of daily snapshots). Sign in to load a deck and see its total value over time." },
   { q: "What are moving averages?", a: "7-day and 30-day moving averages smooth short-term noise to show underlying trends." },
   { q: "Can I track multiple cards at once?", a: "Yes. Enter multiple card names or load a deck to see comparative price charts." },
 ];
@@ -44,7 +44,7 @@ const IntroBlock = () => (
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">Price history and trends</h2>
     <p className="text-neutral-300 mb-3 text-sm">
-      View price charts for the last 30, 90, or 365 days. Optional
+      View price charts for the last 30 or 60 days. Optional
       moving-average overlays smooth volatility.
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">Deck value over time</h2>

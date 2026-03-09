@@ -7,6 +7,7 @@ import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
 import { setActiveWorkflow, clearActiveWorkflow, getCurrentWorkflowRunId } from '@/lib/analytics/workflow-abandon';
 import { trackApiCall, trackError } from '@/lib/analytics-performance';
 import { trackProGateViewed, trackProGateClicked, trackProUpgradeStarted } from '@/lib/analytics-pro';
+import { ProTagLink } from '@/components/ProBadge';
 import { useProStatus } from '@/hooks/useProStatus';
 
 type AnalyzeResult = {
@@ -223,7 +224,7 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
                   <div className="font-semibold text-sm mb-1 flex items-center gap-2">
                     <span>📤</span>
                     <span>Export Full Analysis</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">PRO</span>
+                    <ProTagLink />
                   </div>
                   <div className="text-xs text-gray-400">
                     Export detailed analysis report, matchup breakdown, and improvement suggestions

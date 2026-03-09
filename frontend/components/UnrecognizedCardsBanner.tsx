@@ -87,16 +87,12 @@ export default function UnrecognizedCardsBanner({ type, id, onFix }: Unrecognize
     };
   }, [type, id]);
 
-  // Don't show if dismissed or no unrecognized cards (after check completes)
-  if (dismissed || (!checking && (unrecognizedCount === null || unrecognizedCount === 0))) {
-    return null;
-  }
-
-  // Show checking state briefly (skeleton) only if we have a previous count or it's a fresh check
-  if (checking && unrecognizedCount === null) {
-    // Don't show skeleton for initial check - wait for result
-    return null;
-  }
+  // Never show when count is 0 - nothing to fix
+  if (unrecognizedCount === 0) return null;
+  // Don't show if dismissed or no unrecognized cards
+  if (dismissed || (!checking && unrecognizedCount === null)) return null;
+  // Don't show skeleton during initial check - wait for result
+  if (checking && unrecognizedCount === null) return null;
 
   return (
     <div className="mb-4 rounded-xl border-2 border-orange-500/70 bg-gradient-to-r from-orange-900/50 via-red-900/40 to-orange-900/50 p-4 shadow-xl">

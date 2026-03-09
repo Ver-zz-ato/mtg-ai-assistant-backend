@@ -52,16 +52,17 @@ export async function GET(req: NextRequest) {
 
     const cutoff = new Date(new Date(latest).getTime() - windowDays*24*60*60*1000).toISOString().slice(0,10);
 
-    // Pick the earliest snapshot >= cutoff (closest to cutoff that exists)
+    // Pick the most recent snapshot before latest and within the window (so 7d/30d always compare two different dates)
     const { data: priorRows } = await supabase
       .from('price_snapshots')
       .select('snapshot_date')
       .eq('currency', currency)
+      .lt('snapshot_date', latest)
       .gte('snapshot_date', cutoff)
-      .order('snapshot_date', { ascending: true })
+      .order('snapshot_date', { ascending: false })
       .limit(1);
     const prior = (priorRows as any[])?.[0]?.snapshot_date || null;
-    if (!prior || prior === latest) return NextResponse.json({ ok: true, rows: [], latest });
+    if (!prior) return NextResponse.json({ ok: true, rows: [], latest });
 
     // Pull both dates
     const { data } = await supabase

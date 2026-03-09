@@ -31,9 +31,9 @@ export default function EditorAddBar({
         setOpen(false);
         return;
       }
+      setOpen(true); // Show dropdown immediately while searching
       try {
         setLoading(true);
-        // shape can be { data: { items } } or { cards: [...] } — normalize to [{name}]
         const res = await fetch(`/api/cards/search?q=${encodeURIComponent(debounced)}`, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (aborted) return;
@@ -50,7 +50,6 @@ export default function EditorAddBar({
           .filter((r) => !!r.name);
 
         setItems(mapped.slice(0, 12));
-        setOpen(mapped.length > 0);
       } catch {
         if (!aborted) {
           setItems([]);
@@ -120,7 +119,7 @@ export default function EditorAddBar({
             setValue(e.target.value);
             setSelectedFromDropdown(false); // Reset flag when user types
           }}
-          onFocus={() => items.length && setOpen(true)}
+          onFocus={() => term && setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           className="w-full rounded border border-neutral-700 bg-black/40 px-3 py-1 outline-none"

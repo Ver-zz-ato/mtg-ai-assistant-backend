@@ -101,9 +101,10 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         
         const suggestion = fuzzyResults[n]?.suggestion;
         const allSuggestions = Array.isArray(fuzzyResults[n]?.all) ? fuzzyResults[n].all : [];
+        const isSameCard = suggestion && n && suggestion.toLowerCase() === n.toLowerCase();
         
-        // If name needs fixing, show validation modal
-        if (suggestion && suggestion !== n && allSuggestions.length > 0) {
+        // If name needs fixing, show validation modal (skip when only difference is capitalization)
+        if (suggestion && !isSameCard && suggestion !== n && allSuggestions.length > 0) {
           setAddValidationItems([{
             originalName: n,
             suggestions: allSuggestions,

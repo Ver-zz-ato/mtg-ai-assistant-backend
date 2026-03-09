@@ -1,8 +1,10 @@
 "use client";
 import React from "react";
+import ComputingModal from "@/components/ComputingModal";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import FixDeckNamesModal from "@/components/FixDeckNamesModal";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { ProTagLink } from "@/components/ProBadge";
 import { useProStatus } from "@/hooks/useProStatus";
 import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics/track";
@@ -59,6 +61,7 @@ export default function BudgetSwapsClient(){
   const [showSuccessModal, setShowSuccessModal] = React.useState(false);
   const [newDeckLink, setNewDeckLink] = React.useState<string>('');
   
+  const [showNoResultsModal, setShowNoResultsModal] = React.useState(false);
   // Name fixing for pasted deck text
   const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
   const [fixNamesItems, setFixNamesItems] = React.useState<Array<{ originalName: string; qty: number; suggestions: string[] }>>([]);
@@ -246,6 +249,7 @@ export default function BudgetSwapsClient(){
       const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
       const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topX));
       setSugs(top);
+      if (top.length === 0) setShowNoResultsModal(true);
       // Prefetch thumbnails for hover previews
       const names: string[] = [];
       top.forEach(s => { names.push(s.from); names.push(s.to); });
@@ -397,6 +401,16 @@ export default function BudgetSwapsClient(){
 
   return (
     <div className="w-full">
+      <ComputingModal
+        isOpen={busy}
+        title="Finding budget swaps"
+        stages={[
+          { icon: '📋', label: 'Analyzing your deck...' },
+          { icon: '🔍', label: 'Finding cheaper alternatives...' },
+          { icon: '💰', label: 'Comparing prices...' },
+          { icon: '✨', label: 'Almost done...' },
+        ]}
+      />
       {/* Enhanced sticky header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -666,16 +680,16 @@ export default function BudgetSwapsClient(){
                         <span>📊</span> Export CSV
                       </button>
                       <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-neutral-800 text-white border border-neutral-700">
-                        Export → Moxfield <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                        Export → Moxfield <ProTagLink className="ml-0.5 px-1 text-[8px]" onClick={(e)=>e.stopPropagation()} />
                       </button>
                       <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-neutral-800 text-white border border-neutral-700">
-                        Export → MTGO <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                        Export → MTGO <ProTagLink className="ml-0.5 px-1 text-[8px]" onClick={(e)=>e.stopPropagation()} />
                       </button>
                       <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-sky-600 text-white font-medium">
                         <span>+</span> Add to Wishlist
                       </button>
                       <button className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-purple-600 text-white font-medium">
-                        Fork deck <span className="ml-0.5 px-1 rounded bg-amber-300 text-black text-[8px] font-bold">PRO</span>
+                        Fork deck <ProTagLink className="ml-0.5 px-1 text-[8px]" onClick={(e)=>e.stopPropagation()} />
                       </button>
                     </div>
                   </div>
@@ -776,16 +790,16 @@ export default function BudgetSwapsClient(){
                     <span>📊</span> Export CSV
                   </button>
                   <button onClick={()=>exportTxt('moxfield')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
-                    Export → Moxfield <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                    Export → Moxfield <ProTagLink className="bg-amber-400 px-2 py-0.5" onClick={(e)=>e.stopPropagation()} />
                   </button>
                   <button onClick={()=>exportTxt('mtgo')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700">
-                    Export → MTGO <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                    Export → MTGO <ProTagLink className="bg-amber-400 px-2 py-0.5" onClick={(e)=>e.stopPropagation()} />
                   </button>
                   <button onClick={addToWishlist} className="flex items-center gap-1 px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium">
                     <span>+</span> Add swaps to Wishlist
                   </button>
                   <button onClick={forkDeck} className="flex items-center gap-1 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium">
-                    Fork deck with swaps <span className="ml-1 px-1 py-0.5 rounded bg-amber-300 text-black text-[10px] font-bold">PRO</span>
+                    Fork deck with swaps <ProTagLink className="ml-1 px-1 py-0.5" onClick={(e)=>e.stopPropagation()} />
                   </button>
                 </div>
               </div>
@@ -936,7 +950,7 @@ export default function BudgetSwapsClient(){
               className="px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm transition-colors flex items-center gap-2"
             >
               Apply to Deck
-              {!isProFinal && <span className="px-1.5 rounded bg-amber-400 text-black text-[10px]">Pro</span>}
+              {!isProFinal && <ProTagLink className="bg-amber-400 px-1.5" onClick={(e)=>e.stopPropagation()} />}
             </button>
           </motion.div>
         )}
@@ -975,6 +989,53 @@ export default function BudgetSwapsClient(){
                   <button
                     onClick={() => setShowSuccessModal(false)}
                     className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* No results modal - suggest trying higher threshold */}
+      <AnimatePresence>
+        {showNoResultsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setShowNoResultsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-neutral-900 border-2 border-amber-600/50 rounded-xl p-6 max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="text-5xl mb-3">🔍</div>
+                <h3 className="text-xl font-bold mb-2 text-amber-400">No budget swaps found</h3>
+                <p className="text-sm text-neutral-300 mb-4">
+                  No cards in your deck met the swap criteria at {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{threshold.toFixed(1)}+. Try raising the threshold to see suggestions for more expensive cards.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      setThreshold(Math.min(100, threshold + 5));
+                      setShowNoResultsModal(false);
+                      setTimeout(() => compute(), 100);
+                    }}
+                    className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm"
+                  >
+                    Try {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{threshold + 5}+ threshold
+                  </button>
+                  <button
+                    onClick={() => setShowNoResultsModal(false)}
+                    className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
                   >
                     Close
                   </button>

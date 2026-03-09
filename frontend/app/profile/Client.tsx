@@ -13,7 +13,7 @@ import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import { getImagesForNames } from "@/lib/scryfall-cache";
 import PrivacyDataToggle from "@/components/PrivacyDataToggle";
 import BadgeShareBanner from "@/components/BadgeShareBanner";
-import RateLimitIndicator from "@/components/RateLimitIndicator";
+import { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
@@ -558,7 +558,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             <div className="flex-1 min-w-0">
               <div className="text-xl font-semibold truncate">{username || userEmail || 'Anonymous Mage'}</div>
               <div className="text-xs opacity-80 flex items-center gap-2">
-                <span className={`px-1.5 py-0.5 rounded transition-all duration-300 ${pro ? 'bg-amber-300 text-black' : 'bg-neutral-800 text-neutral-200'}`}>{pro ? 'Pro' : 'Free'}</span>
+                {pro ? <ProTagLink /> : <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">Free</span>}
                 <span>•</span>
                 <span>Decks {deckCount}</span>
                 <span>•</span>
@@ -963,7 +963,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div>
                   <div className="text-lg font-semibold flex items-center gap-2">
                     Price Watchlist
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>
+                    <ProTagLink />
                   </div>
                   <div className="text-sm opacity-80">Track price movements and set target prices for cards you're watching.</div>
                 </div>
@@ -1143,12 +1143,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Rate Limit Indicator */}
-                  <div className="border-t border-neutral-800 pt-4">
-                    <div className="text-sm font-semibold mb-3">API Usage</div>
-                    <RateLimitIndicator isPro={true} />
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">

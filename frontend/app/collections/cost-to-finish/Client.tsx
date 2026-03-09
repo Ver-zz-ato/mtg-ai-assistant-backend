@@ -3,11 +3,13 @@
 import * as React from "react";
 import { capture } from "@/lib/ph";
 import { trackApiCall, trackPerformance } from '@/lib/analytics-performance';
+import ComputingModal from "@/components/ComputingModal";
 import FixDeckNamesModal from "@/components/FixDeckNamesModal";
 
 import { useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { usePrefs } from "@/components/PrefsContext";
+import { ProTagLink } from "@/components/ProBadge";
 import { useProStatus } from "@/hooks/useProStatus";
 import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics/track";
@@ -873,6 +875,16 @@ export default function CostToFinishClient() {
 
   return (
     <div className="mx-auto w-full max-w-none px-0 py-4 space-y-4">
+      <ComputingModal
+        isOpen={busy}
+        title="Computing cost to finish"
+        stages={[
+          { icon: '📋', label: 'Parsing your decklist...' },
+          { icon: '💰', label: 'Looking up current prices...' },
+          { icon: '🧮', label: 'Calculating totals...' },
+          { icon: '✨', label: 'Almost done...' },
+        ]}
+      />
       {/* Enhanced header */}
       <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-green-900/20 via-teal-900/10 to-cyan-900/20 p-6">
         <div className="relative z-10">
@@ -1269,7 +1281,7 @@ export default function CostToFinishClient() {
                     } catch(e:any){ alert(e?.message||'Export failed'); }
                   }}
                   className="px-3 py-2 rounded-lg border border-amber-600 hover:bg-amber-600/10 text-white font-medium text-sm inline-flex items-center gap-2 transition-colors">
-                  Export → Moxfield <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                  Export → Moxfield <ProTagLink className="bg-amber-400 px-2 py-0.5" onClick={(e)=>e.stopPropagation()} />
                 </button>
                 <button
                   onClick={async () => {
@@ -1282,7 +1294,7 @@ export default function CostToFinishClient() {
                     } catch(e:any){ alert(e?.message||'Export failed'); }
                   }}
                   className="px-3 py-2 rounded-lg border border-amber-600 hover:bg-amber-600/10 text-white font-medium text-sm inline-flex items-center gap-2 transition-colors">
-                  Export → MTGO <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                  Export → MTGO <ProTagLink className="bg-amber-400 px-2 py-0.5" onClick={(e)=>e.stopPropagation()} />
                 </button>
                 <button
                   onClick={async () => {
@@ -1314,7 +1326,7 @@ export default function CostToFinishClient() {
                   className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm inline-flex items-center gap-2 transition-colors">
                   {batchSwapsLoading ? '🔄 Loading...' : '💡 Suggest budget swaps'}{' '}
                   {!batchSwapsLoading && (
-                    <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-bold uppercase">Pro</span>
+                    <ProTagLink className="bg-amber-400 px-2 py-0.5" onClick={(e)=>e.stopPropagation()} />
                   )}
                 </button>
               </div>

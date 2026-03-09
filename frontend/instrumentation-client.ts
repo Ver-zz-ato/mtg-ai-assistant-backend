@@ -4,12 +4,12 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-// Swallow known SDK noise: Replay/tracing requests "performanceMetrics" in some builds;
-// in DuckDuckGo Mobile and similar it's not found and throws. Not an app bug.
+// Swallow known browser compatibility rejections: matchMedia("(hover: hover)"), "performanceMetrics", etc.
+// Some browsers (e.g. DuckDuckGo Mobile) don't support these media features and throw. Not an app bug.
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (ev) => {
     const msg = ev.reason?.message ?? String(ev.reason ?? '');
-    if (msg.includes('feature named') && msg.includes('performanceMetrics') && msg.includes('was not found')) {
+    if (msg.includes('feature named') && msg.includes('was not found')) {
       ev.preventDefault();
       ev.stopPropagation();
     }
@@ -47,9 +47,9 @@ Sentry.init({
     const errorValue = event.exception?.values?.[0]?.value || '';
     const errorType = event.exception?.values?.[0]?.type || '';
 
-    // Sentry SDK internal: Replay/tracing may request "performanceMetrics" feature that isn't
-    // registered in some builds or browsers (e.g. DuckDuckGo Mobile). Not an app bug.
-    if (errorValue.includes('feature named') && errorValue.includes('performanceMetrics') && errorValue.includes('was not found')) {
+    // Browser/media: Some browsers (e.g. DuckDuckGo Mobile) throw when matchMedia("(hover: hover)")
+    // or similar interaction features are not supported. PostHog and other libs use these. Not an app bug.
+    if (errorValue.includes('feature named') && errorValue.includes('was not found')) {
       return null;
     }
 

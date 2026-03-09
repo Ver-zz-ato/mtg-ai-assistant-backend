@@ -241,13 +241,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If unique(deck_id,name) is enforced, merge by incrementing when it already exists.
-    const { data: existing } = await supabase
+    // Merge by incrementing when card already exists (case-insensitive match)
+    const { data: existingRows } = await supabase
       .from("deck_cards")
-      .select("id, qty")
-      .eq("deck_id", deckId)
-      .eq("name", name)
-      .maybeSingle();
+      .select("id, qty, name")
+      .eq("deck_id", deckId);
+    const nameLower = name.toLowerCase();
+    const existing = (existingRows ?? []).find((r) => (r.name || "").toLowerCase() === nameLower);
 
     if (existing?.id) {
       const newQty = Math.max(0, (existing.qty || 0) + qty);

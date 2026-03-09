@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import AIDeckScanModal from "@/components/AIDeckScanModal";
+import { ProTagLink } from "@/components/ProBadge";
 import { useProStatus } from "@/hooks/useProStatus";
 
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
@@ -614,7 +615,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
             <div className="flex items-center gap-2">
               <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || history.length===0} onClick={undo}>Undo</button>
               <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || future.length===0} onClick={redo}>Redo</button>
-              {!isPro && (<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>)}
+              {!isPro && (<ProTagLink />)}
             </div>
           </div>
         </div>

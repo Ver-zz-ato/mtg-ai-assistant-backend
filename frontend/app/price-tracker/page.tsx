@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceDot, CartesianGrid } from "recharts";
+import { LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceDot, CartesianGrid, ResponsiveContainer } from "recharts";
 import { useProStatus } from "@/hooks/useProStatus";
-import ProBadge from "@/components/ProBadge";
+import ProBadge, { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
@@ -13,8 +13,10 @@ import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import TopMovers from './TopMovers';
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
-const COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"]; 
+const COLORS = ["#38bdf8","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"];
 const Y_AXIS_WIDTH = 48;
+const TICK_FILL = "#94a3b8";
+const GRID_STROKE = "#334155";
 
 export default function PriceTrackerPage(){
   const { user, loading: authLoading } = useAuth();
@@ -31,7 +33,7 @@ export default function PriceTrackerPage(){
   });
   const [names, setNames] = React.useState<string>("");
   const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
-  const [range, setRange] = React.useState<"30"|"90"|"365"|"all">("90");
+  const [range, setRange] = React.useState<"30"|"60">("60");
   const [loading, setLoading] = React.useState(false);
   const [series, setSeries] = React.useState<Array<{ name:string; points: { date:string; unit:number }[] }>>([]);
   const [ma7, setMa7] = React.useState(false);
@@ -41,10 +43,9 @@ export default function PriceTrackerPage(){
   const [deckSeries, setDeckSeries] = React.useState<Array<{ date:string; total:number }>>([]);
 
   const from = React.useMemo(() => {
-    if (range === "all") return "";
-    const days = parseInt(range,10);
-    const d = new Date(Date.now() - days*24*60*60*1000);
-    return d.toISOString().slice(0,10);
+    const days = parseInt(range, 10);
+    const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
   }, [range]);
 
   // Build chart data once for render and for last point label
@@ -287,9 +288,7 @@ export default function PriceTrackerPage(){
             <div className="opacity-70 mb-1">Range</div>
             <select value={range} onChange={e=>setRange(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
               <option value="30">30 days</option>
-              <option value="90">90 days</option>
-              <option value="365">1 year</option>
-              <option value="all">All</option>
+              <option value="60">60 days</option>
             </select>
           </label>
         </div>
@@ -342,26 +341,40 @@ export default function PriceTrackerPage(){
           >
             <div ref={chartRef} className="h-[320px] w-full min-h-[200px] min-w-[200px]">
               {(chartSize.w > 0 || chartSize.h > 0 || names.trim()) ? (
-                <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} width={Math.max(Math.floor(chartSize.w || 400), 200)} height={Math.max(Math.floor(chartSize.h || 320), 200)} data={chartData} margin={{ top: 8, right: 12 + Y_AXIS_WIDTH, bottom: 8, left: 12 }}>
-                  <XAxis dataKey="date" type="category" allowDuplicatedCategory={false} tick={{ fontSize: 11 }} angle={0} minTickGap={28}/>
-                  <YAxis tick={{ fontSize: 11 }} width={Y_AXIS_WIDTH} domain={[0, 'auto']} allowDecimals={false}/>
-                  <Tooltip formatter={(v:any)=>[`$${Number(v).toFixed(2)}`, 'Price']} labelFormatter={(l:any)=>String(l)} />
-                  <CartesianGrid stroke="#222" strokeDasharray="3 3" />
-                  {series.map((s, i) => (
-                    <Line key={s.name} type="monotone" dataKey={`s${i}`} name={s.name} stroke={COLORS[i % COLORS.length]} dot={{ r: 2 }} activeDot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} connectNulls />
-                  ))}
-                  {/* Moving averages */}
-                  {ma7 && series.map((s, i) => (
-                    <Line key={s.name+':ma7'} type="monotone" dataKey={`s${i}:ma7`} name={`${s.name} (MA7)`} stroke={COLORS[i % COLORS.length]} dot={false} strokeDasharray="4 3" strokeWidth={1.5} isAnimationActive={false} connectNulls />
-                  ))}
-                  {ma30 && series.map((s, i) => (
-                    <Line key={s.name+':ma30'} type="monotone" dataKey={`s${i}:ma30`} name={`${s.name} (MA30)`} stroke={COLORS[i % COLORS.length]} dot={false} strokeDasharray="2 2" strokeWidth={1.25} isAnimationActive={false} connectNulls />
-                  ))}
-                  {/* Last value label on the first series */}
-                  {chartData && chartData.length>0 && typeof chartData[chartData.length-1]?.s0 === 'number' && (
-                    <ReferenceDot x={chartData[chartData.length-1].date} y={chartData[chartData.length-1].s0} r={3} fill="#60a5fa" label={{ value: `$${Number(chartData[chartData.length-1].s0).toFixed(2)}`, position: 'top', fill: '#9ca3af', fontSize: 10 }} />
-                  )}
-                </LineChart>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} data={chartData} margin={{ top: 12, right: 12 + Y_AXIS_WIDTH, bottom: 24, left: 8 }}>
+                    <defs>
+                      <linearGradient id="price-fill-0" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COLORS[0]} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={COLORS[0]} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" type="category" allowDuplicatedCategory={false} tick={{ fontSize: 11, fill: TICK_FILL }} angle={0} minTickGap={32} axisLine={{ stroke: GRID_STROKE }} />
+                    <YAxis tick={{ fontSize: 11, fill: TICK_FILL }} width={Y_AXIS_WIDTH} domain={[0, 'auto']} allowDecimals={false} axisLine={{ stroke: GRID_STROKE }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'rgb(23 23 23)', border: '1px solid rgb(64 64 64)', borderRadius: 8 }}
+                      labelStyle={{ color: '#e5e5e5' }}
+                      formatter={(v: any) => [currency === 'EUR' ? `€${Number(v).toFixed(2)}` : currency === 'GBP' ? `£${Number(v).toFixed(2)}` : `$${Number(v).toFixed(2)}`, 'Price']}
+                      labelFormatter={(l: any) => String(l)}
+                    />
+                    <CartesianGrid stroke={GRID_STROKE} strokeDasharray="2 2" vertical={false} />
+                    {series.length > 0 && (
+                      <Area type="monotone" dataKey="s0" fill="url(#price-fill-0)" stroke="none" isAnimationActive={false} connectNulls />
+                    )}
+                    {series.map((s, i) => (
+                      <Line key={s.name} type="monotone" dataKey={`s${i}`} name={s.name} stroke={COLORS[i % COLORS.length]} dot={{ r: 2.5 }} activeDot={{ r: 4 }} strokeWidth={2.5} isAnimationActive={false} connectNulls />
+                    ))}
+                    {ma7 && series.map((s, i) => (
+                      <Line key={s.name+':ma7'} type="monotone" dataKey={`s${i}:ma7`} name={`${s.name} (MA7)`} stroke={COLORS[i % COLORS.length]} dot={false} strokeDasharray="5 4" strokeWidth={1.5} isAnimationActive={false} connectNulls opacity={0.9} />
+                    ))}
+                    {ma30 && series.map((s, i) => (
+                      <Line key={s.name+':ma30'} type="monotone" dataKey={`s${i}:ma30`} name={`${s.name} (MA30)`} stroke={COLORS[i % COLORS.length]} dot={false} strokeDasharray="3 3" strokeWidth={1.5} isAnimationActive={false} connectNulls opacity={0.85} />
+                    ))}
+                    {chartData && chartData.length>0 && typeof chartData[chartData.length-1]?.s0 === 'number' && (
+                      <ReferenceDot x={chartData[chartData.length-1].date} y={chartData[chartData.length-1].s0} r={4} fill={COLORS[0]} stroke="#0f172a" strokeWidth={1} label={{ value: currency === 'EUR' ? `€${Number(chartData[chartData.length-1].s0).toFixed(2)}` : currency === 'GBP' ? `£${Number(chartData[chartData.length-1].s0).toFixed(2)}` : `$${Number(chartData[chartData.length-1].s0).toFixed(2)}`, position: 'top', fill: TICK_FILL, fontSize: 11 }} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center space-y-3">
                   <div className="text-sm text-neutral-400 text-center">Enter one or more card names to see price history.</div>
@@ -395,10 +408,10 @@ export default function PriceTrackerPage(){
                   return (
                     <tr key={s.name} className="border-b border-neutral-900">
                       <td className="py-1 px-2 font-mono">{s.name}</td>
-                      <td className="py-1 px-2 text-right">${latest.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right">${min.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right">${max.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right">${avg.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right">{(currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$')}{latest.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right">{(currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$')}{min.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right">{(currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$')}{max.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right">{(currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$')}{avg.toFixed(2)}</td>
                     </tr>
                   );
                 })}
@@ -743,6 +756,93 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   );
 }
 
+/** Skeleton preview of Deck Value for non-Pro users — shows what the feature looks like */
+function DeckValueSkeleton({ currency, onUpgrade }: { currency: 'USD'|'EUR'|'GBP'; onUpgrade: () => void }) {
+  const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+  // Mock chart path: slight downward then upward curve
+  const w = 400; const h = 280; const pad = { l: 48, r: 12, t: 16, b: 24 };
+  const ww = w - pad.l - pad.r; const hh = h - pad.t - pad.b;
+  const pts = 12;
+  const pathD = Array.from({ length: pts }, (_, i) => {
+    const x = pad.l + (i / (pts - 1)) * ww;
+    const t = i / (pts - 1);
+    const y = pad.t + hh * 0.7 - hh * 0.5 * Math.sin(t * Math.PI) * 0.6; // dip then rise
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  return (
+    <div className="relative">
+      <div className="space-y-3">
+        <div className="text-center">
+          <div className="text-4xl font-bold font-mono text-emerald-400/80 animate-pulse">
+            {currSym}847.32
+          </div>
+          <div className="text-sm font-mono mt-1 text-green-400/70">
+            ↑ {currSym}23.45 (+2.8%) this week
+          </div>
+        </div>
+        <div className="flex gap-2 text-[10px] flex-wrap justify-center">
+          <span className="px-2 py-1 rounded bg-emerald-900/20 text-emerald-300/70 border border-emerald-700/30">
+            All-time high: {currSym}892
+          </span>
+          <span className="px-2 py-1 rounded bg-blue-900/20 text-blue-300/70 border border-blue-700/30">
+            52-week low: {currSym}721
+          </span>
+        </div>
+        <div className="flex gap-2 flex-wrap text-xs opacity-70">
+          <span className="px-2 py-0.5 rounded border border-neutral-700">MA 7d</span>
+          <span className="px-2 py-0.5 rounded border border-neutral-700">MA 30d</span>
+          <span className="px-2 py-0.5 rounded border border-neutral-700">📊 Export CSV</span>
+        </div>
+        <div className="rounded-lg border border-neutral-700/50 bg-neutral-900/30 overflow-hidden">
+          <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[280px]">
+            <defs>
+              <linearGradient id="deck-skeleton-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            {[0,1,2,3,4].map((i) => {
+              const y = pad.t + (i * (hh / 4));
+              return <line key={i} x1={pad.l} y1={y} x2={pad.l + ww} y2={y} stroke="#334155" strokeDasharray="3 3" strokeWidth={1} />;
+            })}
+            <path d={`${pathD} L ${pad.l + ww} ${pad.t + hh} L ${pad.l} ${pad.t + hh} Z`} fill="url(#deck-skeleton-grad)" />
+            <path d={pathD} fill="none" stroke="#22d3ee" strokeWidth={2.5} strokeOpacity={0.6} />
+          </svg>
+        </div>
+        <div className="text-xs p-2 border border-neutral-800 rounded bg-neutral-900/20">
+          <div className="font-medium mb-2 flex items-center gap-1 text-neutral-400">
+            💎 Value Distribution
+          </div>
+          <div className="flex gap-1 h-6 mb-2">
+            <div className="flex-[60] bg-emerald-600/30 rounded animate-pulse" />
+            <div className="flex-[20] bg-blue-600/30 rounded animate-pulse" />
+            <div className="flex-[20] bg-purple-600/30 rounded animate-pulse" />
+          </div>
+          <div className="space-y-1 text-[10px] text-neutral-500">
+            <div className="flex justify-between"><span>Top 10 cards</span><span className="font-mono text-emerald-400/60">{currSym}508</span></div>
+            <div className="flex justify-between"><span>Lands</span><span className="font-mono text-blue-400/60">{currSym}169</span></div>
+            <div className="flex justify-between"><span>Other cards</span><span className="font-mono text-purple-400/60">{currSym}170</span></div>
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onUpgrade}
+        className="absolute inset-0 rounded-lg bg-neutral-950/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-neutral-950/80 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950"
+        aria-label="Unlock Deck Value tracking with Pro"
+      >
+        <div className="text-sm font-medium text-neutral-300 text-center px-4">
+          Track your deck&apos;s total value over time
+        </div>
+        <span className="px-4 py-2 rounded-lg bg-amber-500 text-black font-semibold text-sm shadow-lg pointer-events-none">
+          Unlock with Pro
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; currency: 'USD'|'EUR'|'GBP'; setDeckId: (id: string)=>void }){
   const { isPro } = useProStatus();
   const { createBrowserSupabaseClient } = require('@/lib/supabase/client');
@@ -786,7 +886,7 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
   
   return (
     <section className="rounded border border-neutral-800 p-3 space-y-3">
-      <div className="font-medium flex items-center gap-2">Deck value <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span></div>
+      <div className="font-medium flex items-center gap-2">Deck value <ProTagLink /></div>
       
       {/* Commander art */}
       {commanderArt && (
@@ -815,7 +915,7 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
         </select>
       </label>
       {(!pro) ? (
-        <div className="text-xs opacity-70">Upgrade to Pro to view and track deck value over time.</div>
+        <DeckValueSkeleton currency={currency} onUpgrade={showProToast} />
       ) : (
         <DeckValue deckId={deckId} currency={currency} />
       )}
@@ -1142,7 +1242,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
     <section className="rounded border border-neutral-800 p-3 space-y-2">
       <div className="font-medium flex items-center gap-2">
         Watchlist 
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-300 text-black font-bold uppercase">Pro</span>
+        <ProTagLink />
       </div>
       <div className="space-y-2">
         <label className="text-sm block">

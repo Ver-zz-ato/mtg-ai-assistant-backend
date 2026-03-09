@@ -108,7 +108,6 @@ function Chat() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
-  const [hoveredPromptIndex, setHoveredPromptIndex] = useState<number | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -1556,28 +1555,10 @@ function Chat() {
                   Or try one of these instantly:
                 </p>
                 <div className="flex gap-2 flex-wrap justify-center">
-                  {examplePrompts.slice(0, 3).map((prompt, idx) => {
-                    const isHovered = hoveredPromptIndex === idx;
-                    return (
+                  {examplePrompts.slice(0, 3).map((prompt, idx) => (
                       <button
                         key={idx}
-                        onClick={() => {
-                          setText(prompt);
-                          setHoveredPromptIndex(null);
-                        }}
-                        onMouseEnter={() => {
-                          // Pre-fill on hover (even before click) for momentum - only if input is empty
-                          if ((!Array.isArray(messages) || messages.length === 0) && !text) {
-                            setHoveredPromptIndex(idx);
-                            setText(prompt);
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          // Reset hover state when mouse leaves
-                          if (isHovered) {
-                            setHoveredPromptIndex(null);
-                          }
-                        }}
+                        onClick={() => setText(prompt)}
                         className="px-4 py-2.5 md:px-5 md:py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs md:text-sm text-neutral-300 transition-colors max-w-full"
                         style={{ 
                           animation: `fadeIn 0.3s ease-in ${idx * 0.1}s both`
@@ -1586,8 +1567,7 @@ function Chat() {
                       >
                         {prompt}
                       </button>
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
             </div>
