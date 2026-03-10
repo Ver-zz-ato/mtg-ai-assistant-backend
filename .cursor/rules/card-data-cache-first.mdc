@@ -1,0 +1,47 @@
+---
+description: Use scryfall_cache first for card-related data; fall back to Scryfall API only on cache miss
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Card Data: Cache-First Over Scryfall
+
+For any card-related implementation (lookups, images, metadata, search, validation), **prefer `scryfall_cache` before calling Scryfall API**.
+
+## Why
+
+- Reduces Scryfall API usage and rate-limit risk
+- Faster responses (DB vs external network)
+- Improves backfill/scripts performance when processing many decks
+
+## Available Helpers
+
+| Need | Use | Location |
+|------|-----|----------|
+| Images (small, normal, art_crop) | `getImagesForNamesCached(names)` | `@/lib/server/scryfallCache` |
+| Full details (type_line, oracle_text, color_identity, etc.) | `getDetailsForNamesCached(names)` | `@/lib/server/scryfallCache` |
+| Cache-only read (no Scryfall fetch) | `getDetailsForNamesCacheOnly(names)` | `@/lib/server/scryfallCache` |
+| Profile/trends data | `getCardDataForProfileTrends(names)` | `@/lib/server/scryfallCache` |
+
+## Pattern
+
+1. Query `scryfall_cache` by normalized name
+2. Use cache hits immediately
+3. Only call Scryfall API for misses (and optionally upsert into cache for next time)
+
+## Normalization
+
+Cache uses **normalized names** (lowercase, NFKD, no diacritics, collapsed spaces):
+
+```typescript
+function norm(s: string) {
+  return String(s || "").toLowerCase().normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+```
+
+## Standalone Scripts
+
+Scripts (e.g. `scripts/*.ts`) use Supabase directly. Query `scryfall_cache` first with `.in("name", normalizedNames)`, then call Scryfall only for misses.

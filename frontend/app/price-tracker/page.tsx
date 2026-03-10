@@ -337,12 +337,12 @@ export default function PriceTrackerPage(){
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="rounded border border-neutral-800 p-3 bg-gradient-to-br from-neutral-900/50 to-neutral-900/20"
+            className="rounded border border-neutral-800 p-4 pt-6 bg-gradient-to-br from-neutral-900/50 to-neutral-900/20 mt-4"
           >
             <div ref={chartRef} className="h-[320px] w-full min-h-[200px] min-w-[200px]">
               {(chartSize.w > 0 || chartSize.h > 0 || names.trim()) ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} data={chartData} margin={{ top: 12, right: 12 + Y_AXIS_WIDTH, bottom: 24, left: 8 }}>
+                  <LineChart key={`lc-${series.map(s=>s.name).join('|')}-${from}-${currency}`} data={chartData} margin={{ top: 20, right: 12 + Y_AXIS_WIDTH, bottom: 28, left: 12 }}>
                     <defs>
                       <linearGradient id="price-fill-0" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={COLORS[0]} stopOpacity={0.35} />
@@ -756,8 +756,8 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   );
 }
 
-/** Skeleton preview of Deck Value for non-Pro users — shows what the feature looks like */
-function DeckValueSkeleton({ currency, onUpgrade }: { currency: 'USD'|'EUR'|'GBP'; onUpgrade: () => void }) {
+/** Skeleton preview of Deck Value — shows the layout. For Pro+no deck: prompt to select. For non-Pro: overlay to upgrade. */
+function DeckValueSkeleton({ currency, onUpgrade, isProNoDeck }: { currency: 'USD'|'EUR'|'GBP'; onUpgrade: () => void; isProNoDeck?: boolean }) {
   const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
   // Mock chart path: slight downward then upward curve
   const w = 400; const h = 280; const pad = { l: 48, r: 12, t: 16, b: 24 };
@@ -826,19 +826,27 @@ function DeckValueSkeleton({ currency, onUpgrade }: { currency: 'USD'|'EUR'|'GBP
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onUpgrade}
-        className="absolute inset-0 rounded-lg bg-neutral-950/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-neutral-950/80 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950"
-        aria-label="Unlock Deck Value tracking with Pro"
-      >
-        <div className="text-sm font-medium text-neutral-300 text-center px-4">
-          Track your deck&apos;s total value over time
+      {isProNoDeck ? (
+        <div className="absolute inset-0 rounded-lg bg-neutral-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 pointer-events-none">
+          <div className="text-sm font-medium text-neutral-300 text-center px-4">
+            Select a deck above to see its total value over time
+          </div>
         </div>
-        <span className="px-4 py-2 rounded-lg bg-amber-500 text-black font-semibold text-sm shadow-lg pointer-events-none">
-          Unlock with Pro
-        </span>
-      </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onUpgrade}
+          className="absolute inset-0 rounded-lg bg-neutral-950/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-neutral-950/80 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950"
+          aria-label="Unlock Deck Value tracking with Pro"
+        >
+          <div className="text-sm font-medium text-neutral-300 text-center px-4">
+            Track your deck&apos;s total value over time
+          </div>
+          <span className="px-4 py-2 rounded-lg bg-amber-500 text-black font-semibold text-sm shadow-lg pointer-events-none">
+            Unlock with Pro
+          </span>
+        </button>
+      )}
     </div>
   );
 }
@@ -914,8 +922,10 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
           {decks.map(d=> (<option key={d.id} value={d.id}>{d.title}</option>))}
         </select>
       </label>
-      {(!pro) ? (
+      {!pro ? (
         <DeckValueSkeleton currency={currency} onUpgrade={showProToast} />
+      ) : !deckId ? (
+        <DeckValueSkeleton currency={currency} onUpgrade={showProToast} isProNoDeck />
       ) : (
         <DeckValue deckId={deckId} currency={currency} />
       )}

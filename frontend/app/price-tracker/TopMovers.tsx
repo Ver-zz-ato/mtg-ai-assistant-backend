@@ -291,7 +291,12 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
           </div>
 
           {loading && <div className="text-xs opacity-70">Loading…</div>}
-          {!loading && sorted.length === 0 && <div className="text-xs opacity-70">No movers for the selected filters.</div>}
+          {!loading && sorted.length === 0 && (
+            <div className="text-xs opacity-70 space-y-1">
+              <div>No movers for the selected filters.</div>
+              <div className="text-[10px] opacity-60">Try a longer window (30d), lower min price, or turn off &quot;Watchlist only&quot;.</div>
+            </div>
+          )}
 
           {!loading && sorted.length > 0 && (
             <div className="border border-neutral-800 rounded-lg overflow-hidden">

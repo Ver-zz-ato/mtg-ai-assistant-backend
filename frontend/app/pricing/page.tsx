@@ -382,6 +382,10 @@ export default function PricingPage() {
               <Link href="/profile" className="w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-3 px-6 rounded-lg font-medium text-center block hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 Get Started Free
               </Link>
+            ) : isPro ? (
+              <div className="w-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
+                Included in your Pro plan
+              </div>
             ) : (
               <div className="w-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 py-3 px-6 rounded-lg font-medium text-center">
                 Current Plan
@@ -486,13 +490,18 @@ export default function PricingPage() {
             </div>
 
             {showManageUI ? (
-              <button
-                onClick={handleManageBilling}
-                disabled={managingBilling}
-                className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
-              >
-                {managingBilling ? 'Opening...' : 'Manage Subscription'}
-              </button>
+              <div className="space-y-2">
+                <div className="w-full bg-emerald-400/20 text-emerald-300 py-3 px-6 rounded-lg font-semibold text-center border border-emerald-500/50">
+                  Current Plan
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  disabled={managingBilling}
+                  className="w-full bg-white text-blue-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  {managingBilling ? 'Opening...' : 'Manage Subscription'}
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={() => handleUpgradeClick(billingInterval === 'monthly' ? 'monthly' : 'yearly')}
