@@ -123,7 +123,9 @@ export default function Header() {
     try {
       trackSignupStarted('oauth', 'google');
       capture('auth_login_attempt', { method: 'oauth', provider: 'google' });
-      const next = encodeURIComponent(window.location.pathname + window.location.search || '/');
+      const returnTo = (window.location.pathname + window.location.search) || '/';
+      try { document.cookie = `auth_return_to=${encodeURIComponent(returnTo)}; path=/; max-age=600; samesite=lax`; } catch {}
+      const next = encodeURIComponent(returnTo);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -150,7 +152,9 @@ export default function Header() {
     try {
       trackSignupStarted('oauth', provider);
       capture('auth_login_attempt', { method: 'oauth', provider });
-      const next = encodeURIComponent(window.location.pathname + window.location.search || '/');
+      const returnTo = (window.location.pathname + window.location.search) || '/';
+      try { document.cookie = `auth_return_to=${encodeURIComponent(returnTo)}; path=/; max-age=600; samesite=lax`; } catch {}
+      const next = encodeURIComponent(returnTo);
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` },

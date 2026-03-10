@@ -6,7 +6,7 @@
 - [ ] **Price Alerts** — Get notified when cards in your watchlist hit target prices or spike significantly. (Email/push notifications when cards meet user-defined thresholds.)
 
 ### Quick Swap Maps Auto-Update
-- [ ] **Budget Swaps cron** — Auto-update `budget-swaps.json` (curated card→alternatives map) weekly via cron. Use AI to intelligently suggest new entries and updates based on meta, price shifts, and community feedback. Handsoff/hands-free maintenance.
+- [x] **Budget Swaps cron** — Weekly AI-powered update of Quick Swaps map (`app_config.budget_swaps`). Cron suggests new expensive→budget pairs, merges into DB. `/api/cron/budget-swaps-update`, Sundays 03:00 UTC.
 
 ---
 

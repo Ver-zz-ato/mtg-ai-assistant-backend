@@ -145,7 +145,7 @@ export default function PricingPage() {
       icon: '🤖',
       title: 'AI Deck Assistant',
       description: 'Get personalized card recommendations, strategy advice, and deck optimization tips',
-      free: '5 questions/day',
+      free: '50 messages/day',
       pro: 'Unlimited + Pro models',
       category: 'ai'
     },
@@ -153,24 +153,24 @@ export default function PricingPage() {
       icon: '💡',
       title: 'AI Budget Swaps',
       description: 'Find cheaper alternatives for expensive cards without losing deck power',
-      free: '3 swaps/day',
-      pro: 'Unlimited + bulk export',
+      free: '5 swaps/day',
+      pro: 'Higher limit + bulk apply',
       category: 'ai'
     },
     {
       icon: '🎯',
       title: 'Hand Testing Widget',
       description: 'Simulate opening hands with London mulligan rules and real card art',
-      free: false,
-      pro: 'Full simulator',
+      free: '3 free runs',
+      pro: 'Unlimited',
       category: 'analysis'
     },
     {
       icon: '📊',
       title: 'Probability Calculator',
       description: 'Calculate odds of drawing specific cards, combos, and land drops',
-      free: 'Basic view',
-      pro: 'Full calculations + export',
+      free: '5/day',
+      pro: 'Higher limit + export',
       category: 'analysis'
     },
     // Deck Management
@@ -229,6 +229,14 @@ export default function PricingPage() {
       description: 'Track your cards, see total value, and manage inventory',
       free: 'Basic tracking',
       pro: 'Bulk ops + analytics',
+      category: 'collection'
+    },
+    {
+      icon: '💵',
+      title: 'Cost to Finish',
+      description: 'See what you need to complete a deck or collection, with AI swap suggestions',
+      free: '5/day',
+      pro: 'Higher limit + Why? + sparklines + bulk apply',
       category: 'collection'
     },
     // Premium Perks

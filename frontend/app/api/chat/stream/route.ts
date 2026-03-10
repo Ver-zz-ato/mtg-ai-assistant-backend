@@ -570,6 +570,38 @@ export async function POST(req: NextRequest) {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     }
 
+    // Thread summary (within-thread memory) - same logic as non-stream
+    if (tid && !isGuest && selectedTier !== "micro") {
+      const { data: summaryMsgs } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("thread_id", tid)
+        .order("created_at", { ascending: true })
+        .limit(30);
+      const threadHistoryForSummary = Array.isArray(summaryMsgs) ? summaryMsgs : [];
+      const { injectThreadSummaryContext } = await import("@/lib/chat/chat-context-builder");
+      const summaryResult = await injectThreadSummaryContext(
+        supabase,
+        tid,
+        threadHistoryForSummary,
+        userId,
+        isPro,
+        isGuest,
+        anonId
+      );
+      if (summaryResult.formatted) sys += summaryResult.formatted;
+    }
+
+    // Pro cross-thread memory: inject saved preferences
+    if (userId && isPro) {
+      const { getProUserPreferences, formatProPreferencesForPrompt } = await import("@/lib/chat/chat-context-builder");
+      const savedPrefs = await getProUserPreferences(supabase, userId, isPro);
+      if (savedPrefs) {
+        const proPrefsFormatted = formatProPreferencesForPrompt(savedPrefs);
+        if (proPrefsFormatted) sys += proPrefsFormatted;
+      }
+    }
+
     // Budget cap: block new API calls if daily/weekly limit exceeded
     const { allowAIRequest, checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
     const budgetCheck = await allowAIRequest(supabase);

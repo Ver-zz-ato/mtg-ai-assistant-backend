@@ -28,7 +28,11 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const { searchParams } = url;
   const code = searchParams.get('code');
-  const next = safeNext(searchParams.get('next'), url.origin);
+  const rawNext = searchParams.get('next');
+  const decodedNext = rawNext ? (() => { try { return decodeURIComponent(rawNext); } catch { return rawNext; } })() : null;
+  const cookieVal = req.cookies.get('auth_return_to')?.value ?? null;
+  const fromCookie = cookieVal ? (() => { try { return decodeURIComponent(cookieVal); } catch { return cookieVal; } })() : null;
+  const next = safeNext(decodedNext || rawNext || fromCookie, url.origin);
 
   if (!code) {
     return NextResponse.redirect(new URL('/', req.url));
@@ -41,7 +45,9 @@ export async function GET(req: NextRequest) {
       console.error('[auth/callback] exchangeCodeForSession error:', error.message);
       return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent(error.message)}`, req.url));
     }
-    return NextResponse.redirect(new URL(next, req.url));
+    const res = NextResponse.redirect(new URL(next, req.url));
+    res.cookies.set('auth_return_to', '', { path: '/', maxAge: 0 });
+    return res;
   } catch (e) {
     console.error('[auth/callback] error:', e);
     return NextResponse.redirect(new URL('/?auth_error=callback_failed', req.url));

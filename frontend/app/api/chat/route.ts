@@ -977,49 +977,28 @@ export async function POST(req: NextRequest) {
       sys += ragContext;
     }
     
-    // Add conversation summary (conversation memory)
-    if (tid && !isGuest && threadHistory.length >= 10) {
-      try {
-        const { data: thread } = await supabase
-          .from('chat_threads')
-          .select('summary')
-          .eq('id', tid)
-          .maybeSingle();
-        
-        if (thread?.summary) {
-          try {
-            const summary = JSON.parse(thread.summary);
-            const { formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
-            const formatted = formatSummaryForPrompt(summary);
-            if (formatted) {
-              sys += formatted;
-            }
-          } catch {
-            // If summary is plain text, use it directly
-            sys += `\n\nConversation summary: ${thread.summary}`;
-          }
-        }
-        // Generate summary in background if missing (non-blocking)
-        if (!thread?.summary && threadHistory.length >= 10) {
-          (async () => {
-            try {
-              const { buildSummaryPrompt, parseSummary, formatSummaryForPrompt } = await import("@/lib/ai/conversation-summary");
-              const summaryPrompt = buildSummaryPrompt(threadHistory);
-              const summaryResponse = await callOpenAI(summaryPrompt, "Extract key facts from this conversation.", false, userId, isPro, isGuest, anonId);
-              const summary = parseSummary(typeof summaryResponse === 'string' ? summaryResponse : (summaryResponse as any)?.text || '');
-              
-              if (summary) {
-                await supabase.from('chat_threads')
-                  .update({ summary: JSON.stringify(summary) })
-                  .eq('id', tid);
-              }
-            } catch (error) {
-              console.warn('[chat] Background summary generation failed:', error);
-            }
-          })();
-        }
-      } catch (error) {
-        console.warn('[chat] Conversation summary failed:', error);
+    // Add conversation summary (within-thread memory) - shared with stream route
+    if (tid && !isGuest) {
+      const { injectThreadSummaryContext } = await import("@/lib/chat/chat-context-builder");
+      const summaryResult = await injectThreadSummaryContext(
+        supabase,
+        tid,
+        threadHistory,
+        userId,
+        isPro,
+        isGuest,
+        anonId
+      );
+      if (summaryResult.formatted) sys += summaryResult.formatted;
+    }
+
+    // Pro cross-thread memory: inject saved preferences
+    if (userId && isPro) {
+      const { getProUserPreferences, formatProPreferencesForPrompt } = await import("@/lib/chat/chat-context-builder");
+      const savedPrefs = await getProUserPreferences(supabase, userId, isPro);
+      if (savedPrefs) {
+        const proPrefsFormatted = formatProPreferencesForPrompt(savedPrefs);
+        if (proPrefsFormatted) sys += proPrefsFormatted;
       }
     }
     

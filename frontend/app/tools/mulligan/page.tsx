@@ -384,6 +384,8 @@ export default function MulliganSimulatorPage() {
       {/* Import from My Decks */}
       <ImportDeckForMath
         storageKey="mull"
+        guestPromptVariant="friendly"
+        guestPromptMessage="Sign up or sign in to import your saved decks and run mulligan simulations on them!"
         onApply={handleDeckImport}
       />
 

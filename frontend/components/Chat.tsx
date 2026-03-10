@@ -48,6 +48,39 @@ import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT } from "@/lib/limits";
 
 const DEV = process.env.NODE_ENV !== "production";
 
+/** Pro-only: Save format/budget/colors as default for all chats */
+function SavePreferencesButton({ format, budget, colors }: { format: string; budget: string; colors: string[] }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/user/chat-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format, budget, colors }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch {}
+    setSaving(false);
+  };
+  return (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      title="Pro: Save these preferences so the AI remembers them in every chat"
+      className="px-2.5 py-1.5 rounded text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700/50 hover:bg-amber-800/50 disabled:opacity-50"
+    >
+      {saved ? "✓ Saved" : saving ? "..." : "Remember"}
+    </button>
+  );
+}
+
 // Module-level tracking to prevent React Strict Mode duplicates
 let currentlyAddingTypingMessage = false;
 // Prevent React Strict Mode duplicate streaming registrations
@@ -199,6 +232,27 @@ function Chat() {
       return () => clearTimeout(timer);
     }
   }, [text, busy]);
+
+  // Pro: Load saved chat preferences on mount
+  useEffect(() => {
+    if (!isPro) return;
+    fetch("/api/user/chat-preferences")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok || !j?.preferences) return;
+        const p = j.preferences;
+        if (p.format && ["commander","standard","modern","pioneer","pauper"].includes(p.format))
+          setFmt(p.format as typeof fmt);
+        if (p.budget && ["budget","optimized","luxury"].includes(p.budget))
+          setBudget(p.budget as typeof budget);
+        if (Array.isArray(p.colors) && p.colors.length > 0) {
+          const next: typeof colors = { W: false, U: false, B: false, R: false, G: false };
+          for (const c of p.colors) if (["W","U","B","R","G"].includes(c)) next[c as keyof typeof next] = true;
+          setColors(next);
+        }
+      })
+      .catch(() => {});
+  }, [isPro]);
 
   // Listen for open-sample-deck-modal event
   useEffect(() => {
@@ -1470,6 +1524,13 @@ function Chat() {
                   ))}
                 </div>
               </div>
+              {isPro && (
+                <SavePreferencesButton
+                  format={fmt}
+                  budget={budget}
+                  colors={Object.entries(colors).filter(([,v])=>v).map(([k])=>k)}
+                />
+              )}
             </div>
 
           </div>

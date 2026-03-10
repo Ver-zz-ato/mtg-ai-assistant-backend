@@ -5,7 +5,7 @@ import { canonicalize } from "@/lib/cards/canonicalize";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
-import swapsData from "@/lib/data/budget-swaps.json";
+import { getBudgetSwaps } from "@/lib/data/get-budget-swaps";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
@@ -23,16 +23,6 @@ type Suggestion = {
   rationale: string;
   confidence: number; // 0..1
 };
-
-// Load swaps from JSON data file (converted to lowercase keys for matching)
-const BUILTIN_SWAPS: Record<string, string[]> = (() => {
-  const swaps: Record<string, string[]> = {};
-  const data = swapsData as { swaps: Record<string, string[]> };
-  for (const [key, values] of Object.entries(data.swaps || {})) {
-    swaps[key.toLowerCase()] = values;
-  }
-  return swaps;
-})();
 
 async function scryPrice(name: string, currency = "USD"): Promise<number> {
   try {
@@ -219,6 +209,7 @@ export async function POST(req: NextRequest) {
     }
 
     const names = parseDeck(deckText);
+    const builtinSwaps = await getBudgetSwaps();
     const suggestions: Suggestion[] = [];
 
     // Detect combo pieces - these should NOT be suggested for swapping
@@ -305,7 +296,7 @@ export async function POST(req: NextRequest) {
       
       const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
       const key = from.toLowerCase();
-      const cands = BUILTIN_SWAPS[key] || [];
+      const cands = builtinSwaps[key] || [];
       
       if (pf > budget) {
         for (const cand of cands) {

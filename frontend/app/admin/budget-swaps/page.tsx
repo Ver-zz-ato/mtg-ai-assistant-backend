@@ -113,7 +113,7 @@ export default function BudgetSwapsAdminPage() {
         </p>
         <ELI5 heading="Budget Swaps" items={[
           'Quick Swaps mode suggests cheaper alternatives for expensive cards (e.g. Gaea\'s Cradle → Growing Rites).',
-          'Add/edit pairs here. Stored in budget-swaps.json. Changes apply after Save.',
+          'Add/edit pairs here. Stored in app_config (DB). A weekly cron can auto-update with AI suggestions.',
           'Use when: adding new popular expensive cards, updating meta-relevant swaps.'
         ]} />
       </div>

@@ -10,7 +10,7 @@
  *
  * Cron names: deck-costs, commander-aggregates, meta-signals, top-cards,
  *   cleanup-price-cache, cleanup-guest-sessions, cleanup-rate-limits,
- *   ops-report/daily, ops-report/weekly, price/snapshot
+ *   ops-report/daily, ops-report/weekly, price/snapshot, budget-swaps-update
  */
 
 import * as path from "path";
@@ -42,6 +42,7 @@ const CRONS: Record<string, string> = {
   "cleanup-rate-limits": "/api/cron/cleanup-rate-limits",
   "ops-daily": "/api/cron/ops-report/daily",
   "ops-weekly": "/api/cron/ops-report/weekly",
+  "budget-swaps-update": "/api/cron/budget-swaps-update",
 };
 
 async function runCron(name: string, path: string): Promise<boolean> {

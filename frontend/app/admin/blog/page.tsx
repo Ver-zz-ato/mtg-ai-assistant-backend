@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ELI5 } from '@/components/AdminHelp';
+import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
 
 interface BlogEntry {
   slug: string;
@@ -30,14 +31,6 @@ const GRADIENT_PRESETS = [
 ];
 
 const ICON_PRESETS = ['🚀', '🎉', '💰', '📊', '💎', '🎯', '⚠️', '🌍', '🔧', '🤖', '🔬'];
-
-const DEFAULT_ENTRIES: BlogEntry[] = [
-  { slug: 'devlog-23-days-soft-launch', title: '🚀 Devlog: 23 Days Into Soft Launch', excerpt: "We're now 23 days into the soft launch of ManaTap.ai...", date: '2025-11-26', author: 'ManaTap Team', category: 'Announcement', readTime: '6 min read', gradient: 'from-orange-600 via-red-600 to-pink-600', icon: '🚀' },
-  { slug: 'welcome-to-manatap-ai-soft-launch', title: "🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!", excerpt: "We're thrilled to officially launch ManaTap AI!", date: '2025-11-01', author: 'ManaTap Team', category: 'Announcement', readTime: '8 min read', gradient: 'from-blue-600 via-purple-600 to-pink-600', icon: '🎉' },
-  { slug: 'budget-commander-100', title: 'Building Competitive EDH on $100: The Complete Guide', excerpt: 'Build powerful Commander decks on a budget...', date: '2025-10-28', author: 'ManaTap Team', category: 'Budget Building', readTime: '5 min read', gradient: 'from-emerald-600 via-green-600 to-teal-600', icon: '💰', imageUrl: 'https://cards.scryfall.io/art_crop/front/e/e/ee6e5a35-fe21-4dee-b0ef-a8f2841511ad.jpg?1764180059' },
-  { slug: 'how-to-build-your-first-commander-deck', title: 'How to Build Your First Commander Deck (Beginner Friendly)', excerpt: 'A complete beginner-friendly guide to building your first MTG Commander deck.', date: '2025-01-27', author: 'ManaTap Team', category: 'Commander', readTime: '8 min read', gradient: 'from-green-600 via-emerald-600 to-teal-600', icon: '🎯', imageUrl: 'https://cards.scryfall.io/art_crop/front/8/2/824b2d73-2151-4e5e-9f05-8f63e2bdcaa9.jpg?1730632010' },
-  { slug: 'why-ai-can-help-with-mtg-deck-building', title: '🤖 Why AI Can Help With MTG Deck Building (And Where It Needs Work)', excerpt: 'AI is transforming how we build Magic decks, but it\'s not perfect.', date: '2025-01-15', author: 'ManaTap Team', category: 'Strategy', readTime: '8 min read', gradient: 'from-indigo-600 via-purple-600 to-pink-600', icon: '🤖', imageUrl: 'https://cards.scryfall.io/art_crop/front/9/c/9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d.jpg?1594735806' },
-];
 
 export default function AdminBlogPage() {
   const [entries, setEntries] = useState<BlogEntry[]>([]);
@@ -155,9 +148,9 @@ export default function AdminBlogPage() {
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
             <button
-              onClick={() => { if (entries.length === 0 || confirm('Replace with defaults? (Current entries will be lost)')) setEntries(DEFAULT_ENTRIES); }}
+              onClick={() => { if (entries.length === 0 || confirm('Replace with defaults? (Current entries will be lost)')) setEntries([...DEFAULT_BLOG_POSTS]); }}
               className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-              title="Import default blog posts"
+              title="Import all blog posts shown on /blog"
             >
               Import Defaults
             </button>
@@ -292,14 +285,23 @@ export default function AdminBlogPage() {
         </div>
 
         {entries.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <p>No blog entries yet.</p>
-            <button
-              onClick={addEntry}
-              className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Create First Entry
-            </button>
+          <div className="text-center py-12 text-gray-400 space-y-4">
+            <p>The public /blog page shows built-in defaults when the database is empty.</p>
+            <p className="text-sm">Click <strong className="text-gray-300">Import Defaults</strong> to load all existing posts here for editing, then <strong className="text-gray-300">Save Changes</strong>.</p>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <button
+                onClick={() => setEntries([...DEFAULT_BLOG_POSTS])}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
+              >
+                Import Defaults
+              </button>
+              <button
+                onClick={addEntry}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Create First Entry
+              </button>
+            </div>
           </div>
         )}
       </div>

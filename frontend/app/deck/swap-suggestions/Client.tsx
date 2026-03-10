@@ -532,23 +532,25 @@ export default function BudgetSwapsClient(){
                 <input type="number" min={0} step={0.5} value={threshold} onChange={e=>setThreshold(parseFloat(e.target.value||'0'))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
                 <div className="text-[10px] text-neutral-500 mt-0.5">Cards costing more than this (per card) get budget alternatives. E.g. {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'} shows swaps for cards over {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'}.</div>
               </label>
-              <label className="text-xs">
-                <div className="opacity-70 mb-1">Mode</div>
-                <div className="flex flex-col gap-3 text-sm">
-                  <label className="inline-flex items-center gap-2 p-3 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
-                    <input type="radio" checked={mode==='strict'} onChange={()=>setMode('strict')} className="mt-0.5" /> 
-                    <span>Quick Swaps</span>
+              <label className="text-xs block">
+                <div className="opacity-70 mb-1.5">Mode</div>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <input type="radio" name="swap-mode" checked={mode==='strict'} onChange={()=>setMode('strict')} className="mt-1 shrink-0" />
+                    <div>
+                      <span className="font-medium">Quick Swaps</span>
+                      <span className="text-neutral-500 ml-1">(Free)</span>
+                      <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">Curated budget alternatives for popular expensive cards.</p>
+                    </div>
                   </label>
-                  <label className="inline-flex items-center gap-2 p-3 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
-                    <input type="radio" checked={mode==='ai'} onChange={()=>setMode('ai')} className="mt-0.5" /> 
-                    <span>AI-Powered Swaps</span>
-                    <span className="ml-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] font-bold">PRO</span>
+                  <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <input type="radio" name="swap-mode" checked={mode==='ai'} onChange={()=>setMode('ai')} className="mt-1 shrink-0" />
+                    <div>
+                      <span className="font-medium">AI-Powered Swaps</span>
+                      <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/90 text-black text-[10px] font-bold">PRO</span>
+                      <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">AI finds cheaper cards that keep your deck’s strategy and synergies.</p>
+                    </div>
                   </label>
-                </div>
-                <div className="mt-1 text-[11px] opacity-70">
-                  <strong>Quick Swaps</strong> (Free): Fast suggestions from our curated list of budget alternatives for popular expensive cards.
-                  <br />
-                  <strong>AI-Powered Swaps</strong> (<span className="text-amber-400 font-semibold">⭐ Pro</span>): Advanced AI analyzes your entire deck to find cheaper cards that maintain your deck's strategy, synergies, and theme — not just direct replacements.
                 </div>
               </label>
             </div>

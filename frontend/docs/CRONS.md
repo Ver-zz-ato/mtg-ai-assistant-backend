@@ -13,6 +13,7 @@
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
 | ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
+| budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
 
 ## Manual run
 
@@ -38,3 +39,7 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 - **meta-signals** → needs `commander_aggregates`; populates `meta_signals` (trending, most-played, budget commanders)
 
 Run in order: deck-costs → commander-aggregates → meta-signals → top-cards.
+
+## Budget Swaps (weekly)
+
+- **budget-swaps-update** — AI-powered refresh of Quick Swaps map. Uses GPT to suggest new expensive→budget pairs, merges into `app_config.budget_swaps`. Hands-off; runs Sundays 03:00 UTC.
