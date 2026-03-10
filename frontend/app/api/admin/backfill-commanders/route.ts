@@ -73,13 +73,15 @@ export async function POST(req: Request) {
             .eq("deck_id", deck.id)
             .limit(100);
 
-          const cardNames: string[] = (deckCards || []).map((c: { name: string }) => c.name);
+          let cardNames: string[] = (deckCards || []).map((c: { name: string }) => c.name).filter((n: string) => n && !looksLikeGarbage(n));
 
           if (cardNames.length === 0 && deck.deck_text) {
-            const lines = deck.deck_text.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
-            for (const line of lines.slice(0, 25)) {
-              const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-              if (m) cardNames.push(m[2].trim());
+            for (const line of deck.deck_text.split(/\r?\n/).slice(0, 25)) {
+              const m = line.trim().match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
+              if (m) {
+                const name = m[2].trim();
+                if (!looksLikeGarbage(name)) cardNames.push(name);
+              }
             }
           }
 
@@ -91,11 +93,7 @@ export async function POST(req: Request) {
               break;
             }
           }
-          if (!commander && cardNames.length > 0) {
-            commander = cardNames[0];
-            const res = await fetchCommanderAndColors(commander);
-            if (res.colorIdentity.length > 0) colors = res.colorIdentity;
-          }
+          // Do NOT fallback to first card - Sol Ring, Arcane Signet, etc. are NOT commanders
         }
 
         // Have commander but need colors
@@ -141,6 +139,14 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+function looksLikeGarbage(name: string): boolean {
+  const n = (name || "").trim();
+  if (n.length > 120) return true;
+  if (/\[MB\]|\[%\]|\[°C\]|\[V\]|\[W\]|\[MHz\]|\[RPM\]|Temperature|Virtual Memory|GPU Core|Date,Time/i.test(n)) return true;
+  if (/,{2,}/.test(n) || n.split(",").length > 3) return true;
+  return false;
 }
 
 /** Fetch card from Scryfall; return isCommander and color identity. For partner (A // B), fetches both parts and merges colors. */

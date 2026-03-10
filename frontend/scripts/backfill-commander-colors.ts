@@ -8,7 +8,7 @@
  * Env: SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL
  *
  * Infers commander from deck_cards or deck_text (first legendary).
- * Fetches color identity from Scryfall. Safe to run repeatedly (idempotent).
+ * Uses scryfall_cache first, falls back to Scryfall API. Safe to run repeatedly (idempotent).
  */
 
 import * as path from "path";
@@ -22,7 +22,56 @@ for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
   }
 }
 
-async function fetchCommanderAndColors(cardName: string): Promise<{ isCommander: boolean; colorIdentity: string[] }> {
+function norm(name: string): string {
+  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Card name looks like garbage (CSV header, system log, etc.) - skip it */
+function looksLikeGarbage(name: string): boolean {
+  const n = (name || "").trim();
+  if (n.length > 120) return true;
+  if (/\[MB\]|\[%\]|\[°C\]|\[V\]|\[W\]|\[MHz\]|\[RPM\]|Temperature|Virtual Memory|GPU Core|Date,Time/i.test(n)) return true;
+  if (/,{2,}/.test(n) || n.split(",").length > 3) return true; // CSV-style
+  return false;
+}
+
+type CommanderInfo = { isCommander: boolean; colorIdentity: string[] };
+
+/** Batch-fetch from scryfall_cache. Returns map of normalized name -> CommanderInfo. */
+async function batchFromCache(
+  supabase: any,
+  names: string[]
+): Promise<Map<string, CommanderInfo>> {
+  const keys = [...new Set(names.map(norm).filter(Boolean))];
+  if (keys.length === 0) return new Map();
+  const out = new Map<string, CommanderInfo>();
+  const wubrg = ["W", "U", "B", "R", "G"];
+  for (let i = 0; i < keys.length; i += 150) {
+    const batch = keys.slice(i, i + 150);
+    const { data } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity")
+      .in("name", batch);
+    for (const row of data || []) {
+      const tl = (row.type_line || "").toLowerCase();
+      const ot = (row.oracle_text || "").toLowerCase();
+      const ci = Array.isArray(row.color_identity) ? row.color_identity : [];
+      const allColors = new Set<string>(ci.map((c: string) => c.toUpperCase()));
+      const isCommander =
+        tl.includes("legendary creature") ||
+        (tl.includes("legendary planeswalker") && ot.includes("can be your commander")) ||
+        ot.includes("can be your commander");
+      out.set(row.name, {
+        isCommander,
+        colorIdentity: wubrg.filter((c) => allColors.has(c)),
+      });
+    }
+  }
+  return out;
+}
+
+/** Get commander info from Scryfall API (fallback when not in cache). */
+async function fetchFromScryfall(cardName: string): Promise<CommanderInfo> {
   const parts = cardName.split(/\s*\/\/\s*/).map((p) => p.trim()).filter(Boolean);
   const allColors = new Set<string>();
   let isCommander = false;
@@ -104,33 +153,59 @@ async function main() {
           .eq("deck_id", deck.id)
           .limit(100);
 
-        const cardNames: string[] = (deckCards || []).map((c: { name: string }) => c.name);
+        const cardNames: string[] = (deckCards || [])
+          .map((c: { name: string }) => c.name)
+          .filter((n) => n && !looksLikeGarbage(n));
 
         if (cardNames.length === 0 && deck.deck_text) {
           for (const line of deck.deck_text.split(/\r?\n/).slice(0, 25)) {
             const m = line.trim().match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-            if (m) cardNames.push(m[2].trim());
+            if (m) {
+              const name = m[2].trim();
+              if (!looksLikeGarbage(name)) cardNames.push(name);
+            }
           }
         }
 
+        // Batch-fetch from scryfall_cache (cache-first). Include DFC face names for better hits.
+        const namesToFetch = [...cardNames];
+        for (const n of cardNames) {
+          const parts = n.split(/\s*\/\/\s*/).map((p) => p.trim()).filter(Boolean);
+          if (parts.length > 1) namesToFetch.push(...parts);
+        }
+        const cacheMap = await batchFromCache(supabase, namesToFetch);
+
         for (const cardName of cardNames) {
-          const res = await fetchCommanderAndColors(cardName);
+          if (looksLikeGarbage(cardName)) continue;
+          let res: CommanderInfo;
+          const n = norm(cardName);
+          const parts = cardName.split(/\s*\/\/\s*/).map((p) => p.trim()).filter(Boolean);
+          const cached =
+            cacheMap.get(n) ??
+            (parts.length > 1 ? cacheMap.get(norm(parts[0])) ?? cacheMap.get(norm(parts[1])) : undefined);
+          if (cached) {
+            res = cached;
+          } else {
+            res = await fetchFromScryfall(cardName);
+            await new Promise((r) => setTimeout(r, 100)); // rate limit Scryfall
+          }
           if (res.isCommander) {
             commander = cardName;
             if (res.colorIdentity.length > 0) colors = res.colorIdentity;
             break;
           }
         }
-        if (!commander && cardNames.length > 0) {
-          commander = cardNames[0];
-          const res = await fetchCommanderAndColors(commander);
-          if (res.colorIdentity.length > 0) colors = res.colorIdentity;
-        }
+        // Do NOT fallback to first card - Sol Ring, Arcane Signet, lands etc. are NOT commanders
       }
 
       if (commander && !colors) {
-        const res = await fetchCommanderAndColors(commander);
+        const names = [commander, ...commander.split(/\s*\/\/\s*/).map((p) => p.trim()).filter(Boolean)];
+        const cacheMap = await batchFromCache(supabase, names);
+        const ck = norm(commander);
+        const cached = cacheMap.get(ck) ?? (names.length > 1 ? cacheMap.get(norm(names[1])) : undefined);
+        const res = cached ?? (await fetchFromScryfall(commander));
         if (res.colorIdentity.length > 0) colors = res.colorIdentity;
+        if (!cached) await new Promise((r) => setTimeout(r, 100));
       }
 
       if (!commander && !colors) continue;
@@ -146,9 +221,6 @@ async function main() {
         updated++;
         console.log(`  ${deck.id}: commander=${commander || deck.commander} colors=${colors?.join("") || "—"}`);
       }
-
-      // Rate limit Scryfall
-      await new Promise((r) => setTimeout(r, 100));
     } catch (err: unknown) {
       console.error(`  ${deck.id}:`, err);
     }
