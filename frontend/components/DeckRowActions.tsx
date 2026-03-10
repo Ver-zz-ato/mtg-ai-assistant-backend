@@ -11,11 +11,24 @@ export default function DeckRowActions(props: {
   const { id, title, is_public } = props;
 
   async function togglePublic() {
-    await fetch('/api/decks/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, is_public: !is_public }),
-    });
+    if (!is_public) {
+      const res = await fetch('/api/decks/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_public: true }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok && j?.error) {
+        alert(j.error);
+        return;
+      }
+    } else {
+      await fetch('/api/decks/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_public: false }),
+      });
+    }
     router.refresh();
   }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CachePresets } from "@/lib/api/cache";
 import { logger } from "@/lib/logger";
+import { isFormatCompliant } from "@/lib/deck/formatCompliance";
 
 // Use service role client to bypass RLS for public deck browsing
 // This is safe because we only query decks with is_public = true
@@ -165,7 +166,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Filter decks with at least 10 cards
+    // Filter: format-compliant decks only (Commander=100, Standard/Modern/Pioneer/Pauper=60)
     const getCardCount = (d: any) => {
       const fromDeckCards = cardCountByDeck.get(d.id) ?? 0;
       const fromDeckText = countCards(d.deck_text);
@@ -175,10 +176,16 @@ export async function GET(req: Request) {
     };
     const filteredDecks = (data || []).filter(d => {
       const cardCount = getCardCount(d);
+      const format = d.format;
+      if (!isFormatCompliant(format, cardCount)) {
+        logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - ${cardCount} cards for ${format || "unknown"} (incomplete)`);
+        return false;
+      }
       if (cardCount < 10) {
         logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - only ${cardCount} cards`);
+        return false;
       }
-      return cardCount >= 10;
+      return true;
     });
     
     logger.debug(`[Browse Decks] After card count filter: ${filteredDecks.length} decks (from ${data?.length || 0} fetched, total available: ${count || 0})`);

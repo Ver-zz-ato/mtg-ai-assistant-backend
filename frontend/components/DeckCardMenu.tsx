@@ -15,7 +15,27 @@ export default function DeckCardMenu({ id, title, is_public }: { id:string; titl
   
   React.useEffect(()=>{ function onDoc(e:any){ if(!ref.current?.contains(e.target)) setOpen(false); } document.addEventListener('mousedown', onDoc); return ()=> document.removeEventListener('mousedown', onDoc); },[]);
 
-  async function togglePublic(){ await fetch('/api/decks/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id, is_public: !is_public }) }); router.refresh(); setOpen(false); }
+  async function togglePublic(){
+    if (!is_public) {
+      try {
+        const res = await fetch('/api/decks/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id, is_public: true }) });
+        const j = await res.json().catch(()=>({}));
+        if (!res.ok && j?.error) {
+          alert(j.error);
+          setOpen(false);
+          return;
+        }
+      } catch (e: any) {
+        alert(e?.message || 'Failed to update');
+        setOpen(false);
+        return;
+      }
+    } else {
+      await fetch('/api/decks/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id, is_public: false }) });
+    }
+    router.refresh();
+    setOpen(false);
+  }
   async function copyLink(){ 
     // Track UI click
     track('ui_click', {

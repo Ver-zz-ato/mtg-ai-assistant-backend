@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
+import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 
 type SaveBody = {
   title?: string;
@@ -87,6 +88,15 @@ export async function POST(req: NextRequest) {
     }
 
     const is_public = body.is_public === true;
+    if (is_public) {
+      const parsed = parseDeckText(body.deckText);
+      const cardCount = parsed.reduce((s, p) => s + (p.qty || 1), 0);
+      const format = body.format ?? "Commander";
+      const msg = getFormatComplianceMessage(format, cardCount);
+      if (msg) {
+        return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+      }
+    }
     const insertDeck = {
       user_id: user.id,
       title: cleanTitle || "Untitled Deck",

@@ -1,5 +1,6 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,30 @@ export async function POST(req: Request) {
         }
       }
     }
-    if (typeof b.is_public === "boolean") update.is_public = b.is_public;
+    if (typeof b.is_public === "boolean") {
+      if (b.is_public === true) {
+        // Block making incomplete decks public
+        const { data: deckRow } = await supabase
+          .from("decks")
+          .select("format")
+          .eq("id", b.id)
+          .eq("user_id", user.id)
+          .single();
+        const { data: cardRows } = await supabase
+          .from("deck_cards")
+          .select("qty")
+          .eq("deck_id", b.id);
+        let cardCount = 0;
+        for (const row of cardRows || []) {
+          cardCount += Number((row as { qty: number }).qty || 1);
+        }
+        const msg = getFormatComplianceMessage(deckRow?.format, cardCount);
+        if (msg) {
+          return NextResponse.json({ error: msg }, { status: 400 });
+        }
+      }
+      update.is_public = b.is_public;
+    }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
