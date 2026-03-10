@@ -215,7 +215,7 @@ Track owned cards, wishlist future upgrades, and calculate what it'll cost to fi
 
 ### 📈 Price Tracker
 
-Monitor historical prices, set drop alerts, and see how your staples move over time.
+Monitor historical prices and see how your staples move over time.
 
 ### 🎨 Deck Builder Interface
 

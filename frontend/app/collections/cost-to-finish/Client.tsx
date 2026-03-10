@@ -879,7 +879,7 @@ export default function CostToFinishClient() {
         isOpen={busy}
         title="Computing cost to finish"
         stages={[
-          { icon: '📋', label: 'Parsing your decklist...' },
+          { icon: '📋', label: 'Importing your decklist...' },
           { icon: '💰', label: 'Looking up current prices...' },
           { icon: '🧮', label: 'Calculating totals...' },
           { icon: '✨', label: 'Almost done...' },

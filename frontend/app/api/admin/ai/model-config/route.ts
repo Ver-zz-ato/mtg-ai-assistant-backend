@@ -26,6 +26,7 @@ export async function GET() {
       MODEL_PRO_DECK: process.env.MODEL_PRO_DECK ?? '(not set)',
       MODEL_FREE: process.env.MODEL_FREE ?? '(not set)',
       MODEL_GUEST: process.env.MODEL_GUEST ?? '(not set)',
+      MODEL_ROUTER: process.env.MODEL_ROUTER ?? '(not set)',
       MODEL_DECK_SCAN: process.env.MODEL_DECK_SCAN ?? '(not set)',
       MODEL_AI_TEST: process.env.MODEL_AI_TEST ?? '(not set)',
       MODEL_DECK_ANALYZE_SLOTS: process.env.MODEL_DECK_ANALYZE_SLOTS ?? '(not set)',
@@ -48,7 +49,7 @@ export async function GET() {
         pro_chat: effectiveModels.pro_chat.model,
         pro_deck_analysis: effectiveModels.pro_deck_analysis.model,
       },
-      note: 'If pro_chat or pro_deck_analysis shows gpt-5 or similar, costs will be higher. Set MODEL_PRO_CHAT=gpt-4o to use gpt-4o for chat.',
+      note: 'GPT-5 ladder: Guest=gpt-4o-mini, Free=gpt-5-mini, Pro=gpt-5. Layer0 lightweight uses MODEL_ROUTER (e.g. gpt-5-nano) or MODEL_GUEST.',
     });
   } catch (e: unknown) {
     return NextResponse.json(

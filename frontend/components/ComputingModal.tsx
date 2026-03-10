@@ -33,7 +33,7 @@ export default function ComputingModal({
       return;
     }
     const id = setInterval(() => {
-      setStageIndex((prev) => (prev + 1) % stages.length);
+      setStageIndex((prev) => Math.min(prev + 1, stages.length - 1));
     }, cycleInterval);
     return () => clearInterval(id);
   }, [isOpen, stages.length, cycleInterval]);

@@ -44,7 +44,7 @@ export default function WishlistPage() {
       {
         icon: '💰',
         title: 'Price Monitoring',
-        description: 'Track prices in multiple currencies and get notified when cards drop to your target price.',
+        description: 'Track prices in multiple currencies for cards on your wishlist.',
         highlight: true,
       },
       {
@@ -69,59 +69,11 @@ export default function WishlistPage() {
       },
     ];
 
-    const demoSection = (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
-          Smart Wishlist Features
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left p-3 text-gray-600 dark:text-gray-400">Card</th>
-                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Price</th>
-                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Qty</th>
-                <th className="text-right p-3 text-gray-600 dark:text-gray-400">Total</th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-900 dark:text-white">
-              <tr className="border-b border-gray-100 dark:border-gray-800">
-                <td className="p-3">Rhystic Study</td>
-                <td className="text-right p-3 font-mono">$42.50</td>
-                <td className="text-right p-3">1</td>
-                <td className="text-right p-3 font-mono">$42.50</td>
-              </tr>
-              <tr className="border-b border-gray-100 dark:border-gray-800">
-                <td className="p-3">Cyclonic Rift</td>
-                <td className="text-right p-3 font-mono">$28.75</td>
-                <td className="text-right p-3">1</td>
-                <td className="text-right p-3 font-mono">$28.75</td>
-              </tr>
-              <tr className="border-b border-gray-100 dark:border-gray-800">
-                <td className="p-3">Sol Ring</td>
-                <td className="text-right p-3 font-mono">$1.20</td>
-                <td className="text-right p-3">3</td>
-                <td className="text-right p-3 font-mono">$3.60</td>
-              </tr>
-              <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-bold">
-                <td colSpan={3} className="p-3 text-right">Total</td>
-                <td className="text-right p-3 font-mono text-blue-600 dark:text-blue-400">$74.85</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-          Track prices across USD, EUR, and GBP
-        </div>
-      </div>
-    );
-
     return (
       <GuestLandingPage
         title="Build Your Wishlist"
         subtitle="Track and organize Magic cards you want with smart price monitoring and budget tools"
         features={features}
-        demoSection={demoSection}
       />
     );
   }

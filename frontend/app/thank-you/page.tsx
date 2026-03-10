@@ -242,7 +242,7 @@ function ThankYouContent() {
                 { icon: '🤖', title: 'Unlimited AI Analysis', desc: 'Get unlimited AI-powered deck analysis and suggestions' },
                 { icon: '📊', title: 'Advanced Deck Statistics', desc: 'Deep insights into your deck\'s performance and composition' },
                 { icon: '💾', title: 'Deck Versioning', desc: 'Save snapshots and restore previous versions of your decks' },
-                { icon: '💰', title: 'Price Tracking & Alerts', desc: 'Track card prices and get alerts when prices change' },
+                { icon: '💰', title: 'Price Tracking', desc: 'Track card prices over time' },
                 { icon: '🎯', title: 'Hand Testing Widget', desc: 'Interactive London mulligan simulation with real card artwork' },
                 { icon: '🔍', title: 'AI Deck Comparison', desc: 'Compare multiple decks with AI-powered insights' },
                 { icon: '⭐', title: 'Pro Badge & Early Access', desc: 'Show your Pro status and get early access to new features' },

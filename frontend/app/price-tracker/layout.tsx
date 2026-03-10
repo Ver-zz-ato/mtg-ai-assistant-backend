@@ -6,7 +6,7 @@ import { PopularCommanders } from "@/components/PopularCommanders";
 export const metadata: Metadata = {
   title: "MTG Price Tracker | Card Price History | ManaTap AI",
   description:
-    "Track Magic: The Gathering card prices over time. View price history, trends, and alerts for your deck and collection.",
+    "Track Magic: The Gathering card prices over time. View price history and trends for your deck and collection.",
   alternates: { canonical: "https://www.manatap.ai/price-tracker" },
 };
 

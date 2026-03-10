@@ -12,7 +12,7 @@ interface FAQItem {
 const faqItems: FAQItem[] = [
   {
     question: "Is the AI Commander deck builder really free?",
-    answer: "Yes! Core deck analysis is free, but you need a free account signup to start analyzing decks. Some core features are available for free users, while advanced features like deck version history and advanced analytics require a Pro subscription."
+    answer: "We have three tiers: guests can try core features (limited), signed-in free users get more features and deeper analysis, and Pro unlocks advanced tools like deck version history, budget swaps, and detailed analytics."
   },
   {
     question: "How does the AI deck analyzer work?",

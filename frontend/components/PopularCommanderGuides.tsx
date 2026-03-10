@@ -107,14 +107,17 @@ export default function PopularCommanderGuides() {
               key={cmd.slug}
               className="shrink-0 w-48 min-w-[12rem] rounded-xl bg-neutral-800/80 border border-neutral-700 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
             >
-              {/* Art header */}
-              <div className="h-20 bg-neutral-800 relative overflow-hidden">
+              {/* Art header - clickable to commander page */}
+              <Link
+                href={`/commanders/${cmd.slug}`}
+                className="block h-20 bg-neutral-800 relative overflow-hidden hover:opacity-90 transition-opacity"
+              >
                 {loading ? (
                   <div className="w-full h-full bg-neutral-700 animate-pulse" />
                 ) : artMap[cmd.name] ? (
                   <img
                     src={artMap[cmd.name]}
-                    alt=""
+                    alt={cmd.name}
                     className="w-full h-full object-cover object-top"
                   />
                 ) : (
@@ -123,8 +126,8 @@ export default function PopularCommanderGuides() {
                   </div>
                 )}
                 {/* Gradient overlay for text readability */}
-                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
-              </div>
+                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+              </Link>
 
               {/* Content */}
               <div className="p-3 flex flex-col flex-1 -mt-6 relative z-10">

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const FAQ = [
-  { q: "What is the budget threshold?", a: "Set a price (e.g. $5 per card). The tool finds cards above that price and suggests cheaper alternatives." },
+  { q: "What is the budget threshold?", a: "It's the minimum price per card. Only cards costing more than this get swap suggestions. E.g. $5 means we find cheaper alternatives for cards over $5 in your deck." },
   { q: "Quick Swaps vs AI-Powered Swaps?", a: "Quick Swaps uses a curated list of budget replacements for popular staples. AI-Powered (Pro) analyzes your deck's strategy to find cheaper cards that maintain synergies." },
   { q: "Can I paste from Moxfield or Archidekt?", a: "Yes. The tool works with standard formats from Moxfield, Archidekt, or plain text. Fix card names if your paste has typos." },
   { q: "How do I apply swaps to a new deck?", a: "Compare before/after totals, export as CSV, or apply swaps to create a new deck. Sign in to load decks from your ManaTap account." },

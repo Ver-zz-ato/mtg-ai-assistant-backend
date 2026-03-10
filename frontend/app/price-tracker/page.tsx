@@ -8,7 +8,6 @@ import CardAutocomplete from "@/components/CardAutocomplete";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
-import GuestLandingPage from "@/components/GuestLandingPage";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import TopMovers from './TopMovers';
 
@@ -123,72 +122,11 @@ export default function PriceTrackerPage(){
     return () => ro.disconnect();
   }, []);
 
-  // Show guest landing page if not authenticated
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
-    );
-  }
-
-  if (!user) {
-    const features = [
-      {
-        icon: '📈',
-        title: 'Price History Charts',
-        description: 'Track card prices over time with interactive charts. See trends, moving averages, and price spikes.',
-      },
-      {
-        icon: '💹',
-        title: 'Multi-Currency Support',
-        description: 'View prices in USD, EUR, or GBP. Export data for analysis in your preferred currency.',
-        highlight: true,
-      },
-      {
-        icon: '🔔',
-        title: 'Price Alerts',
-        description: 'Get notified when cards in your watchlist hit target prices or spike significantly.',
-      },
-      {
-        icon: '📊',
-        title: 'Deck Value Tracking',
-        description: 'Monitor your entire deck\'s value over time. See which cards drive price changes.',
-      },
-      {
-        icon: '📤',
-        title: 'CSV Export',
-        description: 'Export price data for external analysis. Perfect for spreadsheet analysis and reporting.',
-      },
-      {
-        icon: '🎯',
-        title: 'Top Movers',
-        description: 'Discover which cards are gaining or losing value fastest. Stay ahead of market trends.',
-      },
-    ];
-
-    const demoSection = (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-blue-50/50 dark:from-emerald-900/10 dark:to-blue-900/10" />
-        <div className="relative">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
-            Real-Time Price Tracking
-          </h2>
-          <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            Track any card's price history with beautiful charts and detailed analytics.
-          </div>
-        </div>
-      </div>
-    );
-
-    return (
-      <GuestLandingPage
-        title="Track Card Prices"
-        subtitle="Monitor Magic: The Gathering card prices with historical charts, alerts, and detailed analytics"
-        features={features}
-        demoSection={demoSection}
-        destination="/price-tracker"
-      />
     );
   }
 
@@ -296,6 +234,7 @@ export default function PriceTrackerPage(){
           <button onClick={load} disabled={loading} className="text-xs border rounded px-2 py-1">{loading? 'Loading…' : 'Refresh'}</button>
           <button onClick={exportCsv} disabled={series.length===0} className="text-xs border rounded px-2 py-1">Export CSV</button>
           <button onClick={async()=>{ 
+            if (!user) { try { await showAuthToast(AUTH_MESSAGES.SIGN_IN_REQUIRED); } catch {} return; }
             if (!isPro) { try { showProToast(); } catch {} return; }
             if (!names.trim()) { 
               try { const { toast } = await import('@/lib/toast-client'); toast('Enter card names first', 'error'); } catch {} 
@@ -852,6 +791,7 @@ function DeckValueSkeleton({ currency, onUpgrade, isProNoDeck }: { currency: 'US
 }
 
 function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; currency: 'USD'|'EUR'|'GBP'; setDeckId: (id: string)=>void }){
+  const { user } = useAuth();
   const { isPro } = useProStatus();
   const { createBrowserSupabaseClient } = require('@/lib/supabase/client');
   const [decks, setDecks] = React.useState<Array<{ id:string; title:string; commander:string }>>([]);
@@ -892,6 +832,24 @@ function DeckValuePanel({ deckId, currency, setDeckId }: { deckId: string; curre
     })();
   }, [deckId, decks]);
   
+  if (!user) {
+    return (
+      <section className="rounded border border-neutral-800 p-3 space-y-3">
+        <div className="font-medium flex items-center gap-2">Deck value <ProTagLink /></div>
+        <div className="rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
+          <p className="text-sm text-amber-200/90 mb-2">Sign up for an account and upgrade to Pro to see your deck&apos;s total value over time.</p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }))}
+            className="w-full px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+          >
+            Sign up for account + Pro →
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded border border-neutral-800 p-3 space-y-3">
       <div className="font-medium flex items-center gap-2">Deck value <ProTagLink /></div>
@@ -1069,6 +1027,7 @@ function WatchlistCard({
 
 const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setNames: (s:string)=>void }>(
   function WatchlistPanel({ names, setNames }, ref) {
+  const { user } = useAuth();
   const { isPro } = useProStatus();
   const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = React.useState(true);
@@ -1247,6 +1206,24 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
       } catch {}
     }
   };
+
+  if (!user) {
+    return (
+      <section className="rounded border border-neutral-800 p-3 space-y-2">
+        <div className="font-medium flex items-center gap-2">Watchlist <ProTagLink /></div>
+        <div className="rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
+          <p className="text-sm text-amber-200/90 mb-2">Sign up for an account to save cards to your watchlist and track price changes over time.</p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }))}
+            className="w-full px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+          >
+            Sign up for account →
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded border border-neutral-800 p-3 space-y-2">

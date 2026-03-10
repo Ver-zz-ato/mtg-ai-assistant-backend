@@ -64,6 +64,8 @@ function costUSD(model, inputTokens, outputTokens) {
   let inPerK = 0.005;
   let outPerK = 0.015;
   const table = {
+    "gpt-5-nano": { inPerK: 0.0001, outPerK: 0.0004 },
+    "gpt-5-mini": { inPerK: 0.0004, outPerK: 0.0016 },
     "gpt-5.2-codex": { inPerK: 0.0025, outPerK: 0.01 },
     "gpt-5": { inPerK: 0.0025, outPerK: 0.01 },
     "gpt-4o-mini": { inPerK: 0.00015, outPerK: 0.0006 },

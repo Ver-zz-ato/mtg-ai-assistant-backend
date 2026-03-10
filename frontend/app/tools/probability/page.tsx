@@ -263,10 +263,13 @@ export default function ProbabilityHelpersPage() {
       {/* Import from My Decks */}
       <ImportDeckForMath
         storageKey="prob"
-        onApply={({ deckId, deckSize: N, successCards: K }: any) => {
+        guestPromptVariant="friendly"
+        guestPromptMessage="Sign up or sign in to import your saved decks and run draw odds on them!"
+        onApply={({ deckId, deckSize: N, successCards: K, deckText: dt }: any) => {
           setDeckSize(N || deckSize);
           if (K && Number.isFinite(K)) setSuccessCards(K);
           setSelectedDeckId(deckId || null);
+          if (dt != null) setDeckText(dt);
           try {
             const url = new URL(window.location.href);
             url.searchParams.set("deckId", deckId);
@@ -286,10 +289,7 @@ export default function ProbabilityHelpersPage() {
           className="w-full h-32 bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-sm font-mono resize-none"
         />
         <p className="text-xs text-neutral-500">
-          Pick a deck to auto-fill N. Add a match term or select cards to set K.
-        </p>
-        <p className="text-xs text-neutral-500">
-          Sign in to import from your decks. You can still paste a list manually.
+          Pick a deck above to auto-fill N and the list. Add a match term or select cards to set K.
         </p>
         <button
           onClick={async () => {

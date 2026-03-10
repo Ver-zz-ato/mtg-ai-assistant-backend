@@ -127,25 +127,53 @@ export function TrendingCommandersStrip() {
               key={cmd.name}
               className="shrink-0 w-44 min-w-[11rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
             >
-              {/* Art pill */}
-              <div className="h-20 bg-neutral-800 relative overflow-hidden">
-                {artMap[cmd.name] ? (
-                  <img
-                    src={artMap[cmd.name]}
-                    alt=""
-                    className="w-full h-full object-cover object-top"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
-                    🃏
-                  </div>
-                )}
-              </div>
+              {/* Art pill - clickable to commander page */}
+              {cmd.slug ? (
+                <Link
+                  href={`/commanders/${cmd.slug}`}
+                  className="block h-20 bg-neutral-800 relative overflow-hidden hover:opacity-90 transition-opacity"
+                >
+                  {artMap[cmd.name] ? (
+                    <img
+                      src={artMap[cmd.name]}
+                      alt={cmd.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
+                      🃏
+                    </div>
+                  )}
+                </Link>
+              ) : (
+                <div className="h-20 bg-neutral-800 relative overflow-hidden">
+                  {artMap[cmd.name] ? (
+                    <img
+                      src={artMap[cmd.name]}
+                      alt={cmd.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
+                      🃏
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="p-3 flex flex-col flex-1">
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="font-bold text-white text-sm truncate flex-1">
-                  {cmd.name}
-                </span>
+                {cmd.slug ? (
+                  <Link
+                    href={`/commanders/${cmd.slug}`}
+                    className="font-bold text-white text-sm truncate flex-1 hover:text-cyan-300 transition-colors"
+                  >
+                    {cmd.name}
+                  </Link>
+                ) : (
+                  <span className="font-bold text-white text-sm truncate flex-1">
+                    {cmd.name}
+                  </span>
+                )}
                 <span className="text-xs text-neutral-400 shrink-0 bg-neutral-700/80 px-2 py-0.5 rounded">
                   {cmd.count} deck{cmd.count !== 1 ? "s" : ""}
                 </span>

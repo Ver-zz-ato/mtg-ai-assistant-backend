@@ -38,7 +38,7 @@ export default function WatchlistPage() {
       {
         icon: '🎯',
         title: 'Target Prices',
-        description: 'Set target prices and get notified when cards drop to your buying range.',
+        description: 'Set target prices for cards you\'re watching.',
       },
       {
         icon: '⚡',
@@ -48,7 +48,7 @@ export default function WatchlistPage() {
       {
         icon: '💎',
         title: 'Pro Feature',
-        description: 'Track unlimited cards with historical data and price alerts.',
+        description: 'Track unlimited cards with historical data.',
         highlight: true,
       },
     ];
@@ -103,7 +103,7 @@ export default function WatchlistPage() {
     return (
       <GuestLandingPage
         title="Price Watchlist"
-        subtitle="Track card prices with real-time alerts and historical data"
+        subtitle="Track card prices with historical data"
         features={features}
         demoSection={demoSection}
       />
@@ -117,7 +117,7 @@ export default function WatchlistPage() {
           <div className="text-6xl mb-4">💎</div>
           <h2 className="text-2xl font-bold mb-3">Price Watchlist is a Pro Feature</h2>
           <p className="text-lg opacity-80 mb-6">
-            Track card prices, set alerts, and never miss a buying opportunity
+            Track card prices and never miss a buying opportunity
           </p>
           <a
             href="/pricing"
@@ -439,7 +439,7 @@ function WatchlistEditor() {
         <div className="rounded-xl border border-neutral-800 p-4 bg-gradient-to-r from-blue-950/30 via-purple-950/20 to-blue-950/30">
           <div className="flex items-center gap-2 mb-2">
             <div className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse"></div>
-            <h3 className="font-semibold text-sm">Watchlist Alerts</h3>
+            <h3 className="font-semibold text-sm">Price Summary</h3>
           </div>
           <div className="flex flex-wrap gap-4 text-xs">
             {alertSummary.droppedToday > 0 && (

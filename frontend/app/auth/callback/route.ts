@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
  * Add to Supabase Auth → URL Configuration → Redirect URLs:
  *   https://manatap.ai/auth/callback, http://localhost:3000/auth/callback
  */
-const DEFAULT_REDIRECT = '/profile';
+const DEFAULT_REDIRECT = '/';
 
 function safeNext(next: string | null, base: string): string {
   const p = (next ?? '').trim();

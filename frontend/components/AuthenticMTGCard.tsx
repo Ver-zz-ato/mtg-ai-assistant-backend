@@ -233,14 +233,13 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
             {mode === 'edit' ? (
               <input
                 type="text"
-                value={value.nameParts?.join(' ') || ''}
+                value={(value.nameParts?.[1] || value.nameParts?.[2]) ? (value.nameParts||[]).filter(Boolean).join(' ') : (value.nameParts?.[0] ?? '')}
                 onChange={(e) => {
                   const next = e.target.value;
-                  // allow typing but do not block here; parent can disable actions
-                  const parts = next.split(' ');
-                  onChange?.({ nameParts: [parts[0] || '', parts[1] || '', parts[2] || ''] as [string,string,string] });
+                  // Store raw string as freeform; no forced split/join to avoid extra spaces
+                  onChange?.({ nameParts: [next, '', ''] as [string,string,string] });
                 }}
-                className={`flex-1 bg-transparent text-black font-bold outline-none ${containsProfanity(value.nameParts?.join(' ')||'') ? 'ring-1 ring-red-500' : ''}`}
+                className={`flex-1 bg-transparent text-black font-bold outline-none ${containsProfanity((value.nameParts?.[1] || value.nameParts?.[2]) ? (value.nameParts||[]).filter(Boolean).join(' ') : (value.nameParts?.[0] ?? '')) ? 'ring-1 ring-red-500' : ''}`}
                 style={{
                   fontSize: 'clamp(10px, 2.5vw, 14px)',
                   minWidth: 0 // Allow shrinking
@@ -257,7 +256,7 @@ export default function AuthenticMTGCard({ value, mode = 'view', onChange, artOp
                   minWidth: 0 // Allow shrinking
                 }}
               >
-                {value.nameParts?.join(' ') || 'Card Name'}
+                {(value.nameParts?.[1] || value.nameParts?.[2]) ? (value.nameParts||[]).filter(Boolean).join(' ') : (value.nameParts?.[0] ?? 'Card Name')}
               </span>
             )}
             

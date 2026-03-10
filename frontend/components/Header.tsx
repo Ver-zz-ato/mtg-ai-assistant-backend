@@ -123,10 +123,11 @@ export default function Header() {
     try {
       trackSignupStarted('oauth', 'google');
       capture('auth_login_attempt', { method: 'oauth', provider: 'google' });
+      const next = encodeURIComponent(window.location.pathname + window.location.search || '/');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
         },
       });
       if (error) {
@@ -149,9 +150,10 @@ export default function Header() {
     try {
       trackSignupStarted('oauth', provider);
       capture('auth_login_attempt', { method: 'oauth', provider });
+      const next = encodeURIComponent(window.location.pathname + window.location.search || '/');
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` },
       });
       if (error) {
         capture('auth_login_failed', { method: 'oauth', provider, error_type: 'other' });
@@ -559,8 +561,36 @@ export default function Header() {
 
       {/* Sign up modal */}
       {showSignUp && (
-        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4 overflow-y-auto overscroll-contain">
-          <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6 relative my-auto max-h-[90vh] overflow-y-auto overscroll-contain">
+        <div
+          className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4 overflow-y-auto overscroll-contain"
+          onClick={() => {
+            setShowSignUp(false);
+            setSignupEmail('');
+            setSignupPassword('');
+            setSignupEmailError('');
+            setSignupPasswordError('');
+            setSignupSuccess(false);
+            setEmailFormMode('signup');
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowSignUp(false);
+              setSignupEmail('');
+              setSignupPassword('');
+              setSignupEmailError('');
+              setSignupPasswordError('');
+              setSignupSuccess(false);
+              setEmailFormMode('signup');
+            }
+          }}
+        >
+          <div
+            className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-md p-6 relative my-auto max-h-[90vh] overflow-y-auto overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+          >
             {!signupSuccess ? (
               <>
                 <button

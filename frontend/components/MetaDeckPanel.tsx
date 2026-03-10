@@ -99,19 +99,6 @@ export default function MetaDeckPanel() {
             )}
           </div>
 
-          {/* Popular Cards */}
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-gray-300 mb-2">🔥 Trending Cards</h4>
-            <div className="space-y-1">
-              {meta.popularCards.slice(0, 5).map((card) => (
-                <div key={card.name} className="flex items-center justify-between text-sm hover:bg-purple-900/20 rounded px-2 py-1 transition-colors duration-150 cursor-default">
-                  <span className="text-gray-300 truncate flex-1">{card.name}</span>
-                  <span className="text-gray-500 text-xs ml-2">{card.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Meta hub CTA - eye-catching, clearly clickable */}
           <Link
             href="/meta"

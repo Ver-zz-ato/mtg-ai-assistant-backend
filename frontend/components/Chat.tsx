@@ -79,14 +79,20 @@ async function appendAssistant(threadId: string, content: string) {
 }
 
 function Chat() {
-  // Rotating example prompts
-  const examplePrompts = [
-    "Analyze this Commander deck and tell me what it's missing.",
-    "Fix the mana base for this 3-colour deck.",
-    "Suggest 5 on-colour upgrades for this commander.",
-    "Explain the right ramp mix for my deck.",
-    "(Experimental) Build a token deck under £50"
+  // Rotating example prompts - expanded pool for randomization
+  const ALL_SUGGESTION_PROMPTS = [
+    { label: 'Analyze my Commander deck', text: "Analyze this Commander deck and tell me what it's missing." },
+    { label: 'Fix my 3-colour mana base', text: "Fix the mana base for this 3-colour deck." },
+    { label: 'Suggest five upgrades', text: "Suggest 5 on-colour upgrades for this commander." },
+    { label: 'Build token deck under £50', text: "Build a token deck under £50" },
+    { label: 'Explain the right ramp mix', text: "Explain the right ramp mix for my deck." },
+    { label: 'What removal should I add?', text: "What removal spells should I add to this deck?" },
+    { label: 'Suggest card draw options', text: "Suggest card draw options for this commander." },
+    { label: 'Improve my mana curve', text: "How can I improve my mana curve?" },
+    { label: 'Add more interaction', text: "Add more interaction and protection to this deck." },
+    { label: 'Budget alternatives for staples', text: "Suggest budget alternatives for the expensive cards in this deck." },
   ];
+  const examplePrompts = ALL_SUGGESTION_PROMPTS.map(p => p.text);
   
   // State management
   const [flags, setFlags] = useState<any>(null);
@@ -106,6 +112,7 @@ function Chat() {
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
   const [deckMode, setDeckMode] = useState<'beginner'|'intermediate'|'pro'>('beginner');
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [pillRotationKey, setPillRotationKey] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
@@ -122,6 +129,8 @@ function Chat() {
   const { isPro, modelTier, modelLabel, upgradeMessage } = useProStatus();
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
+  const [showStartBuildingModal, setShowStartBuildingModal] = useState<boolean>(false);
+  const [showSampleDeckModal, setShowSampleDeckModal] = useState<boolean>(false);
   const capture = useCapture();
   
   // Card image and price states
@@ -150,6 +159,16 @@ function Chat() {
     }, 4000);
     return () => clearInterval(interval);
   }, [examplePrompts.length]);
+
+  // Randomize suggestion pills every 10 seconds
+  const visiblePills = React.useMemo(() => {
+    const shuffled = [...ALL_SUGGESTION_PROMPTS].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 4);
+  }, [pillRotationKey]);
+  useEffect(() => {
+    const interval = setInterval(() => setPillRotationKey(k => k + 1), 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Ref to track pending auto-submit from quiz
   const pendingQuizSubmitRef = useRef<string | null>(null);
@@ -1453,36 +1472,12 @@ function Chat() {
               </div>
             </div>
 
-            {/* Colors - collapsed by default, optional */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-neutral-500">Colors:</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(['W','U','B','R','G'] as const).map(c => (
-                  <button
-                    key={c}
-                    onClick={()=>setColors(s=>({...s,[c]:!s[c]}))}
-                    className={`px-1 py-1 rounded border touch-manipulation transition-all ${colors[c]?'bg-neutral-700 border-neutral-600':'bg-neutral-800/60 border-neutral-700/50 hover:bg-neutral-700/80 opacity-60 hover:opacity-80'} flex flex-col items-center gap-0.5`}
-                    title={`Color identity filter: ${COLOR_LABEL[c]}`}
-                    aria-label={`Color identity filter: ${COLOR_LABEL[c]}`}
-                  >
-                    <span className={`relative inline-flex items-center justify-center rounded-full ${colors[c] ? 'ring-1 ring-offset-1 ring-offset-neutral-900 ' + (c==='W'?'ring-amber-300':c==='U'?'ring-sky-400':c==='B'?'ring-slate-400':c==='R'?'ring-red-400':'ring-emerald-400') : ''}`} style={{ width: 16, height: 16 }}>
-                      <ManaIcon c={c as any} active={true} />
-                    </span>
-                    <span className="text-[7px] sm:text-[9px] opacity-70">{COLOR_LABEL[c]}</span>
-                  </button>
-                ))}
-                <button
-                  onClick={()=>setColors({W:false,U:false,B:false,R:false,G:false})}
-                  className="px-2 py-1 rounded border bg-neutral-800/60 border-neutral-700/50 hover:bg-neutral-700/80 text-[10px] text-neutral-500"
-                  title="Clear color identity filter"
-                >Clear</button>
-              </div>
-            </div>
           </div>
         )}
         
-        {/* Top bar: thread overflow menu (right) */}
-        <div className="flex items-center justify-end">
+        {/* Top bar: Manage chats + thread overflow menu (right) */}
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-neutral-500">Manage chats</span>
           <BuilderOverflowMenu
             threadId={threadId}
             value={threadId}
@@ -1510,43 +1505,65 @@ function Chat() {
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
               <div className="text-8xl mb-6 opacity-80">💬</div>
-              <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-3">
-                Paste a decklist or name a Commander.
+              <h3 className="text-base md:text-xl font-bold text-neutral-200 mb-8 max-w-md">
+                Paste a decklist to be analysed or ask a magic question to get started
               </h3>
-              <p className="text-xs md:text-sm text-neutral-400 mb-3 max-w-md px-2">
-                I'll check legality, mana balance, and synergy—and tell you exactly what to fix.
-              </p>
-              {/* Confidence framing sentence */}
-              <p className="text-xs md:text-sm text-neutral-500 mb-8 max-w-md px-2">
-                ManaTap will check legality, mana balance, synergy, and budget—automatically.
-              </p>
               
               <div className="flex flex-col gap-3 items-center justify-center mb-8">
-                <div className="flex gap-4 flex-wrap justify-center">
-                  {(()=>{ try { const { SampleDeckButton } = require('./SampleDeckSelector'); return <SampleDeckButton />; } catch { return null; } })()}
-                  {(()=>{ 
-                    try { 
-                      const PlaystyleQuizModal = require('./PlaystyleQuizModal').default;
-                      return (
-                        <>
-                          <div className="flex flex-col items-center">
-                            <button
-                              onClick={() => setShowQuizModal(true)}
-                              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-base transition-colors"
-                            >
-                              <span className="flex items-center gap-2">
-                                <span>🎯</span>
-                                <span>Find my Playstyle</span>
-                              </span>
-                            </button>
-                            <span className="mt-2 text-[10px] text-neutral-500 italic">Not sure what you like yet?</span>
-                          </div>
-                          {showQuizModal && <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} />}
-                        </>
-                      );
-                    } catch { return null; } 
-                  })()}
-                </div>
+                <button
+                  onClick={() => setShowStartBuildingModal(true)}
+                  className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl font-bold text-base transition-colors shadow-lg"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>🎲</span>
+                    <span>Start building a deck</span>
+                    <span>→</span>
+                  </span>
+                </button>
+                {showStartBuildingModal && (
+                  <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowStartBuildingModal(false)}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-lg font-bold text-white mb-4 text-center">Start building a deck</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <button
+                          onClick={() => { setShowStartBuildingModal(false); setShowQuizModal(true); }}
+                          className="p-4 rounded-xl border border-neutral-600 hover:border-blue-500 hover:bg-neutral-800/50 text-left transition-colors"
+                        >
+                          <span className="text-2xl block mb-2">🎯</span>
+                          <span className="font-semibold text-white">Find my playstyle</span>
+                          <p className="text-xs text-neutral-400 mt-1">Answer a few questions and we&apos;ll match you to decks that fit</p>
+                        </button>
+                        <button
+                          onClick={() => { setShowStartBuildingModal(false); setShowSampleDeckModal(true); }}
+                          className="p-4 rounded-xl border border-neutral-600 hover:border-emerald-500 hover:bg-neutral-800/50 text-left transition-colors"
+                        >
+                          <span className="text-2xl block mb-2">🎲</span>
+                          <span className="font-semibold text-white">Start from example decks</span>
+                          <p className="text-xs text-neutral-400 mt-1">Pick from curated sample decks by archetype</p>
+                        </button>
+                      </div>
+                      <a
+                        href="/decks/browse"
+                        className="block text-center text-sm text-cyan-400 hover:text-cyan-300 py-2"
+                      >
+                        Click here to browse public decks to start from →
+                      </a>
+                      <button onClick={() => setShowStartBuildingModal(false)} className="w-full mt-4 py-2 text-neutral-400 hover:text-white text-sm">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {showQuizModal && (()=>{ try { const PlaystyleQuizModal = require('./PlaystyleQuizModal').default; return <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} />; } catch { return null; } })()}
+                {showSampleDeckModal && (()=>{ try { const SampleDeckSelector = require('./SampleDeckSelector').default; return (
+                  <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                      <div className="p-6">
+                        <SampleDeckSelector onSuccess={() => setShowSampleDeckModal(false)} onCancel={() => setShowSampleDeckModal(false)} />
+                      </div>
+                    </div>
+                  </div>
+                ); } catch { return null; } })()}
               </div>
               
               {/* Example prompt pills - with intro text and hover pre-fill */}
@@ -1643,78 +1660,16 @@ function Chat() {
         <div className="space-y-3">
           {/* Suggested prompt chips - de-emphasized */}
           <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] text-neutral-500">
-          {[
-            { label: '“Analyze my Commander deck”', text: "Analyze this Commander deck and tell me what it's missing." },
-            { label: '“Fix my 3-colour mana base”', text: "Fix the mana base for this 3-colour deck." },
-            { label: '“Suggest five upgrades”', text: "Suggest 5 on-colour upgrades for this commander." },
-            { label: '“(Experimental) Build token deck under £50”', text: "(Experimental) Build a token deck under £50" },
-          ].map((p, i) => (
+          {visiblePills.map((p, i) => (
             <button 
-              key={i} 
+              key={`${pillRotationKey}-${i}`} 
               onClick={()=>setText(p.text)} 
               className="px-2 py-[2px] rounded border border-neutral-700 hover:bg-neutral-800 hover:text-neutral-300 touch-manipulation"
             >
-              {p.label}
+              &quot;{p.label}&quot;
             </button>
           ))}
         </div>
-
-          {/* Model tier reminder for non-Pro users - above text box (include isLoggedIn && !isPro so free users always see it) */}
-          {(modelTier === 'guest' || modelTier === 'free' || (isLoggedIn === true && !isPro)) && (
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
-              {modelTier === 'guest' && isLoggedIn === false && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
-                      source: 'guest_mode_badge_input',
-                      message_count: guestMessageCount
-                    });
-                    window.dispatchEvent(new CustomEvent('open-auth-modal', {
-                      detail: { mode: 'signup' }
-                    }));
-                  }}
-                  className={`shrink-0 text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
-                    guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
-                      ? 'bg-red-900 text-red-200 animate-pulse'
-                      : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
-                        ? 'bg-amber-900 text-amber-200'
-                        : 'bg-yellow-900 text-yellow-200'
-                  }`}
-                  title={guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
-                    ? 'Only a few messages left! Sign up to continue'
-                    : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
-                      ? 'Sign up to save your chat history'
-                      : 'Click to sign up and save your progress'
-                  }
-                >
-                  Guest Mode ({guestMessageCount}/{GUEST_MESSAGE_LIMIT})
-                </button>
-              )}
-              <span>
-                Using {(modelTier === 'free' || (isLoggedIn && !isPro)) ? (modelLabel || 'Standard') : modelLabel} model.
-                {(modelTier === 'free' || (isLoggedIn && !isPro)) && (
-                  <> {FREE_DAILY_MESSAGE_LIMIT} messages/day.{' '}</>
-                )}{' '}
-                {upgradeMessage ? (
-                  <a href="/pricing" className="text-blue-400 hover:underline">
-                    {upgradeMessage}
-                  </a>
-                ) : (
-                  <a href="/pricing" className="text-blue-400 hover:underline">
-                    {(modelTier === 'free' || (isLoggedIn && !isPro)) ? 'Upgrade to Pro for more!' : (modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : 'Upgrade to Pro for the best model.')}
-                  </a>
-                )}
-              </span>
-            </div>
-          )}
-
-          {/* Pro thank-you message - above text box */}
-          {modelTier === 'pro' && (
-            <div className="mb-2 text-[11px] text-neutral-400">
-              You're on the best model — thank you!
-            </div>
-          )}
 
           {/* Input area */}
           <div className="flex gap-2 flex-col sm:flex-row">
@@ -1729,7 +1684,7 @@ function Chat() {
                   send();
                 }
               }}
-              placeholder={(!Array.isArray(messages) || messages.length === 0) ? "Paste a decklist, name a Commander, or ask a question…" : examplePrompts[currentPromptIndex]}
+              placeholder={(!Array.isArray(messages) || messages.length === 0) ? "Paste a decklist to be analysed or ask a magic question…" : examplePrompts[currentPromptIndex]}
               rows={3}
               className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3.5 pr-12 resize-none min-h-[88px] text-base focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-600 transition-all"
               style={{
@@ -1847,6 +1802,37 @@ function Chat() {
             )}
           </div>
         </div>
+
+          {/* Model tier reminder - below input, prominent for non-Pro */}
+          {(modelTier === 'guest' || modelTier === 'free' || (isLoggedIn === true && !isPro)) && (
+            <div className="mt-3 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-center gap-2 text-sm">
+              {modelTier === 'guest' && isLoggedIn === false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, { source: 'guest_mode_badge_input', message_count: guestMessageCount });
+                    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }));
+                  }}
+                  className={`shrink-0 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer hover:scale-105 ${
+                    guestMessageCount >= GUEST_MESSAGE_LIMIT - 3 ? 'bg-red-900 text-red-200 animate-pulse' :
+                    guestMessageCount >= GUEST_MESSAGE_LIMIT - 5 ? 'bg-amber-900 text-amber-200' : 'bg-yellow-900 text-yellow-200'
+                  }`}
+                >
+                  Guest Mode ({guestMessageCount}/{GUEST_MESSAGE_LIMIT})
+                </button>
+              )}
+              <span className="text-neutral-400">
+                Using {(modelTier === 'free' || (isLoggedIn && !isPro)) ? (modelLabel || 'Standard') : modelLabel} model.
+                {(modelTier === 'free' || (isLoggedIn && !isPro)) && <> {FREE_DAILY_MESSAGE_LIMIT} messages/day.</>}{' '}
+                <a href="/pricing" className="text-blue-400 hover:text-blue-300 font-medium">
+                  {modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : (modelTier === 'free' || (isLoggedIn && !isPro)) ? 'Upgrade to Pro for more!' : 'Upgrade to Pro for the best model.'}
+                </a>
+              </span>
+            </div>
+          )}
+          {modelTier === 'pro' && (
+            <div className="mt-2 text-center text-sm text-neutral-500">You&apos;re on the best model — thank you!</div>
+          )}
         </div>
       </div>
       

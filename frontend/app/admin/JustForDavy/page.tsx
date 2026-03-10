@@ -33,6 +33,7 @@ const GROUPS = [
       { href: "/admin/billing-forensics", label: "Billing Forensics", eli5: "Why is Vercel charging us? Find cost drivers" },
       { href: "/admin/ops", label: "Ops", eli5: "Run crons, edit config, rollback snapshots" },
       { href: "/admin/changelog", label: "Changelog", eli5: "Edit What's New entries" },
+      { href: "/admin/blog", label: "Blog", eli5: "Manage blog listing, art, excerpts on /blog" },
     ],
   },
   {

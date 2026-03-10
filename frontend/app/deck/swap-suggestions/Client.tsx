@@ -37,7 +37,6 @@ export default function BudgetSwapsClient(){
   const [deckText, setDeckText] = React.useState("");
   const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>("GBP");
   const [threshold, setThreshold] = React.useState<number>(5);
-  const [topX, setTopX] = React.useState<number>(5);
   const [mode, setMode] = React.useState<'strict'|'ai'>("strict");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string|undefined>(undefined);
@@ -62,6 +61,7 @@ export default function BudgetSwapsClient(){
   const [newDeckLink, setNewDeckLink] = React.useState<string>('');
   
   const [showNoResultsModal, setShowNoResultsModal] = React.useState(false);
+  const [showProModal, setShowProModal] = React.useState(false);
   // Name fixing for pasted deck text
   const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
   const [fixNamesItems, setFixNamesItems] = React.useState<Array<{ originalName: string; qty: number; suggestions: string[] }>>([]);
@@ -184,12 +184,7 @@ export default function BudgetSwapsClient(){
     const currentDeckText = deckText;
     
     if (mode === 'ai' && !isProFinal){
-      try { 
-        const { showProToast } = await import('@/lib/pro-ux'); 
-        showProToast(); 
-      } catch { 
-        setError('AI-Powered Swaps is a Pro feature. Upgrade to unlock intelligent budget alternatives!');
-      }
+      setShowProModal(true);
       return null;
     }
     
@@ -198,8 +193,8 @@ export default function BudgetSwapsClient(){
       return null; 
     }
     
-    // If deckText is provided (not from deckId), check names first
-    if (!deckId && String(currentDeckText||'').trim()) {
+    // For AI mode only: validate names before sending (AI is pickier)
+    if (mode === 'ai' && !deckId && String(currentDeckText||'').trim()) {
       try {
         const r = await fetch('/api/deck/parse-and-fix-names', {
           method: 'POST',
@@ -209,18 +204,16 @@ export default function BudgetSwapsClient(){
         const j = await r.json().catch(() => ({}));
         if (r.ok && j?.ok) {
           if (j.items && j.items.length > 0) {
-            // Show modal to fix names
             setFixNamesItems(j.items);
             setPendingDeckText(currentDeckText);
             setFixNamesOpen(true);
-            return null; // Don't proceed until names are fixed
+            return null;
           } else if (j.cards && j.cards.length > 0) {
-            // All names are good, update deckText with corrected names
             const correctedText = j.cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
             setDeckText(correctedText);
           }
         }
-      } catch (e: any) {
+      } catch {
         // Continue anyway
       }
     }
@@ -239,15 +232,13 @@ export default function BudgetSwapsClient(){
 
       if (!r.ok || j?.ok === false) {
         if (r.status === 429 && j?.proUpsell) {
-          try {
-            const { showProToast } = await import('@/lib/pro-ux');
-            showProToast();
-          } catch {}
+          setShowProModal(true);
         }
         throw new Error(j?.error || 'Failed');
       }
       const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
-      const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topX));
+      const topN = !user ? 5 : (isProFinal ? 15 : 10);
+      const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topN));
       setSugs(top);
       if (top.length === 0) setShowNoResultsModal(true);
       // Prefetch thumbnails for hover previews
@@ -486,27 +477,39 @@ export default function BudgetSwapsClient(){
         <aside className="col-span-12 md:col-span-4">
           <div className="rounded-xl border border-neutral-800 p-3 space-y-3">
             <div className="text-sm font-semibold">Input</div>
-            <label className="text-xs block">
-              <div className="opacity-70 mb-1">Select a Deck</div>
-              {decks.length === 0 && (
-                <div className="text-xs text-yellow-400 mb-2 italic">
-                  Please sign in to select from your saved decks, or paste a decklist below.
-                </div>
-              )}
-              <select value={deckId} onChange={async (e)=>{
-                const id = e.target.value; setDeckId(id);
-                if (!id) return;
-                try{
-                  const sb = createBrowserSupabaseClient();
-                  const { data } = await sb.from('decks').select('deck_text').eq('id', id).maybeSingle();
-                  const text = String((data as any)?.deck_text || '');
-                  if (text) setDeckText(text);
-                } catch{}
-              }} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
-                <option value="">— None (paste below) —</option>
-                {decks.map(d=> <option key={d.id} value={d.id}>{d.title}</option>)}
-              </select>
-            </label>
+            {!user ? (
+              <div className="mb-3 rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
+                <p className="text-sm text-amber-200/90 mb-2">Sign up or sign in to run Budget Swaps on your own saved decks and find cheaper alternatives!</p>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }))}
+                  className="w-full px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+                >
+                  Sign up free →
+                </button>
+                <p className="text-xs text-amber-200/70 mt-2">You can still paste a decklist below.</p>
+              </div>
+            ) : (
+              <label className="text-xs block">
+                <div className="opacity-70 mb-1">Select a Deck</div>
+                {decks.length === 0 && (
+                  <div className="text-xs text-neutral-500 mb-2">No saved decks yet. Paste a decklist below or create one.</div>
+                )}
+                <select value={deckId} onChange={async (e)=>{
+                  const id = e.target.value; setDeckId(id);
+                  if (!id) return;
+                  try{
+                    const sb = createBrowserSupabaseClient();
+                    const { data } = await sb.from('decks').select('deck_text').eq('id', id).maybeSingle();
+                    const text = String((data as any)?.deck_text || '');
+                    if (text) setDeckText(text);
+                  } catch{}
+                }} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
+                  <option value="">— None (paste below) —</option>
+                  {decks.map(d=> <option key={d.id} value={d.id}>{d.title}</option>)}
+                </select>
+              </label>
+            )}
             <label className="text-xs block">
               <div className="opacity-70 mb-1">Paste decklist</div>
               <textarea 
@@ -525,22 +528,19 @@ export default function BudgetSwapsClient(){
                 </select>
               </label>
               <label className="text-xs">
-                <div className="opacity-70 mb-1">Threshold</div>
+                <div className="opacity-70 mb-1">Min. card price (per card)</div>
                 <input type="number" min={0} step={0.5} value={threshold} onChange={e=>setThreshold(parseFloat(e.target.value||'0'))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
-              </label>
-              <label className="text-xs">
-                <div className="opacity-70 mb-1">Show top X swaps</div>
-                <input type="number" min={1} max={50} value={topX} onChange={e=>setTopX(parseInt(e.target.value||'1',10))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
+                <div className="text-[10px] text-neutral-500 mt-0.5">Cards costing more than this (per card) get budget alternatives. E.g. {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'} shows swaps for cards over {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'}.</div>
               </label>
               <label className="text-xs">
                 <div className="opacity-70 mb-1">Mode</div>
-                <div className="flex items-center gap-3 text-sm">
-                  <label className="inline-flex items-center gap-1">
-                    <input type="radio" checked={mode==='strict'} onChange={()=>setMode('strict')} /> 
+                <div className="flex flex-col gap-3 text-sm">
+                  <label className="inline-flex items-center gap-2 p-3 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <input type="radio" checked={mode==='strict'} onChange={()=>setMode('strict')} className="mt-0.5" /> 
                     <span>Quick Swaps</span>
                   </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input type="radio" checked={mode==='ai'} onChange={()=>setMode('ai')} /> 
+                  <label className="inline-flex items-center gap-2 p-3 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                    <input type="radio" checked={mode==='ai'} onChange={()=>setMode('ai')} className="mt-0.5" /> 
                     <span>AI-Powered Swaps</span>
                     <span className="ml-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] font-bold">PRO</span>
                   </label>
@@ -1046,6 +1046,50 @@ export default function BudgetSwapsClient(){
         )}
       </AnimatePresence>
       
+      {/* Pro feature modal - friendly upsell for guest/free when trying AI mode */}
+      <AnimatePresence>
+        {showProModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setShowProModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-neutral-900 border-2 border-amber-600/50 rounded-xl p-6 max-w-md mx-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="text-5xl mb-3">⭐</div>
+                <h3 className="text-xl font-bold mb-2 text-amber-400">AI-Powered Swaps is a Pro Feature</h3>
+                <p className="text-sm text-neutral-300 mb-4">
+                  Our AI analyzes your entire deck to find cheaper cards that maintain your strategy and synergies — not just direct replacements. Perfect for unique brews!
+                </p>
+                <p className="text-xs text-neutral-400 mb-1">Example: Replacing removal with removal, ramp with ramp — keeping your deck&apos;s theme intact.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                  <a
+                    href="/pricing"
+                    className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+                  >
+                    Upgrade to Pro →
+                  </a>
+                  <button
+                    onClick={() => setShowProModal(false)}
+                    className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
+                  >
+                    Use Quick Swaps (free)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <FixDeckNamesModal
         open={fixNamesOpen}
         onClose={() => setFixNamesOpen(false)}

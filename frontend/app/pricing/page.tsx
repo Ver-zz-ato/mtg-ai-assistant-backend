@@ -212,7 +212,7 @@ export default function PricingPage() {
       title: 'Deck Price Tracking',
       description: 'See total deck cost with TCGPlayer and CardKingdom prices',
       free: 'Current prices',
-      pro: 'History + alerts',
+      pro: 'Full history',
       category: 'price'
     },
     {
@@ -221,14 +221,6 @@ export default function PricingPage() {
       description: 'View price trends over time for any card in your collection',
       free: false,
       pro: 'Full history + sparklines',
-      category: 'price'
-    },
-    {
-      icon: '🔔',
-      title: 'Price Alerts',
-      description: 'Get notified when cards hit your target buy/sell price',
-      free: false,
-      pro: 'Unlimited alerts',
       category: 'price'
     },
     {
@@ -282,9 +274,12 @@ export default function PricingPage() {
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Unlock Your MTG Potential
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-2">
             Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. 
             Get unlimited AI analysis, advanced insights, and premium features.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-6">
+            Powered by OpenAI GPT-5 — Free tier uses GPT-5 Mini; Pro uses full GPT-5 for the best reasoning.
           </p>
           
           {/* ROI Calculator */}
@@ -467,12 +462,11 @@ export default function PricingPage() {
                 <span className="text-green-400 mr-3">✓</span>
                 <ProValueTooltip
                   trigger={
-                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Price tracking & alerts</span>
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Price tracking</span>
                   }
-                  featureName="Price Tracking & Alerts"
+                  featureName="Price Tracking"
                   benefits={[
                     'Historical price data for all cards',
-                    'Custom price alert thresholds',
                     'Market trend analysis and predictions',
                     'Portfolio value tracking over time'
                   ]}

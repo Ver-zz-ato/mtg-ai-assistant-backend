@@ -1,13 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import BlogImage from '@/components/BlogImage';
 
-// Note: Metadata export removed for client component
-
-// Blog posts data - will move to MDX files later
-const blogPosts = [
+// Fallback when no API/DB entries
+const DEFAULT_BLOG_POSTS = [
   {
     slug: 'devlog-23-days-soft-launch',
     title: '🚀 Devlog: 23 Days Into Soft Launch',
@@ -151,10 +149,22 @@ const blogPosts = [
 
 export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Posts');
+  const [blogPosts, setBlogPosts] = useState<typeof DEFAULT_BLOG_POSTS>(DEFAULT_BLOG_POSTS);
+
+  useEffect(() => {
+    fetch('/api/blog')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.ok && Array.isArray(data?.blog?.entries) && data.blog.entries.length > 0) {
+          setBlogPosts(data.blog.entries);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filteredPosts = useMemo(() => {
-    let posts = selectedCategory === 'All Posts' 
-      ? blogPosts 
+    let posts = selectedCategory === 'All Posts'
+      ? blogPosts
       : blogPosts.filter(post => post.category === selectedCategory);
     // Sort by date descending (newest first)
     return posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

@@ -193,62 +193,15 @@ function CollectionsPageClientBody() {
       {
         icon: '📈',
         title: 'Price History',
-        description: 'View price trends over time and get notified of significant value changes.',
+        description: 'View price trends over time.',
       },
     ];
-
-    const demoSection = (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-blue-50/50 dark:from-emerald-900/10 dark:to-blue-900/10" />
-        <div className="relative">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
-            Powerful Collection Tools
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg p-4">
-                <div className="text-sm font-semibold mb-1">Cost to Finish</div>
-                <div className="text-2xl font-bold">$142.50</div>
-                <div className="text-xs opacity-90 mt-1">Missing 23 cards from your deck</div>
-              </div>
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Collection Value</div>
-                <div className="text-xl font-bold text-gray-900 dark:text-white">$1,248.75</div>
-                <div className="text-xs text-green-600 dark:text-green-400 mt-1">↑ $15.20 this week</div>
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4">
-              <div className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Quick Stats</div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Total Cards:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">1,842</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Unique Cards:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">643</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Collections:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">5</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Last Updated:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">Today</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
 
     return (
       <GuestLandingPage
         title="Manage Your Collection"
         subtitle="Track, value, and organize your Magic: The Gathering card collection with powerful tools"
         features={features}
-        demoSection={demoSection}
         destination="/collections"
       />
     );

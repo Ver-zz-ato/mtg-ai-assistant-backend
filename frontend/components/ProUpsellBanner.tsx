@@ -35,9 +35,9 @@ export default function ProUpsellBanner({ context, deckCount }: ProUpsellBannerP
         }
         return 'Unlock unlimited AI analysis, hand testing, and price tracking with Pro.';
       case 'collections':
-        return 'Track prices with Pro - Get historical price data and alerts for your collection.';
+        return 'Track prices with Pro - Get historical price data for your collection.';
       case 'cost_to_finish':
-        return 'See price trends and get alerts with Pro - Track your collection value over time.';
+        return 'See price trends with Pro - Track your collection value over time.';
       default:
         return 'Unlock unlimited AI analysis and advanced features with Pro.';
     }

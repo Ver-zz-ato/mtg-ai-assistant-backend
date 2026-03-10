@@ -54,7 +54,7 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
             <div className="text-[11px] opacity-90 mb-2 max-w-xs">
               • Unlimited AI analysis<br/>
               • Advanced deck statistics<br/>
-              • Price tracking & alerts<br/>
+              • Price tracking<br/>
               • Priority support
             </div>
             <div className="text-[11px] text-blue-300 font-semibold">£1.99/month or £14.99/year</div>
@@ -71,13 +71,26 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
 
 /** Yellow Pro tag as a link to /pricing - use for feature labels (e.g. "Deck value Pro") */
 export function ProTagLink({ className = '', onClick }: { className?: string; onClick?: (e: React.MouseEvent) => void }) {
+  const [showBubble, setShowBubble] = useState(false);
   return (
-    <Link
-      href="/pricing"
-      onClick={onClick}
-      className={`inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase hover:bg-amber-200 transition-colors ${className}`.trim()}
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setShowBubble(true)}
+      onMouseLeave={() => setShowBubble(false)}
     >
-      Pro
-    </Link>
+      <Link
+        href="/pricing"
+        onClick={onClick}
+        className={`inline-flex items-center rounded bg-amber-300 text-black text-[10px] font-bold px-1.5 py-0.5 uppercase hover:bg-amber-200 transition-colors ${className}`.trim()}
+      >
+        Pro
+      </Link>
+      {showBubble && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[10px] font-medium rounded shadow-lg whitespace-nowrap z-50 pointer-events-none">
+          only £1.99 per month
+          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900" />
+        </span>
+      )}
+    </span>
   );
 }

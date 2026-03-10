@@ -115,7 +115,7 @@ export function NoWishlistItemsEmptyState() {
     <EmptyState
       icon="⭐"
       title="Your wishlist is empty"
-      description="Add cards you want to acquire! Track prices and get notified when they drop."
+      description="Add cards you want to acquire! Track prices and spot deals."
       actionText="Browse Cards"
       actionHref="/cards"
       secondaryActionText="Import List"

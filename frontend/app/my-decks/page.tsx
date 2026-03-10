@@ -264,49 +264,11 @@ function MyDecksPageContent() {
       },
     ];
 
-    const demoSection = (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10" />
-        <div className="relative">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Powerful Deck Management
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <div className="bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/20 rounded-lg p-4">
-              <div className="font-semibold text-blue-900 dark:text-blue-200 mb-2">
-                🔍 Quick Search
-              </div>
-              <p className="text-blue-700 dark:text-blue-300 text-xs">
-                Find any deck instantly with powerful search and filters
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/40 dark:to-purple-800/20 rounded-lg p-4">
-              <div className="font-semibold text-purple-900 dark:text-purple-200 mb-2">
-                📌 Pin Favorites
-              </div>
-              <p className="text-purple-700 dark:text-purple-300 text-xs">
-                Keep your best decks pinned to the top for quick access
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-800/20 rounded-lg p-4">
-              <div className="font-semibold text-green-900 dark:text-green-200 mb-2">
-                🌐 Share & Publish
-              </div>
-              <p className="text-green-700 dark:text-green-300 text-xs">
-                Make decks public and share them with the community
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-
     return (
       <GuestLandingPage
         title="Build Better Decks"
         subtitle="Create, analyze, and optimize your Magic: The Gathering decks with AI-powered insights"
         features={features}
-        demoSection={demoSection}
         destination="/my-decks"
       />
     );

@@ -50,7 +50,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
 
   React.useEffect(()=>{ const id=setTimeout(()=>setToast(null),3500); return ()=>clearTimeout(id); },[toast]);
 
-  const name = `${value.nameParts[0]} ${value.nameParts[1]} ${value.nameParts[2]}`;
+  const name = (value.nameParts?.[1] || value.nameParts?.[2]) ? (value.nameParts||[]).filter(Boolean).join(' ') : (value.nameParts?.[0] ?? '');
 
   function setCmc(updater: (n:number)=>number){ setValue(v=>({ ...v, cost: updater(v.cost||0) })); }
   const color = value.colorHint;
@@ -219,7 +219,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
     if (userEditedSub) return;
     rerollSub();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.art?.url, (value.nameParts||[]).join(' ')]);
+  }, [value.art?.url, name]);
 
   // Load curated art pack
   React.useEffect(() => {
@@ -368,7 +368,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{ await attach(); try{ fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'card_attach'})}); }catch{} }} className={`px-3 py-1 rounded text-sm ${ (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) ? 'bg-gray-500 text-white opacity-60 cursor-not-allowed' : 'bg-emerald-600 text-white' }`}>Attach to my profile</button>
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{
         try {
-            const res = await fetch('/api/custom-cards/save?public=1', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: (value.nameParts||[]).join(' '), value }) });
+            const res = await fetch('/api/custom-cards/save?public=1', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: name, value }) });
             const j = await res.json().catch(()=>({}));
             if (!res.ok || j?.ok===false) {
               if (j?.error==='quota_exceeded') { alert(`You\'ve reached your limit (${j.max}). Visit your profile to delete one, or upgrade to Pro.`); }
@@ -389,7 +389,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             
             // Track custom card sharing
             capture(AnalyticsEvents.CUSTOM_CARD_SHARED, {
-              card_name: (value.nameParts||[]).join(' '),
+              card_name: name,
               color: value.colorHint || '',
               rarity: value.rarity || 'common'
             });

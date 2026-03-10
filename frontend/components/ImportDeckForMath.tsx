@@ -9,10 +9,14 @@ export default function ImportDeckForMath({
   onApply,
   storageKey,
   label = "Import from My Decks",
+  guestPromptVariant = "compact",
+  guestPromptMessage = "Sign up or sign in to import your saved decks and run probability on them!",
 }: {
-  onApply: (vals: { deckId: string; deckSize: number; successCards: number; deckCards?: Array<{ name: string; qty: number }> }) => void;
+  onApply: (vals: { deckId: string; deckSize: number; successCards: number; deckCards?: Array<{ name: string; qty: number }>; deckText?: string }) => void;
   storageKey: "prob" | "mull";
   label?: string;
+  guestPromptVariant?: "compact" | "friendly";
+  guestPromptMessage?: string;
 }) {
   const [decks, setDecks] = React.useState<DeckRow[]>([]);
   const [deckId, setDeckId] = React.useState<string>("");
@@ -62,9 +66,12 @@ export default function ImportDeckForMath({
     
     (async () => {
       try {
-        const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" });
-        const json = await res.json().catch(()=>({ ok:false }));
-        if (!res.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${res.status}`);
+        const [cardsRes, metaRes] = await Promise.all([
+          fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" }),
+          fetch(`/api/decks/get?id=${encodeURIComponent(deckId)}`, { cache: 'no-store' }),
+        ]);
+        const json = await cardsRes.json().catch(()=>({ ok:false }));
+        if (!cardsRes.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${cardsRes.status}`);
         const cardsList: Array<{ name: string; qty: number }> = Array.isArray(json.cards) ? json.cards : [];
         setCards(cardsList);
         const total = cardsList.reduce((s,c)=> s + (Number(c.qty)||0), 0);
@@ -74,15 +81,15 @@ export default function ImportDeckForMath({
         const k = !f ? 0 : cardsList.filter(c => String(c.name||"").toLowerCase().includes(f)).reduce((s,c)=> s + (c.qty||0), 0);
         if (selected.length === 0) setSuccessCards(k);
         try { localStorage.setItem(`${storageKey}:deck`, deckId); } catch {}
-        
-        // Auto-apply to parent immediately after loading
-        onApply({ deckId, deckSize: total, successCards: k, deckCards: cardsList });
 
-        // Fetch deck_text then analyze for category counts (presets)
+        const meta = await metaRes.json().catch(()=>({}));
+        const deckText = String(meta?.deck?.deck_text || '');
+
+        // Auto-apply to parent with deckText so paste area gets updated
+        onApply({ deckId, deckSize: total, successCards: k, deckCards: cardsList, deckText: deckText || undefined });
+
+        // Analyze deck_text for category counts (presets)
         try {
-          const metaRes = await fetch(`/api/decks/get?id=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
-          const meta = await metaRes.json().catch(()=>({}));
-          const deckText = String(meta?.deck?.deck_text || '');
           if (deckText) {
             const ar = await fetch('/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deckText, useScryfall: true }) });
             const body = await ar.text();
@@ -103,7 +110,8 @@ export default function ImportDeckForMath({
 
   const apply = () => {
     if (!deckId) return;
-    onApply({ deckId, deckSize, successCards, deckCards: cards });
+    const deckText = cards.map(c => `${c.qty} ${c.name}`).join('\n');
+    onApply({ deckId, deckSize, successCards, deckCards: cards, deckText });
   };
 
   const useCount = (k: keyof NonNullable<typeof counts>) => {
@@ -128,9 +136,26 @@ export default function ImportDeckForMath({
     setSuccessCards(sum);
   }, [selected, cards]);
 
+  const isAuthError = err && (err.toLowerCase().includes('401') || err.toLowerCase().includes('unauthor') || err.toLowerCase().includes('not authenticated'));
+  const showFriendlyGuest = isAuthError && guestPromptVariant === "friendly";
+
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900/60 p-3 space-y-2">
       <div className="text-sm font-medium">{label}</div>
+      {showFriendlyGuest ? (
+        <div className="rounded-lg border border-amber-600/40 bg-amber-950/30 p-4">
+          <p className="text-sm text-amber-200/90 mb-2">{guestPromptMessage}</p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signup' } }))}
+            className="w-full px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm transition-colors"
+          >
+            Sign up free →
+          </button>
+          <p className="text-xs text-amber-200/70 mt-2">You can still paste a decklist below.</p>
+        </div>
+      ) : (
+        <>
       <div className="flex flex-col sm:flex-row gap-2">
         <select
           className="min-w-0 flex-1 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm"
@@ -199,15 +224,18 @@ export default function ImportDeckForMath({
         </div>
       )}
 
-      {err ? (() => {
+      {err && !showFriendlyGuest ? (() => {
         const msg = err.toLowerCase();
         const isAuth = msg.includes('401') || msg.includes('unauthor') || msg.includes('not authenticated');
-        return isAuth ? (
-          <div className="text-xs text-amber-400">Sign in to import from your decks. You can still paste a list manually.</div>
-        ) : (
-          <div className="text-xs text-red-400">{err}</div>
-        );
+        if (isAuth) {
+          return (
+            <div className="text-xs text-amber-400">Sign in to import from your decks. You can still paste a list manually.</div>
+          );
+        }
+        return <div className="text-xs text-red-400">{err}</div>;
       })() : null}
+        </>
+      )}
     </div>
   );
 }
