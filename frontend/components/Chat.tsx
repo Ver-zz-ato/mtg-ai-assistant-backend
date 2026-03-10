@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import BuilderOverflowMenu from "@/components/BuilderOverflowMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
@@ -161,7 +161,7 @@ function Chat() {
   }, [examplePrompts.length]);
 
   // Randomize suggestion pills every 10 seconds
-  const visiblePills = React.useMemo(() => {
+  const visiblePills = useMemo(() => {
     const shuffled = [...ALL_SUGGESTION_PROMPTS].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 4);
   }, [pillRotationKey]);
