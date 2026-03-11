@@ -52,8 +52,9 @@ export async function GET(req: NextRequest) {
     const windowDays = Math.max(1, Math.min(90, parseInt(url.searchParams.get("window_days") || "7", 10)));
     const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get("limit") || "50", 10)));
 
-    // Use admin client for guests so we can read price_snapshots (RLS may block anon)
-    const db = user ? supabase : (await import("@/app/api/_lib/supa")).getAdmin() || supabase;
+    // Use admin client so we can read price_snapshots (RLS may block anon/authenticated)
+    const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+    const db = admin ?? supabase;
 
     // Find latest snapshot date for this currency
     const { data: latestRows } = await db

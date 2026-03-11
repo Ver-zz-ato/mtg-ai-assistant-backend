@@ -182,6 +182,7 @@ export default function DataPage(){
                     
                     const response = await fetch('/api/cron/bulk-scryfall', {
                       method: 'POST',
+                      credentials: 'include',
                     });
                     
                     const data = await response.json();

@@ -17,7 +17,13 @@ interface ScryfallCard {
 }
 
 function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['\u2019\u2018`´]/g, "'")  // normalize apostrophes to straight quote
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isAdmin(user: any): boolean {
@@ -167,18 +173,26 @@ export async function POST(req: NextRequest) {
     console.log(`  • Updated: ${lastUpdated}`);
     console.log(`  • URL: ${downloadUrl}`);
 
-    // Step 2: Get our cached cards for price lookup
+    // Step 2: Get our cached cards for price lookup (paginate - Supabase/PostgREST caps at 1000/request)
     console.log("🗄️ Fetching cached card names...");
-    const { data: cachedCards, error: cacheError } = await admin
-      .from('scryfall_cache')
-      .select('name')
-      .order('name');
-
-    if (cacheError) {
-      throw new Error(`Failed to fetch cached cards: ${cacheError.message}`);
+    const cachedCards: { name: string }[] = [];
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data: page, error: pageError } = await admin
+        .from('scryfall_cache')
+        .select('name')
+        .order('name')
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (pageError) throw new Error(`Failed to fetch cached cards: ${pageError.message}`);
+      if (!page || page.length === 0) break;
+      cachedCards.push(...page);
+      hasMore = page.length === PAGE_SIZE;
+      offset += PAGE_SIZE;
     }
 
-    if (!cachedCards || cachedCards.length === 0) {
+    if (cachedCards.length === 0) {
       console.log("⚠️ No cached cards found to update prices for");
       return NextResponse.json({
         ok: true,

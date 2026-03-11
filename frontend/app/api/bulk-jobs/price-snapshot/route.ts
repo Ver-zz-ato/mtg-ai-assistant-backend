@@ -115,30 +115,36 @@ export async function POST(_req: NextRequest) {
     }
     console.log(`✅ Successfully inserted ${inserted} snapshot rows`);
 
-    // Auto-delete data older than 60 days to maintain retention limit
-    console.log('🧹 Cleaning up old snapshots (older than 60 days)...');
-    try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 60);
-      const cutoffDateStr = cutoffDate.toISOString().slice(0, 10);
-      
-      const { getAdmin } = await import("@/app/api/_lib/supa");
-      const admin = getAdmin();
-      if (admin) {
-        const { error: deleteError, count: deletedCount } = await admin
-          .from('price_snapshots')
-          .delete()
-          .lt('snapshot_date', cutoffDateStr);
-        
-        if (deleteError) {
-          console.warn('⚠️ Failed to delete old snapshots:', deleteError.message);
-        } else {
-          console.log(`✅ Cleaned up ${deletedCount || 0} rows older than ${cutoffDateStr}`);
+    // Auto-delete data older than 60 days - run in background so job returns quickly
+    const runCleanup = async () => {
+      try {
+        const { getAdmin } = await import("@/app/api/_lib/supa");
+        const admin = getAdmin();
+        if (!admin) return;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 60);
+        const cutoffDateStr = cutoffDate.toISOString().slice(0, 10);
+        const { data: oldestRow } = await admin.from('price_snapshots').select('snapshot_date').lt('snapshot_date', cutoffDateStr).order('snapshot_date', { ascending: true }).limit(1).maybeSingle();
+        if (!oldestRow?.snapshot_date) return;
+        const startDate = new Date(oldestRow.snapshot_date);
+        const endDate = new Date(cutoffDateStr);
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let totalDeleted = 0;
+        for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().slice(0, 10);
+          for (const c of chars) {
+            const { data, error: err } = await admin.from('price_snapshots').delete().eq('snapshot_date', dateStr).like('name_norm', `${c}%`).select('snapshot_date');
+            if (!err && Array.isArray(data)) totalDeleted += data.length;
+          }
+          const { data, error: err } = await admin.from('price_snapshots').delete().eq('snapshot_date', dateStr).is('name_norm', null).select('snapshot_date');
+          if (!err && Array.isArray(data)) totalDeleted += data.length;
         }
+        console.log(`🧹 Background cleanup: deleted ${totalDeleted.toLocaleString()} old snapshot rows`);
+      } catch (e: any) {
+        console.warn('⚠️ Background cleanup error:', e?.message || e);
       }
-    } catch (cleanupError) {
-      console.warn('⚠️ Cleanup error (non-fatal):', cleanupError);
-    }
+    };
+    void runCleanup();  // Fire-and-forget - job completes immediately
 
     // Record last run and audit
     console.log('📝 Recording job completion timestamp...');

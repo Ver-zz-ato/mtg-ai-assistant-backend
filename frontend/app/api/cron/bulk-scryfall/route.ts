@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
@@ -92,8 +93,20 @@ export async function POST(req: NextRequest) {
       actor = 'cron';
       console.log("✅ Cron auth successful", { isFromVercel, hasValidHeader, hasValidQuery });
     }
-    // Note: User auth fallback removed to avoid Supabase auth helper errors in cron contexts
-    // Cron routes should only use x-vercel-id (Vercel cron) or x-cron-key (manual triggers)
+    if (!useAdmin) {
+      console.log("🔍 Trying admin user auth...");
+      try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && isAdmin(user)) {
+          useAdmin = true;
+          actor = user.id as string;
+          console.log("✅ Admin user auth successful");
+        }
+      } catch (authError: any) {
+        console.log("❌ User auth failed:", authError.message);
+      }
+    }
 
     if (!useAdmin) {
       console.log("❌ Authorization failed", { 

@@ -3,11 +3,9 @@
 import React from "react";
 import { useProStatus } from "@/hooks/useProStatus";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
-import BuildDeckFromCollectionModal from "@/components/BuildDeckFromCollectionModal";
 
 export default function CollectionHeaderControls({ collectionId }: { collectionId: string }){
   const [isPublic, setIsPublic] = React.useState(false);
-  const [showBuildDeck, setShowBuildDeck] = React.useState(false);
   const [slug, setSlug] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [slugOk, setSlugOk] = React.useState<undefined|boolean>(undefined);
@@ -149,13 +147,6 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
       )}
 
       <div className="ml-auto flex items-center gap-3">
-        {/* Build a Deck From This Collection */}
-        <button
-          onClick={() => setShowBuildDeck(true)}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
-        >
-          Build a Deck From This Collection
-        </button>
         {/* Import */}
         <div className="flex items-center gap-2">
           <span className="text-xs opacity-70">Import:</span>
@@ -181,13 +172,6 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           )}
         </div>
       </div>
-
-      {showBuildDeck && (
-        <BuildDeckFromCollectionModal
-          collectionId={collectionId}
-          onClose={() => setShowBuildDeck(false)}
-        />
-      )}
     </div>
   );
 }

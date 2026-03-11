@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,8 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
+    const admin = getAdmin();
+    const db = admin ?? supabase;
     const url = new URL(req.url);
     const names = url.searchParams.getAll("names[]").filter(Boolean);
     const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
@@ -26,7 +29,7 @@ export async function GET(req: NextRequest) {
     const norm = (s: string) => String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/['\u2019\u2018`]/g,"'").replace(/\s+/g," ").trim();
     const wanted = Array.from(new Set(names.map(norm))).slice(0, 10); // cap to 10 series for MVP
 
-    let q = supabase
+    let q = db
       .from("price_snapshots")
       .select("name_norm, snapshot_date, unit")
       .in("name_norm", wanted)
@@ -52,7 +55,7 @@ export async function GET(req: NextRequest) {
       let pc: { usd_price?: number; eur_price?: number } | null = null;
       const variants = [n, n.replace(/'/g, "\u2019"), n.replace(/\u2019/g, "'")];
       for (const v of variants) {
-        const { data } = await supabase.from("price_cache").select("usd_price, eur_price").eq("card_name", v).maybeSingle();
+        const { data } = await db.from("price_cache").select("usd_price, eur_price").eq("card_name", v).maybeSingle();
         if (data) { pc = data as any; break; }
       }
       if (pc) {
