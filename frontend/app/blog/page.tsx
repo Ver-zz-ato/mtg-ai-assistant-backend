@@ -13,8 +13,14 @@ export default function BlogPage() {
     fetch('/api/blog')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.ok && Array.isArray(data?.blog?.entries) && data.blog.entries.length > 0) {
-          setBlogPosts(data.blog.entries);
+        if (data?.ok && Array.isArray(data?.blog?.entries)) {
+          const apiEntries = data.blog.entries as typeof DEFAULT_BLOG_POSTS;
+          // Merge: use defaults as base, API entries override/add (never remove defaults)
+          const bySlug = new Map(DEFAULT_BLOG_POSTS.map((p) => [p.slug, { ...p }]));
+          for (const e of apiEntries) {
+            if (e?.slug) bySlug.set(e.slug, e);
+          }
+          setBlogPosts(Array.from(bySlug.values()));
         }
       })
       .catch(() => {});

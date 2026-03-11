@@ -366,10 +366,12 @@ export default function DataPage(){
               <div>• Also runs locally on demand via this button</div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
-              <div>⚠️ Requires deck_cards table to be populated with card names</div>
+              <div>⚠️ Requires price_cache to be populated (run Job 2: Bulk Price Import first)</div>
               
               <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>
+              <div className="font-semibold text-amber-300 mt-2">Price Tracker & Top Movers:</div>
+              <div className="text-amber-200 text-xs">If the snapshot cron hasn&apos;t run for 2+ days, the Price Tracker will show &quot;No price history&quot; and Top Movers will be empty. Run Job 3 above, or ensure the nightly workflow (Render /price-snapshot or Vercel cron) runs daily.</div>
             </div>
           </div>
         </div>

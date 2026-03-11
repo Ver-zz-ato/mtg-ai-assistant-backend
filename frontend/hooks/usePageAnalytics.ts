@@ -120,12 +120,14 @@ export function usePageAnalytics(options: PageAnalyticsOptions = {}) {
 
     const handleInteraction = (event: Event) => {
       interactionCountRef.current += 1;
-      
-      const target = event.target as HTMLElement;
-      const tagName = target?.tagName?.toLowerCase();
-      const elementType = target?.getAttribute('type') || tagName;
-      const elementId = target?.id || target?.getAttribute('data-testid') || '';
-      const elementClass = target?.className || '';
+
+      // event.target can be Document/Window on focus (e.g. when modal closes); they lack getAttribute
+      const target = event.target as Element | null;
+      const isElement = target && typeof target.getAttribute === 'function';
+      const tagName = isElement ? target.tagName?.toLowerCase() : '';
+      const elementType = isElement ? (target.getAttribute('type') || tagName) : 'document';
+      const elementId = isElement ? (target.id || target.getAttribute('data-testid') || '') : '';
+      const elementClass = isElement ? (typeof target.className === 'string' ? target.className : '') : '';
 
       const page = pageName || pathname;
       const pageKey = page.replace(/^\//, '').replace(/\//g, '_') || 'home';

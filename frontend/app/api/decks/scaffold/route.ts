@@ -38,11 +38,35 @@ export async function POST(req: NextRequest){
     const mustLines = must.map(n=>`1 ${norm(n)}`);
     const deckText = [...mustLines, ...rampLines, ...drawLines, ...removalLines, ...landLines].join('\n');
 
-    // Insert deck
     const plan = String(intent?.plan||'optimized');
     const colorNames = landColors.map(c=>({W:'White',U:'Blue',B:'Black',R:'Red',G:'Green'}[c])).join('/');
     const deckTitle = title || `${format} ${colorNames} ${String(intent?.archetype||'Draft')}`.trim();
 
+    // Preview mode: return deck data without creating
+    if (body?.preview === true) {
+      const decklist: Array<{ name: string; qty: number }> = [];
+      for (const line of deckText.split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean)) {
+        const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+        const qty = m ? Math.max(1, parseInt(m[1], 10)) : 1;
+        const name = m ? m[2] : line;
+        decklist.push({ name, qty });
+      }
+      const overallAim = `A scaffold ${format} deck for the ${String(intent?.archetype||'Draft')} archetype. Customize in the editor.`;
+      return NextResponse.json({
+        ok: true,
+        preview: true,
+        decklist,
+        commander: deckTitle,
+        colors: landColors.map(c=>c.toUpperCase()),
+        overallAim,
+        title: deckTitle,
+        deckText,
+        format,
+        plan,
+      });
+    }
+
+    // Insert deck
     const { data: deckIns, error: dErr } = await sb.from('decks').insert({ user_id: user.id, title: deckTitle, format: format, plan: plan, is_public: false }).select('id').single();
     if (dErr) return NextResponse.json({ ok:false, error: dErr.message }, { status:500 });
     const deckId = deckIns?.id as string;

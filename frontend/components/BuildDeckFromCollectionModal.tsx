@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
 import { useProStatus } from "@/hooks/useProStatus";
+import { useAuth } from "@/lib/auth-context";
 import DeckGenerationResultsModal, { type DeckPreviewResult } from "./DeckGenerationResultsModal";
 import {
   QUIZ_QUESTIONS,
@@ -38,6 +40,7 @@ export default function BuildDeckFromCollectionModal({
   onClose,
 }: BuildDeckFromCollectionModalProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { isPro } = useProStatus();
   const [collectionItemNames, setCollectionItemNames] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>("guided");
@@ -205,7 +208,7 @@ export default function BuildDeckFromCollectionModal({
   };
 
   if (preview) {
-    return (
+    return createPortal(
       <DeckGenerationResultsModal
         preview={preview}
         onClose={() => {
@@ -214,11 +217,14 @@ export default function BuildDeckFromCollectionModal({
         }}
         onCreateDeck={handleCreateDeckFromPreview}
         isCreating={creating}
-      />
+        requireAuth
+        isGuest={!user}
+      />,
+      document.body
     );
   }
 
-  return (
+  const modal = (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 rounded-2xl">
@@ -453,4 +459,6 @@ export default function BuildDeckFromCollectionModal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

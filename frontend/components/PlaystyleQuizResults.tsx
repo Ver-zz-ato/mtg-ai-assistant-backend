@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PlaystyleProfile, PlaystyleTraits, getTraitLabel, computeAvoidList, AvoidItem } from '@/lib/quiz/quiz-data';
 import { CommanderSuggestion, ArchetypeSuggestion, getCommanderSuggestionsWithMatch, getArchetypeSuggestionsWithMatch } from '@/lib/quiz/commander-suggestions';
 import { getImagesForNames } from '@/lib/scryfall-cache';
@@ -11,6 +12,7 @@ import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
 import { trackSignupStarted } from '@/lib/analytics-enhanced';
 import { canBuildDeck, getRemainingBuilds, incrementDailyBuildCount } from '@/lib/playstyle/storage';
+import DeckGenerationResultsModal, { type DeckPreviewResult } from './DeckGenerationResultsModal';
 
 interface PlaystyleQuizResultsProps {
   profile: PlaystyleProfile;
@@ -36,11 +38,16 @@ export default function PlaystyleQuizResults({
   onClose,
   onRestart,
 }: PlaystyleQuizResultsProps) {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { modelTier, loading: proLoading } = useProStatus();
   const capture = useCapture();
   
   const [commanderImages, setCommanderImages] = useState<Map<string, string>>(new Map());
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DeckPreviewResult | null>(null);
+  const [creating, setCreating] = useState(false);
   const [loadingImages, setLoadingImages] = useState(true);
   const [aiExplanation, setAiExplanation] = useState<AIExplanation | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -118,7 +125,7 @@ export default function PlaystyleQuizResults({
   const userCanBuild = canBuildDeck(depth.dailyDeckBuildLimit);
   const remainingBuilds = getRemainingBuilds(depth.dailyDeckBuildLimit);
 
-  const handleBuildDeck = () => {
+  const handleBuildDeck = async () => {
     // Check daily limit for free users
     if (!userCanBuild) {
       capture('quiz_build_deck_limit_reached', {
@@ -138,31 +145,80 @@ export default function PlaystyleQuizResults({
       tier: modelTier,
     });
 
-    const quizContext = {
-      profile: profile.label,
-      traits,
-      commanders: commandersWithMatch.slice(0, 3).map(c => c.name),
-      archetypes: archetypesWithMatch.slice(0, 2).map(a => a.name),
-    };
+    const commanderName = commandersWithMatch[0]?.name || '';
+    if (!commanderName) {
+      setGenerateError('No commander suggestion available');
+      return;
+    }
 
+    setGenerating(true);
+    setGenerateError(null);
     try {
-      localStorage.setItem('playstyle_quiz_context', JSON.stringify(quizContext));
-    } catch {}
-
-    const chatMessage = `Based on my playstyle quiz results, build me a ${archetypesWithMatch[0]?.name || 'commander'} deck. My profile: ${profile.label} (${profile.gameLength} games, ${profile.chaosTolerance} chaos tolerance, ${profile.winVsStory}). Suggested commanders: ${commandersWithMatch.slice(0, 3).map(c => c.name).join(', ')}.`;
-
-    window.dispatchEvent(new CustomEvent('quiz-build-deck', {
-      detail: { message: chatMessage }
-    }));
-
-    onClose();
-    setTimeout(() => {
-      const chatInput = document.querySelector('textarea[placeholder*="deck"], textarea[placeholder*="Analyze"]') as HTMLTextAreaElement;
-      if (chatInput) {
-        chatInput.focus();
-        chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const res = await fetch('/api/deck/generate-from-collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commander: commanderName,
+          playstyle: profile.label,
+          powerLevel: 'Casual',
+          budget: 'Moderate',
+          format: 'Commander',
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        if (res.status === 429 && json?.code === 'RATE_LIMIT_DAILY') {
+          setGenerateError(json?.error || 'Daily limit reached');
+          return;
+        }
+        throw new Error(json?.error || 'Generation failed');
       }
-    }, 100);
+      if (json.preview && json.decklist && json.commander) {
+        setPreview({
+          decklist: json.decklist,
+          commander: json.commander,
+          colors: json.colors || [],
+          overallAim: json.overallAim || `A Commander deck for ${profile.label}.`,
+          title: json.title || `${commanderName} (AI)`,
+          deckText: json.deckText || '',
+          format: json.format || 'Commander',
+          plan: json.plan || 'Optimized',
+        });
+      } else {
+        router.push(json.url || `/my-decks/${json.deckId}`);
+      }
+    } catch (e: unknown) {
+      setGenerateError(e instanceof Error ? e.message : 'Generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleCreateDeckFromPreview = async () => {
+    if (!preview) return;
+    setCreating(true);
+    try {
+      const res = await fetch('/api/decks/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: preview.title,
+          format: preview.format,
+          plan: preview.plan,
+          colors: preview.colors,
+          deck_text: preview.deckText,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || 'Failed to create deck');
+      setPreview(null);
+      onClose();
+      router.push(`/my-decks/${json.id}`);
+    } catch (e: unknown) {
+      setGenerateError(e instanceof Error ? e.message : 'Failed to create deck');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleShowSamples = () => {
@@ -224,8 +280,23 @@ export default function PlaystyleQuizResults({
   );
 
   return (
+    <>
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+        {generating && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 rounded-2xl"
+            aria-busy="true"
+          >
+            <p className="text-white font-medium mb-4">Analyzing your profile and generating deck…</p>
+            <div className="w-64 h-2 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full w-1/2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                style={{ animation: 'progress-bar-slide 1.5s ease-in-out infinite' }}
+              />
+            </div>
+          </div>
+        )}
         <div className="p-6 md:p-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -597,6 +668,9 @@ export default function PlaystyleQuizResults({
           )}
 
           {/* Action Buttons - Tiered */}
+          {generateError && (
+            <p className="text-sm text-red-500 mb-4">{generateError}</p>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             {depth.allowDeckBuild === 'sample' ? (
               <button
@@ -609,9 +683,10 @@ export default function PlaystyleQuizResults({
               <div className="flex-1 flex flex-col gap-2">
                 <button
                   onClick={handleBuildDeck}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-lg transition-all transform hover:scale-105"
+                  disabled={generating}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg transition-all transform hover:scale-105"
                 >
-                  {depth.allowDeckBuild === 'limited' ? 'Build a deck' : 'Build me a deck from this'}
+                  {generating ? 'Generating…' : (depth.allowDeckBuild === 'limited' ? 'Build a deck' : 'Build me a deck from this')}
                 </button>
                 {remainingBuilds !== null && remainingBuilds < 5 && (
                   <p className="text-xs text-center text-neutral-500">
@@ -675,5 +750,16 @@ export default function PlaystyleQuizResults({
         </div>
       </div>
     </div>
+    {preview && (
+      <DeckGenerationResultsModal
+        preview={preview}
+        onClose={() => { setPreview(null); setGenerateError(null); }}
+        onCreateDeck={handleCreateDeckFromPreview}
+        isCreating={creating}
+        requireAuth
+        isGuest={!user}
+      />
+    )}
+    </>
   );
 }

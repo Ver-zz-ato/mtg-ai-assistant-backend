@@ -52,37 +52,55 @@ async function runSnapshot(req: NextRequest) {
     if (!url || !sr) return NextResponse.json({ ok:false, error:'missing_service_role' }, { status:500 });
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
-    // Fetch card names from both deck_cards AND collection_cards
-    const [deckResult, collectionResult] = await Promise.all([
-      supabase.from('deck_cards').select('name').limit(50000),
-      supabase.from('collection_cards').select('name').limit(50000)
-    ]);
-    
-    const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
-    const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
-    
-    // Combine and deduplicate
-    const allNames = Array.from(new Set([...deckNames, ...collectionNames]));
-    const names = allNames.filter(Boolean);
-    
-    if (names.length === 0) return NextResponse.json({ ok:true, inserted:0, snapshot_date: new Date().toISOString().slice(0,10) });
-
-    const prices = await scryfallBatch(names);
+    // Prefer price_cache (all cards with prices) so price tracker has history for every cached card.
+    // Use price_cache prices directly to avoid Scryfall rate limits. Fall back to deck+collection + Scryfall if empty.
+    const { data: priceCacheRows } = await supabase.from('price_cache').select('card_name, usd_price, eur_price').not('usd_price', 'is', null).limit(150000);
+    let allRows: any[] = [];
     const today = new Date().toISOString().slice(0,10);
 
-    const rows: any[] = [];
-    const rowsGBP: any[] = [];
-    // FX for GBP
-    let usd_gbp = 0.78;
-    try { const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); usd_gbp = Number(fx?.rates?.GBP || 0.78); } catch {}
+    if (priceCacheRows && priceCacheRows.length > 0) {
+      // Use price_cache directly - no Scryfall calls needed
+      let usd_gbp = 0.78;
+      try { const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); usd_gbp = Number(fx?.rates?.GBP || 0.78); } catch {}
+      for (const r of priceCacheRows as any[]) {
+        const k = norm(String(r.card_name||''));
+        if (!k) continue;
+        const usd = typeof r.usd_price === 'number' ? r.usd_price : parseFloat(r.usd_price);
+        const eur = typeof r.eur_price === 'number' ? r.eur_price : (r.eur_price ? parseFloat(r.eur_price) : null);
+        if (typeof usd === 'number' && isFinite(usd)) {
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: +usd.toFixed(2), source: 'Scryfall' });
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(usd * usd_gbp).toFixed(2), source: 'Scryfall' });
+        }
+        if (typeof eur === 'number' && isFinite(eur)) {
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: +eur.toFixed(2), source: 'Scryfall' });
+        }
+      }
+    }
 
-    prices.forEach((v, k) => {
-      if (typeof v.usd === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: v.usd, source: 'Scryfall' });
-      if (typeof v.eur === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: v.eur, source: 'Scryfall' });
-      if (typeof v.usd === 'number') rowsGBP.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(Number(v.usd)*usd_gbp).toFixed(2), source: 'Scryfall' });
-    });
+    if (allRows.length === 0) {
+      // Fallback: deck_cards + collection_cards, fetch prices from Scryfall
+      const [deckResult, collectionResult] = await Promise.all([
+        supabase.from('deck_cards').select('name').limit(50000),
+        supabase.from('collection_cards').select('name').limit(50000)
+      ]);
+      const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
+      const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
+      const names = Array.from(new Set([...deckNames, ...collectionNames])).filter(Boolean);
+      if (names.length === 0) return NextResponse.json({ ok:true, inserted:0, snapshot_date: today });
 
-    const allRows = [...rows, ...rowsGBP];
+      const prices = await scryfallBatch(names);
+      const rows: any[] = [];
+      const rowsGBP: any[] = [];
+      let usd_gbp = 0.78;
+      try { const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); usd_gbp = Number(fx?.rates?.GBP || 0.78); } catch {}
+      prices.forEach((v, k) => {
+        if (typeof v.usd === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: v.usd, source: 'Scryfall' });
+        if (typeof v.eur === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: v.eur, source: 'Scryfall' });
+        if (typeof v.usd === 'number') rowsGBP.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(Number(v.usd)*usd_gbp).toFixed(2), source: 'Scryfall' });
+      });
+      allRows = [...rows, ...rowsGBP];
+    }
+
     for (let i = 0; i < allRows.length; i += 1000) {
       const chunk = allRows.slice(i, i+1000);
       const { error } = await supabase.from('price_snapshots').upsert(chunk, { onConflict: 'snapshot_date,name_norm,currency' });
@@ -148,51 +166,57 @@ export async function POST(req: NextRequest) {
     }
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
-    console.log("🗄️ Fetching card names from decks and collections...");
-    const [deckResult, collectionResult] = await Promise.all([
-      supabase.from('deck_cards').select('name').limit(50000),
-      supabase.from('collection_cards').select('name').limit(50000)
-    ]);
-    
-    const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
-    const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
-    
-    // Combine and deduplicate
-    const allNames = Array.from(new Set([...deckNames, ...collectionNames]));
-    const names = allNames.filter(Boolean);
-    
-    if (names.length === 0) {
-      console.log("⚠️ No cards found in decks or collections");
-      return NextResponse.json({ 
-        ok:true, 
-        inserted:0, 
-        snapshot_date: new Date().toISOString().slice(0,10) 
-      });
-    }
-
-    console.log(`🎯 Found ${names.length} unique card names (${deckNames.length} from decks, ${collectionNames.length} from collections)`);
-    console.log("💰 Fetching prices from Scryfall...");
-    
-    const prices = await scryfallBatch(names);
+    // Use same logic as GET: prefer price_cache (all cached cards), fallback to deck+collection
+    console.log("🗄️ Fetching prices from price_cache (all cached cards)...");
+    const { data: priceCacheRows } = await supabase.from('price_cache').select('card_name, usd_price, eur_price').not('usd_price', 'is', null).limit(150000);
+    let allRows: any[] = [];
     const today = new Date().toISOString().slice(0,10);
 
-    const rows: any[] = [];
-    const rowsGBP: any[] = [];
-    
-    // FX for GBP
-    let usd_gbp = 0.78;
-    try { 
-      const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); 
-      usd_gbp = Number(fx?.rates?.GBP || 0.78); 
-    } catch {}
+    if (priceCacheRows && priceCacheRows.length > 0) {
+      console.log(`📊 Using price_cache: ${priceCacheRows.length} cards`);
+      let usd_gbp = 0.78;
+      try { const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); usd_gbp = Number(fx?.rates?.GBP || 0.78); } catch {}
+      for (const r of priceCacheRows as any[]) {
+        const k = norm(String(r.card_name||''));
+        if (!k) continue;
+        const usd = typeof r.usd_price === 'number' ? r.usd_price : parseFloat(r.usd_price);
+        const eur = typeof r.eur_price === 'number' ? r.eur_price : (r.eur_price ? parseFloat(r.eur_price) : null);
+        if (typeof usd === 'number' && isFinite(usd)) {
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: +usd.toFixed(2), source: 'Scryfall' });
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(usd * usd_gbp).toFixed(2), source: 'Scryfall' });
+        }
+        if (typeof eur === 'number' && isFinite(eur)) {
+          allRows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: +eur.toFixed(2), source: 'Scryfall' });
+        }
+      }
+    }
 
-    prices.forEach((v, k) => {
-      if (typeof v.usd === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: v.usd, source: 'Scryfall' });
-      if (typeof v.eur === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: v.eur, source: 'Scryfall' });
-      if (typeof v.usd === 'number') rowsGBP.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(Number(v.usd)*usd_gbp).toFixed(2), source: 'Scryfall' });
-    });
-
-    const allRows = [...rows, ...rowsGBP];
+    if (allRows.length === 0) {
+      console.log("⚠️ price_cache empty, falling back to deck_cards + collection_cards...");
+      const [deckResult, collectionResult] = await Promise.all([
+        supabase.from('deck_cards').select('name').limit(50000),
+        supabase.from('collection_cards').select('name').limit(50000)
+      ]);
+      const deckNames = Array.from(new Set(((deckResult.data||[]) as any[]).map(r=>String(r.name))));
+      const collectionNames = Array.from(new Set(((collectionResult.data||[]) as any[]).map(r=>String(r.name))));
+      const names = Array.from(new Set([...deckNames, ...collectionNames])).filter(Boolean);
+      if (names.length === 0) {
+        console.log("⚠️ No cards found");
+        return NextResponse.json({ ok:true, inserted:0, snapshot_date: today });
+      }
+      console.log(`💰 Fetching ${names.length} cards from Scryfall...`);
+      const prices = await scryfallBatch(names);
+      const rows: any[] = [];
+      const rowsGBP: any[] = [];
+      let usd_gbp = 0.78;
+      try { const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache:'no-store' }).then(r=>r.json()); usd_gbp = Number(fx?.rates?.GBP || 0.78); } catch {}
+      prices.forEach((v, k) => {
+        if (typeof v.usd === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'USD', unit: v.usd, source: 'Scryfall' });
+        if (typeof v.eur === 'number') rows.push({ snapshot_date: today, name_norm: k, currency: 'EUR', unit: v.eur, source: 'Scryfall' });
+        if (typeof v.usd === 'number') rowsGBP.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(Number(v.usd)*usd_gbp).toFixed(2), source: 'Scryfall' });
+      });
+      allRows = [...rows, ...rowsGBP];
+    }
     
     console.log(`💾 Upserting ${allRows.length} snapshot rows...`);
     

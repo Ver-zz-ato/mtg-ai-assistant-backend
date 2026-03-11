@@ -145,7 +145,6 @@ function Chat() {
   const [budget, setBudget] = useState<'budget'|'optimized'|'luxury'>('optimized');
   const [deckMode, setDeckMode] = useState<'beginner'|'intermediate'|'pro'>('beginner');
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
-  const [pillRotationKey, setPillRotationKey] = useState(0);
   const [teaching, setTeaching] = useState<boolean>(false);
   const [linkedDeckId, setLinkedDeckId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
@@ -192,13 +191,18 @@ function Chat() {
     return () => clearInterval(interval);
   }, [examplePrompts.length]);
 
-  // Randomize suggestion pills every 10 seconds
-  const visiblePills = useMemo(() => {
-    const shuffled = [...ALL_SUGGESTION_PROMPTS].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 4);
-  }, [pillRotationKey]);
+  // Suggestion pills: use deterministic order for SSR/hydration, then randomize on client
+  const [visiblePills, setVisiblePills] = useState(() =>
+    ALL_SUGGESTION_PROMPTS.slice(0, 4)
+  );
   useEffect(() => {
-    const interval = setInterval(() => setPillRotationKey(k => k + 1), 10000);
+    const shuffle = () => {
+      setVisiblePills(
+        [...ALL_SUGGESTION_PROMPTS].sort(() => Math.random() - 0.5).slice(0, 4)
+      );
+    };
+    shuffle(); // Randomize once after mount
+    const interval = setInterval(shuffle, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1727,9 +1731,9 @@ function Chat() {
         <div className="space-y-3">
           {/* Suggested prompt chips - de-emphasized */}
           <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-[11px] text-neutral-500">
-          {visiblePills.map((p, i) => (
+          {visiblePills.map((p) => (
             <button 
-              key={`${pillRotationKey}-${i}`} 
+              key={p.label} 
               onClick={()=>setText(p.text)} 
               className="px-2 py-[2px] rounded border border-neutral-700 hover:bg-neutral-800 hover:text-neutral-300 touch-manipulation"
             >

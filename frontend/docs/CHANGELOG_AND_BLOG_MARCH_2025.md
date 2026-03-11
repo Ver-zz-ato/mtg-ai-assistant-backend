@@ -1,12 +1,20 @@
 # Changelog Entry & Blog Post — March 2025
 
-Use these to add the new features to What's New (changelog) and Blog via the admin panels or API.
+## Supabase SQL (recommended)
+
+**Run this in Supabase SQL Editor** (Dashboard → SQL Editor → New query):
+
+```
+frontend/db/migrations/085_changelog_and_blog_march_2025.sql
+```
+
+This adds both the changelog entry and blog metadata in one go. No JSON paste needed.
 
 ---
 
 ## 1. Changelog Entry (What's New)
 
-**How to add:** Go to Admin → Changelog (or POST to `/api/admin/changelog` as admin). The changelog is stored in Supabase `app_config` with key `changelog`. You **merge** the new entry into the existing `entries` array — the API replaces the entire entries list, so you need to GET current, prepend this entry, then POST.
+**Alternative:** Admin → Changelog (or POST to `/api/admin/changelog`). The changelog is stored in Supabase `app_config` with key `changelog`. The form doesn't accept raw JSON — use the SQL migration above.
 
 **Entry to add:**
 
@@ -34,11 +42,8 @@ Use these to add the new features to What's New (changelog) and Blog via the adm
 
 ## 2. Blog Post
 
-**Status:** Already added to the codebase:
+**SQL migration above** adds the blog listing entry to `app_config.blog`. The full content lives in the codebase:
 - `app/blog/[slug]/page.tsx` — full content under slug `deck-building-upgrades-march-2025`
-- `lib/blog-defaults.ts` — listing metadata for fallback / blog index
-
-**Optional:** If you use Admin Blog Manager and store entries in `app_config`, add this entry so the blog index fetches it. Otherwise the DEFAULT_BLOG_POSTS fallback will show it.
 
 **Slug:** `deck-building-upgrades-march-2025`
 

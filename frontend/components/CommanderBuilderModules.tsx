@@ -41,6 +41,9 @@ export default function CommanderBuilderModules() {
   const [moduleDPreview, setModuleDPreview] = useState<DeckPreviewResult | null>(null);
   const [moduleDCreating, setModuleDCreating] = useState(false);
   const [moduleCLoading, setModuleCLoading] = useState(false);
+  const [moduleCError, setModuleCError] = useState<string | null>(null);
+  const [moduleCPreview, setModuleCPreview] = useState<DeckPreviewResult | null>(null);
+  const [moduleCCreating, setModuleCCreating] = useState(false);
   const [commander, setCommander] = useState("");
   const [playstyle, setPlaystyle] = useState("Value Engine");
   const [powerLevel, setPowerLevel] = useState("Casual");
@@ -125,11 +128,13 @@ export default function CommanderBuilderModules() {
 
   const handleModuleCScaffold = async () => {
     setModuleCLoading(true);
+    setModuleCError(null);
     try {
       const res = await fetch("/api/decks/scaffold", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          preview: true,
           intent: {
             format: "Commander",
             colors: archetype.colors,
@@ -142,22 +147,61 @@ export default function CommanderBuilderModules() {
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error || "Scaffold failed");
       }
-      router.push(json.url || `/my-decks/${json.id}`);
+      if (json.preview && json.decklist && json.title) {
+        setModuleCPreview({
+          decklist: json.decklist,
+          commander: json.commander || json.title,
+          colors: json.colors || archetype.colors,
+          overallAim: json.overallAim || `${archetype.name} scaffold deck`,
+          title: json.title,
+          deckText: json.deckText || "",
+          format: json.format || "Commander",
+          plan: json.plan || "optimized",
+        });
+      } else {
+        router.push(json.url || `/my-decks/${json.id}`);
+      }
     } catch (e: unknown) {
-      setModuleDError(e instanceof Error ? e.message : "Scaffold failed");
+      setModuleCError(e instanceof Error ? e.message : "Scaffold failed");
     } finally {
       setModuleCLoading(false);
     }
   };
 
+  const handleModuleCCreateDeck = async () => {
+    if (!moduleCPreview) return;
+    setModuleCCreating(true);
+    try {
+      const res = await fetch("/api/decks/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: moduleCPreview.title,
+          format: moduleCPreview.format,
+          plan: moduleCPreview.plan,
+          colors: moduleCPreview.colors,
+          deck_text: moduleCPreview.deckText,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to create deck");
+      setModuleCPreview(null);
+      router.push(`/my-decks/${json.id}`);
+    } catch (e: unknown) {
+      setModuleCError(e instanceof Error ? e.message : "Failed to create deck");
+    } finally {
+      setModuleCCreating(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative">
-      {moduleDLoading && (
+      {(moduleDLoading || moduleCLoading) && (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20 rounded-2xl"
           aria-busy="true"
         >
-          <p className="text-white font-medium mb-4">Analyzing and generating deck…</p>
+          <p className="text-white font-medium mb-4">{moduleCLoading ? "Building scaffold deck…" : "Analyzing and generating deck…"}</p>
           <div className="w-64 h-2 bg-neutral-800 rounded-full overflow-hidden">
             <div
               className="h-full w-1/2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
@@ -241,12 +285,15 @@ export default function CommanderBuilderModules() {
                   </option>
                 ))}
               </select>
+              {moduleCError && (
+                <p className="text-sm text-red-500 mb-2">{moduleCError}</p>
+              )}
               <button
                 onClick={handleModuleCScaffold}
                 disabled={moduleCLoading}
                 className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 disabled:opacity-50 text-white font-semibold rounded-xl"
               >
-                {moduleCLoading ? "Creating…" : "Create Scaffold Deck"}
+                {moduleCLoading ? "Building…" : "Create Scaffold Deck"}
               </button>
             </>
           )}
@@ -343,6 +390,18 @@ export default function CommanderBuilderModules() {
           onClose={() => setModuleDPreview(null)}
           onCreateDeck={handleModuleDCreateDeck}
           isCreating={moduleDCreating}
+          requireAuth
+          isGuest={!user}
+        />
+      )}
+      {moduleCPreview && (
+        <DeckGenerationResultsModal
+          preview={moduleCPreview}
+          onClose={() => { setModuleCPreview(null); setModuleCError(null); }}
+          onCreateDeck={handleModuleCCreateDeck}
+          isCreating={moduleCCreating}
+          requireAuth
+          isGuest={!user}
         />
       )}
     </div>
