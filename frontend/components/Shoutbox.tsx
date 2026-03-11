@@ -49,6 +49,10 @@ export default function Shoutbox() {
           if (!closed) {
             const items = (j.items as Shout[]) || [];
             setItems(items.sort((a, b) => a.ts - b.ts)); // oldest first, newest at bottom
+            // Seed AI messages when shoutbox is empty (messages arrive via SSE)
+            if (items.length === 0) {
+              fetch("/api/shout/auto-generate?seed=true", { method: "GET" }).catch(() => {});
+            }
           }
         } catch {}
 

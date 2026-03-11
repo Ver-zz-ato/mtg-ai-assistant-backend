@@ -16,28 +16,26 @@ async function isAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Prom
   return adminEmails.includes(user.email?.toLowerCase() || '') || adminUserIds.includes(user.id);
 }
 
-// AI generation prompt
+// AI generation prompt (matches auto-generate - wild names, slang)
 const SYSTEM_PROMPT = `You simulate casual MTG community chat for ManaTap AI (a deck-building website).
 Read the recent shoutbox messages and generate 1-3 natural follow-up messages from different users.
 
 RULES:
-- Sound like real Magic: The Gathering players: casual, abbreviated, enthusiastic
-- Sometimes respond to or reference previous messages, sometimes start new topics
-- Vary the energy: questions, excitement, tips, complaints, "gg", sharing wins/losses
-- Use realistic usernames (lowercase, sometimes with _mtg, _edh, numbers like 99)
-- Keep messages SHORT - usually under 100 characters, max 140
-- Reference site features naturally sometimes (mulligan sim, deck analyzer, budget swaps, cost tracker)
-- NO corporate speak, NO perfect grammar, NO emoji overload (maybe 1 emoji occasionally)
-- Use casual internet speak: "lol", "ngl", "tbh", "imo", "rn", "smh", "haha"
-- Occasional typos are fine and feel more real
-- NEVER mention being AI, automated, or generated
-- NEVER repeat the exact same message from history
-- Mix question and statement energy
+- Sound like REAL Magic players: unhinged, funny, slang-heavy, enthusiastic
+- Use WILD usernames: silly (ChadTheChad, Bobert99, Scoobert_mtg), nerdy (ManaWyrm_420, TapOutKing), or chaotic (GoblinLord69, StormCountMain)
+- Slang & internet speak REQUIRED: "ngl", "tbh", "no cap", "lowkey", "mid", "gas", "cracked", "stonks", "copium", "rip bozo", "fr fr", "send it", "pubstomped", "smh", "lmao"
+- Keep messages SHORT - under 100 chars, max 140. Punchy. No essays.
+- Mix energy: hype, salt, memes, questions, "gg", dumb jokes, LGS drama
+- Reference MTG/EDH naturally: topdecks, mana screw, that one blue player, wallet pain, proxying, precon upgrades
+- Occasional typos/caps = more authentic. NO corporate speak. Maybe 1 emoji max.
+- Reference site features casually: mulligan sim, deck analyzer, budget swaps
+- NEVER mention AI, automated, or generated. NEVER repeat history exactly.
+- Be DIVERSE in tone - not every message needs to be a meme, but avoid bland/generic
 
 OUTPUT: Return ONLY a valid JSON array, no other text:
 [{"user": "username", "text": "message", "delay_seconds": 0}]
 
-delay_seconds should be 0 for the first message, then 30-90 for subsequent messages to feel natural.`;
+delay_seconds: 0 for first message, 30-90 for subsequent ones.`;
 
 type GeneratedMessage = {
   user: string;
@@ -90,12 +88,12 @@ function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
   return valid.length > 0 ? valid : null;
 }
 
-// Template fallback data
+// Template fallback (matches auto-generate - wild names)
 const firstNames = [
-  "Jake", "Sarah", "Mike", "Alex", "Chris", "Emma", "Ryan", "Lily", "Marcus", "Zoe",
-  "Tyler", "Maya", "Ethan", "Chloe", "Nathan", "Ava", "Dylan", "Mia", "Caleb", "Ella"
+  "Jake", "Sarah", "Mike", "Alex", "Chris", "Bobert", "Scoobert", "Chad", "ManaWyrm",
+  "TapOut", "GoblinLord", "StormCount", "Skeletor", "Blorg", "Zeph", "Fitz"
 ];
-const suffixes = ["", "", "", "_mtg", "_edh", "_magic", "99", "_plays"];
+const suffixes = ["", "_mtg", "_edh", "_magic", "99", "_plays", "420", "_izzet", "_golgari"];
 const messageTemplates = [
   "what's everyone's favorite budget commander rn?",
   "best place to buy singles these days?",
@@ -110,6 +108,13 @@ const messageTemplates = [
   "edh night tomorrow, can't wait",
   "gg everyone",
   "topdecked the perfect answer lol",
+  "ngl that reprint hit different",
+  "tbh my list is kinda cracked rn",
+  "lmao just got pubstomped by some cedh tryhard",
+  "no cap that card is gas",
+  "lowkey addicted to the mulligan sim",
+  "that topdeck was straight up illegal",
+  "f in chat for my wallet",
 ];
 
 function pickRandom<T>(arr: T[]): T {

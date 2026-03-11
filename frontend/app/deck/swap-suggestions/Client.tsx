@@ -45,6 +45,8 @@ export default function BudgetSwapsClient(){
 
   type Sug = { from:string; to:string; price_from:number; price_to:number; price_delta:number; rationale?:string; confidence?:number };
   const [sugs, setSugs] = React.useState<Sug[]>([]);
+  const [allSuggestions, setAllSuggestions] = React.useState<Sug[]>([]);
+  const [displayedCount, setDisplayedCount] = React.useState(5);
   const [meta, setMeta] = React.useState<Record<string, { small?: string; large?: string; set?: string; rarity?: string }>>({});
   const [decks, setDecks] = React.useState<Array<{ id:string; title:string }>>([]);
   const [whyMap, setWhyMap] = React.useState<Record<string, string>>({});
@@ -220,8 +222,10 @@ export default function BudgetSwapsClient(){
     
     setBusy(true); 
     setError(undefined);
+    setDisplayedCount(5);
     // Clear previous results immediately to prevent flashing
     setSugs([]);
+    setAllSuggestions([]);
     setMeta({});
     
     try{
@@ -237,19 +241,22 @@ export default function BudgetSwapsClient(){
         throw new Error(j?.error || 'Failed');
       }
       const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
-      const topN = !user ? 5 : (isProFinal ? 15 : 10);
-      const top = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from)).slice(0, Math.max(1, topN));
-      setSugs(top);
-      if (top.length === 0) setShowNoResultsModal(true);
-      // Prefetch thumbnails for hover previews
+      const sorted = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from));
+      setAllSuggestions(sorted);
+      const initialCount = 5;
+      setDisplayedCount(initialCount);
+      const initialSugs = sorted.slice(0, initialCount);
+      setSugs(initialSugs);
+      if (initialSugs.length === 0) setShowNoResultsModal(true);
+      // Prefetch thumbnails for initial display
       const names: string[] = [];
-      top.forEach(s => { names.push(s.from); names.push(s.to); });
+      initialSugs.forEach(s => { names.push(s.from); names.push(s.to); });
       const m = await fetchCardMeta(names);
       setMeta(m);
       
       // Log activity if savings found
-      if (top.length > 0) {
-        const totalDelta = top.reduce((a,s)=> a + (Number(s.price_delta)||0), 0);
+      if (initialSugs.length > 0) {
+        const totalDelta = initialSugs.reduce((a,s)=> a + (Number(s.price_delta)||0), 0);
         const calculatedSavings = -Math.min(0, totalDelta);
         if (calculatedSavings > 0) {
           try {
@@ -266,7 +273,7 @@ export default function BudgetSwapsClient(){
         }
       }
       
-      return top;
+      return initialSugs;
     } catch(e:any){
       const errorMsg = e?.message || String(e) || 'Unknown error';
       setError(errorMsg);
@@ -335,6 +342,27 @@ export default function BudgetSwapsClient(){
   const clearSelection = () => {
     setSelectedSwaps(new Set());
   };
+
+  const loadMoreSwaps = React.useCallback(async () => {
+    if (!isProFinal || allSuggestions.length <= displayedCount) return;
+    const nextCount = Math.min(displayedCount + 10, allSuggestions.length);
+    const newSugs = allSuggestions.slice(0, nextCount);
+    setDisplayedCount(nextCount);
+    setSugs(newSugs);
+    // Fetch meta for newly visible cards (the ones we're about to show)
+    const existingKeys = new Set(Object.keys(meta).map(k => k.toLowerCase()));
+    const toFetch: string[] = [];
+    allSuggestions.slice(displayedCount, nextCount).forEach(s => {
+      if (!existingKeys.has(s.from.toLowerCase())) toFetch.push(s.from);
+      if (!existingKeys.has(s.to.toLowerCase())) toFetch.push(s.to);
+    });
+    if (toFetch.length > 0) {
+      const m = await fetchCardMeta(toFetch);
+      setMeta(prev => ({ ...prev, ...m }));
+    }
+  }, [isProFinal, allSuggestions, displayedCount, meta]);
+
+  const canLoadMore = isProFinal && allSuggestions.length > displayedCount;
 
   const applySwapsToDeck = async () => {
     if (!isProFinal) {
@@ -897,6 +925,19 @@ export default function BudgetSwapsClient(){
                   );
                 })}
               </div>
+
+              {/* Load more swaps - Pro only */}
+              {canLoadMore && (
+                <div className="mt-4">
+                  <button
+                    onClick={loadMoreSwaps}
+                    className="px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-black font-semibold text-sm transition-colors flex items-center gap-2"
+                  >
+                    <span>Load more swaps</span>
+                    <span className="text-xs opacity-80">({allSuggestions.length - displayedCount} more)</span>
+                  </button>
+                </div>
+              )}
 
               {/* Divider to separate swaps from advanced */}
               <div className="my-4 border-t border-neutral-800" />

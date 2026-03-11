@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import DeckAnalyzerExpandable from "./DeckAnalyzerExpandable";
 import HomepageFAQ from "./HomepageFAQ";
 import MulliganDeckInput from "./mulligan/MulliganDeckInput";
 
@@ -70,11 +69,6 @@ export default function RightSidebar() {
         <div className="hidden lg:block">
           <MulliganDeckInput />
         </div>
-      </div>
-
-      {/* Deck Snapshot: Expandable analyzer panel */}
-      <div className={`${debugSpace ? 'outline outline-2 outline-fuchsia-500 ' : ''}w-full relative z-20`}>
-        <DeckAnalyzerExpandable />
       </div>
 
       {/* Custom Card Creator promo panel - lighter, playful styling */}

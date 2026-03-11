@@ -15,10 +15,12 @@ const firstNames = [
   "Tyler", "Maya", "Ethan", "Chloe", "Nathan", "Ava", "Dylan", "Mia", "Caleb", "Ella",
   "Logan", "Sofia", "Owen", "Aria", "Liam", "Luna", "Nolan", "Iris", "Finn", "Violet",
   "Blake", "Jade", "Cole", "Ivy", "Seth", "Ruby", "Jace", "Opal", "Kai", "Sage",
-  "Devin", "Tara", "Nick", "Kira", "Ben", "Zara", "Leo", "Nina", "Max", "Tessa"
+  "Devin", "Tara", "Nick", "Kira", "Ben", "Zara", "Leo", "Nina", "Max", "Tessa",
+  "Chad", "Bobert", "Dingle", "Scoobert", "Fitz", "Zeph", "Morty", "Blorg", "Skeletor",
+  "GoblinLord", "ManaWyrm", "TapOut", "Mulligan", "Cascade", "Flashback", "StormCount"
 ];
 
-const suffixes = ["", "", "", "", "", "", "", "_mtg", "_edh", "_magic", "99", "_plays", "MTG", "_tcg", "EDH"];
+const suffixes = ["", "", "", "", "", "_mtg", "_edh", "_magic", "99", "_plays", "MTG", "_tcg", "EDH", "420", "69", "_izzet", "_golgari", "_boros", "the_scoop"];
 
 const messageTemplates = [
   "what's everyone's favorite budget commander rn?",
@@ -62,6 +64,24 @@ const messageTemplates = [
   "gg everyone",
   "rule 0 conversation went well for once",
   "topdecked the perfect answer lol",
+  "ngl that {card} reprint hit different",
+  "tbh my {archetype} list is kinda cracked rn",
+  "lmao just got pubstomped by some cedh tryhard",
+  "yo {commander} stonks only go up",
+  "that guy at the lgs who only plays blue smh",
+  "send it fr fr",
+  "no cap {card} is gas",
+  "mid tbh",
+  "based deck choices",
+  "copium: my deck is totally balanced",
+  "salt merchant at table 3 again lol",
+  "big brain play or dumb luck u decide",
+  "rip bozo that counterspell was filthy",
+  "unironically loving this site",
+  "lowkey addicted to the mulligan sim",
+  "that topdeck was straight up illegal",
+  "who else building jank at 2am",
+  "f in chat for my wallet",
 ];
 
 const commanders = [
@@ -119,23 +139,21 @@ const SYSTEM_PROMPT = `You simulate casual MTG community chat for ManaTap AI (a 
 Read the recent shoutbox messages and generate 1-3 natural follow-up messages from different users.
 
 RULES:
-- Sound like real Magic: The Gathering players: casual, abbreviated, enthusiastic
-- Sometimes respond to or reference previous messages, sometimes start new topics
-- Vary the energy: questions, excitement, tips, complaints, "gg", sharing wins/losses
-- Use realistic usernames (lowercase, sometimes with _mtg, _edh, numbers like 99)
-- Keep messages SHORT - usually under 100 characters, max 140
-- Reference site features naturally sometimes (mulligan sim, deck analyzer, budget swaps, cost tracker)
-- NO corporate speak, NO perfect grammar, NO emoji overload (maybe 1 emoji occasionally)
-- Use casual internet speak: "lol", "ngl", "tbh", "imo", "rn", "smh", "haha"
-- Occasional typos are fine and feel more real
-- NEVER mention being AI, automated, or generated
-- NEVER repeat the exact same message from history
-- Mix question and statement energy
+- Sound like REAL Magic players: unhinged, funny, slang-heavy, enthusiastic
+- Use WILD usernames: silly (ChadTheChad, Bobert99, Scoobert_mtg), nerdy (ManaWyrm_420, TapOutKing), or chaotic (GoblinLord69, StormCountMain)
+- Slang & internet speak REQUIRED: "ngl", "tbh", "no cap", "lowkey", "mid", "gas", "cracked", "stonks", "copium", "rip bozo", "fr fr", "send it", "pubstomped", "smh", "lmao"
+- Keep messages SHORT - under 100 chars, max 140. Punchy. No essays.
+- Mix energy: hype, salt, memes, questions, "gg", dumb jokes, LGS drama
+- Reference MTG/EDH naturally: topdecks, mana screw, that one blue player, wallet pain, proxying, precon upgrades
+- Occasional typos/caps = more authentic. NO corporate speak. Maybe 1 emoji max.
+- Reference site features casually: mulligan sim, deck analyzer, budget swaps
+- NEVER mention AI, automated, or generated. NEVER repeat history exactly.
+- Be DIVERSE in tone - not every message needs to be a meme, but avoid bland/generic
 
 OUTPUT: Return ONLY a valid JSON array, no other text:
 [{"user": "username", "text": "message", "delay_seconds": 0}]
 
-delay_seconds should be 0 for the first message, then 30-90 for subsequent messages to feel natural.`;
+delay_seconds: 0 for first message, 30-90 for subsequent ones.`;
 
 type GeneratedMessage = {
   user: string;
@@ -271,19 +289,28 @@ async function handleGenerate(req: NextRequest) {
   const hdr = req.headers.get("x-cron-key") || "";
   const isDev = process.env.NODE_ENV === "development";
   
-  // Check for force flag (admin bypass)
+  // Check for force flag (admin bypass) or seed flag (page load when empty)
   const url = new URL(req.url);
   const forceGenerate = url.searchParams.get('force') === 'true';
+  const seedWhenEmpty = url.searchParams.get('seed') === 'true';
   
-  if (!isDev && !forceGenerate && cronKey && hdr !== cronKey) {
+  if (!isDev && !forceGenerate && !seedWhenEmpty && cronKey && hdr !== cronKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const history = getHistory();
+  const isEmpty = history.length === 0;
+  
+  // seedWhenEmpty: allow unauthenticated call when shoutbox is empty (e.g. first visitor)
+  if (seedWhenEmpty && !isEmpty) {
+    return NextResponse.json({ ok: false, reason: "Not empty, no seed needed" });
   }
   
   const now = Date.now();
   const lastTime = globalThis.__lastAutoGenTime ?? 0;
   
-  // Check interval (skip in dev for testing, skip if force flag)
-  if (!isDev && !forceGenerate && now - lastTime < MIN_INTERVAL_MS) {
+  // Check interval (skip in dev, force, or seed-when-empty)
+  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && now - lastTime < MIN_INTERVAL_MS) {
     const minutesRemaining = Math.ceil((MIN_INTERVAL_MS - (now - lastTime)) / 60000);
     return NextResponse.json({ 
       ok: false, 
@@ -292,14 +319,13 @@ async function handleGenerate(req: NextRequest) {
     });
   }
   
-  // Check for recent real activity (skip if force flag)
-  const history = getHistory();
+  // Check for recent real activity (skip if force or seed-when-empty)
   const recentRealMessages = history.filter(m => 
-    m.id > 0 && // positive IDs are real user messages
-    now - m.ts < 30 * 60 * 1000 // within last 30 minutes
+    m.id > 0 &&
+    now - m.ts < 30 * 60 * 1000
   );
   
-  if (!isDev && !forceGenerate && recentRealMessages.length >= 3) {
+  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && recentRealMessages.length >= 3) {
     return NextResponse.json({ 
       ok: false, 
       reason: "Enough recent real activity" 
