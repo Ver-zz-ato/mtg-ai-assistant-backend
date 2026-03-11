@@ -15,6 +15,10 @@ const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magi
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
+const DEBUG_CHAT_STREAM = process.env.DEBUG_CHAT_STREAM === "1";
+function streamDebug(tag: string, data: Record<string, unknown>) {
+  if (DEBUG_CHAT_STREAM) console.log(JSON.stringify({ tag: `[STREAM_DEBUG]${tag}`, ...data, ts: Date.now() }));
+}
 
 // Add GET method for health check
 export async function GET(req: NextRequest) {
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
     const raw = await req.json().catch(() => ({}));
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
     
-    const normalized = { text: inputText, threadId: raw?.threadId };
+    const normalized = { text: inputText, threadId: raw?.threadId, messages: raw?.messages };
     const parse = ChatPostSchema.safeParse(normalized);
     
     if (!parse.success) { 
@@ -71,7 +75,8 @@ export async function POST(req: NextRequest) {
       });
     }
     
-    const { text, threadId } = parse.data;
+    const { text, threadId, messages: clientMessages } = parse.data;
+    const clientConversation = Array.isArray(clientMessages) ? clientMessages : [];
     
     // Check if OpenAI API key exists
     const apiKey = process.env.OPENAI_API_KEY;
@@ -272,10 +277,25 @@ export async function POST(req: NextRequest) {
             deckContextForCompose = { deckCards: entries, commanderName, colorIdentity: null, deckId: undefined };
           }
         }
+        // Guest multi-turn: current message (e.g. "yes") may not be deck; use prior user message with pasted deck
+        if (!deckContextForCompose?.deckCards?.length && isGuest && clientConversation.length > 0) {
+          for (let i = clientConversation.length - 1; i >= 0; i--) {
+            const msg = clientConversation[i];
+            if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
+              const entries = parseDeckText(msg.content).map((e) => ({ name: e.name, count: e.qty }));
+              const commanderName = extractCommanderFromDecklistText(msg.content, text);
+              if (entries.length >= 6) {
+                deckContextForCompose = { deckCards: entries, commanderName, colorIdentity: null, deckId: undefined };
+                break;
+              }
+            }
+          }
+        }
       } catch (_) {}
     }
 
     const hasDeckContextForTier = !!(deckContextForCompose?.deckCards?.length);
+    streamDebug("identity", { isGuest, hasTid: !!tid, hasDeckData: !!deckData, hasDeckContextForCompose: hasDeckContextForTier, deckContextCommander: deckContextForCompose?.commanderName ?? null, deckContextCards: deckContextForCompose?.deckCards?.length ?? 0 });
     const { classifyPromptTier, MICRO_PROMPT, estimateSystemPromptTokens } = await import("@/lib/ai/prompt-tier");
     const tierResult = classifyPromptTier({ text, hasDeckContext: hasDeckContextForTier, deckContextForCompose });
     const selectedTier = tierResult.tier;
@@ -480,6 +500,7 @@ export async function POST(req: NextRequest) {
         console.warn("[stream] v2 context build failed, falling back to raw:", e);
       }
     }
+    streamDebug("v2_result", { hasV2Summary: !!v2Summary, streamContextSource, v2Commander: v2Summary?.commander ?? null, selectedTier });
 
     if (selectedTier === "full" && v2Summary) {
       // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard)
@@ -510,7 +531,16 @@ export async function POST(req: NextRequest) {
       if (redacted.length > 0) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
-    } else if (selectedTier === "full" && deckData && deckData.deckText.trim()) {
+    }
+    // Commander confirmation: when we inferred commander from pasted deck, ask user first
+    let inferredCommanderForConfirmation: string | null = null;
+    if (selectedTier === "full" && v2Summary?.commander && streamContextSource === "paste_ttl") {
+      inferredCommanderForConfirmation = v2Summary.commander;
+    }
+    if (inferredCommanderForConfirmation) {
+      streamDebug("commander_confirm", { commander: inferredCommanderForConfirmation });
+    }
+    if (selectedTier === "full" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
       const formatDisplay = deckFormat || formatKey;
       let inferredContext: { format: string; colors: string[]; commander: string | null } = { format: formatDisplay, colors: [], commander: d?.commander ?? null };
@@ -553,26 +583,88 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (selectedTier === "full" && tid && !v2Summary) {
-      try {
-        const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
-        if (messages?.length) {
-          const { isDecklist } = await import("@/lib/chat/decklistDetector");
-          const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const msg = messages[i];
-            if (i === messages.length - 1 && msg.content === text && !isDecklist(msg.content)) continue;
-            if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
-              const decklistContext = generateDeckContext(analyzeDecklistFromText(msg.content), "Pasted Decklist", msg.content);
-              if (decklistContext) { sys += "\n\n" + decklistContext; break; }
+    if (selectedTier === "full" && !v2Summary) {
+      // Same deck context for Pro and Guest when no v2Summary (Guest has no tid; or v2 was discarded)
+      streamDebug("raw_path", { branch: deckContextForCompose?.deckCards?.length ? "deckContextForCompose" : tid ? "tid_messages" : "none", deckContextLen: deckContextForCompose?.deckCards?.length ?? 0 });
+      if (deckContextForCompose?.deckCards?.length) {
+        const { extractCommanderFromDecklistText, isDecklist } = await import("@/lib/chat/decklistDetector");
+        const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+        const deckTextForRaw = deckData?.deckText ?? (tid ? (() => {
+          const lastDeck = streamThreadHistory?.slice().reverse().find((m: { role: string; content?: string }) => m.role === "user" && m.content && isDecklist(m.content));
+          return lastDeck?.content ?? text ?? "";
+        })() : (isGuest && clientConversation?.length ? (() => {
+          const lastDeck = clientConversation.slice().reverse().find((m: { role: string; content?: string }) => m.role === "user" && m.content && isDecklist(m.content));
+          return lastDeck?.content ?? text ?? "";
+        })() : text ?? ""));
+        const commanderForRaw = deckContextForCompose.commanderName ?? extractCommanderFromDecklistText(deckTextForRaw, text ?? undefined);
+        if (commanderForRaw && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commanderForRaw;
+        streamDebug("raw_deck", { deckTextLen: (deckTextForRaw || text || "").length, commanderForRaw, hasTid: !!tid });
+        const decklistContext = generateDeckContext(
+          tid ? (() => { const m = streamThreadHistory?.slice().reverse().find((x: { role: string; content?: string }) => x.role === "user" && x.content && isDecklist(x.content)); return analyzeDecklistFromText(m?.content ?? deckTextForRaw); })()
+            : (isGuest && clientConversation?.length ? (() => { const m = clientConversation.slice().reverse().find((x: { role: string; content?: string }) => x.role === "user" && x.content && isDecklist(x.content)); return analyzeDecklistFromText(m?.content ?? deckTextForRaw); })() : analyzeDecklistFromText(text || deckTextForRaw)),
+          "Pasted Decklist",
+          deckTextForRaw || text || undefined,
+          commanderForRaw
+        );
+        if (decklistContext) sys += "\n\n" + decklistContext;
+      } else if (tid) {
+        try {
+          const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
+          if (messages?.length) {
+            const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+            const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const msg = messages[i];
+              if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
+                const commander = extractCommanderFromDecklistText(msg.content, text ?? undefined);
+                if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
+                const decklistContext = generateDeckContext(analyzeDecklistFromText(msg.content), "Pasted Decklist", msg.content, commander);
+                if (decklistContext) { sys += "\n\n" + decklistContext; break; }
+              }
             }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
+      // Inject recent conversation for raw path (Pro with thread) or Guest (client-provided messages)
+      const historyForRecent = (tid && streamThreadHistory?.length) ? streamThreadHistory : (isGuest && clientConversation?.length ? clientConversation : null);
+      if (historyForRecent?.length) {
+        const { isDecklist } = await import("@/lib/chat/decklistDetector");
+        const last6 = historyForRecent.filter((m: { role: string }) => m.role === "user" || m.role === "assistant").slice(-6);
+        const redacted = last6.map((m: { role: string; content?: string }) => {
+          const content = typeof m.content === "string" ? m.content : "";
+          const label = m.role === "user" ? "User" : "Assistant";
+          const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
+          return `${label}: ${body}`;
+        });
+        if (redacted.length > 0) sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+      }
     }
 
     if (selectedTier === "full") {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
+    // Commander confirmation: ask first, then remember their answer for follow-up
+    if (inferredCommanderForConfirmation) {
+      const historyForConfirm = streamThreadHistory?.length ? streamThreadHistory : clientConversation;
+      const lastAssistant = historyForConfirm?.filter((m: { role: string }) => m.role === "assistant").pop();
+      const lastAssistantContent = (lastAssistant as { content?: string })?.content ?? "";
+      const askedCommander = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
+      const looksLikeConfirmation = (t: string) => {
+        const q = (t || "").trim().toLowerCase();
+        if (/^(yes|yep|yeah|correct|that's right|right|correct|confirmed?|sure|ok|okay)$/i.test(q)) return true;
+        if (/^no,?\s*(it'?s?|my commander is)\s+/i.test(q) || /^actually\s+(it'?s?|my commander is)\s+/i.test(q)) return true;
+        if (/^(no|nope|wrong)\b/i.test(q) && q.length < 50) return true;
+        return false;
+      };
+      const userAlreadyConfirmed = !!(((tid || (isGuest && historyForConfirm?.length)) && askedCommander && looksLikeConfirmation(text ?? "")));
+      if (userAlreadyConfirmed) {
+        const correctionMatch = (text ?? "").match(/(?:no,?\s*(?:it'?s?|my commander is)|actually\s+(?:it'?s?|my commander is))\s*[:\s]*\[?\[?([^\]\]]+)\]?\]?/i) ?? (text ?? "").match(/(?:no|wrong),?\s*(.+)/i);
+        const correctedCommander = correctionMatch ? correctionMatch[1]?.trim()?.replace(/^[[\]]+|[\[\]]+$/g, "") : null;
+        const commanderToUse = correctedCommander || inferredCommanderForConfirmation;
+        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user already confirmed or corrected the commander in their last message. Use commander: [[${commanderToUse}]]. Proceed with your full analysis now—do NOT ask again.`;
+      } else {
+        sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${inferredCommanderForConfirmation}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
+      }
+    }
     }
 
     // Thread summary (within-thread memory) - same logic as non-stream

@@ -149,7 +149,7 @@ export async function postMessage(
 
 // New streaming function with ChatGPT-like speed using client-side pacer
 export async function postMessageStream(
-  payload: { text: string; threadId?: string | null; context?: any; prefs?: any; guestMessageCount?: number },
+  payload: { text: string; threadId?: string | null; context?: any; prefs?: any; guestMessageCount?: number; messages?: Array<{ role: "user" | "assistant"; content: string }> },
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (error: Error) => void,

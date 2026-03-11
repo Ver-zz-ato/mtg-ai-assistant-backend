@@ -40,4 +40,9 @@ export const ChatPostSchema = z.object({
   text: z.string().min(1).max(4000),
   threadId: z.string().uuid().optional().nullable(),
   stream: z.boolean().optional(), // unused for now
+  /** Prior conversation (for guests / multi-turn without thread). Last N turns. */
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string(),
+  })).max(20).optional(),
 });

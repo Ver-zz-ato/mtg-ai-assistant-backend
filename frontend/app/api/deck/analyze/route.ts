@@ -1488,7 +1488,11 @@ export async function POST(req: Request) {
     console.warn("[deck/analyze] v2 summary upsert failed:", e);
   }
 
-  const reqCommander = typeof body.commander === "string" && body.commander.trim() ? body.commander.trim() : null;
+  let reqCommander = typeof body.commander === "string" && body.commander.trim() ? body.commander.trim() : null;
+  if (!reqCommander && format === "Commander" && deckText.trim()) {
+    const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+    reqCommander = extractCommanderFromDecklistText(deckText, body.userMessage ?? undefined);
+  }
   const explicitColors = Array.isArray(body.colors) ? body.colors : [];
 
   const context = await inferDeckContext(

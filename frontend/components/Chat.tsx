@@ -3,7 +3,6 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import BuilderOverflowMenu from "@/components/BuilderOverflowMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
-import DeckReportModal, { type DeckAnalysisApiResult } from "@/components/DeckReportModal";
 import GuestLimitModal from "@/components/GuestLimitModal";
 import FloatingSignupPrompt from "@/components/FloatingSignupPrompt";
 import PostAnalysisSignupPrompt from "@/components/PostAnalysisSignupPrompt";
@@ -158,15 +157,12 @@ function Chat() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking, false = guest, true = logged in
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
-  const [hasDeckAnalyzed, setHasDeckAnalyzed] = useState<boolean>(false);
   const [showReasoning, setShowReasoning] = useState<boolean>(false);
   const { isPro, modelTier, modelLabel, upgradeMessage } = useProStatus();
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
   const [showStartBuildingModal, setShowStartBuildingModal] = useState<boolean>(false);
   const [showSampleDeckModal, setShowSampleDeckModal] = useState<boolean>(false);
-  const [analysisByMessageId, setAnalysisByMessageId] = useState<Record<string, DeckAnalysisApiResult>>({});
-  const [deckReportModal, setDeckReportModal] = useState<{ messageId: string; result: DeckAnalysisApiResult } | null>(null);
   const capture = useCapture();
   
   // Card image and price states
@@ -185,7 +181,6 @@ function Chat() {
   const streamingMessageIdRef = useRef<string | null>(null);
   const addingTypingMessageRef = useRef<boolean>(false);
   const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
-  const pendingDeckAnalysisRef = useRef<{ result: DeckAnalysisApiResult | null; messageId: string | null }>({ result: null, messageId: null });
   
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
@@ -838,28 +833,6 @@ function Chat() {
     streamingMsgId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     streamingMessageIdRef.current = streamingMsgId;
     
-    // Fire deck analyze in parallel when user pasted a decklist (for report card link)
-    if (looksDeck && val.trim()) {
-      const formatForApi = fmt ? String(fmt).charAt(0).toUpperCase() + String(fmt).slice(1) : "Commander";
-      fetch("/api/deck/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deckText: val.trim(), format: formatForApi, useScryfall: true, sourcePage: "chat" }),
-      })
-        .then((r) => r.json().catch(() => ({})))
-        .then((j) => {
-          if (j?.score != null && j?.bands) {
-            pendingDeckAnalysisRef.current.result = j as DeckAnalysisApiResult;
-            const msgId = pendingDeckAnalysisRef.current.messageId;
-            if (msgId) {
-              setAnalysisByMessageId((prev) => ({ ...prev, [msgId]: j }));
-              pendingDeckAnalysisRef.current = { result: null, messageId: null };
-            }
-          }
-        })
-        .catch(() => {});
-    }
-    
     // Use closure variable to track if we've already added typing message in this execution
     let typingMessageAdded = false;
     
@@ -898,7 +871,14 @@ function Chat() {
 
     try {
       await postMessageStream(
-        { text: val, threadId: currentThreadId, context, prefs, guestMessageCount: !isLoggedIn ? guestMessageCount : undefined },
+        {
+          text: val,
+          threadId: currentThreadId,
+          context,
+          prefs,
+          guestMessageCount: !isLoggedIn ? guestMessageCount : undefined,
+          messages: messages.map((m: any) => ({ role: m.role, content: String(m.content || "") })).filter((m: any) => m.role === "user" || m.role === "assistant").slice(-12),
+        },
         (token: string) => {
           // Validate that this is still the active streaming session
           if (activeStreamingRef.current !== streamingMsgId) {
@@ -913,13 +893,6 @@ function Chat() {
           setStreamingContent(accumulatedContent);
         },
         () => {
-          // Flush pending deck analysis to this message if we had one
-          pendingDeckAnalysisRef.current.messageId = streamingMsgId;
-          const pending = pendingDeckAnalysisRef.current.result;
-          if (pending) {
-            setAnalysisByMessageId((prev) => ({ ...prev, [streamingMsgId]: pending }));
-            pendingDeckAnalysisRef.current = { result: null, messageId: null };
-          }
           // Now that streaming is complete, update the messages array with the final content
           setMessages((m: any) => {
             const existingIndex = m.findIndex((msg: any) => msg.id === streamingMsgId);
@@ -1105,13 +1078,6 @@ function Chat() {
       const responseText = (res as any)?.text ?? (res as any)?.message?.content;
       if (streamFailed && !guestLimitExceeded && responseText && typeof responseText === 'string') {
         const assistantMsgId = `fallback_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-        // Flush pending deck analysis to this fallback message if we had one
-        pendingDeckAnalysisRef.current.messageId = assistantMsgId;
-        const pending = pendingDeckAnalysisRef.current.result;
-        if (pending) {
-          setAnalysisByMessageId((prev) => ({ ...prev, [assistantMsgId]: pending }));
-          pendingDeckAnalysisRef.current = { result: null, messageId: null };
-        }
         setMessages((m: any) => [
           ...m,
           { id: assistantMsgId, thread_id: tid || "", role: "assistant", content: responseText, created_at: new Date().toISOString() } as any,
@@ -1724,18 +1690,6 @@ function Chat() {
                   <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
                   {isAssistant && (
                     <>
-                      {analysisByMessageId[m.id] && (
-                        <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => setDeckReportModal({ messageId: String(m.id), result: analysisByMessageId[m.id] })}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-black font-semibold text-sm shadow-lg shadow-amber-900/30 border-2 border-amber-400/50 transition-all hover:scale-[1.02]"
-                          >
-                            <span className="text-lg" aria-hidden>📊</span>
-                            View deck report
-                          </button>
-                        </div>
-                      )}
                       <SourceReceipts sources={generateSourceAttribution(String(m.content || ''), { deckId: linkedDeckId || undefined })} />
                       <div className="mt-2">
                         <InlineFeedback msgId={String(m.id)} content={String(m.content || '')} />
@@ -1956,13 +1910,6 @@ function Chat() {
         messageCount={guestMessageCount}
         hasValueMoment={hasValueMoment(guestMessageCount)}
         valueMomentType={getValueMomentType(undefined, guestMessageCount)}
-      />
-      
-      {/* Deck report card modal */}
-      <DeckReportModal
-        open={!!deckReportModal}
-        onClose={() => setDeckReportModal(null)}
-        result={deckReportModal?.result ?? null}
       />
       
       {/* Floating signup prompt for guest users */}
