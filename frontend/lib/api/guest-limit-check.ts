@@ -14,6 +14,7 @@ interface GuestLimitResult {
 
 /**
  * Check if guest user has exceeded message limit (server-side enforcement)
+ * Set SKIP_GUEST_LIMIT=1 in .env.local to bypass for local testing.
  */
 export async function checkGuestMessageLimit(
   _supabase: import('@supabase/supabase-js').SupabaseClient,
@@ -21,6 +22,9 @@ export async function checkGuestMessageLimit(
   ip: string,
   userAgent: string
 ): Promise<GuestLimitResult> {
+  if (process.env.SKIP_GUEST_LIMIT === '1') {
+    return { allowed: true, count: 0 };
+  }
   if (!token) {
     // No token provided - deny access (should have been created by middleware)
     return { allowed: false, count: 0 };

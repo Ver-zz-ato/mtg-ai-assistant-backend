@@ -457,7 +457,12 @@ export async function POST(req: NextRequest) {
               v2Summary = cached;
               streamContextSource = "paste_ttl";
             } else {
-              v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, { format: "Commander" });
+              const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+              const commander = extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined);
+              v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, {
+                format: "Commander",
+                commander: commander ?? undefined,
+              });
               setPasteSummary(hash, v2Summary);
               streamContextSource = "paste_ttl";
             }
@@ -465,7 +470,7 @@ export async function POST(req: NextRequest) {
           }
         }
         const streamV2BuildMs = Date.now() - streamV2BuildStart;
-        if (v2Summary && streamV2BuildMs > 400) {
+        if (v2Summary && streamV2BuildMs > 30_000) {
           console.warn(JSON.stringify({ tag: "slow_summary_build", route: "/api/chat/stream", ms: streamV2BuildMs }));
           v2Summary = null;
           streamContextSource = "raw_fallback";
@@ -713,45 +718,28 @@ export async function POST(req: NextRequest) {
     });
     const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
-    // Phase B: dynamic token ceiling and stop sequences
-    const { getDynamicTokenCeiling, CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
-    const queryLower = (text || '').toLowerCase();
-    const isSimpleQuery =
-      /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(queryLower.trim()) ||
-      /^(is|can|does|will)\s+\w+\s+(a|an|legal|banned|good|bad)\b/i.test(queryLower.trim());
-    const streamHasDeckContext = !!v2Summary || !!(deckData?.deckText?.trim());
-    const complexKeywords = [
-      /\b(synergy|how.*work|why.*work|explain|analyze|analysis|strategy|archetype|combo|interaction|engine)\b/i,
-      /\b(what.*wrong|improve|suggest|recommend|swap|better|upgrade|optimize)\b/i,
-      /\b(why|how does|what makes|how would|why would|what.*best|which.*better)\b/i,
-    ];
-    const complexKeywordCount = complexKeywords.filter((re) => re.test(queryLower)).length;
-    const isComplexAnalysis = !isSimpleQuery && (streamHasDeckContext || complexKeywordCount >= 2);
-    const streamMinFloor = streamRuntimeConfig.llm_min_tokens_per_route?.["chat_stream"];
-    let tokenLimit = Math.min(
-      getDynamicTokenCeiling(
-        { isComplex: isComplexAnalysis, deckCardCount: v2Summary?.card_count ?? 0, minTokenFloor: streamMinFloor },
-        true
-      ),
-      MAX_TOKENS_STREAM
-    );
+    // Phase B: token ceiling and stop sequences (use model max for everyone)
+    const { CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
+    let tokenLimit = MAX_TOKENS_STREAM;
     if (streamLayer0MiniOnly) {
       effectiveModel = streamLayer0MiniOnly.model;
       tokenLimit = Math.min(streamLayer0MiniOnly.max_tokens, MAX_TOKENS_STREAM);
     }
-    
+
     // Create OpenAI streaming request (model by user tier: guest/free/pro)
     const messages: any[] = [
       { role: "system", content: sys },
       { role: "user", content: text }
     ];
     
+    const modelsWithoutStop = ["gpt-5-mini", "gpt-5-nano"];
+    const useStop = !modelsWithoutStop.some((m) => effectiveModel?.toLowerCase().includes(m));
     const openAIBody = prepareOpenAIBody({
       model: effectiveModel,
       messages,
       stream: true,
       max_completion_tokens: tokenLimit,
-      stop: CHAT_STOP_SEQUENCES,
+      ...(useStop && { stop: CHAT_STOP_SEQUENCES }),
     } as Record<string, unknown>);
     
     console.log("[stream] OpenAI request body:", JSON.stringify(openAIBody, null, 2));
@@ -784,12 +772,14 @@ export async function POST(req: NextRequest) {
 
       const tryFallback = effectiveModel !== modelTierRes.fallbackModel;
       if (tryFallback) {
+        const fallbackModel = modelTierRes.fallbackModel;
+        const fallbackUseStop = !modelsWithoutStop.some((m) => fallbackModel?.toLowerCase().includes(m));
         const fallbackBody = prepareOpenAIBody({
-          model: modelTierRes.fallbackModel,
+          model: fallbackModel,
           messages,
           max_completion_tokens: tokenLimit,
           stream: true,
-          stop: CHAT_STOP_SEQUENCES,
+          ...(fallbackUseStop && { stop: CHAT_STOP_SEQUENCES }),
         } as Record<string, unknown>);
         const fallbackResponse = await fetch(OPENAI_URL, {
           method: "POST",
@@ -941,7 +931,7 @@ export async function POST(req: NextRequest) {
                     ],
                     stream: false,
                     max_completion_tokens: MAX_TOKENS_STREAM,
-                    stop: CHAT_STOP_SEQUENCES,
+                    ...(useStop && { stop: CHAT_STOP_SEQUENCES }),
                   } as Record<string, unknown>);
                   const regenRes = await fetch(OPENAI_URL, {
                     method: "POST",
@@ -1013,7 +1003,7 @@ export async function POST(req: NextRequest) {
               context_source: streamContextSource !== "raw_fallback" ? streamContextSource : undefined,
               summary_tokens_estimate: streamSummaryTokensEstimate ?? undefined,
               deck_hash: streamDeckHashForLog ?? undefined,
-              has_deck_context: streamHasDeckContext,
+              has_deck_context: streamHasDeckContextForLayer0,
               used_v2_summary: !!v2Summary,
               stop_sequences_enabled: true,
               latency_ms: Date.now() - t0,
@@ -1060,7 +1050,7 @@ export async function POST(req: NextRequest) {
                     sysPromptHash,
                     intent: "private",
                     normalized_user_text: normalizeCacheText(text, false),
-                    deck_context_included: streamHasDeckContext,
+                    deck_context_included: streamHasDeckContextForLayer0,
                     deck_hash: streamDeckHashForLog ?? null,
                     tier: modelTierRes.tier,
                     locale: null as string | null,

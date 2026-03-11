@@ -814,14 +814,19 @@ export async function POST(req: NextRequest) {
             v2Summary = cached;
             contextSource = "paste_ttl";
           } else {
-            v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, { format: "Commander" });
+            const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+            const commander = extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined);
+            v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, {
+              format: "Commander",
+              commander: commander ?? undefined,
+            });
             setPasteSummary(hash, v2Summary);
             contextSource = "paste_ttl";
           }
           summaryTokensEstimate = estimateSummaryTokens(v2Summary);
         }
         const v2BuildMs = Date.now() - v2BuildStart;
-        if (v2Summary && v2BuildMs > 400) {
+        if (v2Summary && v2BuildMs > 30_000) {
           console.warn(JSON.stringify({ tag: "slow_summary_build", route: "/api/chat", ms: v2BuildMs }));
           v2Summary = null;
           contextSource = "raw_fallback";

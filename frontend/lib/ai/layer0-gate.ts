@@ -36,7 +36,7 @@ export type Layer0DecideArgs = {
   isPro?: boolean;
 };
 
-const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_ROUTER || process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
+const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
 const MINI_CEILING_TIGHT = 128;
 const MINI_CEILING_NORMAL = 192;
 

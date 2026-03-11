@@ -2,7 +2,7 @@
  * Tiered model routing: map user tier (guest / free / pro) to OpenAI model and metadata.
  * Chat routes must receive chat-completions-capable models only; Codex is responses-only.
  *
- * Env: MODEL_GUEST, MODEL_FREE, MODEL_PRO_CHAT, MODEL_PRO_DECK, MODEL_ROUTER (lightweight/Layer0).
+ * Env: MODEL_GUEST, MODEL_FREE, MODEL_PRO_CHAT, MODEL_PRO_DECK.
  * MODEL_PRO is backwards-compat; for chat we prefer MODEL_PRO_CHAT and never use a responses-only model.
  */
 
@@ -18,10 +18,10 @@ export type ModelForTierResult = {
   upgradeMessage?: string;
 };
 
-const CHAT_PRO_DEFAULT = "gpt-5";
-const DECK_PRO_DEFAULT = "gpt-5";
+const CHAT_PRO_DEFAULT = "gpt-5.1";
+const DECK_PRO_DEFAULT = "gpt-5.1";
 const GUEST_DEFAULT = "gpt-4o-mini";
-const FREE_DEFAULT = "gpt-5-mini";
+const FREE_DEFAULT = "gpt-4o";
 const FALLBACK_DEFAULT = "gpt-4o-mini";
 
 function env(name: string): string | undefined {

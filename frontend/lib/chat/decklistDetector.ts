@@ -63,22 +63,29 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
     }
   }
   
-  // Priority 3: First card in the list (common convention for Commander decks)
-  // Only return this as a "candidate" - caller should verify it's legendary
-  for (const line of lines) {
-    // Skip section headers
-    if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(line)) continue;
-    // Match "1 CardName" or "1x CardName"
-    const qtyMatch = line.match(/^1\s*[xX]?\s+(.+)$/);
-    if (qtyMatch) {
-      return qtyMatch[1].trim();
-    }
-    // Match plain card name (first non-header line)
-    if (line && !line.includes(':') && line.length > 2) {
-      return line;
+  // Priority 3: Last "1 CardName" when Commander-sized (Moxfield/Archidekt often put commander at end)
+  const cardLines = lines.filter((l) => {
+    if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(l)) return false;
+    if (l.includes(':') && !/^Commander\s*:\s*/i.test(l)) return false; // skip "analyse this:" etc.
+    return /^\d+\s*[xX]?\s+.+$/.test(l);
+  });
+  if (cardLines.length >= 95) {
+    // Commander-sized: last card is usually the commander
+    for (let i = cardLines.length - 1; i >= 0; i--) {
+      const m = cardLines[i].match(/^1\s*[xX]?\s+(.+)$/);
+      if (m) return m[1].trim();
     }
   }
-  
+
+  // Priority 4: First card in the list (fallback convention)
+  for (const line of lines) {
+    if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(line)) continue;
+    if (line.includes(':') && !/^Commander\s*:\s*/i.test(line)) continue;
+    const qtyMatch = line.match(/^1\s*[xX]?\s+(.+)$/);
+    if (qtyMatch) return qtyMatch[1].trim();
+    if (line && !line.includes(':') && line.length > 2) return line;
+  }
+
   return null;
 }
 
