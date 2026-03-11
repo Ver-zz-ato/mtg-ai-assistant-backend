@@ -14,8 +14,7 @@ const nextConfig: NextConfig = {
   },
   // Fixes the "workspace root" warnings on Render
   outputFileTracingRoot: path.join(__dirname, ".."),
-  // Prevent style-only lint errors from blocking builds
-  eslint: { ignoreDuringBuilds: true },
+  // eslint config removed in Next 16 — use ESLint CLI directly (npm run lint)
   // Still fail on real TS errors
   typescript: { ignoreBuildErrors: false },
   

@@ -1,0 +1,31 @@
+---
+description: How to add blog posts and changelog entries
+globs: frontend/app/blog/**/*,frontend/lib/blog-defaults.ts,frontend/db/migrations/*.sql,frontend/docs/*BLOG*,frontend/docs/*CHANGELOG*
+alwaysApply: false
+---
+
+# Adding Blogs & Changelogs
+
+When adding blog posts or changelog entries, follow these patterns.
+
+## Changelog (What's New)
+
+- Stored in Supabase `app_config` key `changelog`
+- Add via SQL migration in `frontend/db/migrations/`
+- Use `jsonb_build_array(new_entry) || (current_changelog->'entries')` to prepend
+- Fields: `version`, `date`, `title`, `type`, `description`, `features`, `fixes`
+- See `085_changelog_and_blog_march_2025.sql` for full template
+
+## Blog
+
+Three places to update:
+
+1. **`frontend/lib/blog-defaults.ts`** — Add entry to `DEFAULT_BLOG_POSTS` (metadata: slug, title, excerpt, date, author, category, readTime, gradient, icon, imageUrl?).
+2. **`frontend/app/blog/[slug]/page.tsx`** — Add to `blogContent` object with full markdown `content`.
+3. **SQL migration** (optional) — Add to `app_config.blog` via same pattern as changelog.
+
+Categories: `Announcement`, `Budget Building`, `Strategy`, `Commander`.
+
+## Full Guide
+
+See `frontend/docs/HOW_TO_ADD_BLOGS_AND_CHANGELOGS.md` for step-by-step instructions and SQL templates.
