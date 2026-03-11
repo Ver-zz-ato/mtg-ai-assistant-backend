@@ -502,6 +502,49 @@ export async function POST(req: NextRequest) {
     }
     streamDebug("v2_result", { hasV2Summary: !!v2Summary, streamContextSource, v2Commander: v2Summary?.commander ?? null, selectedTier });
 
+    // Commander confirmation: when we inferred commander from pasted deck, ask user first (must run before formatForLLM)
+    let inferredCommanderForConfirmation: string | null = null;
+    let commanderCorrectionForPrompt: string | null = null;
+    let userConfirmedOrCorrectedCommander = false;
+    if (selectedTier === "full" && v2Summary?.commander && streamContextSource === "paste_ttl") {
+      inferredCommanderForConfirmation = v2Summary.commander;
+    }
+    if (inferredCommanderForConfirmation) {
+      streamDebug("commander_confirm", { commander: inferredCommanderForConfirmation });
+      const historyForConfirm = streamThreadHistory?.length ? streamThreadHistory : clientConversation;
+      const lastAssistant = historyForConfirm?.filter((m: { role: string }) => m.role === "assistant").pop();
+      const lastAssistantContent = (lastAssistant as { content?: string })?.content ?? "";
+      const askedCommander = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
+      const looksLikeConfirmation = (t: string) => {
+        const q = (t || "").trim().toLowerCase();
+        if (/^(yes|yep|yeah|correct|that's right|right|confirmed?|sure|ok|okay)$/i.test(q)) return true;
+        if (/^no,?\s*(it'?s?|my commander is)\s+/i.test(q) || /^no\s+it'?s\s+/i.test(q)) return true;
+        if (/^actually\s+(it'?s?|my commander is)\s+/i.test(q)) return true;
+        if (/^(no|nope|wrong)\b/i.test(q) && q.length < 80) return true;
+        return false;
+      };
+      if ((tid || (isGuest && historyForConfirm?.length)) && askedCommander && looksLikeConfirmation(text ?? "")) {
+        const raw = (text ?? "").trim();
+        let corrected: string | null = null;
+        const bracketMatch = raw.match(/(?:no,?\s*(?:it'?s?|my commander is)|actually\s+(?:it'?s?|my commander is)|no\s+it'?s)\s*[:\s]*\[\[([^\]]+)\]\]/i);
+        if (bracketMatch) corrected = bracketMatch[1]?.trim() ?? null;
+        else {
+          const quotedMatch = raw.match(/(?:no,?\s*(?:it'?s?|my commander is)|actually\s+(?:it'?s?|my commander is)|no\s+it'?s)\s*[:\s]*["']([^"']+)["']/i);
+          if (quotedMatch) corrected = quotedMatch[1]?.trim() ?? null;
+          else {
+            const plainMatch = raw.match(/(?:no,?\s*(?:it'?s?|my commander is)|actually\s+(?:it'?s?|my commander is)|no\s+it'?s)\s*[:\s]+([\s\S]+?)(?:\s*[.?!]|$)/i);
+            if (plainMatch) corrected = plainMatch[1]?.trim()?.replace(/^["'\[\]]+|["'\[\]]+$/g, "") ?? null;
+          }
+        }
+        if (!corrected && /^(no|nope|wrong)/i.test(raw)) {
+          const fallback = raw.replace(/^(no|nope|wrong),?\s*/i, "").replace(/^(it'?s?|my commander is)\s*/i, "").trim();
+          if (fallback.length > 2 && fallback.length < 80) corrected = fallback.replace(/^["'\[\]]+|["'\[\]]+$/g, "");
+        }
+        commanderCorrectionForPrompt = corrected;
+        userConfirmedOrCorrectedCommander = true;
+      }
+    }
+
     if (selectedTier === "full" && v2Summary) {
       // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard)
       const queryLower = (text || '').toLowerCase().trim();
@@ -528,7 +571,7 @@ export async function POST(req: NextRequest) {
           }));
         }
         const { formatForLLM } = await import("@/lib/deck/intelligence-formatter");
-        const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics);
+        const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderCorrectionForPrompt ?? undefined);
         sys += `\n\n${deckFactsProse}\n`;
       } else {
         sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
@@ -545,14 +588,6 @@ export async function POST(req: NextRequest) {
       if (redacted.length > 0) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
-    }
-    // Commander confirmation: when we inferred commander from pasted deck, ask user first
-    let inferredCommanderForConfirmation: string | null = null;
-    if (selectedTier === "full" && v2Summary?.commander && streamContextSource === "paste_ttl") {
-      inferredCommanderForConfirmation = v2Summary.commander;
-    }
-    if (inferredCommanderForConfirmation) {
-      streamDebug("commander_confirm", { commander: inferredCommanderForConfirmation });
     }
     if (selectedTier === "full" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
@@ -658,23 +693,9 @@ export async function POST(req: NextRequest) {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     // Commander confirmation: ask first, then remember their answer for follow-up
     if (inferredCommanderForConfirmation) {
-      const historyForConfirm = streamThreadHistory?.length ? streamThreadHistory : clientConversation;
-      const lastAssistant = historyForConfirm?.filter((m: { role: string }) => m.role === "assistant").pop();
-      const lastAssistantContent = (lastAssistant as { content?: string })?.content ?? "";
-      const askedCommander = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
-      const looksLikeConfirmation = (t: string) => {
-        const q = (t || "").trim().toLowerCase();
-        if (/^(yes|yep|yeah|correct|that's right|right|correct|confirmed?|sure|ok|okay)$/i.test(q)) return true;
-        if (/^no,?\s*(it'?s?|my commander is)\s+/i.test(q) || /^actually\s+(it'?s?|my commander is)\s+/i.test(q)) return true;
-        if (/^(no|nope|wrong)\b/i.test(q) && q.length < 50) return true;
-        return false;
-      };
-      const userAlreadyConfirmed = !!(((tid || (isGuest && historyForConfirm?.length)) && askedCommander && looksLikeConfirmation(text ?? "")));
-      if (userAlreadyConfirmed) {
-        const correctionMatch = (text ?? "").match(/(?:no,?\s*(?:it'?s?|my commander is)|actually\s+(?:it'?s?|my commander is))\s*[:\s]*\[?\[?([^\]\]]+)\]?\]?/i) ?? (text ?? "").match(/(?:no|wrong),?\s*(.+)/i);
-        const correctedCommander = correctionMatch ? correctionMatch[1]?.trim()?.replace(/^[[\]]+|[\[\]]+$/g, "") : null;
-        const commanderToUse = correctedCommander || inferredCommanderForConfirmation;
-        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user already confirmed or corrected the commander in their last message. Use commander: [[${commanderToUse}]]. Proceed with your full analysis now—do NOT ask again.`;
+      if (userConfirmedOrCorrectedCommander) {
+        const commanderToUse = commanderCorrectionForPrompt || inferredCommanderForConfirmation;
+        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user has corrected the commander to [[${commanderToUse}]]. Use this commander—override any "Commander:" line in Deck Facts if it differs. Proceed immediately with your full deck analysis. Do NOT ask again. Do NOT give a generic greeting like "Mana Tap is focused on...". Respond with concrete deck analysis (e.g. mana base, ramp, cuts, upgrades).`;
       } else {
         sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${inferredCommanderForConfirmation}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
       }

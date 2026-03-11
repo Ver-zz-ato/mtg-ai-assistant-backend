@@ -16,11 +16,13 @@ const UNCERTAINTY_MESSAGES: Record<string, string> = {
 
 export function formatForLLM(
   deckFacts: DeckFacts,
-  synergyDiagnostics: SynergyDiagnostics
+  synergyDiagnostics: SynergyDiagnostics,
+  commanderOverride?: string | null
 ): string {
   const lines: string[] = ["Deck Facts:"];
+  const commander = commanderOverride ?? deckFacts.commander;
 
-  lines.push(`- Commander: ${deckFacts.commander ?? "Unknown"}`);
+  lines.push(`- Commander: ${commander ?? "Unknown"}`);
   lines.push(`- Colors: ${deckFacts.color_identity.length ? deckFacts.color_identity.join("") : "Colorless"}`);
   lines.push(`- Format: ${deckFacts.format}`);
   lines.push(`- Curve: ${deckFacts.avg_cmc.toFixed(1)} avg MV, ${deckFacts.curve_profile}`);

@@ -170,6 +170,28 @@ function inferWarningFlags(
   return flags;
 }
 
+/**
+ * Resolve commander to only legendary creatures (or special planeswalkers).
+ * If extracted commander is not eligible, pick first commander-eligible card from deck.
+ */
+function resolveCommanderFromEnriched(
+  enriched: Array<{ name: string; commander_eligible?: boolean }>,
+  extractedCommander: string | null
+): string | null {
+  const byName = new Map(enriched.map((c) => [c.name.toLowerCase(), c]));
+  const norm = (s: string) => s.toLowerCase().trim();
+
+  if (extractedCommander) {
+    const c = byName.get(norm(extractedCommander));
+    if (c?.commander_eligible) return c.name;
+  }
+
+  for (const c of enriched) {
+    if (c.commander_eligible) return c.name;
+  }
+  return extractedCommander;
+}
+
 const RAMP_TAGS = new Set(["ramp", "land_ramp", "mana_rock", "mana_dork"]);
 const DRAW_TAGS = new Set(["draw", "impulse_draw", "repeatable_draw"]);
 const REMOVAL_TAGS = new Set(["spot_removal", "counterspell", "board_wipe"]);
@@ -238,8 +260,9 @@ export async function buildDeckContextSummary(
 
   try {
     const enriched = await enrichDeck(entries.map((e) => ({ name: e.name, qty: e.count })), { format, commander });
+    const resolvedCommander = resolveCommanderFromEnriched(enriched, commander);
     const tagged = tagCards(enriched);
-    deck_facts = buildDeckFacts(tagged, { format, commander });
+    deck_facts = buildDeckFacts(tagged, { format, commander: resolvedCommander });
     synergy_diagnostics = buildSynergyDiagnostics(tagged, commander, deck_facts);
     const t = tallyFromTagged(tagged, deck_facts);
     lands = t.lands;
@@ -287,7 +310,7 @@ export async function buildDeckContextSummary(
   return {
     deck_hash: hash,
     format,
-    commander: commander ?? null,
+    commander: (deck_facts?.commander ?? commander) ?? null,
     colors,
     land_count: lands,
     curve_histogram: curve,
