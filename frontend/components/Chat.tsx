@@ -1725,12 +1725,13 @@ function Chat() {
                   {isAssistant && (
                     <>
                       {analysisByMessageId[m.id] && (
-                        <div className="mt-2">
+                        <div className="mt-3">
                           <button
                             type="button"
                             onClick={() => setDeckReportModal({ messageId: String(m.id), result: analysisByMessageId[m.id] })}
-                            className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-black font-semibold text-sm shadow-lg shadow-amber-900/30 border-2 border-amber-400/50 transition-all hover:scale-[1.02]"
                           >
+                            <span className="text-lg" aria-hidden>📊</span>
                             View deck report
                           </button>
                         </div>

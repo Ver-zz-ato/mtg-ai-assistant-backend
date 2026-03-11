@@ -66,6 +66,15 @@ assert.strictEqual((bestCommanderZombies as any).reason, "simple_one_liner_no_de
 const nearCapSimple = layer0Decide(base({ text: "what is first strike?", hasDeckContext: false, nearBudgetCap: true }));
 assert.strictEqual(nearCapSimple.mode, "MINI_ONLY");
 
+// Pro exempt from nearBudgetCap: long query without deck would get MINI from step 5, Pro gets FULL_LLM
+const nearCapPro = layer0Decide(base({
+  text: "Tell me about the best commanders for a casual playgroup and what makes them fun to play with.",
+  hasDeckContext: false,
+  nearBudgetCap: true,
+  isPro: true,
+}));
+assert.strictEqual(nearCapPro.mode, "FULL_LLM", "Pro should bypass nearBudgetCap MINI downgrade");
+
 // --- layer0Decide: FULL_LLM cases ---
 const analyzeWithDeck = layer0Decide(base({ text: "analyze my deck", hasDeckContext: true }));
 assert.strictEqual(analyzeWithDeck.mode, "FULL_LLM");

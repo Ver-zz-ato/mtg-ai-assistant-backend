@@ -615,7 +615,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Layer 0: deterministic / mini-only gate (runtime or env LLM_LAYER0=on)
-    const streamHasDeckContextForLayer0 = !!v2Summary || !!(deckData?.deckText?.trim());
+    const { isDecklist: isDecklistForLayer0 } = await import("@/lib/chat/decklistDetector");
+    const streamHasDeckContextForLayer0 =
+      !!v2Summary ||
+      !!(deckData?.deckText?.trim()) ||
+      !!(text && isDecklistForLayer0(text));
     let streamLayer0Mode: string | null = null;
     let streamLayer0Reason: string | null = null;
     let streamLayer0MiniOnly: { model: string; max_tokens: number } | null = null;
@@ -633,6 +637,7 @@ export async function POST(req: NextRequest) {
         isAuthenticated: !!userId,
         route: "chat_stream",
         nearBudgetCap,
+        isPro,
       });
       if (decision.mode === "NO_LLM") {
         let responseText: string;

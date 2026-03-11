@@ -30,8 +30,10 @@ export type Layer0DecideArgs = {
   deckCardCount?: number | null;
   isAuthenticated: boolean;
   route: "chat" | "chat_stream" | "deck_analyze";
-  /** When true, prefer MINI_ONLY unless request clearly needs FULL_LLM. */
+  /** When true, prefer MINI_ONLY unless request clearly needs FULL_LLM. Pro users are exempt. */
   nearBudgetCap?: boolean;
+  /** When true, skip nearBudgetCap downgrade (Pro always gets FULL_LLM). */
+  isPro?: boolean;
 };
 
 const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_ROUTER || process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
@@ -123,7 +125,7 @@ export function needsDeckButMissing(text: string, hasDeckContext: boolean): bool
  * Layer 0 classification. Deterministic, explainable.
  */
 export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
-  const { text, hasDeckContext, isAuthenticated, route, nearBudgetCap } = args;
+  const { text, hasDeckContext, isAuthenticated, route, nearBudgetCap, isPro } = args;
   const q = (text || "").trim();
   const qLower = q.toLowerCase();
 
@@ -157,8 +159,8 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
     };
   }
 
-  // 5. Near budget cap → prefer MINI unless clearly FULL_LLM (deck + complex/long-answer)
-  if (nearBudgetCap) {
+  // 5. Near budget cap → prefer MINI unless clearly FULL_LLM (deck + complex/long-answer). Pro exempt.
+  if (nearBudgetCap && !isPro) {
     const clearlyFull =
       hasDeckContext &&
       (isDeckAnalysisRequest(text) || isLongAnswerRequest(text));

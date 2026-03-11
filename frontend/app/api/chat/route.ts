@@ -703,6 +703,7 @@ export async function POST(req: NextRequest) {
         isAuthenticated: !!userId,
         route: "chat",
         nearBudgetCap,
+        isPro,
       });
       if (decision.mode === "NO_LLM") {
         let responseText: string;
