@@ -87,6 +87,17 @@ export default function ChatFlowTestPage() {
     }
   }
 
+  function exportResult() {
+    const payload = { response, metadata, error: error ?? undefined, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-flow-test-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -212,6 +223,17 @@ export default function ChatFlowTestPage() {
                   </details>
                 )}
               </div>
+            </div>
+          )}
+          {(response || metadata) && (
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={exportResult}
+                className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
+              >
+                Export
+              </button>
             </div>
           )}
         </div>

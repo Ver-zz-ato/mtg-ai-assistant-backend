@@ -21,6 +21,7 @@ const GROUPS = [
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai", label: "AI & Chat", eli5: "Prompts, personas, moderation lists" },
       { href: "/admin/ai-test", label: "AI Test Suite", eli5: "Run evals, compare prompts, approve changes" },
+      { href: "/admin/chat-flow-test", label: "Chat Flow Test", eli5: "Test AI flow by tier, deck context, accuracy" },
     ],
   },
   {
