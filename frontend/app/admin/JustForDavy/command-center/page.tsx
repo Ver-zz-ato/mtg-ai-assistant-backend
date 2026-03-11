@@ -51,6 +51,7 @@ type ProGateRange = '24h' | '7d' | '30d';
 type MulliganDays = 1 | 7 | 30;
 
 const CRON_KEYS = ['deck-costs', 'commander-aggregates', 'meta-signals', 'top-cards'] as const;
+const OTHER_CRON_KEYS = ['budget-swaps-update'] as const;
 
 const CRON_INFO: Record<(typeof CRON_KEYS)[number], { eli5: string; schedule: string; when: string }> = {
   'deck-costs': {
@@ -75,6 +76,14 @@ const CRON_INFO: Record<(typeof CRON_KEYS)[number], { eli5: string; schedule: st
   },
 };
 
+const OTHER_CRON_INFO: Record<(typeof OTHER_CRON_KEYS)[number], { eli5: string; schedule: string; when: string }> = {
+  'budget-swaps-update': {
+    eli5: 'AI suggests new expensive→budget card pairs for Quick Swaps mode',
+    schedule: 'Sundays 03:00 UTC',
+    when: 'Run when Quick Swaps needs fresh suggestions for new meta cards',
+  },
+};
+
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [pinboard, setPinboard] = useState<Pinboard | null>(null);
@@ -86,6 +95,7 @@ export default function CommandCenterPage() {
   const [mulliganDays, setMulliganDays] = useState<MulliganDays>(7);
   const [cronLastRun, setCronLastRun] = useState<Record<string, string>>({});
   const [cronRunBusy, setCronRunBusy] = useState<string | null>(null);
+  const [otherCronRunBusy, setOtherCronRunBusy] = useState<string | null>(null);
   const [reportRunBusy, setReportRunBusy] = useState<'daily' | 'weekly' | null>(null);
   const [opsReports, setOpsReports] = useState<{ latest_daily?: { created_at: string; status: string }; latest_weekly?: { created_at: string; status: string } } | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
@@ -107,7 +117,7 @@ export default function CommandCenterPage() {
         fetch('/api/admin/ai-usage/summary?days=7&limit=5000', { cache: 'no-store' }),
         fetch(`/api/admin/pro-gate-analytics?range=${proGateRange}`, { cache: 'no-store' }),
         fetch(`/api/admin/mulligan/analytics?days=${mulliganDays}`, { cache: 'no-store' }),
-        fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards', { cache: 'no-store' }),
+        fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards&key=job:last:budget-swaps-update', { cache: 'no-store' }),
         fetch('/api/admin/ops-reports/list?limit=5', { cache: 'no-store' }),
       ]);
 
@@ -175,6 +185,28 @@ export default function CommandCenterPage() {
       alert(`❌ ${name} failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setCronRunBusy(null);
+    }
+  }
+
+  async function runOtherCron(name: (typeof OTHER_CRON_KEYS)[number]) {
+    setOtherCronRunBusy(name);
+    try {
+      const r = await fetch('/api/admin/cron/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cron: name }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        load();
+        alert(`✅ ${name} completed. ${j.added != null ? `Added: ${j.added} new swaps` : j.message || ''}`);
+      } else {
+        alert(`❌ ${name} failed: ${j?.error || r.statusText}`);
+      }
+    } catch (e: unknown) {
+      alert(`❌ ${name} failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setOtherCronRunBusy(null);
     }
   }
 
@@ -502,6 +534,49 @@ export default function CommandCenterPage() {
         </div>
       </section>
 
+      {/* Other / Weekly Crons */}
+      <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Other / Weekly Crons</h2>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              Weekly jobs. budget-swaps-update runs Sundays 03:00 UTC. Trigger here to refresh Quick Swaps early.
+            </p>
+          </div>
+          <Link href="/admin/budget-swaps" className="text-xs text-blue-400 hover:text-blue-300">
+            Budget Swaps Admin →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+          {OTHER_CRON_KEYS.map((name) => (
+            <div key={name} className="p-2 rounded bg-neutral-800/60 border border-neutral-700 flex flex-col gap-2">
+              <div className="font-mono text-neutral-300">{name}</div>
+              <div className="text-[11px] text-neutral-500 leading-tight">
+                {OTHER_CRON_INFO[name].eli5}
+              </div>
+              <div className="text-[10px] text-neutral-600">
+                Auto: {OTHER_CRON_INFO[name].schedule}
+              </div>
+              <div className="text-[10px] text-neutral-600 italic">
+                Run when: {OTHER_CRON_INFO[name].when}
+              </div>
+              <div className="text-neutral-500">
+                Last: {cronLastRun[`job:last:${name}`]
+                  ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString()
+                  : '—'}
+              </div>
+              <button
+                onClick={() => runOtherCron(name)}
+                disabled={!!otherCronRunBusy}
+                className="px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-xs disabled:opacity-50 w-fit"
+              >
+                {otherCronRunBusy === name ? 'Running…' : 'Run now'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Manual checks (from Ops — daily/weekly reports) */}
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
         <div className="flex items-center justify-between mb-3">
@@ -557,6 +632,9 @@ export default function CommandCenterPage() {
 
       {/* Quick links */}
       <div className="flex flex-wrap gap-2 pt-2">
+        <Link href="/admin/budget-swaps" className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
+          Budget Swaps
+        </Link>
         <Link href="/admin/ops" className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
           Ops
         </Link>

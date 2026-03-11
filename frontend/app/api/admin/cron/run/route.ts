@@ -7,6 +7,7 @@ const ALLOWED_CRONS = [
   "commander-aggregates",
   "meta-signals",
   "top-cards",
+  "budget-swaps-update",
 ] as const;
 
 export async function POST(req: NextRequest) {

@@ -115,6 +115,10 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
     }
 
     if (added === 0) {
+      await admin.from("app_config").upsert(
+        { key: "job:last:budget-swaps-update", value: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
       return NextResponse.json({
         ok: true,
         message: "No new entries to add",
@@ -152,6 +156,11 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
     } catch {
       // Ignore audit errors
     }
+
+    await admin.from("app_config").upsert(
+      { key: "job:last:budget-swaps-update", value: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
 
     return NextResponse.json({
       ok: true,

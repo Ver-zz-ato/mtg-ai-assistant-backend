@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { ELI5 } from '@/components/AdminHelp';
@@ -15,6 +16,7 @@ export default function BudgetSwapsAdminPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastCronRun, setLastCronRun] = useState<string | null>(null);
 
   useEffect(() => {
     loadSwaps();
@@ -22,13 +24,19 @@ export default function BudgetSwapsAdminPage() {
 
   const loadSwaps = async () => {
     try {
-      const response = await fetch('/api/admin/budget-swaps');
-      const data = await response.json();
+      const [swapRes, configRes] = await Promise.all([
+        fetch('/api/admin/budget-swaps'),
+        fetch('/api/admin/config?key=job:last:budget-swaps-update'),
+      ]);
+      const data = await swapRes.json();
+      const configData = await configRes.json().catch(() => ({}));
       if (data.ok) {
         setSwaps(data.swaps || {});
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to load swaps' });
       }
+      const ts = configData?.config?.['job:last:budget-swaps-update'];
+      setLastCronRun(ts || null);
     } catch (e: any) {
       setMessage({ type: 'error', text: e.message || 'Failed to load swaps' });
     } finally {
@@ -116,6 +124,15 @@ export default function BudgetSwapsAdminPage() {
           'Add/edit pairs here. Stored in app_config (DB). A weekly cron can auto-update with AI suggestions.',
           'Use when: adding new popular expensive cards, updating meta-relevant swaps.'
         ]} />
+        {lastCronRun && (
+          <p className="text-xs text-neutral-500 mt-2">
+            Last AI cron run: {new Date(lastCronRun).toLocaleString()}. Trigger manually from{' '}
+            <Link href="/admin/JustForDavy/command-center" className="text-blue-400 hover:text-blue-300 underline">
+              Daily Command Center
+            </Link>
+            .
+          </p>
+        )}
       </div>
 
       {message && (
