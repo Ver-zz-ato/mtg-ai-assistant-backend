@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 
-// Client component for interactive buttons
+// Client components
 const DeckBuilderActionButtons = dynamic(() => import('../../components/DeckBuilderActionButtons'));
+const CommanderBuilderModules = dynamic(() => import('../../components/CommanderBuilderModules'));
 
 export const metadata: Metadata = {
   title: 'Free AI Commander Deck Builder | MTG Deck Analyzer - ManaTap AI',
@@ -132,6 +133,9 @@ export default function HeroLandingPage() {
             </div>
           </div>
         </div>
+
+        {/* Modules A, B, C, D */}
+        <CommanderBuilderModules />
 
         {/* Features Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

@@ -7,12 +7,14 @@ import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
 import ShareButton from "@/components/ShareButton";
 import DeckVersionHistory from "@/components/DeckVersionHistory";
+import FinishDeckPanel from "@/components/FinishDeckPanel";
 
-export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: string; isPublic: boolean; isPro: boolean }) {
+export default function FunctionsPanel({ deckId, isPublic, isPro, cardCount = 0 }: { deckId: string; isPublic: boolean; isPro: boolean; cardCount?: number }) {
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [allPanelsHidden, setAllPanelsHidden] = React.useState(false);
   const [pub, setPub] = React.useState<boolean>(isPublic);
   const [fixOpen, setFixOpen] = React.useState(false);
+  const [showFinishDeck, setShowFinishDeck] = React.useState(false);
   React.useEffect(() => { setPub(isPublic); }, [isPublic]);
   React.useEffect(() => {
     const h = (e: any) => { if (typeof e?.detail?.isPublic === 'boolean') setPub(!!e.detail.isPublic); };
@@ -60,6 +62,13 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
       </div>
       {expanded && (
         <div className="mt-3 space-y-2.5">
+          {/* Finish This Deck */}
+          <button
+            onClick={() => setShowFinishDeck(true)}
+            className="w-full px-3 py-2 bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:from-purple-600 hover:to-pink-600 border border-purple-600/50 hover:border-purple-500 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 text-white"
+          >
+            Finish This Deck
+          </button>
           {/* Compare button - reduced visual weight */}
           <Link 
             href={`/compare-decks?deck1=${deckId}`}
@@ -110,6 +119,13 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
         </div>
       )}
       {fixOpen && <FixNamesModal deckId={deckId} open={fixOpen} onClose={()=>setFixOpen(false)} />}
+      {showFinishDeck && (
+        <FinishDeckPanel
+          deckId={deckId}
+          cardCount={cardCount}
+          onClose={() => setShowFinishDeck(false)}
+        />
+      )}
     </section>
   );
 }

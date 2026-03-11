@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const revalidate = 3600; // 1 hour
 
 const DAY = 24 * 60 * 60 * 1000;

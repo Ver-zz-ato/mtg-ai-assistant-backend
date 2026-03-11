@@ -284,17 +284,20 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function handleGenerate(req: NextRequest) {
-  // Check authorization
+  // Check authorization: Vercel cron (x-vercel-id), x-cron-key, or seed/force params
   const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
   const hdr = req.headers.get("x-cron-key") || "";
+  const vercelId = req.headers.get("x-vercel-id");
   const isDev = process.env.NODE_ENV === "development";
-  
-  // Check for force flag (admin bypass) or seed flag (page load when empty)
+
   const url = new URL(req.url);
   const forceGenerate = url.searchParams.get('force') === 'true';
   const seedWhenEmpty = url.searchParams.get('seed') === 'true';
-  
-  if (!isDev && !forceGenerate && !seedWhenEmpty && cronKey && hdr !== cronKey) {
+
+  const isFromVercelCron = !!vercelId;
+  const hasValidCronKey = cronKey && hdr === cronKey;
+
+  if (!isDev && !forceGenerate && !seedWhenEmpty && !isFromVercelCron && !hasValidCronKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   

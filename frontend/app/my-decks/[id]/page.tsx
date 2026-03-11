@@ -287,7 +287,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} healthMetrics={core} format={format} />; })()}
           {/* key forces remount when ?r= changes */}
           {/* Functions panel */}
-          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} cardCount={arr.reduce((s,c)=>s+(c.qty||0),0)} />
           <Client 
             deckId={id} 
             isPro={isPro} 

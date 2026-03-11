@@ -1,0 +1,82 @@
+---
+description: Commander/EDH legality rules for deck analysis and card validation
+globs: frontend/lib/deck/**/*.ts,frontend/lib/**/deck*.ts,**/scryfall*.ts
+alwaysApply: false
+---
+
+# Commander Legality Rules (MTG)
+
+When evaluating decks or implementing commander-related logic, use these rules.
+
+## 1. Default Rule
+
+A card is a legal commander if and only if:
+
+- `type_line` contains `"Legendary Creature"`
+
+Example: `Legendary Creature — Human Shaman` → commander legal.
+
+## 2. Text Override Rule
+
+If `oracle_text` contains `"This card can be your commander"` → commander legal (even if not a creature).
+
+Examples: Grist, the Hunger Tide; Teferi, Temporal Archmage; Baral and Kari Zev.
+
+```sql
+if oracle_text ILIKE '%can be your commander%' then commander_legal = true
+```
+
+## 3. Background / Partner Mechanic
+
+If `oracle_text` contains any of:
+
+- `"Choose a Background"`
+- `"Partner"` or `"Partner with"`
+- `"Friends forever"`
+- `"Doctor's companion"`
+
+→ commander_legal = true. These allow two commanders (Background pairs with a legendary).
+
+## 4. Non-Legal by Default
+
+Legendary Artifact, Legendary Enchantment, Legendary Land, Legendary Artifact — Vehicle are **not** legal commanders unless they match rule #2.
+
+Example: **Hearthhull, the Worldseed** (Legendary Artifact — Vehicle) is NOT legal unless oracle_text says "can be your commander".
+
+## 5. Planeswalkers
+
+Planeswalkers cannot be commanders unless oracle text says: `"This planeswalker can be your commander."`
+
+## 6. Commander Color Identity
+
+Color identity = mana symbols in:
+
+- mana cost
+- rules text
+- color indicator
+
+Example: Kenrith, the Returned King = WUBRG.
+
+Hearthhull, the Worldseed = B/R/G (Jund).
+
+## 7. Deck Construction (Commander)
+
+- Deck size = exactly 100 cards (commander included)
+- Singleton except basic lands
+- All cards must match commander color identity
+
+## 8. Commander Damage Rule
+
+21 combat damage from a single commander = player loses.
+
+## 9. Data Source
+
+Use `scryfall_cache` fields: `type_line`, `oracle_text`, `mana_cost`, `color_identity`, `legalities`. Commander legality is separate from `legalities` (Commander ban list).
+
+## 10. Optional Optimization
+
+Cache `is_commander_legal` boolean during Scryfall import.
+
+## AI Instruction
+
+When evaluating decks: always verify the commander is legal. If illegal → explain why and suggest similar legal commanders when possible.

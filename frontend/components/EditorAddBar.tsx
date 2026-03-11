@@ -125,7 +125,7 @@ export default function EditorAddBar({
           className="w-full rounded border border-neutral-700 bg-black/40 px-3 py-1 outline-none"
         />
         {open && (
-          <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded border border-neutral-700 bg-neutral-900 shadow-lg">
+          <div className="absolute z-[100] mt-1 max-h-64 w-full overflow-auto rounded border border-neutral-700 bg-neutral-900 shadow-lg">
             {items.map((it) => (
               <button
                 key={it.name}

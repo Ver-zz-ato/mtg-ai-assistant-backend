@@ -284,7 +284,7 @@ function CollectionsPageClientBody() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-4">
+    <main className="mx-auto max-w-7xl p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Collections</h1>
@@ -303,7 +303,7 @@ function CollectionsPageClientBody() {
       </div>
       {nameError && (<p className="text-xs text-red-500 mt-1">{nameError}</p>)}
 
-      {/* Grid */}
+      {/* Content: grid + sidebar */}
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {Array.from({ length: 6 }).map((_,i)=>(<CardSkeleton key={i}/>))}
@@ -311,7 +311,9 @@ function CollectionsPageClientBody() {
       )}
 
       {!loading && collections.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {collections.map((c) => {
             const s = stats[c.id];
             const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
@@ -394,6 +396,18 @@ function CollectionsPageClientBody() {
               </div>
             );
           })}
+            </div>
+          </div>
+          {/* Right sidebar - Build a Deck promotional CTA */}
+          <aside className="lg:w-[300px] shrink-0">
+            <div className="rounded-xl border border-purple-800/50 bg-gradient-to-br from-purple-950/60 to-indigo-950/60 p-5">
+              <h3 className="font-semibold text-purple-200 mb-2">Build a Deck From Your Collection</h3>
+              <p className="text-sm text-neutral-300 leading-relaxed">
+                Pick a collection below and use <strong>Build a Deck From This Collection</strong> to create Commander decks using cards you already own.
+              </p>
+              <p className="text-xs text-neutral-400 mt-3">Open any collection to find the option.</p>
+            </div>
+          </aside>
         </div>
       )}
 

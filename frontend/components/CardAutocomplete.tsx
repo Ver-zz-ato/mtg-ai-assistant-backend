@@ -132,7 +132,7 @@ export default function CardAutocomplete({
         className="w-full rounded border border-gray-600 bg-transparent px-2 py-1 outline-none"
       />
       {open && (
-        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded border border-gray-700 bg-black/90 shadow-lg backdrop-blur">
+        <div className="absolute z-[100] mt-1 max-h-64 w-full overflow-auto rounded border border-gray-700 bg-black/90 shadow-lg backdrop-blur">
           {loading && (
             <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>
           )}
