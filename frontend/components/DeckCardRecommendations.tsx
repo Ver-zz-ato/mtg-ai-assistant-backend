@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useHoverPreview } from '@/components/shared/HoverPreview';
 
 interface Recommendation {
   name: string;
   reason: string;
   imageUrl?: string;
+  imageNormal?: string;
   price?: number;
 }
 
@@ -15,6 +17,7 @@ interface DeckCardRecommendationsProps {
 }
 
 export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardRecommendationsProps) {
+  const { preview: hoverPreview, bind } = useHoverPreview();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,13 +123,14 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
               key={index}
               className="flex gap-2 p-3 rounded-lg bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors group border border-neutral-700/30"
             >
-              {/* Card Image */}
+              {/* Card Image - hover shows full-size */}
               {rec.imageUrl && (
-                <div className="w-14 h-20 flex-shrink-0 bg-neutral-800 rounded overflow-hidden shadow-lg">
+                <div className="w-14 h-20 flex-shrink-0 bg-neutral-800 rounded overflow-hidden shadow-lg cursor-pointer">
                   <img
                     src={rec.imageUrl}
                     alt={rec.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                    {...(bind(rec.imageNormal || rec.imageUrl) as React.HTMLAttributes<HTMLImageElement>)}
                   />
                 </div>
               )}
@@ -160,6 +164,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
           ))}
         </div>
       )}
+      {hoverPreview}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { sanitizeName } from "@/lib/profanity";
+import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 
@@ -154,14 +155,15 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are an expert Magic: The Gathering deck builder. Your task is to output a valid Commander decklist.
 
-Rules:
+CRITICAL RULES:
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
-2. For Commander format: exactly 100 cards total, singleton except for basic lands.
-3. All cards must be legal in Commander ( no silver-bordered, no banned cards).
-4. Respect the commander's color identity.
-5. Prefer cards from the user's collection when provided; only add cards outside the collection if needed for a coherent deck.
-6. Include ramp (mana rocks, land ramp), card draw, removal, and win conditions.
-7. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
+2. For Commander format: EXACTLY 100 cards total. Not 99, not 101. Count must be 100.
+3. Every card MUST be within the commander's color identity. NO cards with colors outside the commander's identity (e.g. if commander is WUBG, ZERO red cards - no Lightning Bolt, no Boros Signet, no Izzet Signet, no Rakdos Signet, no Blasphemous Act).
+4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
+5. All cards must be legal in Commander (no silver-bordered, no banned cards).
+6. Prefer cards from the user's collection when provided; only add cards outside the collection if needed for a coherent deck.
+7. Include ramp, card draw, removal, and win conditions.
+8. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
 
     const userPrompt = `Build a Commander deck with these constraints:
 
@@ -174,7 +176,7 @@ Playstyle: ${playstyle || "general"}
 Power level: ${powerLevel}
 Budget: ${budget}
 
-Output the full 100-card decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
+Output EXACTLY 100 cards. Double-check: no cards outside the commander's color identity. Output the decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -219,7 +221,7 @@ Output the full 100-card decklist as plain text, one line per card (e.g. "1 Sol 
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content ?? "";
     const parsed = parseDeckText(content);
-    const cards = aggregateCards(parsed);
+    let cards = aggregateCards(parsed);
 
     if (cards.length < 30) {
       return NextResponse.json(
@@ -228,57 +230,47 @@ Output the full 100-card decklist as plain text, one line per card (e.g. "1 Sol 
       );
     }
 
-    const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const commanderName = commander || cards[0]?.name || "Unknown";
-    const colors = await getCommanderColorIdentity(commanderName);
+    const allowedColors = (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase());
+    const allNames = cards.map((c) => c.name);
+    const details = await getDetailsForNamesCached(allNames);
+
+    // Filter out color identity violations
+    const filtered = cards.filter((c) => {
+      const entry = details.get(norm(c.name));
+      if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
+      return isWithinColorIdentity(entry as any, allowedColors);
+    });
+
+    // Trim to exactly 100 cards (prioritize order from AI; remove extras from end)
+    if (filtered.length > 100) {
+      cards = filtered.slice(0, 100);
+    } else {
+      cards = filtered;
+    }
+
+    const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
+    const colors = allowedColors;
+    const overallAim = playstyle
+      ? `A ${powerLevel} ${playstyle} Commander deck led by ${commanderName}.`
+      : `A ${powerLevel} Commander deck led by ${commanderName}.`;
     const title = sanitizeName(
       commander ? `${commander} (AI)` : `AI Deck from Collection`,
       120
     );
 
-    const { data: deckRow, error: deckErr } = await supabase
-      .from("decks")
-      .insert({
-        user_id: user.id,
-        title,
-        format: format || "Commander",
-        plan: "Optimized",
-        colors: colors.length > 0 ? colors : null,
-        commander: commanderName,
-        deck_text: deckText,
-        is_public: false,
-      })
-      .select("id")
-      .single();
-
-    if (deckErr) {
-      console.error("[generate-from-collection] Deck insert error:", deckErr);
-      return NextResponse.json({ ok: false, error: deckErr.message }, { status: 500 });
-    }
-
-    const deckId = deckRow.id as string;
-    const rows = cards.map((c) => ({ deck_id: deckId, name: c.name, qty: c.qty }));
-    const { error: dcErr } = await supabase.from("deck_cards").upsert(rows, { onConflict: "deck_id,name" });
-
-    if (dcErr) {
-      console.error("[generate-from-collection] deck_cards upsert error:", dcErr);
-      // Deck exists; still return success
-    }
-
-    try {
-      const { captureServer } = await import("@/lib/server/analytics");
-      await captureServer("deck_generated_from_collection", {
-        deck_id: deckId,
-        user_id: user.id,
-        collection_id: collectionId || null,
-        commander: commanderName,
-      });
-    } catch {}
-
+    // Return preview only; client will call decks/create when user confirms
     return NextResponse.json({
       ok: true,
-      deckId,
-      url: `/my-decks/${deckId}`,
+      preview: true,
+      decklist: cards,
+      commander: commanderName,
+      colors,
+      overallAim,
+      title,
+      deckText,
+      format: format || "Commander",
+      plan: "Optimized",
     });
   } catch (e: any) {
     console.error("[generate-from-collection]", e);

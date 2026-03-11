@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getDetailsForNamesCached } from '@/lib/server/scryfallCache';
+import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
 
 export const runtime = 'nodejs';
 
@@ -36,6 +38,7 @@ export async function GET(
       name: string;
       reason: string;
       imageUrl?: string;
+      imageNormal?: string;
       price?: number;
     }> = [];
 
@@ -73,8 +76,12 @@ export async function GET(
       }
     }
 
-    // Determine deck colors (from colors field or fallback to common colors)
-    const colors = deck.colors || ['W', 'U', 'B', 'R', 'G'];
+    // Commander: use deck colors (commander identity). 60-card: allow broader for suggestions.
+    const deckFormat = (deck.format || 'commander').toLowerCase();
+    const isCommander = deckFormat === 'commander';
+    const colors = Array.isArray(deck.colors) && deck.colors.length > 0
+      ? deck.colors.map((c: string) => c.toUpperCase())
+      : isCommander ? [] : ['W', 'U', 'B', 'R', 'G'];
 
     // Recommend by deck archetype and colors
     const staplesByColor: Record<string, Array<{ name: string; reason: string }>> = {
@@ -133,12 +140,22 @@ export async function GET(
     });
 
     // Filter out cards already in deck
-    let filtered = candidates.filter(card => 
-      !deckCards.has(card.name.toLowerCase())
-    );
+    let filtered = candidates.filter(card => !deckCards.has(card.name.toLowerCase()));
 
-    // Filter by format legality
-    const deckFormat = (deck.format || 'commander').toLowerCase();
+    // Commander: filter by color identity (ensure no off-color cards)
+    if (isCommander && colors.length > 0) {
+      const cardNames = filtered.map(c => c.name);
+      const details = await getDetailsForNamesCached(cardNames);
+      const norm = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+      filtered = filtered.filter(card => {
+        const key = norm(card.name);
+        const entry = details.get(key);
+        if (!entry) return true; // Unknown card: keep (e.g. cache miss)
+        return isWithinColorIdentity(entry as any, colors);
+      });
+    }
+
+    // Filter by format legality (non-Commander)
     if (deckFormat !== 'commander') {
       // Check legality in scryfall_cache
       const cardNames = filtered.map(c => c.name);
@@ -189,6 +206,7 @@ export async function GET(
 
         if (cached) {
           rec.imageUrl = cached.small || cached.normal;
+          rec.imageNormal = cached.normal || cached.small;
         }
 
         // Get price from price cache

@@ -8,6 +8,11 @@
   100% { background-position: 200% 0; }
 }
 
+@keyframes progress-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

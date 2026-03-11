@@ -150,11 +150,27 @@ export default function PricingPage() {
       category: 'ai'
     },
     {
+      icon: '🎴',
+      title: 'AI Deck Generator',
+      description: 'Generate full Commander decks from scratch with preview before creating — Commander, archetype, or playstyle quiz',
+      free: 'Preview + create',
+      pro: 'Same + rate limits',
+      category: 'ai'
+    },
+    {
       icon: '💡',
       title: 'AI Budget Swaps',
       description: 'Find cheaper alternatives for expensive cards without losing deck power',
       free: '5 swaps/day',
       pro: 'Higher limit + bulk apply',
+      category: 'ai'
+    },
+    {
+      icon: '🃏',
+      title: 'Smart Card Suggestions',
+      description: 'Deck-page recommendations respect color identity and format — hover card art for full image',
+      free: true,
+      pro: true,
       category: 'ai'
     },
     {
@@ -204,6 +220,22 @@ export default function PricingPage() {
       description: 'Compare two decks side-by-side to see differences and overlaps',
       free: 'Basic compare',
       pro: 'Advanced diff + stats',
+      category: 'deck'
+    },
+    {
+      icon: '✨',
+      title: 'Finish This Deck',
+      description: 'AI suggests cards to fill gaps when your Commander deck is short of 100 cards',
+      free: true,
+      pro: true,
+      category: 'deck'
+    },
+    {
+      icon: '🃏',
+      title: 'Build Deck From Collection',
+      description: 'AI generates Commander decks from cards you own — guided, quick, or quiz-based',
+      free: '3/day',
+      pro: '20/day',
       category: 'deck'
     },
     // Pricing & Collection

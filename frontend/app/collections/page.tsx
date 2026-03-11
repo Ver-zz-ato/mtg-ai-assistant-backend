@@ -398,14 +398,36 @@ function CollectionsPageClientBody() {
           })}
             </div>
           </div>
-          {/* Right sidebar - Build a Deck promotional CTA */}
-          <aside className="lg:w-[300px] shrink-0">
-            <div className="rounded-xl border border-purple-800/50 bg-gradient-to-br from-purple-950/60 to-indigo-950/60 p-5">
-              <h3 className="font-semibold text-purple-200 mb-2">Build a Deck From Your Collection</h3>
-              <p className="text-sm text-neutral-300 leading-relaxed">
-                Pick a collection below and use <strong>Build a Deck From This Collection</strong> to create Commander decks using cards you already own.
+          {/* Right sidebar - Build a Deck feature highlight */}
+          <aside className="lg:w-[400px] xl:w-[420px] shrink-0">
+            <div className="rounded-2xl border-2 border-purple-500/50 bg-gradient-to-br from-purple-950/90 via-indigo-950/70 to-neutral-950 p-6 shadow-xl shadow-purple-500/10 lg:sticky lg:top-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-4xl" aria-hidden>✨</span>
+                <h3 className="text-xl font-bold text-white">Build a Deck From Your Collection</h3>
+              </div>
+              <p className="text-neutral-200 leading-relaxed mb-4">
+                Use AI to create Commander decks from cards you already own. Pick any collection below, open it, and click <strong className="text-purple-300">Build a Deck From This Collection</strong>.
               </p>
-              <p className="text-xs text-neutral-400 mt-3">Open any collection to find the option.</p>
+              <div className="space-y-3 text-sm text-neutral-300 mb-5">
+                <p className="font-medium text-purple-200">How it works:</p>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400 font-bold">1.</span>
+                    Open a collection
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400 font-bold">2.</span>
+                    Choose guided (pick commander + playstyle) or &quot;Build It For Me&quot; (AI chooses for you)
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400 font-bold">3.</span>
+                    Review the AI-generated deck preview, then create or discard
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-purple-900/30 border border-purple-500/30 p-3 text-sm text-neutral-200">
+                <strong className="text-white">Pro tip:</strong> The more cards in your collection, the better the AI can match your preferences.
+              </div>
             </div>
           </aside>
         </div>

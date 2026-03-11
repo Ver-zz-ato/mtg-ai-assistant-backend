@@ -46,8 +46,10 @@
 | **Publish** | Make deck public for others to browse |
 | **Versioning** | Save snapshots, compare versions |
 | **Parse & fix names** | Auto-correct card names (fuzzy matching) |
+| **Finish This Deck** | AI suggests cards to fill gaps when deck is short of 100 (Commander) or 60; available in Build Assistant and in insufficient-cards warning banner |
+| **Build Deck From Collection** | AI generates Commander decks from cards you own — guided (pick commander), quick ("Build It For Me"), or playstyle quiz; preview before creating |
 
-*Pages: `/my-decks`, `/new-deck`, `/decks/[id]`, `/decks/[id]/edit`*
+*Pages: `/my-decks`, `/new-deck`, `/decks/[id]`, `/decks/[id]/edit`, `/collections`, `/collections/[id]`*
 
 ---
 
@@ -60,8 +62,10 @@
 | **Health scan** | Quick deck health check | 10/day | 50/day |
 | **Suggestion why** | "Explain why this card is recommended" | 20/day | 100/day |
 | **Deck compare AI** | AI compares two decks (strengths, differences) | — | 20/day |
+| **Card suggestions** | Deck-page recommendations respect color identity and format; hover card art for full image | ✅ | ✅ |
+| **AI Deck Generator** | Generate full Commander decks (Commander page modules A/B/C/D); loading state + preview modal before creating | ✅ | Rate limited |
 
-*Routes: `/api/deck/analyze`, `/api/deck/health-suggestions`, `/api/deck/suggestion-why`, `/api/deck/compare-ai`*
+*Routes: `/api/deck/analyze`, `/api/deck/health-suggestions`, `/api/recommendations/deck/[id]`, `/api/deck/generate-from-collection`*
 
 ---
 

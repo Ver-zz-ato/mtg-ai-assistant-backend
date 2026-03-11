@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import FinishDeckPanel from "@/components/FinishDeckPanel";
 
 type FormatCardCountBannerProps = {
   deckId: string;
@@ -17,6 +18,7 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
   const [cardCount, setCardCount] = React.useState<number | null>(null);
   const [violation, setViolation] = React.useState<{ type: 'too_many' | 'too_few' | null; expected: number; actual: number } | null>(null);
   const [dismissed, setDismissed] = React.useState(false);
+  const [showFinishDeck, setShowFinishDeck] = React.useState(false);
 
   const formatLower = format?.toLowerCase() || '';
   const shouldCheck = formatLower && ['commander', 'standard', 'modern', 'pioneer', 'pauper'].includes(formatLower);
@@ -130,6 +132,17 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
                 <span> Remove <strong>{difference} card{difference !== 1 ? 's' : ''}</strong> to meet the format requirement.</span>
               )}
             </div>
+            {isTooFew && formatLower === 'commander' && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowFinishDeck(true)}
+                  className="inline-flex flex-col items-start gap-0.5 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium text-sm transition-colors shadow-md text-left"
+                >
+                  <span>✨ Finish This Deck</span>
+                  <span className="text-xs font-normal text-purple-200/90">AI suggests cards to fill the gap</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <button
@@ -140,6 +153,13 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
           ✕
         </button>
       </div>
+      {showFinishDeck && (
+        <FinishDeckPanel
+          deckId={deckId}
+          cardCount={violation.actual}
+          onClose={() => setShowFinishDeck(false)}
+        />
+      )}
     </div>
   );
 }

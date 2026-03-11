@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
 import PlaystyleQuizModal from "./PlaystyleQuizModal";
+import DeckGenerationResultsModal, { type DeckPreviewResult } from "./DeckGenerationResultsModal";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
 
@@ -37,6 +38,8 @@ export default function CommanderBuilderModules() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [moduleDLoading, setModuleDLoading] = useState(false);
   const [moduleDError, setModuleDError] = useState<string | null>(null);
+  const [moduleDPreview, setModuleDPreview] = useState<DeckPreviewResult | null>(null);
+  const [moduleDCreating, setModuleDCreating] = useState(false);
   const [moduleCLoading, setModuleCLoading] = useState(false);
   const [commander, setCommander] = useState("");
   const [playstyle, setPlaystyle] = useState("Value Engine");
@@ -73,11 +76,50 @@ export default function CommanderBuilderModules() {
         }
         throw new Error(json?.error || "Generation failed");
       }
-      router.push(json.url || `/my-decks/${json.deckId}`);
+      if (json.preview && json.decklist && json.commander) {
+        setModuleDPreview({
+          decklist: json.decklist,
+          commander: json.commander,
+          colors: json.colors || [],
+          overallAim: json.overallAim || `A Commander deck led by ${json.commander}.`,
+          title: json.title || `${json.commander} (AI)`,
+          deckText: json.deckText || "",
+          format: json.format || "Commander",
+          plan: json.plan || "Optimized",
+        });
+      } else {
+        router.push(json.url || `/my-decks/${json.deckId}`);
+      }
     } catch (e: unknown) {
       setModuleDError(e instanceof Error ? e.message : "Generation failed");
     } finally {
       setModuleDLoading(false);
+    }
+  };
+
+  const handleModuleDCreateDeck = async () => {
+    if (!moduleDPreview) return;
+    setModuleDCreating(true);
+    try {
+      const res = await fetch("/api/decks/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: moduleDPreview.title,
+          format: moduleDPreview.format,
+          plan: moduleDPreview.plan,
+          colors: moduleDPreview.colors,
+          deck_text: moduleDPreview.deckText,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to create deck");
+      setModuleDPreview(null);
+      router.push(`/my-decks/${json.id}`);
+    } catch (e) {
+      setModuleDError(e instanceof Error ? e.message : "Failed to create deck");
+    } finally {
+      setModuleDCreating(false);
     }
   };
 
@@ -109,7 +151,21 @@ export default function CommanderBuilderModules() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative">
+      {moduleDLoading && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20 rounded-2xl"
+          aria-busy="true"
+        >
+          <p className="text-white font-medium mb-4">Analyzing and generating deck…</p>
+          <div className="w-64 h-2 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full w-1/2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
+              style={{ animation: "progress-bar-slide 1.5s ease-in-out infinite" }}
+            />
+          </div>
+        </div>
+      )}
       <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 dark:text-white mb-2">
         Build Your Commander Deck
       </h2>
@@ -280,6 +336,15 @@ export default function CommanderBuilderModules() {
           )}
         </div>
       </div>
+
+      {moduleDPreview && (
+        <DeckGenerationResultsModal
+          preview={moduleDPreview}
+          onClose={() => setModuleDPreview(null)}
+          onCreateDeck={handleModuleDCreateDeck}
+          isCreating={moduleDCreating}
+        />
+      )}
     </div>
   );
 }

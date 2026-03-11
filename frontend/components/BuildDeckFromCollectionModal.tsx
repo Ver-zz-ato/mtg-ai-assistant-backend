@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
 import { useProStatus } from "@/hooks/useProStatus";
+import DeckGenerationResultsModal, { type DeckPreviewResult } from "./DeckGenerationResultsModal";
 import {
   QUIZ_QUESTIONS,
   calculateProfile,
@@ -55,7 +56,9 @@ export default function BuildDeckFromCollectionModal({
     })();
   }, [collectionId]);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DeckPreviewResult | null>(null);
 
   // Guided mode
   const [commander, setCommander] = useState("");
@@ -102,8 +105,20 @@ export default function BuildDeckFromCollectionModal({
         }
         throw new Error(json?.error || "Generation failed");
       }
-      onClose();
-      router.push(json.url || `/my-decks/${json.deckId}`);
+      if (json.preview && json.decklist && json.commander) {
+        setPreview({
+          decklist: json.decklist,
+          commander: json.commander,
+          colors: json.colors || [],
+          overallAim: json.overallAim || `A Commander deck led by ${json.commander}.`,
+          title: json.title || `${json.commander} (AI)`,
+          deckText: json.deckText || "",
+          format: json.format || "Commander",
+          plan: json.plan || "Optimized",
+        });
+      } else {
+        onClose();
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Generation failed");
     } finally {
@@ -163,9 +178,60 @@ export default function BuildDeckFromCollectionModal({
   const commandersToShow =
     commandersInCollection.length > 0 ? commandersInCollection : quizCommanders;
 
+  const handleCreateDeckFromPreview = async () => {
+    if (!preview) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/decks/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: preview.title,
+          format: preview.format,
+          plan: preview.plan,
+          colors: preview.colors,
+          deck_text: preview.deckText,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to create deck");
+      onClose();
+      router.push(`/my-decks/${json.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create deck");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (preview) {
+    return (
+      <DeckGenerationResultsModal
+        preview={preview}
+        onClose={() => {
+          setPreview(null);
+          onClose();
+        }}
+        onCreateDeck={handleCreateDeckFromPreview}
+        isCreating={creating}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      {loading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 rounded-2xl">
+          <p className="text-white font-medium mb-4">Analyzing your collection and generating deck…</p>
+          <div className="w-64 h-2 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full w-1/2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+              style={{ animation: "progress-bar-slide 1.5s ease-in-out infinite" }}
+            />
+          </div>
+        </div>
+      )}
+      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">

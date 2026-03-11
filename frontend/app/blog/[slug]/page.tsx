@@ -63,6 +63,55 @@ const blogContent: Record<string, {
   icon: string;
   imageUrl?: string;
 }> = {
+  'deck-building-upgrades-march-2025': {
+    title: '✨ New Deck Building Features: Finish This Deck, Build From Collection & Smarter AI',
+    date: '2025-03-06',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '6 min read',
+    gradient: 'from-purple-600 via-pink-600 to-rose-600',
+    icon: '✨',
+    content: `
+# ✨ New Deck Building Features: Finish This Deck, Build From Collection & Smarter AI
+
+We've shipped several deck-building improvements designed to make it easier to complete decks, use your collection, and get smarter suggestions.
+
+## Finish This Deck
+
+When your Commander deck is short of 100 cards — or your 60-card deck is under 60 — you'll see a clear warning. Now we've added a **Finish This Deck** action in two places:
+
+1. **Build Assistant** — Under Quick Actions, next to Legality Check and Balance Curve. One click opens AI suggestions to fill the gap.
+2. **Insufficient cards banner** — When the warning appears, a purple **Finish This Deck** button is right there: *"AI suggests cards to fill the gap"*.
+
+The AI analyzes your deck's colors, ramp, draw, removal, and theme, then suggests cards that fit. Add them one by one or in bulk.
+
+## Build Deck From Collection
+
+Generate Commander decks from cards you already own. Pick a collection, then choose:
+
+- **Guided** — Choose commander, playstyle, power level, budget
+- **Build It For Me** — AI picks a commander and builds automatically
+- **Find My Playstyle** — Take a short quiz and get commander suggestions
+
+The flow has changed: instead of immediately creating a deck, you now get a **preview modal** first. See the commander (with art), the card list, and the deck's aim. You can **Create Deck** or **Discard** — no more surprise decks with too many cards or off-color slips.
+
+The same preview-before-create flow applies to the **AI Deck Generator** on the Commander deck builder page (Find My Playstyle, Commander Finder, Archetype Builder, Generate Deck).
+
+## Smarter Card Suggestions
+
+Deck-page card suggestions now:
+
+- **Respect color identity** — No more off-color recommendations for Commander
+- **Support hover preview** — Hover over the small card art to see the full card image
+
+## Under the Hood
+
+- AI deck generation now enforces **exactly 100 cards** and **strict commander color identity**
+- We've simplified the Build Assistant panel by removing History/Undo/Redo
+
+Try these features on [ManaTap AI](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
+`
+  },
   'devlog-23-days-soft-launch': {
     title: '🚀 Devlog: 23 Days Into Soft Launch',
     date: '2025-11-26',

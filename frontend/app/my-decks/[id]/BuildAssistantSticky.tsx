@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import AIDeckScanModal from "@/components/AIDeckScanModal";
-import { ProTagLink } from "@/components/ProBadge";
+import FinishDeckPanel from "@/components/FinishDeckPanel";
 import { useProStatus } from "@/hooks/useProStatus";
 
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
@@ -28,7 +28,7 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
   catch { try { window.dispatchEvent(new CustomEvent('toast', { detail: msg })); } catch { alert(msg); } }
 }
 
-export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string }){
+export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format, cardCount = 0 }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string; cardCount?: number }){
   const router = useRouter();
   const sp = useSearchParams();
   const { modelTier, modelLabel, upgradeMessage } = useProStatus();
@@ -48,6 +48,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [aiScanProgressStage, setAiScanProgressStage] = React.useState<string>('analyzing');
   const [aiScanSuggestions, setAiScanSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
   const [aiScanError, setAiScanError] = React.useState<string | null>(null);
+  const [showFinishDeck, setShowFinishDeck] = React.useState(false);
 
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
 
@@ -606,16 +607,13 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 </div>
                 <div className="text-xs opacity-70">{busy==='analyze' ? 'Computing...' : 'Update deck stats'}</div>
               </button>
-            </div>
-          </div>
-
-          {/* Undo / Redo (Pro) */}
-          <div className="text-[11px]">
-            <div className="opacity-80 mb-1">History</div>
-            <div className="flex items-center gap-2">
-              <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || history.length===0} onClick={undo}>Undo</button>
-              <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50" disabled={!isPro || future.length===0} onClick={redo}>Redo</button>
-              {!isPro && (<ProTagLink />)}
+              <button 
+                className="px-3 py-2 rounded-lg border border-purple-500/50 hover:bg-purple-900/30 bg-gradient-to-r from-purple-600/40 to-pink-600/40 text-left transition-colors" 
+                onClick={() => setShowFinishDeck(true)}
+              >
+                <div className="font-semibold text-xs">✨ Finish This Deck</div>
+                <div className="text-xs opacity-70">AI suggests cards to reach 100 (Commander) or 60</div>
+              </button>
             </div>
           </div>
         </div>
@@ -654,6 +652,17 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       />
 
       {/* Budget Swaps Threshold Popup */}
+      {showFinishDeck && (
+        <FinishDeckPanel
+          deckId={deckId}
+          cardCount={cardCount}
+          onClose={() => setShowFinishDeck(false)}
+          onCardsAdded={() => {
+            try { window.dispatchEvent(new Event('deck:changed')); } catch {}
+          }}
+        />
+      )}
+
       {swapThreshold && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>setSwapThreshold(null)}>
           <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-5 shadow-2xl max-w-sm w-full mx-4" onClick={(e)=>e.stopPropagation()}>

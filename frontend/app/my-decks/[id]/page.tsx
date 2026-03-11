@@ -284,10 +284,10 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
           </header>
           {/* Build Assistant (sticky) */}
-          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} healthMetrics={core} format={format} />; })()}
+          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} healthMetrics={core} format={format} cardCount={arr.reduce((s,c)=>s+(c.qty||0),0)} />; })()}
           {/* key forces remount when ?r= changes */}
           {/* Functions panel */}
-          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} cardCount={arr.reduce((s,c)=>s+(c.qty||0),0)} />
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
           <Client 
             deckId={id} 
             isPro={isPro} 
