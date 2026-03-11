@@ -9,6 +9,10 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardName } from "@/lib/deck/mtgValidators";
 import { hashStringSync } from "@/lib/guest-tracking";
 import { fetchCardsBatch, type SfCard } from "@/lib/deck/inference";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { tagCards } from "@/lib/deck/card-role-tags";
+import { buildDeckFacts, type DeckFacts } from "@/lib/deck/deck-facts";
+import { buildSynergyDiagnostics, type SynergyDiagnostics } from "@/lib/deck/synergy-diagnostics";
 
 export type DeckContextSummary = {
   deck_hash: string;
@@ -31,6 +35,9 @@ export type DeckContextSummary = {
   draw_cards?: string[];
   card_count: number;
   last_updated: string;
+  /** Deck intelligence (enrichment + tags + facts + synergy). Present when enrichment succeeds. */
+  deck_facts?: DeckFacts;
+  synergy_diagnostics?: SynergyDiagnostics;
 };
 
 export type BuildSummaryOptions = {
@@ -163,29 +170,109 @@ function inferWarningFlags(
   return flags;
 }
 
+const RAMP_TAGS = new Set(["ramp", "land_ramp", "mana_rock", "mana_dork"]);
+const DRAW_TAGS = new Set(["draw", "impulse_draw", "repeatable_draw"]);
+const REMOVAL_TAGS = new Set(["spot_removal", "counterspell", "board_wipe"]);
+
+function tallyFromTagged(
+  tagged: { name: string; qty: number; tags: { tag: string }[] }[],
+  deckFacts: DeckFacts
+): {
+  lands: number;
+  ramp: number;
+  draw: number;
+  removal: number;
+  wipes: number;
+  curve: number[];
+  ramp_cards: string[];
+  removal_cards: string[];
+  draw_cards: string[];
+} {
+  const rampCards: string[] = [];
+  const removalCards: string[] = [];
+  const drawCards: string[] = [];
+  for (const c of tagged) {
+    const tagNames = new Set(c.tags.map((t) => t.tag));
+    if ([...tagNames].some((t) => RAMP_TAGS.has(t))) rampCards.push(c.name);
+    if ([...tagNames].some((t) => DRAW_TAGS.has(t))) drawCards.push(c.name);
+    if (tagNames.has("spot_removal") || tagNames.has("counterspell")) removalCards.push(c.name);
+  }
+  return {
+    lands: deckFacts.land_count,
+    ramp: deckFacts.ramp_count,
+    draw: deckFacts.draw_count,
+    removal: deckFacts.interaction_count,
+    wipes: deckFacts.interaction_buckets.sweepers,
+    curve: deckFacts.curve_histogram,
+    ramp_cards: rampCards,
+    removal_cards: removalCards,
+    draw_cards: drawCards,
+  };
+}
+
 /**
- * Build DeckContextSummary from deck text. Fetches card data for tally/curve.
- * Includes card_names (unique, canonical) and card_count so the model can avoid suggesting existing cards.
+ * Build DeckContextSummary from deck text. Uses enrichment + tags when available; fallback to fetchCardsBatch.
  */
 export async function buildDeckContextSummary(
   deckText: string,
   options: BuildSummaryOptions = {}
 ): Promise<DeckContextSummary> {
   const format = options.format ?? "Commander";
-  const entries = parseDeckText(deckText).map((e) => ({ name: e.name, count: e.qty }));
-  const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).filter(Boolean);
-  const byName = await fetchCardsBatch(uniqueNames);
-
-  const { lands, ramp, draw, removal, wipes, curve, ramp_cards, removal_cards, draw_cards } = tally(entries, byName);
+  const commander = options.commander ?? null;
+  const entries = parseDeckText(deckText).map((e) => ({ name: e.name, count: e.qty, qty: e.qty }));
   const totalCards = entries.reduce((s, e) => s + e.count, 0);
-
   const cardNames = Array.from(new Set(entries.map((e) => e.name.trim().replace(/\s+/g, " "))));
   const hash = deckHash(deckText);
+
+  let lands: number;
+  let ramp: number;
+  let draw: number;
+  let removal: number;
+  let wipes: number;
+  let curve: number[];
+  let ramp_cards: string[];
+  let removal_cards: string[];
+  let draw_cards: string[];
+  let deck_facts: DeckFacts | undefined;
+  let synergy_diagnostics: SynergyDiagnostics | undefined;
+
+  try {
+    const enriched = await enrichDeck(entries.map((e) => ({ name: e.name, qty: e.count })), { format, commander });
+    const tagged = tagCards(enriched);
+    deck_facts = buildDeckFacts(tagged, { format, commander });
+    synergy_diagnostics = buildSynergyDiagnostics(tagged, commander, deck_facts);
+    const t = tallyFromTagged(tagged, deck_facts);
+    lands = t.lands;
+    ramp = t.ramp;
+    draw = t.draw;
+    removal = t.removal;
+    wipes = t.wipes;
+    curve = t.curve;
+    ramp_cards = t.ramp_cards;
+    removal_cards = t.removal_cards;
+    draw_cards = t.draw_cards;
+  } catch {
+    const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).filter(Boolean);
+    const byName = await fetchCardsBatch(uniqueNames);
+    const t = tally(entries, byName);
+    lands = t.lands;
+    ramp = t.ramp;
+    draw = t.draw;
+    removal = t.removal;
+    wipes = t.wipes;
+    curve = t.curve;
+    ramp_cards = t.ramp_cards;
+    removal_cards = t.removal_cards;
+    draw_cards = t.draw_cards;
+  }
+
   const warningFlags = inferWarningFlags(format, totalCards, lands, ramp, draw, removal);
 
   const archetypeTags: string[] = [];
-  const commander = options.commander ?? null;
-  if (commander) {
+  if (deck_facts?.archetype_candidates?.[0]?.score && deck_facts.archetype_candidates[0].score > 0.5) {
+    archetypeTags.push(deck_facts.archetype_candidates[0].name);
+  }
+  if (archetypeTags.length === 0 && commander) {
     const c = commander.toLowerCase();
     if (/token|go-wide|army/i.test(c)) archetypeTags.push("tokens");
     if (/sac|aristocrat|sacrifice/i.test(c)) archetypeTags.push("aristocrats");
@@ -193,12 +280,15 @@ export async function buildDeckContextSummary(
     if (/landfall|land matter|gitrog/i.test(c)) archetypeTags.push("lands");
     if (/spell|storm|kess/i.test(c)) archetypeTags.push("spellslinger");
   }
+  if (archetypeTags.length === 0) archetypeTags.push("unknown");
+
+  const colors = options.colors?.length ? options.colors : (deck_facts?.color_identity ?? []);
 
   return {
     deck_hash: hash,
     format,
     commander: commander ?? null,
-    colors: options.colors ?? [],
+    colors,
     land_count: lands,
     curve_histogram: curve,
     ramp,
@@ -206,7 +296,7 @@ export async function buildDeckContextSummary(
     draw,
     board_wipes: wipes,
     wincons: 0,
-    archetype_tags: archetypeTags.length ? archetypeTags : ["unknown"],
+    archetype_tags: archetypeTags,
     warning_flags: warningFlags,
     card_names: cardNames,
     ramp_cards,
@@ -214,6 +304,8 @@ export async function buildDeckContextSummary(
     draw_cards,
     card_count: totalCards,
     last_updated: new Date().toISOString(),
+    deck_facts,
+    synergy_diagnostics,
   };
 }
 

@@ -518,8 +518,22 @@ export async function POST(req: NextRequest) {
         }
       }
       const summaryForPrompt = { ...v2Summary, card_names: cardNamesForPrompt };
-      sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
-      sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
+      if (v2Summary.deck_facts && v2Summary.synergy_diagnostics) {
+        if (process.env.DEBUG_DECK_INTELLIGENCE === "1") {
+          console.log(JSON.stringify({
+            tag: "deck_intelligence",
+            deck_facts: v2Summary.deck_facts,
+            synergy_diagnostics: v2Summary.synergy_diagnostics,
+            mode: "full",
+          }));
+        }
+        const { formatForLLM } = await import("@/lib/deck/intelligence-formatter");
+        const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics);
+        sys += `\n\n${deckFactsProse}\n`;
+      } else {
+        sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
+      }
+      sys += `\nCards in deck (do NOT suggest these): ${cardNamesForPrompt.join(", ")}\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = streamThreadHistory.filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
       const redacted = last6.map((m) => {

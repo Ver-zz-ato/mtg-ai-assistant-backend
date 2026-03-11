@@ -65,12 +65,12 @@ export async function getDetailsForNamesCached(names: string[]) {
   const out = new Map<string, any>();
   if (!keys.length) return out;
 
-  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; rarity?: string|null; set?: string|null; collector_number?: string|null; updated_at?: string|null };
+  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; rarity?: string|null; set?: string|null; collector_number?: string|null; legalities?: Record<string, string>|null; updated_at?: string|null };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, rarity, set, collector_number, updated_at")
+      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, rarity, set, collector_number, legalities, updated_at")
       .in("name", keys);
     rows = (data || []) as any;
     for (const row of rows) {
@@ -82,6 +82,7 @@ export async function getDetailsForNamesCached(names: string[]) {
         rarity: row.rarity || undefined,
         set: row.set || undefined,
         collector_number: row.collector_number || undefined,
+        legalities: (row.legalities && typeof row.legalities === "object") ? row.legalities as Record<string, string> : undefined,
       });
     }
   } catch {}
@@ -120,6 +121,7 @@ export async function getDetailsForNamesCached(names: string[]) {
           }
         }
         const colorIdentity = Array.isArray(c?.color_identity) ? c.color_identity : [];
+        const legalities = (c?.legalities && typeof c.legalities === "object") ? c.legalities as Record<string, string> : null;
         out.set(key, { 
           image_uris: img, 
           type_line: c?.type_line, 
@@ -127,7 +129,8 @@ export async function getDetailsForNamesCached(names: string[]) {
           color_identity: colorIdentity,
           rarity: c?.rarity,
           set: c?.set,
-          collector_number: c?.collector_number
+          collector_number: c?.collector_number,
+          legalities: legalities ?? undefined,
         });
         up.push({
           name: key,
@@ -140,6 +143,7 @@ export async function getDetailsForNamesCached(names: string[]) {
           rarity: c?.rarity || null,
           set: c?.set || null,
           collector_number: c?.collector_number || null,
+          legalities,
           updated_at: new Date().toISOString(),
         });
       }
@@ -201,9 +205,123 @@ export async function getCardDataForProfileTrends(names: string[]) {
     }
   } catch {}
 
-  // For any missing or stale data, we'd normally fetch from Scryfall here
-  // But to avoid rate limiting, we'll work with what we have in cache
-  // Missing cards will just not contribute to the analysis
-  
+  return out;
+}
+
+/** Enrichment data for deck intelligence. Returns type_line, oracle_text, color_identity, cmc, mana_cost, legalities, power, toughness, layout. */
+export type EnrichmentRow = {
+  name: string;
+  type_line?: string;
+  oracle_text?: string;
+  color_identity?: string[];
+  cmc?: number;
+  mana_cost?: string;
+  legalities?: Record<string, string>;
+  power?: string;
+  toughness?: string;
+  layout?: string;
+  cache_miss?: boolean;
+};
+
+/** Batch enrichment for deck cards. Cache + Scryfall API fallback. Power/toughness/layout from API when fetched. */
+export async function getEnrichmentForNames(names: string[]): Promise<Map<string, EnrichmentRow>> {
+  const supabase = await createClient();
+  const uniq = Array.from(new Set((names || []).filter(Boolean)));
+  const keys = uniq.map(norm);
+  const out = new Map<string, EnrichmentRow>();
+  if (!keys.length) return out;
+
+  type Row = { name: string; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; cmc?: number|null; mana_cost?: string|null; legalities?: Record<string, string>|null; updated_at?: string|null };
+  let rows: Row[] = [];
+  try {
+    const { data } = await supabase
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
+      .in("name", keys);
+    rows = (data || []) as Row[];
+    for (const row of rows) {
+      if (!row.name) continue;
+      out.set(row.name, {
+        name: row.name,
+        type_line: row.type_line ?? undefined,
+        oracle_text: row.oracle_text ?? undefined,
+        color_identity: row.color_identity ?? [],
+        cmc: typeof row.cmc === "number" ? row.cmc : undefined,
+        mana_cost: row.mana_cost ?? undefined,
+        legalities: (row.legalities && typeof row.legalities === "object") ? (row.legalities as Record<string, string>) : undefined,
+      });
+    }
+  } catch {}
+
+  const present = new Set(rows.map((r) => r.name));
+  const misses = keys.filter((k) => !present.has(k));
+  const stale = rows.filter((r) => isStale(r.updated_at)).map((r) => r.name);
+  const toFetch = Array.from(new Set([...misses, ...stale])).slice(0, MAX_REFRESH_PER_REQUEST);
+
+  if (toFetch.length) {
+    try {
+      const identifiers = toFetch.map((n) => ({ name: uniq[keys.indexOf(n)] }));
+      const r = await fetch("https://api.scryfall.com/cards/collection", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)",
+        },
+        body: JSON.stringify({ identifiers }),
+      });
+      const j: any = await r.json().catch(() => ({}));
+      const dataRows: any[] = Array.isArray(j?.data) ? j.data : [];
+      const up: any[] = [];
+      for (let idx = 0; idx < dataRows.length; idx++) {
+        const c = dataRows[idx];
+        const requestedName = toFetch[idx] !== undefined ? uniq[keys.indexOf(toFetch[idx])] : null;
+        const key = requestedName ? norm(requestedName) : norm(c?.name || "");
+        if (!key) continue;
+        const colorIdentity = Array.isArray(c?.color_identity) ? c.color_identity : [];
+        const legalities = (c?.legalities && typeof c.legalities === "object") ? (c.legalities as Record<string, string>) : null;
+        const oracleText = c?.oracle_text ?? c?.card_faces?.[0]?.oracle_text;
+        const front = c?.card_faces?.[0];
+        out.set(key, {
+          name: key,
+          type_line: c?.type_line,
+          oracle_text: oracleText,
+          color_identity: colorIdentity,
+          cmc: typeof c?.cmc === "number" ? c.cmc : undefined,
+          mana_cost: c?.mana_cost ?? front?.mana_cost,
+          legalities: legalities ?? undefined,
+          power: c?.power ?? front?.power,
+          toughness: c?.toughness ?? front?.toughness,
+          layout: c?.layout,
+        });
+        up.push({
+          name: key,
+          type_line: c?.type_line || null,
+          oracle_text: oracleText || null,
+          color_identity: colorIdentity,
+          cmc: typeof c?.cmc === "number" ? c.cmc : 0,
+          mana_cost: c?.mana_cost ?? front?.mana_cost ?? null,
+          legalities,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      if (up.length) {
+        await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
+      }
+    } catch (e) {
+      if (process.env.DEBUG_DECK_INTELLIGENCE === "1") {
+        console.warn("[DECK_ENRICH] Scryfall fetch failed:", e);
+      }
+    }
+  }
+
+  for (const k of keys) {
+    if (!out.has(k)) {
+      out.set(k, { name: k, cache_miss: true });
+      if (process.env.DEBUG_DECK_INTELLIGENCE === "1") {
+        console.log(`[DECK_ENRICH] cache_miss: ${k}`);
+      }
+    }
+  }
   return out;
 }
