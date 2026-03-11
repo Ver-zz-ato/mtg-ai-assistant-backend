@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
+import { useProStatus } from "@/hooks/useProStatus";
 import {
   QUIZ_QUESTIONS,
   calculateProfile,
@@ -36,6 +37,7 @@ export default function BuildDeckFromCollectionModal({
   onClose,
 }: BuildDeckFromCollectionModalProps) {
   const router = useRouter();
+  const { isPro } = useProStatus();
   const [collectionItemNames, setCollectionItemNames] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>("guided");
 
@@ -92,6 +94,12 @@ export default function BuildDeckFromCollectionModal({
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) {
+        if (res.status === 429 && json?.code === "RATE_LIMIT_DAILY") {
+          setError(
+            json?.error || "Daily limit reached. " + (isPro ? "Contact support." : "Upgrade to Pro for more!")
+          );
+          return;
+        }
         throw new Error(json?.error || "Generation failed");
       }
       onClose();
@@ -214,6 +222,11 @@ export default function BuildDeckFromCollectionModal({
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-300 text-sm">
               {error}
+              {!isPro && error.toLowerCase().includes("limit") && (
+                <a href="/pricing" className="block mt-2 text-amber-300 hover:text-amber-200 font-medium">
+                  Upgrade to Pro →
+                </a>
+              )}
             </div>
           )}
 

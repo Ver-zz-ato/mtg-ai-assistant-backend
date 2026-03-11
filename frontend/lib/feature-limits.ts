@@ -61,3 +61,7 @@ export const COST_TO_FINISH_PRO = 50;
 /** Price Tracker (deck-series + movers): free 5/day, Pro 50/day. */
 export const PRICE_TRACKER_FREE = 5;
 export const PRICE_TRACKER_PRO = 50;
+
+/** Generate deck from collection (Build Deck From Collection, Commander Builder Module D): free 3/day, Pro 20/day. */
+export const GENERATE_FROM_COLLECTION_FREE = 3;
+export const GENERATE_FROM_COLLECTION_PRO = 20;

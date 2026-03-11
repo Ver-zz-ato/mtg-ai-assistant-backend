@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
 import PlaystyleQuizModal from "./PlaystyleQuizModal";
+import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 
 const POWER_LEVELS = ["Casual", "Mid", "Focused", "Optimized", "Competitive"];
 const BUDGETS = ["Budget", "Moderate", "High"];
@@ -30,6 +32,8 @@ const ARCHETYPES = [
 
 export default function CommanderBuilderModules() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { isPro } = useProStatus();
   const [showQuiz, setShowQuiz] = useState(false);
   const [moduleDLoading, setModuleDLoading] = useState(false);
   const [moduleDError, setModuleDError] = useState<string | null>(null);
@@ -61,6 +65,12 @@ export default function CommanderBuilderModules() {
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) {
+        if (res.status === 429 && json?.code === "RATE_LIMIT_DAILY") {
+          setModuleDError(
+            json?.error || (isPro ? "Daily limit reached." : "Daily limit reached. Upgrade to Pro for more!")
+          );
+          return;
+        }
         throw new Error(json?.error || "Generation failed");
       }
       router.push(json.url || `/my-decks/${json.deckId}`);
@@ -133,17 +143,17 @@ export default function CommanderBuilderModules() {
             Commander Finder
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Browse legendary creatures by colors and archetype. Use the card search on My Decks to find commanders.
+            Browse legendary creatures by colors and archetype. {!user && "Sign in to use My Decks."}
           </p>
           <Link
-            href="/my-decks"
+            href={user ? "/my-decks" : "/login"}
             className="block w-full py-3 px-4 text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl"
           >
-            Go to My Decks →
+            {user ? "Go to My Decks →" : "Sign in to Browse →"}
           </Link>
         </div>
 
-        {/* Module C: Archetype Builder */}
+        {/* Module C: Archetype Builder - auth required */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
           <div className="text-3xl mb-4">C</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
@@ -152,38 +162,57 @@ export default function CommanderBuilderModules() {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Start from an archetype to get a scaffold deck you can customize.
           </p>
-          <select
-            value={archetype.name}
-            onChange={(e) => {
-              const a = ARCHETYPES.find((x) => x.name === e.target.value) || ARCHETYPES[0];
-              setArchetype(a);
-            }}
-            className="w-full mb-4 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
-          >
-            {ARCHETYPES.map((a) => (
-              <option key={a.name} value={a.name}>
-                {a.name} – {a.desc}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleModuleCScaffold}
-            disabled={moduleCLoading}
-            className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 disabled:opacity-50 text-white font-semibold rounded-xl"
-          >
-            {moduleCLoading ? "Creating…" : "Create Scaffold Deck"}
-          </button>
+          {!user ? (
+            <Link
+              href="/login"
+              className="block w-full py-3 px-4 text-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white font-semibold rounded-xl"
+            >
+              Sign in to Create Scaffold
+            </Link>
+          ) : (
+            <>
+              <select
+                value={archetype.name}
+                onChange={(e) => {
+                  const a = ARCHETYPES.find((x) => x.name === e.target.value) || ARCHETYPES[0];
+                  setArchetype(a);
+                }}
+                className="w-full mb-4 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+              >
+                {ARCHETYPES.map((a) => (
+                  <option key={a.name} value={a.name}>
+                    {a.name} – {a.desc}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleModuleCScaffold}
+                disabled={moduleCLoading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 disabled:opacity-50 text-white font-semibold rounded-xl"
+              >
+                {moduleCLoading ? "Creating…" : "Create Scaffold Deck"}
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Module D: AI Deck Generator */}
+        {/* Module D: AI Deck Generator - auth required, rate limited */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
           <div className="text-3xl mb-4">D</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
             AI Deck Generator
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Enter a commander and preferences; AI generates a full deck from the card pool.
+            Enter a commander and preferences; AI generates a full deck from the card pool. {!user && "Sign in to use."}
           </p>
+          {!user ? (
+            <Link
+              href="/login"
+              className="block w-full py-3 px-4 text-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl"
+            >
+              Sign in to Generate Deck
+            </Link>
+          ) : (
           <div className="space-y-3">
             <div>
               <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Commander</label>
@@ -235,6 +264,11 @@ export default function CommanderBuilderModules() {
             {moduleDError && (
               <p className="text-sm text-red-500">{moduleDError}</p>
             )}
+            {moduleDError && !isPro && moduleDError.toLowerCase().includes("limit") && (
+              <a href="/pricing" className="block text-sm text-amber-500 hover:text-amber-400">
+                Upgrade to Pro for more generations →
+              </a>
+            )}
             <button
               onClick={handleModuleDGenerate}
               disabled={moduleDLoading || !commander.trim()}
@@ -243,6 +277,7 @@ export default function CommanderBuilderModules() {
               {moduleDLoading ? "Generating…" : "Generate Deck"}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
