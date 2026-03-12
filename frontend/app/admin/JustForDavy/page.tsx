@@ -41,6 +41,7 @@ const GROUPS = [
     label: "Data & Tools",
     eli5: "Import decks, SEO pages, backups, and debug tools.",
     links: [
+      { href: "/admin/tools/deck-roast", label: "Deck Roast", eli5: "AI Deck Roast prototype – playful deck feedback" },
       { href: "/admin/budget-swaps", label: "Budget Swaps", eli5: "Manage Quick Swaps map; weekly cron adds AI suggestions" },
       { href: "/admin/decks/import", label: "Decks Import", eli5: "Bulk import decks from URLs" },
       { href: "/admin/seo/pages", label: "SEO Pages", eli5: "Manage SEO landing pages" },
