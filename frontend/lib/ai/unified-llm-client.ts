@@ -81,6 +81,7 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   'swap_suggestions': 300000, // 5 minutes - interactive suggestions
   'swap_why': 300000,     // 5 minutes - interactive explanation
   'reprint_risk': 300000, // 5 minutes - interactive check
+  'deck_roast': 60000,   // 60 seconds - AI deck roast
   'debug_ping': 10000,   // 10 seconds - quick health check
   default: 20000,        // 20 seconds default
 };

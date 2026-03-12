@@ -63,7 +63,11 @@ export default function CardAutocomplete({
         trackCardSearch(q, list.length, 'autocomplete');
         
         setItems(list.slice(0, 20));
-        setOpen(list.length > 0);
+        // Don't reopen when current value exactly matches a result (user just picked)
+        const exactMatch = list.some(
+          (n) => n.toLowerCase().trim() === value.trim().toLowerCase()
+        );
+        setOpen(list.length > 0 && !exactMatch);
         setHi(0);
       } catch {
         setItems([]);

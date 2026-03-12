@@ -33,9 +33,9 @@ export default function DeckRoastPanel({
   const [commanderArt, setCommanderArt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch commander art when we have a roast result and format is Commander
+  // Fetch commander art when commander is set (Commander format) – show immediately on select
   useEffect(() => {
-    if (!roast || format !== "Commander" || !commander.trim()) {
+    if (format !== "Commander" || !commander.trim()) {
       setCommanderArt(null);
       return;
     }
@@ -48,7 +48,7 @@ export default function DeckRoastPanel({
         setCommanderArt(null);
       }
     })();
-  }, [roast, format, commander]);
+  }, [format, commander]);
 
   async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -107,9 +107,21 @@ export default function DeckRoastPanel({
           keepFriendly,
         }),
       });
-      const j = await res.json().catch(() => ({}));
+      const rawText = await res.text();
+      let j: { ok?: boolean; roast?: string; error?: string } = {};
+      try {
+        j = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        setError("Invalid response from server. Please try again.");
+        return;
+      }
       if (!res.ok || !j?.ok) {
-        throw new Error(j?.error || "Roast failed");
+        const msg = j?.error || "Roast failed";
+        // Sanitize: never show raw "HTTP 200" or status codes as user-facing errors
+        const friendlyMsg = /^HTTP \d{3}$/.test(msg)
+          ? "Something went wrong. Please try again."
+          : msg;
+        throw new Error(friendlyMsg);
       }
       setRoast(j.roast || "");
     } catch (e) {
@@ -128,7 +140,7 @@ export default function DeckRoastPanel({
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      <h3 className="text-lg font-bold text-amber-200">Roast my Deck?</h3>
+      <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
       <p className="text-sm text-neutral-400 mt-1">Do you dare?</p>
     </div>
   );
@@ -152,13 +164,24 @@ export default function DeckRoastPanel({
       {format === "Commander" && (
         <div>
           <label className="text-xs text-neutral-400 block mb-1">First, set your commander</label>
-          <CardAutocomplete
-            value={commander}
-            onChange={setCommander}
-            onPick={(name) => setCommander(name)}
-            placeholder="Search commander..."
-            minChars={2}
-          />
+          <div className="flex gap-3 items-start">
+            {commanderArt && (
+              <img
+                src={commanderArt}
+                alt={commander}
+                className="w-16 h-auto rounded border border-neutral-700 shrink-0"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <CardAutocomplete
+                value={commander}
+                onChange={setCommander}
+                onPick={(name) => setCommander(name)}
+                placeholder="Search commander..."
+                minChars={2}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -199,8 +222,14 @@ export default function DeckRoastPanel({
           onChange={(e) => setKeepFriendly(e.target.checked)}
           className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
         />
-        <label htmlFor="keep-friendly" className="text-sm text-neutral-300">
+        <label htmlFor="keep-friendly" className="text-sm text-neutral-300 cursor-help flex items-center gap-1">
           Keep it friendly
+          <span
+            title="On: softer, encouraging tone with fewer zingers. Off: more sarcastic and brutally honest—your brutally honest LGS friend."
+            className="text-neutral-500 hover:text-neutral-400"
+          >
+            (?)
+          </span>
         </label>
       </div>
 
@@ -263,7 +292,7 @@ export default function DeckRoastPanel({
               collapsedHeader
             ) : (
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-amber-200">Roast my Deck?</h3>
+                <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -288,7 +317,7 @@ export default function DeckRoastPanel({
           ) : (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-amber-200">Roast my Deck</span>
+                <span className="text-sm font-medium text-amber-200">Roast my Deck 🔥</span>
                 <button
                   onClick={() => setIsExpanded(false)}
                   className="text-neutral-400 hover:text-white text-xs"
