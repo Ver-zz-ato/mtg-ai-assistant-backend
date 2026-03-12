@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { usePathname } from "next/navigation";
 import { listMessages, postMessage, postMessageStream } from "@/lib/threads";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 // Enhanced chat functionality
@@ -32,6 +33,7 @@ async function appendAssistant(threadId: string, content: string) {
 }
 
 export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
+  const pathname = usePathname() ?? "/my-decks/[id]";
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
   const [text, setText] = React.useState("");
@@ -486,7 +488,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const context = { deckId }; // Pass deckId via context, not as text
       
       await postMessageStream(
-        { text: messageText, threadId: tid || null, context, prefs },
+        { text: messageText, threadId: tid || null, context, prefs, sourcePage: `${pathname} · DeckAssistant.tsx` },
         (token: string) => {
           accumulatedContent += token;
           setStreamingContent(accumulatedContent);

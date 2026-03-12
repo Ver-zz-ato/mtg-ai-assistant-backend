@@ -18,7 +18,7 @@ export default function AdminDeckRoastPage() {
       <p className="text-sm text-neutral-400">
         Pre-launch prototype. Test the roast flow before adding to homepage.
       </p>
-      <DeckRoastPanel variant="panel" showSignupCta={false} />
+      <DeckRoastPanel variant="panel" showSignupCta={true} sharePath="/admin/tools/deck-roast" />
     </main>
   );
 }

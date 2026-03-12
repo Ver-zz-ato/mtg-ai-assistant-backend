@@ -324,6 +324,7 @@ export default function CommanderBuilderModules() {
                 onChange={setCommander}
                 onPick={setCommander}
                 placeholder="Search commander…"
+                searchUrl="/api/cards/search-commanders"
               />
             </div>
             <div>

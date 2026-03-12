@@ -35,6 +35,10 @@ const Shoutbox = nextDynamic(() => import("../components/Shoutbox"), {
   loading: () => <div className="animate-pulse bg-neutral-900 rounded-2xl h-48" />
 });
 
+const DeckRoastPanel = nextDynamic(() => import("../components/DeckRoastPanel"), {
+  loading: () => <div className="animate-pulse bg-amber-950/20 rounded-2xl h-24 border border-amber-800/30" />
+});
+
 function jsonLd() {
   const data = {
     "@context": "https://schema.org",
@@ -99,6 +103,7 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 py-0 grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Left sidebar - only rendered at md (768px+); CommunityDrawer on mobile */}
           <ResponsiveLeftSidebar>
+            <DeckRoastPanel variant="panel" showSignupCta={true} useModal={true} />
             <Shoutbox />
             <MetaDeckPanel />
             <LeftSidebar />

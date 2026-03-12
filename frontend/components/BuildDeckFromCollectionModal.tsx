@@ -313,6 +313,7 @@ export default function BuildDeckFromCollectionModal({
                   onChange={setCommander}
                   onPick={setCommander}
                   placeholder="Search for a commander…"
+                  searchUrl="/api/cards/search-commanders"
                 />
               </div>
               <div>

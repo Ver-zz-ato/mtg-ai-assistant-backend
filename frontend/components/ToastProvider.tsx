@@ -162,7 +162,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
       <RegisterToastApi showToast={showToast} showError={showError} showPanel={showPanel} removeToast={removeToast} />
 
       {/* Standard toasts (top-right) */}
-      <div className="fixed top-4 right-4 z-[1000] space-y-2 max-w-md">
+      <div className="fixed top-4 right-4 z-[10001] space-y-2 max-w-md">
         {toasts.filter(t=>!t.large && !t.anchor).map(toast => (
           <div
             key={toast.id}
@@ -191,7 +191,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
 
       {/* Large anchored panels */}
       {toasts.filter(t=>t.large || t.anchor).map(toast => (
-        <div key={toast.id} className="fixed z-[1100]" style={anchoredStyle(toast)}>
+        <div key={toast.id} className="fixed z-[10001]" style={anchoredStyle(toast)}>
           <div className={`min-w-[320px] max-w-[520px] rounded-xl border shadow-2xl ${
             toast.type === 'error' ? 'bg-red-950 border-red-700 text-red-100' :
             toast.type === 'success' ? 'bg-emerald-950 border-emerald-700 text-emerald-100' :

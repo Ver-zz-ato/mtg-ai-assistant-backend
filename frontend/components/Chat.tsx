@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import BuilderOverflowMenu from "@/components/BuilderOverflowMenu";
 import DeckHealthCard from "@/components/DeckHealthCard";
@@ -158,6 +159,7 @@ function Chat() {
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   const [showReasoning, setShowReasoning] = useState<boolean>(false);
   const { isPro, modelTier, modelLabel, upgradeMessage } = useProStatus();
+  const pathname = usePathname() ?? "/";
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
   const [showStartBuildingModal, setShowStartBuildingModal] = useState<boolean>(false);
@@ -882,6 +884,7 @@ function Chat() {
           prefs,
           guestMessageCount: !isLoggedIn ? guestMessageCount : undefined,
           messages: messages.map((m: any) => ({ role: m.role, content: String(m.content || "") })).filter((m: any) => m.role === "user" || m.role === "assistant").slice(-12),
+          sourcePage: `${pathname} · Chat.tsx`,
         },
         (token: string) => {
           // Validate that this is still the active streaming session

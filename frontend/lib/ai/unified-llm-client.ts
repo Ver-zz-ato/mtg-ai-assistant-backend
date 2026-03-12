@@ -212,7 +212,24 @@ export async function callLLM(
   // Extract text from response based on API type
   function extractText(json: any): string {
     if (isResponsesAPI) {
-      return String(json?.output_text || '').trim();
+      // Responses API: try multiple shapes (output_text, output[].content[].text)
+      const top = String(json?.output_text || '').trim();
+      if (top) return top;
+      const output = json?.output;
+      if (Array.isArray(output)) {
+        for (const item of output) {
+          const content = item?.content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block?.type === 'output_text' && typeof block?.text === 'string') {
+                const t = String(block.text).trim();
+                if (t) return t;
+              }
+            }
+          }
+        }
+      }
+      return '';
     } else {
       return String(json?.choices?.[0]?.message?.content || '').trim();
     }

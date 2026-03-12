@@ -456,6 +456,7 @@ export async function POST(req: NextRequest) {
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
     const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
     const evalRunId = typeof raw?.eval_run_id === 'string' && raw.eval_run_id.trim() ? raw.eval_run_id.trim() : undefined;
+    const sourcePage = (typeof raw?.sourcePage === "string" ? raw.sourcePage : raw?.source_page)?.trim() || null;
     const looksSearch = typeof inputText === 'string' && /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(inputText.trim());
     let suppressInsert = !!looksSearch;
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
@@ -734,6 +735,7 @@ export async function POST(req: NextRequest) {
           output_tokens: 0,
           cost_usd: 0,
           route: "chat",
+          source_page: sourcePage,
           request_kind: "NO_LLM",
           context_source: "raw_fallback",
           layer0_mode: "NO_LLM",
@@ -1343,6 +1345,7 @@ export async function POST(req: NextRequest) {
           output_tokens: Math.ceil((cachedText?.length || 0) / 4),
           cost_usd: 0,
           route: "chat",
+          source_page: sourcePage,
           request_kind: layer0Mode ?? undefined,
           layer0_mode: layer0Mode ?? undefined,
           cache_hit: true,
@@ -1888,6 +1891,7 @@ Return the corrected answer with concise, user-facing tone.`;
         output_tokens: ot,
         cost_usd: cost,
         route: "chat",
+        source_page: sourcePage,
         request_kind: layer0Mode ?? undefined,
         layer0_mode: layer0Mode ?? undefined,
         layer0_reason: layer0Reason ?? undefined,

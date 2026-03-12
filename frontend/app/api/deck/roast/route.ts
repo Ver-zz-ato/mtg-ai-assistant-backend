@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
     const deckText = String(body?.deckText || "").trim();
     const format = String(body?.format || "Commander").trim();
     const commanderName = typeof body?.commanderName === "string" ? body.commanderName.trim() || null : null;
-    const keepFriendly = body?.keepFriendly !== false;
+    const rawSavageness = typeof body?.savageness === "number" ? body.savageness : (body?.keepFriendly === false ? 8 : 5);
+    const savageness = Math.max(1, Math.min(10, Math.round(rawSavageness)));
 
     if (!deckText) {
       return NextResponse.json({ ok: false, error: "deckText required" }, { status: 400 });
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       totalCards: cards.reduce((sum, c) => sum + c.qty, 0),
     };
 
-    const systemPrompt = buildDeckRoastSystemPrompt(deckSummary, format, commander, keepFriendly);
+    const systemPrompt = buildDeckRoastSystemPrompt(deckSummary, format, commander, savageness);
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -77,23 +78,23 @@ export async function POST(req: NextRequest) {
     const { callLLM } = await import("@/lib/ai/unified-llm-client");
     const response = await callLLM(
       [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-        { role: "user", content: [{ type: "input_text", text: "Roast this deck." }] },
-      ] as any,
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Roast this deck." },
+      ],
       {
         route: "/api/deck/roast",
         feature: "deck_roast",
         model: "gpt-4o-mini",
         fallbackModel: "gpt-4o-mini",
         maxTokens: 800,
-        apiType: "responses",
+        apiType: "chat",
         userId: null,
         isPro: false,
       }
     );
 
     const roast = (response.text || "").trim();
-    return NextResponse.json({ ok: true, roast });
+    return NextResponse.json({ ok: true, roast, roastScore: savageness });
   } catch (e) {
     const message = e instanceof Error ? e.message : "server_error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

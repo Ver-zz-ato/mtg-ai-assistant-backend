@@ -17,6 +17,10 @@ interface ComputingModalProps {
   stages?: ComputingStage[];
   /** Cycle interval in ms */
   cycleInterval?: number;
+  /** When true, show single message with indeterminate progress (no fake stage cycling) */
+  indeterminate?: boolean;
+  /** Label when indeterminate */
+  indeterminateLabel?: string;
 }
 
 export default function ComputingModal({
@@ -24,11 +28,13 @@ export default function ComputingModal({
   title = 'Computing',
   stages = DEFAULT_STAGES,
   cycleInterval = 2500,
+  indeterminate = false,
+  indeterminateLabel = 'Please wait...',
 }: ComputingModalProps) {
   const [stageIndex, setStageIndex] = React.useState(0);
 
   React.useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || indeterminate) {
       setStageIndex(0);
       return;
     }
@@ -36,11 +42,11 @@ export default function ComputingModal({
       setStageIndex((prev) => Math.min(prev + 1, stages.length - 1));
     }, cycleInterval);
     return () => clearInterval(id);
-  }, [isOpen, stages.length, cycleInterval]);
+  }, [isOpen, indeterminate, stages.length, cycleInterval]);
 
   if (!isOpen) return null;
 
-  const stage = stages[stageIndex];
+  const stage = indeterminate ? { icon: '🔥', label: indeterminateLabel } : stages[stageIndex];
 
   return (
     <div
@@ -61,19 +67,25 @@ export default function ComputingModal({
           <div className="w-full">
             <div className="h-2 w-full rounded-full bg-neutral-800 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 transition-all duration-500 ease-out"
-                style={{
-                  width: `${Math.min(95, ((stageIndex + 1) / stages.length) * 100)}%`,
-                }}
+                className={`h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 ${
+                  indeterminate ? 'animate-pulse' : 'transition-all duration-500 ease-out'
+                }`}
+                style={
+                  indeterminate
+                    ? { width: '100%' }
+                    : { width: `${Math.min(95, ((stageIndex + 1) / stages.length) * 100)}%` }
+                }
               />
             </div>
-            <div className="flex justify-between mt-1.5 text-[10px] text-neutral-500">
-              {stages.map((s, i) => (
-                <span key={i} className={i <= stageIndex ? 'text-neutral-400' : ''}>
-                  {s.icon}
-                </span>
-              ))}
-            </div>
+            {!indeterminate && (
+              <div className="flex justify-between mt-1.5 text-[10px] text-neutral-500">
+                {stages.map((s, i) => (
+                  <span key={i} className={i <= stageIndex ? 'text-neutral-400' : ''}>
+                    {s.icon}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

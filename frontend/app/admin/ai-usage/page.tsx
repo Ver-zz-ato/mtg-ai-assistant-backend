@@ -688,11 +688,11 @@ export default function AdminAIUsagePage() {
                       <tr key={r.id} className={`border-b border-neutral-800/80 hover:bg-neutral-800/30 cursor-pointer ${untracked ? "bg-amber-950/20" : ""}`} onClick={() => loadUsageDetail(r.id)}>
                         <td className="px-2 py-1 text-xs whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : ""}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.route ?? "—"}</td>
-                        <td className="px-2 py-1 text-xs" title={title}>
-                          <span className={display === "—" ? "text-amber-400" : "text-neutral-400"}>{display}</span>
+                        <td className="px-2 py-1 text-xs max-w-[280px]" title={title || display}>
+                          <span className={`${display === "—" ? "text-amber-400" : "text-neutral-300"} break-words`} title={display}>{display}</span>
                           {untracked && <span className="ml-1 text-[10px] text-amber-500" title="Add sourcePage to caller">⚠</span>}
                         </td>
-                        <td className="px-2 py-1 font-mono text-[11px] text-neutral-500" title={r.source_page || "Not set — add to caller"}>{r.source_page || "—"}</td>
+                        <td className="px-2 py-1 font-mono text-[11px] text-neutral-400 max-w-[240px] break-all" title={r.source_page || "Not set — add to caller"}>{r.source_page || "—"}</td>
                         <td className="px-2 py-1 font-mono text-xs">{r.model ?? "—"}</td>
                         <td className="px-2 py-1 text-right font-mono">${r.cost_usd}</td>
                         <td className="px-2 py-1"><span className="text-blue-400 text-xs">Details</span></td>
@@ -744,7 +744,25 @@ export default function AdminAIUsagePage() {
                           </div>
                         );
                       }
-                      return null;
+                      // hasSourcePage but origin not in map = raw path · component format
+                      const raw = String(usageDetail.row.source_page || "");
+                      const sep = raw.includes(" · ") ? " · " : null;
+                      const [pagePart, componentPart] = sep ? raw.split(sep, 2) : [raw, null];
+                      return (
+                        <div className="mb-3 p-3 rounded bg-blue-950/30 border border-blue-800/50 text-sm space-y-2">
+                          <div className="text-xs font-medium text-blue-300 uppercase tracking-wide">Call origin (raw source_page)</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {componentPart != null ? (
+                              <>
+                                <div><span className="text-neutral-500">Page:</span> <span className="font-mono text-blue-200 break-all">{pagePart.trim()}</span></div>
+                                <div><span className="text-neutral-500">Component:</span> <span className="font-mono text-blue-200">{componentPart.trim()}</span></div>
+                              </>
+                            ) : (
+                              <div className="sm:col-span-2"><span className="text-neutral-500">source_page:</span> <span className="font-mono text-blue-200 break-all">{raw}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      );
                     })()}
                   </>
                 )}
