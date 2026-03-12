@@ -67,9 +67,6 @@ export async function GET(req: NextRequest) {
       .order('snapshot_date', { ascending: false })
       .limit(1);
     const latest = (latestRows as any[])?.[0]?.snapshot_date || null;
-    if (process.env.NODE_ENV === "development") {
-      console.log("[price/movers]", { usedAdmin: !!admin, currency, latest, latestError: latestError?.message });
-    }
     if (!latest) {
       const empty: Record<string, unknown> = { ok: true, rows: [], latest: null };
       if (debug) empty._debug = { usedAdmin: !!admin, latestError: latestError?.message, message: "No latest snapshot date" };
@@ -102,14 +99,31 @@ export async function GET(req: NextRequest) {
     }
     if (!prior) return NextResponse.json({ ok: true, rows: [], latest });
 
-    // Pull both dates
-    const { data } = await db
+    // Pull prior and latest in separate queries (avoids 1000-row cap giving no overlap)
+    const { data: priorData } = await db
       .from('price_snapshots')
-      .select('name_norm, snapshot_date, unit')
+      .select('name_norm, unit')
       .eq('currency', currency)
-      .in('snapshot_date', [prior, latest]);
-    const rows = Array.isArray(data) ? (data as any[]) : [];
-
+      .eq('snapshot_date', prior)
+      .limit(10000);
+    const { data: latestData } = await db
+      .from('price_snapshots')
+      .select('name_norm, unit')
+      .eq('currency', currency)
+      .eq('snapshot_date', latest)
+      .limit(10000);
+    const priorMap = new Map<string, number>();
+    for (const r of (priorData || []) as any[]) {
+      priorMap.set(String(r.name_norm), Number(r.unit));
+    }
+    const rows: { name_norm: string; snapshot_date: string; unit: number }[] = [];
+    for (const r of (latestData || []) as any[]) {
+      const n = String(r.name_norm);
+      if (priorMap.has(n)) {
+        rows.push({ name_norm: n, snapshot_date: prior, unit: priorMap.get(n)! });
+        rows.push({ name_norm: n, snapshot_date: latest, unit: Number(r.unit) });
+      }
+    }
     const byName: Record<string, { prior?: number; latest?: number }> = {};
     for (const r of rows) {
       const k = String((r as any).name_norm);

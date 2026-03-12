@@ -88,35 +88,32 @@ export default function PriceTrackerPage(){
       picks.slice(0,10).forEach(n => qs.append("names[]", n));
       qs.set("currency", currency);
       if (from) qs.set("from", from);
-      const url = `/api/price/series?${qs.toString()}`;
-      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-        console.log("[PriceTracker] series fetch", { picks, url });
-      }
-      const r = await fetch(url, { cache: 'no-store' });
+      const r = await fetch(`/api/price/series?${qs.toString()}`, { cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
-      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-        console.log("[PriceTracker] series response", { ok: r.ok, status: r.status, seriesCount: j?.series?.length ?? 0, error: j?.error });
-      }
       if (r.ok && j?.ok) setSeries(j.series||[]); else setSeries([]);
     } finally { setLoading(false); }
   }
 
   React.useEffect(() => { const id = setTimeout(load, 300); return () => clearTimeout(id); /* debounce */ }, [names, currency, from]);
 
-  // Fetch movers at page level so it always runs (TopMovers' useEffect may not fire in some layouts)
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setMoversLoading(true);
-        setMoversError(null);
-        const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${moversWindowDays}&limit=100`, { cache: 'no-store', credentials: 'include' });
-        const j = await r.json().catch(() => ({}));
-        if (r.ok && j?.ok && Array.isArray(j.rows)) setMoversRows(j.rows);
-        else { setMoversRows([]); if (!r.ok) setMoversError(j?.error || "Could not load movers."); }
-      } catch { setMoversRows([]); setMoversError("Failed to load."); }
-      finally { setMoversLoading(false); }
-    })();
+  // Fetch movers at page level - run on mount ([]) AND when currency/window changes
+  const moversFetcher = React.useCallback(async () => {
+    try {
+      setMoversLoading(true);
+      setMoversError(null);
+      const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${moversWindowDays}&limit=100`, { cache: 'no-store', credentials: 'include' });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j?.ok && Array.isArray(j.rows)) setMoversRows(j.rows);
+      else { setMoversRows([]); if (!r.ok) setMoversError(j?.error || "Could not load movers."); }
+    } catch {
+      setMoversRows([]);
+      setMoversError("Failed to load.");
+    } finally {
+      setMoversLoading(false);
+    }
   }, [currency, moversWindowDays]);
+
+  React.useEffect(() => { moversFetcher(); }, [moversFetcher]);
 
   function exportCsv(){
     const rows: string[][] = [["date", ...series.map(s=>s.name)]];
@@ -385,16 +382,17 @@ export default function PriceTrackerPage(){
           </div>
         )}
       </section>
-
-          <section className="rounded border border-neutral-800 p-3">
-            <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} rows={moversRows} loading={moversLoading} fetchError={moversError} windowDays={moversWindowDays} onWindowDaysChange={setMoversWindowDays} />
-          </section>
         </section>
 
         {/* RIGHT: Deck value (Pro) */}
         <aside className="md:col-span-3 space-y-3">
           <DeckValuePanel deckId={deckId} currency={currency} setDeckId={setDeckId} />
         </aside>
+
+        {/* Top movers: full-width row so Δ, Δ%, Actions columns aren't cut off */}
+        <section className="md:col-span-12 rounded border border-neutral-800 p-3">
+          <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} rows={moversRows} loading={moversLoading} fetchError={moversError} windowDays={moversWindowDays} onWindowDaysChange={setMoversWindowDays} />
+        </section>
       </div>
     </main>
   );
@@ -1312,7 +1310,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
                 item={item}
                 imgMap={imgMap}
                 onRemove={() => remove(item.id, item.name)}
-                onAddToChart={() => setNames(names ? `${names.replace(/\s+$/,'')}, ${item.name}` : item.name)}
+                onAddToChart={() => setNames(item.name)}
               />
             ))}
           </ul>

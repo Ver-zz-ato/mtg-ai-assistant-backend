@@ -51,11 +51,6 @@ export async function GET(req: NextRequest) {
     const debug = url.searchParams.get("debug") === "1";
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-    const snapshotRowCount = Array.isArray(data) ? data.length : 0;
-    if (process.env.NODE_ENV === "development") {
-      console.log("[price/series]", { usedAdmin: !!admin, wanted: wanted.slice(0, 3), currency, from, snapshotRowCount });
-    }
-
     const byName = new Map<string, Array<{ snapshot_date: string; unit: number }>>();
     for (const row of (data || []) as any[]) {
       const n = String(row.name_norm);
@@ -63,7 +58,25 @@ export async function GET(req: NextRequest) {
       byName.get(n)!.push({ snapshot_date: row.snapshot_date, unit: Number(row.unit) });
     }
 
-    // Fallback: when no price_snapshots data, use price_cache then Scryfall for today's price
+    // Fallback: for missing names, try ilike on first word (handles comma/unicode mismatches e.g. Chatterfang)
+    const stillMissingExact = wanted.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
+    for (const n of stillMissingExact) {
+      const firstWord = n.split(/[\s,，\uFF0C]/)[0];
+      if (!firstWord || firstWord.length < 3) continue;
+      let q2 = db
+        .from("price_snapshots")
+        .select("name_norm, snapshot_date, unit")
+        .eq("currency", currency)
+        .ilike("name_norm", `${firstWord}%`)
+        .order("snapshot_date", { ascending: true });
+      if (from) q2 = q2.gte("snapshot_date", from);
+      const { data: ilikeRows } = await q2;
+      const arr = (ilikeRows || []) as any[];
+      if (arr.length > 0) {
+        byName.set(n, arr.map((r) => ({ snapshot_date: r.snapshot_date, unit: Number(r.unit) })));
+      }
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     const stillMissing = wanted.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
     for (const n of stillMissing) {
@@ -117,7 +130,7 @@ export async function GET(req: NextRequest) {
 
     const body: Record<string, unknown> = { ok: true, currency, from, series };
     if (debug) {
-      body._debug = { usedAdmin: !!admin, wanted, snapshotRowCount, seriesCount: series.length, byNameSize: byName.size };
+      body._debug = { usedAdmin: !!admin, wanted, seriesCount: series.length, byNameSize: byName.size };
     }
     return NextResponse.json(body, { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=300" } });
   } catch (e: any) {

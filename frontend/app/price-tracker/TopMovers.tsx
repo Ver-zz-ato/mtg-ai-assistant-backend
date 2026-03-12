@@ -31,7 +31,7 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
   const rows = controlled ? (rowsProp ?? []) : rowsInternal;
   const loading = controlled ? (loadingProp ?? false) : loadingInternal;
   const windowDays = controlled ? (windowDaysProp ?? 7) : windowDaysInternal;
-  const [minPrice, setMinPrice] = React.useState(0);
+  const [minPrice, setMinPrice] = React.useState(2);
   const [watchOnly, setWatchOnly] = React.useState(false);
   const [watch, setWatch] = React.useState<string[]>([]);
   const [isExpanded, setIsExpanded] = React.useState(true);
@@ -298,11 +298,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                   <option value="standard">Standard</option>
                   <option value="pioneer">Pioneer</option>
                 </select>
-              </label>
-            )}
-            {isPro && (
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={comparePeriod} onChange={e => setComparePeriod(e.target.checked)} /> Compare period
               </label>
             )}
             {sorted.length > 0 && (
