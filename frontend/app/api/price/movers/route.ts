@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     }
 
     const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, TRACKER_ROUTE, dailyCap, 1);
-    if (!rateLimit.allowed) {
+    const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
+    if (!skipLimitInDev && !rateLimit.allowed) {
       return NextResponse.json({
         ok: false,
         code: "RATE_LIMIT_DAILY",
@@ -56,15 +57,24 @@ export async function GET(req: NextRequest) {
     const admin = (await import("@/app/api/_lib/supa")).getAdmin();
     const db = admin ?? supabase;
 
+    const debug = url.searchParams.get("debug") === "1";
+
     // Find latest snapshot date for this currency
-    const { data: latestRows } = await db
+    const { data: latestRows, error: latestError } = await db
       .from('price_snapshots')
       .select('snapshot_date')
       .eq('currency', currency)
       .order('snapshot_date', { ascending: false })
       .limit(1);
     const latest = (latestRows as any[])?.[0]?.snapshot_date || null;
-    if (!latest) return NextResponse.json({ ok: true, rows: [], latest: null });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[price/movers]", { usedAdmin: !!admin, currency, latest, latestError: latestError?.message });
+    }
+    if (!latest) {
+      const empty: Record<string, unknown> = { ok: true, rows: [], latest: null };
+      if (debug) empty._debug = { usedAdmin: !!admin, latestError: latestError?.message, message: "No latest snapshot date" };
+      return NextResponse.json(empty);
+    }
 
     const cutoff = new Date(new Date(latest).getTime() - windowDays*24*60*60*1000).toISOString().slice(0,10);
 
@@ -120,7 +130,11 @@ export async function GET(req: NextRequest) {
       .sort((a,b) => Math.abs(b.pct) - Math.abs(a.pct))
       .slice(0, limit);
 
-    return NextResponse.json({ ok: true, latest, prior, rows: out });
+    const body: Record<string, unknown> = { ok: true, latest, prior, rows: out };
+    if (debug) {
+      body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
+    }
+    return NextResponse.json(body);
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }

@@ -13,13 +13,24 @@ type SortDirection = "asc" | "desc";
 interface TopMoversProps {
   currency: 'USD' | 'EUR' | 'GBP';
   onAddToChart?: (name: string) => void;
+  /** When provided, use parent-fetched data (page-level fetch ensures it runs) */
+  rows?: MoverRow[];
+  loading?: boolean;
+  fetchError?: string | null;
+  windowDays?: number;
+  onWindowDaysChange?: (days: number) => void;
 }
 
-export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
+export default function TopMovers({ currency, onAddToChart, rows: rowsProp, loading: loadingProp, fetchError: fetchErrorProp, windowDays: windowDaysProp, onWindowDaysChange }: TopMoversProps) {
   const { isPro } = useProStatus();
-  const [rows, setRows] = React.useState<MoverRow[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [windowDays, setWindowDays] = React.useState(7);
+  const [rowsInternal, setRowsInternal] = React.useState<MoverRow[]>([]);
+  const [loadingInternal, setLoadingInternal] = React.useState(false);
+  const [windowDaysInternal, setWindowDaysInternal] = React.useState(7);
+  const [fetchErrorInternal, setFetchErrorInternal] = React.useState<string | null>(null);
+  const controlled = rowsProp !== undefined;
+  const rows = controlled ? (rowsProp ?? []) : rowsInternal;
+  const loading = controlled ? (loadingProp ?? false) : loadingInternal;
+  const windowDays = controlled ? (windowDaysProp ?? 7) : windowDaysInternal;
   const [minPrice, setMinPrice] = React.useState(0);
   const [watchOnly, setWatchOnly] = React.useState(false);
   const [watch, setWatch] = React.useState<string[]>([]);
@@ -51,38 +62,32 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
     })();
   }, []);
 
-  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const fetchError = controlled ? (fetchErrorProp ?? null) : fetchErrorInternal;
+  const setWindowDays = controlled ? (onWindowDaysChange ?? (() => {})) : setWindowDaysInternal;
 
-  // Load movers data
+  // Load movers data (only when not controlled by parent)
   React.useEffect(() => {
+    if (controlled) return;
     (async () => {
       try {
-        setLoading(true);
-        setFetchError(null);
+        setLoadingInternal(true);
+        setFetchErrorInternal(null);
         const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${windowDays}&limit=100`, { cache: 'no-store', credentials: 'include' });
         const j = await r.json().catch(() => ({}));
         if (r.status === 429 && j?.proUpsell) {
           try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {}
         }
         if (r.status === 401) {
-          setFetchError("Sign in to see top movers.");
-          setRows([]);
+          setFetchErrorInternal("Sign in to see top movers.");
+          setRowsInternal([]);
           return;
         }
-        if (r.ok && j?.ok && Array.isArray(j.rows)) {
-          setRows(j.rows);
-        } else {
-          setRows([]);
-          if (!r.ok) setFetchError(j?.error || "Could not load movers.");
-        }
-      } catch (e) {
-        setRows([]);
-        setFetchError("Failed to load. Try again.");
-      } finally {
-        setLoading(false);
-      }
+        if (r.ok && j?.ok && Array.isArray(j.rows)) setRowsInternal(j.rows);
+        else { setRowsInternal([]); if (!r.ok) setFetchErrorInternal(j?.error || "Could not load movers."); }
+      } catch { setRowsInternal([]); setFetchErrorInternal("Failed to load. Try again."); }
+      finally { setLoadingInternal(false); }
     })();
-  }, [currency, windowDays]);
+  }, [controlled, currency, windowDays]);
 
   // Load card images
   React.useEffect(() => {
@@ -270,7 +275,7 @@ export default function TopMovers({ currency, onAddToChart }: TopMoversProps) {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <label className="inline-flex items-center gap-1">
               Window
-              <select value={windowDays} onChange={e => setWindowDays(parseInt(e.target.value, 10))} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
+              <select value={windowDays} onChange={e => setWindowDays(parseInt(e.target.value, 10) || 7)} className="bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5">
                 <option value={1}>1d</option>
                 <option value={7}>7d</option>
                 <option value={30}>30d</option>

@@ -25,8 +25,18 @@ export async function GET(req: NextRequest) {
 
     if (!names.length) return NextResponse.json({ ok: true, currency, from, series: [] });
 
-    // Normalize names (server side) - match price_cache card_name format (apostrophes, diacritics)
-    const norm = (s: string) => String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/['\u2019\u2018`]/g,"'").replace(/\s+/g," ").trim();
+    // Normalize names (server side) - match price_snapshots name_norm (bulk snapshot format)
+    // NFKD, strip diacritics, apostrophes→', fullwidth comma→comma, nbsp→space, collapse spaces
+    const norm = (s: string) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/['\u2019\u2018`]/g, "'")
+        .replace(/\uFF0C/g, ",")  // fullwidth comma → ASCII comma (Scryfall can return these)
+        .replace(/\u00A0/g, " ")  // nbsp → space
+        .replace(/\s+/g, " ")
+        .trim();
     const wanted = Array.from(new Set(names.map(norm))).slice(0, 10); // cap to 10 series for MVP
 
     let q = db
@@ -38,7 +48,13 @@ export async function GET(req: NextRequest) {
     if (from) q = q.gte("snapshot_date", from);
 
     const { data, error } = await q;
+    const debug = url.searchParams.get("debug") === "1";
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+    const snapshotRowCount = Array.isArray(data) ? data.length : 0;
+    if (process.env.NODE_ENV === "development") {
+      console.log("[price/series]", { usedAdmin: !!admin, wanted: wanted.slice(0, 3), currency, from, snapshotRowCount });
+    }
 
     const byName = new Map<string, Array<{ snapshot_date: string; unit: number }>>();
     for (const row of (data || []) as any[]) {
@@ -99,7 +115,11 @@ export async function GET(req: NextRequest) {
       points: rows.map(r => ({ date: r.snapshot_date, unit: r.unit })),
     }));
 
-    return NextResponse.json({ ok: true, currency, from, series }, { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=300" } });
+    const body: Record<string, unknown> = { ok: true, currency, from, series };
+    if (debug) {
+      body._debug = { usedAdmin: !!admin, wanted, snapshotRowCount, seriesCount: series.length, byNameSize: byName.size };
+    }
+    return NextResponse.json(body, { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=300" } });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }

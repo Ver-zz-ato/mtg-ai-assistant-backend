@@ -30,7 +30,7 @@ export default function PriceTrackerPage(){
     trackInteractions: true,
     trackExitIntent: true
   });
-  const [names, setNames] = React.useState<string>("");
+  const [names, setNames] = React.useState<string>("Sol Ring");
   const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
   const [range, setRange] = React.useState<"30"|"60">("60");
   const [loading, setLoading] = React.useState(false);
@@ -40,6 +40,10 @@ export default function PriceTrackerPage(){
   const [watchlist, setWatchlist] = React.useState<string[]>([]);
   const [deckId, setDeckId] = React.useState<string>("");
   const [deckSeries, setDeckSeries] = React.useState<Array<{ date:string; total:number }>>([]);
+  const [moversRows, setMoversRows] = React.useState<Array<{ name:string; prior:number; latest:number; delta:number; pct:number }>>([]);
+  const [moversLoading, setMoversLoading] = React.useState(false);
+  const [moversError, setMoversError] = React.useState<string | null>(null);
+  const [moversWindowDays, setMoversWindowDays] = React.useState(7);
 
   const from = React.useMemo(() => {
     const days = parseInt(range, 10);
@@ -84,13 +88,35 @@ export default function PriceTrackerPage(){
       picks.slice(0,10).forEach(n => qs.append("names[]", n));
       qs.set("currency", currency);
       if (from) qs.set("from", from);
-      const r = await fetch(`/api/price/series?${qs.toString()}`, { cache: 'no-store' });
+      const url = `/api/price/series?${qs.toString()}`;
+      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+        console.log("[PriceTracker] series fetch", { picks, url });
+      }
+      const r = await fetch(url, { cache: 'no-store' });
       const j = await r.json().catch(()=>({}));
+      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+        console.log("[PriceTracker] series response", { ok: r.ok, status: r.status, seriesCount: j?.series?.length ?? 0, error: j?.error });
+      }
       if (r.ok && j?.ok) setSeries(j.series||[]); else setSeries([]);
     } finally { setLoading(false); }
   }
 
   React.useEffect(() => { const id = setTimeout(load, 300); return () => clearTimeout(id); /* debounce */ }, [names, currency, from]);
+
+  // Fetch movers at page level so it always runs (TopMovers' useEffect may not fire in some layouts)
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setMoversLoading(true);
+        setMoversError(null);
+        const r = await fetch(`/api/price/movers?currency=${encodeURIComponent(currency)}&window_days=${moversWindowDays}&limit=100`, { cache: 'no-store', credentials: 'include' });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j?.ok && Array.isArray(j.rows)) setMoversRows(j.rows);
+        else { setMoversRows([]); if (!r.ok) setMoversError(j?.error || "Could not load movers."); }
+      } catch { setMoversRows([]); setMoversError("Failed to load."); }
+      finally { setMoversLoading(false); }
+    })();
+  }, [currency, moversWindowDays]);
 
   function exportCsv(){
     const rows: string[][] = [["date", ...series.map(s=>s.name)]];
@@ -361,7 +387,7 @@ export default function PriceTrackerPage(){
       </section>
 
           <section className="rounded border border-neutral-800 p-3">
-            <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} />
+            <TopMovers currency={currency} onAddToChart={(name) => setNames(names ? `${names}, ${name}` : name)} rows={moversRows} loading={moversLoading} fetchError={moversError} windowDays={moversWindowDays} onWindowDaysChange={setMoversWindowDays} />
           </section>
         </section>
 
