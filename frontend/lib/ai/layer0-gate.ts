@@ -11,7 +11,7 @@ export type Layer0Decision =
   | {
       mode: "NO_LLM";
       reason: string;
-      handler: "card_lookup" | "static_faq" | "need_more_info" | "off_topic";
+      handler: "card_lookup" | "static_faq" | "need_more_info" | "off_topic" | "off_topic_ai_check";
     }
   | {
       mode: "MINI_ONLY";
@@ -34,6 +34,8 @@ export type Layer0DecideArgs = {
   nearBudgetCap?: boolean;
   /** When true, skip nearBudgetCap downgrade (Pro always gets FULL_LLM). */
   isPro?: boolean;
+  /** When true, skip off-topic gate (short corrections like "no it's chatterfang" are MTG follow-ups). */
+  hasChatHistory?: boolean;
 };
 
 const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
@@ -125,7 +127,7 @@ export function needsDeckButMissing(text: string, hasDeckContext: boolean): bool
  * Layer 0 classification. Deterministic, explainable.
  */
 export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
-  const { text, hasDeckContext, isAuthenticated, route, nearBudgetCap, isPro } = args;
+  const { text, hasDeckContext, isAuthenticated, route, nearBudgetCap, isPro, hasChatHistory } = args;
   const q = (text || "").trim();
   const qLower = q.toLowerCase();
 
@@ -145,8 +147,12 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
   }
 
   // 3.5. Clearly non-MTG (no FAQ match, no MTG keywords) → scope gate
+  // No chat history: return off_topic. With history: use mini AI to decide (handlers off-topic vs MTG-related)
   if (isClearlyNonMTG(text)) {
-    return { mode: "NO_LLM", reason: "off_topic", handler: "off_topic" };
+    if (!hasChatHistory) {
+      return { mode: "NO_LLM", reason: "off_topic", handler: "off_topic" };
+    }
+    return { mode: "NO_LLM", reason: "off_topic_ai_check", handler: "off_topic_ai_check" };
   }
 
   // 4. Simple rules/term question, no deck → MINI_ONLY
@@ -194,4 +200,54 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
 
   // 8. Default
   return { mode: "FULL_LLM", reason: "default" };
+}
+
+/** Chat history entry for off-topic AI check */
+export type ChatHistoryEntry = { role: string; content: string };
+
+/**
+ * Async mini-model check: given chat history and current message, is the user's message OFF_TOPIC or MTG_RELATED?
+ * Returns true if off-topic (should gate), false if MTG-related (proceed to LLM).
+ * On error, returns false (proceed) to avoid blocking valid corrections.
+ */
+export async function layer0OffTopicAICheck(
+  text: string,
+  chatHistory: ChatHistoryEntry[]
+): Promise<boolean> {
+  const recent = chatHistory.slice(-8);
+  if (recent.length === 0) return true;
+
+  const conv = recent
+    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${(m.content || "").slice(0, 300)}`)
+    .join("\n");
+  const prompt = `You are a classifier for an MTG deck-building chat. Given this conversation and the user's latest message, decide:
+- OFF_TOPIC: The user's message is clearly unrelated to MTG, deckbuilding, or the ongoing deck discussion (e.g. weather, movies, general chat).
+- MTG_RELATED: The message IS related—e.g. commander corrections ("no it's chatterfang"), confirmations ("yes", "correct"), card names, short follow-ups about the deck, or any MTG content.
+
+Conversation:
+${conv}
+
+User's latest message: ${(text || "").trim()}
+
+Reply with exactly one word: OFF_TOPIC or MTG_RELATED`;
+
+  try {
+    const { callLLM } = await import("./unified-llm-client");
+    const res = await callLLM(
+      [{ role: "user", content: prompt }],
+      {
+        model: MINI_MODEL,
+        maxTokens: 16,
+        route: "/api/chat/stream",
+        feature: "layer0_off_topic_check",
+        apiType: "chat",
+        userId: null,
+        isPro: false,
+      }
+    );
+    const out = (res.text || "").toUpperCase().trim();
+    return out.includes("OFF_TOPIC") && !out.includes("MTG_RELATED");
+  } catch {
+    return false; // On error: proceed (don't gate)
+  }
 }

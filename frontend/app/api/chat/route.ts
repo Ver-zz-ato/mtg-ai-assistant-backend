@@ -705,19 +705,30 @@ export async function POST(req: NextRequest) {
         route: "chat",
         nearBudgetCap,
         isPro,
+        hasChatHistory: threadHistory.length > 1,
       });
       if (decision.mode === "NO_LLM") {
+        let actualHandler: string = decision.handler;
+        if (decision.handler === "off_topic_ai_check") {
+          const { layer0OffTopicAICheck } = await import("@/lib/ai/layer0-gate");
+          const isOffTopic = await layer0OffTopicAICheck(text, threadHistory);
+          actualHandler = isOffTopic ? "off_topic" : "proceed_full_llm";
+        }
+        if (actualHandler === "proceed_full_llm") {
+          layer0Mode = "FULL_LLM";
+          layer0Reason = "off_topic_ai_check_mtg_related";
+        } else {
         let responseText: string;
-        if (decision.handler === "need_more_info") {
+        if (actualHandler === "need_more_info") {
           if (!text.trim()) {
             responseText = "Please enter your question or paste a decklist.";
           } else {
             responseText =
               "To analyze or improve a deck, please link a deck to this chat or paste your decklist in the message. You can link a deck from the deck selector in the chat header, or paste a list (one card per line, e.g. 1 Sol Ring).";
           }
-        } else if (decision.handler === "static_faq") {
+        } else if (actualHandler === "static_faq") {
           responseText = getFaqAnswer(text) ?? "I don't have a canned answer for that. Try asking in different words or use the full AI.";
-        } else if (decision.handler === "off_topic") {
+        } else if (actualHandler === "off_topic") {
           responseText = "ManaTap is focused on MTG deckbuilding and rules—ask me MTG stuff.";
         } else {
           responseText = "Please enter your question or paste a decklist.";
@@ -746,12 +757,13 @@ export async function POST(req: NextRequest) {
           source: evalRunId ? "ai_test" : undefined,
         });
         return ok({ text: responseText, threadId: tid, provider: "layer0" });
+        }
       }
       if (decision.mode === "MINI_ONLY") {
         layer0Mode = "MINI_ONLY";
         layer0Reason = decision.reason;
         layer0MiniOnly = { model: decision.model, max_tokens: decision.max_tokens };
-      } else {
+      } else if (!layer0Mode) {
         layer0Mode = "FULL_LLM";
         layer0Reason = decision.reason;
       }

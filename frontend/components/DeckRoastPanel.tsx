@@ -361,13 +361,20 @@ export default function DeckRoastPanel({
         </p>
       </div>
 
-      <button
-        onClick={runRoast}
-        disabled={busy || !deckText.trim()}
-        className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        Roast me! 🔥
-      </button>
+      {busy ? (
+        <div className="w-full rounded-lg overflow-hidden bg-neutral-800/90 border border-amber-700/50">
+          <div className="h-10 bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 animate-pulse" />
+          <p className="text-center text-amber-200/90 text-sm font-medium py-1.5">Roasting...</p>
+        </div>
+      ) : (
+        <button
+          onClick={runRoast}
+          disabled={!deckText.trim()}
+          className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          Roast me! 🔥
+        </button>
+      )}
 
       {error && (
         <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded p-2">
