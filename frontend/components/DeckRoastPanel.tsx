@@ -253,6 +253,12 @@ export default function DeckRoastPanel({
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
+      <img
+        src="/roast-deck-skull-icon.png"
+        alt=""
+        className="w-14 h-14 object-contain mb-2 opacity-90"
+        aria-hidden
+      />
       <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
       <p className="text-sm text-neutral-400 mt-1">Do you dare?</p>
     </div>
@@ -543,6 +549,12 @@ export default function DeckRoastPanel({
         isPanel ? "bg-gradient-to-br from-amber-950/60 via-neutral-950 to-neutral-900 border-2 border-amber-700/60 rounded-xl hover:border-amber-600/80" : ""
       }`}
     >
+      <img
+        src="/roast-deck-skull-icon.png"
+        alt=""
+        className="w-14 h-14 object-contain mb-2 opacity-90"
+        aria-hidden
+      />
       <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
       <p className="text-sm text-neutral-400 mt-1">Do you dare?</p>
     </button>
