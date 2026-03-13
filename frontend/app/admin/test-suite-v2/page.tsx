@@ -25,6 +25,7 @@ const CATEGORY_LABELS: Record<ScenarioCategory, string> = {
 
 export default function TestSuiteV2Page() {
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([]);
+  const [scenariosLoading, setScenariosLoading] = useState(true);
   const [summary, setSummary] = useState<V2RunSummary | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<ScenarioCategory | "">("");
@@ -33,10 +34,12 @@ export default function TestSuiteV2Page() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setScenariosLoading(true);
     fetch("/api/admin/test-suite-v2/scenarios")
       .then((r) => r.json())
       .then((j) => setScenarios(j.scenarios ?? []))
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(String(e)))
+      .finally(() => setScenariosLoading(false));
   }, []);
 
   const filteredScenarios = useMemo(() => {
@@ -93,8 +96,11 @@ export default function TestSuiteV2Page() {
           ← Admin
         </Link>
       </div>
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-neutral-500 mb-1">
         Scenario-based evaluation for chat AI: deck memory, rules grounding, deck intelligence, prompt contracts, adversarial cases.
+      </p>
+      <p className="text-xs text-neutral-500 italic">
+        ELI5: Run canned chat scenarios to check if the AI remembers your deck, follows rules, and injects the right prompt blocks — without calling the model.
       </p>
 
       {error && (
@@ -166,7 +172,9 @@ export default function TestSuiteV2Page() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Scenarios */}
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
-          <h2 className="text-base font-semibold text-neutral-200 mb-3">Scenarios</h2>
+          <h2 className="text-base font-semibold text-neutral-200 mb-3">
+            Scenarios {scenarios.length > 0 && `(${scenarios.length})`}
+          </h2>
           <div className="space-y-2 mb-3">
             <input
               type="text"
@@ -189,7 +197,14 @@ export default function TestSuiteV2Page() {
             </select>
           </div>
           <div className="space-y-1 max-h-80 overflow-y-auto">
-            {filteredScenarios.map((s) => {
+            {scenariosLoading ? (
+              <p className="text-sm text-neutral-500 py-4">Loading scenarios…</p>
+            ) : filteredScenarios.length === 0 ? (
+              <p className="text-sm text-neutral-500 py-4">
+                {scenarios.length === 0 ? "No scenarios loaded." : "No scenarios match your filters."}
+              </p>
+            ) : (
+            filteredScenarios.map((s) => {
               const res = summary?.results?.find((r) => r.scenarioId === s.id);
               return (
                 <button
@@ -213,7 +228,8 @@ export default function TestSuiteV2Page() {
                   </div>
                 </button>
               );
-            })}
+            })
+            )}
           </div>
         </section>
 
@@ -249,7 +265,54 @@ export default function TestSuiteV2Page() {
         </section>
       </div>
 
-      {/* Run Results */}
+      {/* Test Results — all scenarios when run */}
+      {summary && summary.results.length > 0 && (
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
+          <h2 className="text-base font-semibold text-neutral-200 mb-3">Test Results</h2>
+          <p className="text-xs text-neutral-500 mb-3">
+            Click a scenario above to see detailed results. Below: pass/fail for each.
+          </p>
+          <div className="overflow-x-auto max-h-64 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-neutral-500 border-b border-neutral-700">
+                  <th className="py-2 pr-2">Status</th>
+                  <th className="py-2 pr-2">Scenario</th>
+                  <th className="py-2 pr-2">Category</th>
+                  <th className="py-2 pr-2">Ms</th>
+                  <th className="py-2 pr-2">Hard</th>
+                  <th className="py-2 pr-2">Soft</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.results.map((r) => {
+                  const s = scenarios.find((sc) => sc.id === r.scenarioId);
+                  return (
+                    <tr
+                      key={r.scenarioId}
+                      className={`border-b border-neutral-800 cursor-pointer hover:bg-neutral-800/50 ${
+                        selectedId === r.scenarioId ? "bg-blue-950/20" : ""
+                      }`}
+                      onClick={() => setSelectedId(r.scenarioId)}
+                    >
+                      <td className="py-2 pr-2">
+                        <StatusBadge pass={r.pass} />
+                      </td>
+                      <td className="py-2 pr-2 font-medium">{s?.title ?? r.scenarioId}</td>
+                      <td className="py-2 pr-2 text-neutral-500">{s ? CATEGORY_LABELS[s.category] : "—"}</td>
+                      <td className="py-2 pr-2 text-neutral-500">{r.durationMs}</td>
+                      <td className="py-2 pr-2">{r.hardFailures.length > 0 ? <span className="text-red-400">{r.hardFailures.length}</span> : "—"}</td>
+                      <td className="py-2 pr-2">{r.softFailures.length > 0 ? <span className="text-amber-400">{r.softFailures.length}</span> : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Run Results — detailed view for selected scenario */}
       {summary && selectedResult && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Run Results</h2>
