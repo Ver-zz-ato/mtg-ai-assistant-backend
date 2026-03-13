@@ -237,9 +237,17 @@ export async function POST(req: NextRequest) {
     const prefs = raw?.prefs || raw?.preferences || null;
     const contextDeckId = typeof raw?.context === "object" && raw.context !== null && "deckId" in raw.context ? (raw.context as any).deckId : null;
     let deckIdLinked: string | null = null;
+    let threadCommander: string | null = null;
+    let threadDecklistText: string | null = null;
+    let threadDecklistHash: string | null = null;
     if (tid && !isGuest) {
-      const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
+      const { data: th } = await supabase.from("chat_threads")
+        .select("deck_id, commander, decklist_text, commander_status, deck_source, decklist_hash, deck_context_updated_at, deck_parse_meta")
+        .eq("id", tid).maybeSingle();
       deckIdLinked = (th?.deck_id as string) ?? null;
+      threadCommander = (th?.commander as string) ?? null;
+      threadDecklistText = (th?.decklist_text as string) ?? null;
+      threadDecklistHash = (th?.decklist_hash as string) ?? null;
     }
     if (contextDeckId) deckIdLinked = contextDeckId;
 
@@ -262,40 +270,69 @@ export async function POST(req: NextRequest) {
     const deckFormat = deckData?.d?.format ? String(deckData.d.format).toLowerCase().replace(/\s+/g, "") : null;
     const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
 
-    let deckContextForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: string[] | null; deckId?: string } | null = deckData?.entries?.length
-      ? { deckCards: deckData.entries, commanderName: deckData.d?.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdLinked ?? undefined }
-      : null;
+    // Phase 5: ActiveDeckContext as single source of truth
+    let streamThreadHistoryEarly: Array<{ role: string; content?: string }> = [];
+    if (tid) {
+      const { data: msgs } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
+      streamThreadHistoryEarly = (Array.isArray(msgs) ? msgs : []) as Array<{ role: string; content?: string }>;
+    }
+    const { resolveActiveDeckContext } = await import("@/lib/chat/active-deck-context");
+    const activeDeckContext = resolveActiveDeckContext({
+      tid,
+      isGuest,
+      userId,
+      text,
+      context: typeof raw?.context === "object" && raw?.context ? (raw.context as { deckId?: string | null }) : null,
+      prefs,
+      thread: tid ? { deck_id: deckIdLinked, commander: threadCommander, decklist_text: threadDecklistText, decklist_hash: threadDecklistHash } : null,
+      streamThreadHistory: streamThreadHistoryEarly,
+      clientConversation,
+      deckData,
+    });
+    streamDebug("active_deck_context", {
+      hasDeck: activeDeckContext.hasDeck,
+      source: activeDeckContext.source,
+      commanderName: activeDeckContext.commanderName,
+      commanderStatus: activeDeckContext.commanderStatus,
+      askReason: activeDeckContext.askReason,
+      commanderCandidates: activeDeckContext.commanderCandidates,
+      resolutionPath: activeDeckContext.debug.resolutionPath,
+    });
 
-    // Homepage chat: pasted decklist — extract commander + entries so MODULE_GRAVEYARD_RECURSION etc. can attach
-    if (!deckContextForCompose?.deckCards?.length) {
+    // Build deckContextForCompose from ActiveDeckContext
+    let deckContextForCompose: { deckCards: Array<{ name: string; count?: number }>; commanderName: string | null; colorIdentity: string[] | null; deckId?: string } | null = null;
+    if (activeDeckContext.source === "linked" && deckData?.entries?.length) {
+      deckContextForCompose = { deckCards: deckData.entries, commanderName: deckData.d?.commander ?? null, colorIdentity: null, deckId: deckIdLinked ?? undefined };
+    } else if (activeDeckContext.hasDeck && activeDeckContext.decklistText) {
+      const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+      const entries = parseDeckText(activeDeckContext.decklistText).map((e) => ({ name: e.name, count: e.qty }));
+      if (entries.length >= 6) {
+        deckContextForCompose = { deckCards: entries, commanderName: activeDeckContext.commanderName, colorIdentity: null, deckId: activeDeckContext.deckId ?? undefined };
+      }
+    }
+
+    // Persist thread slot updates when user pastes new deck (Phase 8: hash change clears commander unless preserved)
+    if (tid && !isGuest && activeDeckContext.source === "current_paste" && !deckIdLinked && activeDeckContext.decklistText) {
+      const preserveCommander = !activeDeckContext.deckReplacedByHashChange || (activeDeckContext.commanderName && threadCommander && activeDeckContext.commanderName.toLowerCase() === threadCommander.toLowerCase());
       try {
-        const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
-        const { parseDeckText } = await import("@/lib/deck/parseDeckText");
-        if (isDecklist(text)) {
-          const entries = parseDeckText(text).map((e) => ({ name: e.name, count: e.qty }));
-          const commanderName = extractCommanderFromDecklistText(text, text);
-          if (entries.length >= 6) {
-            deckContextForCompose = { deckCards: entries, commanderName, colorIdentity: null, deckId: undefined };
-          }
-        }
-        // Guest multi-turn: current message (e.g. "yes") may not be deck; use prior user message with pasted deck
-        if (!deckContextForCompose?.deckCards?.length && isGuest && clientConversation.length > 0) {
-          for (let i = clientConversation.length - 1; i >= 0; i--) {
-            const msg = clientConversation[i];
-            if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
-              const entries = parseDeckText(msg.content).map((e) => ({ name: e.name, count: e.qty }));
-              const commanderName = extractCommanderFromDecklistText(msg.content, text);
-              if (entries.length >= 6) {
-                deckContextForCompose = { deckCards: entries, commanderName, colorIdentity: null, deckId: undefined };
-                break;
-              }
-            }
-          }
-        }
+        const updates: Record<string, unknown> = {
+          decklist_text: activeDeckContext.decklistText,
+          deck_source: "pasted",
+          decklist_hash: activeDeckContext.decklistHash,
+          deck_context_updated_at: new Date().toISOString(),
+          deck_parse_meta: {},
+          commander: preserveCommander ? threadCommander : null,
+          commander_status: preserveCommander ? (threadCommander ? "confirmed" : "inferred") : "missing",
+        };
+        await supabase.from("chat_threads").update(updates).eq("id", tid);
+        threadDecklistText = activeDeckContext.decklistText;
+        threadCommander = preserveCommander ? threadCommander : null;
+        streamDebug("deck_context_persist", { reason: "paste_update", decklistHash: activeDeckContext.decklistHash, preserveCommander });
       } catch (_) {}
     }
 
     const hasDeckContextForTier = !!(deckContextForCompose?.deckCards?.length);
+
     streamDebug("identity", { isGuest, hasTid: !!tid, hasDeckData: !!deckData, hasDeckContextForCompose: hasDeckContextForTier, deckContextCommander: deckContextForCompose?.commanderName ?? null, deckContextCards: deckContextForCompose?.deckCards?.length ?? 0 });
     const { classifyPromptTier, MICRO_PROMPT, estimateSystemPromptTokens } = await import("@/lib/ai/prompt-tier");
     const tierResult = classifyPromptTier({ text, hasDeckContext: hasDeckContextForTier, deckContextForCompose });
@@ -415,80 +452,65 @@ export async function POST(req: NextRequest) {
     const streamV2BuildStart = Date.now();
     if (streamRuntimeConfig.flags.llm_v2_context !== false) {
       try {
+        streamThreadHistory = streamThreadHistoryEarly.map((m) => ({ role: m.role, content: m.content ?? "" }));
         const {
-          deckHash,
           buildDeckContextSummary,
           getPasteSummary,
           setPasteSummary,
           estimateSummaryTokens,
         } = await import("@/lib/deck/deck-context-summary");
-        if (deckData?.deckText?.trim()) {
-          const deckText = deckData.deckText;
-          const hash = deckHash(deckText);
-          streamDeckHashForLog = hash;
-          const admin = (await import("@/app/api/_lib/supa")).getAdmin();
-          if (admin) {
-            const { data: row } = await admin
-              .from("deck_context_summary")
-              .select("summary_json")
-              .eq("deck_id", deckIdLinked!)
-              .eq("deck_hash", hash)
-              .maybeSingle();
-            if (row?.summary_json) {
-              v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
-              streamContextSource = "linked_db";
+        // Phase 7: Unify v2/raw behind ActiveDeckContext
+        const deckTextForV2 = activeDeckContext.hasDeck && activeDeckContext.decklistText ? activeDeckContext.decklistText.trim() : null;
+        const hashForV2 = activeDeckContext.decklistHash;
+        if (deckTextForV2) {
+          streamDeckHashForLog = hashForV2 || null;
+          if (activeDeckContext.source === "linked" && activeDeckContext.deckId) {
+            const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+            if (admin) {
+              const { data: row } = await admin
+                .from("deck_context_summary")
+                .select("summary_json")
+                .eq("deck_id", activeDeckContext.deckId)
+                .eq("deck_hash", hashForV2)
+                .maybeSingle();
+              if (row?.summary_json) {
+                v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
+                streamContextSource = "linked_db";
+              } else {
+                v2Summary = await buildDeckContextSummary(deckTextForV2, {
+                  format: (deckData?.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                  commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
+                  colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
+                });
+                await admin.from("deck_context_summary").upsert(
+                  { deck_id: activeDeckContext.deckId, deck_hash: hashForV2, summary_json: v2Summary },
+                  { onConflict: "deck_id,deck_hash" }
+                );
+                streamContextSource = "linked_db";
+              }
             } else {
-              v2Summary = await buildDeckContextSummary(deckText, {
-                format: (deckData.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
-                commander: deckData.d?.commander ?? null,
-                colors: Array.isArray(deckData.d?.colors) ? deckData.d.colors : [],
+              v2Summary = await buildDeckContextSummary(deckTextForV2, {
+                format: (deckData?.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
+                colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
               });
-              await admin.from("deck_context_summary").upsert(
-                { deck_id: deckIdLinked!, deck_hash: hash, summary_json: v2Summary },
-                { onConflict: "deck_id,deck_hash" }
-              );
-              streamContextSource = "linked_db";
+              streamContextSource = "raw_fallback";
             }
           } else {
-            v2Summary = await buildDeckContextSummary(deckText, {
-              format: (deckData.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
-              commander: deckData.d?.commander ?? null,
-              colors: Array.isArray(deckData.d?.colors) ? deckData.d.colors : [],
-            });
-            streamContextSource = "raw_fallback";
-          }
-          streamSummaryTokensEstimate = estimateSummaryTokens(v2Summary);
-        } else if (tid) {
-          const { data: msgs } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
-          streamThreadHistory = Array.isArray(msgs) ? msgs : [];
-          const { isDecklist } = await import("@/lib/chat/decklistDetector");
-          let pastedDeckTextRaw: string | null = null;
-          for (let i = streamThreadHistory.length - 1; i >= 0; i--) {
-            const msg = streamThreadHistory[i];
-            if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
-              pastedDeckTextRaw = msg.content;
-              break;
-            }
-          }
-          if (pastedDeckTextRaw) {
-            const hash = deckHash(pastedDeckTextRaw);
-            streamDeckHashForLog = hash;
-            const cached = getPasteSummary(hash);
+            const cached = getPasteSummary(hashForV2);
             if (cached) {
               v2Summary = cached;
               streamContextSource = "paste_ttl";
             } else {
-              const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
-              const commander = extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined);
-              v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, {
+              v2Summary = await buildDeckContextSummary(deckTextForV2, {
                 format: "Commander",
-                commander: commander ?? undefined,
+                commander: activeDeckContext.commanderName ?? undefined,
               });
-              setPasteSummary(hash, v2Summary);
+              setPasteSummary(hashForV2, v2Summary);
               streamContextSource = "paste_ttl";
             }
-            streamSummaryTokensEstimate = estimateSummaryTokens(v2Summary);
           }
+          streamSummaryTokensEstimate = v2Summary ? estimateSummaryTokens(v2Summary) : null;
         }
         const streamV2BuildMs = Date.now() - streamV2BuildStart;
         if (v2Summary && streamV2BuildMs > 30_000) {
@@ -517,11 +539,13 @@ export async function POST(req: NextRequest) {
       const lastAssistantContent = (lastAssistant as { content?: string })?.content ?? "";
       const askedCommander = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
       const looksLikeConfirmation = (t: string) => {
-        const q = (t || "").trim().toLowerCase();
+        const q = (t || "").trim().toLowerCase().replace(/[!.,;:]+$/, "").trim();
+        if (!q) return false;
         if (/^(yes|yep|yeah|correct|that's right|right|confirmed?|sure|ok|okay)$/i.test(q)) return true;
         if (/^no,?\s*(it'?s?|my commander is)\s+/i.test(q) || /^no\s+it'?s\s+/i.test(q)) return true;
         if (/^actually\s+(it'?s?|my commander is)\s+/i.test(q)) return true;
         if (/^(no|nope|wrong)\b/i.test(q) && q.length < 80) return true;
+        if (q.length <= 15 && /^(yes|yep|yeah|correct|right|ok|okay|sure)/i.test(q)) return true;
         return false;
       };
       if ((tid || (isGuest && historyForConfirm?.length)) && askedCommander && looksLikeConfirmation(text ?? "")) {
@@ -572,7 +596,8 @@ export async function POST(req: NextRequest) {
           }));
         }
         const { formatForLLM } = await import("@/lib/deck/intelligence-formatter");
-        const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderCorrectionForPrompt ?? undefined);
+        const commanderForFacts = activeDeckContext.userJustCorrectedCommander ? activeDeckContext.commanderName : undefined;
+        const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderForFacts ?? undefined);
         sys += `\n\n${deckFactsProse}\n`;
       } else {
         sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
@@ -659,19 +684,27 @@ export async function POST(req: NextRequest) {
         if (decklistContext) sys += "\n\n" + decklistContext;
       } else if (tid) {
         try {
-          const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
-          if (messages?.length) {
-            const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
-            const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
-            for (let i = messages.length - 1; i >= 0; i--) {
-              const msg = messages[i];
-              if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
-                const commander = extractCommanderFromDecklistText(msg.content, text ?? undefined);
-                if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
-                const decklistContext = generateDeckContext(analyzeDecklistFromText(msg.content), "Pasted Decklist", msg.content, commander);
-                if (decklistContext) { sys += "\n\n" + decklistContext; break; }
+          const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+          const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+          // Prefer thread slot over scanning messages
+          let rawDeckText: string | null = threadDecklistText;
+          if (!rawDeckText) {
+            const { data: messages } = await supabase.from("chat_messages").select("role, content").eq("thread_id", tid).order("created_at", { ascending: true }).limit(30);
+            if (messages?.length) {
+              for (let i = messages.length - 1; i >= 0; i--) {
+                const msg = messages[i];
+                if (msg.role === "user" && msg.content && isDecklist(msg.content)) {
+                  rawDeckText = msg.content;
+                  break;
+                }
               }
             }
+          }
+          if (rawDeckText) {
+            const commander = threadCommander ?? extractCommanderFromDecklistText(rawDeckText, text ?? undefined);
+            if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
+            const decklistContext = generateDeckContext(analyzeDecklistFromText(rawDeckText), "Pasted Decklist", rawDeckText, commander);
+            if (decklistContext) sys += "\n\n" + decklistContext;
           }
         } catch (_) {}
       }
@@ -690,17 +723,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
     if (selectedTier === "full") {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-    // Commander confirmation: ask first, then remember their answer for follow-up
-    if (inferredCommanderForConfirmation) {
-      if (userConfirmedOrCorrectedCommander) {
-        const commanderToUse = commanderCorrectionForPrompt || inferredCommanderForConfirmation;
-        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user confirmed the commander [[${commanderToUse}]]. The decklist is already in context above. Do NOT ask for the decklist, format, or "what to improve"—proceed immediately with full deck analysis. Do NOT say "I need more info" or "paste your decklist". Respond with concrete analysis (mana base, ramp, cuts, upgrades).`;
-      } else {
-        sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${inferredCommanderForConfirmation}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
+    // Phase 6: State-driven prompt assembly from ActiveDeckContext
+    const { isAuthoritativeCommander } = await import("@/lib/chat/active-deck-context");
+    const authCommander = isAuthoritativeCommander(activeDeckContext);
+    if (activeDeckContext.hasDeck && authCommander && activeDeckContext.commanderName) {
+      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. The user gave you everything. Start your analysis immediately (mana base, ramp, cuts, upgrades).`;
+      if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
+        if (tid && !isGuest) {
+          try {
+            const status = activeDeckContext.userJustCorrectedCommander ? "corrected" : "confirmed";
+            await supabase.from("chat_threads").update({ commander: activeDeckContext.commanderName, commander_status: status }).eq("id", tid);
+          } catch (_) {}
+        }
       }
+    } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "confirm_inference" && activeDeckContext.commanderName) {
+      sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
+    } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "need_commander") {
+      sys += `\n\nCOMMANDER NEEDED: You have a decklist but the commander is unclear. Ask the user to confirm their commander before providing deck analysis. Do NOT guess or assume the commander.`;
     }
+    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: authCommander ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none" };
+    streamDebug("prompt_contract", promptContractLog);
     }
 
     // Thread summary (within-thread memory) - same logic as non-stream
@@ -960,9 +1005,35 @@ export async function POST(req: NextRequest) {
     let streamStartTime = Date.now();
     let estimatedTokens = 0;
 
+    const wantDebug = req.headers.get("x-debug-chat") === "1";
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          if (wantDebug) {
+            const debugPayload = {
+              ts: Date.now(),
+              active_deck_context: {
+                hasDeck: activeDeckContext.hasDeck,
+                source: activeDeckContext.source,
+                deckId: activeDeckContext.deckId,
+                commanderName: activeDeckContext.commanderName,
+                commanderStatus: activeDeckContext.commanderStatus,
+                askReason: activeDeckContext.askReason,
+                commanderCandidates: activeDeckContext.commanderCandidates,
+                resolutionPath: activeDeckContext.debug?.resolutionPath ?? [],
+                deckReplacedByHashChange: activeDeckContext.deckReplacedByHashChange,
+              },
+              stream_context_source: streamContextSource,
+              deck_hash: streamDeckHashForLog,
+              prompt_tier: selectedTier,
+              prompt_contract: promptContractLog,
+              format_key: formatKey,
+              v2_summary_used: !!v2Summary,
+              v2_card_count: v2Summary?.card_count ?? null,
+              deck_context_cards: deckContextForCompose?.deckCards?.length ?? 0,
+            };
+            controller.enqueue(encoder.encode(`__MANATAP_DEBUG__\n${JSON.stringify(debugPayload)}\n__MANATAP_DEBUG_END__\n`));
+          }
           // Set up heartbeat
           heartbeatTimer = setInterval(() => {
             try {

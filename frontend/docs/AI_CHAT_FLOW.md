@@ -1,299 +1,321 @@
 # ManaTap AI Chat Flow — Technical Specification
 
-**Purpose:** Fully document the AI chat architecture, request flow, and design rationale. Use this as the single source of truth for how chat works and why.
+**Purpose:** Single source of truth for how the AI chat works end-to-end. All architecture, request flow, deck context, commander handling, and design rationale live here.
 
 ---
 
-## 1. Goals: What Do We Want?
+## 1. Goals
 
 | Goal | Why |
 |------|-----|
-| **Single source of truth for chat** | Chat responses come only from the streaming route. No parallel deck_analyze calls for report cards — reduces complexity, wrong-commander issues, and divergent prompts. |
-| **Commander correctness** | Commander must be inferred consistently from pasted decklists (Moxfield/Archidekt often put commander at end). Ask the user to confirm before analysis. |
-| **Memory within conversation** | Pro and Guest must both support multi-turn: "I believe your commander is X — is this correct?" → User: "yes" or "no, it's Y" → Full analysis. Memory enables this. |
-| **Cost control** | Use cheaper models for trivial queries (greetings, simple rules); full models for deck analysis. Respect budget caps. |
-| **Fair limits** | Guest: capped per session; Free/Pro: daily limits. Enforced server-side. |
-| **Evidence-based analysis** | System prompt enforces problem claims backed by decklist evidence, ADD/CUT recommendations, synergy chains, and a report-card style summary. |
+| **Single source of truth for chat** | Responses come only from the streaming route. No parallel deck_analyze for report cards. |
+| **Commander correctness** | Commander inferred from pasted decklists (Moxfield/Archidekt often put commander last). User confirms before analysis. |
+| **Persistent deck context** | Thread-level `commander` and `decklist_text` slots (paste-only) persist across turns so the AI never re-asks. |
+| **Memory within conversation** | Pro and Guest both support multi-turn: "I believe your commander is X — is this correct?" → "yes" → full analysis. |
+| **Cost control** | Cheaper models for trivial queries; full models for deck analysis. Budget caps enforced. |
+| **Fair limits** | Guest: 10/session; Free: 50/day; Pro: 500/day. |
+| **Evidence-based analysis** | Problems backed by decklist evidence; ADD/CUT recommendations; synergy chains; report-card style. |
 
 ---
 
-## 2. Entry Point and Architecture
-
-### 2.1 Client Flow
+## 2. End-to-End Flow Overview
 
 ```
-Chat.tsx (user submits message)
-    → postMessageStream({ text, threadId, context, prefs, guestMessageCount, messages })
-    → POST /api/chat/stream
+Client (Chat.tsx)
+  → Optimistic user message
+  → postMessageStream({ text, threadId, context, prefs, messages })
+  → POST /api/chat/stream
+
+Server (stream route)
+  → Guards (auth, limits, maintenance)
+  → Insert user message into chat_messages
+  → Load thread (deck_id, commander, decklist_text)
+  → Resolve deck context (linked / paste / thread slots)
+  → Update thread slots when appropriate
+  → Classify tier (micro / standard / full)
+  → Build v2 summary or raw deck context
+  → Commander block (CRITICAL or ask)
+  → Assemble system prompt
+  → Budget check, Layer 0 gate
+  → OpenAI stream
+  → Record ai_usage
+
+Client (on stream complete)
+  → Replace "Typing…" with final content
+  → Save assistant message via /api/chat/messages
+  → Clear optimistic ref
 ```
 
-**File:** `frontend/components/Chat.tsx`, `frontend/lib/threads.ts`
+---
 
-### 2.2 Request Payload (ChatPostSchema)
+## 3. Client-Side Flow (Chat.tsx)
 
-| Field | Type | Required | Purpose |
-|-------|------|----------|---------|
-| `text` | string 1–4000 | Yes | Current user message |
-| `threadId` | UUID \| null | No | Thread ID for logged-in users; `null` for guests |
-| `messages` | `{ role, content }[]` max 20 | No | Prior conversation for guests (enables multi-turn without DB) |
-| `stream` | boolean | No | Legacy; unused |
+### 3.1 Before Sending
 
-**Why `messages`?** Guests have no `threadId` — messages are not persisted. Sending prior turns from the client lets the server reconstruct context for commander confirmation, deck reference, and recent conversation.
+- Build `context`: `deckId`, `deckContext`, `memoryContext`, `budget`, `colors`, `teaching`
+- Build `prefs`: `format`, `budget`, `colors`, `teaching`, `userLevel`
+- If no `threadId` and logged in: create thread via `/api/chat/threads/create`, then use new `threadId`
 
-**File:** `frontend/lib/validate.ts` (`ChatPostSchema`)
+### 3.2 Sending a Message
+
+1. **Optimistic update:** `setMessages([...prev, userMsg])` with `id: user_${timestamp}_${random}`
+2. **Track for refresh:** `lastOptimisticUserMsgRef.current = { content, threadId }`
+3. **No separate user message save:** The stream route inserts the user message. Chat.tsx does not call `/api/chat/messages` for the user message.
+4. **Add typing placeholder:** `setMessages([...prev, { role: "assistant", content: "Typing…" }])`
+5. **Call** `postMessageStream({ text, threadId, context, prefs, guestMessageCount, messages })`
+
+**Payload fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `text` | string 1–4000 | Current user message |
+| `threadId` | UUID \| null | Thread ID (logged-in) or null (guest) |
+| `messages` | `{ role, content }[]` max 12 | Prior user/assistant turns (for guests; also sent for consistency) |
+| `context` | object | `deckId`, `deckContext`, `memoryContext`, `budget`, `colors` |
+| `prefs` | object | `format`, `budget`, `colors`, `teaching`, `userLevel` |
+| `guestMessageCount` | number | Guest message count (for limit checks) |
+| `sourcePage` | string | Page path for analytics |
+
+### 3.3 Refresh Merge (listMessages)
+
+When `refreshMessages(tid)` runs (e.g. on thread switch):
+
+1. Fetch `listMessages(tid)`
+2. Dedupe by message id
+3. **Optimistic merge:** If `lastOptimisticUserMsgRef` has content for this `tid` and the server response does not contain that user message, append it so the UI does not drop it
+4. If not streaming: `setMessages(uniqueMessages)` (or merged result)
+5. During streaming: skip replace to avoid UI glitches
+
+### 3.4 On Stream Complete
+
+- Replace "Typing…" placeholder with accumulated content
+- Save assistant message via `POST /api/chat/messages` (logged-in only)
+- Clear `lastOptimisticUserMsgRef.current = null`
+
+**File:** `frontend/components/Chat.tsx`, `frontend/lib/threads.ts`, `frontend/lib/validate.ts` (`ChatPostSchema`)
 
 ---
 
-## 3. Authentication and Identity
-
-### 3.1 User Classification
-
-| Condition | `isGuest` | `userId` | `tid` | Persisted messages? |
-|-----------|-----------|----------|-------|---------------------|
-| Not logged in | true | null | null | No |
-| Logged in | false | set | from request | Yes |
-| Pro (subscription) | false | set | from request | Yes |
-
-**Why it matters:** Limits, model selection, thread history, and memory sources depend on this.
-
-**File:** `frontend/app/api/chat/stream/route.ts` (lines 46–56)
-
-### 3.2 Guest Session Token
-
-Guests need a `guest_session_token` cookie. If missing or invalid, the request is rejected.
-
-**Why?** Rate limiting and abuse prevention without sign-in.
-
-**File:** `frontend/lib/guest-tracking.ts`, `frontend/lib/api/guest-limit-check.ts`
-
----
-
-## 4. Validation and Guards
+## 4. Server: Guards and Identity
 
 ### 4.1 Order of Checks
 
 1. **Schema validation** — Invalid payload → 400
 2. **OpenAI API key** — Missing → 200 with `fallback: true`
-3. **Maintenance mode** — Enabled → 503
-4. **Guest token** — Missing/invalid → 200 with `fallback: true`, `guestLimitReached`
-5. **Guest message limit** — Exceeded → 200 with `fallback: true`
-6. **Durable rate limit** (non-guest) — Exceeded → 429
-7. **In-memory rate limit** (non-guest) — Exceeded → 429
-8. **Budget cap** — Daily/weekly spend exceeded → 429
+3. **Maintenance mode** → 503
+4. **Guest token** — Missing/invalid → 200 with `guestLimitReached`
+5. **Guest message limit** — Exceeded → 200
+6. **Durable rate limit** (logged-in) → 429
+7. **In-memory rate limit** (logged-in) → 429
+8. **Budget cap** (later) → 429
 
-**Why this order?** Fail fast: auth and limits first, then expensive prompt/LLM work.
+### 4.2 User Classification
 
----
+| Condition | `isGuest` | `userId` | `tid` | Messages persisted? |
+|-----------|-----------|----------|-------|---------------------|
+| Not logged in | true | null | null | No |
+| Logged in | false | set | from request | Yes |
+| Pro | false | set | from request | Yes |
 
-## 5. Message Limits
+### 4.3 Message Limits
 
 | Tier | Limit | Scope |
 |------|-------|-------|
-| **Guest** | 10 messages | Per session (cookie) |
-| **Free** | 50 / day | Per user (DB) |
-| **Pro** | 500 / day | Per user (DB) |
+| Guest | 10 | Per session (cookie) |
+| Free | 50/day | Per user |
+| Pro | 500/day | Per user |
 
-**Why?** Guest is for trial; Free/Pro are for daily usage. Pro limit is high for power users.
-
-**File:** `frontend/lib/limits.ts`
+**File:** `frontend/app/api/chat/stream/route.ts`, `frontend/lib/limits.ts`, `frontend/lib/api/guest-limit-check.ts`, `frontend/lib/api/durable-rate-limit.ts`
 
 ---
 
-## 6. Model Selection by Tier
+## 5. Server: Persist User Message and Load Thread
 
-| Tier | Default model | Env override |
-|------|---------------|--------------|
-| Guest | `gpt-4o-mini` | `MODEL_GUEST` |
-| Free | `gpt-4o` | `MODEL_FREE` |
-| Pro | `gpt-5.1` | `MODEL_PRO_CHAT` or `MODEL_PRO` |
+### 5.1 Persist User Message
 
-**Fallback:** If the selected model is not chat-completions-capable, use `gpt-4o-mini`.
+- If `tid && !isGuest && userId`: `INSERT INTO chat_messages (thread_id, role, content) VALUES (tid, 'user', text)`
+- This is the only place the user message is persisted (no duplicate from client)
 
-**Why tiered models?** Cost vs quality: guests get cheaper model; Pro gets the best.
+### 5.2 Load Thread
 
-**File:** `frontend/lib/ai/model-by-tier.ts`
+- If `tid && !isGuest`: `SELECT deck_id, commander, decklist_text FROM chat_threads WHERE id = tid`
+- `deckIdLinked` = `thread.deck_id` or `context.deckId` (context overrides)
+- `threadCommander` = `thread.commander`
+- `threadDecklistText` = `thread.decklist_text`
+
+**Thread slots (`chat_threads`):**
+
+| Column | Purpose | When used |
+|--------|---------|-----------|
+| `deck_id` | Linked deck UUID | Primary deck source when set |
+| `commander` | Confirmed commander name | Paste-only; avoids re-asking after confirmation |
+| `decklist_text` | Last pasted decklist text | Paste-only; canonical source instead of scanning history |
+
+**File:** `frontend/app/api/chat/stream/route.ts`, `frontend/db/migrations/087_add_thread_commander_decklist.sql`
 
 ---
 
-## 7. Deck Context Sources
+## 6. Server: Deck Context Resolution
 
-### 7.1 How Deck Context Is Obtained
+### 6.1 Priority
 
-| Source | Condition | Used for |
-|--------|-----------|----------|
-| **Linked deck** | `thread.deck_id` or `context.deckId` | Deck from DB, commander from deck record |
-| **Pasted in current message** | `isDecklist(text)` | Parse and extract commander |
-| **Prior message (Guest)** | `messages` from client, last user msg is deck | Multi-turn "yes" after deck paste |
-| **Prior message (Pro)** | Thread messages, last user msg is deck | Same multi-turn flow via DB |
+1. **Linked deck** — `deckIdLinked` set → fetch `decks` + `deck_cards` → `deckData`, `deckContextForCompose`
+2. **Pasted (current message)** — `isDecklist(text)` → parse, extract commander, build `deckContextForCompose`
+3. **Pasted (prior message)** — Guest: scan `clientConversation`; Pro: use `threadDecklistText` or scan `streamThreadHistory`
 
-**Why multiple sources?** Users can paste decks, link decks from My Decks, or follow up with "yes" — all must be supported.
+### 6.2 Thread Slot Updates (Logged-in, Paste-only)
 
-### 7.2 Commander Extraction
+| Trigger | Action |
+|---------|--------|
+| User pastes deck (current message) and no linked deck | `UPDATE chat_threads SET decklist_text = text, commander = NULL WHERE id = tid` |
+| User confirms or corrects commander | `UPDATE chat_threads SET commander = <name> WHERE id = tid` |
 
-**Priority order** (`extractCommanderFromDecklistText`):
+### 6.3 Commander Extraction (from decklist)
 
-1. Explicit "Commander" section (next line or `Commander: CardName`)
+**Priority** (`extractCommanderFromDecklistText`):
+
+1. Explicit "Commander" section or `Commander: CardName`
 2. User message: "my commander is X" / "using X as commander"
-3. Last "1 CardName" when deck is ≥95 card lines (Moxfield/Archidekt convention)
-4. First card in list (legacy)
-
-**Why commander-at-end?** Many exporters place the commander last; first-card-only was wrong for those lists.
+3. Last "1 CardName" when deck ≥95 lines (Moxfield/Archidekt)
+4. First card (legacy)
 
 **File:** `frontend/lib/chat/decklistDetector.ts`
 
-### 7.3 v2 Summary vs Raw Fallback
+---
 
-| Path | When | What |
-|------|------|------|
-| **v2 from linked deck** | `deckData?.deckText` | Build or load from `deck_context_summary` |
-| **v2 from pasted (Pro)** | `tid` and pasted deck in thread | Build, cache by deck hash (TTL) |
-| **v2 slow discard** | Build > 30s | Fallback to raw; v2 set to null |
-| **Raw fallback** | No v2 | `generateDeckContext` with commander passed in |
+## 7. Server: v2 Summary vs Raw Fallback
 
-**Why v2?** Structured JSON (commander, colors, card_names, etc.) is token-efficient and consistent. Raw fallback when v2 is unavailable or too slow.
+### 7.1 v2 Path
+
+| Source | When | Cache |
+|--------|------|-------|
+| Linked deck | `deckData?.deckText` | `deck_context_summary` by deck_id + hash |
+| Pasted (Pro) | `threadDecklistText` or last decklist in `streamThreadHistory` | `deck_context_summary` by deck hash (TTL) |
+
+- If build > 30s: discard v2, fall back to raw
+- v2 = structured JSON (commander, colors, card_names, deck_facts, synergy_diagnostics)
+
+### 7.2 Raw Fallback
+
+- When no v2: `generateDeckContext` with decklist
+- Prefer `threadDecklistText` and `threadCommander` over scanning messages
+
+**File:** `frontend/lib/deck/deck-context-summary.ts`, `frontend/lib/chat/enhancements.ts`
 
 ---
 
-## 8. Prompt Tier Classification
+## 8. Server: Prompt Tier Classification
 
-### 8.1 Tiers
-
-| Tier | When | System prompt size |
-|------|------|--------------------|
-| **micro** | Greetings, simple rules/terms | ~80 tokens |
+| Tier | When | Prompt size |
+|------|------|-------------|
+| **micro** | Greetings (hi, thanks, ok); simple rules ("what is trample") | ~80 tokens |
 | **standard** | General questions, no deck | Medium |
-| **full** | Deck context, deck-intent, explicit list request | Large |
+| **full** | Deck context; deck-intent; explicit list request; multi-step | Large |
 
-### 8.2 Escalation Rules (Full Tier)
-
-- Deck context present
+**Full tier triggers:**
+- `hasDeckContext`
 - `isDeckAnalysisRequest(text)` (e.g. "analyze my deck")
-- Explicit list request (e.g. "give me 10 swaps")
-- Multi-step/detailed request
+- Explicit list (e.g. "give me 10 swaps")
+- Multi-step / detailed ("walk me through")
 
-### 8.3 Micro Tier (Never Downgrade on Length Alone)
-
-- Greeting patterns: hi, thanks, ok, got it, cool, nice
-- Simple rules/term: "what is trample", "what does ward do"
-
-**Why?** Token cost: micro for trivial, full for deck analysis.
-
-**File:** `frontend/lib/ai/prompt-tier.ts`, `frontend/lib/ai/layer0-gate.ts`
+**File:** `frontend/lib/ai/prompt-tier.ts`
 
 ---
 
-## 9. System Prompt Assembly
+## 9. Server: Commander Confirmation and CRITICAL Block
 
-### 9.1 Base by Tier
+### 9.1 Variables
+
+- `inferredCommanderForConfirmation` — from v2Summary.commander when `streamContextSource === "paste_ttl"`
+- `historyForConfirm` — `streamThreadHistory` (Pro) or `clientConversation` (Guest)
+- `askedCommander` — last assistant message contains "I believe your commander is" or "is this correct?"
+- `looksLikeConfirmation(text)` — "yes", "yep", "correct", "ok"; or "no, it's X", "actually my commander is X"
+- `commanderCorrectionForPrompt` — parsed commander name when user corrects
+
+### 9.2 Logic
+
+```text
+commanderForBlock = threadCommander ?? (userConfirmedOrCorrectedCommander ? (commanderCorrectionForPrompt || inferredCommanderForConfirmation) : null)
+```
+
+- **If commanderForBlock set:** Inject CRITICAL block. If user just confirmed this turn, persist: `UPDATE chat_threads SET commander = commanderForBlock`
+- **Else if inferredCommanderForConfirmation:** Inject "ask confirmation" instruction
+
+### 9.3 CRITICAL Block Text
+
+> === CRITICAL: COMMANDER CONFIRMED ===
+> The commander is [[X]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. Start your analysis immediately.
+
+### 9.4 Ask Confirmation Text
+
+> COMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[X]]. Is this correct?" Do not provide analysis until they confirm or correct.
+
+**File:** `frontend/app/api/chat/stream/route.ts`
+
+---
+
+## 10. Server: System Prompt Assembly
+
+### 10.1 Base by Tier
 
 - **micro:** `MICRO_PROMPT` + `NO_FILLER_INSTRUCTION`
-- **standard:** `buildSystemPromptForRequest` (no deck)
+- **standard:** `buildSystemPromptForRequest` (no deck) + last 2 turns
 - **full:** `buildSystemPromptForRequest` with `deckContextForCompose`
 
-### 9.2 Full Tier Additions
+### 10.2 Full Tier Additions
 
-| Addition | When |
-|----------|------|
+| Block | When |
+|-------|------|
 | User preferences | Format, budget, colors from `prefs` |
 | User level | Beginner/intermediate/pro |
-| v2 summary block | When v2 exists |
+| v2 summary | When v2 exists |
 | Linked deck block | When `deckData` |
-| Raw deck context | When no v2 and deck from paste/prior |
-| Few-shot learning | Non-guest only |
-| Thread summary | Pro, 10+ messages |
+| Raw deck context | When no v2 |
+| Few-shot learning | Non-guest |
+| Recent conversation | Last 6 turns (decklists redacted) |
+| Thread summary | Pro, 10+ messages (from `chat_threads.summary`) |
 | Pro preferences | Pro only |
-| Commander confirmation | Pasted deck, inferred commander |
+| Commander block | CRITICAL or ask (see §9) |
 
-### 9.3 Commander Confirmation Flow
+### 10.3 Thread Summary
 
-**First message (deck pasted, commander inferred):**
+- Fetched from `chat_threads.summary`
+- LLM-generated JSON: format, budget, colors, playstyle, deck goals
+- Only available after 10+ messages; generated in background if missing
 
-> COMMANDER CONFIRMATION (required): Your FIRST response must start with: "I believe your commander is [[X]]. Is this correct?" Do not provide analysis until they confirm or correct. Memory: you will see their answer in the next turn.
-
-**Follow-up (user confirmed or corrected):**
-
-> COMMANDER CONFIRMATION (follow-up): The user already confirmed or corrected the commander. Use commander: [[X]]. Proceed with your full analysis now—do NOT ask again.
-
-**Detection:**
-
-- Confirmation: "yes", "yep", "correct", "that's right", "ok", etc.
-- Correction: "no, it's X", "actually my commander is X", "wrong, X"
-
-**Memory source:**
-
-- Pro: `streamThreadHistory` from DB
-- Guest: `clientConversation` from request `messages`
-
-**Why?** Avoids wrong commander in analysis; user explicitly validates or corrects.
+**File:** `frontend/lib/chat/chat-context-builder.ts`, `frontend/lib/ai/prompt-path.ts`
 
 ---
 
-## 10. Recent Conversation Injection
+## 11. Server: Budget and Layer 0
 
-### 10.1 When Injected
+### 11.1 Budget
 
-| Path | Source |
-|------|--------|
-| v2 path | `streamThreadHistory` (last 6 turns) |
-| Raw path (Pro) | `streamThreadHistory` (last 6 turns) |
-| Raw path (Guest) | `clientConversation` from request (last 6 turns) |
+- `allowAIRequest` checks `ai_usage` vs `app_config.llm_budget`
+- Over limit → 429
 
-**Format:** `User: ...` / `Assistant: ...`; decklists redacted as "(decklist provided; summarized)".
+### 11.2 Layer 0 Gate (Optional)
 
-**Why?** AI needs prior turns for commander confirmation follow-up and coherent multi-turn responses.
+- **NO_LLM:** Empty input; needs deck but missing; static FAQ; off-topic → deterministic text, no LLM
+- **MINI_ONLY:** Simple rules/term; near budget cap (non-Pro) → override to gpt-4o-mini, lower max_tokens
+- **FULL_LLM:** Default
+- Pro: always FULL_LLM
 
----
-
-## 11. Budget Enforcement
-
-### 11.1 Logic
-
-- `ai_usage` table: daily and weekly spend
-- `app_config.llm_budget`: `daily_usd`, `weekly_usd`
-- If over either limit → 429, block request
-
-**Why?** Prevents runaway spend.
-
-**File:** `frontend/lib/server/budgetEnforcement.ts`
+**File:** `frontend/lib/server/budgetEnforcement.ts`, `frontend/lib/ai/layer0-gate.ts`
 
 ---
 
-## 12. Layer 0 Gate
+## 12. Server: Model Selection and LLM Call
 
-### 12.1 When Active
+### 12.1 Models
 
-- `LLM_LAYER0=on` or `app_config`
-- Bypassed if `llm_force_full_routes` includes `"chat_stream"`
+| Tier | Default | Env override |
+|------|---------|--------------|
+| Guest | gpt-4o-mini | MODEL_GUEST |
+| Free | gpt-4o | MODEL_FREE |
+| Pro | gpt-5.1 | MODEL_PRO_CHAT / MODEL_PRO |
 
-### 12.2 Decisions
-
-| Mode | When | Effect |
-|------|------|--------|
-| **NO_LLM** | Empty input, needs deck but missing, static FAQ, off-topic | Deterministic text, no LLM call |
-| **MINI_ONLY** | Simple rules/term, simple one-liner, near budget cap (non-Pro) | Override to `gpt-4o-mini`, lower max_tokens (128 or 192) |
-| **FULL_LLM** | Default, deck + analysis | Normal tier/model |
-
-**Pro:** Always FULL_LLM (no budget-cap downgrade).
-
-**File:** `frontend/lib/ai/layer0-gate.ts`
-
----
-
-## 13. Streaming Config
-
-| Config | Value | Why |
-|--------|-------|-----|
-| `MAX_TOKENS_STREAM` | 4096 | Enough for full analysis |
-| `MAX_STREAM_SECONDS` | 120 | Avoid hanging streams |
-| `STREAM_HEARTBEAT_MS` | 15000 | Keep connection alive |
-
-**File:** `frontend/lib/config/streaming.ts`
-
----
-
-## 14. API Call and Response
-
-### 14.1 Messages Sent to OpenAI
+### 12.2 Messages to OpenAI
 
 ```json
 [
@@ -302,103 +324,91 @@ Guests need a `guest_session_token` cookie. If missing or invalid, the request i
 ]
 ```
 
-Only current turn is sent; prior turns are in the system prompt.
+Only the current turn; prior turns are in the system prompt.
 
-### 14.2 Stop Sequences
+### 12.3 Streaming
 
-Used except for `gpt-5-mini` / `gpt-5-nano`.
+- `MAX_TOKENS_STREAM` 4096
+- `MAX_STREAM_SECONDS` 120
+- `STREAM_HEARTBEAT_MS` 15000
 
-### 14.3 Error Handling
-
-- 429 / quota → 503 with retry message
-- Other errors → may fallback to non-stream `/api/chat`
-
----
-
-## 15. Client-Side: Sending `messages`
-
-### 15.1 What Is Sent
-
-- Last 12 user/assistant turns
-- Only `role` and `content`
-- State *before* adding the current user message
-
-**Why 12?** ~6 exchanges; enough for commander confirmation and recent context without oversized payloads.
-
-**File:** `frontend/components/Chat.tsx`
+**File:** `frontend/lib/ai/model-by-tier.ts`, `frontend/lib/config/streaming.ts`, `frontend/lib/ai/openai-params.ts`
 
 ---
 
-## 16. Debug Logging
+## 13. Visual Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Chat.tsx: optimistic user msg → lastOptimisticUserMsgRef → postMessageStream     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ /api/chat/stream: Schema → API key → Maintenance → Guest token/limit             │
+│ → Auth → Rate limits → Model tier                                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Insert user msg → Load thread (deck_id, commander, decklist_text)                │
+│ → Resolve deck context (linked / paste / slots) → Update slots if needed         │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Tier (micro|standard|full) → v2 or raw → Commander block (threadCommander or     │
+│ just-confirmed) → Assemble prompt → Budget → Layer 0                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ OpenAI stream → SSE → Client replaces Typing… → Save assistant msg → Clear ref   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 14. Key Files
+
+| File | Role |
+|------|------|
+| `frontend/app/api/chat/stream/route.ts` | Main stream route |
+| `frontend/components/Chat.tsx` | Client UI, optimistic update, refresh merge |
+| `frontend/lib/threads.ts` | `postMessageStream` |
+| `frontend/lib/validate.ts` | ChatPostSchema |
+| `frontend/lib/ai/model-by-tier.ts` | Model selection |
+| `frontend/lib/ai/prompt-tier.ts` | Tier classification |
+| `frontend/lib/ai/prompt-path.ts` | buildSystemPromptForRequest |
+| `frontend/lib/ai/layer0-gate.ts` | NO_LLM / MINI_ONLY / FULL_LLM |
+| `frontend/lib/chat/decklistDetector.ts` | isDecklist, extractCommanderFromDecklistText |
+| `frontend/lib/chat/enhancements.ts` | generateDeckContext |
+| `frontend/lib/chat/chat-context-builder.ts` | injectThreadSummaryContext, Pro prefs |
+| `frontend/lib/deck/deck-context-summary.ts` | v2 summary build/cache |
+| `frontend/lib/limits.ts` | Message limits |
+| `frontend/db/migrations/087_add_thread_commander_decklist.sql` | Thread slots schema |
+
+---
+
+## 15. Debug Logging
 
 **Enable:** `DEBUG_CHAT_STREAM=1` in `.env.local`
 
 **Tags:** `[STREAM_DEBUG]identity`, `[STREAM_DEBUG]v2_result`, `[STREAM_DEBUG]raw_path`, `[STREAM_DEBUG]raw_deck`, `[STREAM_DEBUG]commander_confirm`
 
-Use to trace Guest vs Pro, v2 vs raw, and commander resolution.
-
 ---
 
-## 17. Visual Flow Diagram
-
-```
-User sends message
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Auth → Limits → Rate limit → Model (guest/free/pro)                   │
-└─────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Deck context (linked / pasted / clientConversation for Guest)         │
-│ → Prompt tier (micro / standard / full)                               │
-└─────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ v2 build (linked or paste) or raw fallback                            │
-│ → Commander confirmation (ask first, or follow-up if confirmed)       │
-└─────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Budget check → Layer 0 (if on) → Model override? (MINI_ONLY)          │
-└─────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ OpenAI stream (4096 max tokens) → SSE to Chat UI                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 18. Key Files
-
-| File | Role |
-|------|------|
-| `frontend/app/api/chat/stream/route.ts` | Main stream route |
-| `frontend/lib/ai/model-by-tier.ts` | Model selection |
-| `frontend/lib/ai/prompt-tier.ts` | Prompt tier classification |
-| `frontend/lib/ai/layer0-gate.ts` | NO_LLM / MINI_ONLY / FULL_LLM |
-| `frontend/lib/chat/decklistDetector.ts` | Deck detection, commander extraction |
-| `frontend/lib/chat/enhancements.ts` | `generateDeckContext` |
-| `frontend/lib/limits.ts` | Message limits |
-| `frontend/lib/validate.ts` | ChatPostSchema |
-| `frontend/components/Chat.tsx` | Client, sends `messages` |
-| `frontend/lib/threads.ts` | `postMessageStream` |
-
----
-
-## 19. Design Decisions Summary
+## 16. Design Decisions Summary
 
 | Decision | Why |
 |----------|-----|
-| Single stream route for chat | One prompt path, one model path; no deck_analyze in chat |
-| Client sends `messages` for guests | No thread persistence; server needs prior turns for memory |
-| Commander confirmation before analysis | Reduces wrong-commander errors; user validates |
-| Commander-at-end detection | Matches Moxfield/Archidekt output format |
-| 3 prompt tiers | Balance token cost and answer quality |
+| Single stream route | One prompt path, one model path; no deck_analyze in chat |
+| Thread slots (commander, decklist_text) | Persistent deck context so AI does not re-ask after confirmation |
+| Stream route inserts user message | Single write; no duplicate from client |
+| Optimistic merge on refresh | User message stays visible if refresh runs before server has it |
+| Client sends messages for guests | No thread; server needs prior turns for memory |
+| Commander confirmation before analysis | Reduces wrong-commander; user validates |
+| Commander-at-end detection | Matches Moxfield/Archidekt output |
+| 3 prompt tiers | Balance cost and quality |
 | Layer 0 for trivial queries | Save LLM calls and budget |
-| Pro exempt from budget downgrade | Pro users expect full model even when budget is tight |
+| Pro exempt from budget downgrade | Pro expects full model |

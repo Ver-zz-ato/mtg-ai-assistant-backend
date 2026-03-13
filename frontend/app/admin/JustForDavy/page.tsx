@@ -22,6 +22,7 @@ const GROUPS = [
       { href: "/admin/ai", label: "AI & Chat", eli5: "Prompts, personas, moderation lists" },
       { href: "/admin/ai-test", label: "AI Test Suite", eli5: "Run evals, compare prompts, approve changes" },
       { href: "/admin/chat-flow-test", label: "Chat Flow Test", eli5: "Test AI flow by tier, deck context, accuracy" },
+      { href: "/admin/chat-test", label: "Chat Test", eli5: "Full chat module in isolation with debug log panel" },
     ],
   },
   {

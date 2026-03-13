@@ -12,7 +12,7 @@ import { useCapture } from "@/lib/analytics/useCapture";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { capture } from "@/lib/ph";
 import { enrichChatEvent } from "@/lib/analytics/enrichChatEvent";
-import { postMessage, postMessageStream, listMessages } from "@/lib/threads";
+import { postMessage, postMessageStream, postMessageStreamWithDebug, listMessages } from "@/lib/threads";
 import { 
   trackFirstAction, 
   trackChatSessionLength, 
@@ -112,7 +112,15 @@ async function appendAssistant(threadId: string, content: string) {
   return true;
 }
 
-function Chat() {
+export type ChatDebugLogEntry = { ts: number; tag: string; data: Record<string, unknown> };
+
+export type ChatProps = {
+  debugMode?: boolean;
+  onDebugLog?: (entry: ChatDebugLogEntry) => void;
+};
+
+function Chat(props: ChatProps = {}) {
+  const { debugMode = false, onDebugLog } = props;
   // Rotating example prompts - expanded pool for randomization
   const ALL_SUGGESTION_PROMPTS = [
     { label: 'Analyze my Commander deck', text: "Analyze this Commander deck and tell me what it's missing." },
@@ -182,7 +190,8 @@ function Chat() {
   const streamingMessageIdRef = useRef<string | null>(null);
   const addingTypingMessageRef = useRef<boolean>(false);
   const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
-  
+  const lastOptimisticUserMsgRef = useRef<{ content: string; threadId: string } | null>(null);
+
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
   // Rotate example prompts every 4 seconds
@@ -404,10 +413,14 @@ function Chat() {
       if (currentAbort) { try { currentAbort.abort(); } catch {} }
       currentAbort = new AbortController();
       const { messages } = await listMessages(tid);
-      const uniqueMessages = Array.isArray(messages) ? messages.filter((msg, index, arr) => 
+      let uniqueMessages = Array.isArray(messages) ? messages.filter((msg, index, arr) => 
         arr.findIndex(m => String(m.id) === String(msg.id)) === index
       ) : [];
-      
+      // Preserve optimistic user message if not yet in server response (stream route inserts it)
+      const pending = lastOptimisticUserMsgRef.current;
+      if (pending && pending.threadId === tid && !uniqueMessages.some((m: any) => m.role === 'user' && m.content === pending.content)) {
+        uniqueMessages = [...uniqueMessages, { id: `user_${Date.now()}`, thread_id: tid, role: 'user', content: pending.content, created_at: new Date().toISOString() }];
+      }
       // Prevent clearing messages during active streaming to avoid UI glitches
       if (!isStreaming) {
         setMessages(uniqueMessages);
@@ -806,26 +819,10 @@ function Chat() {
     if (isFirstMessage) {
       window.dispatchEvent(new CustomEvent('message-sent'));
     }
-    
-    // Save user message to the thread (for logged-in users only)
-    if (isLoggedIn && currentThreadId) {
-      // Save to database (fire and forget)
-      try {
-        await fetch('/api/chat/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            threadId: currentThreadId, 
-            message: { role: 'user', content: val }
-          })
-        });
-      } catch (e) {
-        // Silently fail - message is already in UI
-      }
-    } else if (!isLoggedIn) {
-      // For guests, messages are only in UI state (not saved to DB)
-    }
-    
+
+    // Track optimistic user message so refresh does not drop it (stream route inserts to DB)
+    lastOptimisticUserMsgRef.current = { content: val, threadId: currentThreadId || "" };
+
     // Try streaming
     let streamFailed = false;
     let guestLimitExceeded = false;
@@ -876,29 +873,72 @@ function Chat() {
     let accumulatedContent = '';
 
     try {
-      await postMessageStream(
-        {
-          text: val,
-          threadId: currentThreadId,
-          context,
-          prefs,
-          guestMessageCount: !isLoggedIn ? guestMessageCount : undefined,
-          messages: messages.map((m: any) => ({ role: m.role, content: String(m.content || "") })).filter((m: any) => m.role === "user" || m.role === "assistant").slice(-12),
-          sourcePage: `${pathname} · Chat.tsx`,
-        },
-        (token: string) => {
-          // Validate that this is still the active streaming session
-          if (activeStreamingRef.current !== streamingMsgId) {
-            return;
-          }
-          
-          // Accumulate content in closure variable (not affected by React Strict Mode)
-          accumulatedContent += token;
-          
-          // Update streaming content display ONLY - don't touch messages array during streaming
-          // The messages array will be updated once at the end in onDone callback
-          setStreamingContent(accumulatedContent);
-        },
+      const streamPayload = {
+        text: val,
+        threadId: currentThreadId,
+        context,
+        prefs,
+        guestMessageCount: !isLoggedIn ? guestMessageCount : undefined,
+        messages: messages.map((m: any) => ({ role: m.role, content: String(m.content || "") })).filter((m: any) => m.role === "user" || m.role === "assistant").slice(-12),
+        sourcePage: debugMode ? `${pathname} · Admin Chat Test` : `${pathname} · Chat.tsx`,
+      };
+      if (debugMode && onDebugLog) {
+        await postMessageStreamWithDebug(
+          streamPayload,
+          (token: string) => {
+            if (activeStreamingRef.current !== streamingMsgId) return;
+            accumulatedContent += token;
+            setStreamingContent(accumulatedContent);
+          },
+          () => {
+            setMessages((m: any) => {
+              const i = m.findIndex((msg: any) => msg.id === streamingMsgId);
+              if (i === -1) return m;
+              const next = [...m];
+              next[i] = { ...next[i], content: accumulatedContent || "—" };
+              return next;
+            });
+            setStreamingContent("");
+            activeStreamingRef.current = null;
+            setStreamAbort(null);
+            setIsStreaming(false);
+            setBusy(false);
+            streamingMessageIdRef.current = null;
+            lastOptimisticUserMsgRef.current = null;
+            messageCountRef.current += 1;
+            streamStartTimeRef.current = 0;
+            if (isLoggedIn && currentThreadId && accumulatedContent) {
+              fetch("/api/chat/messages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threadId: currentThreadId, message: { role: "assistant", content: accumulatedContent } }),
+              }).catch(() => {});
+            }
+            if (messageCountRef.current === 1 && accumulatedContent.length > 50) trackValueMomentReached("first_good_chat_response");
+            if (!isLoggedIn && messageCountRef.current >= 2) trackGuestValueMoment("chat_engaged", capture, { chat_count: messageCountRef.current });
+            capture("chat_stream_stop", enrichChatEvent({ stopped_by: "complete", duration_ms: Date.now() - streamStartTime, tokens_if_known: Math.ceil(accumulatedContent.length / 4), assistant_message_id: streamingMsgId }, { threadId: currentThreadId || threadId || null, userMessage: val || null, assistantMessage: accumulatedContent.slice(0, 200) || null, format: fmt || null }));
+          },
+          (err: Error) => {
+            streamFailed = true;
+            setFallbackBanner(err.message || "Stream failed");
+            setBusy(false);
+            setIsStreaming(false);
+            setStreamAbort(null);
+            activeStreamingRef.current = null;
+          },
+          (data: Record<string, unknown>) => {
+            onDebugLog({ ts: (data.ts as number) ?? Date.now(), tag: "stream_debug", data });
+          },
+          abortController.signal
+        );
+      } else {
+        await postMessageStream(
+          streamPayload,
+          (token: string) => {
+            if (activeStreamingRef.current !== streamingMsgId) return;
+            accumulatedContent += token;
+            setStreamingContent(accumulatedContent);
+          },
         () => {
           // Now that streaming is complete, update the messages array with the final content
           setMessages((m: any) => {
@@ -936,6 +976,7 @@ function Chat() {
           if (activeStreamingRef.current === streamingMsgId) {
             activeStreamingRef.current = null;
           }
+          lastOptimisticUserMsgRef.current = null; // User message is now in DB
           
           // Save assistant's response to the thread (for logged-in users)
           if (isLoggedIn && currentThreadId && accumulatedContent) {
@@ -984,6 +1025,7 @@ function Chat() {
         (error: Error) => {
           setIsStreaming(false);
           setStreamAbort(null);
+          lastOptimisticUserMsgRef.current = null;
           
           // Clear active streaming reference on error
           if (activeStreamingRef.current === streamingMsgId) {
@@ -1026,6 +1068,7 @@ function Chat() {
         },
         abortController.signal
       );
+      }
     } catch (error) {
       setIsStreaming(false);
       setStreamAbort(null);

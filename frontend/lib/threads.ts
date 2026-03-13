@@ -147,6 +147,105 @@ export async function postMessage(
   );
 }
 
+export type ChatDebugEntry = { tag: string; ts: number; data: Record<string, unknown> };
+
+/** Same as postMessageStream but adds x-debug-chat header and parses __MANATAP_DEBUG__ block; calls onDebug when present. */
+export async function postMessageStreamWithDebug(
+  payload: Parameters<typeof postMessageStream>[0],
+  onToken: (token: string) => void,
+  onDone: () => void,
+  onError: (error: Error) => void,
+  onDebug: (data: Record<string, unknown>) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const { StreamingPacer } = await import("./streaming-pacer");
+  const pacer = new StreamingPacer({
+    tokensPerSecond: 25,
+    onUpdate: (incrementalText, isComplete) => {
+      if (incrementalText) onToken(incrementalText);
+      if (isComplete) onDone();
+    },
+    onError,
+  });
+
+  let response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-debug-chat": "1" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (response.status === 405) response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-debug-chat": "1" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (response.status === 405) {
+    throw new Error("Chat request was rejected (405). Please refresh and try again.");
+  }
+
+  try {
+    const ct = response.headers.get("content-type");
+    if (ct?.includes("application/json")) {
+      const json = await response.json();
+      if (json.guestLimitReached) throw new Error("guest_limit_exceeded");
+      if (json.fallback) throw new Error(json.message || "fallback");
+      const msg = json?.error?.message ?? json?.message;
+      throw new Error(typeof msg === "string" && msg.trim() ? msg.trim() : `HTTP ${response.status}`);
+    }
+    if (!response.ok) throw new Error(response.status === 405 ? "Chat request rejected (405)." : `HTTP ${response.status}`);
+    if (!response.body) throw new Error("No response stream");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let debugParsed = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      if (!debugParsed && buffer.includes("__MANATAP_DEBUG__")) {
+        const endMarker = "__MANATAP_DEBUG_END__";
+        const endIdx = buffer.indexOf(endMarker);
+        if (endIdx >= 0) {
+          const startIdx = buffer.indexOf("__MANATAP_DEBUG__") + "__MANATAP_DEBUG__".length;
+          const jsonStr = buffer.slice(startIdx, endIdx).replace(/^\n/, "").trim();
+          try {
+            const data = JSON.parse(jsonStr);
+            onDebug(data);
+          } catch (_) {}
+          buffer = buffer.slice(endIdx + endMarker.length);
+          debugParsed = true;
+        }
+      }
+
+      if (buffer.includes("[DONE]")) {
+        const beforeDone = buffer.split("[DONE]")[0];
+        if (beforeDone && debugParsed) pacer.addChunk(beforeDone);
+        pacer.complete();
+        return;
+      }
+
+      if (debugParsed && buffer.length > 0) {
+        pacer.addChunk(buffer);
+        buffer = "";
+      }
+    }
+    if (debugParsed && buffer.length > 0) pacer.addChunk(buffer);
+    pacer.complete();
+  } catch (error: unknown) {
+    pacer.stop();
+    if (error && (error as { name?: string }).name === "AbortError") {
+      onDone();
+    } else {
+      onError(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+}
+
 // New streaming function with ChatGPT-like speed using client-side pacer
 export async function postMessageStream(
   payload: { text: string; threadId?: string | null; context?: any; prefs?: any; guestMessageCount?: number; messages?: Array<{ role: "user" | "assistant"; content: string }>; sourcePage?: string },
