@@ -88,6 +88,22 @@ export default function TestSuiteV2Page() {
     }
   }
 
+  function exportResults() {
+    if (!summary) return;
+    const payload = {
+      ...summary,
+      scenarios: scenarios.filter((s) => summary.results.some((r) => r.scenarioId === s.id)),
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `test-suite-v2-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -164,6 +180,14 @@ export default function TestSuiteV2Page() {
               className="px-4 py-2 rounded bg-neutral-600 hover:bg-neutral-500 disabled:opacity-50 text-sm font-medium"
             >
               Run Selected
+            </button>
+          )}
+          {summary && summary.results.length > 0 && (
+            <button
+              onClick={exportResults}
+              className="px-4 py-2 rounded bg-neutral-600 hover:bg-neutral-500 text-sm font-medium"
+            >
+              Export
             </button>
           )}
         </div>
