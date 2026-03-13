@@ -59,6 +59,19 @@ export function isAuthoritativeCommander(ctx: ActiveDeckContext): boolean {
   return ctx.commanderStatus === "confirmed" || ctx.commanderStatus === "corrected";
 }
 
+/**
+ * True when commander should be treated as authoritative for this request.
+ * Includes just-confirmed / just-corrected (same turn) so we inject CRITICAL and persist immediately.
+ * Do not require commanderStatus === confirmed before persistence.
+ */
+export function isAuthoritativeForPrompt(ctx: ActiveDeckContext): boolean {
+  return (
+    isAuthoritativeCommander(ctx) ||
+    ctx.userJustConfirmedCommander ||
+    ctx.userJustCorrectedCommander
+  );
+}
+
 export type ResolveActiveDeckContextArgs = {
   tid: string | null;
   isGuest: boolean;

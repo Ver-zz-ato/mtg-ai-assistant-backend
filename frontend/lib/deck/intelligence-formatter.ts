@@ -4,6 +4,8 @@
 
 import type { DeckFacts } from "./deck-facts";
 import type { SynergyDiagnostics } from "./synergy-diagnostics";
+import type { DeckPlanProfile } from "./deck-plan-profile";
+import type { RulesFactBundle } from "./rules-facts";
 
 const UNCERTAINTY_MESSAGES: Record<string, string> = {
   partial_enrichment: "Some diagnostics are lower-confidence because {count} cards were unresolved.",
@@ -73,6 +75,83 @@ export function formatForLLM(
   }
   if (uncertaintyParts.length) {
     lines.push(`- Uncertainty: ${uncertaintyParts.join(" ")}`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Format DeckPlanProfile for prompt injection.
+ * Used when v2Summary has deck_facts + synergy_diagnostics for full-tier deck analysis.
+ */
+export function formatDeckPlanProfileForLLM(profile: DeckPlanProfile): string {
+  const lines: string[] = ["Deck Plan Profile:"];
+
+  lines.push(`- Primary plan: ${profile.primaryPlan.name} (${(profile.primaryPlan.confidence * 100).toFixed(0)}% confidence)`);
+  if (profile.secondaryPlan && profile.secondaryPlan.confidence > 0.3) {
+    lines.push(`- Secondary plan: ${profile.secondaryPlan.name} (${(profile.secondaryPlan.confidence * 100).toFixed(0)}% confidence)`);
+  }
+
+  if (profile.roleClusters.length) {
+    const clusterLines = profile.roleClusters
+      .slice(0, 6)
+      .map((c) => `${c.role}: ${c.count} cards${c.cardNames.length ? ` (${c.cardNames.slice(0, 4).join(", ")}${c.cardNames.length > 4 ? "..." : ""})` : ""}`);
+    lines.push(`- Role clusters: ${clusterLines.join("; ")}`);
+  }
+
+  if (profile.synergyChains.length) {
+    profile.synergyChains.slice(0, 3).forEach((s) => {
+      lines.push(`- Synergy: ${s.description}`);
+    });
+  }
+
+  if (profile.winRoutes.length) {
+    const routes = profile.winRoutes.slice(0, 3).map((r) => `${r.type}: ${r.description}`).join("; ");
+    lines.push(`- Win routes: ${routes}`);
+  }
+
+  if (profile.tensionSignals.length) {
+    profile.tensionSignals.slice(0, 4).forEach((t) => {
+      lines.push(`- Tension: ${t.description}`);
+    });
+  }
+
+  if (profile.missingRoles.length) {
+    profile.missingRoles.forEach((m) => {
+      lines.push(`- Missing: ${m.role} — ${m.description} (${m.severity})`);
+    });
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Format RulesFactBundle for prompt injection.
+ * Used when user asks rules/legality questions (commander eligibility, off-color, format legality).
+ */
+export function formatRulesFactsForLLM(bundle: RulesFactBundle): string {
+  const lines: string[] = ["Rules Facts (authoritative):"];
+
+  if (bundle.commander) {
+    const c = bundle.commander;
+    lines.push(`- Commander [[${c.cardName}]]: ${c.typeLine ?? "unknown"}`);
+    lines.push(`  Commander eligible: ${c.commanderEligible}${c.commanderEligibleReason ? ` (${c.commanderEligibleReason})` : ""}`);
+    lines.push(`  Color identity: ${c.colorIdentity.length ? c.colorIdentity.join("") : "Colorless"}`);
+    lines.push(`  Oracle: ${c.oracleSummary}`);
+    if (c.legalInCommander !== null) {
+      lines.push(`  Legal in Commander: ${c.legalInCommander}`);
+    }
+  }
+
+  lines.push(`- Deck color identity: ${bundle.deckColorIdentity.length ? bundle.deckColorIdentity.join("") : "Colorless"}`);
+
+  for (const card of bundle.cards) {
+    if (card.cardName && bundle.commander && card.cardName.toLowerCase() === bundle.commander.cardName.toLowerCase()) continue;
+    lines.push(`- [[${card.cardName}]]: ${card.typeLine ?? "unknown"}`);
+    lines.push(`  Commander eligible: ${card.commanderEligible}${card.commanderEligibleReason ? ` (${card.commanderEligibleReason})` : ""}`);
+    lines.push(`  Color identity: ${card.colorIdentity.length ? card.colorIdentity.join("") : "Colorless"}`);
+    if (card.legalInCommander !== null) lines.push(`  Legal in Commander: ${card.legalInCommander}`);
+    lines.push(`  Oracle: ${card.oracleSummary}`);
   }
 
   return lines.join("\n");

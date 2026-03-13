@@ -3,7 +3,7 @@
  * Run: npx tsx tests/unit/active-deck-context.test.ts
  */
 import assert from "node:assert";
-import { resolveActiveDeckContext, isAuthoritativeCommander } from "@/lib/chat/active-deck-context";
+import { resolveActiveDeckContext, isAuthoritativeCommander, isAuthoritativeForPrompt } from "@/lib/chat/active-deck-context";
 
 const base = (overrides: Partial<Parameters<typeof resolveActiveDeckContext>[0]> = {}) => ({
   tid: null,
@@ -80,7 +80,7 @@ const overridePaste = resolveActiveDeckContext(
 assert.strictEqual(overridePaste.source, "current_paste");
 assert.ok(overridePaste.commanderName === "Muldrotha, the Gravetide" || overridePaste.commanderName !== "Korvold");
 
-// --- confirm → follow-up without re-ask (thread has confirmed commander)
+// --- confirm → follow-up without re-ask (thread has confirmed commander from prior persist)
 const confirmedFollowUp = resolveActiveDeckContext(
   base({
     tid: "t1",
@@ -90,9 +90,28 @@ const confirmedFollowUp = resolveActiveDeckContext(
 );
 assert.strictEqual(confirmedFollowUp.commanderStatus, "confirmed");
 assert.strictEqual(isAuthoritativeCommander(confirmedFollowUp), true);
+assert.strictEqual(isAuthoritativeForPrompt(confirmedFollowUp), true);
 assert.strictEqual(confirmedFollowUp.shouldAskCommanderConfirmation, false);
+assert.strictEqual(confirmedFollowUp.askReason, null, "must NOT re-ask for commander after confirm");
 
-// --- correction persists
+// --- infer → confirm → persist (user says "yes" after AI asked; should treat as authoritative this turn)
+const inferThenConfirm = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "yes",
+    thread: { deck_id: null, commander: null, decklist_text: DECK_WITH_COMMANDER_SECTION, decklist_hash: "abc" },
+    streamThreadHistory: [
+      { role: "user", content: DECK_WITH_COMMANDER_SECTION },
+      { role: "assistant", content: "I believe your commander is [[Muldrotha, the Gravetide]]. Is this correct?" },
+    ],
+  })
+);
+assert.strictEqual(inferThenConfirm.userJustConfirmedCommander, true);
+assert.strictEqual(inferThenConfirm.commanderName, "Muldrotha, the Gravetide");
+assert.strictEqual(inferThenConfirm.commanderStatus, "inferred"); // not yet persisted; persist happens in stream route
+assert.strictEqual(isAuthoritativeForPrompt(inferThenConfirm), true, "should treat as authoritative for prompt when user just confirmed");
+
+// --- infer → correct → persist (user says "no, it's X"; should treat as authoritative and persist corrected)
 const corrected = resolveActiveDeckContext(
   base({
     tid: "t1",
@@ -107,6 +126,7 @@ const corrected = resolveActiveDeckContext(
 assert.strictEqual(corrected.userJustCorrectedCommander, true);
 assert.strictEqual(corrected.commanderName, "Titania");
 assert.strictEqual(corrected.commanderStatus, "corrected");
+assert.strictEqual(isAuthoritativeForPrompt(corrected), true, "should treat as authoritative when user corrected");
 
 // --- deckReplacedByHashChange when paste has different hash
 const hashChange = resolveActiveDeckContext(

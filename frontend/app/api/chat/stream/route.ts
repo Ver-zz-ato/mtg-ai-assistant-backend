@@ -525,6 +525,25 @@ export async function POST(req: NextRequest) {
     }
     streamDebug("v2_result", { hasV2Summary: !!v2Summary, streamContextSource, v2Commander: v2Summary?.commander ?? null, selectedTier });
 
+    // ManaTap Intelligence: Rules Facts block when user asks rules/legality questions
+    if (selectedTier !== "micro") {
+      const { detectRulesLegalityIntent, extractCardNamesFromMessage, getRulesFactBundle } = await import("@/lib/deck/rules-facts");
+      const { formatRulesFactsForLLM } = await import("@/lib/deck/intelligence-formatter");
+      if (detectRulesLegalityIntent(text ?? "")) {
+        const rulesCommander = activeDeckContext.commanderName ?? v2Summary?.commander ?? null;
+        const rulesCards = extractCardNamesFromMessage(text ?? "");
+        if (rulesCommander || rulesCards.length) {
+          try {
+            const rulesBundle = await getRulesFactBundle(rulesCommander, rulesCards.length ? rulesCards : undefined);
+            const rulesProse = formatRulesFactsForLLM(rulesBundle);
+            sys += `\n\n=== RULES FACTS (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${rulesProse}\n`;
+          } catch (rulesErr) {
+            if (DEV) console.warn("[stream] Rules facts fetch failed:", rulesErr);
+          }
+        }
+      }
+    }
+
     // Commander confirmation: when we inferred commander from pasted deck, ask user first (must run before formatForLLM)
     let inferredCommanderForConfirmation: string | null = null;
     let commanderCorrectionForPrompt: string | null = null;
@@ -595,10 +614,19 @@ export async function POST(req: NextRequest) {
             mode: "full",
           }));
         }
-        const { formatForLLM } = await import("@/lib/deck/intelligence-formatter");
+        const { formatForLLM, formatDeckPlanProfileForLLM } = await import("@/lib/deck/intelligence-formatter");
+        const { buildDeckPlanProfile } = await import("@/lib/deck/deck-plan-profile");
         const commanderForFacts = activeDeckContext.userJustCorrectedCommander ? activeDeckContext.commanderName : undefined;
         const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderForFacts ?? undefined);
-        sys += `\n\n${deckFactsProse}\n`;
+        sys += `\n\n=== DECK INTELLIGENCE (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${deckFactsProse}\n`;
+        const deckPlanOptions = {
+          rampCards: v2Summary.ramp_cards,
+          drawCards: v2Summary.draw_cards,
+          removalCards: v2Summary.removal_cards,
+        };
+        const deckPlanProfile = buildDeckPlanProfile(v2Summary.deck_facts, v2Summary.synergy_diagnostics, deckPlanOptions);
+        const deckPlanProse = formatDeckPlanProfileForLLM(deckPlanProfile);
+        sys += `\n${deckPlanProse}\n`;
       } else {
         sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
       }
@@ -727,9 +755,9 @@ export async function POST(req: NextRequest) {
     if (selectedTier === "full") {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     // Phase 6: State-driven prompt assembly from ActiveDeckContext
-    const { isAuthoritativeCommander } = await import("@/lib/chat/active-deck-context");
-    const authCommander = isAuthoritativeCommander(activeDeckContext);
-    if (activeDeckContext.hasDeck && authCommander && activeDeckContext.commanderName) {
+    const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
+    const authForPrompt = isAuthoritativeForPrompt(activeDeckContext);
+    if (activeDeckContext.hasDeck && authForPrompt && activeDeckContext.commanderName) {
       sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. The user gave you everything. Start your analysis immediately (mana base, ramp, cuts, upgrades).`;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
@@ -744,7 +772,7 @@ export async function POST(req: NextRequest) {
     } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "need_commander") {
       sys += `\n\nCOMMANDER NEEDED: You have a decklist but the commander is unclear. Ask the user to confirm their commander before providing deck analysis. Do NOT guess or assume the commander.`;
     }
-    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: authCommander ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none" };
+    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: authForPrompt ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none" };
     streamDebug("prompt_contract", promptContractLog);
     }
 

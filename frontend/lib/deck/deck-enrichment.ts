@@ -33,13 +33,18 @@ function resolveScryfallName(name: string): string {
   return n;
 }
 
-function isCommanderEligible(typeLine: string | undefined, oracleText: string | undefined): boolean {
+/** Exported for rules-facts module. Checks commander eligibility per MTG rules. */
+export function isCommanderEligible(typeLine: string | undefined, oracleText: string | undefined): boolean {
   if (!typeLine) return false;
   const tl = typeLine.toLowerCase();
   const ot = (oracleText || "").toLowerCase();
   if (tl.includes("legendary creature")) return true;
   if (tl.includes("legendary planeswalker") && ot.includes("can be your commander")) return true;
   if (ot.includes("can be your commander")) return true;
+  if (ot.includes("choose a background")) return true;
+  if (ot.includes("partner with") || ot.includes("partner")) return true;
+  if (ot.includes("friends forever")) return true;
+  if (ot.includes("doctor's companion")) return true;
   return false;
 }
 
