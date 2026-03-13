@@ -696,7 +696,7 @@ export async function POST(req: NextRequest) {
     if (inferredCommanderForConfirmation) {
       if (userConfirmedOrCorrectedCommander) {
         const commanderToUse = commanderCorrectionForPrompt || inferredCommanderForConfirmation;
-        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user has corrected the commander to [[${commanderToUse}]]. Use this commander—override any "Commander:" line in Deck Facts if it differs. Proceed immediately with your full deck analysis. Do NOT ask again. Do NOT give a generic greeting like "Mana Tap is focused on...". Respond with concrete deck analysis (e.g. mana base, ramp, cuts, upgrades).`;
+        sys += `\n\nCOMMANDER CONFIRMATION (follow-up): The user confirmed the commander [[${commanderToUse}]]. The decklist is already in context above. Do NOT ask for the decklist, format, or "what to improve"—proceed immediately with full deck analysis. Do NOT say "I need more info" or "paste your decklist". Respond with concrete analysis (mana base, ramp, cuts, upgrades).`;
       } else {
         sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${inferredCommanderForConfirmation}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
       }
