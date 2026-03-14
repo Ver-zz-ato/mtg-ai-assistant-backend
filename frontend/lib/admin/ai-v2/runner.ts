@@ -106,12 +106,50 @@ function checkDeckContextExpectations(
     });
   }
   if (expected.deckReplacedByHashChange != null && ctx.deckReplacedByHashChange !== expected.deckReplacedByHashChange) {
-    soft.push({
+    hard.push({
       kind: "other",
       message: `Expected deckReplacedByHashChange ${expected.deckReplacedByHashChange}, got ${ctx.deckReplacedByHashChange}`,
     });
   }
   return { hard, soft };
+}
+
+const KNOWN_RAMP_SORCERIES = new Set([
+  "Cultivate", "Kodama's Reach", "Rampant Growth", "Farseek", "Skyshroud Claim",
+  "Nature's Lore", "Three Visits", "Kodama's Reach", "Cultivate",
+]);
+
+function validateRoleClusterSemantics(promptExcerpt: string): Array<{ kind: "hard" | "soft"; message: string }> {
+  const findings: Array<{ kind: "hard" | "soft"; message: string }> = [];
+  if (!promptExcerpt || !promptExcerpt.includes("Role clusters")) return findings;
+
+  const interactionMatch = promptExcerpt.match(/interaction:\s*\d+\s*cards?\s*\(([^)]+)\)/i);
+  const cardFlowMatch = promptExcerpt.match(/card_flow:\s*\d+\s*cards?\s*\(([^)]+)\)/i);
+  const finishersMatch = promptExcerpt.match(/finishers:\s*\d+\s*cards?\s*\(([^)]+)\)/i);
+
+  const parseCardList = (s: string) => s.split(",").map((c) => c.trim().replace(/\.\.\.$/, ""));
+
+  for (const [cluster, raw] of [
+    ["interaction", interactionMatch?.[1]],
+    ["card_flow", cardFlowMatch?.[1]],
+    ["finishers", finishersMatch?.[1]],
+  ] as const) {
+    if (!raw) continue;
+    const cards = parseCardList(raw);
+    const rampInCluster = cards.filter((c) => KNOWN_RAMP_SORCERIES.has(c));
+    if (rampInCluster.length >= 2 && rampInCluster.length >= cards.length * 0.5) {
+      findings.push({
+        kind: "hard",
+        message: `Role cluster "${cluster}" dominated by ramp sorceries (${rampInCluster.join(", ")}); expected removal/draw/finisher cards`,
+      });
+    } else if (rampInCluster.length >= 1 && cluster === "finishers") {
+      findings.push({
+        kind: "soft",
+        message: `Finishers cluster contains ramp sorcery "${rampInCluster[0]}" which is not a payoff`,
+      });
+    }
+  }
+  return findings;
 }
 
 export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
@@ -181,7 +219,12 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
       streamThreadHistory,
       rulesBundleOverride: rulesBundleOverride ?? undefined,
     });
-    lastBlocks = detectBlockNames(blocks);
+    lastBlocks = detectBlockNames(blocks, {
+      shouldAskCommanderConfirmation: ctx.shouldAskCommanderConfirmation,
+      askReason: ctx.askReason,
+      commanderStatus: ctx.commanderStatus,
+      hasDeck: ctx.hasDeck,
+    });
     if (i === scenario.turns.length - 1) promptExcerpt = blocks.slice(0, 2000);
 
     turnResults.push({
@@ -237,7 +280,20 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
   }
 
   const durationMs = Date.now() - start;
+  const semanticFindings = validateRoleClusterSemantics(promptExcerpt);
+  for (const f of semanticFindings) {
+    if (f.kind === "hard") {
+      hardFailures.push({ kind: "other", message: f.message });
+    } else {
+      softFailures.push({ kind: "other", message: f.message });
+    }
+  }
   const pass = hardFailures.length === 0;
+  const hasSoft = softFailures.length > 0;
+  const hasSemantic = semanticFindings.length > 0;
+  const status: "PASS" | "PASS_WITH_WARNINGS" | "SOFT_FAIL" | "HARD_FAIL" =
+    !pass ? "HARD_FAIL" :
+    hasSoft || hasSemantic ? "PASS_WITH_WARNINGS" : "PASS";
 
   return {
     scenarioId: scenario.id,
@@ -252,6 +308,8 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
     promptBlocksDetected: lastBlocks,
     promptBlocksMissing: scenario.turns[scenario.turns.length - 1]?.expectedPromptBlocks?.filter((b) => !lastBlocks.includes(b)) ?? [],
     promptBlocksForbidden: (scenario.turns[scenario.turns.length - 1]?.forbiddenPromptBlocks ?? []).filter((b) => lastBlocks.includes(b)),
+    semanticValidationFindings: semanticFindings.length ? semanticFindings : undefined,
+    status,
     debug: {
       activeDeckContext: lastCtx ? (lastCtx as unknown as Record<string, unknown>) : undefined,
       promptExcerpt,
@@ -263,7 +321,28 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
 export async function runScenarios(scenarios: Scenario[]): Promise<V2RunResult[]> {
   const results: V2RunResult[] = [];
   for (const s of scenarios) {
-    results.push(await runScenario(s));
+    const r = await runScenario(s);
+    results.push(r);
   }
   return results;
+}
+
+export function buildRunSummary(results: V2RunResult[]): import("./types").V2RunSummary {
+  const passed = results.filter((r) => r.pass).length;
+  const failed = results.filter((r) => !r.pass).length;
+  const hardCount = results.reduce((a, r) => a + r.hardFailures.length, 0);
+  const softCount = results.reduce((a, r) => a + r.softFailures.length, 0);
+  const withWarnings = results.filter((r) => r.status === "PASS_WITH_WARNINGS").length;
+  const withSemantic = results.filter((r) => (r.semanticValidationFindings?.length ?? 0) > 0).length;
+  return {
+    total: results.length,
+    passed,
+    failed,
+    hardFailures: hardCount,
+    softFailures: softCount,
+    scenariosWithWarnings: withWarnings,
+    scenariosWithSemanticIssues: withSemantic,
+    results,
+    lastRunAt: new Date().toISOString(),
+  };
 }

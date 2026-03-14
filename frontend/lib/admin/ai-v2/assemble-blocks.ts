@@ -72,16 +72,52 @@ export async function assembleIntelligenceBlocks(inputs: AssembleInputs): Promis
   return sys;
 }
 
-/** Detect which block names are present in assembled prompt. */
-export function detectBlockNames(prompt: string): string[] {
+/** Precise block taxonomy for V2 validation. */
+export const BLOCK_NAMES = {
+  RULES_FACTS_BLOCK: "RULES_FACTS_BLOCK",
+  DECK_INTELLIGENCE_BLOCK: "DECK_INTELLIGENCE_BLOCK",
+  COMMANDER_CONFIRMED_BLOCK: "COMMANDER_CONFIRMED_BLOCK",
+  COMMANDER_CONFIRMATION_BLOCK: "COMMANDER_CONFIRMATION_BLOCK",
+  COMMANDER_NEED_BLOCK: "COMMANDER_NEED_BLOCK",
+  RECENT_CONVERSATION_BLOCK: "RECENT_CONVERSATION_BLOCK",
+  THREAD_SUMMARY_BLOCK: "THREAD_SUMMARY_BLOCK",
+} as const;
+
+export type BlockDetectionContext = {
+  shouldAskCommanderConfirmation?: boolean;
+  askReason?: string | null;
+  commanderStatus?: string;
+  hasDeck?: boolean;
+};
+
+/** Detect which block names are present. Uses prompt + context for commander blocks. */
+export function detectBlockNames(prompt: string, ctx?: BlockDetectionContext): string[] {
   const blocks: string[] = [];
-  if (prompt.includes("RULES FACTS")) blocks.push("RULES FACTS");
-  if (prompt.includes("DECK INTELLIGENCE")) blocks.push("DECK INTELLIGENCE");
-  if (prompt.includes("DECK CONTEXT") || prompt.includes("Commander:") || prompt.includes("- Commander:")) {
-    blocks.push("Commander");
+  if (prompt.includes("=== RULES FACTS (AUTHORITATIVE")) blocks.push(BLOCK_NAMES.RULES_FACTS_BLOCK);
+  if (prompt.includes("=== DECK INTELLIGENCE (AUTHORITATIVE")) blocks.push(BLOCK_NAMES.DECK_INTELLIGENCE_BLOCK);
+  if (prompt.includes("Recent conversation") || prompt.includes("Recent conversation (last")) {
+    blocks.push(BLOCK_NAMES.RECENT_CONVERSATION_BLOCK);
   }
-  if (prompt.includes("is this correct?") || prompt.includes("I believe your commander is")) {
-    blocks.push("ask-confirmation");
+  if (prompt.includes("Thread summary") || /thread\s+summary/i.test(prompt)) {
+    blocks.push(BLOCK_NAMES.THREAD_SUMMARY_BLOCK);
+  }
+  if (ctx?.shouldAskCommanderConfirmation && ctx?.askReason === "confirm_inference") {
+    blocks.push(BLOCK_NAMES.COMMANDER_CONFIRMATION_BLOCK);
+  }
+  if (ctx?.askReason === "need_commander" || (ctx?.askReason === "need_deck" && !ctx?.hasDeck)) {
+    blocks.push(BLOCK_NAMES.COMMANDER_NEED_BLOCK);
+  }
+  if (prompt.includes("DECK CONTEXT (YOU ALREADY KNOW THIS") || /DECK CONTEXT.*DO NOT ASK/i.test(prompt)) {
+    blocks.push(BLOCK_NAMES.COMMANDER_CONFIRMED_BLOCK);
+  }
+  if (
+    prompt.includes("=== DECK INTELLIGENCE") &&
+    (prompt.includes("- Commander:") || /Commander:\s*\S+/.test(prompt)) &&
+    (ctx?.commanderStatus === "confirmed" || ctx?.commanderStatus === "corrected" || ctx?.commanderStatus === "inferred")
+  ) {
+    if (!blocks.includes(BLOCK_NAMES.COMMANDER_CONFIRMED_BLOCK) && !blocks.includes(BLOCK_NAMES.COMMANDER_CONFIRMATION_BLOCK)) {
+      blocks.push(BLOCK_NAMES.COMMANDER_CONFIRMED_BLOCK);
+    }
   }
   return blocks;
 }

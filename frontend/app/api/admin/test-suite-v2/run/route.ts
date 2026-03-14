@@ -7,8 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { SCENARIOS } from "@/lib/admin/ai-v2/scenarios";
-import { runScenarios } from "@/lib/admin/ai-v2/runner";
-import type { V2RunSummary } from "@/lib/admin/ai-v2/types";
+import { runScenarios, buildRunSummary } from "@/lib/admin/ai-v2/runner";
 
 export async function POST(req: NextRequest) {
   const supabase = await getServerSupabase();
@@ -28,20 +27,6 @@ export async function POST(req: NextRequest) {
       : SCENARIOS;
 
   const results = await runScenarios(toRun);
-  const passed = results.filter((r) => r.pass).length;
-  const failed = results.filter((r) => !r.pass).length;
-  const hardCount = results.reduce((a, r) => a + r.hardFailures.length, 0);
-  const softCount = results.reduce((a, r) => a + r.softFailures.length, 0);
-
-  const summary: V2RunSummary = {
-    total: results.length,
-    passed,
-    failed,
-    hardFailures: hardCount,
-    softFailures: softCount,
-    results,
-    lastRunAt: new Date().toISOString(),
-  };
-
+  const summary = buildRunSummary(results);
   return NextResponse.json(summary);
 }

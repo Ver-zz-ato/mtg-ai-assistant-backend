@@ -27,7 +27,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "What's my deck's main plan?",
         expectedDeckContext: { commanderName: "Multani, Yavimaya's Avatar", commanderStatus: "confirmed" },
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     priorMessages: [],
@@ -64,7 +64,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Explain the ramp mix in my deck.",
         expectedDeckContext: { source: "linked", hasDeck: true },
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
         forbiddenPromptBlocks: [],
         hardFailureRules: ["Must not ask user to provide decklist when linked deck is available"],
       },
@@ -113,7 +113,7 @@ export const SCENARIOS: Scenario[] = [
         expectedDeckContext: { hasDeck: true, deckReplacedByHashChange: false },
       },
       {
-        userMessage: "Actually use this deck:\n\nCommander\n1 Atraxa, Praetors' Voice\n\nDeck\n1 Sol Ring\n98 Forest",
+        userMessage: "Commander\n1 Atraxa, Praetors' Voice\n\nDeck\n1 Sol Ring\n1 Command Tower\n1 Arcane Signet\n1 Cultivate\n1 Farseek\n1 Rampant Growth\n1 Kodama's Reach\n1 Skyshroud Claim\n91 Forest",
         expectedDeckContext: { hasDeck: true, deckReplacedByHashChange: true },
       },
     ],
@@ -131,8 +131,8 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Can [[Multani, Yavimaya's Avatar]] be a commander?",
-        expectedPromptBlocks: ["RULES FACTS"],
-        forbiddenPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
         expectedOutputTraits: ["yes", "legal", "commander"],
       },
     ],
@@ -146,7 +146,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Is [[Black Lotus]] legal in Commander?",
-        expectedPromptBlocks: ["RULES FACTS"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
         expectedOutputTraits: ["banned", "not legal"],
       },
     ],
@@ -161,7 +161,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Can [[Grist, the Hunger Tide]] be a commander?",
-        expectedPromptBlocks: ["RULES FACTS"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
         expectedOutputTraits: ["yes", "commander"],
       },
     ],
@@ -176,7 +176,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Can [[Avenger of Zendikar]] be a commander?",
-        expectedPromptBlocks: ["RULES FACTS"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
         expectedOutputTraits: ["no", "legendary"],
       },
     ],
@@ -190,7 +190,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Is [[Dryad Arbor]] legal in Commander? What does it count as?",
-        expectedPromptBlocks: ["RULES FACTS"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
       },
     ],
   },
@@ -205,7 +205,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Explain the ramp mix in my deck.",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
         expectedOutputTraits: ["ramp", "land"],
       },
     ],
@@ -224,7 +224,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "What's my deck's main plan?",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     initialThread: {
@@ -242,7 +242,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "What is my deck missing?",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     initialThread: {
@@ -260,7 +260,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Are there any tensions in my deck's ramp package?",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     initialThread: {
@@ -278,7 +278,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "How does the Scapeshift + Avenger + Craterhoof line work in my deck?",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     initialThread: {
@@ -298,8 +298,8 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Is [[Black Lotus]] legal in Commander?",
-        expectedPromptBlocks: ["RULES FACTS"],
-        forbiddenPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
   },
@@ -312,8 +312,8 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Explain the ramp mix in my deck.",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
-        forbiddenPromptBlocks: ["RULES FACTS"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
+        forbiddenPromptBlocks: ["RULES_FACTS_BLOCK"],
       },
     ],
     initialThread: {
@@ -331,7 +331,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Is my commander [[Multani, Yavimaya's Avatar]] actually legal?",
-        expectedPromptBlocks: ["RULES FACTS", "DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["RULES_FACTS_BLOCK", "DECK_INTELLIGENCE_BLOCK"],
       },
     ],
     initialThread: {
@@ -349,7 +349,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "What's my commander's color identity?",
-        expectedPromptBlocks: ["DECK INTELLIGENCE", "Commander"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK", "COMMANDER_CONFIRMED_BLOCK"],
       },
     ],
     initialThread: {
@@ -375,15 +375,29 @@ export const SCENARIOS: Scenario[] = [
 
   // === Adversarial / Fuzz ===
   {
-    id: "adversarial-001-ambiguous-partial",
-    title: "Ambiguous partial decklist asks for commander instead of hallucinating",
+    id: "adversarial-001a-partial-with-strong-candidate",
+    title: "Partial decklist with strong commander candidate → infer + ask confirmation",
     category: "adversarial",
-    description: "Partial decklist without clear commander; should ask, not guess.",
-    tags: ["adversarial", "partial", "commander"],
+    description: "Partial list with explicit Commander section; AI should infer candidate and ask for confirmation.",
+    tags: ["adversarial", "partial", "commander", "inference"],
     turns: [
       {
-        userMessage: "Commander\n1 Ken, Burning Brawler\n\nDeck\n4 Lightning Bolt\n4 Counterspell\n4 Lightning Strike\n20 Island\n20 Mountain",
+        userMessage: "Commander\n1 Ken, Burning Brawler\n\nDeck\n4 Lightning Bolt\n4 Counterspell\n4 Lightning Strike\n4 Shock\n20 Island\n20 Mountain",
+        expectedDeckContext: { hasDeck: true, shouldAskCommanderConfirmation: true, commanderName: "Ken, Burning Brawler" },
+      },
+    ],
+  },
+  {
+    id: "adversarial-001b-partial-without-strong-candidate",
+    title: "Partial decklist without commander section → ask for commander plainly",
+    category: "adversarial",
+    description: "Partial list with no Commander section; AI should ask for commander, not guess.",
+    tags: ["adversarial", "partial", "commander", "no-inference"],
+    turns: [
+      {
+        userMessage: "4 Lightning Bolt\n4 Counterspell\n4 Lightning Strike\n4 Shock\n4 Negate\n20 Island\n20 Mountain",
         expectedDeckContext: { hasDeck: true },
+        forbiddenPromptBlocks: ["COMMANDER_CONFIRMATION_BLOCK"],
       },
     ],
   },
@@ -443,7 +457,7 @@ export const SCENARIOS: Scenario[] = [
     turns: [
       {
         userMessage: "Suggest a ramp spell for my deck.",
-        expectedPromptBlocks: ["DECK INTELLIGENCE"],
+        expectedPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
         forbiddenOutputTraits: ["Boros Signet", "Rakdos Signet"],
       },
     ],

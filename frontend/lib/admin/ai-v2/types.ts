@@ -123,6 +123,10 @@ export type V2RunResult = {
   promptBlocksForbidden: string[];
   /** Validator findings if model output was validated */
   validatorFindings?: string[];
+  /** Semantic validation: role cluster sanity (e.g. ramp in finishers = wrong) */
+  semanticValidationFindings?: Array<{ kind: "hard" | "soft"; message: string }>;
+  /** Computed status for display */
+  status?: "PASS" | "PASS_WITH_WARNINGS" | "SOFT_FAIL" | "HARD_FAIL";
   /** Raw model response if run */
   modelResponse?: string;
   /** Debug artifacts */
@@ -138,12 +142,16 @@ export type V2RunResult = {
   notes?: string;
 };
 
+export type ScenarioStatus = "PASS" | "PASS_WITH_WARNINGS" | "SOFT_FAIL" | "HARD_FAIL";
+
 export type V2RunSummary = {
   total: number;
   passed: number;
   failed: number;
   hardFailures: number;
   softFailures: number;
+  scenariosWithWarnings: number;
+  scenariosWithSemanticIssues: number;
   results: V2RunResult[];
   lastRunAt: string;
 };

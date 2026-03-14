@@ -208,8 +208,14 @@ function getCardsForTag(
   options?: DeckPlanProfileOptions
 ): string[] {
   if (tag === "ramp" && options?.rampCards?.length) return options.rampCards;
+  if (tag === "land_ramp" && options?.rampCards?.length) return options.rampCards;
+  if (tag === "mana_rock" || tag === "mana_dork") return [];
   if (tag === "draw" && options?.drawCards?.length) return options.drawCards;
   if (tag === "spot_removal" && options?.removalCards?.length) return options.removalCards;
+  if (tag === "board_wipe" || tag === "graveyard_hate" || tag === "artifact_hate") return [];
+  if (tag === "finisher" || tag === "payoff") {
+    return synergyDiagnostics.primary_payoff_cards.slice(0, 6);
+  }
   const clusters = synergyDiagnostics.top_synergy_clusters;
   for (const cluster of clusters) {
     if (cluster.length >= 3) return cluster;

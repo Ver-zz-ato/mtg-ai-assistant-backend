@@ -7,6 +7,15 @@ Test Suite V2 is an admin-facing AI evaluation workspace for ManaTap chat. It pr
 **Admin UI label:** V2  
 **Route:** `/admin/test-suite-v2`
 
+## Hardening (Mar 2025)
+
+- **deckReplacedByHashChange** promoted to hard failure (was soft)
+- **Prompt block taxonomy** — precise names: RULES_FACTS_BLOCK, DECK_INTELLIGENCE_BLOCK, COMMANDER_CONFIRMED_BLOCK, COMMANDER_CONFIRMATION_BLOCK, COMMANDER_NEED_BLOCK
+- **Adversarial split** — partial-with-strong-candidate vs partial-without-strong-candidate
+- **Role cluster fix** — deck-plan-profile no longer assigns ramp sorceries to interaction/card_flow/finishers
+- **Semantic validation** — V2 checks role clusters for ramp-in-finishers etc., reports hard/soft
+- **Result status** — PASS, PASS_WITH_WARNINGS, HARD_FAIL; UI shows scenariosWithWarnings, scenariosWithSemanticIssues
+
 ## Files Created/Changed
 
 ### New Files

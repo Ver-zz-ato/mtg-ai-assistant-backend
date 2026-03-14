@@ -142,8 +142,19 @@ export default function TestSuiteV2Page() {
           />
           <StatCard label="Hard Failures" value={summary?.hardFailures ?? "—"} ok={summary?.hardFailures === 0} />
           <StatCard label="Soft Failures" value={summary?.softFailures ?? "—"} />
+          <StatCard label="With Warnings" value={summary?.scenariosWithWarnings ?? "—"} ok={summary?.scenariosWithWarnings === 0} />
+          <StatCard label="Semantic Issues" value={summary?.scenariosWithSemanticIssues ?? "—"} ok={summary?.scenariosWithSemanticIssues === 0} />
           <StatCard label="Last Run" value={summary?.lastRunAt ? new Date(summary.lastRunAt).toLocaleString() : "—"} />
         </div>
+        {summary && (summary.scenariosWithWarnings > 0 || summary.scenariosWithSemanticIssues > 0 || summary.failed > 0) && (
+          <div className="mt-3 p-2 rounded bg-amber-950/30 border border-amber-800 text-amber-200 text-sm">
+            <strong>Needs attention:</strong>{" "}
+            {summary.failed > 0 && `${summary.failed} failed`}
+            {summary.failed > 0 && summary.scenariosWithWarnings > 0 && "; "}
+            {summary.scenariosWithWarnings > 0 && `${summary.scenariosWithWarnings} passed with warnings`}
+            {summary.scenariosWithSemanticIssues > 0 && `${summary.failed > 0 || summary.scenariosWithWarnings > 0 ? "; " : ""}${summary.scenariosWithSemanticIssues} with semantic validation issues`}
+          </div>
+        )}
       </section>
 
       {/* Run Controls */}
@@ -241,7 +252,7 @@ export default function TestSuiteV2Page() {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <StatusBadge pass={res?.pass} />
+                    <StatusBadge pass={res?.pass} status={res?.status} />
                     <span className="text-sm font-medium truncate">{s.title}</span>
                   </div>
                   <div className="text-xs text-neutral-500 mt-0.5">
@@ -306,6 +317,7 @@ export default function TestSuiteV2Page() {
                   <th className="py-2 pr-2">Ms</th>
                   <th className="py-2 pr-2">Hard</th>
                   <th className="py-2 pr-2">Soft</th>
+                  <th className="py-2 pr-2">Semantic</th>
                 </tr>
               </thead>
               <tbody>
@@ -320,13 +332,14 @@ export default function TestSuiteV2Page() {
                       onClick={() => setSelectedId(r.scenarioId)}
                     >
                       <td className="py-2 pr-2">
-                        <StatusBadge pass={r.pass} />
+                        <StatusBadge pass={r.pass} status={r.status} />
                       </td>
                       <td className="py-2 pr-2 font-medium">{s?.title ?? r.scenarioId}</td>
                       <td className="py-2 pr-2 text-neutral-500">{s ? CATEGORY_LABELS[s.category] : "—"}</td>
                       <td className="py-2 pr-2 text-neutral-500">{r.durationMs}</td>
                       <td className="py-2 pr-2">{r.hardFailures.length > 0 ? <span className="text-red-400">{r.hardFailures.length}</span> : "—"}</td>
                       <td className="py-2 pr-2">{r.softFailures.length > 0 ? <span className="text-amber-400">{r.softFailures.length}</span> : "—"}</td>
+                      <td className="py-2 pr-2">{(r.semanticValidationFindings?.length ?? 0) > 0 ? <span className="text-orange-400">{r.semanticValidationFindings!.length}</span> : "—"}</td>
                     </tr>
                   );
                 })}
@@ -343,12 +356,14 @@ export default function TestSuiteV2Page() {
           <div className="space-y-4">
             <div
               className={`rounded-lg border p-3 ${
-                selectedResult.pass
-                  ? "border-green-700 bg-green-950/30 text-green-200"
-                  : "border-red-700 bg-red-950/30 text-red-200"
+                selectedResult.status === "HARD_FAIL"
+                  ? "border-red-700 bg-red-950/30 text-red-200"
+                  : selectedResult.status === "PASS_WITH_WARNINGS"
+                  ? "border-amber-700 bg-amber-950/30 text-amber-200"
+                  : "border-green-700 bg-green-950/30 text-green-200"
               }`}
             >
-              {selectedResult.pass ? "PASS" : "FAIL"} · {selectedResult.durationMs}ms
+              {selectedResult.status ?? (selectedResult.pass ? "PASS" : "FAIL")} · {selectedResult.durationMs}ms
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
               <div>
@@ -401,6 +416,18 @@ export default function TestSuiteV2Page() {
               <div>
                 <div className="text-sm font-medium text-red-400">Forbidden blocks present:</div>
                 <span className="text-sm">{selectedResult.promptBlocksForbidden.join(", ")}</span>
+              </div>
+            )}
+            {selectedResult.semanticValidationFindings && selectedResult.semanticValidationFindings.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-orange-400">Semantic validation</div>
+                <ul className="list-disc list-inside text-sm text-orange-300 space-y-0.5">
+                  {selectedResult.semanticValidationFindings.map((f, i) => (
+                    <li key={i}>
+                      [{f.kind}] {f.message}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -474,12 +501,12 @@ function StatCard({
   );
 }
 
-function StatusBadge({ pass }: { pass?: boolean }) {
-  if (pass === undefined) return <span className="w-2 h-2 rounded-full bg-neutral-600 shrink-0" />;
-  return (
-    <span
-      className={`w-2 h-2 rounded-full shrink-0 ${pass ? "bg-green-500" : "bg-red-500"}`}
-      title={pass ? "Passed" : "Failed"}
-    />
-  );
+function StatusBadge({ pass, status }: { pass?: boolean; status?: string }) {
+  if (pass === undefined && !status) return <span className="w-2 h-2 rounded-full bg-neutral-600 shrink-0" />;
+  const title = status ?? (pass ? "Passed" : "Failed");
+  const color =
+    status === "HARD_FAIL" || (!pass && !status) ? "bg-red-500" :
+    status === "PASS_WITH_WARNINGS" ? "bg-amber-500" :
+    "bg-green-500";
+  return <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} title={title} />;
 }
