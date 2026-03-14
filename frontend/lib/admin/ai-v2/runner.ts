@@ -5,10 +5,12 @@
 
 import { resolveActiveDeckContext } from "@/lib/chat/active-deck-context";
 import { classifyPromptTier } from "@/lib/ai/prompt-tier";
+import { detectRulesLegalityIntent, extractCardNamesFromMessage } from "@/lib/deck/rules-facts";
 import { hashDecklist, normalizeDecklistText } from "@/lib/chat/decklist-normalize";
 import { assembleIntelligenceBlocks, detectBlockNames } from "./assemble-blocks";
 import {
   FIXTURE_V2_SUMMARY,
+  MONO_GREEN_DECKLIST,
   buildFixtureV2Summary,
   MOCK_RULES_BUNDLE_MULTANI,
   MOCK_RULES_BUNDLE_BLACK_LOTUS,
@@ -52,13 +54,19 @@ function buildDeckData(scenario: Scenario) {
   return null;
 }
 
+/** Only use fixture when decklist matches known fixture; otherwise omit DECK INTELLIGENCE. */
 function resolveV2Summary(scenario: Scenario, decklistText: string | null): typeof FIXTURE_V2_SUMMARY | null {
   if (!decklistText?.trim()) return null;
-  try {
-    return buildFixtureV2Summary(decklistText);
-  } catch {
-    return FIXTURE_V2_SUMMARY;
+  const hash = hashDecklist(normalizeDecklistText(decklistText));
+  const monoGreenHash = hashDecklist(normalizeDecklistText(MONO_GREEN_DECKLIST));
+  if (hash === monoGreenHash) {
+    try {
+      return buildFixtureV2Summary(decklistText);
+    } catch {
+      return FIXTURE_V2_SUMMARY;
+    }
   }
+  return null;
 }
 
 function checkDeckContextExpectations(
@@ -118,6 +126,46 @@ const KNOWN_RAMP_SORCERIES = new Set([
   "Cultivate", "Kodama's Reach", "Rampant Growth", "Farseek", "Skyshroud Claim",
   "Nature's Lore", "Three Visits", "Kodama's Reach", "Cultivate",
 ]);
+
+function validatePromptDeckCoherence(
+  promptExcerpt: string,
+  ctx: { commanderName?: string | null; decklistText?: string | null },
+  scenarioDecklistText: string | null
+): Array<{ kind: "hard" | "soft"; message: string }> {
+  const findings: Array<{ kind: "hard" | "soft"; message: string }> = [];
+  if (!promptExcerpt?.includes("=== DECK INTELLIGENCE")) return findings;
+
+  // Match "- Commander: X" from Deck Facts block; avoid "Legal in Commander:" / "Commander eligible:"
+  const promptCommanderMatch = promptExcerpt.match(/- Commander:\s*([^\n]+)/);
+  const promptCommander = promptCommanderMatch?.[1]?.trim();
+  const promptColorsMatch = promptExcerpt.match(/Colors?:\s*([^\n]+)/i);
+  const promptColors = promptColorsMatch?.[1]?.trim() ?? "";
+
+  const decklist = scenarioDecklistText ?? ctx.decklistText ?? "";
+  const resolvedCommander = ctx.commanderName;
+
+  if (promptCommander && decklist) {
+    const deckCommanderMatch = decklist.match(/Commander\s*\n\s*(?:\d+\s*[xX]?\s*)?([^\n]+)/i);
+    const inferredFromDeck = deckCommanderMatch?.[1]?.trim();
+    const expectedCommander = resolvedCommander ?? inferredFromDeck;
+    if (expectedCommander && promptCommander && !promptCommander.toLowerCase().includes(expectedCommander.toLowerCase().split(",")[0])) {
+      findings.push({
+        kind: "hard",
+        message: `Prompt/deck coherence: prompt commander "${promptCommander}" does not match scenario deck (expected ${expectedCommander})`,
+      });
+    }
+  }
+
+  const MULTANI = "Multani";
+  const knownNonScenarioCommanders = ["Multani, Yavimaya's Avatar", "Multani"];
+  if (promptCommander && !decklist.includes("Multani") && knownNonScenarioCommanders.some((c) => promptCommander.includes(c))) {
+    findings.push({
+      kind: "hard",
+      message: `Prompt/deck coherence: Multani fixture leaked into non-Multani scenario (prompt: ${promptCommander}, deck has no Multani)`,
+    });
+  }
+  return findings;
+}
 
 function validateRoleClusterSemantics(promptExcerpt: string): Array<{ kind: "hard" | "soft"; message: string }> {
   const findings: Array<{ kind: "hard" | "soft"; message: string }> = [];
@@ -190,6 +238,8 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
     }
     clientConversation.push({ role: "user", content: text });
 
+    const isStandaloneRulesQuestion =
+      detectRulesLegalityIntent(text) && (extractCardNamesFromMessage(text).length > 0 || /\[\[[^\]]+\]\]/.test(text));
     const ctx = resolveActiveDeckContext({
       tid,
       isGuest,
@@ -200,6 +250,7 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
       thread: threadState,
       streamThreadHistory,
       clientConversation,
+      isStandaloneRulesQuestion,
       deckData,
     });
     lastCtx = ctx;
@@ -280,8 +331,13 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
   }
 
   const durationMs = Date.now() - start;
+  const scenarioDecklist = lastCtx?.decklistText ?? threadState.decklist_text ?? null;
+  const coherenceFindings = lastCtx
+    ? validatePromptDeckCoherence(promptExcerpt, lastCtx, scenarioDecklist)
+    : [];
   const semanticFindings = validateRoleClusterSemantics(promptExcerpt);
-  for (const f of semanticFindings) {
+  const allFindings = [...coherenceFindings, ...semanticFindings];
+  for (const f of allFindings) {
     if (f.kind === "hard") {
       hardFailures.push({ kind: "other", message: f.message });
     } else {
@@ -290,7 +346,7 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
   }
   const pass = hardFailures.length === 0;
   const hasSoft = softFailures.length > 0;
-  const hasSemantic = semanticFindings.length > 0;
+  const hasSemantic = allFindings.length > 0;
   const status: "PASS" | "PASS_WITH_WARNINGS" | "SOFT_FAIL" | "HARD_FAIL" =
     !pass ? "HARD_FAIL" :
     hasSoft || hasSemantic ? "PASS_WITH_WARNINGS" : "PASS";
@@ -308,7 +364,7 @@ export async function runScenario(scenario: Scenario): Promise<V2RunResult> {
     promptBlocksDetected: lastBlocks,
     promptBlocksMissing: scenario.turns[scenario.turns.length - 1]?.expectedPromptBlocks?.filter((b) => !lastBlocks.includes(b)) ?? [],
     promptBlocksForbidden: (scenario.turns[scenario.turns.length - 1]?.forbiddenPromptBlocks ?? []).filter((b) => lastBlocks.includes(b)),
-    semanticValidationFindings: semanticFindings.length ? semanticFindings : undefined,
+    semanticValidationFindings: allFindings.length ? allFindings : undefined,
     status,
     debug: {
       activeDeckContext: lastCtx ? (lastCtx as unknown as Record<string, unknown>) : undefined,

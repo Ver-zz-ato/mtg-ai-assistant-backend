@@ -277,6 +277,10 @@ export async function POST(req: NextRequest) {
       streamThreadHistoryEarly = (Array.isArray(msgs) ? msgs : []) as Array<{ role: string; content?: string }>;
     }
     const { resolveActiveDeckContext } = await import("@/lib/chat/active-deck-context");
+    const { detectRulesLegalityIntent, extractCardNamesFromMessage } = await import("@/lib/deck/rules-facts");
+    const isStandaloneRulesQuestion =
+      detectRulesLegalityIntent(text ?? "") &&
+      (extractCardNamesFromMessage(text ?? "").length > 0 || /\[\[[^\]]+\]\]/.test(text ?? ""));
     const activeDeckContext = resolveActiveDeckContext({
       tid,
       isGuest,
@@ -287,6 +291,7 @@ export async function POST(req: NextRequest) {
       thread: tid ? { deck_id: deckIdLinked, commander: threadCommander, decklist_text: threadDecklistText, decklist_hash: threadDecklistHash } : null,
       streamThreadHistory: streamThreadHistoryEarly,
       clientConversation,
+      isStandaloneRulesQuestion,
       deckData,
     });
     streamDebug("active_deck_context", {

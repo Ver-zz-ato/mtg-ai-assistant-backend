@@ -82,6 +82,8 @@ export type ResolveActiveDeckContextArgs = {
   thread: { deck_id?: string | null; commander?: string | null; decklist_text?: string | null; decklist_hash?: string | null } | null;
   streamThreadHistory: Array<{ role: string; content?: string }>;
   clientConversation: Array<{ role: string; content?: string }>;
+  /** When true, standalone rules/legality question — do not set need_deck even when no deck. */
+  isStandaloneRulesQuestion?: boolean;
   deckData: {
     d: { commander?: string | null; title?: string; format?: string };
     entries: Array<{ name: string; count?: number }>;
@@ -137,6 +139,7 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     thread,
     streamThreadHistory,
     clientConversation,
+    isStandaloneRulesQuestion,
     deckData,
   } = args;
 
@@ -235,7 +238,9 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
   const isFullDecklist = !!(decklistText && decklistText.split(/\r?\n/).filter((l) => l.trim()).length >= 90);
 
   // Commander resolution
-  if (threadCommander && hasDeck) {
+  // When deck was replaced by hash change, thread commander is stale — do not use it.
+  const threadCommanderValid = threadCommander && hasDeck && !deckReplacedByHashChange;
+  if (threadCommanderValid) {
     commanderName = isCorrection ? commanderCorrection! : threadCommander;
     commanderStatus = isCorrection ? "corrected" : "confirmed";
     path.push("commander:thread");
@@ -268,8 +273,10 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
   let askReason: AskReason = null;
 
   if (!hasDeck) {
-    shouldAskForDeck = true;
-    askReason = "need_deck";
+    if (!isStandaloneRulesQuestion) {
+      shouldAskForDeck = true;
+      askReason = "need_deck";
+    }
   } else if (commanderStatus === "missing") {
     shouldAskCommanderConfirmation = false;
     shouldAskForDeck = false;

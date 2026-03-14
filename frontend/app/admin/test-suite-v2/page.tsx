@@ -420,7 +420,7 @@ export default function TestSuiteV2Page() {
             )}
             {selectedResult.semanticValidationFindings && selectedResult.semanticValidationFindings.length > 0 && (
               <div>
-                <div className="text-sm font-medium text-orange-400">Semantic validation</div>
+                <div className="text-sm font-medium text-orange-400">Semantic / prompt-deck coherence</div>
                 <ul className="list-disc list-inside text-sm text-orange-300 space-y-0.5">
                   {selectedResult.semanticValidationFindings.map((f, i) => (
                     <li key={i}>

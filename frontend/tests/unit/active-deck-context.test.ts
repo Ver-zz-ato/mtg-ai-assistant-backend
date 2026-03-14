@@ -147,6 +147,52 @@ const hashChange = resolveActiveDeckContext(
 );
 assert.strictEqual(hashChange.source, "current_paste");
 assert.strictEqual(hashChange.deckReplacedByHashChange, true);
+assert.notStrictEqual(hashChange.commanderName, "Azusa", "old thread commander must NOT survive deck replacement");
+
+// --- deck replacement with strong inferred commander (e.g. Atraxa)
+const ATRAXA_DECK = `Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Command Tower
+1 Arcane Signet
+1 Cultivate
+1 Farseek
+1 Rampant Growth
+1 Kodama's Reach
+1 Skyshroud Claim
+91 Forest`;
+const hashChangeAtraxa = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: ATRAXA_DECK,
+    thread: {
+      deck_id: null,
+      commander: "Multani, Yavimaya's Avatar",
+      decklist_text: DECK_WITH_COMMANDER_SECTION,
+      decklist_hash: "multani_hash",
+    },
+  })
+);
+assert.strictEqual(hashChangeAtraxa.deckReplacedByHashChange, true);
+assert.strictEqual(hashChangeAtraxa.commanderName, "Atraxa, Praetors' Voice");
+assert.notStrictEqual(hashChangeAtraxa.commanderName, "Multani, Yavimaya's Avatar");
+
+// --- standalone rules question: no need_deck
+const rulesOnly = resolveActiveDeckContext(
+  base({ text: "Can [[Multani, Yavimaya's Avatar]] be a commander?", isStandaloneRulesQuestion: true })
+);
+assert.strictEqual(rulesOnly.hasDeck, false);
+assert.strictEqual(rulesOnly.askReason, null);
+assert.strictEqual(rulesOnly.shouldAskForDeck, false);
+
+// --- deck-needed question with no deck: need_deck
+const deckNeeded = resolveActiveDeckContext(
+  base({ text: "Explain the ramp mix in my deck.", isStandaloneRulesQuestion: false })
+);
+assert.strictEqual(deckNeeded.hasDeck, false);
+assert.strictEqual(deckNeeded.askReason, "need_deck");
 
 // --- guest flow
 const guestPaste = resolveActiveDeckContext(

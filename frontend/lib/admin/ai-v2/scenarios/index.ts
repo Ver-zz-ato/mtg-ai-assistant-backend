@@ -114,7 +114,11 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         userMessage: "Commander\n1 Atraxa, Praetors' Voice\n\nDeck\n1 Sol Ring\n1 Command Tower\n1 Arcane Signet\n1 Cultivate\n1 Farseek\n1 Rampant Growth\n1 Kodama's Reach\n1 Skyshroud Claim\n91 Forest",
-        expectedDeckContext: { hasDeck: true, deckReplacedByHashChange: true },
+        expectedDeckContext: {
+          hasDeck: true,
+          deckReplacedByHashChange: true,
+          commanderName: "Atraxa, Praetors' Voice",
+        },
       },
     ],
     priorMessages: [],
@@ -132,7 +136,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Can [[Multani, Yavimaya's Avatar]] be a commander?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
-        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
+        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK", "COMMANDER_NEED_BLOCK"],
         expectedOutputTraits: ["yes", "legal", "commander"],
       },
     ],
@@ -147,6 +151,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Is [[Black Lotus]] legal in Commander?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["COMMANDER_NEED_BLOCK"],
         expectedOutputTraits: ["banned", "not legal"],
       },
     ],
@@ -162,6 +167,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Can [[Grist, the Hunger Tide]] be a commander?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["COMMANDER_NEED_BLOCK"],
         expectedOutputTraits: ["yes", "commander"],
       },
     ],
@@ -177,6 +183,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Can [[Avenger of Zendikar]] be a commander?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["COMMANDER_NEED_BLOCK"],
         expectedOutputTraits: ["no", "legendary"],
       },
     ],
@@ -191,6 +198,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Is [[Dryad Arbor]] legal in Commander? What does it count as?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
+        forbiddenPromptBlocks: ["COMMANDER_NEED_BLOCK"],
       },
     ],
   },
@@ -299,7 +307,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Is [[Black Lotus]] legal in Commander?",
         expectedPromptBlocks: ["RULES_FACTS_BLOCK"],
-        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
+        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK", "COMMANDER_NEED_BLOCK"],
       },
     ],
   },
@@ -384,6 +392,7 @@ export const SCENARIOS: Scenario[] = [
       {
         userMessage: "Commander\n1 Ken, Burning Brawler\n\nDeck\n4 Lightning Bolt\n4 Counterspell\n4 Lightning Strike\n4 Shock\n20 Island\n20 Mountain",
         expectedDeckContext: { hasDeck: true, shouldAskCommanderConfirmation: true, commanderName: "Ken, Burning Brawler" },
+        forbiddenPromptBlocks: ["DECK_INTELLIGENCE_BLOCK"],
       },
     ],
   },
