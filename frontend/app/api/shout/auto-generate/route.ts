@@ -16,8 +16,9 @@ const firstNames = [
   "Logan", "Sofia", "Owen", "Aria", "Liam", "Luna", "Nolan", "Iris", "Finn", "Violet",
   "Blake", "Jade", "Cole", "Ivy", "Seth", "Ruby", "Jace", "Opal", "Kai", "Sage",
   "Devin", "Tara", "Nick", "Kira", "Ben", "Zara", "Leo", "Nina", "Max", "Tessa",
-  "Chad", "Bobert", "Dingle", "Scoobert", "Fitz", "Zeph", "Morty", "Blorg", "Skeletor",
-  "GoblinLord", "ManaWyrm", "TapOut", "Mulligan", "Cascade", "Flashback", "StormCount"
+  "Chad", "Bobert", "Scoobert", "Fitz", "Zeph", "Blorg", "GoblinLord", "ManaWyrm", "TapOut",
+  "Mulligan", "Cascade", "StormCount", "BorosPilot", "IzzetMike", "GolgariDave", "SelesnyaJen",
+  "RakdosDan", "SimicTim", "OrzhovKate", "GruulSteve", "DimirLee", "AzoriusSam"
 ];
 
 const suffixes = ["", "", "", "", "", "_mtg", "_edh", "_magic", "99", "_plays", "MTG", "_tcg", "EDH", "420", "69", "_izzet", "_golgari", "_boros", "the_scoop"];
@@ -136,19 +137,22 @@ function generateTemplateMessage(): string {
 // ============================================================================
 
 const SYSTEM_PROMPT = `You simulate casual MTG community chat for ManaTap AI (a deck-building website).
-Read the recent shoutbox messages and generate 1-3 natural follow-up messages from different users.
+Read the recent shoutbox messages and generate 1-3 natural follow-up messages from DIFFERENT users.
+
+CRITICAL - VARIETY (avoid same-y, AI-sounding output):
+- Each message MUST use a DIFFERENT username. Never repeat a username in this response, and prefer NOT reusing usernames from the recent history you're given (pick fresh ones).
+- Vary username STYLES: real-name style (jake_mtg, sarah_edh), gamer tags (xX_Thraximundar_Xx, BorosMain), meme/silly (scoobert, blorg), numbers (kess99, atraxa420), no single pattern.
+- Vary LANGUAGE: do NOT stuff every message with "ngl", "tbh", "no cap", "lowkey", "fr fr". Use slang in maybe 1 of 3 messages. Others: plain casual, dry one-liners, genuine questions, short reactions ("lol", "same"), or normal sentences. Mix it so it doesn't sound like one person or one template.
+- Vary LENGTH and TONE: one short ("gg"), one medium (question or opinion), one longer if you do 3. Different moods: hype, salt, chill, joke, serious question.
 
 RULES:
-- Sound like REAL Magic players: unhinged, funny, slang-heavy, enthusiastic
-- Use WILD usernames: silly (ChadTheChad, Bobert99, Scoobert_mtg), nerdy (ManaWyrm_420, TapOutKing), or chaotic (GoblinLord69, StormCountMain)
-- Slang & internet speak REQUIRED: "ngl", "tbh", "no cap", "lowkey", "mid", "gas", "cracked", "stonks", "copium", "rip bozo", "fr fr", "send it", "pubstomped", "smh", "lmao"
-- Keep messages SHORT - under 100 chars, max 140. Punchy. No essays.
-- Mix energy: hype, salt, memes, questions, "gg", dumb jokes, LGS drama
-- Reference MTG/EDH naturally: topdecks, mana screw, that one blue player, wallet pain, proxying, precon upgrades
-- Occasional typos/caps = more authentic. NO corporate speak. Maybe 1 emoji max.
-- Reference site features casually: mulligan sim, deck analyzer, budget swaps
-- NEVER mention AI, automated, or generated. NEVER repeat history exactly.
-- Be DIVERSE in tone - not every message needs to be a meme, but avoid bland/generic
+- Sound like real Magic players: a mix of unhinged, funny, chill, and normal—not every line is a meme.
+- Keep messages SHORT - under 100 chars preferred, max 140. Punchy. No essays.
+- Reference MTG/EDH naturally: topdecks, mana screw, wallet pain, proxying, precon upgrades, LGS, commanders.
+- Occasional typos or caps OK. NO corporate speak. Maybe 1 emoji max.
+- Reference site features only sometimes: mulligan sim, deck analyzer, budget swaps.
+- NEVER mention AI, automated, or generated. NEVER copy or closely paraphrase history.
+- Avoid generic filler. If it could apply to any game, make it MTG-specific.
 
 OUTPUT: Return ONLY a valid JSON array, no other text:
 [{"user": "username", "text": "message", "delay_seconds": 0}]
@@ -161,19 +165,24 @@ type GeneratedMessage = {
   delay_seconds: number;
 };
 
-function formatHistoryForAI(history: Shout[]): string {
+function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: string[] } {
   if (history.length === 0) {
-    return "(No recent messages - start a fresh conversation about MTG/Commander)";
+    return {
+      text: "(No recent messages - start a fresh conversation about MTG/Commander)",
+      recentUsers: [],
+    };
   }
   
-  // Sort by timestamp ascending (oldest first) and take last 15
   const recent = [...history]
     .sort((a, b) => a.ts - b.ts)
     .slice(-15);
   
-  return recent
+  const recentUsers = [...new Set(recent.map(m => m.user))];
+  const text = recent
     .map(m => `${m.user}: ${m.text}`)
     .join("\n");
+  
+  return { text, recentUsers };
 }
 
 function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
@@ -181,6 +190,7 @@ function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
   if (parsed.length === 0 || parsed.length > 5) return null;
   
   const valid: GeneratedMessage[] = [];
+  const seenUsers = new Set<string>();
   
   for (const item of parsed) {
     if (typeof item !== "object" || item === null) continue;
@@ -191,6 +201,8 @@ function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
     if (typeof user !== "string") continue;
     const cleanUser = user.trim().slice(0, 24).toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (cleanUser.length < 2) continue;
+    if (seenUsers.has(cleanUser)) continue; // no duplicate usernames in one batch
+    seenUsers.add(cleanUser);
     
     // Validate text
     if (typeof text !== "string") continue;
@@ -218,12 +230,15 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
   }
   
   try {
-    const historyText = formatHistoryForAI(history);
+    const { text: historyText, recentUsers } = formatHistoryForAI(history);
+    const recentUserHint = recentUsers.length > 0
+      ? `\nRecent usernames (use DIFFERENT ones, do not repeat): ${recentUsers.join(", ")}`
+      : "";
     
     const response = await callLLM(
       [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Recent shoutbox messages:\n${historyText}\n\nGenerate 1-3 new messages:` }
+        { role: "user", content: `Recent shoutbox messages:\n${historyText}${recentUserHint}\n\nGenerate 1-3 new messages with varied usernames and tone:` }
       ],
       {
         route: "/api/shout/auto-generate",
