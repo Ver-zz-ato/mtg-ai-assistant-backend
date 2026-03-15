@@ -65,6 +65,10 @@ export default function DeckMetricsDashboardPage() {
       <div>
         <h1 className="text-xl font-semibold">Deck Metrics</h1>
         <p className="text-sm text-neutral-400 mt-1">Historical deck-level metrics from deck_metrics_snapshot.</p>
+        <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-2">
+          <p className="text-xs font-medium text-neutral-300 mb-0.5">ELI5</p>
+          <p className="text-xs text-neutral-400">We take a “photo” of each deck’s stats (lands, ramp, removal, draw, curve) once per day when it’s analysed or saved. This page shows those photos: averages, breakdown by commander, and weird ones (super high/low lands or ramp).</p>
+        </div>
       </div>
       <DataDashboardNav />
 

@@ -54,6 +54,10 @@ export default function MetaTrendsDashboardPage() {
         <p className="text-sm text-neutral-400 mt-1">
           Meta signals and commander aggregates history. Verify cron is populating snapshots.
         </p>
+        <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-2">
+          <p className="text-xs font-medium text-neutral-300 mb-0.5">ELI5</p>
+          <p className="text-xs text-neutral-400">Cron jobs copy “what’s popular right now” (meta signals and commander deck counts) into history tables every day. Here you check that those copies are actually happening and see how counts change over time.</p>
+        </div>
       </div>
       <DataDashboardNav />
 

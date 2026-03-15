@@ -41,8 +41,14 @@ export default function DataDashboardPage() {
       <div>
         <h1 className="text-xl font-semibold">Data Dashboard</h1>
         <p className="text-sm text-neutral-400 mt-1">
-          Read-only view of behavioral and meta history (suggestions, deck metrics, meta signals).
+          Read-only view of behavioural and meta history (suggestions, deck metrics, meta signals).
         </p>
+        <div className="mt-3 rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
+          <p className="text-xs font-medium text-neutral-300 mb-1">ELI5</p>
+          <p className="text-xs text-neutral-400">
+            We save “what happened” in four buckets: when someone accepts an AI card suggestion, daily snapshots of deck stats, daily snapshots of meta signals, and daily snapshots of commander popularity. This dashboard lets you look at those numbers—no editing, just “how many” and “latest when”. Use <strong>Test</strong> to push sample rows and confirm Supabase is getting them.
+          </p>
+        </div>
       </div>
       <DataDashboardNav />
 
@@ -87,21 +93,21 @@ export default function DataDashboardPage() {
                 className="block p-3 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700"
               >
                 <span className="font-medium">Suggestions</span>
-                <p className="text-xs text-neutral-400 mt-1">Accepted outcomes, top cards, by category/commander</p>
+                <p className="text-xs text-neutral-400 mt-1">When users clicked “add” on AI suggestions: which cards, which commanders, how many.</p>
               </Link>
               <Link
                 href="/admin/datadashboard/deck-metrics"
                 className="block p-3 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700"
               >
                 <span className="font-medium">Deck Metrics</span>
-                <p className="text-xs text-neutral-400 mt-1">Snapshot history, aggregates, curve, outliers</p>
+                <p className="text-xs text-neutral-400 mt-1">One row per deck per day: lands, ramp, removal, draw, curve. See averages and oddballs.</p>
               </Link>
               <Link
                 href="/admin/datadashboard/meta-trends"
                 className="block p-3 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700"
               >
                 <span className="font-medium">Meta Trends</span>
-                <p className="text-xs text-neutral-400 mt-1">Meta signals and commander history</p>
+                <p className="text-xs text-neutral-400 mt-1">Daily copies of meta signals and commander popularity so we can see how the meta changes over time.</p>
               </Link>
             </div>
           </section>

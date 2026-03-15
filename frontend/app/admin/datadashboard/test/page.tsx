@@ -50,6 +50,10 @@ export default function DataMoatTestPage() {
         <p className="text-sm text-neutral-400 mt-1">
           Trigger data-moat writes in Supabase to verify tables and permissions. Admin only.
         </p>
+        <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-2">
+          <p className="text-xs font-medium text-neutral-300 mb-0.5">ELI5</p>
+          <p className="text-xs text-neutral-400">Click Run for each action to push one row (or today’s snapshot) into the four data-moat tables. Then run the SQL below in Supabase to confirm the rows are there.</p>
+        </div>
       </div>
       <DataDashboardNav />
 
@@ -85,6 +89,52 @@ export default function DataMoatTestPage() {
           </div>
         </section>
       )}
+
+      <section className="rounded border border-neutral-800 p-4 space-y-3">
+        <h2 className="font-medium">SQL to verify in Supabase</h2>
+        <p className="text-xs text-neutral-500">After running the 4 actions above, run these in the Supabase SQL editor to confirm rows exist.</p>
+        <div className="space-y-3 text-xs">
+          <div>
+            <p className="font-medium text-neutral-400 mb-1">1. ai_suggestion_outcomes (test row with outcome_source = &apos;admin_test&apos;)</p>
+            <pre className="p-2 rounded bg-neutral-900 border border-neutral-700 overflow-x-auto font-mono whitespace-pre-wrap break-all">
+{`SELECT id, suggestion_id, suggested_card, category, outcome_source, created_at
+FROM ai_suggestion_outcomes
+WHERE outcome_source = 'admin_test'
+ORDER BY created_at DESC
+LIMIT 10;`}
+            </pre>
+          </div>
+          <div>
+            <p className="font-medium text-neutral-400 mb-1">2. meta_signals_history (today’s snapshots)</p>
+            <pre className="p-2 rounded bg-neutral-900 border border-neutral-700 overflow-x-auto font-mono whitespace-pre-wrap break-all">
+{`SELECT id, snapshot_date, signal_type, created_at
+FROM meta_signals_history
+WHERE snapshot_date = CURRENT_DATE
+ORDER BY signal_type;`}
+            </pre>
+          </div>
+          <div>
+            <p className="font-medium text-neutral-400 mb-1">3. commander_aggregates_history (today’s snapshots)</p>
+            <pre className="p-2 rounded bg-neutral-900 border border-neutral-700 overflow-x-auto font-mono whitespace-pre-wrap break-all">
+{`SELECT id, snapshot_date, commander_slug, deck_count, created_at
+FROM commander_aggregates_history
+WHERE snapshot_date = CURRENT_DATE
+ORDER BY deck_count DESC NULLS LAST
+LIMIT 10;`}
+            </pre>
+          </div>
+          <div>
+            <p className="font-medium text-neutral-400 mb-1">4. deck_metrics_snapshot (today’s rows)</p>
+            <pre className="p-2 rounded bg-neutral-900 border border-neutral-700 overflow-x-auto font-mono whitespace-pre-wrap break-all">
+{`SELECT deck_id, snapshot_date, format, commander, land_count, ramp_count, removal_count, draw_count, created_at
+FROM deck_metrics_snapshot
+WHERE snapshot_date = CURRENT_DATE
+ORDER BY created_at DESC
+LIMIT 10;`}
+            </pre>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

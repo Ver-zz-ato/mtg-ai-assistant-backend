@@ -49,6 +49,10 @@ export default function SuggestionsDashboardPage() {
       <div>
         <h1 className="text-xl font-semibold">Suggestions</h1>
         <p className="text-sm text-neutral-400 mt-1">AI suggestion outcomes (accepted) from ai_suggestion_outcomes.</p>
+        <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-2">
+          <p className="text-xs font-medium text-neutral-300 mb-0.5">ELI5</p>
+          <p className="text-xs text-neutral-400">Every time someone clicks “add” on an AI card suggestion we log it here. You see totals, today vs last week, which cards get added most, and which commanders/decks are involved.</p>
+        </div>
       </div>
       <DataDashboardNav />
 
