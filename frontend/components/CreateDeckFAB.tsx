@@ -7,10 +7,18 @@ export default function CreateDeckFAB(){
   const [name, setName] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   async function create(){
-    if (!name.trim()) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      const { containsProfanity } = await import("@/lib/profanity");
+      if (containsProfanity(trimmed)) {
+        alert("Please choose a different deck name.");
+        return;
+      }
+    } catch {}
     setBusy(true);
     try{
-      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: name.trim() }) });
+      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: trimmed }) });
       const j = await r.json().catch(()=>({})); if(!r.ok || j?.ok===false) throw new Error(j?.error||'Create failed');
       window.location.href = `/my-decks/${encodeURIComponent(j.id || '')}`;
     } catch(e:any){ alert(e?.message||'Create failed'); setBusy(false); }

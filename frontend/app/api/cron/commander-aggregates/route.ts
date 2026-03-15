@@ -152,6 +152,13 @@ async function runAggregates() {
     { onConflict: "key" }
   );
 
+  try {
+    const { snapshotCommanderAggregates } = await import("@/lib/data-moat/snapshot-commander-aggregates");
+    await snapshotCommanderAggregates();
+  } catch (e) {
+    console.error(`[commander-aggregates] History snapshot failed:`, e);
+  }
+
   return NextResponse.json({
     ok: true,
     updated,

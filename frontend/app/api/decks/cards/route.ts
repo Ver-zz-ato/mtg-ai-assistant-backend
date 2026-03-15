@@ -260,6 +260,24 @@ export async function POST(req: NextRequest) {
         .update({ qty: newQty })
         .eq("id", existing.id);
       if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 400 });
+      try {
+        const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
+        const sid = body?.suggestion_id ?? body?.suggestionId;
+        if (sid && user?.id) {
+          await logSuggestionOutcome({
+            suggestion_id: String(sid),
+            deck_id: deckId,
+            user_id: user.id,
+            suggested_card: (name || body?.suggested_card) ?? null,
+            category: body?.category ?? null,
+            prompt_version_id: body?.prompt_version_id ?? body?.prompt_version ?? null,
+            format: body?.format ?? null,
+            commander: body?.commander ?? null,
+            accepted: true,
+            outcome_source: "client_accept",
+          });
+        }
+      } catch (_) {}
       return NextResponse.json({ ok: true, id: existing.id, qty: newQty, merged: true });
     }
 
@@ -270,6 +288,24 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
+    try {
+      const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
+      const sid = body?.suggestion_id ?? body?.suggestionId;
+      if (sid && user?.id) {
+        await logSuggestionOutcome({
+          suggestion_id: String(sid),
+          deck_id: deckId,
+          user_id: user.id,
+          suggested_card: (name || body?.suggested_card) ?? null,
+          category: body?.category ?? null,
+          prompt_version_id: body?.prompt_version_id ?? body?.prompt_version ?? null,
+          format: body?.format ?? null,
+          commander: body?.commander ?? null,
+          accepted: true,
+          outcome_source: "client_accept",
+        });
+      }
+    } catch (_) {}
     return NextResponse.json({ ok: true, id: data?.id, qty: data?.qty || qty, merged: false });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });

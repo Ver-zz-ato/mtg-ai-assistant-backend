@@ -416,7 +416,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
                                         method:'POST', 
                                         headers:{'content-type':'application/json'}, 
-                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+                                        body: JSON.stringify({ name: s.card, qty: 1, suggestion_id: s.id, category: s.category || 'synergy-upgrade', prompt_version: promptVersion }) 
                                       }); 
                                       const j = await res.json().catch(()=>({})); 
                                       if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
@@ -505,7 +505,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
                                         method:'POST', 
                                         headers:{'content-type':'application/json'}, 
-                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+                                        body: JSON.stringify({ name: s.card, qty: 1, suggestion_id: s.id, category: s.category || 'synergy-upgrade', prompt_version: promptVersion }) 
                                       }); 
                                       const j = await res.json().catch(()=>({})); 
                                       if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 
@@ -626,7 +626,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
                                         method:'POST', 
                                         headers:{'content-type':'application/json'}, 
-                                        body: JSON.stringify({ name: s.card, qty: 1 }) 
+body: JSON.stringify({ name: s.card, qty: 1, suggestion_id: s.id, category: s.category || 'optional', prompt_version: promptVersion })
                                       }); 
                                       const j = await res.json().catch(()=>({})); 
                                       if (!res.ok || j?.ok===false) throw new Error(j?.error||'Add failed'); 

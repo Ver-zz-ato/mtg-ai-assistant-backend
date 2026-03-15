@@ -157,13 +157,13 @@ function WishlistCompareCard({ collectionId, currency }: { collectionId: string;
   const est = gaps.reduce((s,g)=> s + (Number(g.quantity_missing)||0) * (Number(g.avg_price)||0), 0);
 
   return (
-    <div className="p-3 space-y-2 text-sm">
-      <div className="flex gap-2 items-center">
-        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 min-h-[34px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm">
+    <div className="p-3 space-y-2 text-sm min-w-0">
+      <div className="flex gap-2 items-center min-w-0">
+        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 min-w-0 min-h-[34px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm">
           <option value="">Select wishlist…</option>
           {wishlists.map(w=> (<option key={w.id} value={w.id}>{w.name}{typeof w.card_count==='number'? ` (${w.card_count})`: ''}</option>))}
         </select>
-        <button type="button" onClick={compare} disabled={!selectedId||loading} className="shrink-0 h-[34px] px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50">{loading? 'Comparing…':'Compare'}</button>
+        <button type="button" onClick={compare} disabled={!selectedId||loading} className="shrink-0 h-[34px] px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 whitespace-nowrap">{loading? 'Comparing…':'Compare'}</button>
       </div>
       {gaps.length>0 && (
         <div className="space-y-1">
@@ -279,21 +279,6 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
 
   async function copyLink(){ if(!url) return; try{ await navigator.clipboard.writeText(url); }catch{} }
 
-  function qrSrc(){ if(!url) return ''; const u = encodeURIComponent(url); return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${u}`; }
-
-  async function downloadQR(){
-    const src = qrSrc(); if(!src) return;
-    try{
-      const r = await fetch(src);
-      const b = await r.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(b);
-      a.download = `binder-${slug || 'qr'}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
-    }catch{}
-  }
-
   async function doExport(fmt: 'csv'|'mtga'|'mtgo'|'moxfield'){
     const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/export?format=${fmt}`);
     if(!r.ok) return;
@@ -328,11 +313,7 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
           </label>
           {url && (
             <div className="flex items-center gap-2">
-              <img src={qrSrc()} alt="QR code" width={80} height={80} className="border border-neutral-700 rounded bg-white" />
-              <div className="flex flex-col gap-1">
-                <button onClick={copyLink} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Copy link</button>
-                <button onClick={downloadQR} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Download QR</button>
-              </div>
+              <button onClick={copyLink} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Copy link</button>
             </div>
           )}
         </div>
@@ -674,7 +655,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [allSets, setAllSets] = React.useState<Array<{ set: string; count: number }>>([]);
   const refreshSets = React.useCallback(async ()=>{
     try{
-      const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 300);
+      const names = Array.from(new Set(items.map(i=>i.name)));
       if(!names.length){ setTopSets([]); setAllSets([]); return; }
       const chunks: string[][] = []; for(let i=0;i<names.length;i+=75) chunks.push(names.slice(i,i+75));
       const counts = new Map<string, number>();
@@ -1182,8 +1163,8 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         </div>
       </div>
 
-      {/* Right: stats/tools panels */}
-      <aside className="h-full overflow-auto space-y-3 lg:col-span-1 xl:col-span-3">
+      {/* Right: stats/tools panels - prevent horizontal scroll */}
+      <aside className="h-full overflow-x-hidden overflow-y-auto space-y-3 lg:col-span-1 xl:col-span-3 min-w-0">
         {/* Overview - Visually dominant */}
         <div className="rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
           <div className="p-5 space-y-3">
@@ -1193,8 +1174,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             </div>
             <div className="text-base font-semibold">Cards: <b className="font-mono text-cyan-400">{totalCards}</b></div>
             <div className="text-base font-semibold">Unique: <b className="font-mono text-cyan-400">{unique}</b></div>
-            <div className="text-base font-semibold flex items-center gap-2">Value: <b className="font-mono text-cyan-400">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b>
-              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+            <div className="text-base font-semibold flex flex-wrap items-center gap-2 min-w-0">
+              <span className="min-w-0">Value: <b className="font-mono text-cyan-400">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b></span>
+              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="shrink-0 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
             </div>
             <button onClick={refreshValue} className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl">Refresh now</button>
           </div>

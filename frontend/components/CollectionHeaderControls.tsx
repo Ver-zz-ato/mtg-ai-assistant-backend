@@ -93,8 +93,6 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
   const url = slug? `${origin}/binder/${slug}` : '';
 
   async function copyLink(){ if(!url) return; try{ await navigator.clipboard.writeText(url); }catch{} }
-  function qrSrc(){ if(!url) return ''; const u = encodeURIComponent(url); return `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${u}`; }
-  async function downloadQR(){ const src = qrSrc(); if(!src) return; try{ const r=await fetch(src); const b=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`binder-${slug||'qr'}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);}catch{} }
 
   async function doExport(fmt: 'csv'|'mtga'|'mtgo'|'moxfield'){
     const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/export?format=${fmt}`);
@@ -126,23 +124,6 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Slug already in use</span>}
           <input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="w-56 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs" />
           <button onClick={copyLink} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
-          {url && (
-            <button 
-              onClick={downloadQR} 
-              title="Download QR code" 
-              className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white transition-all shadow-md hover:shadow-lg"
-            >
-              <img 
-                src={qrSrc()} 
-                alt="QR Code - Click to download" 
-                className="w-10 h-10 bg-white rounded border border-neutral-700 pointer-events-none" 
-                onError={(e) => {
-                  // Fallback if QR image fails to load
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </button>
-          )}
         </div>
       )}
 

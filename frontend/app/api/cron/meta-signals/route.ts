@@ -206,6 +206,13 @@ async function runMetaSignals() {
     { onConflict: "key" }
   );
 
+  try {
+    const { snapshotMetaSignals } = await import("@/lib/data-moat/snapshot-meta-signals");
+    await snapshotMetaSignals();
+  } catch (e) {
+    console.warn("[meta-signals] History snapshot failed:", e);
+  }
+
   return NextResponse.json({
     ok: true,
     updated,

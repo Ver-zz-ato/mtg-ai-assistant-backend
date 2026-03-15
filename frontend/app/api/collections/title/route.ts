@@ -25,6 +25,9 @@ export async function PATCH(req: NextRequest) {
     const name = String(body?.name||'').trim();
     if (!id || !name) return NextResponse.json({ ok:false, error:'id and name required' }, { status:400 });
 
+    const { containsProfanity } = await import("@/lib/profanity");
+    if (containsProfanity(name)) return NextResponse.json({ ok:false, error:'Please choose a different name.' }, { status:400 });
+
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
 

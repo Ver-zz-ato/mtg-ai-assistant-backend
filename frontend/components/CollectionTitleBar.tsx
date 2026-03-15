@@ -11,10 +11,18 @@ export default function CollectionTitleBar({ collectionId }: { collectionId: str
   React.useEffect(()=>{ (async()=>{ try{ const r = await fetch(`/api/collections/title?id=${encodeURIComponent(collectionId)}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if(r.ok) setName(String(j?.name||'')); } catch{} })(); }, [collectionId]);
 
   async function save(){
-    if(!name.trim()) return;
+    const trimmed = name.trim();
+    if(!trimmed) return;
+    try {
+      const { containsProfanity } = await import("@/lib/profanity");
+      if (containsProfanity(trimmed)) {
+        alert('Please choose a different name.');
+        return;
+      }
+    } catch {}
     setBusy(true);
     try{
-      const r = await fetch('/api/collections/title', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: collectionId, name: name.trim() }) });
+      const r = await fetch('/api/collections/title', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: collectionId, name: trimmed }) });
       const j = await r.json().catch(()=>({}));
       if(!r.ok || j?.ok===false) throw new Error(j?.error||'Rename failed');
       setEditing(false);

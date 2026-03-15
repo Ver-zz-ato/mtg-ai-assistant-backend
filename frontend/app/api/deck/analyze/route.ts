@@ -1481,6 +1481,15 @@ export async function POST(req: Request) {
             colors: Array.isArray(d?.colors) ? d.colors : (Array.isArray(body.colors) ? body.colors : []),
           });
           await admin.from("deck_context_summary").upsert({ deck_id: deckId, deck_hash: hash, summary_json: summary }, { onConflict: "deck_id,deck_hash" });
+          try {
+            const { snapshotDeckMetricsForDeck } = await import("@/lib/data-moat/snapshot-deck-metrics");
+            await snapshotDeckMetricsForDeck(deckId, summary);
+          } catch (_) {}
+        } else if (row?.summary_json) {
+          try {
+            const { snapshotDeckMetricsForDeck } = await import("@/lib/data-moat/snapshot-deck-metrics");
+            await snapshotDeckMetricsForDeck(deckId, row.summary_json as { deck_hash?: string; format?: string; commander?: string; land_count?: number; ramp?: number; removal?: number; draw?: number; curve_histogram?: number[]; archetype_tags?: string[]; synergy_diagnostics?: unknown; deck_facts?: unknown });
+          } catch (_) {}
         }
       }
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { containsProfanity } from '@/lib/profanity';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
     
     if (!name) return NextResponse.json({ ok: false, error: 'name required' }, { status: 400 });
     if (name.length > 100) return NextResponse.json({ ok: false, error: 'name too long (max 100 chars)' }, { status: 400 });
+    if (containsProfanity(name)) return NextResponse.json({ ok: false, error: 'Please choose a different name.' }, { status: 400 });
 
     // Check for duplicate name
     const { data: existing } = await (supabase as any)

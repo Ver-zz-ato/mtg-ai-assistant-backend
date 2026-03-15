@@ -20,6 +20,7 @@ export async function POST(req: Request) {
 
   if (!cleanText) return Response.json({ ok: false, error: "Empty message" }, { status: 400 });
   if (containsProfanity(cleanText)) return Response.json({ ok:false, error: "Please keep it civil." }, { status: 400 });
+  if (containsProfanity(cleanUser)) return Response.json({ ok:false, error: "Please choose a different display name." }, { status: 400 });
 
   const last = lastByUser.get(cleanUser) ?? 0;
   if (Date.now() - last < 5000) {

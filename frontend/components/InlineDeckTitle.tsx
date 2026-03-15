@@ -11,6 +11,13 @@ export default function InlineDeckTitle({ deckId, initial }: { deckId: string; i
   async function save(nextTitle: string) {
     const t = nextTitle.trim() || "Untitled Deck";
     if (t === title) return setEditing(false);
+    try {
+      const { containsProfanity } = await import("@/lib/profanity");
+      if (containsProfanity(t)) {
+        setError("Please choose a different name.");
+        return;
+      }
+    } catch {}
     setBusy(true); setError(null);
     try {
       const res = await fetch("/api/decks/title", {

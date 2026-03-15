@@ -7,13 +7,21 @@ export default function NewDeckForm() {
   const [busy, setBusy] = React.useState(false);
 
   async function create() {
-    if (!title.trim()) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    try {
+      const { containsProfanity } = await import("@/lib/profanity");
+      if (containsProfanity(trimmed)) {
+        alert("Please choose a different deck name.");
+        return;
+      }
+    } catch {}
     setBusy(true);
     try {
       const res = await fetch("/api/decks/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({ title: trimmed }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok || !json?.id) throw new Error(json?.error || `HTTP ${res.status}`);
