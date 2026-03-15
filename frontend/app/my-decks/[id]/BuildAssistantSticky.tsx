@@ -323,11 +323,11 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   }
 
   return (
-    <section className="sticky top-4 z-10 rounded-xl border-2 border-pink-500/45 bg-gradient-to-br from-pink-950/30 via-purple-950/30 to-pink-950/30 p-4 backdrop-blur shadow-xl shadow-pink-500/15 ring-1 ring-pink-400/20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🎯</span>
-          <div>
+    <section className="sticky top-4 z-10 min-w-0 rounded-xl border-2 border-pink-500/45 bg-gradient-to-br from-pink-950/30 via-purple-950/30 to-pink-950/30 p-4 backdrop-blur shadow-xl shadow-pink-500/15 ring-1 ring-pink-400/20">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-2xl flex-shrink-0">🎯</span>
+          <div className="min-w-0">
             <div className="text-base font-bold bg-gradient-to-r from-pink-400/75 via-purple-400/75 to-pink-400/75 bg-clip-text text-transparent">
               Build Assistant
             </div>
@@ -345,9 +345,9 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {expanded && <button onClick={()=>setEditing(v=>!v)} className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors">{editing? '✓ Done':'⚙️ Edit'}</button>}
-          <button onClick={()=>setExpanded(v=>!v)} className="text-xs bg-pink-600 hover:bg-pink-500 border border-pink-500 rounded px-4 py-2 font-bold transition-colors shadow-lg shadow-pink-500/30">{expanded? '▼ Hide':'▶ Show'}</button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {expanded && <button onClick={()=>setEditing(v=>!v)} className="min-h-[40px] inline-flex items-center text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors touch-manipulation">{editing? '✓ Done':'⚙️ Edit'}</button>}
+          <button onClick={()=>setExpanded(v=>!v)} className="min-h-[40px] inline-flex items-center text-xs bg-pink-600 hover:bg-pink-500 border border-pink-500 rounded px-4 py-2 font-bold transition-colors shadow-lg shadow-pink-500/30 touch-manipulation">{expanded? '▼ Hide':'▶ Show'}</button>
         </div>
       </div>
       {expanded && (

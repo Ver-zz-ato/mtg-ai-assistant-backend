@@ -1,0 +1,32 @@
+---
+description: Make new and changed UI mobile-friendly (Next.js frontend)
+globs: frontend/**/*.tsx, frontend/**/*.jsx, frontend/app/**/*.css
+alwaysApply: false
+---
+
+# Mobile-friendly UI
+
+When adding or changing UI in the Next.js frontend, keep it mobile-friendly by default.
+
+## Do
+
+- **Containers in flex/grid:** Add `min-w-0` to flex/grid children that can shrink so they don’t force horizontal overflow.
+- **Action rows:** Use `flex-wrap` and sensible `gap` (e.g. `gap-2`, `gap-1.5`) so buttons/chips wrap on narrow widths.
+- **Primary tap targets:** Use at least `min-h-[40px]` (or ~44px for main nav) and `touch-manipulation` on important buttons/links.
+- **Long text:** Use `truncate` or allow wrapping; avoid fixed widths that force overflow.
+- **Tables / wide content:** Wrap in `overflow-x-auto` so they scroll horizontally on small screens.
+- **Sticky/fixed bars:** Ensure they don’t cover critical content; use responsive padding and consider short viewports.
+
+## Avoid
+
+- Relying on `window.innerWidth` (or similar) for **initial** React state — use deterministic state and reconcile in `useEffect` with `matchMedia` to avoid hydration mismatch.
+- `whitespace-nowrap` on full-width action rows without a wrapping parent.
+- Flex rows without `flex-wrap` when they can grow (e.g. multiple buttons or links in one row).
+- Very small vertical padding on interactive elements (e.g. `py-0.5` only) for primary actions.
+
+## Reference
+
+- **Checklist:** `frontend/docs/mobile-qa-checklist.md` — viewports (320, 375, 390, 768px), flows to test, what to verify.
+- **Audit:** `docs/MOBILE_AUDIT_CODEBASE.md` — patterns and past findings.
+
+Keep changes minimal: add the above only where the new or edited UI is affected; don’t refactor unrelated layout.

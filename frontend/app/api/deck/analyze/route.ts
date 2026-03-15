@@ -21,7 +21,7 @@ import roleBaselines from "@/lib/data/role_baselines.json";
 import colorIdentityMap from "@/lib/data/color_identity_map.json";
 import commanderProfiles from "@/lib/data/commander_profiles.json";
 import knownBad from "@/lib/data/known_bad.json";
-import { COMMANDER_BANNED, MODERN_BANNED, PIONEER_BANNED, STANDARD_BANNED, BRAWL_BANNED } from "@/lib/deck/banned-cards";
+import { getBannedCards, bannedDataToMaps } from "@/lib/data/get-banned-cards";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
@@ -747,7 +747,8 @@ async function postFilterSuggestions(
   _deckEntries: Array<{ count: number; name: string }>,
   _userId: string | null,
   profile: CommanderProfileEnriched | null,
-  locked: Set<string>
+  locked: Set<string>,
+  bannedLists: Record<string, Record<string, true>>
 ): Promise<{ final: CardSuggestion[]; debug: Set<string>; removedCount: number }> {
   const removalReasons = new Set<string>();
   let removedCount = 0;
@@ -759,6 +760,8 @@ async function postFilterSuggestions(
   const creatureRampRule = forbidRules.find((rule) => /cultivate/i.test(rule));
   const fabledPassageRule = forbidRules.find((rule) => /fabled passage/i.test(rule));
   const fastManaRule = forbidRules.find((rule) => /mana crypt/i.test(rule) || /fast mana/i.test(rule));
+
+  const getBannedList = (fmt: string): Record<string, true> | null => bannedLists[fmt] ?? null;
 
   for (const suggestion of candidates) {
     let card = byName.get(suggestion.card.toLowerCase());
@@ -780,23 +783,6 @@ async function postFilterSuggestions(
     const reviewNotes: string[] = [];
 
     // Check if card is banned in the current format
-    const getBannedList = (format: string): Record<string, true> | null => {
-      switch (format) {
-        case "Commander":
-          return COMMANDER_BANNED;
-        case "Modern":
-          return MODERN_BANNED;
-        case "Pioneer":
-          return PIONEER_BANNED;
-        case "Standard":
-          return STANDARD_BANNED;
-        case "Brawl":
-          return BRAWL_BANNED;
-        default:
-          return null;
-      }
-    };
-
     const bannedList = getBannedList(context.format);
     if (bannedList && bannedList[card.name]) {
       const message = suggestion.reason
@@ -1515,6 +1501,8 @@ export async function POST(req: Request) {
     { plan: body.plan ?? "Optimized", currency: (body.currency as any) ?? "USD" }
   );
 
+  const bannedLists = bannedDataToMaps(await getBannedCards());
+
   const commanderProfile = getCommanderProfileData(context.commander, context);
 
   const totals = deckTally(entries, byName);
@@ -1639,7 +1627,7 @@ export async function POST(req: Request) {
     let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
-    let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
+    let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
     suggestions = post.final;
     filtered = validation.filtered;
     required = validation.required;
@@ -1652,7 +1640,7 @@ export async function POST(req: Request) {
       validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
-      post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized);
+      post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
       suggestions = post.final;
       filtered = filtered.concat(validation.filtered);
       post.debug.forEach((reason) => suggestionDebugReasons.add(reason));
@@ -1708,7 +1696,7 @@ export async function POST(req: Request) {
         deckText,
       };
 
-      const analysisResult = await generateValidatedDeckAnalysis(analysisOptions, validationContext);
+      const analysisResult = await generateValidatedDeckAnalysis(analysisOptions, validationContext, bannedLists);
       deckAnalyzeLLMByFeature.validated += 1;
       let analysisText = analysisResult.text;
       if (entries.length > 0 && analysisText) {

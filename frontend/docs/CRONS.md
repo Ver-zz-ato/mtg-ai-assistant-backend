@@ -14,6 +14,7 @@
 | ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
+| update-banned-lists | `/api/cron/update-banned-lists` | 02:00 Sundays (suggested) |
 
 ## Manual run
 
@@ -43,3 +44,7 @@ Run in order: deck-costs → commander-aggregates → meta-signals → top-cards
 ## Budget Swaps (weekly)
 
 - **budget-swaps-update** — AI-powered refresh of Quick Swaps map. Uses GPT to suggest new expensive→budget pairs, merges into `app_config.budget_swaps`. Hands-off; runs Sundays 03:00 UTC.
+
+## Banned card lists (weekly)
+
+- **update-banned-lists** — Fetches Scryfall oracle_cards bulk (streaming), builds Commander/Modern/Pioneer/Standard/Pauper/Brawl banned lists, upserts into `app_config.banned_cards`. Deck analyze and validation read from `app_config` with bundled JSON fallback. Schedule: e.g. Sundays 02:00 UTC.

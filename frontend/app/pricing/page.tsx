@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 import { useProStatus } from '@/hooks/useProStatus';
 import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
+import { trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
 import { track } from '@/lib/analytics/track';
 import Link from 'next/link';
 import ProValueTooltip from '@/components/ProValueTooltip';
@@ -80,6 +81,10 @@ export default function PricingPage() {
       userId: user?.id || null,
       isPro: isPro,
     });
+
+    // Pro funnel: started (so funnel started ≥ completed)
+    setActiveProFeature('pricing_page');
+    trackProUpgradeStarted('pricing', { feature: 'pricing_page', location: 'pricing_page' });
 
     setUpgrading(true);
     

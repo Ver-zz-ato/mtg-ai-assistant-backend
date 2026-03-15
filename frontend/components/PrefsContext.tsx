@@ -1,5 +1,17 @@
 'use client';
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+
+/** Map browser locale to default currency. GBP for UK, EUR for Eurozone/Europe, USD for Americas and fallback. */
+function getDefaultCurrencyFromLocale(): 'USD' | 'EUR' | 'GBP' {
+  if (typeof navigator === 'undefined') return 'USD';
+  const locale = (navigator.language || navigator.languages?.[0] || '').toLowerCase();
+  const region = locale.split(/[-_]/)[1] || ''; // e.g. "gb" from "en-gb"
+  if (region === 'gb' || region === 'uk') return 'GBP';
+  if (['us', 'ca', 'mx'].includes(region)) return 'USD';
+  const eurRegions = ['de', 'fr', 'it', 'es', 'nl', 'pt', 'at', 'be', 'ie', 'fi', 'gr', 'el', 'lu', 'mt', 'sk', 'si', 'ee', 'lv', 'lt', 'cy', 'pl'];
+  if (eurRegions.includes(region)) return 'EUR';
+  return 'USD';
+}
 
 export type PrefsState = {
   // extendable bag of user preferences (theme, format, etc.)
@@ -29,6 +41,14 @@ const Prefs = createContext<PrefsContextValue | undefined>(undefined);
 
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<PrefsState>({});
+
+  // Set default currency from locale once on mount (only when user hasn't set one)
+  useEffect(() => {
+    setPrefs((p) => {
+      if (p.currency != null && String(p.currency).trim() !== '') return p;
+      return { ...p, currency: getDefaultCurrencyFromLocale() };
+    });
+  }, []);
 
   // Derived helpers used by ModeOptions and pages
   const format = (prefs.format ?? '').toString() || undefined;

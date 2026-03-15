@@ -212,15 +212,13 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   }, [suggestions, deckId, promptVersion]);
 
   return (
-    <section className="rounded-xl border border-neutral-800 p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-1 w-1 rounded-full bg-violet-400 animate-pulse shadow-lg shadow-violet-400/50"></div>
-          <h3 className="text-sm font-bold bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent">
-            Deck Analyzer
-          </h3>
+    <section className="min-w-0 rounded-xl border border-neutral-800 p-3 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-1 w-1 rounded-full bg-violet-400 animate-pulse shadow-lg shadow-violet-400/50 flex-shrink-0"></div>
+          <h3 className="text-sm font-bold bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent truncate">Deck Analyzer</h3>
         </div>
-        <button onClick={() => run()} disabled={busy} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60">{busy?'Analyzing…':'Run'}</button>
+        <button onClick={() => run()} disabled={busy} className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-60 touch-manipulation flex-shrink-0">{busy?'Analyzing…':'Run'}</button>
       </div>
       {progress && (
         <div className="text-xs text-blue-400 flex items-center gap-2">
@@ -288,13 +286,13 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                       } catch(e:any){ 
                         alert(e?.message||'Add failed'); 
                       }
-                    }} className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700">Add</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {([['Curve','curve'],['Ramp','ramp'],['Draw','draw'],['Removal','removal'],['Mana','mana']] as const).map(([label,key]) => {
+}} className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 touch-manipulation">Add</button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {([['Curve','curve'],['Ramp','ramp'],['Draw','draw'],['Removal','removal'],['Mana','mana']] as const).map(([label,key]) => {
             const pct = Math.round((bands?.[key] || 0) * 100);
             const titleMap: any = { Curve: 'Mana curve — distribution of mana values', Ramp: 'Mana acceleration sources (rocks/land ramp)', Draw: 'Card advantage over time', Removal: 'Interaction to answer threats', Mana: 'Color fixing and sources' };
             return (
@@ -376,7 +374,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                           {byCategory['must-fix'].map((s, i) => (
                             <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-medium">{s.card}</span>
                                   {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
@@ -401,7 +399,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                 )}
                               </div>
                               {s.card !== 'N/A' && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {showReasoning && (
                                     <button
                                       onClick={() => {
@@ -418,7 +416,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         }
                                       }}
                                       disabled={whyLoading.has(s.card)}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors touch-manipulation"
                                       title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
                                     >
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
@@ -447,7 +445,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         } catch {}
                                         setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
                                       }}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap touch-manipulation"
                                       title="Dismiss this suggestion"
                                     >
                                       Dismiss
@@ -473,7 +471,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     } catch(e:any){ 
                                       alert(e?.message||'Add failed'); 
                                     }
-                                  }} className="px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 text-red-300 text-[10px] whitespace-nowrap">Add</button>
+                                  }} className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-red-900/30 hover:bg-red-900/50 text-red-300 text-[10px] whitespace-nowrap touch-manipulation">Add</button>
                                 </div>
                               )}
                             </li>
@@ -488,7 +486,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                           {byCategory['synergy-upgrade'].map((s, i) => (
                             <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-medium">{s.card}</span>
                                   {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
@@ -513,7 +511,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                 )}
                               </div>
                               {s.card !== 'N/A' && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {showReasoning && (
                                     <button
                                       onClick={() => {
@@ -530,7 +528,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         }
                                       }}
                                       disabled={whyLoading.has(s.card)}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors touch-manipulation"
                                       title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
                                     >
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
@@ -559,7 +557,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         } catch {}
                                         setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
                                       }}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap touch-manipulation"
                                       title="Dismiss this suggestion"
                                     >
                                       Dismiss
@@ -623,7 +621,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                     } catch(e:any){ 
                                       alert(e?.message||'Add failed'); 
                                     }
-                                  }} className="px-2 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-300 text-[10px] whitespace-nowrap">Add</button>
+                                  }} className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-300 text-[10px] whitespace-nowrap touch-manipulation">Add</button>
                                 </div>
                               )}
                             </li>
@@ -638,7 +636,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                           {byCategory['optional'].map((s, i) => (
                             <li key={s.id || i} className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-medium">{s.card}</span>
                                   {(s.needs_review || (s.reviewNotes && s.reviewNotes.length > 0)) && (
                                     <span className="text-xs text-amber-400" title="Please review this suggestion before adding it.">⚠️</span>
@@ -663,7 +661,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                 )}
                               </div>
                               {s.card !== 'N/A' && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {showReasoning && (
                                     <button
                                       onClick={() => {
@@ -680,7 +678,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         }
                                       }}
                                       disabled={whyLoading.has(s.card)}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800/60 hover:bg-neutral-700/60 text-neutral-300 text-[9px] whitespace-nowrap disabled:opacity-50 transition-colors touch-manipulation"
                                       title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
                                     >
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
@@ -709,7 +707,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                         } catch {}
                                         setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
                                       }}
-                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap touch-manipulation"
                                       title="Dismiss this suggestion"
                                     >
                                       Dismiss
@@ -773,7 +771,7 @@ body: JSON.stringify({ name: s.card, qty: 1, suggestion_id: s.id, category: s.ca
                                     } catch(e:any){ 
                                       alert(e?.message||'Add failed'); 
                                     }
-                                  }} className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap">Add</button>
+                                  }} className="min-h-[40px] inline-flex items-center px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] whitespace-nowrap touch-manipulation">Add</button>
                                 </div>
                               )}
                             </li>

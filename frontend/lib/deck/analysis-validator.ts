@@ -33,15 +33,18 @@ export type ValidationContext = {
 };
 
 /**
- * Validates a deck analysis response (both JSON and text)
+ * Validates a deck analysis response (both JSON and text).
+ * Pass bannedLists when using app_config data (e.g. from getBannedCards); otherwise uses static BANNED_LISTS.
  */
 export async function validateDeckAnalysis(
   response: string,
   jsonData: DeckAnalysisJSON | null,
-  context: ValidationContext
+  context: ValidationContext,
+  bannedLists?: Record<string, Record<string, true>>
 ): Promise<ValidationResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const banned = bannedLists ?? BANNED_LISTS;
 
   // Check if JSON is provided
   if (!jsonData) {
@@ -69,7 +72,7 @@ export async function validateDeckAnalysis(
 
     // Validate recommendations
     if (Array.isArray(jsonData.recommendations)) {
-      const bannedList = BANNED_LISTS[context.format] || {};
+      const bannedList = banned[context.format] || {};
       const allowedColors = context.colors.length ? context.colors.map(c => c.toUpperCase()) : ["C"];
 
       for (const rec of jsonData.recommendations) {

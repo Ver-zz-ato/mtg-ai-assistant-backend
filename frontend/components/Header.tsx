@@ -430,15 +430,15 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - touch targets min 44px for tap comfort */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t bg-white dark:bg-gray-900">
-          <div className="px-4 py-3 space-y-3">
+          <div className="px-4 py-3 space-y-1">
             {(() => { try { const ProBadge = require('@/components/ProBadge').default; return <ProBadge showUpgradeTooltip={true} />; } catch { return null; } })()}
             
             <Link 
               href="/changelog" 
-              className="block py-2 text-sm text-green-500 font-medium flex items-center gap-1"
+              className="block min-h-[44px] py-2 px-1 text-sm text-green-500 font-medium flex items-center gap-1 touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/changelog', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -449,7 +449,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/commanders" 
-              className="block py-2 text-sm text-indigo-400 font-medium"
+              className="block min-h-[44px] py-2 px-1 text-sm text-indigo-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -459,7 +459,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/decks/browse" 
-              className="block py-2 text-sm text-purple-400 font-medium"
+              className="block min-h-[44px] py-2 px-1 text-sm text-purple-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/decks/browse', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -469,7 +469,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/mtg-commander-ai-deck-builder" 
-              className="block py-2 text-sm text-blue-400 font-medium"
+              className="block min-h-[44px] py-2 px-1 text-sm text-blue-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -479,7 +479,7 @@ export default function Header() {
             </Link>
             <Link
               href="/blog"
-              className="block py-2 text-sm text-red-400 font-medium"
+              className="block min-h-[44px] py-2 px-1 text-sm text-red-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -489,7 +489,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/pricing" 
-              className="block py-2 text-sm text-yellow-400 font-medium"
+              className="block min-h-[44px] py-2 px-1 text-sm text-yellow-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/pricing', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -497,10 +497,10 @@ export default function Header() {
             >
               Pricing
             </Link>
-            <div className="block py-2 text-sm text-orange-400 font-medium">Help</div>
+            <div className="block min-h-[44px] py-2 px-1 text-sm text-orange-400 font-medium flex items-center">Help</div>
             <Link 
               href="/my-decks" 
-              className="block py-2 px-2 text-sm text-pink-400 font-medium rounded transition-all hover:bg-pink-400/10"
+              className="block min-h-[44px] py-2 px-2 text-sm text-pink-400 font-medium rounded transition-all hover:bg-pink-400/10 flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/my-decks', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -510,7 +510,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/collections" 
-              className="block py-2 px-2 text-sm text-cyan-400 font-medium rounded transition-all hover:bg-cyan-400/10"
+              className="block min-h-[44px] py-2 px-2 text-sm text-cyan-400 font-medium rounded transition-all hover:bg-cyan-400/10 flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/collections', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -520,7 +520,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/wishlist" 
-              className="block py-2 px-2 text-sm text-rose-400 font-medium rounded transition-all hover:bg-rose-400/10"
+              className="block min-h-[44px] py-2 px-2 text-sm text-rose-400 font-medium rounded transition-all hover:bg-rose-400/10 flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/wishlist', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
@@ -538,7 +538,7 @@ export default function Header() {
                 </div>
                 <button
                   onClick={() => { signOut(); setMobileMenuOpen(false); }}
-                  className="w-full text-left py-2 text-sm text-red-600 hover:text-red-800"
+                  className="w-full text-left min-h-[44px] py-2 px-1 text-sm text-red-600 hover:text-red-800 flex items-center touch-manipulation"
                 >
                   Sign out
                 </button>
@@ -547,13 +547,13 @@ export default function Header() {
               <div className="border-t pt-3 space-y-2">
                 <button
                   onClick={() => { setShowSignUp(true); setMobileMenuOpen(false); }}
-                  className="w-full rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700 whitespace-nowrap"
+                  className="w-full rounded-lg bg-blue-600 text-white px-3 min-h-[44px] py-2 text-sm hover:bg-blue-700 whitespace-nowrap flex items-center justify-center touch-manipulation"
                 >
                   Sign in / Sign up
                 </button>
                 <button
                   onClick={() => { setShowForgot(true); setMobileMenuOpen(false); }}
-                  className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="w-full rounded-lg border px-3 min-h-[44px] py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center touch-manipulation"
                 >
                   Forgot password?
                 </button>

@@ -15,11 +15,13 @@ export type ValidatedAnalysisResult = {
 const MAX_RETRIES = 2;
 
 /**
- * Generates deck analysis with validation and automatic retry on failure
+ * Generates deck analysis with validation and automatic retry on failure.
+ * Pass bannedLists when using app_config data (e.g. from getBannedCards).
  */
 export async function generateValidatedDeckAnalysis(
   options: AnalysisGenerationOptions,
-  context: ValidationContext
+  context: ValidationContext,
+  bannedLists?: Record<string, Record<string, true>>
 ): Promise<ValidatedAnalysisResult> {
   let lastResult: { text: string; json: DeckAnalysisJSON | null } | null = null;
   let lastValidation: { valid: boolean; errors: string[]; warnings: string[] } | null = null;
@@ -32,7 +34,7 @@ export async function generateValidatedDeckAnalysis(
       lastResult = result;
 
       // Validate
-      const validation = await validateDeckAnalysis(result.text, result.json, context);
+      const validation = await validateDeckAnalysis(result.text, result.json, context, bannedLists);
       lastValidation = validation;
 
       // If valid, return

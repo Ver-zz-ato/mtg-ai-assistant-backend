@@ -18,15 +18,24 @@ export default function PanelWrapper({
   defaultHiddenOnMobile?: boolean;
   defaultCollapsed?: boolean;
 }) {
-  // On mobile, start hidden if defaultHiddenOnMobile is true, otherwise start open
-  // If defaultCollapsed is true, always start collapsed regardless of screen size
+  // Hydration-safe: deterministic initial state (no window access). defaultHiddenOnMobile =>
+  // assume mobile so start closed; after mount we open on desktop via matchMedia.
   const [open, setOpen] = React.useState(() => {
     if (defaultCollapsed) return false;
-    if (typeof window === 'undefined') return true;
-    if (defaultHiddenOnMobile && window.innerWidth < 768) return false;
+    if (defaultHiddenOnMobile) return false; // assume mobile; useEffect will open on desktop
     return true;
   });
-  
+
+  // After mount: if defaultHiddenOnMobile and viewport is desktop, open the panel (reconcile responsive state).
+  React.useEffect(() => {
+    if (!defaultHiddenOnMobile) return;
+    const mq = window.matchMedia('(min-width: 768px)');
+    if (mq.matches) setOpen(true);
+    const handler = () => { if (mq.matches) setOpen(true); };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [defaultHiddenOnMobile]);
+
   // Listen for hide/show all panels event
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
@@ -78,7 +87,7 @@ export default function PanelWrapper({
             {title}
           </h3>
         </div>
-        <button onClick={() => setOpen(v=>!v)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors">
+        <button onClick={() => setOpen(v=>!v)} className="min-h-[40px] inline-flex items-center px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs transition-colors touch-manipulation" aria-label={open ? 'Hide panel' : 'Show panel'}>
           {open ? 'Hide' : 'Show'}
         </button>
       </div>

@@ -16,6 +16,7 @@
     { "path": "/api/cron/ops-report/weekly", "schedule": "0 7 * * 0" },
     { "path": "/api/shout/auto-generate", "schedule": "17 */2 * * *" },
     { "path": "/api/shout/cleanup", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" }
+    { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" },
+    { "path": "/api/cron/update-banned-lists", "schedule": "0 2 * * 0" }
   ]
 }

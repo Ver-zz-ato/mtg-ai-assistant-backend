@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { captureServer } from '@/lib/server/analytics';
+import { captureServer, aliasServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 
@@ -57,6 +57,12 @@ export async function POST(req: NextRequest) {
     // Also send auth_login_success for login_completed (dashboard backward compatibility - client-side can be lost on reload)
     if (type === 'login_completed') {
       await captureServer('auth_login_success', { ...props, method: props.method === 'oauth' ? 'oauth' : 'email_password' }, distinctId);
+    }
+    // Merge visitor person into user person so visitor → signup funnel is one person
+    if (visitorId && userId && visitorId !== userId) {
+      try {
+        await aliasServer(visitorId, userId);
+      } catch {}
     }
     const res = NextResponse.json({ ok: true });
     if (isNew) {

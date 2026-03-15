@@ -1462,7 +1462,7 @@ function Chat(props: ChatProps = {}) {
   }
 
   return (
-    <div className="flex flex-col bg-black text-white overflow-hidden relative">
+    <div className="flex flex-col min-w-0 bg-black text-white overflow-hidden relative">
       {/* Mobile-optimized Header - compact on mobile, visually striking on larger screens */}
       <div className="relative p-2 sm:p-4 md:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1816,8 +1816,8 @@ function Chat(props: ChatProps = {}) {
         </div>
 
           {/* Input area */}
-          <div className="flex gap-2 flex-col sm:flex-row">
-            <div className="relative flex-1">
+          <div className="flex gap-2 flex-col sm:flex-row min-w-0">
+            <div className="relative flex-1 min-w-0">
               <textarea
               data-testid="chat-textarea"
               value={text}

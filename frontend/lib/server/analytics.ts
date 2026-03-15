@@ -53,6 +53,26 @@ export async function captureServer(event: string, properties: Record<string, an
 }
 
 /**
+ * Alias a previous distinct_id to the current one (merge two persons).
+ * Call when signup/login happens so visitor_id (anon) is merged into user_id.
+ *
+ * @param previousDistinctId - e.g. visitor_id from first visit
+ * @param distinctId - e.g. user_id after auth
+ */
+export async function aliasServer(previousDistinctId: string, distinctId: string): Promise<void> {
+  if (!previousDistinctId || !distinctId || previousDistinctId === distinctId) return;
+  try {
+    const key = getKey();
+    if (!key) return;
+    if (!ph) {
+      const { PostHog } = await import('posthog-node');
+      ph = new PostHog(key, { host: getHost(), flushAt: 1, flushInterval: 100 });
+    }
+    ph!.alias({ distinctId, alias: previousDistinctId });
+  } catch {}
+}
+
+/**
  * Shutdown PostHog client (flush pending events)
  * 
  * Should be called during app shutdown to ensure all events are sent.
