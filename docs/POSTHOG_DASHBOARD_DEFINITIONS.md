@@ -65,3 +65,13 @@ Use these definitions when building dashboards, reading the operator report, or 
    - Signup → first `chat_sent`,
    - Optionally signup → `deck_saved` or `deck_updated`,
    with definitions stated in the report or a one-pager.
+
+---
+
+## Feedback dashboards (player feedback system)
+
+Three dashboards for the post–Phase 1/2 feedback system are specified in **[POSTHOG_FEEDBACK_DASHBOARDS_SPEC.md](POSTHOG_FEEDBACK_DASHBOARDS_SPEC.md)** (event inventory, build sheet, gaps). Create them manually in PostHog; they are not defined in code.
+
+- **ManaTap — Deck Analysis Quality:** analysis_feedback_submitted (rating, optional deck_id, score, prompt_version), funnel deck_analyzed → analysis_feedback_submitted (homepage and deck page both fire deck_analyzed).
+- **ManaTap — Suggestion Failure Intelligence:** suggestion_report_submitted / suggestion_report_opened; breakdown by suggestion_category, primary_issue_type (or issue_types), card, commander, prompt_version_id.
+- **ManaTap — Frustration to Feedback:** user_frustrated, feedback_prompt_shown, feedback_widget_opened (trigger: frustration_prompt \| founder_popup when applicable), feedback_sent (source: feedback_button \| frustration_prompt \| founder_popup \| deck_analysis); funnel and breakdown by source/trigger.

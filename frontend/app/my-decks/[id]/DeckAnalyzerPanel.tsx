@@ -2,6 +2,8 @@
 import React from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { capture } from "@/lib/ph";
+import AnalysisFeedbackRow from "@/components/AnalysisFeedbackRow";
+import SuggestionReportControl from "@/components/SuggestionReportControl";
 
 export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId: string; proAuto: boolean; format?: string }) {
   const [busy, setBusy] = React.useState(false);
@@ -110,6 +112,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       if (!res.ok || j?.error) throw new Error(j?.error || res.statusText || 'Analysis failed');
       console.log('Deck Analyzer: Analysis complete, score:', j?.score);
       setScore(j?.score ?? null); setBands(j?.bands ?? null);
+      try { window.dispatchEvent(new CustomEvent("manatap:deck_analysis_complete")); } catch {}
       if (j?.counts) setRawCounts(j.counts);
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0,12) : []);
@@ -128,7 +131,16 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setPromptVersion(j?.prompt_version);
       setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
       setFilteredReasons(Array.isArray(j?.filteredReasons) ? j.filteredReasons.filter((r:string)=>typeof r === 'string' && r.trim()).map((r:string)=>r.trim()) : []);
-      
+      try {
+        capture("deck_analyzed", {
+          deck_id: deckId,
+          score: j?.score ?? null,
+          prompt_version: j?.prompt_version ?? null,
+          suggestion_count: Array.isArray(j?.suggestions) ? j.suggestions.length : 0,
+          commander_name: commander ?? null,
+          format: format ?? "Commander",
+        });
+      } catch {}
       // Dispatch event to auto-expand AI Assistant when analyzer completes
       try {
         window.dispatchEvent(new CustomEvent('deck:analyzer:ran'));
@@ -233,6 +245,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       {score!=null && (
         <div className="text-sm">Score: <span className="font-semibold">{score}</span></div>
       )}
+      {score != null && <AnalysisFeedbackRow score={score} deckId={deckId} promptVersion={promptVersion} />}
       {bands && (
         <div className="space-y-2">
           {/* compact recommendations */}
@@ -451,6 +464,13 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       Dismiss
                                     </button>
                                   )}
+                                  <SuggestionReportControl
+                                    suggestion={s}
+                                    deckId={deckId}
+                                    commanderName={storedCommander}
+                                    promptVersionId={promptVersion}
+                                    suggestionIndex={i}
+                                  />
                                   <button onClick={async()=>{
                                     try { 
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
@@ -563,6 +583,13 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       Dismiss
                                     </button>
                                   )}
+                                  <SuggestionReportControl
+                                    suggestion={s}
+                                    deckId={deckId}
+                                    commanderName={storedCommander}
+                                    promptVersionId={promptVersion}
+                                    suggestionIndex={i}
+                                  />
                                   <button onClick={async()=>{
                                     try { 
                                       // Get previous state for undo
@@ -713,6 +740,13 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       Dismiss
                                     </button>
                                   )}
+                                  <SuggestionReportControl
+                                    suggestion={s}
+                                    deckId={deckId}
+                                    commanderName={storedCommander}
+                                    promptVersionId={promptVersion}
+                                    suggestionIndex={i}
+                                  />
                                   <button onClick={async()=>{
                                     try { 
                                       // Get previous state for undo

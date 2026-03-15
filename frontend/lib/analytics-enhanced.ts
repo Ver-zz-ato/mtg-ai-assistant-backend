@@ -229,7 +229,7 @@ export function trackUserFrustration(indicator: 'rapid_clicks' | 'form_resubmit'
   });
 }
 
-export function trackFeedbackWidgetOpened(page: string, trigger: 'button_click' | 'error_occurred' | 'feature_limit' | 'satisfaction_prompt') {
+export function trackFeedbackWidgetOpened(page: string, trigger: 'button_click' | 'error_occurred' | 'feature_limit' | 'satisfaction_prompt' | 'frustration_prompt' | 'founder_popup') {
   capture('feedback_widget_opened', {
     page,
     trigger,

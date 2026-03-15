@@ -1,6 +1,10 @@
 // components/FeedbackFab.tsx
 "use client";
 import React from "react";
+import { trackFeedbackWidgetOpened } from "@/lib/analytics-enhanced";
+
+const OPEN_FEEDBACK_EVENT = "manatap:open_feedback";
+type FeedbackSource = "feedback_button" | "frustration_prompt" | "founder_popup" | "deck_analysis";
 
 export default function FeedbackFab() {
   const [open, setOpen] = React.useState(false);
@@ -8,14 +12,48 @@ export default function FeedbackFab() {
   const [rating, setRating] = React.useState<number | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [openSource, setOpenSource] = React.useState<FeedbackSource | null>(null);
+
+  const handleOpen = React.useCallback(() => {
+    try {
+      const page = typeof window !== "undefined" ? window.location.pathname : "";
+      setOpenSource("feedback_button");
+      trackFeedbackWidgetOpened(page || "/", "button_click");
+    } catch {}
+    setOpen(true);
+  }, []);
+
+  React.useEffect(() => {
+    const onOpen = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ trigger?: string }>)?.detail;
+      const trigger = detail?.trigger;
+      try {
+        const page = typeof window !== "undefined" ? window.location.pathname : "";
+        if (trigger === "founder_popup") {
+          setOpenSource("founder_popup");
+          trackFeedbackWidgetOpened(page || "/", "founder_popup");
+        } else if (trigger === "frustration_prompt") {
+          setOpenSource("frustration_prompt");
+          trackFeedbackWidgetOpened(page || "/", "frustration_prompt");
+        } else {
+          setOpenSource("feedback_button");
+          trackFeedbackWidgetOpened(page || "/", "button_click");
+        }
+      } catch {}
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_FEEDBACK_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_FEEDBACK_EVENT, onOpen);
+  }, []);
 
   async function submit() {
     setBusy(true);
     try {
+      const source = openSource ?? "feedback_button";
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, rating }),
+        body: JSON.stringify({ text, rating, source }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) throw new Error(json.error || "Failed");
@@ -33,7 +71,7 @@ export default function FeedbackFab() {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="fixed bottom-4 left-4 z-40 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm hover:bg-neutral-800"
         aria-label="Feedback"
       >

@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
 import DeckHealthCard from "@/components/DeckHealthCard";
+import AnalysisFeedbackRow from "@/components/AnalysisFeedbackRow";
 import PublicTrustFooter from "@/components/PublicTrustFooter";
 import { capture } from "@/lib/ph";
 import { trackDeckCreationWorkflow } from '@/lib/analytics-workflow';
@@ -35,7 +36,8 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
-  
+  const [promptVersion, setPromptVersion] = useState<string | undefined>(undefined);
+
   // Track PRO gate view for export feature (workflow pro gate)
   useEffect(() => {
     if (result && !isPro) {
@@ -83,6 +85,8 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
         }
         if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "Analyze failed");
         setResult(json?.result ?? json);
+        setPromptVersion(json?.prompt_version ?? json?.prompt_version_id ?? undefined);
+        try { window.dispatchEvent(new CustomEvent("manatap:deck_analysis_complete")); } catch {}
 
         const runIdDone = getCurrentWorkflowRunId();
         clearActiveWorkflow();
@@ -215,7 +219,7 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
             onSave={saveDeck}
             onMyDecks={gotoMyDecks}
           />
-          
+          <AnalysisFeedbackRow score={result.score} promptVersion={promptVersion} />
           {/* PRO Gate: Export Analysis (workflow pro gate example) */}
           {!isPro && (
             <div className="rounded-lg border border-amber-700/50 bg-amber-900/20 p-4">
