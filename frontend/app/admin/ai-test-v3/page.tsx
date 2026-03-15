@@ -5,14 +5,14 @@ import Link from "next/link";
 import { ELI5, HelpTip } from "@/components/AdminHelp";
 
 const TABS = [
-  { id: "overview", label: "Overview", eli5: "Quick numbers: how many tests, last run, failures." },
-  { id: "suites", label: "Suites", eli5: "The five test families: prompt contract, context, behavior, adversarial, regressions." },
-  { id: "scenarios", label: "Scenarios", eli5: "Browse and filter every test scenario." },
-  { id: "runs", label: "Runs", eli5: "Run results, history, and compare two runs." },
-  { id: "regressions", label: "Regressions", eli5: "Saved failures we never want to see again." },
-  { id: "self-improve", label: "Self-Improve", eli5: "Review AI-suggested improvements; approve or reject (nothing auto-applies)." },
-  { id: "exports", label: "Exports", eli5: "Download run data as JSON or CSV for LLMs or spreadsheets." },
-  { id: "debug", label: "Debug", eli5: "Raw payloads and JSON for export-to-LLM use." },
+  { id: "overview", label: "Overview", eli5: "The big picture: how many tests, last score, what’s broken." },
+  { id: "suites", label: "Suites", eli5: "Five groups of tests. Each group checks something different (instructions, memory, answers, trick questions, old bugs)." },
+  { id: "scenarios", label: "Scenarios", eli5: "Every single test in one list. Search and filter." },
+  { id: "runs", label: "Runs", eli5: "Each time you run a group you get a “run”. See results and compare two runs." },
+  { id: "regressions", label: "Regressions", eli5: "Bugs we saved. We re-run these so they don’t come back." },
+  { id: "self-improve", label: "Self-Improve", eli5: "The AI suggests fixes. You say yes or no; nothing changes by itself." },
+  { id: "exports", label: "Exports", eli5: "Download results as files for spreadsheets or other tools." },
+  { id: "debug", label: "Debug", eli5: "Raw data for developers." },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -201,7 +201,7 @@ export default function AiTestV3Page() {
         <div>
           <h1 className="text-xl font-semibold">AI Test V3</h1>
           <p className="text-sm text-neutral-500">
-            One place to run and compare all AI tests: prompt contract, context, behavior, adversarial, and regressions. Results are human-reviewable; nothing auto-applies.
+            One place to run checks on the AI, see what passes or fails, and make sure we don’t break things we fixed before. You’re in control—nothing changes unless you say so.
           </p>
         </div>
         <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">
@@ -209,7 +209,7 @@ export default function AiTestV3Page() {
         </Link>
       </div>
 
-      <ELI5 heading="What is this page?" items={["Run five kinds of tests (V1–V5) from one dashboard.", "See pass/fail, add failures to a regression library, and compare runs over time.", "Export data as JSON or CSV to share with LLMs or tools.", "Review improvement suggestions here; you approve or reject, nothing changes automatically."]} />
+      <ELI5 heading="What is this page?" items={["Run five kinds of tests from one place (V1–V5).", "See what passed or failed. Save bad results so we never forget them. Compare “before vs after” when you change something.", "Download results as JSON or CSV if you need them in another tool.", "The AI can suggest fixes; you approve or reject—nothing happens by itself."]} />
 
       {error && (
         <div className="rounded-lg border border-red-800 bg-red-950/50 p-3 text-red-300 text-sm">
@@ -238,14 +238,14 @@ export default function AiTestV3Page() {
       {!loading && tab === "overview" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Overview</h2>
-          <ELI5 heading="What these numbers mean" items={["Total scenarios: how many tests exist across all suites.", "Last run pass rate: % that passed or had only warnings.", "Hard failures: must-fix before ship; warnings: quality nits.", "Regressions failing: count of active regression tests currently failing.", "Suggestions pending: improvement ideas waiting for your review."]} />
+          <ELI5 heading="What these numbers mean" items={["Total scenarios: how many tests we have in total.", "Last run pass rate: what % passed last time (or had only small warnings).", "Hard failures: things that must be fixed before we’re happy; warnings: nice-to-fix, not blocking.", "Regressions (active): saved bugs we’re still re-checking so they don’t come back.", "Suggestions pending: improvement ideas waiting for your yes/no."]} />
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 mt-4">
-            <StatCard label="Total scenarios" value={scenarios.length} />
-            <StatCard label="Last run pass rate" value={lastRunPassRate != null ? `${lastRunPassRate}%` : "—"} ok={lastRunPassRate != null && lastRunPassRate >= 90} />
-            <StatCard label="Hard failures (last run)" value={lastRun?.run?.hard_failures ?? "—"} ok={lastRun?.run?.hard_failures === 0} />
+            <StatCard label="Total tests" value={scenarios.length} />
+            <StatCard label="Last run pass %" value={lastRunPassRate != null ? `${lastRunPassRate}%` : "—"} ok={lastRunPassRate != null && lastRunPassRate >= 90} />
+            <StatCard label="Must-fix (last run)" value={lastRun?.run?.hard_failures ?? "—"} ok={lastRun?.run?.hard_failures === 0} />
             <StatCard label="Warnings (last run)" value={lastRun?.run?.soft_failures ?? "—"} />
-            <StatCard label="Regressions (active)" value={activeRegressions} />
-            <StatCard label="Suggestions pending" value={pendingSuggestions} />
+            <StatCard label="Saved bugs (active)" value={activeRegressions} />
+            <StatCard label="Ideas waiting" value={pendingSuggestions} />
           </div>
         </section>
       )}
@@ -253,7 +253,7 @@ export default function AiTestV3Page() {
       {!loading && tab === "suites" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Suites</h2>
-          <ELI5 heading="What each suite does" items={["V1: Checks that the right prompt blocks are included (no model call).", "V2: Checks deck memory, commander, rules (no model call).", "V3: Behavioral: rules correctness, deck reasoning, honesty (calls model).", "V4: Adversarial: hallucination traps, bait questions (calls model).", "V5: Regression library: rerun saved failures to prevent backslides."]} />
+          <ELI5 heading="What each suite does" items={["V1: Did we send the right instructions? (doesn’t call the AI).", "V2: Does the system know the deck and the rules? (doesn’t call the AI).", "V3: Does the AI answer correctly and honestly? (sends a question, scores the answer).", "V4: Does the AI fall for trick questions? (sends tricky questions, scores the answer).", "V5: Re-run bugs we saved so they don’t come back."]} />
           <div className="mt-4 space-y-3">
             {suites.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
@@ -273,13 +273,14 @@ export default function AiTestV3Page() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-neutral-500 mt-3">V1/V2/V5 run without calling the model; V3 and V4 call the chat API and score responses with rubrics.</p>
+          <p className="text-xs text-neutral-500 mt-3">V1, V2, and V5 don’t call the AI. V3 and V4 do—they send a question and score the answer.</p>
         </section>
       )}
 
       {!loading && tab === "scenarios" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Scenarios</h2>
+          <p className="text-sm text-neutral-500 mb-4">Every test we have, in one list. Search or filter by suite to find one.</p>
           <div className="flex flex-wrap gap-2 mb-4">
             <input
               type="text"
@@ -351,24 +352,25 @@ export default function AiTestV3Page() {
         <section className="space-y-4">
           <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
             <h2 className="text-base font-semibold text-neutral-200 mb-3">Run results</h2>
+            <p className="text-sm text-neutral-500 mb-3">What happened when you last ran a suite.</p>
             {lastRun ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4">
-                  <StatCard label="Total" value={lastRun.run.total} />
+                  <StatCard label="Tests run" value={lastRun.run.total} />
                   <StatCard label="Passed" value={lastRun.run.passed} ok={lastRun.run.failed === 0} />
                   <StatCard label="Warned" value={lastRun.run.warned} />
                   <StatCard label="Failed" value={lastRun.run.failed} ok={lastRun.run.failed === 0} />
-                  <StatCard label="Hard" value={lastRun.run.hard_failures} ok={lastRun.run.hard_failures === 0} />
-                  <StatCard label="Completed" value={lastRun.run.completed_at ? new Date(lastRun.run.completed_at).toLocaleString() : "—"} />
+                  <StatCard label="Must-fix" value={lastRun.run.hard_failures} ok={lastRun.run.hard_failures === 0} />
+                  <StatCard label="Finished at" value={lastRun.run.completed_at ? new Date(lastRun.run.completed_at).toLocaleString() : "—"} />
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-neutral-500 border-b border-neutral-700">
-                        <th className="p-2">Scenario</th>
+                        <th className="p-2">Test</th>
                         <th className="p-2">Status</th>
-                        <th className="p-2">Hard</th>
-                        <th className="p-2">Soft</th>
+                        <th className="p-2" title="Must-fix issues">Must-fix</th>
+                        <th className="p-2" title="Warnings">Warnings</th>
                         <th className="p-2">Actions</th>
                       </tr>
                     </thead>
@@ -394,8 +396,9 @@ export default function AiTestV3Page() {
                             <button
                               onClick={() => addToRegressions(r, r.scenario_key)}
                               className="text-amber-400 text-xs"
+                              title="Save this failure so we re-run it and don’t let the bug come back"
                             >
-                              Add to regressions
+                              Save as bug
                             </button>
                           </td>
                         </tr>
@@ -423,12 +426,13 @@ export default function AiTestV3Page() {
                 })()}
               </>
             ) : (
-              <p className="text-neutral-500">Run a suite from the Suites tab to see results here, or pick a run from history below.</p>
+              <p className="text-neutral-500">Run a suite from the Suites tab to see results here, or load a past run from the list below.</p>
             )}
           </div>
 
           <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
             <h2 className="text-base font-semibold text-neutral-200 mb-3">Run history</h2>
+          <p className="text-sm text-neutral-500 mb-2">Past runs. Click Load to see that run’s results above.</p>
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {runs.length === 0 && <p className="text-neutral-500 text-sm">No runs yet.</p>}
               {runs.map((run) => (
@@ -442,7 +446,7 @@ export default function AiTestV3Page() {
 
           <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
             <h2 className="text-base font-semibold text-neutral-200 mb-3">Compare two runs</h2>
-            <ELI5 heading="What this does" items={["Pick run A and run B to see which scenarios got worse or better.", "New failures: passed in A, failed in B. New passes: failed in A, passed in B."]} />
+            <ELI5 heading="What this does" items={["Pick two runs (A and B) to see what got worse or better.", "New failures = passed in A but failed in B. New passes = failed in A but passed in B."]} />
             <div className="flex flex-wrap gap-2 mt-4 items-center">
               <select value={compareRunA} onChange={(e) => setCompareRunA(e.target.value)} className="bg-neutral-950 border border-neutral-600 rounded px-3 py-2 text-sm">
                 <option value="">Run A</option>
@@ -475,8 +479,8 @@ export default function AiTestV3Page() {
 
       {!loading && tab === "regressions" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
-          <h2 className="text-base font-semibold text-neutral-200 mb-3">Regression library</h2>
-          <ELI5 heading="What this is" items={["Failures you saved so we never forget: rerun them to catch backslides.", "Add from a run result (Runs tab → Add to regressions)."]} />
+          <h2 className="text-base font-semibold text-neutral-200 mb-3">Saved bugs (regression library)</h2>
+          <ELI5 heading="What this is" items={["When a test fails and we don’t want that to happen again, we save it here. We keep re-running these so if the bug comes back, we see it.", "To add one: go to Runs → open a result → click “Add to regressions”."]} />
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -505,7 +509,7 @@ export default function AiTestV3Page() {
       {!loading && tab === "self-improve" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Self-Improve</h2>
-          <ELI5 heading="Review only" items={["Suggestions are generated from failures; you approve or reject.", "Nothing is applied automatically: no prompt or code changes without your action."]} />
+          <ELI5 heading="Review only" items={["The AI suggests fixes based on failures. You approve or reject each one.", "Nothing is applied by itself—no prompts or code change unless you do it."]} />
           <div className="mt-4 space-y-3">
             {suggestions.length === 0 && <p className="text-neutral-500">No suggestions yet.</p>}
             {suggestions.map((s) => (
@@ -531,7 +535,7 @@ export default function AiTestV3Page() {
       {!loading && tab === "exports" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Exports</h2>
-          <ELI5 heading="Download for LLMs or tools" items={["Run JSON: full run + all results (good for sharing with another LLM).", "Run CSV: one row per scenario, status and counts.", "Regression library and suggestions can be exported from the API; buttons below use last run."]} />
+          <ELI5 heading="Download for other tools" items={["JSON: full run and all results (e.g. for another AI or script).", "CSV: one row per test, with status—good for spreadsheets.", "Buttons below use the last run you loaded; the API links give you the full lists."]} />
           <div className="mt-4 flex flex-wrap gap-2">
             {lastRun?.run?.id && (
               <>
@@ -556,6 +560,7 @@ export default function AiTestV3Page() {
       {!loading && tab === "debug" && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
           <h2 className="text-base font-semibold text-neutral-200 mb-3">Debug</h2>
+          <p className="text-sm text-neutral-500 mb-4">Raw data for the last run (for developers or export to other tools).</p>
           <button onClick={() => setDebugOpen(!debugOpen)} className="px-3 py-2 rounded bg-neutral-600 text-sm">
             {debugOpen ? "Hide" : "Show"} raw payloads
           </button>
