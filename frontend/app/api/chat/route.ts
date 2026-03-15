@@ -900,7 +900,7 @@ export async function POST(req: NextRequest) {
         "You are ManaTap AI, a concise Magic: The Gathering assistant. Answer the user's question directly. When mentioning card names use [[double brackets]]. Do not ask for a deck or say \"noted\" unless the user is clearly sharing a decklist.\n\n" +
         NO_FILLER_INSTRUCTION;
       promptVersionId = null;
-      promptResult = { systemPrompt: sys, promptPath: "eval_no_deck", formatKey, modulesAttached: [] };
+      promptResult = { systemPrompt: sys, promptPath: "composed", formatKey, modulesAttached: [] };
     } else if (selectedTier === "micro") {
       sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = null;
