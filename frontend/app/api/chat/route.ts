@@ -403,6 +403,8 @@ export async function POST(req: NextRequest) {
       return err(maint.message, "maintenance", 503);
     }
 
+    const evalRunId = typeof raw?.eval_run_id === "string" && raw.eval_run_id.trim() ? raw.eval_run_id.trim() : undefined;
+
     // Durable rate limiting (database-backed, persists across restarts)
     // This complements in-memory rate limiting for reliability
     if (!isGuest && userId) {
@@ -421,21 +423,21 @@ export async function POST(req: NextRequest) {
       }
       
       // Task 6: Add per-minute rate limiting (10 requests per minute per user)
-      // Use separate key for per-minute limits: chat:minute:${userKeyHash}
-      // Note: checkDurableRateLimit uses date-based grouping, so per-minute limits are approximate
-      // (grouped by day, but separate key prevents interference with daily limits)
-      const minuteKeyHash = `chat:minute:${userKeyHash}`;
-      const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1/1440); // 1 minute = 1/1440 days
-      if (!minuteLimit.allowed) {
-        status = 429;
-        return err(`Too many requests. Please slow down (10 requests per minute limit).`, "RATE_LIMIT_PER_MINUTE", status, { resetAt: minuteLimit.resetAt });
-      }
-      
-      // In-memory rate limiting (complements durable limit - handles short-term bursts)
-      const rl = await checkRateLimit(supabase as any, userId);
-      if (!rl.ok) {
-        status = 429;
-        return err(rl.error || "rate limited", "rate_limited", status);
+      // Skip for eval runs (e.g. AI test V3/V4) so suite runs don't hit the limit
+      if (!evalRunId) {
+        const minuteKeyHash = `chat:minute:${userKeyHash}`;
+        const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1/1440); // 1 minute = 1/1440 days
+        if (!minuteLimit.allowed) {
+          status = 429;
+          return err(`Too many requests. Please slow down (10 requests per minute limit).`, "RATE_LIMIT_PER_MINUTE", status, { resetAt: minuteLimit.resetAt });
+        }
+
+        // In-memory rate limiting (complements durable limit - handles short-term bursts)
+        const rl = await checkRateLimit(supabase as any, userId);
+        if (!rl.ok) {
+          status = 429;
+          return err(rl.error || "rate limited", "rate_limited", status);
+        }
       }
       
       // Legacy daily limit check (kept for safety, but durable limit above is primary)
@@ -455,7 +457,6 @@ export async function POST(req: NextRequest) {
     const prefs = raw?.prefs || raw?.preferences || null; // optional UX prefs from client
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
     const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
-    const evalRunId = typeof raw?.eval_run_id === 'string' && raw.eval_run_id.trim() ? raw.eval_run_id.trim() : undefined;
     const sourcePage = (typeof raw?.sourcePage === "string" ? raw.sourcePage : raw?.source_page)?.trim() || null;
     const looksSearch = typeof inputText === 'string' && /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(inputText.trim());
     let suppressInsert = !!looksSearch;
