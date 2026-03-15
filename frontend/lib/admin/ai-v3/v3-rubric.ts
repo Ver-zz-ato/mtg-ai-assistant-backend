@@ -15,13 +15,27 @@ export type V3ScenarioDef = {
   forbiddenTraits?: string[];
 };
 
+const MIN_SUBSTANTIVE_LENGTH = 15;
+
 export function scoreV3Response(
   outputText: string,
   scenario: V3ScenarioDef
 ): { score: V3ScoreDimensions; status: V3ResultStatus; hardFailures: Array<{ kind: string; message: string }>; softFailures: Array<{ kind: string; message: string }> } {
-  const lower = outputText.toLowerCase();
+  const trimmed = (outputText ?? "").trim();
+  const lower = trimmed.toLowerCase();
   const hardFailures: Array<{ kind: string; message: string }> = [];
   const softFailures: Array<{ kind: string; message: string }> = [];
+
+  if (trimmed.length < MIN_SUBSTANTIVE_LENGTH) {
+    hardFailures.push({ kind: "empty_response", message: "Model returned no substantive response." });
+    return {
+      score: { overall_score: 0 },
+      status: "HARD_FAIL",
+      hardFailures,
+      softFailures,
+    };
+  }
+
   let rules = 5;
   let deck = 5;
   let cardRef = 5;
@@ -48,7 +62,7 @@ export function scoreV3Response(
   }
 
   if (scenario.deckContext && (scenario.deckContext === "multani_mono_green" || scenario.deckContext.includes("deck"))) {
-    if (outputText.length < 50) {
+    if (trimmed.length < 50) {
       softFailures.push({ kind: "too_short", message: "Deck-specific answer should be substantive" });
       deck = Math.min(deck, 3);
     }

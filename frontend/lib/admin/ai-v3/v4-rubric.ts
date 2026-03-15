@@ -14,13 +14,27 @@ export type V4ScenarioDef = {
   forbiddenTraits?: string[];
 };
 
+const MIN_SUBSTANTIVE_LENGTH = 15;
+
 export function scoreV4Response(
   outputText: string,
   scenario: V4ScenarioDef
 ): { score: V4ScoreDimensions; status: V3ResultStatus; hardFailures: Array<{ kind: string; message: string }>; softFailures: Array<{ kind: string; message: string }> } {
-  const lower = outputText.toLowerCase();
+  const trimmed = (outputText ?? "").trim();
+  const lower = trimmed.toLowerCase();
   const hardFailures: Array<{ kind: string; message: string }> = [];
   const softFailures: Array<{ kind: string; message: string }> = [];
+
+  if (trimmed.length < MIN_SUBSTANTIVE_LENGTH) {
+    hardFailures.push({ kind: "empty_response", message: "Model returned no substantive response." });
+    return {
+      score: { overall_score: 0 },
+      status: "HARD_FAIL",
+      hardFailures,
+      softFailures,
+    };
+  }
+
   let hallucinationResist = 5;
   let contradictionResist = 5;
   let uncertaintyHonesty = 5;

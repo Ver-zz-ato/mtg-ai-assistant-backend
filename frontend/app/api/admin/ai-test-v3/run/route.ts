@@ -153,22 +153,35 @@ export async function POST(req: NextRequest) {
       const cookie = req.headers.get("cookie") ?? "";
       const evalRunId = runId;
       const callChat = async (body: { text: string; deckText?: string | null; evalRunId?: string; modelName?: string | null }) => {
+        const payload: Record<string, unknown> = {
+          text: body.text,
+          threadId: null,
+          prefs: { format: "Commander" },
+          noUserInsert: true,
+          eval_run_id: body.evalRunId ?? evalRunId,
+          forceModel: modelName ?? process.env.MODEL_AI_TEST ?? undefined,
+        };
+        if (typeof body.deckText === "string" && body.deckText.trim()) {
+          payload.deckText = body.deckText.trim();
+        }
         const res = await fetch(`${baseUrl}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Cookie: cookie },
-          body: JSON.stringify({
-            text: body.text,
-            threadId: null,
-            prefs: { format: "Commander" },
-            noUserInsert: true,
-            eval_run_id: body.evalRunId ?? evalRunId,
-            deckText: body.deckText ?? undefined,
-            forceModel: modelName ?? process.env.MODEL_AI_TEST ?? undefined,
-          }),
+          body: JSON.stringify(payload),
         });
-        const data = await res.json();
-        const text = data?.text ?? "";
-        const fallback = !!data?.fallback;
+        let data: { text?: string; fallback?: boolean; error?: string; message?: string; reason?: string } = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+        const text =
+          typeof data?.text === "string"
+            ? data.text
+            : !res.ok
+              ? (data?.error ?? data?.message ?? data?.reason ?? `HTTP ${res.status}`)
+              : "";
+        const fallback = !res.ok || !!data?.fallback;
         return { text, fallback };
       };
       const modelScenarios: ModelRunnerScenario[] = rows.map((r) => ({
