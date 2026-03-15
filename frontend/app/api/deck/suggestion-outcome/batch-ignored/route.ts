@@ -1,6 +1,6 @@
 /**
  * POST: Log multiple suggestions as ignored (e.g. batch_replaced when user runs new analysis).
- * Body: { suggestion_ids: string[], deck_id?, format?, commander? }
+ * Body: { suggestion_ids: string[], deck_id?, format?, commander?, prompt_version_id?, prompt_version? }
  * Fail-open: returns 200 even if some or all writes fail.
  */
 
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const deckId = body?.deck_id ? String(body.deck_id).trim() : null;
     const format = body?.format ?? null;
     const commander = body?.commander ?? null;
+    const promptVersionId = body?.prompt_version_id != null ? String(body.prompt_version_id).trim() || null : (body?.prompt_version != null ? String(body.prompt_version).trim() || null : null);
 
     if (deckId) {
       const { data: deck } = await supabase.from("decks").select("id, user_id, is_public, public").eq("id", deckId).maybeSingle();
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
           user_id: user?.id ?? null,
           format,
           commander,
+          prompt_version_id: promptVersionId,
           ignored: true,
           outcome_source: "batch_replaced",
         });

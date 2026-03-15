@@ -38,8 +38,50 @@ type SuggestionsDashboard = {
     rejected: boolean | null;
     ignored: boolean | null;
     outcome_source: string | null;
+    prompt_version_id: string | null;
+  }>;
+  prompt_version_summary: Array<{
+    prompt_version_id: string | null;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    decided_outcomes: number;
+    acceptance_rate_decided_only: number | null;
+    acceptance_rate_all: number | null;
+  }>;
+  prompt_version_by_category: Array<{
+    prompt_version_id: string | null;
+    category: string;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    acceptance_rate_decided_only: number | null;
+    acceptance_rate_all: number | null;
+  }>;
+  prompt_version_leaderboard: Array<{
+    prompt_version_id: string | null;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    acceptance_rate_decided_only: number | null;
+    total_outcomes: number;
+  }>;
+  prompt_version_card_leaderboard: Array<{
+    prompt_version_id: string | null;
+    suggested_card: string;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    acceptance_rate_decided_only: number | null;
   }>;
 };
+
+function pvLabel(prompt_version_id: string | null): string {
+  return prompt_version_id != null && prompt_version_id.trim() !== "" ? prompt_version_id : "Untracked";
+}
 
 export default function SuggestionsDashboardPage() {
   const [data, setData] = React.useState<SuggestionsDashboard | null>(null);
@@ -296,6 +338,7 @@ export default function SuggestionsDashboardPage() {
                         <th className="py-1 pr-2">category</th>
                         <th className="py-1 pr-2">A/R/I</th>
                         <th className="py-1 pr-2">outcome_source</th>
+                        <th className="py-1 pr-2">prompt_version</th>
                         <th className="py-1">suggestion_id</th>
                       </tr>
                     </thead>
@@ -309,6 +352,7 @@ export default function SuggestionsDashboardPage() {
                             {row.accepted ? "A" : row.rejected ? "R" : row.ignored ? "I" : "—"}
                           </td>
                           <td className="py-1 pr-2 text-xs">{row.outcome_source ?? "—"}</td>
+                          <td className="py-1 pr-2 text-xs" title={row.prompt_version_id ?? ""}>{pvLabel(row.prompt_version_id)}</td>
                           <td className="py-1 font-mono text-xs">{row.suggestion_id}</td>
                         </tr>
                       ))}
@@ -316,6 +360,152 @@ export default function SuggestionsDashboardPage() {
                   </table>
                 </div>
               </section>
+
+              <section className="rounded border border-neutral-800 p-4">
+                <h2 className="font-medium mb-2">Prompt Performance</h2>
+                {data.prompt_version_summary.length === 0 ? (
+                  <p className="text-sm text-neutral-400">Not enough prompt-version outcome data yet to compare versions meaningfully.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-neutral-400 border-b border-neutral-700">
+                          <th className="py-1 pr-2">prompt_version_id</th>
+                          <th className="py-1 pr-2">accepted</th>
+                          <th className="py-1 pr-2">rejected</th>
+                          <th className="py-1 pr-2">ignored</th>
+                          <th className="py-1 pr-2">total</th>
+                          <th className="py-1 pr-2">decided</th>
+                          <th className="py-1 pr-2">accept (decided)</th>
+                          <th className="py-1">accept (all)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.prompt_version_summary.map((row, i) => (
+                          <tr key={i} className="border-b border-neutral-800">
+                            <td className="py-1 pr-2 font-mono text-xs">{pvLabel(row.prompt_version_id)}</td>
+                            <td className="py-1 pr-2 font-mono">{row.accepted_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.rejected_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.ignored_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.total_outcomes}</td>
+                            <td className="py-1 pr-2 font-mono">{row.decided_outcomes}</td>
+                            <td className="py-1 pr-2 font-mono">{row.acceptance_rate_decided_only != null ? `${(row.acceptance_rate_decided_only * 100).toFixed(1)}%` : "—"}</td>
+                            <td className="py-1 font-mono">{row.acceptance_rate_all != null ? `${(row.acceptance_rate_all * 100).toFixed(1)}%` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded border border-neutral-800 p-4">
+                <h2 className="font-medium mb-2">Prompt Version by Category</h2>
+                {data.prompt_version_by_category.length === 0 ? (
+                  <p className="text-sm text-neutral-400">No prompt-version × category data yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-neutral-400 border-b border-neutral-700">
+                          <th className="py-1 pr-2">prompt_version_id</th>
+                          <th className="py-1 pr-2">category</th>
+                          <th className="py-1 pr-2">accepted</th>
+                          <th className="py-1 pr-2">rejected</th>
+                          <th className="py-1 pr-2">ignored</th>
+                          <th className="py-1 pr-2">total</th>
+                          <th className="py-1 pr-2">accept (decided)</th>
+                          <th className="py-1">accept (all)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.prompt_version_by_category.map((row, i) => (
+                          <tr key={i} className="border-b border-neutral-800">
+                            <td className="py-1 pr-2 font-mono text-xs">{pvLabel(row.prompt_version_id)}</td>
+                            <td className="py-1 pr-2">{row.category}</td>
+                            <td className="py-1 pr-2 font-mono">{row.accepted_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.rejected_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.ignored_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.total_outcomes}</td>
+                            <td className="py-1 pr-2 font-mono">{row.acceptance_rate_decided_only != null ? `${(row.acceptance_rate_decided_only * 100).toFixed(1)}%` : "—"}</td>
+                            <td className="py-1 font-mono">{row.acceptance_rate_all != null ? `${(row.acceptance_rate_all * 100).toFixed(1)}%` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded border border-neutral-800 p-4">
+                <h2 className="font-medium mb-2">Best Performing Prompt Versions</h2>
+                <p className="text-xs text-neutral-500 mb-2">Early directional signal only; low sample sizes can mislead. Min 3 decided outcomes.</p>
+                {data.prompt_version_leaderboard.length === 0 ? (
+                  <p className="text-sm text-neutral-400">Not enough prompt-version outcome data yet to compare versions meaningfully.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-neutral-400 border-b border-neutral-700">
+                          <th className="py-1 pr-2">prompt_version_id</th>
+                          <th className="py-1 pr-2">accepted</th>
+                          <th className="py-1 pr-2">rejected</th>
+                          <th className="py-1 pr-2">ignored</th>
+                          <th className="py-1 pr-2">accept (decided)</th>
+                          <th className="py-1">total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.prompt_version_leaderboard.map((row, i) => (
+                          <tr key={i} className="border-b border-neutral-800">
+                            <td className="py-1 pr-2 font-mono text-xs">{pvLabel(row.prompt_version_id)}</td>
+                            <td className="py-1 pr-2 font-mono">{row.accepted_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.rejected_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.ignored_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.acceptance_rate_decided_only != null ? `${(row.acceptance_rate_decided_only * 100).toFixed(1)}%` : "—"}</td>
+                            <td className="py-1 font-mono">{row.total_outcomes}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {data.prompt_version_card_leaderboard.length > 0 && (
+                <section className="rounded border border-neutral-800 p-4">
+                  <h2 className="font-medium mb-2">Top Cards by Prompt Version</h2>
+                  <p className="text-xs text-neutral-500 mb-2">Min 2 outcomes per card × prompt version.</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-neutral-400 border-b border-neutral-700">
+                          <th className="py-1 pr-2">prompt_version_id</th>
+                          <th className="py-1 pr-2">suggested_card</th>
+                          <th className="py-1 pr-2">accepted</th>
+                          <th className="py-1 pr-2">rejected</th>
+                          <th className="py-1 pr-2">ignored</th>
+                          <th className="py-1 pr-2">total</th>
+                          <th className="py-1">accept (decided)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.prompt_version_card_leaderboard.map((row, i) => (
+                          <tr key={i} className="border-b border-neutral-800">
+                            <td className="py-1 pr-2 font-mono text-xs">{pvLabel(row.prompt_version_id)}</td>
+                            <td className="py-1 pr-2">{row.suggested_card}</td>
+                            <td className="py-1 pr-2 font-mono">{row.accepted_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.rejected_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.ignored_count}</td>
+                            <td className="py-1 pr-2 font-mono">{row.total_outcomes}</td>
+                            <td className="py-1 font-mono">{row.acceptance_rate_decided_only != null ? `${(row.acceptance_rate_decided_only * 100).toFixed(1)}%` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
             </>
           )}
         </>

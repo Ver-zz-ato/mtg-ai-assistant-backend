@@ -120,7 +120,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
           fetch("/api/deck/suggestion-outcome/batch-ignored", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ suggestion_ids: ids, deck_id: deckId, format: "Commander", commander }),
+            body: JSON.stringify({ suggestion_ids: ids, deck_id: deckId, format: "Commander", commander, prompt_version_id: promptVersion }),
           }).catch(() => {});
         }
       }

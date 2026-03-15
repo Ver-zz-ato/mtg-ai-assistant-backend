@@ -40,6 +40,44 @@ export type SuggestionsDashboard = {
     rejected: boolean | null;
     ignored: boolean | null;
     outcome_source: string | null;
+    prompt_version_id: string | null;
+  }>;
+  prompt_version_summary: Array<{
+    prompt_version_id: string | null;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    decided_outcomes: number;
+    acceptance_rate_decided_only: number | null;
+    acceptance_rate_all: number | null;
+  }>;
+  prompt_version_by_category: Array<{
+    prompt_version_id: string | null;
+    category: string;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    acceptance_rate_decided_only: number | null;
+    acceptance_rate_all: number | null;
+  }>;
+  prompt_version_leaderboard: Array<{
+    prompt_version_id: string | null;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    acceptance_rate_decided_only: number | null;
+    total_outcomes: number;
+  }>;
+  prompt_version_card_leaderboard: Array<{
+    prompt_version_id: string | null;
+    suggested_card: string;
+    accepted_count: number;
+    rejected_count: number;
+    ignored_count: number;
+    total_outcomes: number;
+    acceptance_rate_decided_only: number | null;
   }>;
 };
 
@@ -75,12 +113,16 @@ export async function getSuggestionsDashboard(admin: SupabaseClient): Promise<Su
     byCategory: [],
     byCommander: [],
     recent: [],
+    prompt_version_summary: [],
+    prompt_version_by_category: [],
+    prompt_version_leaderboard: [],
+    prompt_version_card_leaderboard: [],
   };
 
   try {
     const { data: allRows } = await admin
       .from("ai_suggestion_outcomes")
-      .select("id, created_at, suggested_card, deck_id, accepted, rejected, ignored, suggestion_id");
+      .select("id, created_at, suggested_card, deck_id, accepted, rejected, ignored, suggestion_id, prompt_version_id");
     const rows = allRows ?? [];
     out.totalAccepted = rows.filter((r: { accepted?: boolean | null }) => r.accepted === true).length;
     out.totalRejected = rows.filter((r: { rejected?: boolean | null }) => r.rejected === true).length;
@@ -145,6 +187,45 @@ export async function getSuggestionsDashboard(admin: SupabaseClient): Promise<Su
       .filter((x) => x.total_outcomes >= MIN_SAMPLE_FOR_QUALITY)
       .sort((a, b) => b.total_outcomes - a.total_outcomes)
       .slice(0, 50);
+
+    const byPv = new Map<string | null, { accepted: number; rejected: number; ignored: number }>();
+    rows.forEach((r: { prompt_version_id?: string | null; accepted?: boolean | null; rejected?: boolean | null; ignored?: boolean | null }) => {
+      const pv = r.prompt_version_id != null && String(r.prompt_version_id).trim() !== "" ? String(r.prompt_version_id).trim() : null;
+      const cur = byPv.get(pv) ?? { accepted: 0, rejected: 0, ignored: 0 };
+      if (r.accepted === true) cur.accepted++;
+      if (r.rejected === true) cur.rejected++;
+      if (r.ignored === true) cur.ignored++;
+      byPv.set(pv, cur);
+    });
+    out.prompt_version_summary = Array.from(byPv.entries())
+      .map(([prompt_version_id, v]) => {
+        const total = v.accepted + v.rejected + v.ignored;
+        const decided = v.accepted + v.rejected;
+        return {
+          prompt_version_id,
+          accepted_count: v.accepted,
+          rejected_count: v.rejected,
+          ignored_count: v.ignored,
+          total_outcomes: total,
+          decided_outcomes: decided,
+          acceptance_rate_decided_only: decided > 0 ? v.accepted / decided : null,
+          acceptance_rate_all: total > 0 ? v.accepted / total : null,
+        };
+      })
+      .sort((a, b) => b.decided_outcomes - a.decided_outcomes);
+
+    const minDecidedForLeaderboard = 3;
+    out.prompt_version_leaderboard = out.prompt_version_summary
+      .filter((x) => x.decided_outcomes >= minDecidedForLeaderboard)
+      .map(({ prompt_version_id, accepted_count, rejected_count, ignored_count, acceptance_rate_decided_only, total_outcomes }) => ({
+        prompt_version_id,
+        accepted_count,
+        rejected_count,
+        ignored_count,
+        acceptance_rate_decided_only,
+        total_outcomes,
+      }))
+      .sort((a, b) => (b.acceptance_rate_decided_only ?? 0) - (a.acceptance_rate_decided_only ?? 0));
   } catch {}
 
   try {
@@ -179,9 +260,87 @@ export async function getSuggestionsDashboard(admin: SupabaseClient): Promise<Su
   } catch {}
 
   try {
+    const { data: pvCatRows } = await admin
+      .from("ai_suggestion_outcomes")
+      .select("prompt_version_id, category, accepted, rejected, ignored");
+    const pvCatMap = new Map<string, { accepted: number; rejected: number; ignored: number }>();
+    (pvCatRows ?? []).forEach((r: { prompt_version_id?: string | null; category?: string | null; accepted?: boolean | null; rejected?: boolean | null; ignored?: boolean | null }) => {
+      const pv = r.prompt_version_id != null && String(r.prompt_version_id).trim() !== "" ? String(r.prompt_version_id).trim() : null;
+      const cat = (r.category ?? "").trim() || "[uncategorized]";
+      const key = `${pv}\t${cat}`;
+      const cur = pvCatMap.get(key) ?? { accepted: 0, rejected: 0, ignored: 0 };
+      if (r.accepted === true) cur.accepted++;
+      if (r.rejected === true) cur.rejected++;
+      if (r.ignored === true) cur.ignored++;
+      pvCatMap.set(key, cur);
+    });
+    out.prompt_version_by_category = Array.from(pvCatMap.entries())
+      .map(([key, v]) => {
+        const sep = key.indexOf("\t");
+        const prompt_version_idRaw = sep >= 0 ? key.slice(0, sep) : key;
+        const category = sep >= 0 ? key.slice(sep + 1) : "[uncategorized]";
+        const prompt_version_id = prompt_version_idRaw === "null" ? null : prompt_version_idRaw;
+        const total = v.accepted + v.rejected + v.ignored;
+        const decided = v.accepted + v.rejected;
+        return {
+          prompt_version_id,
+          category,
+          accepted_count: v.accepted,
+          rejected_count: v.rejected,
+          ignored_count: v.ignored,
+          total_outcomes: total,
+          acceptance_rate_decided_only: decided > 0 ? v.accepted / decided : null,
+          acceptance_rate_all: total > 0 ? v.accepted / total : null,
+        };
+      })
+      .sort((a, b) => b.total_outcomes - a.total_outcomes)
+      .slice(0, 100);
+  } catch {}
+
+  try {
+    const { data: pvCardRows } = await admin
+      .from("ai_suggestion_outcomes")
+      .select("prompt_version_id, suggested_card, accepted, rejected, ignored");
+    const pvCardMap = new Map<string, { accepted: number; rejected: number; ignored: number }>();
+    (pvCardRows ?? []).forEach((r: { prompt_version_id?: string | null; suggested_card?: string | null; accepted?: boolean | null; rejected?: boolean | null; ignored?: boolean | null }) => {
+      const card = (r.suggested_card ?? "").trim();
+      if (!card) return;
+      const pv = r.prompt_version_id != null && String(r.prompt_version_id).trim() !== "" ? String(r.prompt_version_id).trim() : null;
+      const key = `${pv}\t${card}`;
+      const cur = pvCardMap.get(key) ?? { accepted: 0, rejected: 0, ignored: 0 };
+      if (r.accepted === true) cur.accepted++;
+      if (r.rejected === true) cur.rejected++;
+      if (r.ignored === true) cur.ignored++;
+      pvCardMap.set(key, cur);
+    });
+    const minCardSample = 2;
+    out.prompt_version_card_leaderboard = Array.from(pvCardMap.entries())
+      .map(([key, v]) => {
+        const sep = key.indexOf("\t");
+        const prompt_version_idRaw = sep >= 0 ? key.slice(0, sep) : key;
+        const suggested_card = sep >= 0 ? key.slice(sep + 1) : "";
+        const prompt_version_id = prompt_version_idRaw === "null" ? null : prompt_version_idRaw;
+        const total = v.accepted + v.rejected + v.ignored;
+        const decided = v.accepted + v.rejected;
+        return {
+          prompt_version_id,
+          suggested_card,
+          accepted_count: v.accepted,
+          rejected_count: v.rejected,
+          ignored_count: v.ignored,
+          total_outcomes: total,
+          acceptance_rate_decided_only: decided > 0 ? v.accepted / decided : null,
+        };
+      })
+      .filter((x) => x.total_outcomes >= minCardSample)
+      .sort((a, b) => (b.acceptance_rate_decided_only ?? 0) - (a.acceptance_rate_decided_only ?? 0))
+      .slice(0, 50);
+  } catch {}
+
+  try {
     const { data } = await admin
       .from("ai_suggestion_outcomes")
-      .select("created_at, suggested_card, category, commander, format, deck_id, suggestion_id, accepted, rejected, ignored, outcome_source")
+      .select("created_at, suggested_card, category, commander, format, deck_id, suggestion_id, accepted, rejected, ignored, outcome_source, prompt_version_id")
       .order("created_at", { ascending: false })
       .limit(50);
     out.recent = (data ?? []).map((r: Record<string, unknown>) => ({
@@ -196,6 +355,7 @@ export async function getSuggestionsDashboard(admin: SupabaseClient): Promise<Su
       rejected: r.rejected != null ? Boolean(r.rejected) : null,
       ignored: r.ignored != null ? Boolean(r.ignored) : null,
       outcome_source: r.outcome_source != null ? String(r.outcome_source) : null,
+      prompt_version_id: r.prompt_version_id != null ? String(r.prompt_version_id) : null,
     }));
   } catch {}
 
