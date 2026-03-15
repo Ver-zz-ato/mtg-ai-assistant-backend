@@ -2,8 +2,88 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { createClientForStatic } from "@/lib/server-supabase";
 import Link from "next/link";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+const OG_IMAGE_BASE = "https://www.manatap.ai";
+
+function truncate(text: string, max: number): string {
+  if (!text) return "";
+  const clean = text.replace(/\s+/g, " ").replace(/\[\[[^\]]+\]\]/g, "").trim();
+  return clean.length <= max ? clean : `${clean.slice(0, max - 1)}…`;
+}
+
+const HEAT_LABELS: Record<string, string> = {
+  gentle: "Gentle 🙂",
+  balanced: "Balanced 😏",
+  spicy: "Spicy 🌶️",
+  savage: "Savage 🔥",
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = createClientForStatic();
+  const { data: row, error } = await supabase
+    .from("roast_permalinks")
+    .select("commander, roast_level, roast_text")
+    .eq("id", id)
+    .maybeSingle();
+
+  const imageUrl = `${OG_IMAGE_BASE}/roast/${id}/opengraph-image`;
+  const fallbackMeta: Metadata = {
+    title: "Roast My Deck — ManaTap AI",
+    description: "AI-powered Commander deck roasts",
+    openGraph: {
+      title: "Roast My Deck — ManaTap AI",
+      description: "AI-powered Commander deck roasts",
+      url: `${OG_IMAGE_BASE}/roast/${id}`,
+      siteName: "ManaTap AI",
+      type: "website",
+      images: [imageUrl],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Roast My Deck — ManaTap AI",
+      description: "AI-powered Commander deck roasts",
+      images: [imageUrl],
+    },
+  };
+
+  if (error || !row) {
+    return fallbackMeta;
+  }
+
+  const level = (row.roast_level || "balanced").toLowerCase();
+  const heatLabel = HEAT_LABELS[level] || "AI Roast";
+  const commanderName = row.commander || "This deck";
+  const excerpt = truncate(row.roast_text || "AI-powered Commander deck roast", 140);
+  const title = `${commanderName} got roasted 🔥 | ManaTap AI`;
+  const description = `${heatLabel}: ${excerpt}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${commanderName} got roasted 🔥`,
+      description,
+      url: `${OG_IMAGE_BASE}/roast/${id}`,
+      siteName: "ManaTap AI",
+      type: "website",
+      images: [imageUrl],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${commanderName} got roasted 🔥`,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 export default async function RoastPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

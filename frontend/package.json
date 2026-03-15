@@ -28,7 +28,8 @@
     "seo:validate-sitemap": "tsx scripts/seo/validate-sitemap.ts",
     "color-tests": "node scripts/run-color-regressions.mjs",
     "chat-tests": "node scripts/run-chat-regressions.mjs",
-    "validate-analytics-excluded": "tsx scripts/validate-analytics-excluded-paths.ts"
+    "validate-analytics-excluded": "tsx scripts/validate-analytics-excluded-paths.ts",
+    "scripts:compress-og": "node scripts/compress-og-images.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.21.0",
@@ -67,6 +68,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.7",
+    "sharp": "^0.33.5",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5"

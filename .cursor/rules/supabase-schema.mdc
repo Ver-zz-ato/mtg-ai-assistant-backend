@@ -1,0 +1,21 @@
+---
+description: Supabase DB schema reference and schema-update policy
+globs: "**/db/**/*.sql,frontend/db/**/*.sql,**/migrations/**/*.sql,**/lib/**/supabase*.ts,**/lib/**/db*.ts"
+alwaysApply: false
+---
+
+# Supabase database schema
+
+## Where the schema lives
+
+- **Canonical schema:** `docs/SUPABASE_SCHEMA.md`
+- That file is the single source of truth for the current Supabase (Postgres) `public` schema. Use it when writing migrations, API code, or RLS that touches the DB.
+
+## When migrations are applied
+
+After you apply migrations to Supabase:
+
+1. **Update the schema doc:** Replace the SQL in `docs/SUPABASE_SCHEMA.md` with the new schema (e.g. export from Supabase SQL Editor or Dashboard → replace the ` ```sql ` block in that file).
+2. **If you don’t have the export:** Ask the user to send the new schema (e.g. paste from Supabase), then update `docs/SUPABASE_SCHEMA.md` yourself with that content.
+
+Keep the header and “When you apply migrations” note at the top of the doc; only the SQL block and table list need to reflect the current database.

@@ -63,6 +63,55 @@ const blogContent: Record<string, {
   icon: string;
   imageUrl?: string;
 }> = {
+  'roast-my-deck': {
+    title: '🔥 Roast My Deck: Get Your Deck Roasted by AI (And Share It)',
+    date: '2025-03-15',
+    author: 'ManaTap Team',
+    category: 'Announcement',
+    readTime: '5 min read',
+    gradient: 'from-amber-600 via-orange-600 to-rose-600',
+    icon: '🔥',
+    content: `
+# 🔥 Roast My Deck: Get Your Deck Roasted by AI (And Share It)
+
+We've added **Roast My Deck** — a fun, AI-powered way to get honest (and hilarious) feedback on your deck. Paste your list, choose how spicy you want it, and share the result with your playgroup.
+
+## What Is It?
+
+**Roast My Deck** lets you paste a decklist (or upload a file) and get an AI-generated roast. The AI looks at your commander, your curve, your ramp and removal, and your card choices — then delivers feedback that ranges from gentle and constructive to full-on savage, depending on the level you pick.
+
+It's not just for laughs: the roast is built on the same deck-analysis engine we use for serious suggestions, so the criticism is often *right*. You might discover real gaps (e.g. "Your ramp package is a cry for help") while having a good time.
+
+## Four Roast Levels
+
+- **🟢 Gentle** — Constructive and kind. Good for newer players or when you want feedback without the heat.
+- **🟡 Balanced** — A mix of wit and useful critique. Our default.
+- **🌶 Spicy** — Sharper tone and more pointed jokes. For when you can take it.
+- **🔥 Savage** — No mercy. For the brave.
+
+You pick the level before you roast. The AI adapts its tone and savageness accordingly.
+
+## Paste or Upload
+
+- **Paste** — Paste your decklist into the text area (same format as the rest of ManaTap: one card per line, optional quantity).
+- **Upload** — Or upload a deck file. We accept common list formats.
+
+You can also set **format** (Commander, Modern, Pioneer, Standard) and **commander** so the roast is context-aware.
+
+## Shareable Permalinks
+
+If you're logged in, after a roast you can **Save & share**. We store the roast and give you a permanent link, e.g. \`/roast/abc-123\`. Anyone with the link can view the roast — commander art, level badge, and full text — without needing an account. Perfect for sharing in your Discord, group chat, or after a game night.
+
+## Where to Find It
+
+- **Homepage** — The Roast My Deck panel is on the main page. Expand it, paste your deck, pick your level, and hit Roast.
+- **Admin** — There's also an admin tool at \`/admin/tools/deck-roast\` for internal testing.
+
+## Try It
+
+Head to [ManaTap AI](https://www.manatap.ai), paste a deck, and get roasted. Then save the link and send it to your friends. If you like the rest of what ManaTap does (suggestions, legality, curve, build-from-collection), check out [Pro](https://www.manatap.ai/pricing) for higher limits and premium models.
+`
+  },
   'deck-building-upgrades-march-2025': {
     title: '✨ New Deck Building Features: Finish This Deck, Build From Collection & Smarter AI',
     date: '2025-03-06',
