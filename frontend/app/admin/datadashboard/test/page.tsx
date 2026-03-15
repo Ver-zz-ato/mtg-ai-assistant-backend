@@ -3,10 +3,13 @@
 import React from "react";
 import DataDashboardNav from "../DataDashboardNav";
 
-type Action = "suggestion" | "meta" | "commander" | "deck-metrics";
+
+type Action = "suggestion" | "rejected" | "ignored" | "meta" | "commander" | "deck-metrics";
 
 const ACTIONS: { action: Action; label: string; description: string }[] = [
-  { action: "suggestion", label: "Insert test suggestion outcome", description: "Insert one row into ai_suggestion_outcomes (accepted, admin_test)." },
+  { action: "suggestion", label: "Insert test accepted", description: "Insert one row into ai_suggestion_outcomes (accepted: true, admin_test)." },
+  { action: "rejected", label: "Insert test rejected", description: "Insert one row (rejected: true, outcome_source: admin_test)." },
+  { action: "ignored", label: "Insert test ignored", description: "Insert one row (ignored: true, outcome_source: admin_test)." },
   { action: "meta", label: "Snapshot meta signals", description: "Copy current meta_signals into meta_signals_history for today." },
   { action: "commander", label: "Snapshot commander aggregates", description: "Copy current commander_aggregates into commander_aggregates_history for today." },
   { action: "deck-metrics", label: "Snapshot one deck metrics", description: "Pick first deck from deck_context_summary and write one row to deck_metrics_snapshot for today." },

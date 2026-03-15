@@ -23,16 +23,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "").trim();
 
-    if (action === "suggestion") {
+    if (action === "suggestion" || action === "rejected" || action === "ignored") {
       const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
+      const sid = `test-${action}-${Date.now()}`;
       const ok = await logSuggestionOutcome({
-        suggestion_id: `test-${Date.now()}`,
-        suggested_card: "Test Card (admin test)",
+        suggestion_id: sid,
+        suggested_card: `Test Card (${action})`,
         category: "admin-test",
-        accepted: true,
+        accepted: action === "suggestion" ? true : null,
+        rejected: action === "rejected" ? true : null,
+        ignored: action === "ignored" ? true : null,
         outcome_source: "admin_test",
       });
-      return NextResponse.json({ ok: true, action: "suggestion", success: ok });
+      return NextResponse.json({ ok: true, action, success: ok });
     }
 
     if (action === "meta") {

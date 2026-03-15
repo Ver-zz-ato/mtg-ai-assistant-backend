@@ -36,6 +36,8 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
   const [showReasoning, setShowReasoning] = React.useState(false);
   const [whyLoading, setWhyLoading] = React.useState<Set<string>>(new Set());
   const [whyMap, setWhyMap] = React.useState<Record<string, string>>({});
+  const suggestionsRef = React.useRef<typeof suggestions>([]);
+  suggestionsRef.current = suggestions;
 
   async function run() {
     if (busy) {
@@ -111,6 +113,17 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       if (j?.counts) setRawCounts(j.counts);
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0,12) : []);
+      const prevSuggestions = suggestionsRef.current;
+      if (prevSuggestions.length > 0) {
+        const ids = [...new Set(prevSuggestions.map((s) => s.id).filter(Boolean))] as string[];
+        if (ids.length > 0) {
+          fetch("/api/deck/suggestion-outcome/batch-ignored", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ suggestion_ids: ids, deck_id: deckId, format: "Commander", commander }),
+          }).catch(() => {});
+        }
+      }
       setSuggestions(Array.isArray(j?.suggestions) ? j.suggestions : []);
       setPromptVersion(j?.prompt_version);
       setFilteredSummary(typeof j?.filteredSummary === 'string' && j.filteredSummary.trim() ? j.filteredSummary : null);
@@ -411,6 +424,35 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
                                     </button>
                                   )}
+                                  {s.id && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await fetch("/api/deck/suggestion-outcome", {
+                                            method: "POST",
+                                            headers: { "content-type": "application/json" },
+                                            body: JSON.stringify({
+                                              suggestion_id: s.id,
+                                              deck_id: deckId,
+                                              suggested_card: s.card,
+                                              category: s.category ?? "synergy-upgrade",
+                                              prompt_version_id: promptVersion,
+                                              format: "Commander",
+                                              commander: storedCommander,
+                                              rejected: true,
+                                              outcome_source: "client_reject",
+                                            }),
+                                          });
+                                        } catch {}
+                                        setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+                                      }}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      title="Dismiss this suggestion"
+                                    >
+                                      Dismiss
+                                    </button>
+                                  )}
                                   <button onClick={async()=>{
                                     try { 
                                       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, { 
@@ -492,6 +534,35 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
                                     >
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
+                                    </button>
+                                  )}
+                                  {s.id && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await fetch("/api/deck/suggestion-outcome", {
+                                            method: "POST",
+                                            headers: { "content-type": "application/json" },
+                                            body: JSON.stringify({
+                                              suggestion_id: s.id,
+                                              deck_id: deckId,
+                                              suggested_card: s.card,
+                                              category: s.category ?? "synergy-upgrade",
+                                              prompt_version_id: promptVersion,
+                                              format: "Commander",
+                                              commander: storedCommander,
+                                              rejected: true,
+                                              outcome_source: "client_reject",
+                                            }),
+                                          });
+                                        } catch {}
+                                        setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+                                      }}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      title="Dismiss this suggestion"
+                                    >
+                                      Dismiss
                                     </button>
                                   )}
                                   <button onClick={async()=>{
@@ -613,6 +684,35 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                       title={whyMap[s.card] ? "Hide explanation" : "Show why this card is recommended"}
                                     >
                                       {whyLoading.has(s.card) ? '…' : whyMap[s.card] ? 'Hide' : 'Why?'}
+                                    </button>
+                                  )}
+                                  {s.id && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await fetch("/api/deck/suggestion-outcome", {
+                                            method: "POST",
+                                            headers: { "content-type": "application/json" },
+                                            body: JSON.stringify({
+                                              suggestion_id: s.id,
+                                              deck_id: deckId,
+                                              suggested_card: s.card,
+                                              category: s.category ?? "optional",
+                                              prompt_version_id: promptVersion,
+                                              format: "Commander",
+                                              commander: storedCommander,
+                                              rejected: true,
+                                              outcome_source: "client_reject",
+                                            }),
+                                          });
+                                        } catch {}
+                                        setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+                                      }}
+                                      className="px-1.5 py-0.5 rounded bg-neutral-700/80 hover:bg-neutral-600 text-neutral-400 text-[9px] whitespace-nowrap"
+                                      title="Dismiss this suggestion"
+                                    >
+                                      Dismiss
                                     </button>
                                   )}
                                   <button onClick={async()=>{
