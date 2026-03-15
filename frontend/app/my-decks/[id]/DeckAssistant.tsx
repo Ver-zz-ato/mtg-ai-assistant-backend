@@ -559,29 +559,49 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     setHoverCard(null);
   }
   
-  // Render message content with card images at bottom
+  // Render message content with inline card images (like main chat) and card strip at bottom
   function renderMessageContent(content: string, isAssistant: boolean) {
     if (!isAssistant) {
-      // User messages: just render markdown
       return renderMarkdown(content);
     }
-    
-    // Extract cards from this message
+    const normalizedCardKey = (name: string) =>
+      name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    const renderCard = (cardName: string) => {
+      const normalized = normalizedCardKey(cardName);
+      const image = cardImages.get(normalized);
+      const normalUrl = image?.normal || image?.art_crop || image?.small;
+      const smallUrl = image?.small || image?.normal;
+      if (!normalUrl) return cardName;
+      return (
+        <span
+          className="inline-flex items-center gap-1 align-middle cursor-help"
+          onMouseEnter={(e) => handleCardMouseEnter(e, cardName)}
+          onMouseLeave={handleCardMouseLeave}
+        >
+          {smallUrl && (
+            <img
+              src={smallUrl}
+              alt=""
+              className="w-6 h-auto rounded border border-neutral-600 inline-block"
+              aria-hidden
+            />
+          )}
+          <span className="border-b border-dotted border-neutral-500" title={cardName}>
+            {cardName}
+          </span>
+        </span>
+      );
+    };
     const extractedCards = extractCardsForImages(content);
-    
     return (
       <div className="space-y-3">
-        {/* Main message content */}
-        <div>{renderMarkdown(content)}</div>
-        
-        {/* Card images row at bottom */}
+        <div>{renderMarkdown(content, { renderCard })}</div>
         {extractedCards.length > 0 && (
           <div className="flex gap-2 flex-wrap pt-2 border-t border-neutral-600">
             {extractedCards.map((card, idx) => {
-              const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+              const normalized = normalizedCardKey(card.name);
               const image = cardImages.get(normalized);
               if (!image?.small) return null;
-              
               return (
                 <img
                   key={idx}
@@ -594,7 +614,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   onMouseLeave={handleCardMouseLeave}
                   title={card.name}
                 />
-                );
+              );
             })}
           </div>
         )}

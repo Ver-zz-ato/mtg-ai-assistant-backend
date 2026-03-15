@@ -1350,21 +1350,48 @@ function Chat(props: ChatProps = {}) {
     setHoverCard(null);
   }
   
-  // Render message content with card images at bottom (only when skipCardImages is false, e.g. after message is finalized)
+  // Render message content with inline card images (like roast) and optional strip at bottom
   function renderMessageContent(content: string, isAssistant: boolean, skipCardImages?: boolean) {
     if (!isAssistant) {
       return renderMarkdown(content);
     }
-    const displayContent = content.replace(/\[\[([^\]]+)\]\]/g, '$1');
+    const normalizedCardKey = (name: string) =>
+      name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    const renderCard = (cardName: string) => {
+      const normalized = normalizedCardKey(cardName);
+      const image = cardImages.get(normalized);
+      const normalUrl = image?.normal || image?.art_crop || image?.small;
+      const smallUrl = image?.small || image?.normal;
+      if (!normalUrl) return cardName;
+      return (
+        <span
+          className="inline-flex items-center gap-1 align-middle cursor-help"
+          onMouseEnter={(e) => handleCardMouseEnter(e, cardName)}
+          onMouseLeave={handleCardMouseLeave}
+        >
+          {smallUrl && (
+            <img
+              src={smallUrl}
+              alt=""
+              className="w-6 h-auto rounded border border-neutral-600 inline-block"
+              aria-hidden
+            />
+          )}
+          <span className="border-b border-dotted border-neutral-500" title={cardName}>
+            {cardName}
+          </span>
+        </span>
+      );
+    };
     const extractedCards = extractCardsForImages(content);
     const showCardImages = !skipCardImages && extractedCards.length > 0;
     return (
       <div className="space-y-3">
-        <div>{renderMarkdown(displayContent)}</div>
+        <div>{renderMarkdown(content, { renderCard })}</div>
         {showCardImages && (
           <div className="flex gap-3 flex-wrap pt-2 border-t border-neutral-600">
             {extractedCards.map((card, idx) => {
-              const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+              const normalized = normalizedCardKey(card.name);
               const image = cardImages.get(normalized);
               const price = cardPrices.get(normalized);
               if (!image?.small) return null;

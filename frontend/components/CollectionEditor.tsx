@@ -395,6 +395,8 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [showAddValidation, setShowAddValidation] = React.useState(false);
   const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
   const [pendingAddQty, setPendingAddQty] = React.useState<number>(1);
+  const [searchModalOpen, setSearchModalOpen] = React.useState(false);
+  const [searchModalQuery, setSearchModalQuery] = React.useState('');
   const { isPro } = useProStatus();
   React.useEffect(()=>{ try{ const saved = localStorage.getItem('price_currency') as any; if(saved && (saved==='USD'||saved==='EUR'||saved==='GBP')) setCurrency(saved); }catch{} }, []);
   React.useEffect(()=>{ try{ localStorage.setItem('price_currency', currency); } catch{} }, [currency]);
@@ -701,6 +703,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [filterSets, setFilterSets] = React.useState<string[]>([]);
   const [filterRarity, setFilterRarity] = React.useState<string[]>([]);
   const [filterTypes, setFilterTypes] = React.useState<string[]>([]); // Creature, Instant, etc.
+  const [filterCommandersOnly, setFilterCommandersOnly] = React.useState(false);
   const [filterQtyMin, setFilterQtyMin] = React.useState<number>(0);
   const [filterPriceBand, setFilterPriceBand] = React.useState<string>(''); // '<1','1-5','5-20','20-50','50-100','100+'
   const [filtersExpanded, setFiltersExpanded] = React.useState(false);
@@ -714,13 +717,14 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     let count = 0;
     if (filterColors.length) count += filterColors.length;
     if (filterTypes.length) count += filterTypes.length;
+    if (filterCommandersOnly) count += 1;
     if (filterPriceBand) count += 1;
     if (filterQtyMin > 0) count += 1;
     if (filterRarity.length) count += filterRarity.length;
     if (filterSets.length) count += filterSets.length;
     if (pMin !== '' || pMax !== '') count += 1;
     return count;
-  }, [filterColors.length, filterTypes.length, filterPriceBand, filterQtyMin, filterRarity.length, filterSets.length, pMin, pMax]);
+  }, [filterColors.length, filterTypes.length, filterCommandersOnly, filterPriceBand, filterQtyMin, filterRarity.length, filterSets.length, pMin, pMax]);
 
   const filteredSorted = React.useMemo(()=>{
     let arr = items.slice();
@@ -731,6 +735,13 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     if(filterSets.length) arr = arr.filter(i=> filterSets.includes((metaRef.current.get(n(i.name))?.set||'').toUpperCase()));
     if(filterRarity.length) arr = arr.filter(i=> filterRarity.includes((metaRef.current.get(n(i.name)) as any)?.rarity || ('' as any)));
     if(filterTypes.length) arr = arr.filter(i=> { const tl=(metaRef.current.get(n(i.name)) as any)?.type_line||''; const lc=String(tl).toLowerCase(); return filterTypes.some(t=> lc.includes(t.toLowerCase())); });
+    if (filterCommandersOnly) {
+      arr = arr.filter(i => {
+        const tl = (metaRef.current.get(n(i.name)) as any)?.type_line ?? '';
+        const lc = String(tl).toLowerCase();
+        return lc.includes('legendary') && lc.includes('creature');
+      });
+    }
     if(filterColors.length){
       arr = arr.filter(i=>{
         const colors = (metaRef.current.get(n(i.name))?.colors||[]) as string[];
@@ -766,7 +777,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     if(sortKey==='price'){ const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); arr.sort((a,b)=> (priceMap[norm(a.name)]||0) - (priceMap[norm(b.name)]||0)); }
     if(sortDir==='desc') arr.reverse();
     return arr;
-  }, [items, debouncedFilter, filterQtyMin, filterSets.join(','), filterRarity.join(','), filterTypes.join(','), filterColors.join(','), filterPriceBand, pMin, pMax, sortKey, sortDir, priceMap]);
+  }, [items, debouncedFilter, filterQtyMin, filterSets.join(','), filterRarity.join(','), filterTypes.join(','), filterCommandersOnly, filterColors.join(','), filterPriceBand, pMin, pMax, sortKey, sortDir, priceMap]);
 
   // Virtualized list (page): basic windowing
   const listRef = React.useRef<HTMLDivElement|null>(null);
@@ -961,6 +972,14 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-2 border-b border-neutral-900">
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-sm font-medium">🔍 Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
+            <button type="button" onClick={()=> setSearchModalOpen(true)} className="px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Filter to card…</button>
+            {filterText.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-neutral-800 border border-neutral-700 text-xs">
+                <span className="text-neutral-400">Filtering to:</span>
+                <span className="font-medium text-neutral-200 truncate max-w-[120px]" title={filterText}>{filterText}</span>
+                <button type="button" onClick={()=> setFilterText('')} className="text-neutral-500 hover:text-neutral-200" aria-label="Clear filter">✕</button>
+              </span>
+            )}
             {/* Fix names (PRO) */}
             <FixNamesButton collectionId={collectionId} onOpenModal={() => setFixModalOpen(true)} />
             <label className="text-sm font-medium">🔤 Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
@@ -997,8 +1016,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                   {filterQtyMin>0 && (<button onClick={()=>setFilterQtyMin(0)} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Qty ≥ {filterQtyMin} ✕</button>)}
                   {filterRarity.map(r=> (<button key={'r-'+r} onClick={()=>setFilterRarity(p=>p.filter(x=>x!==r))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Rarity: {r} ✕</button>))}
                   {filterSets.map(s=> (<button key={'s-'+s} onClick={()=>setFilterSets(p=>p.filter(x=>x!==s))} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Set: {s} ✕</button>))}
-                  {(filterColors.length||filterTypes.length||filterPriceBand||filterQtyMin>0||filterRarity.length||filterSets.length)? (
-                    <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setPMin(''); setPMax(''); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
+                  {filterCommandersOnly && (<button onClick={()=>setFilterCommandersOnly(false)} className="px-1.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-xs">Commanders only ✕</button>)}
+                  {(filterColors.length||filterTypes.length||filterCommandersOnly||filterPriceBand||filterQtyMin>0||filterRarity.length||filterSets.length)? (
+                    <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterCommandersOnly(false); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setPMin(''); setPMax(''); }} className="ml-2 px-2 py-0.5 rounded-full border border-neutral-700 text-xs">Clear all</button>
                   ) : null}
                 </div>
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
@@ -1026,6 +1046,10 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 </label>
               ))}
             </div>
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50 cursor-pointer hover:bg-neutral-800/50 transition-colors" title="Cards that can be a commander (Legendary Creature)">
+              <input type="checkbox" checked={filterCommandersOnly} onChange={(e)=> setFilterCommandersOnly(e.target.checked)} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"/>
+              <span className="font-semibold text-sm bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Filter by commanders available</span>
+            </label>
             <div className="flex flex-col gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">💲 Price Range</span>
@@ -1079,7 +1103,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                     </label>
                   ))}
                 </div>
-                <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setFilterText(''); }} className="ml-auto px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">🗑️ Clear All</button>
+                <button onClick={()=>{ setFilterColors([]); setFilterRarity([]); setFilterTypes([]); setFilterCommandersOnly(false); setFilterPriceBand(''); setFilterSets([]); setFilterQtyMin(0); setFilterText(''); }} className="ml-auto px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">🗑️ Clear All</button>
               </div>
             </details>
               </>
@@ -1320,6 +1344,29 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         />
       )}
       
+      {/* Search / Filter to card modal */}
+      {searchModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setSearchModalOpen(false); setSearchModalQuery(''); }}>
+          <div className="max-w-xl w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl" onClick={(e)=> e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-neutral-100 mb-2">Filter list to a card</h3>
+            <p className="text-sm text-neutral-400 mb-4">Search for a card and select it to filter the collection to that card only (see if it’s in your collection).</p>
+            <CardAutocomplete
+              value={searchModalQuery}
+              onChange={setSearchModalQuery}
+              onPick={(cardName) => {
+                setFilterText(cardName);
+                setSearchModalOpen(false);
+                setSearchModalQuery('');
+              }}
+              placeholder="Type card name…"
+            />
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={()=> { setSearchModalOpen(false); setSearchModalQuery(''); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pre-add validation modal */}
       {showAddValidation && (
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>

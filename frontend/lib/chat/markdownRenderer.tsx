@@ -21,16 +21,22 @@ function normalizeAiSpacing(line: string): string {
   return out;
 }
 
+export type RenderMarkdownOptions = {
+  /** When provided, [[Card Name]] segments are replaced with the result of this callback (e.g. inline card image + name). */
+  renderCard?: (cardName: string) => React.ReactNode;
+};
+
 /**
  * Parse and render basic markdown in chat messages
- * Supports: ### headers, bold, italic, inline code, lists, links
+ * Supports: ### headers, bold, italic, inline code, lists, links, and optional [[Card Name]] via renderCard
  */
-export function renderMarkdown(text: string): React.ReactNode {
+export function renderMarkdown(text: string, options?: RenderMarkdownOptions): React.ReactNode {
   if (!text) return null;
-  
+  const { renderCard } = options ?? {};
+
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
-  
+
   // Check for tables (markdown table format)
   const tableMatch = text.match(/\|.+\|/);
   if (tableMatch) {
@@ -40,47 +46,47 @@ export function renderMarkdown(text: string): React.ReactNode {
       // Check if second line is a separator (|---|---|)
       const separatorLine = tableLines[1];
       if (/^[\|\s\-:]+$/.test(separatorLine.trim())) {
-        return renderTable(tableLines);
+        return renderTable(tableLines, options);
       }
     }
   }
-  
+
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
     line = normalizeAiSpacing(line);
-    
+
     // Skip empty lines
     if (!line.trim()) {
       elements.push(<br key={`br-${i}`} />);
       continue;
     }
-    
+
     // ### heading (e.g. ### Step 1: Identify Deck Style)
     const h3Match = line.match(/^###\s+(.+)$/);
     if (h3Match) {
       elements.push(
         <div key={i} className="mt-4 mb-2 text-base font-semibold text-neutral-100 first:mt-0">
-          {parseInlineMarkdown(h3Match[1].trim())}
+          {parseInlineMarkdown(h3Match[1].trim(), options)}
         </div>
       );
       continue;
     }
-    
+
     // ## heading
     const h2Match = line.match(/^##\s+(.+)$/);
     if (h2Match) {
       elements.push(
         <div key={i} className="mt-5 mb-2 text-lg font-semibold text-neutral-100 first:mt-0">
-          {parseInlineMarkdown(h2Match[1].trim())}
+          {parseInlineMarkdown(h2Match[1].trim(), options)}
         </div>
       );
       continue;
     }
-    
+
     // Check if it's a list item
     const isBullet = /^[\-\*\•]\s+/.test(line);
     const isNumbered = /^\d+[\.\)]\s+/.test(line);
-    
+
     if (isBullet || isNumbered) {
       // Render as list item with spacing
       const content = line.replace(/^[\-\*\•]\s+/, '').replace(/^\d+[\.\)]\s+/, '');
@@ -88,34 +94,50 @@ export function renderMarkdown(text: string): React.ReactNode {
         <div key={i} className="ml-4 mb-1">
           {isBullet && <span className="mr-2">•</span>}
           {isNumbered && <span className="mr-2">{line.match(/^(\d+)/)?.[1]}.</span>}
-          {parseInlineMarkdown(content)}
+          {parseInlineMarkdown(content, options)}
         </div>
       );
     } else {
       // Regular paragraph with spacing
       elements.push(
         <div key={i} className="mb-2 leading-relaxed">
-          {parseInlineMarkdown(line)}
+          {parseInlineMarkdown(line, options)}
         </div>
       );
     }
   }
-  
+
   return <>{elements}</>;
 }
 
 /**
- * Parse inline markdown (bold, italic, code, links) within a line
+ * Parse inline markdown (bold, italic, code, links, and optional [[Card Name]]) within a line
  */
-function parseInlineMarkdown(text: string): React.ReactNode {
+function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let currentIndex = 0;
   let keyCounter = 0;
-  
+  const { renderCard } = options ?? {};
+
   // Find all matches
   const matches: Array<{ start: number; end: number; element: React.ReactNode }> = [];
-  
-  // Process links first (they have two capture groups: text and URL)
+
+  // Process [[Card Name]] first when renderCard is provided (double-bracket card markers)
+  if (renderCard) {
+    const cardRegex = /\[\[([^\]]+)\]\]/g;
+    let cardMatch;
+    while ((cardMatch = cardRegex.exec(text)) !== null) {
+      const start = cardMatch.index;
+      const end = cardRegex.lastIndex;
+      const cardName = cardMatch[1].trim();
+      const node = renderCard(cardName);
+      if (node != null) {
+        matches.push({ start, end, element: <React.Fragment key={keyCounter++}>{node}</React.Fragment> });
+      }
+    }
+  }
+
+  // Process links (they have two capture groups: text and URL)
   const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   let linkMatch;
   while ((linkMatch = linkRegex.exec(text)) !== null) {
@@ -124,21 +146,24 @@ function parseInlineMarkdown(text: string): React.ReactNode {
     const linkText = linkMatch[1];
     const url = linkMatch[2];
     const isInternal = url.startsWith('/');
-    
-    matches.push({
-      start,
-      end,
-      element: (
-        <a
-          key={keyCounter++}
-          href={url}
-          className="text-blue-400 hover:text-blue-300 underline"
-          {...(isInternal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-        >
-          {linkText}
-        </a>
-      )
-    });
+    // Skip if this link overlaps any [[...]] card span
+    const overlapsCard = renderCard && matches.some(m => start < m.end && end > m.start);
+    if (!overlapsCard) {
+      matches.push({
+        start,
+        end,
+        element: (
+          <a
+            key={keyCounter++}
+            href={url}
+            className="text-blue-400 hover:text-blue-300 underline"
+            {...(isInternal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+          >
+            {linkText}
+          </a>
+        )
+      });
+    }
   }
   
   // Regex patterns for other inline formatting (order matters - check longer patterns first)
@@ -157,13 +182,13 @@ function parseInlineMarkdown(text: string): React.ReactNode {
       const start = match.index;
       const end = pattern.regex.lastIndex;
       const content = match[1];
-      
-      // Check if this match overlaps with existing matches
-      const overlaps = matches.some(m => 
-        (start >= m.start && start < m.end) || 
+
+      // Check if this match overlaps with existing matches (links or [[card]])
+      const overlaps = matches.some(m =>
+        (start >= m.start && start < m.end) ||
         (end > m.start && end <= m.end)
       );
-      
+
       if (!overlaps) {
         matches.push({
           start,
@@ -206,15 +231,15 @@ function parseInlineMarkdown(text: string): React.ReactNode {
 /**
  * Render markdown table
  */
-function renderTable(tableLines: string[]): React.ReactNode {
+function renderTable(tableLines: string[], options?: RenderMarkdownOptions): React.ReactNode {
   if (tableLines.length < 2) return null;
-  
+
   // Parse header (first line)
   const headerCells = tableLines[0]
     .split('|')
     .map(c => c.trim())
     .filter(c => c.length > 0);
-  
+
   // Skip separator line (second line)
   const dataRows = tableLines.slice(2).map(line =>
     line
@@ -222,7 +247,7 @@ function renderTable(tableLines: string[]): React.ReactNode {
       .map(c => c.trim())
       .filter(c => c.length > 0)
   );
-  
+
   return (
     <div className="my-4 overflow-x-auto">
       <table className="min-w-full border-collapse border border-neutral-700">
@@ -230,7 +255,7 @@ function renderTable(tableLines: string[]): React.ReactNode {
           <tr className="bg-neutral-800">
             {headerCells.map((cell, idx) => (
               <th key={idx} className="border border-neutral-700 px-3 py-2 text-left text-sm font-semibold text-neutral-200">
-                {parseInlineMarkdown(cell)}
+                {parseInlineMarkdown(cell, options)}
               </th>
             ))}
           </tr>
@@ -240,7 +265,7 @@ function renderTable(tableLines: string[]): React.ReactNode {
             <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-neutral-900' : 'bg-neutral-950'}>
               {headerCells.map((_, colIdx) => (
                 <td key={colIdx} className="border border-neutral-700 px-3 py-2 text-sm text-neutral-300">
-                  {parseInlineMarkdown(row[colIdx] || '')}
+                  {parseInlineMarkdown(row[colIdx] || '', options)}
                 </td>
               ))}
             </tr>
