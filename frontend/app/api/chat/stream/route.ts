@@ -516,6 +516,12 @@ export async function POST(req: NextRequest) {
             }
           }
           streamSummaryTokensEstimate = v2Summary ? estimateSummaryTokens(v2Summary) : null;
+          if (activeDeckContext.source === "linked" && activeDeckContext.deckId && v2Summary) {
+            try {
+              const { snapshotDeckMetricsForDeck } = await import("@/lib/data-moat/snapshot-deck-metrics");
+              await snapshotDeckMetricsForDeck(activeDeckContext.deckId, v2Summary as Record<string, unknown>);
+            } catch (_) {}
+          }
         }
         const streamV2BuildMs = Date.now() - streamV2BuildStart;
         if (v2Summary && streamV2BuildMs > 30_000) {

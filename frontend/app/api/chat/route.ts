@@ -811,6 +811,12 @@ export async function POST(req: NextRequest) {
               );
               contextSource = "linked_db";
             }
+            if (v2Summary && deckIdToUse) {
+              try {
+                const { snapshotDeckMetricsForDeck } = await import("@/lib/data-moat/snapshot-deck-metrics");
+                await snapshotDeckMetricsForDeck(deckIdToUse, v2Summary as Record<string, unknown>);
+              } catch (_) {}
+            }
           } else {
             v2Summary = await buildDeckContextSummary(deckText, {
               format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",

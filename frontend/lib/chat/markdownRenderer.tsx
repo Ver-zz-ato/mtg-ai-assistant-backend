@@ -3,6 +3,7 @@
 // Converts basic markdown to React elements
 
 import React from 'react';
+import { applyBracketEnforcement } from '@/lib/chat/outputCleanupFilter';
 
 /**
  * Fix common AI concatenations (Step1 -> Step 1, StyleArchetype -> Style Archetype, etc.)
@@ -118,6 +119,11 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   let currentIndex = 0;
   let keyCounter = 0;
   const { renderCard } = options ?? {};
+
+  // When renderCard is provided, normalize ADD X / CUT Y to ADD [[X]] / CUT [[Y]] so card names become linkable
+  if (renderCard) {
+    text = applyBracketEnforcement(text);
+  }
 
   // Find all matches
   const matches: Array<{ start: number; end: number; element: React.ReactNode }> = [];
