@@ -3,6 +3,7 @@ import { captureServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { extractIP } from '@/lib/guest-tracking';
 
 export const runtime = 'nodejs';
 
@@ -96,7 +97,9 @@ export async function POST(req: NextRequest) {
     // Store pro funnel events locally for admin analytics
     await storeProFunnelEvent(event, payload, finalUserId, visitorId);
 
-    await captureServer(event, payload, distinctId);
+    const clientIp = extractIP(req);
+    const ipOpt = clientIp && clientIp !== 'unknown' ? { ip: clientIp } : undefined;
+    await captureServer(event, payload, distinctId, ipOpt);
     const res = NextResponse.json({ ok: true });
     if (isNew) {
       res.cookies.set(FALLBACK_ID_COOKIE, distinctId, {

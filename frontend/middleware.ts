@@ -186,6 +186,7 @@ export async function middleware(req: NextRequest) {
     const secFetchDest = req.headers.get('sec-fetch-dest');
     const userAgent = req.headers.get('user-agent') || '';
     const referrer = req.headers.get('referer') || undefined;
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || undefined;
     const fullPath = path + (req.nextUrl.search || '');
     const utm = getUtmFromUrl(req.nextUrl.search || '');
     const deviceType = getDeviceTypeFromUA(userAgent);
@@ -225,7 +226,7 @@ export async function middleware(req: NextRequest) {
         };
         if (isFirstVisit) {
           try {
-            await captureServer('user_first_visit', firstVisitProps, visitorId);
+            await captureServer('user_first_visit', firstVisitProps, visitorId, clientIp ? { ip: clientIp } : undefined);
           } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error('Failed to track first visit:', e);
           }
@@ -243,7 +244,7 @@ export async function middleware(req: NextRequest) {
               is_authenticated: !!hasAuthCookie,
               timestamp: new Date().toISOString(),
               ...utm,
-            }, visitorId);
+            }, visitorId, clientIp ? { ip: clientIp } : undefined);
             response.cookies.set(PV_LAST_COOKIE, formatPvLast(fullPath, now), {
               path: '/',
               maxAge: PV_LAST_MAX_AGE,

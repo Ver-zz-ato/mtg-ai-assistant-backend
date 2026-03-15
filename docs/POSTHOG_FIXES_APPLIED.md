@@ -87,17 +87,50 @@
 
 ---
 
-## 4. Rollback reference
+## 4. Fix 5 — GeoIP enrichment on server events
+
+**Problem:** user_first_visit and pageview_server (and other server-side events) had no client IP, so PostHog could not run GeoIP enrichment ($geoip_country_name etc.).
+
+**Files changed**
+
+- `frontend/lib/server/analytics.ts` — captureServer() now accepts optional 4th argument `options?: CaptureServerOptions` with `{ ip?: string }`. When set, we add `$ip` to the event properties so PostHog can enrich.
+- `frontend/middleware.ts` — Read client IP from `x-forwarded-for` (first entry) or `x-real-ip`, pass to captureServer for `user_first_visit` and `pageview_server`.
+- `frontend/app/api/analytics/auth-event/route.ts` — Use `extractIP(req)` from guest-tracking, pass to captureServer for signup_completed / login_completed / auth_login_success when IP is not `'unknown'`.
+- `frontend/app/api/analytics/track-event/route.ts` — Same: extractIP(req), pass to captureServer when not `'unknown'`.
+
+**Result:** Server-side events that go through middleware or the two analytics API routes now send `$ip` when the request includes a real client IP. PostHog can populate $geoip_* properties. Other API routes that call captureServer() directly (e.g. chat, decks, stripe webhook) do not pass IP unless we add it at those call sites; the main attribution events (first visit, pageview, auth, track-event) are covered.
+
+---
+
+## 5. Rollback reference
 
 | Fix | Rollback |
 |-----|----------|
 | Pricing page | In `app/pricing/page.tsx`, remove the import of `trackProUpgradeStarted` and `setActiveProFeature`, and remove the two lines that call them. |
 | Server-side alias | In `auth-event/route.ts`, remove the `aliasServer` import and the `if (visitorId && userId ...)` block. In `lib/server/analytics.ts`, remove the `aliasServer` function. |
+| GeoIP (captureServer IP) | In `lib/server/analytics.ts`, remove the 4th param and `$ip` logic. In middleware, remove `clientIp` and the 4th arg to captureServer. In auth-event and track-event, remove extractIP and ipOpt. |
 | Definitions doc | Delete or revert `docs/POSTHOG_DASHBOARD_DEFINITIONS.md` and any manual PostHog dashboard edits. |
 
 ---
 
-## 5. Verification (PostHog)
+## 6. Section F (report priority) — what we fixed vs what remains
+
+| # | Item | Fixed? | Notes |
+|---|------|--------|--------|
+| **1** | **deck_saved collapse since March 2** | **No** | We did not change deck_saved instrumentation. Audit found: deck_saved fires only on **create** (POST /api/decks/create); deck_updated fires on edit. So “collapse” may be fewer new-deck creations, not a missing event. We documented semantics (deck_saved = create, deck_updated = edit) and that “total saves” = both. **Next step:** Confirm in UI that deck creation still works; if it does, use deck_saved + deck_updated in Health – Core event collapse. If deck creation is broken, fix product, not analytics. |
+| **2** | **Zero new first-time chatters since March 8** | **No** | We did not change chat_sent or thread_created. We documented: thread_created = new thread by **logged-in** user only (guests never); chat_sent = all messages. So “first-time chatter” should be measured as “first chat_sent per user” in Activation. **Next step:** Use chat_sent for “First chat per user over time”; if still zero new users, the issue is product/UX (signup friction, gate, session), not tracking. |
+| **3** | **pro_upgrade_started tracking broken** | **Yes** | We added `setActiveProFeature('pricing_page')` and `trackProUpgradeStarted('pricing', ...)` on the pricing page so the main path (pricing → Stripe) now fires pro_upgrade_started. Confirm with Health – Pro funnel sanity (started ≥ completed). |
+| **4** | **Referrer not captured on server events** | **Already present** | Middleware already reads `req.headers.get('referer')` and sends it as `referrer` in user_first_visit and pageview_server (see middleware.ts). If 74% show referrer = None, that is likely clients not sending the Referer header (direct navigation, Referrer-Policy, or bots). No code change made. |
+| **5** | **GeoIP not enriched on server events** | **Yes** | captureServer() now accepts optional `options?: { ip?: string }`. Middleware passes client IP (x-forwarded-for / x-real-ip) for user_first_visit and pageview_server. auth-event and track-event pass client IP when available. PostHog receives `$ip` and can run GeoIP enrichment ($geoip_country_name etc.). |
+| **6** | **Signup decline trend** | **Indirect** | No signup-event change. We added server-side alias so visitor→signup funnel merges correctly; that improves measurement. The decline itself is product/UX (landing pages, CTA, form). **Next step:** Cross-reference visitor→signup funnel in Dashboard 2; investigate SEO/landing pages and signup CTA. |
+| **7** | **Retention structurally poor** | **Monitor** | No fix; prioritize after deck_saved/activation clarity. |
+| **8** | **Dec–Jan bot contamination** | **Monitor** | No fix; be cautious with historical cohorts. |
+| **9** | **Delete duplicate dashboard** | **Manual** | Archive duplicate “analytics health” (507257) in PostHog UI. |
+
+---
+
+## 7. Verification (PostHog)
 
 - **Pro funnel:** In Live Events, go to /pricing (logged in), click upgrade → confirm one `pro_upgrade_started` with pro_feature/source_path; after checkout, confirm `pro_upgrade_completed`. Funnel: count(pro_upgrade_started) ≥ count(pro_upgrade_completed) over time.
 - **Identity:** Incognito → land on site (user_first_visit) → sign up in same session → in PostHog, open the person by user_id and confirm they have both user_first_visit and signup_completed (merged).
+- **GeoIP:** After deploy, trigger a first visit or pageview (or signup) and in PostHog check the event properties for `$ip` and enriched `$geoip_country_name` (if PostHog project has GeoIP enabled).

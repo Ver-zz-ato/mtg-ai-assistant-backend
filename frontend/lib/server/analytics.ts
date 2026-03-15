@@ -28,17 +28,27 @@ export function serverAnalyticsEnabled() {
   return !!getKey();
 }
 
+/** Optional options for server-side capture (e.g. client IP for GeoIP). */
+export type CaptureServerOptions = { ip?: string };
+
 /**
  * Capture a server-side analytics event
  *
  * Use visitor_id as distinctId when anonymous; user_id when authenticated.
  * Include visitor_id in properties when available for joining funnels.
+ * Pass options.ip when available so PostHog can run GeoIP enrichment ($geoip_country_name etc.).
  *
  * @param event - Event name (prefer AnalyticsEvents constants from '@/lib/analytics/events')
  * @param properties - Event properties (should include visitor_id when available)
  * @param distinctId - distinct_id: visitor_id (anon) or user_id (auth). Defaults to properties.user_id || properties.visitor_id || 'anon'
+ * @param options - Optional: { ip } for GeoIP enrichment (e.g. from x-forwarded-for / x-real-ip)
  */
-export async function captureServer(event: string, properties: Record<string, any> = {}, distinctId?: string | null) {
+export async function captureServer(
+  event: string,
+  properties: Record<string, any> = {},
+  distinctId?: string | null,
+  options?: CaptureServerOptions
+) {
   try {
     const key = getKey();
     if (!key) return;
@@ -48,7 +58,8 @@ export async function captureServer(event: string, properties: Record<string, an
     }
     let id = distinctId ?? properties.user_id ?? properties.visitor_id ?? properties.anonymous_fallback_id;
     if (!id || id === 'anon') id = `fallback_${generateId()}`;
-    ph!.capture({ event, distinctId: id, properties });
+    const props = options?.ip ? { ...properties, $ip: options.ip } : properties;
+    ph!.capture({ event, distinctId: id, properties: props });
   } catch {}
 }
 

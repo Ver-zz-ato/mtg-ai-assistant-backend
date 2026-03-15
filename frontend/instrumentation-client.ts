@@ -53,8 +53,16 @@ Sentry.init({
       return null;
     }
 
-    // PostHog: AbortError when fetch is aborted (user navigates away, timeout). Benign.
-    if (errorType === 'AbortError' && (errorValue.includes('aborted') || errorValue.includes('signal is aborted'))) {
+    // AbortError / user aborted: fetch aborted (navigate away, tab close, AbortController.abort()). Benign.
+    if (
+      errorType === 'AbortError' ||
+      (errorValue.includes('AbortError') && (errorValue.includes('aborted') || errorValue.includes('user aborted a request')))
+    ) {
+      return null;
+    }
+
+    // Worker importScripts blob failure: Next/turbopack worker blob URLs can fail to load (CSP, navigation). Not actionable.
+    if (errorValue.includes("importScripts") && errorValue.includes("WorkerGlobalScope") && errorValue.includes("failed to load")) {
       return null;
     }
 
@@ -62,6 +70,15 @@ Sentry.init({
     if (errorValue.includes('Load failed') && errorValue.includes('cards.scryfall.io')) {
       return null;
     }
+
+    // SecurityError: Browser/extension/iframe restrictions. Not fixable in app code.
+    if (errorType === 'SecurityError') {
+      if (errorValue.includes('The request was denied.') || errorValue.includes("request was denied")) return null;
+      if (errorValue.includes("localStorage") && errorValue.includes("Access is denied for this document")) return null;
+    }
+
+    // invalid origin: Analytics/PostHog or CORS in restricted contexts (e.g. DuckDuckGo in-app browser). Not actionable.
+    if (errorValue.includes('invalid origin')) return null;
 
     // Ignore errors from known malicious domains (browser extension/adware injection)
     const maliciousDomains = [

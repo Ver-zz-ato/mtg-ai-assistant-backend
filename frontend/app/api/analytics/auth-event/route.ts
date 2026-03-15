@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { captureServer, aliasServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
+import { extractIP } from '@/lib/guest-tracking';
 
 export const runtime = 'nodejs';
 
@@ -53,10 +54,12 @@ export async function POST(req: NextRequest) {
     };
     if (isFallback) (props as Record<string, unknown>).anonymous_fallback_id = distinctId;
 
-    await captureServer(type, props, distinctId);
+    const clientIp = extractIP(req);
+    const ipOpt = clientIp && clientIp !== 'unknown' ? { ip: clientIp } : undefined;
+    await captureServer(type, props, distinctId, ipOpt);
     // Also send auth_login_success for login_completed (dashboard backward compatibility - client-side can be lost on reload)
     if (type === 'login_completed') {
-      await captureServer('auth_login_success', { ...props, method: props.method === 'oauth' ? 'oauth' : 'email_password' }, distinctId);
+      await captureServer('auth_login_success', { ...props, method: props.method === 'oauth' ? 'oauth' : 'email_password' }, distinctId, ipOpt);
     }
     // Merge visitor person into user person so visitor → signup funnel is one person
     if (visitorId && userId && visitorId !== userId) {

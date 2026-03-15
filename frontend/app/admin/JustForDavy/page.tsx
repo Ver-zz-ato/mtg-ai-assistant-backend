@@ -21,6 +21,7 @@ const GROUPS = [
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai", label: "AI & Chat", eli5: "Prompts, personas, moderation lists" },
       { href: "/admin/ai-test", label: "AI Test Suite", eli5: "Run evals, compare prompts, approve changes" },
+      { href: "/admin/ai-test-v3", label: "AI Test V3", eli5: "Unified AI evaluation: prompt contract, context, behavior, adversarial, and regression tests. Run suites, compare runs, export, and review improvement ideas." },
       { href: "/admin/test-suite-v2", label: "V2", eli5: "Test Suite V2: scenario-based AI eval, deck memory, rules grounding" },
       { href: "/admin/chat-flow-test", label: "Chat Flow Test", eli5: "Test AI flow by tier, deck context, accuracy" },
       { href: "/admin/chat-test", label: "Chat Test", eli5: "Full chat module in isolation with debug log panel" },
