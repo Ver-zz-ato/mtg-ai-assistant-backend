@@ -846,7 +846,7 @@ function Chat(props: ChatProps = {}) {
       }
       
       // Check if typing message already exists in state
-      const hasTyping = prev.some((msg: any) => msg.role === 'assistant' && msg.content === 'Typing…');
+      const hasTyping = prev.some((msg: any) => msg.role === 'assistant' && msg.content === 'Thinking..');
       if (hasTyping) {
         return prev;
       }
@@ -860,7 +860,7 @@ function Chat(props: ChatProps = {}) {
           id: streamingMsgId,
           thread_id: currentThreadId || "",
           role: "assistant",
-          content: "Typing…",
+          content: "Thinking..",
           created_at: new Date().toISOString()
         } as any,
       ];
@@ -945,7 +945,7 @@ function Chat(props: ChatProps = {}) {
             const existingIndex = m.findIndex((msg: any) => msg.id === streamingMsgId);
             
             if (existingIndex !== -1) {
-              // Update the existing "Typing..." placeholder with final content
+              // Update the existing "Thinking.." placeholder with final content
               const newMessages = [...m];
               newMessages[existingIndex] = {
                 ...newMessages[existingIndex],

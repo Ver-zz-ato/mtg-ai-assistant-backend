@@ -664,10 +664,15 @@ export async function POST(req: NextRequest) {
           inferredContext = await inferDeckContext(deckData.deckText, text, deckData.entries, formatDisplay, d?.commander ?? null, [], byName);
         } catch (_) {}
       }
+      const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
+      const commanderForDeckContext =
+        isAuthoritativeForPrompt(activeDeckContext) && activeDeckContext.commanderName
+          ? activeDeckContext.commanderName
+          : inferredContext.commander;
       sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
       sys += `- Format: ${inferredContext.format} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
       sys += `- Colors: ${inferredContext.colors.join(", ") || "none"}\n`;
-      if (inferredContext.commander) sys += `- Commander: ${inferredContext.commander}\n`;
+      if (commanderForDeckContext) sys += `- Commander: ${commanderForDeckContext}\n`;
       sys += `- Deck Title: ${d?.title || "Untitled Deck"}\n`;
       sys += `- Full Decklist:\n${deckData.deckText}\n`;
       sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;

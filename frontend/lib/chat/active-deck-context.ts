@@ -265,7 +265,18 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
       ? inferCommander(decklistText, text ?? undefined, null)?.commanderName ?? null
       : null;
 
-  const userJustConfirmedCommander = userRespondedToConfirm && !isCorrection;
+  // Treat "X is the commander" (or "X is my commander") in current message as explicit confirmation so we don't ask again or contradict with "system info"
+  const explicitDeclarationMatch = (text ?? "").match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
+  const declaredCommander = explicitDeclarationMatch ? explicitDeclarationMatch[1].trim() : null;
+  const userDeclaredCommanderThisTurn =
+    declaredCommander &&
+    commanderName &&
+    declaredCommander.length >= 2 &&
+    declaredCommander.length <= 80 &&
+    declaredCommander.toLowerCase() === commanderName.toLowerCase();
+
+  const userJustConfirmedCommander =
+    (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn;
   const userJustCorrectedCommander = userRespondedToConfirm && isCorrection;
 
   let shouldAskCommanderConfirmation = false;

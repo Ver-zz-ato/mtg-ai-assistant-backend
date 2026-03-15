@@ -158,12 +158,12 @@ function WishlistCompareCard({ collectionId, currency }: { collectionId: string;
 
   return (
     <div className="p-3 space-y-2 text-sm">
-      <div className="flex gap-2">
-        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm">
+      <div className="flex gap-2 items-center">
+        <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} className="flex-1 min-h-[34px] bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm">
           <option value="">Select wishlist…</option>
           {wishlists.map(w=> (<option key={w.id} value={w.id}>{w.name}{typeof w.card_count==='number'? ` (${w.card_count})`: ''}</option>))}
         </select>
-        <button onClick={compare} disabled={!selectedId||loading} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50">{loading? 'Comparing…':'Compare'}</button>
+        <button type="button" onClick={compare} disabled={!selectedId||loading} className="shrink-0 h-[34px] px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50">{loading? 'Comparing…':'Compare'}</button>
       </div>
       {gaps.length>0 && (
         <div className="space-y-1">
@@ -1037,19 +1037,21 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
                 </label>
               ))}
             </div>
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
-              <span className="font-semibold text-sm bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">🃏 Type:</span>
-              {['creature','instant','sorcery','land','artifact','enchantment'].map(k=> (
-                <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
-                  <input type="checkbox" checked={filterTypes.includes(k)} onChange={(e)=> setFilterTypes(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"/>
-                  <span className="font-medium capitalize">{k}</span>
-                </label>
-              ))}
+            <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
+              <span className="font-semibold text-sm bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent shrink-0">🃏 Type:</span>
+              <div className="inline-flex items-center gap-2 flex-wrap">
+                {['creature','instant','sorcery','land','artifact','enchantment'].map(k=> (
+                  <label key={k} className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors">
+                    <input type="checkbox" checked={filterTypes.includes(k)} onChange={(e)=> setFilterTypes(p=> e.target.checked? [...p,k] : p.filter(x=>x!==k))} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"/>
+                    <span className="font-medium capitalize">{k}</span>
+                  </label>
+                ))}
+              </div>
+              <label className="inline-flex items-center gap-2 cursor-pointer hover:bg-neutral-800/50 px-2 py-1 rounded transition-colors" title="Cards that can be a commander (Legendary Creature)">
+                <input type="checkbox" checked={filterCommandersOnly} onChange={(e)=> setFilterCommandersOnly(e.target.checked)} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"/>
+                <span className="font-semibold text-sm bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Commanders only</span>
+              </label>
             </div>
-            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50 cursor-pointer hover:bg-neutral-800/50 transition-colors" title="Cards that can be a commander (Legendary Creature)">
-              <input type="checkbox" checked={filterCommandersOnly} onChange={(e)=> setFilterCommandersOnly(e.target.checked)} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"/>
-              <span className="font-semibold text-sm bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Filter by commanders available</span>
-            </label>
             <div className="flex flex-col gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 border border-neutral-700/50">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">💲 Price Range</span>

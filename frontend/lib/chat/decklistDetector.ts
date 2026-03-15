@@ -133,10 +133,15 @@ export function inferCommander(
     }
   }
 
-  // Priority 2: User message "my commander is X"
+  // Priority 2: User message declares commander ("my commander is X", "X is the commander", "using X as commander")
   if (userMessage) {
     const m = userMessage.match(/my commander (?:is|:)\s*([^.?!,\n]+)/i);
     if (m) return { commanderName: m[1].trim(), confidence: 0.9, reason: "user_message", candidates: [{ name: m[1].trim(), confidence: 0.9 }] };
+    const decl = userMessage.match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
+    if (decl) {
+      const name = decl[1].trim();
+      if (name.length >= 2 && name.length <= 80) return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
+    }
     const alt = userMessage.match(/(?:using|with)\s+(.+?)\s+as\s+(?:my\s+)?commander/i);
     if (alt) return { commanderName: alt[1].trim(), confidence: 0.9, reason: "user_message", candidates: [{ name: alt[1].trim(), confidence: 0.9 }] };
   }
