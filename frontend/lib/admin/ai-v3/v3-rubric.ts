@@ -36,6 +36,22 @@ export function scoreV3Response(
     };
   }
 
+  const nonAnswerPatterns = [
+    "temporarily unavailable",
+    "okay — noted",
+    "how can i help you improve or analyze",
+    "ask me mtg stuff",
+  ];
+  if (nonAnswerPatterns.some((p) => lower.includes(p))) {
+    hardFailures.push({ kind: "non_answer", message: "Model returned a non-answer (fallback, redirect, or deck-ack only)." });
+    return {
+      score: { overall_score: 0 },
+      status: "HARD_FAIL",
+      hardFailures,
+      softFailures,
+    };
+  }
+
   let rules = 5;
   let deck = 5;
   let cardRef = 5;

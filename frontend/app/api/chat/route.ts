@@ -895,7 +895,13 @@ export async function POST(req: NextRequest) {
     let sys: string;
     let promptVersionId: string | null;
 
-    if (selectedTier === "micro") {
+    if (evalRunId && !hasDeckContextForTier) {
+      sys =
+        "You are ManaTap AI, a concise Magic: The Gathering assistant. Answer the user's question directly. When mentioning card names use [[double brackets]]. Do not ask for a deck or say \"noted\" unless the user is clearly sharing a decklist.\n\n" +
+        NO_FILLER_INSTRUCTION;
+      promptVersionId = null;
+      promptResult = { systemPrompt: sys, promptPath: "eval_no_deck", formatKey, modulesAttached: [] };
+    } else if (selectedTier === "micro") {
       sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = null;
       promptResult = { systemPrompt: MICRO_PROMPT, promptPath: "composed", formatKey, modulesAttached: [] };

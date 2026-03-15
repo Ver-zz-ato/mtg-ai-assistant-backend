@@ -35,6 +35,22 @@ export function scoreV4Response(
     };
   }
 
+  const nonAnswerPatterns = [
+    "temporarily unavailable",
+    "okay — noted",
+    "how can i help you improve or analyze",
+    "ask me mtg stuff",
+  ];
+  if (nonAnswerPatterns.some((p) => lower.includes(p))) {
+    hardFailures.push({ kind: "non_answer", message: "Model returned a non-answer (fallback, redirect, or deck-ack only)." });
+    return {
+      score: { overall_score: 0 },
+      status: "HARD_FAIL",
+      hardFailures,
+      softFailures,
+    };
+  }
+
   let hallucinationResist = 5;
   let contradictionResist = 5;
   let uncertaintyHonesty = 5;
