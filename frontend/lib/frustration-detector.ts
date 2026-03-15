@@ -43,7 +43,6 @@ class FrustrationDetector {
         click_count: rapidClicks.count,
         time_window_ms: this.RAPID_CLICK_WINDOW
       });
-      try { window.dispatchEvent(new CustomEvent('manatap:frustration_detected', { detail: { indicator: 'rapid_clicks' } })); } catch {}
       // Reset to avoid spam
       rapidClicks.count = 0;
     }
@@ -67,7 +66,6 @@ class FrustrationDetector {
         attempt_count: formResubmits.count,
         last_error: error
       });
-      try { window.dispatchEvent(new CustomEvent('manatap:frustration_detected', { detail: { indicator: 'form_resubmit' } })); } catch {}
       // Reset to avoid spam
       formResubmits.count = 0;
     }
@@ -92,7 +90,6 @@ class FrustrationDetector {
         error_message: errorMessage,
         repeat_count: current.count
       });
-      try { window.dispatchEvent(new CustomEvent('manatap:frustration_detected', { detail: { indicator: 'error_repeat' } })); } catch {}
       // Reset to avoid spam
       current.count = 0;
     }
@@ -114,7 +111,6 @@ class FrustrationDetector {
       trackUserFrustration('back_button_spam', {
         back_count: backButtonSpam.count
       });
-      try { window.dispatchEvent(new CustomEvent('manatap:frustration_detected', { detail: { indicator: 'back_button_spam' } })); } catch {}
       // Reset to avoid spam
       backButtonSpam.count = 0;
     }
