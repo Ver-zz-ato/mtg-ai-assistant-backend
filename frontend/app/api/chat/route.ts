@@ -478,32 +478,34 @@ export async function POST(req: NextRequest) {
       tid = null;
       created = false;
     } else if (!tid) {
-      const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
-      
-      // Enforce thread limits: Free: 30, Pro: unlimited
-      if (!isPro) {
-        const threadLimit = 30;
-        const { count, error: cErr } = await supabase
-          .from("chat_threads")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId!);
-        if (cErr) { status = 500; return err(cErr.message, "db_error", 500); }
-        if ((count ?? 0) >= threadLimit) {
-          status = 400;
-          return err(`Thread limit reached (30). Upgrade to Pro for unlimited threads! Please delete a thread before creating a new one.`, "thread_limit", status);
+      // Eval runs (e.g. AI test V3/V4): no thread, no message insert
+      if (evalRunId) {
+        tid = null;
+        created = false;
+      } else {
+        const title = text.slice(0, 60).replace(/\s+/g, " ").trim();
+        // Enforce thread limits: Free: 30, Pro: unlimited
+        if (!isPro) {
+          const threadLimit = 30;
+          const { count, error: cErr } = await supabase
+            .from("chat_threads")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId!);
+          if (cErr) { status = 500; return err(cErr.message, "db_error", 500); }
+          if ((count ?? 0) >= threadLimit) {
+            status = 400;
+            return err(`Thread limit reached (30). Upgrade to Pro for unlimited threads! Please delete a thread before creating a new one.`, "thread_limit", status);
+          }
         }
+        const { data, error } = await supabase
+          .from("chat_threads")
+          .insert({ user_id: userId!, title })
+          .select("id")
+          .single();
+        if (error) { status = 500; return err(error.message, "db_error", 500); }
+        tid = data.id;
+        created = true;
       }
-      // Pro users: no thread limit check (unlimited)
-
-      // Create thread
-      const { data, error } = await supabase
-        .from("chat_threads")
-        .insert({ user_id: userId!, title })
-        .select("id")
-        .single();
-      if (error) { status = 500; return err(error.message, "db_error", 500); }
-      tid = data.id;
-      created = true;
     } else {
       // Verify thread exists and belongs to user
       const { data, error } = await supabase
@@ -515,7 +517,7 @@ export async function POST(req: NextRequest) {
       if (error || !data) { status = 404; return err("thread not found", "not_found", 404); }
     }
 
-    if (!raw?.noUserInsert && !isGuest && tid) {
+    if (!raw?.noUserInsert && !isGuest && tid && !evalRunId) {
       await supabase.from("chat_messages")
         .insert({ thread_id: tid, role: "user", content: text });
     }
@@ -630,6 +632,22 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         // Silently fail - RAG is optional enhancement
         console.warn('Failed to fetch conversation history for RAG:', error);
+      }
+    } else if (evalRunId && typeof raw?.deckText === "string" && raw.deckText.trim()) {
+      // Eval mode: inject pasted deck context from body (AI test V3/V4)
+      const evalDeckText = raw.deckText.trim();
+      pastedDeckTextRaw = evalDeckText;
+      const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+      const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+      const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+      const problems = analyzeDecklistFromText(evalDeckText);
+      pastedDecklistContext = generateDeckContext(problems, "Pasted Decklist", evalDeckText);
+      if (pastedDecklistContext) {
+        const parsedEntries = parseDeckText(evalDeckText).map((e) => ({ name: e.name, count: e.qty }));
+        const commanderName = extractCommanderFromDecklistText(evalDeckText, text);
+        if (parsedEntries.length >= 6) {
+          pastedDecklistForCompose = { deckCards: parsedEntries, commanderName, colorIdentity: null, deckId: undefined };
+        }
       }
     }
 

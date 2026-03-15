@@ -4,6 +4,9 @@ import { isAdmin } from "@/lib/admin-check";
 import { SCENARIOS } from "@/lib/admin/ai-v2/scenarios";
 import { runScenarios, buildRunSummary } from "@/lib/admin/ai-v2/runner";
 import type { Scenario } from "@/lib/admin/ai-v2/types";
+import { runV3Scenario, runV4Scenario } from "@/lib/admin/ai-v3/model-runner";
+import type { ModelRunnerScenario } from "@/lib/admin/ai-v3/model-runner";
+import { MONO_GREEN_DECKLIST } from "@/lib/admin/ai-v2/fixtures";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -38,16 +41,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid suiteKey" }, { status: 400 });
   }
 
-  // V3/V4: model-backed not wired yet
-  if (suiteKey === "v3" || suiteKey === "v4") {
-    return NextResponse.json({
-      ok: false,
-      error: "V3/V4 model-backed runs not implemented in this route yet; use V1, V2, or V5.",
-    }, { status: 501 });
-  }
-
-  let rows: Array<{ id: string; suite_key: string; scenario_key: string; title?: string; scenario_definition_json: { v2ScenarioId?: string } }>;
-  let v2Scenarios: Scenario[];
+  let rows: Array<{ id: string; suite_key: string; scenario_key: string; title?: string; scenario_definition_json: { v2ScenarioId?: string; userMessage?: string; deckContext?: string } }>;
+  let v2Scenarios: Scenario[] = [];
   const regressionIdByV2Id: Record<string, string> = {};
 
   if (suiteKey === "v5") {
@@ -78,7 +73,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No active regressions with valid v2ScenarioId" }, { status: 400 });
     }
   } else {
-    // Load scenarios from DB for v1 or v2
+    // Load scenarios from DB for v1, v2, v3, or v4
     let query = supabase
       .from("ai_test_scenarios")
       .select("id, suite_key, scenario_key, title, scenario_definition_json")
@@ -95,14 +90,18 @@ export async function POST(req: NextRequest) {
     if (rows.length === 0) {
       return NextResponse.json({ ok: false, error: "No scenarios to run" }, { status: 400 });
     }
-    const v2Ids = rows
-      .map((r: { scenario_definition_json: { v2ScenarioId?: string } }) => r.scenario_definition_json?.v2ScenarioId)
-      .filter(Boolean) as string[];
-    v2Scenarios = SCENARIOS.filter((s) => v2Ids.includes(s.id));
-    if (v2Scenarios.length === 0) {
-      return NextResponse.json({ ok: false, error: "No matching V2 scenarios found" }, { status: 400 });
+    if (suiteKey === "v1" || suiteKey === "v2") {
+      const v2Ids = rows
+        .map((r: { scenario_definition_json: { v2ScenarioId?: string } }) => r.scenario_definition_json?.v2ScenarioId)
+        .filter(Boolean) as string[];
+      v2Scenarios = SCENARIOS.filter((s) => v2Ids.includes(s.id));
+      if (v2Scenarios.length === 0) {
+        return NextResponse.json({ ok: false, error: "No matching V2 scenarios found" }, { status: 400 });
+      }
     }
   }
+
+  const totalScenarios = suiteKey === "v3" || suiteKey === "v4" ? rows.length : v2Scenarios.length;
 
   // Create run row (running)
   const { data: runRow, error: runInsertError } = await supabase
@@ -112,7 +111,7 @@ export async function POST(req: NextRequest) {
       run_mode: runMode,
       model_name: modelName,
       status: "running",
-      total: v2Scenarios.length,
+      total: totalScenarios,
       passed: 0,
       warned: 0,
       failed: 0,
@@ -128,19 +127,6 @@ export async function POST(req: NextRequest) {
   const runId = runRow.id;
 
   try {
-    const results = await runScenarios(v2Scenarios);
-    const summary = buildRunSummary(results);
-
-    // Map scenarioId (V2 id) back to our row for scenario_id (null for V5)
-    const scenarioKeyToRow: Record<string, { id: string | null; scenario_key: string }> = {};
-    for (const r of rows) {
-      const v2Id = r.scenario_definition_json?.v2ScenarioId ?? r.scenario_key;
-      scenarioKeyToRow[v2Id] = {
-        id: suiteKey === "v5" ? null : (r as { id: string }).id,
-        scenario_key: r.scenario_key,
-      };
-    }
-
     let passed = 0;
     let warned = 0;
     let failed = 0;
@@ -160,29 +146,104 @@ export async function POST(req: NextRequest) {
       validator_findings_json: unknown[];
       debug_json: object;
     }> = [];
-    for (const r of results) {
-      const row = scenarioKeyToRow[r.scenarioId];
-      const status = mapV2StatusToResultStatus(r.status);
-      if (status === "PASS") passed++;
-      else if (status === "WARN") warned++;
-      else failed++;
-      hardCount += r.hardFailures.length;
-      softCount += r.softFailures.length;
-      toInsert.push({
-        run_id: runId,
-        scenario_id: row?.id ?? null,
-        suite_key: suiteKey,
-        scenario_key: row?.scenario_key ?? r.scenarioId,
-        status,
-        score_json: {},
-        hard_failures_json: r.hardFailures,
-        soft_failures_json: r.softFailures,
-        prompt_excerpt: r.debug?.promptExcerpt ?? null,
-        output_text: r.modelResponse ?? null,
-        validator_findings_json: r.validatorFindings ?? [],
-        debug_json: r.debug ?? {},
-      });
+    let summary: Record<string, unknown>;
+
+    if (suiteKey === "v3" || suiteKey === "v4") {
+      const baseUrl = req.nextUrl.origin;
+      const cookie = req.headers.get("cookie") ?? "";
+      const evalRunId = runId;
+      const callChat = async (body: { text: string; deckText?: string | null; evalRunId?: string; modelName?: string | null }) => {
+        const res = await fetch(`${baseUrl}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: cookie },
+          body: JSON.stringify({
+            text: body.text,
+            threadId: null,
+            prefs: { format: "Commander" },
+            noUserInsert: true,
+            eval_run_id: body.evalRunId ?? evalRunId,
+            deckText: body.deckText ?? undefined,
+            forceModel: modelName ?? process.env.MODEL_AI_TEST ?? undefined,
+          }),
+        });
+        const data = await res.json();
+        const text = data?.text ?? "";
+        const fallback = !!data?.fallback;
+        return { text, fallback };
+      };
+      const modelScenarios: ModelRunnerScenario[] = rows.map((r) => ({
+        id: r.id,
+        scenario_key: r.scenario_key,
+        suite_key: r.suite_key,
+        scenario_definition_json: r.scenario_definition_json as ModelRunnerScenario["scenario_definition_json"],
+      }));
+      const runOpts = {
+        callChat,
+        evalRunId,
+        modelName: modelName ?? undefined,
+        deckText: MONO_GREEN_DECKLIST,
+      };
+      const results = suiteKey === "v3"
+        ? await Promise.all(modelScenarios.map((s) => runV3Scenario(s, runOpts)))
+        : await Promise.all(modelScenarios.map((s) => runV4Scenario(s, runOpts)));
+      for (const r of results) {
+        if (r.status === "PASS") passed++;
+        else if (r.status === "WARN") warned++;
+        else failed++;
+        hardCount += r.hardFailures.length;
+        softCount += r.softFailures.length;
+        toInsert.push({
+          run_id: runId,
+          scenario_id: r.scenarioId,
+          suite_key: suiteKey,
+          scenario_key: r.scenarioKey,
+          status: r.status,
+          score_json: r.score ?? {},
+          hard_failures_json: r.hardFailures,
+          soft_failures_json: r.softFailures,
+          prompt_excerpt: null,
+          output_text: r.outputText ?? null,
+          validator_findings_json: [],
+          debug_json: r.debug ?? {},
+        });
+      }
+      summary = { total: results.length, passed, failed, hardFailures: hardCount, softFailures: softCount };
+    } else {
+      const results = await runScenarios(v2Scenarios);
+      summary = buildRunSummary(results);
+      const scenarioKeyToRow: Record<string, { id: string | null; scenario_key: string }> = {};
+      for (const r of rows) {
+        const v2Id = r.scenario_definition_json?.v2ScenarioId ?? r.scenario_key;
+        scenarioKeyToRow[v2Id] = {
+          id: suiteKey === "v5" ? null : (r as { id: string }).id,
+          scenario_key: r.scenario_key,
+        };
+      }
+      for (const r of results) {
+        const row = scenarioKeyToRow[r.scenarioId];
+        const status = mapV2StatusToResultStatus(r.status);
+        if (status === "PASS") passed++;
+        else if (status === "WARN") warned++;
+        else failed++;
+        hardCount += r.hardFailures.length;
+        softCount += r.softFailures.length;
+        toInsert.push({
+          run_id: runId,
+          scenario_id: row?.id ?? null,
+          suite_key: suiteKey,
+          scenario_key: row?.scenario_key ?? r.scenarioId,
+          status,
+          score_json: {},
+          hard_failures_json: r.hardFailures,
+          soft_failures_json: r.softFailures,
+          prompt_excerpt: r.debug?.promptExcerpt ?? null,
+          output_text: r.modelResponse ?? null,
+          validator_findings_json: r.validatorFindings ?? [],
+          debug_json: r.debug ?? {},
+        });
+      }
     }
+
     if (toInsert.length > 0) {
       await supabase.from("ai_test_run_results").insert(toInsert);
     }

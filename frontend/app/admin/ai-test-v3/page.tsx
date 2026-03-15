@@ -265,7 +265,7 @@ export default function AiTestV3Page() {
                 </div>
                 <button
                   onClick={() => runSuite(s.key)}
-                  disabled={runBusy || (s.key !== "v1" && s.key !== "v2" && s.key !== "v5")}
+                  disabled={runBusy}
                   className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-sm"
                 >
                   {runBusy && selectedSuiteKey === s.key ? "Running…" : "Run this suite"}
@@ -273,7 +273,7 @@ export default function AiTestV3Page() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-neutral-500 mt-3">V3 and V4 (model-backed) are not wired yet; V1, V2, and V5 (regression library) can be run.</p>
+          <p className="text-xs text-neutral-500 mt-3">V1/V2/V5 run without calling the model; V3 and V4 call the chat API and score responses with rubrics.</p>
         </section>
       )}
 
