@@ -16,7 +16,7 @@ export default function BlogPage() {
       .then((data) => {
         if (!data?.ok || !Array.isArray(data?.blog?.entries)) return;
         const apiEntries = data.blog.entries as typeof DEFAULT_BLOG_POSTS;
-        const apiBySlug = new Map<string (typeof DEFAULT_BLOG_POSTS)[number]>();
+        const apiBySlug = new Map<string, (typeof DEFAULT_BLOG_POSTS)[number]>();
         for (const e of apiEntries) {
           if (e?.slug) {
             apiBySlug.set(e.slug, {
