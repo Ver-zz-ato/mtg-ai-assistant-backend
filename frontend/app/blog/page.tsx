@@ -38,11 +38,12 @@ export default function BlogPage() {
   }, []);
 
   const filteredPosts = useMemo(() => {
-    let posts = selectedCategory === 'All Posts'
+    const posts = selectedCategory === 'All Posts'
       ? blogPosts
       : blogPosts.filter(post => post.category === selectedCategory);
-    // Sort by date descending (newest first)
-    return posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const dateTs = (p: (typeof blogPosts)[number]) => new Date(p.date).getTime() || 0;
+    // Sort by date descending (newest first); copy so we don't mutate state
+    return [...posts].sort((a, b) => dateTs(b) - dateTs(a));
   }, [selectedCategory, blogPosts]);
 
   const categories = ['All Posts', 'Budget Building', 'Strategy', 'Commander', 'Announcement'];
