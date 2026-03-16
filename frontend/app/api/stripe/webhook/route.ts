@@ -313,11 +313,13 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 
 async function handleSubscriptionUpdated(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
-  
+  const previousAttributes = (event.data as { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
+
   console.info('Processing subscription updated', {
     subscriptionId: subscription.id,
     customerId: subscription.customer,
     status: subscription.status,
+    previousStatus: previousAttributes?.status,
   });
 
   // Find user by customer ID (service role - webhooks have no cookies)
@@ -416,22 +418,29 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
 
     console.info('Subscription activated', { userId: profile.id, plan });
 
-    // Fire pro_upgrade_completed when subscription becomes active (e.g. reactivation, or delayed webhook)
-    try {
-      await captureServer(
-        'pro_upgrade_completed',
-        {
-          user_id: profile.id,
-          pro_feature: 'subscription_updated',
-          source_path: 'stripe_webhook',
-          plan: plan ?? undefined,
-          stripe_subscription_id: subscription.id,
-          event_category: 'pro_funnel',
-        },
-        profile.id
-      );
-    } catch (e) {
-      console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
+    // Fire pro_upgrade_completed only when we transitioned TO active from another state (e.g. reactivation).
+    // Do NOT fire when subscription was already active (e.g. no-op update, or renewal attempt that failed later).
+    const transitionedToActive =
+      previousAttributes &&
+      typeof previousAttributes.status === 'string' &&
+      previousAttributes.status !== 'active';
+    if (transitionedToActive) {
+      try {
+        await captureServer(
+          'pro_upgrade_completed',
+          {
+            user_id: profile.id,
+            pro_feature: 'subscription_updated',
+            source_path: 'stripe_webhook',
+            plan: plan ?? undefined,
+            stripe_subscription_id: subscription.id,
+            event_category: 'pro_funnel',
+          },
+          profile.id
+        );
+      } catch (e) {
+        console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
+      }
     }
 
   } else if (subscription.status === 'canceled') {

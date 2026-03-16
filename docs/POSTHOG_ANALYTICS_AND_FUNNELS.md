@@ -89,7 +89,7 @@ This document lists all analytics events (from code), the main user flows that g
 | `pro_gate_viewed` | analytics-pro + track-event | Client + Server | pro_feature, source_path, is_logged_in, is_pro, visitor_id |
 | `pro_gate_clicked` | analytics-pro | Client | pro_feature, gate_location |
 | `pro_upgrade_started` | analytics-pro + track-event; pricing page (after fix), ProBadge, DeckSnapshotPanel, HandTestingWidget | Client + Server | pro_feature, source_path, workflow_run_id |
-| `pro_upgrade_completed` | Stripe webhook; thank-you page | Server + Client | user_id, source_path (thank_you_page \| stripe_webhook) |
+| `pro_upgrade_completed` | Stripe webhook (checkout.session.completed, or subscription.updated only when status transitions to active); thank-you page | Server + Client | user_id, source_path (thank_you_page \| stripe_webhook) |
 | `pro_badge_upgrade_clicked` | ProBadge | Client | source |
 | `pro_feature_awareness` / `pro_feature_cta_clicked` | ProValueTooltip | Client | — |
 
