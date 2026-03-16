@@ -9,28 +9,30 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Posts');
   const [blogPosts, setBlogPosts] = useState<typeof DEFAULT_BLOG_POSTS>(DEFAULT_BLOG_POSTS);
 
+  // Single source of truth: DEFAULT_BLOG_POSTS. API only enriches/overrides by slug.
   useEffect(() => {
     fetch('/api/blog')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.ok && Array.isArray(data?.blog?.entries)) {
-          const apiEntries = data.blog.entries as typeof DEFAULT_BLOG_POSTS;
-          // Merge: use defaults as base, API entries override (never remove defaults)
-          const bySlug = new Map(DEFAULT_BLOG_POSTS.map((p) => [p.slug, { ...p }]));
-          for (const e of apiEntries) {
-            if (e?.slug) {
-              // Normalize so required fields exist (API may use different casing)
-              const normalized = {
-                ...bySlug.get(e.slug),
-                ...e,
-                slug: e.slug,
-                readTime: e.readTime ?? (e as any).read_time ?? '5 min read',
-              };
-              bySlug.set(e.slug, normalized); // dedupes if DB has same slug twice
-            }
+        if (!data?.ok || !Array.isArray(data?.blog?.entries)) return;
+        const apiEntries = data.blog.entries as typeof DEFAULT_BLOG_POSTS;
+        const apiBySlug = new Map<string (typeof DEFAULT_BLOG_POSTS)[number]>();
+        for (const e of apiEntries) {
+          if (e?.slug) {
+            apiBySlug.set(e.slug, {
+              ...e,
+              readTime: e.readTime ?? (e as any).read_time ?? '5 min read',
+            });
           }
-          setBlogPosts(Array.from(bySlug.values()));
         }
+        // Start from code defaults; overlay API data per slug; append API-only slugs
+        const fromDefaults = DEFAULT_BLOG_POSTS.map((p) =>
+          apiBySlug.has(p.slug) ? { ...p, ...apiBySlug.get(p.slug)! } : p
+        );
+        const defaultSlugs = new Set(fromDefaults.map((p) => p.slug));
+        const apiOnly = apiEntries.filter((e) => e?.slug && !defaultSlugs.has(e.slug));
+        const merged = [...fromDefaults, ...apiOnly];
+        setBlogPosts(merged);
       })
       .catch(() => {});
   }, []);

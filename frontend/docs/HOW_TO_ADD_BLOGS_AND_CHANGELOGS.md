@@ -9,9 +9,9 @@ This guide explains how to add new blog posts and changelog entries to ManaTap A
 | Item | Storage | Where it appears |
 |------|---------|------------------|
 | **Changelog** | Supabase `app_config` (key: `changelog`) | What's New page |
-| **Blog listing** | Supabase `app_config` (key: `blog`) | Blog index (`/blog`) |
+| **Blog listing** | `lib/blog-defaults.ts` (canonical); API enriches only | Blog index (`/blog`) |
 | **Blog content** | Codebase `app/blog/[slug]/page.tsx` | Individual post pages |
-| **Blog defaults** | `lib/blog-defaults.ts` | Fallback + Admin Import |
+| **Blog defaults** | `lib/blog-defaults.ts` | Listing + sitemap + Admin Import |
 
 ---
 
@@ -102,7 +102,7 @@ Use Admin → Changelog (or POST to `/api/admin/changelog`) if available. The SQ
 
 ## 2. Adding a Blog Post
 
-You need to touch **three places** so the post appears and the full content renders.
+You need to touch **three places** so the post appears and the full content renders. The sitemap uses `blog-defaults.ts`, so no separate sitemap edit is needed. See `docs/BLOG_SOURCES_OF_TRUTH_AUDIT.md` for how listing, API, and sitemap relate.
 
 ### Step 1: Add metadata to `lib/blog-defaults.ts`
 
