@@ -78,6 +78,22 @@ END $$;
 
 **Run in Supabase:** Dashboard → SQL Editor → New query → Paste & Run.
 
+### "I ran the SQL but the post still doesn't show on /blog"
+
+1. **Redeploy the frontend**  
+   The blog listing uses `DEFAULT_BLOG_POSTS` from `lib/blog-defaults.ts` and merges with the API. If the live site was built before "Roast My Deck" (or your post) was added to the codebase, the card won't appear until you deploy a new build.
+
+2. **Confirm the SQL ran in the right project**  
+   The API reads from Supabase `app_config` (key: `blog`). In Supabase SQL Editor run:
+   ```sql
+   SELECT key, jsonb_array_length(value->'entries') AS entry_count
+   FROM app_config WHERE key = 'blog';
+   ```
+   You should see `entry_count` ≥ 1. If the row is missing or `entries` is empty, run the blog migration (e.g. `092_blog_roast_my_deck_only.sql`) again in that project.
+
+3. **Check RLS on `app_config`**  
+   If Row Level Security is enabled, ensure the role used by the app (e.g. `anon` or your server role) can `SELECT` from `app_config`. Otherwise `/api/blog` may return empty entries.
+
 ### Option B: Admin UI
 
 Use Admin → Changelog (or POST to `/api/admin/changelog`) if available. The SQL migration is still the most reliable.

@@ -15,10 +15,19 @@ export default function BlogPage() {
       .then((data) => {
         if (data?.ok && Array.isArray(data?.blog?.entries)) {
           const apiEntries = data.blog.entries as typeof DEFAULT_BLOG_POSTS;
-          // Merge: use defaults as base, API entries override/add (never remove defaults)
+          // Merge: use defaults as base, API entries override (never remove defaults)
           const bySlug = new Map(DEFAULT_BLOG_POSTS.map((p) => [p.slug, { ...p }]));
           for (const e of apiEntries) {
-            if (e?.slug) bySlug.set(e.slug, e);
+            if (e?.slug) {
+              // Normalize so required fields exist (API may use different casing)
+              const normalized = {
+                ...bySlug.get(e.slug),
+                ...e,
+                slug: e.slug,
+                readTime: e.readTime ?? (e as any).read_time ?? '5 min read',
+              };
+              bySlug.set(e.slug, normalized); // dedupes if DB has same slug twice
+            }
           }
           setBlogPosts(Array.from(bySlug.values()));
         }
