@@ -49,11 +49,16 @@ export default function FeedbackFab() {
   async function submit() {
     setBusy(true);
     try {
-      const source = openSource ?? "feedback_button";
+      const sourceForApi =
+        openSource === "founder_popup"
+          ? "founder_popup"
+          : openSource === "deck_analysis"
+            ? "deck_analysis"
+            : "widget";
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, rating, source }),
+        body: JSON.stringify({ text, rating, source: sourceForApi }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) throw new Error(json.error || "Failed");

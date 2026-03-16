@@ -18,6 +18,7 @@ import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 import { parseDeckCommand } from "@/lib/chat/commandParser";
 import { toast } from "@/lib/toast-client";
 import { validateAndNormalizeCardName } from "@/lib/chat/cardValidator";
+import ChatCorrectionModal from "@/components/ChatCorrectionModal";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string };
 
@@ -68,6 +69,8 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [healthSuggestionsLabel, setHealthSuggestionsLabel] = React.useState<string>('');
   const [healthSuggestions, setHealthSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
   const [healthSuggestionsError, setHealthSuggestionsError] = React.useState<string | null>(null);
+  const [correctedMessageIds, setCorrectedMessageIds] = React.useState<string[]>([]);
+  const [correctionOpenForMessageId, setCorrectionOpenForMessageId] = React.useState<string | null>(null);
 
   async function deckContext(): Promise<string> {
     try {
@@ -881,8 +884,34 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     );
   }
 
+  const correctionMessage = correctionOpenForMessageId
+    ? msgs.find((m) => String(m.id) === correctionOpenForMessageId)
+    : null;
+  const correctionUserMessage = correctionOpenForMessageId && correctionMessage
+    ? (() => {
+        const idx = msgs.findIndex((m) => String(m.id) === correctionOpenForMessageId);
+        return idx > 0 ? msgs[idx - 1]?.content : null;
+      })()
+    : null;
+
   return (
     <div className="text-sm rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 shadow-lg h-[min(75vh,56rem)] flex flex-col">
+      {correctionOpenForMessageId && (
+        <ChatCorrectionModal
+          open={!!correctionOpenForMessageId}
+          onClose={() => setCorrectionOpenForMessageId(null)}
+          messageId={correctionOpenForMessageId}
+          aiContent={correctionMessage?.content ?? ""}
+          userMessageContent={correctionUserMessage ?? null}
+          threadId={threadId}
+          deckId={deckId}
+          commanderName={commander || null}
+          format={fmt}
+          promptVersion={null}
+          chatSurface="deck_chat"
+          onSuccess={() => setCorrectedMessageIds((prev) => [...prev, correctionOpenForMessageId!])}
+        />
+      )}
       <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
         <h3 className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
@@ -927,23 +956,38 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
               >
                 <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                   <span>{isAssistant ? 'assistant' : 'you'}</span>
-                  {isAssistant && m.content && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(String(m.content || ''));
-                        } catch (err) {
-                          // Silently fail
-                        }
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
-                      title="Copy message"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isAssistant && m.content && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(String(m.content || ''));
+                          } catch (err) {
+                            // Silently fail
+                          }
+                        }}
+                        className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
+                        title="Copy message"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    )}
+                    {isAssistant && (
+                      correctedMessageIds.includes(String(m.id)) ? (
+                        <span className="text-[10px] text-neutral-500 px-1">Corrected</span>
+                      ) : (
+                        <button
+                          onClick={() => setCorrectionOpenForMessageId(String(m.id))}
+                          className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70 text-neutral-400 text-[10px]"
+                          title="Correct the AI"
+                        >
+                          Correct
+                        </button>
+                      )
+                    )}
+                  </div>
                 </div>
                 <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
               </div>

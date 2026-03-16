@@ -29,6 +29,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallbacks";
 import { logger } from "@/lib/logger";
 import SourceReceipts from "@/components/SourceReceipts";
+import ChatCorrectionModal from "@/components/ChatCorrectionModal";
 // Enhanced chat functionality
 import { 
   analyzeDeckProblems, 
@@ -170,6 +171,8 @@ function Chat(props: ChatProps = {}) {
   const pathname = usePathname() ?? "/";
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
+  const [correctedMessageIds, setCorrectedMessageIds] = useState<string[]>([]);
+  const [correctionOpenForMessageId, setCorrectionOpenForMessageId] = useState<string | null>(null);
   const [showStartBuildingModal, setShowStartBuildingModal] = useState<boolean>(false);
   const [showSampleDeckModal, setShowSampleDeckModal] = useState<boolean>(false);
   const capture = useCapture();
@@ -1158,7 +1161,17 @@ function Chat(props: ChatProps = {}) {
   }
 
   // Render helper components
-  function InlineFeedback({ msgId, content }: { msgId: string; content: string }) {
+  function InlineFeedback({
+    msgId,
+    content,
+    isCorrected,
+    onOpenCorrection,
+  }: {
+    msgId: string;
+    content: string;
+    isCorrected: boolean;
+    onOpenCorrection: (id: string) => void;
+  }) {
     const [open, setOpen] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -1183,7 +1196,7 @@ function Chat(props: ChatProps = {}) {
     async function send(rating: number) {
       setBusy(true);
       try {
-        await fetch('/api/feedback', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ rating, text }) });
+        await fetch('/api/feedback', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ rating, text, source: 'chat' }) });
         try { 
           const { capture } = await import("@/lib/ph");
           // Find the message being rated
@@ -1270,8 +1283,13 @@ function Chat(props: ChatProps = {}) {
           <div className="pointer-events-auto absolute right-1 bottom-2 md:bottom-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-[10px]">
             <button title="Helpful" onClick={()=>send(1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👍</button>
             <button title="Not helpful" onClick={()=>send(-1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👎</button>
-            <button title="Comment" onClick={()=>setOpen(true)} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">💬</button>
-            <button title="Report issue" onClick={()=>setReportOpen(true)} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">🚩</button>
+            <button title="Comment" onClick={()=>setOpen(true)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">💬</button>
+            <button title="Report issue" onClick={()=>setReportOpen(true)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">🚩</button>
+            {isCorrected ? (
+              <span className="px-1 py-[1px] text-neutral-500 text-[10px]">Corrected</span>
+            ) : (
+              <button title="Correct the AI" onClick={()=>onOpenCorrection(msgId)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70 text-neutral-400">Correct</button>
+            )}
           </div>
         )}
         {open && (
@@ -1461,8 +1479,34 @@ function Chat(props: ChatProps = {}) {
     );
   }
 
+  const correctionMessage = correctionOpenForMessageId
+    ? messages.find((m: any) => String(m.id) === correctionOpenForMessageId)
+    : null;
+  const correctionUserMessage = correctionOpenForMessageId && correctionMessage
+    ? (() => {
+        const idx = messages.findIndex((m: any) => String(m.id) === correctionOpenForMessageId);
+        return idx > 0 ? messages[idx - 1]?.content : null;
+      })()
+    : null;
+
   return (
     <div className="flex flex-col min-w-0 bg-black text-white overflow-hidden relative">
+      {correctionOpenForMessageId && (
+        <ChatCorrectionModal
+          open={!!correctionOpenForMessageId}
+          onClose={() => setCorrectionOpenForMessageId(null)}
+          messageId={correctionOpenForMessageId}
+          aiContent={correctionMessage?.content ?? ""}
+          userMessageContent={correctionUserMessage ?? null}
+          threadId={threadId}
+          deckId={linkedDeckId}
+          commanderName={null}
+          format={fmt}
+          promptVersion={null}
+          chatSurface="main_chat"
+          onSuccess={() => setCorrectedMessageIds((prev) => [...prev, correctionOpenForMessageId!])}
+        />
+      )}
       {/* Mobile-optimized Header - compact on mobile, visually striking on larger screens */}
       <div className="relative p-2 sm:p-4 md:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
         {/* Gradient background */}
@@ -1769,7 +1813,12 @@ function Chat(props: ChatProps = {}) {
                     <>
                       <SourceReceipts sources={generateSourceAttribution(String(m.content || ''), { deckId: linkedDeckId || undefined })} />
                       <div className="mt-2">
-                        <InlineFeedback msgId={String(m.id)} content={String(m.content || '')} />
+                        <InlineFeedback
+                          msgId={String(m.id)}
+                          content={String(m.content || '')}
+                          isCorrected={correctedMessageIds.includes(String(m.id))}
+                          onOpenCorrection={setCorrectionOpenForMessageId}
+                        />
                       </div>
                     </>
                   )}

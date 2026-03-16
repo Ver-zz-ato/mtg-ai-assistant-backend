@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const DECK_ANALYZER_SOURCE = "deck_analyzer_suggestion";
+const CHAT_CORRECTION_SOURCE = "chat_correction";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,15 +22,27 @@ export async function POST(req: NextRequest) {
       suggestion_category,
       suggestion_index,
       prompt_version_id,
+      correction_text,
+      better_cards_text,
+      format,
+      page_path,
+      chat_surface,
     } = body;
 
     const isSuggestionReport = source === DECK_ANALYZER_SOURCE;
+    const isChatCorrection = source === CHAT_CORRECTION_SOURCE;
     const hasReasons = Array.isArray(issueTypes) && issueTypes.length > 0;
     const hasDescription = typeof description === "string" && description.trim().length > 0;
+    const hasCorrectionText = typeof correction_text === "string" && correction_text.trim().length > 0;
+    const hasBetterCards = typeof better_cards_text === "string" && better_cards_text.trim().length > 0;
 
     if (isSuggestionReport) {
       if (!hasReasons && !hasDescription) {
         return NextResponse.json({ error: "Select at least one reason or add a description" }, { status: 400 });
+      }
+    } else if (isChatCorrection) {
+      if (!hasReasons && !hasDescription && !hasCorrectionText && !hasBetterCards) {
+        return NextResponse.json({ error: "Add at least one reason, what it should have said, or better cards" }, { status: 400 });
       }
     } else {
       if (!hasReasons) {
@@ -42,23 +55,38 @@ export async function POST(req: NextRequest) {
 
     const issueTypesArr = hasReasons ? (issueTypes as string[]) : ["other"];
     const descriptionVal = typeof description === "string" ? description.trim().slice(0, 2000) : null;
+    const correctionTextVal = typeof correction_text === "string" ? correction_text.trim().slice(0, 2000) : null;
+    const betterCardsVal = typeof better_cards_text === "string" ? better_cards_text.trim().slice(0, 1000) : null;
     const aiText = isSuggestionReport
       ? (typeof suggested_card_name === "string" ? suggested_card_name : null) || aiResponseText
       : aiResponseText;
     const userText = isSuggestionReport ? descriptionVal : (userMessageText ?? descriptionVal);
 
-    const contextJsonb = isSuggestionReport
-      ? {
-          source: DECK_ANALYZER_SOURCE,
-          deck_id: deck_id ?? null,
-          commander_name: commander_name ?? null,
-          suggestion_id: suggestion_id ?? null,
-          suggested_card_name: suggested_card_name ?? null,
-          suggestion_category: suggestion_category ?? null,
-          suggestion_index: suggestion_index ?? null,
-          prompt_version_id: prompt_version_id ?? null,
-        }
-      : null;
+    let contextJsonb: Record<string, unknown> | null = null;
+    if (isSuggestionReport) {
+      contextJsonb = {
+        source: DECK_ANALYZER_SOURCE,
+        deck_id: deck_id ?? null,
+        commander_name: commander_name ?? null,
+        suggestion_id: suggestion_id ?? null,
+        suggested_card_name: suggested_card_name ?? null,
+        suggestion_category: suggestion_category ?? null,
+        suggestion_index: suggestion_index ?? null,
+        prompt_version_id: prompt_version_id ?? null,
+      };
+    } else if (isChatCorrection) {
+      contextJsonb = {
+        source: CHAT_CORRECTION_SOURCE,
+        correction_text: correctionTextVal,
+        better_cards_text: betterCardsVal,
+        deck_id: deck_id ?? null,
+        commander_name: commander_name ?? null,
+        format: format ?? null,
+        prompt_version_id: prompt_version_id ?? null,
+        page_path: page_path ?? null,
+        chat_surface: chat_surface ?? null,
+      };
+    }
 
     const row: Record<string, unknown> = {
       user_id: user?.id || null,

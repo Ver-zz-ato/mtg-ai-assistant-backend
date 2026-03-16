@@ -230,12 +230,20 @@ export function trackUserFrustration(indicator: 'rapid_clicks' | 'form_resubmit'
 }
 
 export function trackFeedbackWidgetOpened(page: string, trigger: 'button_click' | 'error_occurred' | 'feature_limit' | 'satisfaction_prompt' | 'frustration_prompt' | 'founder_popup') {
-  capture('feedback_widget_opened', {
-    page,
-    trigger,
-    user_tenure: getUserTenure(),
-    timestamp: new Date().toISOString()
-  });
+  try {
+    capture('feedback_widget_opened', {
+      page: page || undefined,
+      trigger,
+      user_tenure: getUserTenure(),
+      timestamp: new Date().toISOString()
+    });
+  } catch {
+    try {
+      capture('feedback_widget_opened', {});
+    } catch {
+      // ensure event fires even with no properties
+    }
+  }
 }
 
 // ===== 6. CONTENT & COMMUNITY =====
