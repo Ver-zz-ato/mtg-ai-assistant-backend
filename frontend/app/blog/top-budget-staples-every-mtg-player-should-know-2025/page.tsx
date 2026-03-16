@@ -7,7 +7,7 @@ import {
 } from '@/lib/blog-card-placeholders';
 
 export const metadata: Metadata = {
-  title: 'Top Budget Staples Every MTG Player Should Know in 2025 | ManaTap AI',
+  title: 'Top Budget Staples Every MTG Player Should Know in 2026 | ManaTap AI',
   description: 'Discover the best budget Magic: The Gathering staples under $5 that every Commander player should own. Build competitive decks without breaking the bank.',
   keywords: 'budget MTG staples, cheap commander cards, budget Magic cards 2025, affordable MTG staples',
   alternates: {
@@ -57,7 +57,7 @@ function processMarkdown(text: string): string {
 }
 
 const content = `
-# Top Budget Staples Every MTG Player Should Know in 2025
+# Top Budget Staples Every MTG Player Should Know in 2026
 
 You don't need expensive cards to build powerful Commander decks. These budget staples punch above their weight class and belong in every collection.
 

@@ -36,7 +36,7 @@ Created 4 complete example blog posts as templates:
    - Data-driven analysis
    - Targets: "commander land count", "EDH how many lands"
 
-4. **Top Budget Staples Every MTG Player Should Know in 2025** (`/blog/top-budget-staples-every-mtg-player-should-know-2025`)
+4. **Top Budget Staples Every MTG Player Should Know in 2026** (`/blog/top-budget-staples-every-mtg-player-should-know-2025`)
    - Card recommendations with explanations
    - Targets: "budget MTG cards", "cheap commander staples"
 

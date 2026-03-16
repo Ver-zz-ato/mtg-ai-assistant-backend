@@ -7,6 +7,7 @@ const GROUPS = [
     label: "Users & Feedback",
     eli5: "Read what users say, manage accounts, and handle support requests.",
     links: [
+      { href: "/admin/feedback-dashboard", label: "Feedback Dashboard", eli5: "Where feedback is collected, where it goes (Supabase vs PostHog), counts and links" },
       { href: "/admin/feedback", label: "Feedback", eli5: "Thumbs up/down and comments from the widget + chat" },
       { href: "/admin/support", label: "User Support", eli5: "Grant Pro, resend emails, GDPR export/delete" },
       { href: "/admin/users", label: "User Search", eli5: "Find users by email or ID" },
