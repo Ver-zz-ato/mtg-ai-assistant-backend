@@ -42,7 +42,7 @@ export default function BlogPage() {
       ? blogPosts
       : blogPosts.filter(post => post.category === selectedCategory);
     const dateTs = (p: (typeof blogPosts)[number]) => new Date(p.date).getTime() || 0;
-    // Sort by date descending (newest first); copy so we don't mutate state
+    // Sort by date descending (newest first); copy so we don't mutate state.
     return [...posts].sort((a, b) => dateTs(b) - dateTs(a));
   }, [selectedCategory, blogPosts]);
 
