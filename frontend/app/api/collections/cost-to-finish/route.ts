@@ -44,7 +44,20 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as Record<string, any>;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Mobile app: support Authorization: Bearer when cookies have no session
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+        if (bearerUser) user = bearerUser;
+      }
+    }
+
     if (!user) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }

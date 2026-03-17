@@ -35,6 +35,9 @@ export const SUGGESTION_WHY_PRO = 100;
 /** Deck Compare AI: Pro-only, 20/day. */
 export const DECK_COMPARE_PRO = 20;
 
+/** Pro Health Report (full deck health): Pro-only, 10/day. Used by mobile POST /api/decks/health-report. */
+export const HEALTH_REPORT_PRO = 10;
+
 /** Deck analyze: max output tokens (ceiling regardless of deck size). */
 export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 1500;
 

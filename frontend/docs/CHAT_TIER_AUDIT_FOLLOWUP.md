@@ -102,3 +102,19 @@ The system distinguishes between two deck sources:
 **response_shape_guess fix:** End debug now prefers **actual content**. If the output contains analysis structure (`Step N` or Report Card), we label `full_analysis` or `partial_analysis` regardless of `injected`. We label `ask_commander` only when the output does *not* look like analysis (no steps). So we never label a full analysis response as ask_commander.
 
 **Revert:** In `stream/route.ts`: (1) Remove early computation of `streamInjected`/`streamDecisionReason` in the full-tier else block and restore the previous prompt path (always use deck_analysis when hasDeckContextForPrompt). (2) Restore the previous Phase 6 block that computed `injected`/`decisionReason` locally and added Formatting + all three commander branches. (3) Restore the gating so v2Summary, DECK CONTEXT, few-shot, and raw path blocks run for all full tier (remove `&& streamInjected === "analyze"`). (4) Revert `response_shape_guess` to the previous formula (based only on `promptContractLog.injected`).
+
+---
+
+## Ask-commander decklist re-ask regression fix
+
+**Problem:** When `decision=ask_commander` and `has_full_deck_context=true`, the assistant sometimes asked the user to paste/provide the decklist again instead of only asking for commander confirmation. Regression appeared after the composed prompt/layer addition.
+
+**Cause:** For ask_commander/confirm we were still using `buildSystemPromptForRequest({ kind: "chat", ... })`, which loads **composed** layers (BASE_UNIVERSAL_ENFORCEMENT + FORMAT_* from `prompt_layers`). Those layers can contain generic “to analyze a deck, ask for decklist”–style guidance, which contaminated the output despite the CRITICAL “ask commander only” block.
+
+**Fix:**
+- **Minimal prompt for ask_commander/confirm:** When `streamInjected === "ask_commander"` or `"confirm"` and we have deck context, we no longer load composed/chat layers. We use only `CHAT_HARDCODED_DEFAULT` (hardcoded string) so no “ask for decklist” instruction can appear.
+- **CRITICAL block hardened:** Explicit “You ALREADY have the user's full decklist. Do NOT ask them to paste it, provide it, send the 99 cards…” and FORBIDDEN phrases listed.
+- **Output safety guard:** If `prompt_mode === "ask_commander"` and we have full deck context but the model output contains decklist-reask phrases (e.g. “paste your decklist”, “provide your decklist”), we replace the response with a deterministic canned ask-commander message (e.g. “Is [[X]] your commander for this deck? Please confirm or correct.”).
+- **Debug:** End payload includes `ask_commander_fallback_used` and `ask_commander_decklist_reask_blocked` when applicable.
+
+**Revert:** In `stream/route.ts`: (1) For ask_commander/confirm branch, restore `buildSystemPromptForRequest({ kind: "chat", deckContextForCompose: null, ... })`. (2) Revert CRITICAL block text to previous “ASK FOR COMMANDER ONLY — NO ANALYSIS” wording. (3) Remove the `looksLikeDecklistReask` check and `askCommanderFallbackUsed` canned replacement. (4) Remove `ask_commander_fallback_used` / `ask_commander_decklist_reask_blocked` from end debug payload.

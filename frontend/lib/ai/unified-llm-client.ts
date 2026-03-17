@@ -77,6 +77,7 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   chat: 30000,           // 30 seconds - interactive chat
   'deck_analyze': 300000, // 5 minutes - comprehensive deck analysis (complex, can take time)
   'deck_scan': 300000,   // 5 minutes - AI Deck Scan (complex deck analysis needs more time)
+  'health_report': 120000, // 2 minutes - Pro Health Report (full deck analysis)
   'deck_compare': 300000, // 5 minutes - deck comparison analysis (complex analysis)
   'swap_suggestions': 300000, // 5 minutes - interactive suggestions
   'swap_why': 300000,     // 5 minutes - interactive explanation

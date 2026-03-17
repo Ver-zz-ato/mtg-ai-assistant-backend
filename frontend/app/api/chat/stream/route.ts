@@ -414,15 +414,14 @@ export async function POST(req: NextRequest) {
 
       const hasDeckContextForPrompt = !!deckContextForCompose;
       let fullTierResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
-      // Use deck_analysis prompt only when we will inject "analyze". For ask_commander/confirm use chat so we do not send Step 1–8 analysis instructions.
+      // ask_commander/confirm: use minimal hardcoded prompt only. Do NOT load composed/chat layers (they can contain "ask for decklist" and contaminate output).
       if (hasDeckContextForPrompt && (streamInjected === "ask_commander" || streamInjected === "confirm")) {
-        fullTierResult = await buildSystemPromptForRequest({
-          kind: "chat",
+        fullTierResult = {
+          systemPrompt: CHAT_HARDCODED_DEFAULT,
+          promptPath: "fallback_hardcoded",
           formatKey,
-          deckContextForCompose: null,
-          supabase,
-          hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
-        });
+          modulesAttached: [],
+        };
       } else if (hasDeckContextForPrompt) {
         const { getPromptVersion } = await import("@/lib/config/prompts");
         const deckAnalysisVersion = await getPromptVersion("deck_analysis", supabase);
@@ -858,14 +857,16 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (streamInjected === "confirm" && activeDeckContext.commanderName) {
-      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMATION ONLY — NO ANALYSIS ===\nYou have a decklist; the likely commander is [[${activeDeckContext.commanderName}]]. Your ONLY job this turn is to ask the user to confirm or correct. Start your response with: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do NOT provide deck analysis, Step 1–8, mana base, cuts, or upgrades. Do NOT suggest cards. Stop after asking for confirmation.`;
+      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMATION ONLY — NO DECKLIST ASK ===\nYou ALREADY have the user's full decklist. Do NOT ask them to paste it, provide it, send the 99 cards, or share the list again. The likely commander is [[${activeDeckContext.commanderName}]]. Your ONLY job is to ask for commander confirm/correct. Start with: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do NOT provide analysis. Do NOT ask for the decklist. Stop after asking.`;
     } else if (streamInjected === "ask_commander") {
       const bestCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
+      sys += `\n\n=== CRITICAL: ASK FOR COMMANDER ONLY — NO DECKLIST ASK ===\nYou ALREADY have the user's full decklist. Do NOT ask them to paste it, provide it, send the 99 cards, or share the list. FORBIDDEN: "paste your decklist", "provide your decklist", "full 99", "send the list". Your ONLY job is to ask for the commander. `;
       if (bestCandidate) {
-        sys += `\n\n=== CRITICAL: ASK FOR COMMANDER ONLY — NO ANALYSIS ===\nYou have a decklist but the commander is unclear. The best guess is [[${bestCandidate}]]. Your ONLY job this turn is to ask the user to confirm their commander (e.g. "Is [[${bestCandidate}]] your commander?" or "Who is your commander?"). Do NOT provide deck analysis, Step 1–8, or any recommendations. Stop after asking.`;
+        sys += `Best guess: [[${bestCandidate}]]. Say e.g. "Is [[${bestCandidate}]] your commander?" or "Who is your commander?" Then stop.`;
       } else {
-        sys += `\n\n=== CRITICAL: ASK FOR COMMANDER ONLY — NO ANALYSIS ===\nYou have a decklist but the commander could not be determined. Your ONLY job this turn is to ask the user to name their commander. Do NOT provide deck analysis, Step 1–8, or any recommendations. Stop after asking.`;
+        sys += `Say "Please name your commander for this deck." Then stop.`;
       }
+      sys += ` Do NOT provide analysis. Do NOT ask for the decklist.`;
     }
     }
 
@@ -1243,6 +1244,19 @@ export async function POST(req: NextRequest) {
           const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
           outputText = trimOutroLines(outputText);
           const lenAfterTrimOutro = outputText.length;
+          let askCommanderFallbackUsed = false;
+          const deckCardsForGuard = deckContextForCompose?.deckCards ?? [];
+          if (streamInjected === "ask_commander" && deckCardsForGuard.length > 0) {
+            const lower = outputText.toLowerCase();
+            const looksLikeDecklistReask = /paste\s+(your\s+)?decklist|provide\s+(your\s+)?decklist|send\s+(the\s+)?(full\s+)?(99\s+)?cards?|full\s+decklist|all\s+99\s+cards|share\s+(your\s+)?decklist|need\s+(the\s+)?decklist|need\s+your\s+deck|before i can analyze.*decklist|to analyze.*paste|paste.*list/i.test(lower);
+            if (looksLikeDecklistReask) {
+              const cannedCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
+              outputText = cannedCandidate
+                ? `Is [[${cannedCandidate}]] your commander for this deck? Please confirm or correct.`
+                : "Please name your commander for this deck.";
+              askCommanderFallbackUsed = true;
+            }
+          }
           let lenBeforeSynergy: number | null = null;
           let lenAfterSynergy: number | null = null;
           let lenAfterTruncation: number | null = null;
@@ -1482,6 +1496,10 @@ export async function POST(req: NextRequest) {
               truncation_guess: truncationRemoved ? "stripIncompleteTruncation removed content" : synergyRemoved ? "stripIncompleteSynergyChains removed content" : null,
               response_shape_guess: responseShapeGuess,
               output_opening_guess: outputOpeningGuess,
+              ...(promptContractLog.injected === "ask_commander" && {
+                ask_commander_fallback_used: askCommanderFallbackUsed,
+                ask_commander_decklist_reask_blocked: askCommanderFallbackUsed,
+              }),
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }
