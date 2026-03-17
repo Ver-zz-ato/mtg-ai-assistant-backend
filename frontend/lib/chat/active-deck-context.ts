@@ -256,9 +256,13 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     const inference = inferCommander(decklistText, text ?? undefined, deckData?.d?.commander ?? null);
     if (inference) {
       commanderName = isCorrection ? commanderCorrection! : inference.commanderName;
-      commanderStatus = isCorrection ? "corrected" : "inferred";
+      const explicitMarker =
+        inference.reason === "commander_section" ||
+        inference.reason === "commander_section_same_line" ||
+        inference.reason === "explicit_inline_marker";
+      commanderStatus = isCorrection ? "corrected" : explicitMarker ? "confirmed" : "inferred";
       commanderCandidates = inference.candidates;
-      path.push("commander:parsed");
+      path.push(explicitMarker ? "commander:explicit_marker" : "commander:parsed");
     } else {
       path.push("commander:none");
     }

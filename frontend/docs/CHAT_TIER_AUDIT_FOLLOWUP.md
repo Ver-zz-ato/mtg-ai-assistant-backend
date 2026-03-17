@@ -118,3 +118,15 @@ The system distinguishes between two deck sources:
 - **Debug:** End payload includes `ask_commander_fallback_used` and `ask_commander_decklist_reask_blocked` when applicable.
 
 **Revert:** In `stream/route.ts`: (1) For ask_commander/confirm branch, restore `buildSystemPromptForRequest({ kind: "chat", deckContextForCompose: null, ... })`. (2) Revert CRITICAL block text to previous “ASK FOR COMMANDER ONLY — NO ANALYSIS” wording. (3) Remove the `looksLikeDecklistReask` check and `askCommanderFallbackUsed` canned replacement. (4) Remove `ask_commander_fallback_used` / `ask_commander_decklist_reask_blocked` from end debug payload.
+
+---
+
+## Rollback + deterministic commander extraction
+
+**Goal:** Simplify ask_commander path; resolve commander deterministically when the decklist explicitly marks it; reduce prompt-layer hacks.
+
+**Reverted / simplified:** ask_commander prompt restored to `buildSystemPromptForRequest({ kind: "chat", ... })`; CRITICAL blocks shortened to one line; output guard (decklist-reask canned replacement) removed.
+
+**Deterministic extraction:** Inline marker `1 CardName COMMANDER!` detected in decklistDetector; when inference reason is `commander_section`, `commander_section_same_line`, or `explicit_inline_marker`, active-deck-context sets `commanderStatus = "confirmed"` and path `commander:explicit_marker` so we skip confirm and go straight to analyze.
+
+**Debug (new):** Start payload includes `commander_resolution_source`, `commander_trusted_for_analysis`, `analyze_gate_reason`. **Persistent state:** Unchanged.

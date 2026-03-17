@@ -41,7 +41,7 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
   if (!decklistText?.trim()) return null;
   const lines = decklistText.replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
   
-  // Priority 1: Explicit "Commander" section
+  // Priority 1: Explicit "Commander" section or inline COMMANDER! marker
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Match "Commander", "Commander:", "COMMANDER", etc.
@@ -55,9 +55,14 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
     const sameLineMatch = line.match(/^Commander\s*:\s*(.+)$/i);
     if (sameLineMatch) {
       const name = sameLineMatch[1].trim();
-      // Strip quantity if present
       const qtyMatch = name.match(/^1\s*[xX]?\s+(.+)$/);
       return qtyMatch ? qtyMatch[1].trim() : name;
+    }
+    // Inline "1 CardName COMMANDER!" (EDH export)
+    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)\s+COMMANDER!?\s*$/i);
+    if (inlineMarker) {
+      const name = inlineMarker[1].trim();
+      if (name.length >= 2 && name.length <= 120) return name;
     }
   }
   
@@ -113,7 +118,7 @@ export function inferCommander(
   const lines = decklistText.replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
   const candidates: Array<{ name: string; confidence: number }> = [];
 
-  // Priority 1: Explicit Commander section — high confidence
+  // Priority 1: Explicit Commander section or inline marker — high confidence, treat as trusted (skip confirm)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^Commander\s*:?\s*$/i.test(line)) {
@@ -130,6 +135,14 @@ export function inferCommander(
       const qtyMatch = name.match(/^1\s*[xX]?\s+(.+)$/);
       if (qtyMatch) name = qtyMatch[1].trim();
       return { commanderName: name, confidence: 0.95, reason: "commander_section_same_line", candidates: [{ name, confidence: 0.95 }] };
+    }
+    // Inline "1 CardName COMMANDER!" or "CardName COMMANDER" (EDH export convention)
+    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)\s+COMMANDER!?\s*$/i);
+    if (inlineMarker) {
+      const name = inlineMarker[1].trim();
+      if (name.length >= 2 && name.length <= 120) {
+        return { commanderName: name, confidence: 0.95, reason: "explicit_inline_marker", candidates: [{ name, confidence: 0.95 }] };
+      }
     }
   }
 
