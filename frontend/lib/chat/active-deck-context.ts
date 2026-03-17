@@ -104,6 +104,7 @@ function looksLikeConfirmation(t: string): boolean {
   const q = (t || "").trim().toLowerCase().replace(/[!.,;:]+$/, "").trim();
   if (!q) return false;
   if (/^(yes|yep|yeah|correct|that's right|right|confirmed?|sure|ok|okay)$/i.test(q)) return true;
+  if (/^(yes|yep|yeah|correct),?\s+.+$/i.test(q) && q.length <= 60) return true;
   if (/^no,?\s*(it'?s?|my commander is)\s+/i.test(q) || /^no\s+it'?s\s+/i.test(q)) return true;
   if (/^actually\s+(it'?s?|my commander is)\s+/i.test(q)) return true;
   if (/^(no|nope|wrong)\b/i.test(q) && q.length < 80) return true;
@@ -159,7 +160,10 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     ?.filter((m) => m.role === "assistant")
     .pop();
   const lastAssistantContent = (lastAssistant as { content?: string })?.content ?? "";
-  const askedCommander = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
+  // Broad: assistant asked about commander (exact phrase or any "commander" + confirm-style question)
+  const askedCommanderExact = /I believe your commander is|is this correct\?/i.test(lastAssistantContent);
+  const askedCommanderBroad = lastAssistantContent.length > 0 && /commander/i.test(lastAssistantContent) && (/is this correct|confirm|correct\?|your commander/i.test(lastAssistantContent));
+  const askedCommander = askedCommanderExact || askedCommanderBroad;
   const userRespondedToConfirm = askedCommander && looksLikeConfirmation(text ?? "");
   const commanderCorrection = userRespondedToConfirm ? extractCorrection((text ?? "").trim()) : null;
   const isCorrection = !!(commanderCorrection && commanderCorrection.trim());
@@ -279,6 +283,10 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn;
   const userJustCorrectedCommander = userRespondedToConfirm && isCorrection;
 
+  // Once user explicitly confirms or corrects, promote status so downstream never sees "inferred" for this turn
+  const effectiveCommanderStatus: CommanderStatus =
+    userJustCorrectedCommander ? "corrected" : userJustConfirmedCommander ? "confirmed" : commanderStatus;
+
   let shouldAskCommanderConfirmation = false;
   let shouldAskForDeck = false;
   let askReason: AskReason = null;
@@ -288,11 +296,11 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
       shouldAskForDeck = true;
       askReason = "need_deck";
     }
-  } else if (commanderStatus === "missing") {
+  } else if (effectiveCommanderStatus === "missing") {
     shouldAskCommanderConfirmation = false;
     shouldAskForDeck = false;
     askReason = "need_commander";
-  } else if (commanderStatus === "inferred" && !userRespondedToConfirm) {
+  } else if (effectiveCommanderStatus === "inferred" && !userRespondedToConfirm) {
     shouldAskCommanderConfirmation = true;
     askReason = "confirm_inference";
   }
@@ -302,7 +310,7 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     source,
     deckId,
     commanderName,
-    commanderStatus,
+    commanderStatus: effectiveCommanderStatus,
     commanderCandidates,
     decklistText,
     decklistHash,

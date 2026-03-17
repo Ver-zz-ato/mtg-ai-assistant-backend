@@ -38,7 +38,63 @@ function debugSummary(e: ChatDebugLogEntry): string {
     const syn = d?.synergyRemoved ? " [synergy]" : "";
     return `END: lenFinal=${lenFinal} shape=${shape} removed_syn=${synRem} removed_trunc=${truncRem}${trunc}${syn}`;
   }
+  if (phase === "stream_complete") return `COMPLETE: content_length=${(d?.content_length as number) ?? "—"} duration_ms=${d?.stream_duration_ms ?? "—"}`;
   return `${e.tag} @ ${new Date(e.ts).toLocaleTimeString()}`;
+}
+
+/** Build one export payload: debug logs, last response, model, timings. */
+function buildExportPayload(entries: ChatDebugLogEntry[]) {
+  const startEntry = [...entries].reverse().find((e) => (e.data as Record<string, unknown>)?.phase === "start");
+  const endEntry = [...entries].reverse().find((e) => (e.data as Record<string, unknown>)?.phase === "end");
+  const completeEntry = [...entries].reverse().find((e) => (e.data as Record<string, unknown>)?.phase === "stream_complete");
+  const startData = startEntry?.data as Record<string, unknown> | undefined;
+  const endData = endEntry?.data as Record<string, unknown> | undefined;
+  const completeData = completeEntry?.data as Record<string, unknown> | undefined;
+
+  const model = startData?.model ?? null;
+  const tier = startData?.tier ?? null;
+  const decision = startData?.decision ?? (startData?.prompt_contract as { injected?: string })?.injected ?? null;
+  const decisionReason = startData?.decision_reason ?? null;
+  const commanderConfirmRequired = startData?.commander_confirm_required ?? null;
+  const commanderConfirmed = startData?.commander_confirmed ?? null;
+  const tokenLimit = startData?.tokenLimit ?? null;
+  const promptPath = startData?.promptPath ?? null;
+  const promptVersionId = startData?.promptVersionId ?? null;
+
+  const streamStartTs = startEntry?.ts ?? null;
+  const streamEndTs = endEntry?.ts ?? null;
+  const streamDurationMs = (endData?.stream_duration_ms as number) ?? (completeData?.stream_duration_ms as number) ?? null;
+  const lenFinal = endData?.lenFinal ?? null;
+  const responseShapeGuess = endData?.response_shape_guess ?? null;
+  const lastResponse = (completeData?.content as string) ?? null;
+  const lastResponseLength = (completeData?.content_length as number) ?? (typeof lastResponse === "string" ? lastResponse.length : null);
+
+  return {
+    exportedAt: new Date().toISOString(),
+    exportedAtUnixMs: Date.now(),
+    summary: {
+      model,
+      tier,
+      decision,
+      decision_reason: decisionReason,
+      commander_confirm_required: commanderConfirmRequired,
+      commander_confirmed: commanderConfirmed,
+      token_limit: tokenLimit,
+      prompt_path: promptPath,
+      prompt_version_id: promptVersionId,
+      stream_start_ts: streamStartTs,
+      stream_end_ts: streamEndTs,
+      stream_duration_ms: streamDurationMs,
+      len_final: lenFinal,
+      response_shape_guess: responseShapeGuess,
+      last_response_length: lastResponseLength,
+    },
+    lastResponse: lastResponse ?? undefined,
+    debugLog: {
+      entryCount: entries.length,
+      entries,
+    },
+  };
 }
 
 function DebugLogPanel({ entries, onExport }: { entries: ChatDebugLogEntry[]; onExport: () => void }) {
@@ -51,8 +107,9 @@ function DebugLogPanel({ entries, onExport }: { entries: ChatDebugLogEntry[]; on
           onClick={onExport}
           disabled={entries.length === 0}
           className="px-2 py-1 rounded text-xs bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Export debug logs, last response, model, and timings as JSON"
         >
-          Export
+          Export all
         </button>
       </div>
       <div className="flex-1 overflow-auto font-mono text-xs bg-neutral-950 rounded border border-neutral-700 p-3 space-y-3">
@@ -85,16 +142,13 @@ export default function AdminChatTestPage() {
     setDebugEntries((prev) => [...prev, entry]);
   }, []);
 
-  const exportDebug = useCallback(() => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      entries: debugEntries,
-    };
+  const exportAll = useCallback(() => {
+    const payload = buildExportPayload(debugEntries);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `chat-debug-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}.json`;
+    a.download = `chat-test-export-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [debugEntries]);
@@ -147,7 +201,7 @@ export default function AdminChatTestPage() {
           </div>
         </div>
         <div className="min-h-[300px] lg:min-h-0 rounded-lg border border-neutral-700 bg-neutral-900/50 p-3 flex flex-col">
-          <DebugLogPanel entries={debugEntries} onExport={exportDebug} />
+          <DebugLogPanel entries={debugEntries} onExport={exportAll} />
         </div>
       </div>
     </div>

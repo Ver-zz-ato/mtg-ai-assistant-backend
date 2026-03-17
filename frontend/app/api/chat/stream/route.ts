@@ -359,6 +359,7 @@ export async function POST(req: NextRequest) {
     // Commander decision for full tier: computed early so we can use deck_analysis prompt only when actually analyzing
     let streamInjected: "analyze" | "confirm" | "ask_commander" | "none" = "none";
     let streamDecisionReason: string | null = null;
+    let streamNormalizedState: import("@/lib/chat/normalize-commander-decision").NormalizedCommanderState | null = null;
 
     if (selectedTier === "micro") {
       sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
@@ -398,6 +399,18 @@ export async function POST(req: NextRequest) {
       const mayAnalyze = activeDeckContext.hasDeck && activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
       streamInjected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
       streamDecisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : null;
+
+      // Invariant layer: normalize so impossible state combinations cannot slip through
+      const { normalizeCommanderDecisionState } = await import("@/lib/chat/normalize-commander-decision");
+      const normalizedState = normalizeCommanderDecisionState({
+        streamInjected,
+        streamDecisionReason,
+        activeDeckContext,
+        hasFullDeckContext: !!(deckContextForCompose?.deckCards?.length),
+      });
+      streamInjected = normalizedState.streamInjected;
+      streamDecisionReason = normalizedState.streamDecisionReason;
+      streamNormalizedState = normalizedState;
 
       const hasDeckContextForPrompt = !!deckContextForCompose;
       let fullTierResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
@@ -824,7 +837,13 @@ export async function POST(req: NextRequest) {
 
     let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string; decision_reason?: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
     if (selectedTier === "full") {
-    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: streamInjected, decision_reason: streamDecisionReason ?? undefined };
+    promptContractLog = {
+      hasDeck: activeDeckContext.hasDeck,
+      commanderStatus: streamNormalizedState?.commanderStatus ?? activeDeckContext.commanderStatus,
+      askReason: activeDeckContext.askReason,
+      injected: streamInjected,
+      decision_reason: streamDecisionReason ?? undefined,
+    };
     streamDebug("prompt_contract", promptContractLog);
 
     if (streamInjected === "analyze") {
@@ -1115,13 +1134,14 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           if (wantDebug) {
+            const norm = streamNormalizedState;
             const debugPayload = {
               ts: Date.now(),
               phase: "start",
               decision: promptContractLog.injected,
               decision_reason: promptContractLog.decision_reason ?? null,
-              commander_confirm_required: promptContractLog.askReason === "confirm_inference" || promptContractLog.askReason === "need_commander",
-              commander_confirmed: promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected",
+              commander_confirm_required: norm?.commander_confirm_required ?? (promptContractLog.askReason === "confirm_inference" || promptContractLog.askReason === "need_commander"),
+              commander_confirmed: norm?.commander_confirmed ?? (promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected"),
               promptPath: promptResult.promptPath,
               promptVersionId: promptResult.promptVersionId ?? null,
               model: effectiveModel,
@@ -1135,7 +1155,7 @@ export async function POST(req: NextRequest) {
                 source: activeDeckContext.source,
                 deckId: activeDeckContext.deckId,
                 commanderName: activeDeckContext.commanderName,
-                commanderStatus: activeDeckContext.commanderStatus,
+                commanderStatus: promptContractLog.commanderStatus,
                 askReason: activeDeckContext.askReason,
                 commanderCandidates: activeDeckContext.commanderCandidates,
                 resolutionPath: activeDeckContext.debug?.resolutionPath ?? [],
@@ -1146,19 +1166,16 @@ export async function POST(req: NextRequest) {
               prompt_tier: selectedTier,
               prompt_contract: promptContractLog,
               format_key: formatKey,
-              analyze_now_expected:
-                selectedTier === "full" &&
-                streamInjected === "analyze" &&
-                !!(deckContextForCompose?.deckCards?.length) &&
-                (activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected"),
+              analyze_now_expected: norm?.analyze_now_expected ?? (selectedTier === "full" && streamInjected === "analyze" && !!(deckContextForCompose?.deckCards?.length) && (promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected")),
               has_full_deck_context: !!(deckContextForCompose?.deckCards?.length),
-              extra_clarification_allowed: !(
-                selectedTier === "full" &&
-                streamInjected === "analyze" &&
-                !!(deckContextForCompose?.deckCards?.length) &&
-                (activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected")
-              ),
+              extra_clarification_allowed: norm?.extra_clarification_allowed ?? !(selectedTier === "full" && streamInjected === "analyze" && !!(deckContextForCompose?.deckCards?.length) && (promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected")),
               prompt_mode: streamInjected,
+              ...(norm && {
+                normalization_applied: norm.normalization_applied,
+                confirmation_source: norm.confirmation_source,
+                trusted_commander_for_analysis: norm.trusted_commander_for_analysis,
+                state_was_contradictory_before_normalization: norm.state_was_contradictory_before_normalization,
+              }),
               v2_summary_used: !!v2Summary,
               v2_card_count: v2Summary?.card_count ?? null,
               deck_context_cards: deckContextForCompose?.deckCards?.length ?? 0,

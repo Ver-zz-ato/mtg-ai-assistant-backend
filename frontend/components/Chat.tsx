@@ -923,6 +923,16 @@ function Chat(props: ChatProps = {}) {
             if (messageCountRef.current === 1 && accumulatedContent.length > 50) trackValueMomentReached("first_good_chat_response");
             if (!isLoggedIn && messageCountRef.current >= 2) trackGuestValueMoment("chat_engaged", capture, { chat_count: messageCountRef.current });
             capture("chat_stream_stop", enrichChatEvent({ stopped_by: "complete", duration_ms: Date.now() - streamStartTime, tokens_if_known: Math.ceil(accumulatedContent.length / 4), assistant_message_id: streamingMsgId }, { threadId: currentThreadId || threadId || null, userMessage: val || null, assistantMessage: accumulatedContent.slice(0, 200) || null, format: fmt || null }));
+            onDebugLog({
+              ts: Date.now(),
+              tag: "stream_debug",
+              data: {
+                phase: "stream_complete",
+                content: accumulatedContent,
+                stream_duration_ms: Date.now() - streamStartTime,
+                content_length: accumulatedContent.length,
+              },
+            });
           },
           (err: Error) => {
             streamFailed = true;
