@@ -356,6 +356,9 @@ export async function POST(req: NextRequest) {
     let promptResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
     let sys: string;
     let promptVersionId: string | null;
+    // Commander decision for full tier: computed early so we can use deck_analysis prompt only when actually analyzing
+    let streamInjected: "analyze" | "confirm" | "ask_commander" | "none" = "none";
+    let streamDecisionReason: string | null = null;
 
     if (selectedTier === "micro") {
       sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
@@ -387,10 +390,27 @@ export async function POST(req: NextRequest) {
       }
       }
     } else {
-      // Full tier: prefer canonical deck_analysis prompt from prompt_versions when we have deck context (one standard for all tiers)
+      // Full tier: compute commander decision first so we use deck_analysis only when actually analyzing
+      const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
+      const authForPrompt = isAuthoritativeForPrompt(activeDeckContext);
+      const pasteSource = activeDeckContext.source === "current_paste" || activeDeckContext.source === "guest_ephemeral";
+      const commanderConfirmedOrCorrected = activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected" || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander;
+      const mayAnalyze = activeDeckContext.hasDeck && activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
+      streamInjected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
+      streamDecisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : null;
+
       const hasDeckContextForPrompt = !!deckContextForCompose;
       let fullTierResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
-      if (hasDeckContextForPrompt) {
+      // Use deck_analysis prompt only when we will inject "analyze". For ask_commander/confirm use chat so we do not send Step 1–8 analysis instructions.
+      if (hasDeckContextForPrompt && (streamInjected === "ask_commander" || streamInjected === "confirm")) {
+        fullTierResult = await buildSystemPromptForRequest({
+          kind: "chat",
+          formatKey,
+          deckContextForCompose: null,
+          supabase,
+          hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+        });
+      } else if (hasDeckContextForPrompt) {
         const { getPromptVersion } = await import("@/lib/config/prompts");
         const deckAnalysisVersion = await getPromptVersion("deck_analysis", supabase);
         if (deckAnalysisVersion?.system_prompt) {
@@ -635,8 +655,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (selectedTier === "full" && v2Summary) {
-      // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard)
+    if (selectedTier === "full" && v2Summary && streamInjected === "analyze") {
+      // For simple queries, shrink card_names: intent-based top-K or trim to 25 (token creep guard). Only when doing analysis, not when asking for commander.
       const queryLower = (text || '').toLowerCase().trim();
       const looksSimple = /^(what is|what's|show|find|search|cards?|creatures?|artifacts?|enchantments?|is |can |does |will )\b/i.test(queryLower.trim()) ||
         /^(is|can|does|will)\s+\w+\s+(a|an|legal|banned|good|bad)\b/i.test(queryLower.trim());
@@ -689,7 +709,7 @@ export async function POST(req: NextRequest) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
     }
-    if (selectedTier === "full" && deckData && deckData.deckText.trim()) {
+    if (selectedTier === "full" && streamInjected === "analyze" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
       const formatDisplay = deckFormat || formatKey;
       let inferredContext: { format: string; colors: string[]; commander: string | null } = { format: formatDisplay, colors: [], commander: d?.commander ?? null };
@@ -724,8 +744,8 @@ export async function POST(req: NextRequest) {
       sys += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
     }
 
-    // Few-shot learning (format anchoring): same as non-stream for consistent quality — full tier only
-    if (selectedTier === "full" && userId && !isGuest) {
+    // Few-shot learning (format anchoring): same as non-stream for consistent quality — full tier only, and only when doing analysis
+    if (selectedTier === "full" && streamInjected === "analyze" && userId && !isGuest) {
       try {
         const { findSimilarExamples, formatExamplesForPrompt } = await import("@/lib/ai/few-shot-learning");
         const examples = await findSimilarExamples(text, undefined, undefined, 2);
@@ -737,8 +757,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (selectedTier === "full" && !v2Summary) {
-      // Same deck context for Pro and Guest when no v2Summary (Guest has no tid; or v2 was discarded)
+    if (selectedTier === "full" && streamInjected === "analyze" && !v2Summary) {
+      // Same deck context for Pro and Guest when no v2Summary (Guest has no tid; or v2 was discarded). Only when doing analysis.
       streamDebug("raw_path", { branch: deckContextForCompose?.deckCards?.length ? "deckContextForCompose" : tid ? "tid_messages" : "none", deckContextLen: deckContextForCompose?.deckCards?.length ?? 0 });
       if (deckContextForCompose?.deckCards?.length) {
         const { extractCommanderFromDecklistText, isDecklist } = await import("@/lib/chat/decklistDetector");
@@ -804,15 +824,11 @@ export async function POST(req: NextRequest) {
 
     let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string; decision_reason?: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
     if (selectedTier === "full") {
-    sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-    // Phase 6: State-driven prompt assembly from ActiveDeckContext
-    // Confirm-before-analyze: for paste flows (current_paste, guest_ephemeral) require confirmed/corrected commander; linked deck can keep using stored commander.
-    const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
-    const authForPrompt = isAuthoritativeForPrompt(activeDeckContext);
-    const pasteSource = activeDeckContext.source === "current_paste" || activeDeckContext.source === "guest_ephemeral";
-    const commanderConfirmedOrCorrected = activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected" || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander;
-    const mayAnalyze = activeDeckContext.hasDeck && activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
-    if (mayAnalyze) {
+    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: streamInjected, decision_reason: streamDecisionReason ?? undefined };
+    streamDebug("prompt_contract", promptContractLog);
+
+    if (streamInjected === "analyze") {
+      sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
       sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. The user gave you everything. Start your analysis immediately (mana base, ramp, cuts, upgrades).`;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
@@ -822,15 +838,16 @@ export async function POST(req: NextRequest) {
           } catch (_) {}
         }
       }
-    } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "confirm_inference" && activeDeckContext.commanderName) {
-      sys += `\n\nCOMMANDER CONFIRMATION (required): Your FIRST response must start with exactly this: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do not provide analysis until they confirm or correct. After they confirm or correct, then provide your full analysis. Memory: you will see their answer in the next turn.`;
-    } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "need_commander") {
-      sys += `\n\nCOMMANDER NEEDED: You have a decklist but the commander is unclear. Ask the user to confirm their commander before providing deck analysis. Do NOT guess or assume the commander.`;
+    } else if (streamInjected === "confirm" && activeDeckContext.commanderName) {
+      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMATION ONLY — NO ANALYSIS ===\nYou have a decklist; the likely commander is [[${activeDeckContext.commanderName}]]. Your ONLY job this turn is to ask the user to confirm or correct. Start your response with: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do NOT provide deck analysis, Step 1–8, mana base, cuts, or upgrades. Do NOT suggest cards. Stop after asking for confirmation.`;
+    } else if (streamInjected === "ask_commander") {
+      const bestCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
+      if (bestCandidate) {
+        sys += `\n\n=== CRITICAL: ASK FOR COMMANDER ONLY — NO ANALYSIS ===\nYou have a decklist but the commander is unclear. The best guess is [[${bestCandidate}]]. Your ONLY job this turn is to ask the user to confirm their commander (e.g. "Is [[${bestCandidate}]] your commander?" or "Who is your commander?"). Do NOT provide deck analysis, Step 1–8, or any recommendations. Stop after asking.`;
+      } else {
+        sys += `\n\n=== CRITICAL: ASK FOR COMMANDER ONLY — NO ANALYSIS ===\nYou have a decklist but the commander could not be determined. Your ONLY job this turn is to ask the user to name their commander. Do NOT provide deck analysis, Step 1–8, or any recommendations. Stop after asking.`;
+      }
     }
-    const injected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
-    const decisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : "none";
-    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected, decision_reason: decisionReason };
-    streamDebug("prompt_contract", promptContractLog);
     }
 
     // Thread summary (within-thread memory) - same logic as non-stream
@@ -1401,7 +1418,15 @@ export async function POST(req: NextRequest) {
             const cleanupCharsTruncation = lenAfterSynergy != null && lenAfterTruncation != null ? lenAfterSynergy - lenAfterTruncation : (lenBeforeSynergy != null ? lenBeforeSynergy - lenFinal : null);
             const hasReportCard = /Deck\s+Report\s+Card|Step\s+8/i.test(outputText);
             const hasSteps = /Step\s+\d/i.test(outputText);
-            const responseShapeGuess = promptContractLog.injected === "analyze" ? (hasReportCard && hasSteps ? "full_analysis" : hasSteps ? "partial_analysis" : "other") : promptContractLog.injected === "confirm" || promptContractLog.injected === "ask_commander" ? "ask_commander" : "other";
+            // Prefer actual content: if output has analysis structure, label as analysis; only label ask_commander when content matches (no steps)
+            const looksLikeAnalysis = hasSteps || hasReportCard;
+            const responseShapeGuess = looksLikeAnalysis
+              ? (hasReportCard && hasSteps ? "full_analysis" : hasSteps ? "partial_analysis" : "other")
+              : promptContractLog.injected === "confirm" || promptContractLog.injected === "ask_commander"
+                ? "ask_commander"
+                : promptContractLog.injected === "analyze"
+                  ? "other"
+                  : "other";
             const endStreamPayload = {
               phase: "end",
               ts: Date.now(),

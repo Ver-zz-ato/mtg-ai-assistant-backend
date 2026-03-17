@@ -78,3 +78,27 @@ The system distinguishes between two deck sources:
 | **Confirm-before-analyze change** | Single gate: `mayAnalyze = hasDeck && commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt)`. Paste = current_paste or guest_ephemeral. |
 | **Free vs Pro quality** | Same pipeline (promptPath, promptVersionId, confirmation, deck context, token limit, cleanup). Free more generic = **model quality** (e.g. gpt-4o vs gpt-5.1). No code change. |
 | **Revert** | Revert stream route to use `authForPrompt` only for analyze gate; revert outputCleanupFilter to drop on `!hasFullChain \|\| endsTruncated \|\| invalidShape`; remove new debug fields from payload and admin summary. |
+
+---
+
+## Ask-commander / analysis mismatch fix
+
+**Problem:** Debug showed `decision=ask_commander` and `commander_confirm_required=true`, but the assistant output was full Step 1–8 analysis. The decision layer and actual generated content were out of sync.
+
+**Exact mismatch cause:** The commander decision (`injected` = ask_commander / confirm / analyze) was computed only *after* the system prompt was built. For full tier with deck context we always used the **deck_analysis** prompt (Step 1–8, full analysis instructions) and appended a single short “COMMANDER NEEDED: ask the user” line at the end. The model saw dominant “do full analysis” instructions and often ignored the ask-commander line. **Type:** Prompt assembly + branch logic (decision was correct; prompt content was wrong for ask_commander/confirm).
+
+**Files changed:** `app/api/chat/stream/route.ts`.
+
+**How ask_commander is now enforced:**
+- Commander decision (`streamInjected` = analyze | confirm | ask_commander | none) is computed **early** at the start of the full-tier branch (same `mayAnalyze` / `askReason` logic).
+- When `streamInjected === "ask_commander"` or `"confirm"`, we use **chat**-kind system prompt (no deck_analysis), and append a dedicated **CRITICAL** block: “ASK FOR COMMANDER ONLY — NO ANALYSIS … Do NOT provide deck analysis, Step 1–8 … Stop after asking.”
+- For **confirm**: one line stating the inferred commander and asking “Is this correct?” For **ask_commander**: if we have a candidate, ask to confirm that; otherwise ask the user to name their commander.
+
+**How analysis is prevented before confirmation:**
+- When `streamInjected` is ask_commander or confirm we do **not** load the deck_analysis prompt version; we use the generic chat prompt.
+- We do **not** add: v2Summary deck intelligence block, DECK CONTEXT block, few-shot learning, raw decklist context, or “Formatting: Step 1, Step 2”. Those blocks are gated with `streamInjected === "analyze"`.
+- Only when `streamInjected === "analyze"` do we add the CRITICAL commander-confirmed block and the Step 1–2 formatting.
+
+**response_shape_guess fix:** End debug now prefers **actual content**. If the output contains analysis structure (`Step N` or Report Card), we label `full_analysis` or `partial_analysis` regardless of `injected`. We label `ask_commander` only when the output does *not* look like analysis (no steps). So we never label a full analysis response as ask_commander.
+
+**Revert:** In `stream/route.ts`: (1) Remove early computation of `streamInjected`/`streamDecisionReason` in the full-tier else block and restore the previous prompt path (always use deck_analysis when hasDeckContextForPrompt). (2) Restore the previous Phase 6 block that computed `injected`/`decisionReason` locally and added Formatting + all three commander branches. (3) Restore the gating so v2Summary, DECK CONTEXT, few-shot, and raw path blocks run for all full tier (remove `&& streamInjected === "analyze"`). (4) Revert `response_shape_guess` to the previous formula (based only on `promptContractLog.injected`).
