@@ -21,7 +21,7 @@ export type ModelForTierResult = {
 const CHAT_PRO_DEFAULT = "gpt-5.1";
 const DECK_PRO_DEFAULT = "gpt-5.1";
 const GUEST_DEFAULT = "gpt-4o-mini";
-const FREE_DEFAULT = "gpt-4o";
+const FREE_DEFAULT = "gpt-5-mini";
 const FALLBACK_DEFAULT = "gpt-4o-mini";
 
 function env(name: string): string | undefined {
@@ -30,8 +30,8 @@ function env(name: string): string | undefined {
 
 /**
  * Get OpenAI model and metadata for the given user tier.
- * For chat, Pro uses MODEL_PRO_CHAT ?? gpt-4o and never a responses-only model (e.g. Codex).
- * For deck_analysis, Pro uses MODEL_PRO_DECK ?? gpt-4o.
+ * For chat, Pro uses MODEL_PRO_CHAT ?? gpt-5.1; Free uses MODEL_FREE ?? gpt-5-mini; Guest uses MODEL_GUEST ?? gpt-4o-mini.
+ * For deck_analysis, Pro uses MODEL_PRO_DECK ?? gpt-5.1.
  */
 export function getModelForTier(opts: {
   isGuest: boolean;

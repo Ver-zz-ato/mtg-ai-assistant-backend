@@ -55,7 +55,7 @@ The system distinguishes between two deck sources:
 ---
 
 ## Phase 5 — Free vs Pro (quality)
-- Same `promptPath`, same `promptVersionId`, same confirmation flow, same deck context injection, same token limit, same cleanup. Free uses MODEL_FREE (e.g. gpt-4o), Pro uses MODEL_PRO_CHAT (e.g. gpt-5.1). **Conclusion:** Free being more generic is **model quality**, not pipeline difference. No code change.
+- Same `promptPath`, same `promptVersionId`, same confirmation flow, same deck context injection, same token limit, same cleanup. Free uses MODEL_FREE (e.g. gpt-5-mini), Pro uses MODEL_PRO_CHAT (e.g. gpt-5.1). **Conclusion:** Free being more generic is **model quality**, not pipeline difference. No code change.
 
 ---
 
@@ -76,7 +76,7 @@ The system distinguishes between two deck sources:
 | **Why Guest skipped confirmation** | For **paste** flows we now require explicit confirmed/corrected (or just-confirmed this turn) before injecting "analyze". Linked deck unchanged. No tier-specific skip. |
 | **What caused Guest truncation/cleanup** | `stripIncompleteSynergyChains` removed any chain-like block that didn’t have two `→` and "together produce"/"advances win". Guest/smaller models often use different wording → large removal (e.g. 4513→1798). Fixed by only removing when **clearly truncated** (ends with `"[\n` or incomplete `→`). |
 | **Confirm-before-analyze change** | Single gate: `mayAnalyze = hasDeck && commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt)`. Paste = current_paste or guest_ephemeral. |
-| **Free vs Pro quality** | Same pipeline (promptPath, promptVersionId, confirmation, deck context, token limit, cleanup). Free more generic = **model quality** (e.g. gpt-4o vs gpt-5.1). No code change. |
+| **Free vs Pro quality** | Same pipeline (promptPath, promptVersionId, confirmation, deck context, token limit, cleanup). Free more generic = **model quality** (e.g. gpt-5-mini vs gpt-5.1). No code change. |
 | **Revert** | Revert stream route to use `authForPrompt` only for analyze gate; revert outputCleanupFilter to drop on `!hasFullChain \|\| endsTruncated \|\| invalidShape`; remove new debug fields from payload and admin summary. |
 
 ---

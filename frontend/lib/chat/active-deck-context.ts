@@ -44,6 +44,8 @@ export type ActiveDeckContext = {
   inferredCommanderFromCurrentTurn: string | null;
   userJustConfirmedCommander: boolean;
   userJustCorrectedCommander: boolean;
+  /** True when the last assistant message asked for commander (confirm or ask_commander). */
+  lastTurnAskedCommander: boolean;
   linkedDeckTakesPriority: boolean;
   parseWarnings: string[];
   /** True when resolved deck hash differs from stored (new deck replacement; persistence should clear commander unless preserved). */
@@ -124,6 +126,37 @@ function extractCorrection(raw: string): string | null {
     if (fallback.length > 2 && fallback.length < 80) return fallback.replace(/^["'\[\]]+|["'\[\]]+$/g, "");
   }
   return null;
+}
+
+/** True when last assistant message asked the user to name their commander (no candidate path). */
+function lastAssistantAskedForCommanderName(content: string): boolean {
+  if (!content?.trim()) return false;
+  const c = content.toLowerCase();
+  return (
+    /name your commander|name their commander|who is your commander|what('s| is) your commander|please name your commander|tell me your commander/i.test(c) ||
+    (/commander/i.test(c) && /name|who|what|tell me/i.test(c))
+  );
+}
+
+/** True when text looks like a single card name (not decklist, not a question). */
+function looksLikeSingleCardName(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 2 || t.length > 80) return false;
+  if (t.includes("\n") && t.split(/\n/).filter((l) => l.trim()).length > 1) return false;
+  if (/^\s*\d+\s*[xX]?\s+/m.test(t)) return false; // "1 CardName" decklist line
+  if (/^(what|which|who|how|why|when|yes|no|yep|nope|ok|okay|thanks|thank you|hi|hello)\b/i.test(t)) return false;
+  if (t.endsWith("?")) return false;
+  return true;
+}
+
+/** True when user reply is just the commander/candidate name (or "yes, Name"), after a confirm question. */
+function replyIsJustCommanderName(reply: string, commanderName: string): boolean {
+  if (!reply?.trim() || !commanderName?.trim()) return false;
+  let t = reply.trim().replace(/^\[\[([^\]]*)\]\]\s*$/, "$1").trim();
+  t = t.replace(/^(yes|yep|yeah|correct|ok|okay),?\s+/i, "").trim();
+  t = t.replace(/[.,;:!?]+$/, "").trim();
+  const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  return norm(t) === norm(commanderName);
 }
 
 /**
@@ -268,6 +301,20 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     }
   }
 
+  // CASE C: No marker, no candidate — user was asked "name your commander" and replied with a single card name
+  const userNamedCommanderThisTurn =
+    hasDeck &&
+    !commanderName &&
+    !!text?.trim() &&
+    !currentIsDecklist &&
+    looksLikeSingleCardName(text.trim()) &&
+    lastAssistantAskedForCommanderName(lastAssistantContent);
+  if (userNamedCommanderThisTurn) {
+    commanderName = (text ?? "").trim();
+    commanderCandidates = [{ name: commanderName, confidence: 0.9 }];
+    path.push("commander:user_named");
+  }
+
   const inferredCommanderFromCurrentTurn =
     currentIsDecklist && decklistText
       ? inferCommander(decklistText, text ?? undefined, null)?.commanderName ?? null
@@ -283,8 +330,10 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     declaredCommander.length <= 80 &&
     declaredCommander.toLowerCase() === commanderName.toLowerCase();
 
+  const replyConfirmsCandidate =
+    askedCommander && !!commanderName && replyIsJustCommanderName((text ?? "").trim(), commanderName);
   const userJustConfirmedCommander =
-    (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn;
+    (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn || !!userNamedCommanderThisTurn || !!replyConfirmsCandidate;
   const userJustCorrectedCommander = userRespondedToConfirm && isCorrection;
 
   // Once user explicitly confirms or corrects, promote status so downstream never sees "inferred" for this turn
@@ -325,6 +374,7 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     inferredCommanderFromCurrentTurn,
     userJustConfirmedCommander,
     userJustCorrectedCommander,
+    lastTurnAskedCommander: askedCommander,
     linkedDeckTakesPriority,
     parseWarnings,
     deckReplacedByHashChange,

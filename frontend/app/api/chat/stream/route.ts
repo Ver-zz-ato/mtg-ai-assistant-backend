@@ -848,7 +848,7 @@ export async function POST(req: NextRequest) {
 
     if (streamInjected === "analyze") {
       sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW.\nFORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals.\nFORBIDDEN: Do NOT ask follow-up questions about deck goals, archetype preferences, or what kind of build the user wants.\nYou MUST infer the deck's plan from the decklist itself and begin the full Step 1–8 analysis immediately.\nYour FIRST sentence must start with "Step 1:" followed by the first analysis step. Do NOT add any preamble or thanks before Step 1.`;
+      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nCommander is [[${activeDeckContext.commanderName}]]. Deck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist, commander, format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
           try {
@@ -858,13 +858,13 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (streamInjected === "confirm" && activeDeckContext.commanderName) {
-      sys += `\n\nYou have the decklist. Ask only: "I believe your commander is [[${activeDeckContext.commanderName}]]. Is this correct?" Do not ask for the decklist or provide analysis.`;
+      sys += `\n\nCRITICAL: Ask only this, nothing else: "Is [[${activeDeckContext.commanderName}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
     } else if (streamInjected === "ask_commander") {
       const bestCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
       if (bestCandidate) {
-        sys += `\n\nYou have the decklist. Ask only for commander: e.g. "Is [[${bestCandidate}]] your commander?" Do not ask for the decklist or provide analysis.`;
+        sys += `\n\nCRITICAL: Ask only this, nothing else: "Is [[${bestCandidate}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
       } else {
-        sys += `\n\nYou have the decklist. Ask the user to name their commander. Do not ask for the decklist or provide analysis.`;
+        sys += `\n\nCRITICAL: Ask only this, nothing else: "Please name your commander for this deck." Do not ask for decklist, goals, or provide analysis.`;
       }
     }
     }
@@ -1141,22 +1141,26 @@ export async function POST(req: NextRequest) {
                 ? "linked_deck"
                 : path.includes("commander:explicit_marker")
                   ? "explicit_deck_marker"
-                  : path.includes("commander:thread") || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander
-                    ? "explicit_user_reply"
-                    : path.includes("commander:parsed")
-                      ? "inferred_candidate"
-                      : path.includes("commander:none")
-                        ? "unknown"
-                        : "unknown";
+                  : path.includes("commander:user_named")
+                    ? "user_named_commander"
+                    : path.includes("commander:thread") || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander
+                      ? "explicit_user_reply"
+                      : path.includes("commander:parsed")
+                        ? "inferred_candidate"
+                        : path.includes("commander:none")
+                          ? "unknown"
+                          : "unknown";
             const analyze_gate_reason =
               streamInjected === "analyze"
                 ? path.includes("commander:linked")
                   ? "linked_trusted"
                   : path.includes("commander:explicit_marker")
                     ? "explicit_marker"
-                    : path.includes("commander:thread") || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander
-                      ? "user_confirmed"
-                      : "user_confirmed"
+                    : path.includes("commander:user_named")
+                      ? "user_named_commander"
+                      : path.includes("commander:thread") || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander
+                        ? "user_confirmed"
+                        : "user_confirmed"
                 : streamInjected === "confirm"
                   ? "ambiguous_need_confirm"
                   : streamInjected === "ask_commander"
@@ -1180,6 +1184,11 @@ export async function POST(req: NextRequest) {
               useStop,
               layer0_mode: streamLayer0Mode ?? null,
               layer0_reason: streamLayer0Reason ?? null,
+              commander_candidate_count: activeDeckContext.commanderCandidates?.length ?? 0,
+              candidate_confidence_top: activeDeckContext.commanderCandidates?.[0]?.confidence ?? null,
+              confirm_question_expected: streamInjected === "confirm" || streamInjected === "ask_commander",
+              previous_turn_was_ask_commander: activeDeckContext.lastTurnAskedCommander ?? false,
+              user_reply_promoted_to_commander: activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander,
               active_deck_context: {
                 hasDeck: activeDeckContext.hasDeck,
                 source: activeDeckContext.source,

@@ -108,7 +108,7 @@ const inferThenConfirm = resolveActiveDeckContext(
 );
 assert.strictEqual(inferThenConfirm.userJustConfirmedCommander, true);
 assert.strictEqual(inferThenConfirm.commanderName, "Muldrotha, the Gravetide");
-assert.strictEqual(inferThenConfirm.commanderStatus, "inferred"); // not yet persisted; persist happens in stream route
+assert.strictEqual(inferThenConfirm.commanderStatus, "confirmed", "effective status is confirmed so downstream analyzes immediately");
 assert.strictEqual(isAuthoritativeForPrompt(inferThenConfirm), true, "should treat as authoritative for prompt when user just confirmed");
 
 // --- infer → correct → persist (user says "no, it's X"; should treat as authoritative and persist corrected)
@@ -213,5 +213,56 @@ const noDeck = resolveActiveDeckContext(base({ text: "what is trample?" }));
 assert.strictEqual(noDeck.hasDeck, false);
 assert.strictEqual(noDeck.source, "none");
 assert.strictEqual(noDeck.askReason, "need_deck");
+
+// --- no marker, no candidate: assistant asked "name your commander", user replies with commander name → treat as confirmed
+const userNamedCommander = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "Korvold, Fae-Cursed King",
+    thread: { deck_id: null, commander: null, decklist_text: MINI_DECK, decklist_hash: "abc" },
+    streamThreadHistory: [
+      { role: "user", content: MINI_DECK },
+      { role: "assistant", content: "Please name your commander for this deck." },
+    ],
+  })
+);
+assert.strictEqual(userNamedCommander.hasDeck, true);
+assert.strictEqual(userNamedCommander.commanderName, "Korvold, Fae-Cursed King");
+assert.strictEqual(userNamedCommander.userJustConfirmedCommander, true);
+assert.ok(userNamedCommander.debug?.resolutionPath?.includes("commander:user_named"), "path should include commander:user_named");
+assert.strictEqual(isAuthoritativeForPrompt(userNamedCommander), true);
+
+// --- confirm path: user replies with just candidate name -> promote to confirmed
+const replyIsJustName = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "Muldrotha, the Gravetide",
+    thread: { deck_id: null, commander: null, decklist_text: DECK_WITH_COMMANDER_SECTION, decklist_hash: "abc" },
+    streamThreadHistory: [
+      { role: "user", content: DECK_WITH_COMMANDER_SECTION },
+      { role: "assistant", content: "Is [[Muldrotha, the Gravetide]] your commander?" },
+    ],
+  })
+);
+assert.strictEqual(replyIsJustName.commanderName, "Muldrotha, the Gravetide");
+assert.strictEqual(replyIsJustName.userJustConfirmedCommander, true, "reply with just commander name should promote");
+assert.strictEqual(replyIsJustName.lastTurnAskedCommander, true);
+assert.strictEqual(isAuthoritativeForPrompt(replyIsJustName), true);
+
+// --- same with short name "Muldrotha"
+const replyShortName = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "Muldrotha",
+    thread: { deck_id: null, commander: null, decklist_text: DECK_WITH_COMMANDER_SECTION, decklist_hash: "abc" },
+    streamThreadHistory: [
+      { role: "user", content: DECK_WITH_COMMANDER_SECTION },
+      { role: "assistant", content: "Is [[Muldrotha, the Gravetide]] your commander?" },
+    ],
+  })
+);
+assert.strictEqual(replyShortName.userJustConfirmedCommander, false, "short name Muldrotha does not exactly match full name");
+// (replyIsJustCommanderName compares normalized; "Muldrotha" vs "Muldrotha, the Gravetide" are different)
+assert.strictEqual(replyShortName.commanderName, "Muldrotha, the Gravetide");
 
 console.log("active-deck-context.test.ts: all tests passed");

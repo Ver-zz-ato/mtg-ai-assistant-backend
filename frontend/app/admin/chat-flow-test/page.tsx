@@ -121,7 +121,7 @@ export default function ChatFlowTestPage() {
               className="w-full bg-neutral-950 border border-neutral-600 rounded px-3 py-2"
             >
               <option value="guest">Guest (gpt-4o-mini)</option>
-              <option value="free">Free (gpt-4o)</option>
+              <option value="free">Free (gpt-5-mini)</option>
               <option value="pro">Pro (gpt-5.1)</option>
             </select>
           </div>

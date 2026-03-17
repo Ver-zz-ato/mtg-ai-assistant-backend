@@ -312,7 +312,7 @@ commanderForBlock = threadCommander ?? (userConfirmedOrCorrectedCommander ? (com
 | Tier | Default | Env override |
 |------|---------|--------------|
 | Guest | gpt-4o-mini | MODEL_GUEST |
-| Free | gpt-4o | MODEL_FREE |
+| Free | gpt-5-mini | MODEL_FREE |
 | Pro | gpt-5.1 | MODEL_PRO_CHAT / MODEL_PRO |
 
 ### 12.2 Messages to OpenAI

@@ -48,7 +48,7 @@ export async function GET() {
         pro_chat: effectiveModels.pro_chat.model,
         pro_deck_analysis: effectiveModels.pro_deck_analysis.model,
       },
-      note: 'Original ladder: Guest=gpt-4o-mini, Free=gpt-4o, Pro=gpt-5.1. Layer0 uses MODEL_GUEST.',
+      note: 'Ladder: Guest=gpt-4o-mini, Free=gpt-5-mini, Pro=gpt-5.1. Layer0 uses MODEL_GUEST.',
     });
   } catch (e: unknown) {
     return NextResponse.json(

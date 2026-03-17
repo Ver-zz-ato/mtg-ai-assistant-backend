@@ -196,6 +196,8 @@ function Chat(props: ChatProps = {}) {
   const addingTypingMessageRef = useRef<boolean>(false);
   const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
   const lastOptimisticUserMsgRef = useRef<{ content: string; threadId: string } | null>(null);
+  const cardImagesRef = useRef<Map<string, ImageInfo>>(new Map());
+  const cardExtractDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
@@ -491,33 +493,65 @@ function Chat(props: ChatProps = {}) {
     };
   }, [isLoggedIn]);
   
-  // Extract and fetch card images and prices only from finalized assistant messages.
-  // Do not run for streaming content to avoid flicker; images/prices appear when the message is complete.
+  // Keep ref in sync for "already have" check when streaming
   useEffect(() => {
-    (async () => {
+    cardImagesRef.current = cardImages;
+  }, [cardImages]);
+
+  // Extract and fetch card images/prices from finalized assistant messages + current streaming content.
+  // When streaming: debounce 400ms and merge new results into state. When not: run immediately and replace.
+  useEffect(() => {
+    const normalizedCardKey = (name: string) =>
+      name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+    const runFetch = async () => {
       try {
-        const assistantMessages = messages.filter(m => m.role === 'assistant');
+        const assistantMessages = messages.filter((m: ChatMessage) => m.role === 'assistant');
+        const texts: string[] = assistantMessages.map((m: ChatMessage) => m.content || '');
+        if (isStreaming && streamingContent) texts.push(streamingContent);
         const allCards: string[] = [];
-        for (const msg of assistantMessages) {
-          const extracted = extractCardsForImages(msg.content || '');
+        for (const text of texts) {
+          const extracted = extractCardsForImages(text);
           extracted.forEach(card => {
-            if (!allCards.includes(card.name)) {
-              allCards.push(card.name);
-            }
+            if (!allCards.includes(card.name)) allCards.push(card.name);
           });
         }
         if (allCards.length === 0) return;
+        const haveKeys = new Set(cardImagesRef.current.keys());
+        const toFetch = isStreaming ? allCards.filter(name => !haveKeys.has(normalizedCardKey(name))) : allCards;
+        if (toFetch.length === 0 && isStreaming) return;
+        const namesToFetch = isStreaming ? toFetch : allCards;
         const [imagesMap, pricesMap] = await Promise.all([
-          getImagesForNames(allCards),
-          getBulkPrices(allCards)
+          getImagesForNames(namesToFetch),
+          getBulkPrices(namesToFetch)
         ]);
-        setCardImages(imagesMap);
-        setCardPrices(pricesMap);
+        if (isStreaming) {
+          setCardImages(prev => new Map([...prev, ...imagesMap]));
+          setCardPrices(prev => new Map([...prev, ...pricesMap]));
+        } else {
+          setCardImages(imagesMap);
+          setCardPrices(pricesMap);
+        }
       } catch (error) {
         logger.warn('Failed to fetch card data:', { error });
       }
-    })();
-  }, [messages]);
+    };
+
+    if (isStreaming && streamingContent) {
+      if (cardExtractDebounceRef.current) clearTimeout(cardExtractDebounceRef.current);
+      cardExtractDebounceRef.current = setTimeout(() => {
+        cardExtractDebounceRef.current = null;
+        runFetch();
+      }, 400);
+      return () => {
+        if (cardExtractDebounceRef.current) {
+          clearTimeout(cardExtractDebounceRef.current);
+          cardExtractDebounceRef.current = null;
+        }
+      };
+    }
+    runFetch();
+  }, [messages, streamingContent, isStreaming]);
 
   // Deck linking
   useEffect(() => {
@@ -1808,7 +1842,7 @@ function Chat(props: ChatProps = {}) {
                   <span>assistant</span>
                   <span className="ml-2 animate-pulse">•••</span>
                 </div>
-                <div className="leading-relaxed">{renderMessageContent(streamingContent, true, true)}</div>
+                <div className="leading-relaxed">{renderMessageContent(streamingContent, true, false)}</div>
               </div>
             </div>
           )}
