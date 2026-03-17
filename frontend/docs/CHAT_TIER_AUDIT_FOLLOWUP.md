@@ -5,6 +5,21 @@
 
 ---
 
+### Deck Source Types (Important)
+
+The system distinguishes between two deck sources:
+
+- **Paste** (`current_paste` / `guest_ephemeral`):
+  Deck was just pasted into chat. Commander must be confirmed before analysis.
+
+- **Linked** (`source === "linked"`):
+  Deck is attached to the thread (e.g. from deck page chat or older linked threads).
+  Stored commander is trusted and analysis can run without confirmation.
+
+**Note:** The homepage chat no longer supports linking a deck. It only uses paste or existing thread context.
+
+---
+
 ## Phase 1 — Tier path differences
 
 ### Commander detection (same for all tiers)
