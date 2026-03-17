@@ -334,9 +334,69 @@ Only the current turn; prior turns are in the system prompt.
 
 **File:** `frontend/lib/ai/model-by-tier.ts`, `frontend/lib/config/streaming.ts`, `frontend/lib/ai/openai-params.ts`
 
+### 12.4 Response length and truncation (why messages can “cap short”)
+
+| Cause | Where | What happens |
+|-------|--------|--------------|
+| **Max completion tokens** | Stream: `max_completion_tokens: tokenLimit` (default 4096). Layer 0 MINI_ONLY: lower cap (e.g. 512). | Model stops generating once limit is hit; response can end mid-sentence or mid-step. |
+| **Stop sequences** | `CHAT_STOP_SEQUENCES` (e.g. “Let me know if you have any questions.”). Only applied when `useStop` is true (not for gpt-5*, gpt-5.1). | If the model outputs one of these phrases, the API stops; can amputate content if the phrase appears early. |
+| **Stream timeout** | `MAX_STREAM_SECONDS` 120. | Client or proxy may close the stream; last chunk is what the user sees. |
+| **Post-processing** | `stripIncompleteTruncation` (see §12.5). | Drops the last incomplete “Step” block or last line if it has no sentence-ending punctuation and looks incomplete. |
+
+**Diagnosis:** If the user sees “Step 3” then nothing after, or “Turn 1” with no follow-up: (1) Check whether Layer 0 MINI_ONLY was used (low token cap). (2) Check if the raw stream ended at a stop sequence. (3) Check if `stripIncompleteTruncation` removed the tail. Logs: `[stream] OpenAI request body` shows `max_completion_tokens`; `promptPath` in usage/logs shows composed vs fallback.
+
+### 12.5 Post-processing pipeline (server)
+
+Applied **after** the stream is complete (and after any regeneration/validation when deck context exists):
+
+| Step | Function | Purpose |
+|------|----------|---------|
+| 1 | `trimOutroLines` | Remove known outro phrases only at the very end (e.g. “Let me know if you have any questions.”). Stream-safe. |
+| 2 | (Deck context) `validateRecommendations` | Check ADD/CUT, color identity, format legality; optionally repair or regenerate. |
+| 3 | `stripIncompleteSynergyChains` | Remove synergy blocks that are truncated or malformed (e.g. only one arrow, ends with `"[\n`). |
+| 4 | `stripIncompleteTruncation` | If the last line has no sentence-ending punctuation and looks incomplete, drop the last incomplete “Step” block or the last line. |
+| 5 | `applyOutputCleanupFilter` | Strip meta phrases that leak internal rules (“quality gate”, “evidence requirement”, etc.). |
+| 6 | `applyBracketEnforcement` | On lines that look like “ADD X / CUT Y”, wrap bare card names in `[[X]]` / `[[Y]]` so they render as card chips. |
+
+**File:** `frontend/lib/chat/outputCleanupFilter.ts`, `frontend/app/api/chat/stream/route.ts` (stream), `frontend/app/api/chat/route.ts` (non-stream).
+
 ---
 
-## 13. Visual Flow Diagram
+## 13. System prompt build path (full detail)
+
+### 13.1 Primary path: 3-layer composition
+
+1. **`buildSystemPromptForRequest`** (prompt-path.ts) calls **`composeSystemPrompt`** with `formatKey`, `deckContextForCompose`, `kind: "chat"`.
+2. **`composeSystemPrompt`** (composeSystemPrompt.ts):
+   - Loads **BASE**: `prompt_layers` where `key = 'BASE_UNIVERSAL_ENFORCEMENT'`. If missing, uses one-line default: “You are ManaTap AI... wrap names in [[Double Brackets]].”
+   - Loads **FORMAT**: `prompt_layers` where `key = 'FORMAT_<FORMAT>'` (e.g. `FORMAT_COMMANDER`).
+   - If `deckContext?.deckCards?.length`: runs module detection (cascade, aristocrats, landfall, etc.) and appends matching **MODULE_*** bodies from `prompt_layers`.
+   - Concatenates: `BASE + "\n\n" + FORMAT + "\n\n" + MODULE_1 + ...`
+3. **Route** then appends: user prefs, **DECK CONTEXT** block (decklist / v2 summary), commander block (CRITICAL or ask-confirmation), recent conversation, etc. Decklist is **not** inside the composed prompt; it is injected by the route.
+
+**Result:** `promptPath: "composed"`. No single “version id”; content is whatever is in `prompt_layers` at request time.
+
+### 13.2 Fallback path: prompt_versions
+
+- If `composeSystemPrompt` throws (e.g. DB error, missing BASE row): **`getPromptVersion("chat")`** is called.
+- It reads **`app_config`** key `active_prompt_version_chat` → gets UUID → loads that row from **`prompt_versions`** (id, version, system_prompt).
+- If no active version set: latest row in `prompt_versions` for `kind = 'chat'` by `created_at`.
+- **Result:** Full monolithic prompt. `promptPath: "fallback_version"`, `promptVersionId` set.
+
+### 13.3 Hardcoded default
+
+- If both composed and fallback fail: short default string in code (e.g. “You are ManaTap AI... When referencing cards, wrap names in [[Double Brackets]].”). **Result:** `promptPath: "fallback_hardcoded"`.
+
+### 13.4 How to tell which prompt was used
+
+- **Logs / analytics:** `promptPath` and (when fallback) `promptVersionId` are recorded in usage or request metadata.
+- **Admin:** Composed prompt can be previewed via `/api/admin/ai-test/composed-prompt`. Layer bodies can be viewed/edited in Admin AI Test (prompt layers). Active `prompt_versions` and `app_config` can be queried in the DB.
+
+**File:** `frontend/lib/prompts/composeSystemPrompt.ts`, `frontend/lib/ai/prompt-path.ts`, `frontend/lib/config/prompts.ts`, `frontend/docs/prompt-system-breakdown.md`
+
+---
+
+## 14. Visual Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -363,13 +423,14 @@ Only the current turn; prior turns are in the system prompt.
                                         │
                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ OpenAI stream → SSE → Client replaces Typing… → Save assistant msg → Clear ref   │
+│ OpenAI stream → SSE → Post-process (trim, strip incomplete, cleanup, brackets)    │
+│ → Client replaces Typing… → Save assistant msg → Clear ref                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 14. Key Files
+## 15. Key Files
 
 | File | Role |
 |------|------|
@@ -386,11 +447,14 @@ Only the current turn; prior turns are in the system prompt.
 | `frontend/lib/chat/chat-context-builder.ts` | injectThreadSummaryContext, Pro prefs |
 | `frontend/lib/deck/deck-context-summary.ts` | v2 summary build/cache |
 | `frontend/lib/limits.ts` | Message limits |
+| `frontend/lib/chat/outputCleanupFilter.ts` | trimOutroLines, stripIncomplete*, applyOutputCleanupFilter, applyBracketEnforcement |
+| `frontend/lib/chat/cardImageDetector.ts` | extractCardsForImages ([[...]], **bold**, lists); cap 25 |
+| `frontend/lib/chat/markdownRenderer.tsx` | renderMarkdown; [[Card]] + **Card** (when in knownCardNames) → chip |
 | `frontend/db/migrations/087_add_thread_commander_decklist.sql` | Thread slots schema |
 
 ---
 
-## 15. Debug Logging
+## 16. Debug Logging
 
 **Enable:** `DEBUG_CHAT_STREAM=1` in `.env.local`
 
@@ -398,7 +462,92 @@ Only the current turn; prior turns are in the system prompt.
 
 ---
 
-## 16. Design Decisions Summary
+## 17. Inline card chips (client)
+
+### 17.1 Purpose
+
+Assistant messages can show card names as **inline chips**: small image + clickable name (and optional hover full card). Only card names that are detected and have fetched images get chips.
+
+### 17.2 Card extraction (`extractCardsForImages`)
+
+**File:** `frontend/lib/chat/cardImageDetector.ts`
+
+Sources (all merged, deduped, capped at 25):
+
+1. **`[[Card Name]]`** — Explicit double-bracket markers (AI is instructed to use these).
+2. **`**Card Name**`** and **`__Card Name__`** — Bold text that passes `isValidCardName` and `!isCommonPhrase` (so prose bold like “**the deck**” is ignored).
+3. **List patterns** — Numbered lists (“1. Lightning Bolt”), bullet lists (“- Sol Ring - description”), “e.g., Card1, Card2”, parenthetical “(Card Name)”.
+
+Validation: card names 2–50 chars, title-case style, not common phrases, ≤5 words for bold/list. Deduplication by normalized name (lowercase, NFKD, single space). **Limit 25 cards per message** so more cards get images and chips.
+
+### 17.3 Image and price fetch
+
+- **When:** After messages are finalized (not during streaming). `useEffect` in Chat.tsx over `messages`: for each assistant message, run `extractCardsForImages(content)`, collect all names, call `getImagesForNames(allCards)` and `getBulkPrices(allCards)`, store in `cardImages` and `cardPrices` state.
+- **Result:** `cardImages` and `cardPrices` are keyed by normalized name (same `normalizedCardKey` as elsewhere).
+
+### 17.4 Rendering (`renderMessageContent` + `renderMarkdown`)
+
+**File:** `frontend/components/Chat.tsx`, `frontend/lib/chat/markdownRenderer.tsx`
+
+- **`renderCard`** callback: given a card name, looks up image by normalized name; if present, returns the inline chip (small image + dotted-underline name); otherwise returns plain name.
+- **`[[Card Name]]`** in markdown is always replaced with `renderCard(cardName)`.
+- **`**Card Name**`** / **`__Card Name__`** are replaced with `renderCard(cardName)` **only when** that name is in **`knownCardNames`** (the set of normalized names from `extractCardsForImages` for this message). Otherwise they render as plain bold.
+- **`knownCardNames`** = `new Set(extractedCards.map(c => normalizedCardKey(c.name)))` so that bold text matching an extracted card gets the chip; normalization must match between extraction, image key, and renderer (`normalizeCardKey` in markdownRenderer uses same NFKD logic as Chat’s `normalizedCardKey`).
+
+Card strip at bottom: same `extractedCards`; only cards with a fetched image are shown as thumbnails.
+
+### 17.5 Why a card might not show as a chip
+
+| Cause | Fix / check |
+|-------|-------------|
+| AI used bold but not `[[...]]` and the bold text wasn’t extracted | Extraction now includes **Bold**; ensure name passes `isValidCardName` and `!isCommonPhrase`. |
+| Name not in first 25 extracted cards | Cap is 25; if message has many cards, later ones may only be plain text. |
+| Image not fetched | Check `getImagesForNames` / batch-images API; name normalization (NFKD) must match cache/DB. |
+| Normalization mismatch | Renderer and Chat must use the same `normalizedCardKey` / `normalizeCardKey` (lowercase, NFKD, single space). |
+
+---
+
+## 18. Diagnosis guide
+
+Use this when something is “wrong” with the main chat (prompt, response length, or card chips).
+
+### 18.1 “Message ended too early” / “Only got Step 3”
+
+| Check | Where | Action |
+|-------|--------|--------|
+| Token cap | Stream request: `max_completion_tokens` (default 4096; lower if Layer 0 MINI_ONLY). | Increase cap for full analyses or ensure MINI_ONLY isn’t applied for deck-analysis requests. |
+| Stop sequences | `CHAT_STOP_SEQUENCES`; some models don’t use them (e.g. gpt-5.1). | If model uses stop, avoid those phrases in the prompt or relax stop list. |
+| stripIncompleteTruncation | Post-processing: drops last incomplete “Step” or last line without sentence end. | If the model often ends with “Turn 1” and nothing else, consider relaxing or narrowing the heuristic. |
+| Stream timeout | Client or proxy closes after 120s. | Rare; check only for very long responses. |
+
+### 18.2 “Wrong or generic prompt”
+
+| Check | Where | Action |
+|-------|--------|--------|
+| Composed vs fallback | Logs: `promptPath` (composed / fallback_version / fallback_hardcoded). | If fallback: fix DB or `prompt_layers` so compose succeeds; or intentionally use a full prompt in `prompt_versions` and set active version. |
+| BASE / FORMAT content | `prompt_layers`: BASE_UNIVERSAL_ENFORCEMENT, FORMAT_COMMANDER (etc.). | Edit in Admin AI Test (layers) or DB; ensure BASE includes [[Card Name]] and all enforcement rules you expect. |
+| Active monolithic version | `app_config.active_prompt_version_chat` → `prompt_versions.id`. | Compare that row’s `system_prompt` to your v3/spec; update the row or point active to the correct version. |
+
+### 18.3 “Cards not showing as chips”
+
+| Check | Where | Action |
+|-------|--------|--------|
+| Extraction | `extractCardsForImages`: [[...]], **Bold**, list patterns; cap 25. | Ensure AI uses `[[Card Name]]` or **Card Name**; add more patterns in cardImageDetector if needed. |
+| knownCardNames | Chat passes set of normalized names from extractedCards to renderMarkdown. | Bold only becomes a chip if the name is in this set; normalization must match. |
+| Image fetch | getImagesForNames(allCards) after messages update. | Verify batch-images (or equivalent) returns images for those names; check normalization and cache. |
+
+### 18.4 Key files for diagnosis
+
+| Concern | Files |
+|---------|--------|
+| Prompt content | `lib/prompts/composeSystemPrompt.ts`, `lib/ai/prompt-path.ts`, `lib/config/prompts.ts`, DB `prompt_layers` / `prompt_versions` / `app_config` |
+| Token cap / stop | `lib/config/streaming.ts` (MAX_TOKENS_STREAM), `lib/ai/chat-generation-config.ts` (CHAT_STOP_SEQUENCES), `lib/ai/layer0-gate.ts`, stream route (tokenLimit, useStop) |
+| Post-processing | `lib/chat/outputCleanupFilter.ts`, `app/api/chat/stream/route.ts` (after stream complete) |
+| Card chips | `lib/chat/cardImageDetector.ts`, `lib/chat/markdownRenderer.tsx`, `components/Chat.tsx` (renderMessageContent, cardImages, knownCardNames) |
+
+---
+
+## 19. Design Decisions Summary
 
 | Decision | Why |
 |----------|-----|

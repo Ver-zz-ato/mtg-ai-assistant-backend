@@ -223,8 +223,26 @@ export async function postMessageStreamWithDebug(
       }
 
       if (buffer.includes("[DONE]")) {
-        const beforeDone = buffer.split("[DONE]")[0];
-        if (beforeDone && debugParsed) pacer.addChunk(beforeDone);
+        let beforeDone = buffer.split("[DONE]")[0];
+        if (beforeDone && debugParsed) {
+          const endStreamMarker = "__MANATAP_DEBUG_END_STREAM__";
+          const endStreamEnd = "__MANATAP_DEBUG_END__";
+          if (beforeDone.includes(endStreamMarker)) {
+            const idx = beforeDone.indexOf(endStreamMarker);
+            const contentPart = beforeDone.slice(0, idx).trimEnd();
+            if (contentPart) pacer.addChunk(contentPart);
+            const endIdx = beforeDone.indexOf(endStreamEnd, idx);
+            if (endIdx >= 0) {
+              const jsonStr = beforeDone.slice(idx + endStreamMarker.length, endIdx).replace(/^\n/, "").trim();
+              try {
+                const data = JSON.parse(jsonStr);
+                onDebug(data);
+              } catch (_) {}
+            }
+          } else {
+            pacer.addChunk(beforeDone);
+          }
+        }
         pacer.complete();
         return;
       }

@@ -17,6 +17,26 @@ const Chat = dynamic(
   }
 ) as React.ComponentType<ChatProps>;
 
+function debugSummary(e: ChatDebugLogEntry): string {
+  const d = e.data as Record<string, unknown>;
+  const phase = d?.phase as string | undefined;
+  if (phase === "start") {
+    const path = d?.promptPath ?? "—";
+    const model = d?.model ?? "—";
+    const tier = d?.tier ?? "—";
+    const tokenLimit = d?.tokenLimit ?? "—";
+    const injected = (d?.prompt_contract as { injected?: string })?.injected ?? "—";
+    return `START: path=${path} model=${model} tier=${tier} tokens=${tokenLimit} injected=${injected}`;
+  }
+  if (phase === "end") {
+    const lenFinal = d?.lenFinal ?? "—";
+    const trunc = d?.truncationRemoved ? " [trunc removed]" : "";
+    const syn = d?.synergyRemoved ? " [synergy removed]" : "";
+    return `END: lenFinal=${lenFinal}${trunc}${syn}`;
+  }
+  return `${e.tag} @ ${new Date(e.ts).toLocaleTimeString()}`;
+}
+
 function DebugLogPanel({ entries, onExport }: { entries: ChatDebugLogEntry[]; onExport: () => void }) {
   return (
     <div className="flex flex-col h-full">
@@ -33,12 +53,12 @@ function DebugLogPanel({ entries, onExport }: { entries: ChatDebugLogEntry[]; on
       </div>
       <div className="flex-1 overflow-auto font-mono text-xs bg-neutral-950 rounded border border-neutral-700 p-3 space-y-3">
         {entries.length === 0 ? (
-          <p className="text-neutral-600">Send a message to see AI debug output (ActiveDeckContext, prompt contract, etc.)</p>
+          <p className="text-neutral-600">Send a message to see AI debug (promptPath, model, tier, token cap, commander state, cleanup).</p>
         ) : (
           entries.map((e, i) => (
             <details key={i} className="border border-neutral-800 rounded p-2">
               <summary className="cursor-pointer text-neutral-400 hover:text-neutral-300">
-                {e.tag} @ {new Date(e.ts).toLocaleTimeString()}
+                {debugSummary(e)} — {new Date(e.ts).toLocaleTimeString()}
               </summary>
               <pre className="mt-2 p-2 bg-neutral-900 rounded text-[11px] overflow-x-auto whitespace-pre-wrap break-words text-neutral-300">
                 {JSON.stringify(e.data, null, 2)}

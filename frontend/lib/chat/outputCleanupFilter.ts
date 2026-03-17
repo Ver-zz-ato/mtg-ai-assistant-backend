@@ -89,8 +89,9 @@ export function stripIncompleteSynergyChains(text: string): string {
 }
 
 /**
- * Strip incomplete truncation at end of response (e.g. Step 6 ending mid-sentence).
- * If the last line has no sentence-ending punctuation and looks incomplete, remove it or the last Step block.
+ * Strip only a truly broken tail at end of response (e.g. a single short incomplete line).
+ * Does NOT remove a full Step block — that was causing "analysis cuts off at Step 3".
+ * Revert: restore the previous "drop from Step N" logic if this is too permissive.
  */
 export function stripIncompleteTruncation(text: string): string {
   if (!text || typeof text !== "string") return text;
@@ -101,20 +102,10 @@ export function stripIncompleteTruncation(text: string): string {
   const endsWithPunctuation = /[.!?]\s*$/.test(lastLine);
   const isShortListItem = /^\d+\s+\w+$/.test(lastLine) || lastLine.length < 25;
   if (endsWithPunctuation || isShortListItem) return text;
-  const lastLineIncomplete = lastLine.length > 0 && !endsWithPunctuation;
-  if (lastLineIncomplete) {
-    let dropFrom = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (i < lines.length - 1 && /^Step\s+\d/i.test(lines[i]?.trim() ?? "")) {
-        dropFrom = i;
-        break;
-      }
-    }
-    if (dropFrom >= 0) {
-      const out = lines.slice(0, dropFrom).join("\n").replace(/\n{3,}/g, "\n\n").trim();
-      return out || trimmed;
-    }
-    return lines.slice(0, -1).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  // Only trim a single short incomplete last line (< 50 chars), never a whole Step block
+  const isShortIncompleteTail = lastLine.length > 0 && lastLine.length < 50 && !endsWithPunctuation;
+  if (isShortIncompleteTail) {
+    return lines.slice(0, -1).join("\n").replace(/\n{3,}/g, "\n\n").trim() || trimmed;
   }
   return text;
 }

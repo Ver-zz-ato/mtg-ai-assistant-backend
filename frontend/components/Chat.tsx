@@ -1402,10 +1402,11 @@ function Chat(props: ChatProps = {}) {
       );
     };
     const extractedCards = extractCardsForImages(content);
+    const knownCardNames = new Set(extractedCards.map(c => normalizedCardKey(c.name)));
     const showCardImages = !skipCardImages && extractedCards.length > 0;
     return (
       <div className="space-y-3">
-        <div>{renderMarkdown(content, { renderCard })}</div>
+        <div>{renderMarkdown(content, { renderCard, knownCardNames })}</div>
         {showCardImages && (
           <div className="flex gap-3 flex-wrap pt-2 border-t border-neutral-600">
             {extractedCards.map((card, idx) => {

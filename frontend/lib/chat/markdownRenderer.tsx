@@ -22,9 +22,21 @@ function normalizeAiSpacing(line: string): string {
   return out;
 }
 
+/** Normalize card name for matching (same as Chat normalizedCardKey). */
+function normalizeCardKey(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export type RenderMarkdownOptions = {
   /** When provided, [[Card Name]] segments are replaced with the result of this callback (e.g. inline card image + name). */
   renderCard?: (cardName: string) => React.ReactNode;
+  /** When provided with renderCard, **Bold text** that matches a known card name is also rendered as a card chip. */
+  knownCardNames?: Set<string>;
 };
 
 /**
@@ -118,7 +130,7 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   const parts: React.ReactNode[] = [];
   let currentIndex = 0;
   let keyCounter = 0;
-  const { renderCard } = options ?? {};
+  const { renderCard, knownCardNames } = options ?? {};
 
   // When renderCard is provided, normalize ADD X / CUT Y to ADD [[X]] / CUT [[Y]] so card names become linkable
   if (renderCard) {
@@ -172,15 +184,24 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
     }
   }
   
+  // Helper: render bold as card chip when it's a known card name, else strong
+  const renderBold = (content: string): React.ReactNode => {
+    if (renderCard && knownCardNames?.size && knownCardNames.has(normalizeCardKey(content))) {
+      const node = renderCard(content);
+      return node != null ? <React.Fragment key={keyCounter++}>{node}</React.Fragment> : <strong key={keyCounter++}>{content}</strong>;
+    }
+    return <strong key={keyCounter++}>{content}</strong>;
+  };
+
   // Regex patterns for other inline formatting (order matters - check longer patterns first)
   const patterns = [
-    { regex: /\*\*([^*]+)\*\*/g, render: (match: string) => <strong key={keyCounter++}>{match}</strong> }, // **bold**
-    { regex: /__([^_]+)__/g, render: (match: string) => <strong key={keyCounter++}>{match}</strong> }, // __bold__
+    { regex: /\*\*([^*]+)\*\*/g, render: (match: string) => renderBold(match) }, // **bold** → card chip if known
+    { regex: /__([^_]+)__/g, render: (match: string) => renderBold(match) }, // __bold__
     { regex: /\*([^*]+)\*/g, render: (match: string) => <em key={keyCounter++}>{match}</em> }, // *italic*
     { regex: /_([^_]+)_/g, render: (match: string) => <em key={keyCounter++}>{match}</em> }, // _italic_
     { regex: /`([^`]+)`/g, render: (match: string) => <code key={keyCounter++} className="bg-neutral-700 px-1 rounded text-xs">{match}</code> }, // `code`
   ];
-  
+
   for (const pattern of patterns) {
     pattern.regex.lastIndex = 0; // Reset regex state
     let match;

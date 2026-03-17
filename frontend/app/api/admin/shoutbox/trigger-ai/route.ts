@@ -30,7 +30,7 @@ RULES:
 - Sound like real Magic players: a mix of unhinged, funny, chill, and normal—not every line is a meme.
 - Keep messages SHORT - under 100 chars preferred, max 140. Punchy. No essays.
 - Reference MTG/EDH naturally: topdecks, mana screw, wallet pain, proxying, precon upgrades, LGS, commanders.
-- Occasional typos or caps OK. NO corporate speak. Maybe 1 emoji max.
+- Occasional typos or caps OK. NO corporate speak. Use few or no emojis; at most one per message only if it really fits.
 - Reference site features only sometimes: mulligan sim, deck analyzer, budget swaps.
 - NEVER mention AI, automated, or generated. NEVER copy or closely paraphrase history.
 - Avoid generic filler. If it could apply to any game, make it MTG-specific.
@@ -68,7 +68,7 @@ function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: stri
 
 function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
   if (!Array.isArray(parsed)) return null;
-  if (parsed.length === 0 || parsed.length > 5) return null;
+  if (parsed.length === 0 || parsed.length > 3) return null;
   
   const valid: GeneratedMessage[] = [];
   const seenUsers = new Set<string>();

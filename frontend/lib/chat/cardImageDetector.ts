@@ -15,31 +15,34 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
   const cards: ExtractedCard[] = [];
   
   // PRIORITY 1: Extract cards marked by AI using [[Card Name]] format
-  // This is the most reliable method since the AI explicitly marks them
   const markedCardPattern = /\[\[([^\]]+)\]\]/g;
   let markedMatch;
   while ((markedMatch = markedCardPattern.exec(text)) !== null) {
     const cardName = markedMatch[1].trim();
-    // Basic validation - card names should be reasonable length and not empty
     if (cardName.length >= 2 && cardName.length <= 50 && !/^[\d\s\-\(\)]+$/.test(cardName)) {
       cards.push({ name: cardName, context: 'list', lineNumber: 0 });
     }
   }
-  
-  // If we found marked cards, return them (AI marking takes priority)
-  if (cards.length > 0) {
-    // Deduplicate
-    const seen = new Set<string>();
-    const unique = cards.filter(card => {
-      const normalized = card.name.toLowerCase();
-      if (seen.has(normalized)) return false;
-      seen.add(normalized);
-      return true;
-    });
-    return unique.slice(0, 10);
+
+  // PRIORITY 1b: Extract from **Card Name** (bold) so inline chips work when AI uses bold instead of [[...]]
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  let boldMatch;
+  while ((boldMatch = boldPattern.exec(text)) !== null) {
+    const cardName = boldMatch[1].trim();
+    if (cardName.length >= 2 && cardName.length <= 50 && isValidCardName(cardName) && !isCommonPhrase(cardName) && cardName.split(/\s+/).length <= 5) {
+      cards.push({ name: cardName, context: 'list', lineNumber: 0 });
+    }
   }
-  
-  // PRIORITY 2: Fall back to regex pattern detection (for backward compatibility)
+  const underscoreBold = /__([^_]+)__/g;
+  let ubMatch;
+  while ((ubMatch = underscoreBold.exec(text)) !== null) {
+    const cardName = ubMatch[1].trim();
+    if (cardName.length >= 2 && cardName.length <= 50 && isValidCardName(cardName) && !isCommonPhrase(cardName) && cardName.split(/\s+/).length <= 5) {
+      cards.push({ name: cardName, context: 'list', lineNumber: 0 });
+    }
+  }
+
+  // PRIORITY 2: List-based pattern detection (numbered/bulleted lists)
   const lines = text.split(/\r?\n/);
   
   for (let i = 0; i < lines.length; i++) {
@@ -217,14 +220,14 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
   // Deduplicate by name (keep first occurrence)
   const seen = new Set<string>();
   const unique = cards.filter(card => {
-    const normalized = card.name.toLowerCase();
+    const normalized = card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
     if (seen.has(normalized)) return false;
     seen.add(normalized);
     return true;
   });
-  
-  // Limit to 10 cards per message
-  return unique.slice(0, 10);
+
+  // Limit to 25 so more cards get images and inline chips
+  return unique.slice(0, 25);
 }
 
 /**

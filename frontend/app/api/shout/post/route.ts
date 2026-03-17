@@ -1,6 +1,7 @@
 import { containsProfanity } from "@/lib/profanity";
 import { broadcast, pushHistory, type Shout } from "../hub";
 import { createClient } from "@/lib/supabase/server";
+import { notifyDiscordShoutboxRealMessage } from "@/lib/shoutbox/discord-alert";
 
 type Body = { text?: string; user?: string };
 
@@ -63,6 +64,9 @@ export async function POST(req: Request) {
     console.error('Failed to broadcast shoutbox message:', err);
     return Response.json({ ok: false, error: 'Failed to broadcast message' }, { status: 500 });
   }
-  
+
+  // Alert Discord for real shoutbox messages (fire-and-forget)
+  notifyDiscordShoutboxRealMessage(cleanUser, cleanText).catch(() => {});
+
   return Response.json({ ok: true });
 }

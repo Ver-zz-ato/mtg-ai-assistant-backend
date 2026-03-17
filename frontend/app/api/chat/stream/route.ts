@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { ChatPostSchema } from "@/lib/validate";
 import type { SfCard } from "@/lib/deck/inference";
-import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
+import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, MAX_TOKENS_DECK_ANALYSIS, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
@@ -378,13 +378,39 @@ export async function POST(req: NextRequest) {
       }
       }
     } else {
-      promptResult = await buildSystemPromptForRequest({
-        kind: "chat",
-        formatKey,
-        deckContextForCompose,
-        supabase,
-        hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
-      });
+      // Full tier: prefer canonical deck_analysis prompt from prompt_versions when we have deck context (one standard for all tiers)
+      const hasDeckContextForPrompt = !!deckContextForCompose;
+      let fullTierResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
+      if (hasDeckContextForPrompt) {
+        const { getPromptVersion } = await import("@/lib/config/prompts");
+        const deckAnalysisVersion = await getPromptVersion("deck_analysis", supabase);
+        if (deckAnalysisVersion?.system_prompt) {
+          fullTierResult = {
+            systemPrompt: deckAnalysisVersion.system_prompt,
+            promptPath: "fallback_version",
+            promptVersionId: deckAnalysisVersion.id,
+            formatKey,
+            modulesAttached: [],
+          };
+        } else {
+          fullTierResult = await buildSystemPromptForRequest({
+            kind: "deck_analysis",
+            formatKey,
+            deckContextForCompose,
+            supabase,
+            hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+          });
+        }
+      } else {
+        fullTierResult = await buildSystemPromptForRequest({
+          kind: "chat",
+          formatKey,
+          deckContextForCompose,
+          supabase,
+          hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
+        });
+      }
+      promptResult = fullTierResult;
       sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = promptResult.promptVersionId ?? null;
     }
@@ -954,6 +980,9 @@ export async function POST(req: NextRequest) {
     if (streamLayer0MiniOnly) {
       effectiveModel = streamLayer0MiniOnly.model;
       tokenLimit = Math.min(streamLayer0MiniOnly.max_tokens, MAX_TOKENS_STREAM);
+    } else if (!!v2Summary || !!(deckContextForCompose?.deckCards?.length)) {
+      // Temporary/test-friendly: deck analysis gets higher cap so full 8-step + Report Card doesn't truncate
+      tokenLimit = MAX_TOKENS_DECK_ANALYSIS;
     }
 
     // Create OpenAI streaming request (model by user tier: guest/free/pro)
@@ -1056,6 +1085,15 @@ export async function POST(req: NextRequest) {
           if (wantDebug) {
             const debugPayload = {
               ts: Date.now(),
+              phase: "start",
+              promptPath: promptResult.promptPath,
+              promptVersionId: promptResult.promptVersionId ?? null,
+              model: effectiveModel,
+              tier: modelTierRes.tier,
+              tokenLimit,
+              useStop,
+              layer0_mode: streamLayer0Mode ?? null,
+              layer0_reason: streamLayer0Reason ?? null,
               active_deck_context: {
                 hasDeck: activeDeckContext.hasDeck,
                 source: activeDeckContext.source,
@@ -1135,8 +1173,14 @@ export async function POST(req: NextRequest) {
           }
 
           let outputText = fullContent.trim();
+          const lenRaw = outputText.length;
           const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
           outputText = trimOutroLines(outputText);
+          const lenAfterTrimOutro = outputText.length;
+          let lenAfterSynergy: number | null = null;
+          let lenAfterTruncation: number | null = null;
+          let synergyRemoved = false;
+          let truncationRemoved = false;
           const deckCards = deckContextForCompose?.deckCards ?? [];
           if (deckCards.length > 0 && outputText) {
             try {
@@ -1215,8 +1259,13 @@ export async function POST(req: NextRequest) {
                 }
               }
               const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
+              const lenBeforeSynergy = outputText.length;
               outputText = stripIncompleteSynergyChains(outputText);
+              lenAfterSynergy = outputText.length;
+              synergyRemoved = lenBeforeSynergy > outputText.length;
               outputText = stripIncompleteTruncation(outputText);
+              lenAfterTruncation = outputText.length;
+              truncationRemoved = (lenAfterSynergy ?? lenBeforeSynergy) > outputText.length;
               outputText = applyOutputCleanupFilter(outputText);
               outputText = applyBracketEnforcement(outputText);
               // Append validation warning if any cards were removed
@@ -1321,9 +1370,27 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const lenFinal = outputText.length;
           const CHUNK_SIZE = 120;
           for (let i = 0; i < outputText.length; i += CHUNK_SIZE) {
             controller.enqueue(encoder.encode(outputText.slice(i, i + CHUNK_SIZE)));
+          }
+          if (wantDebug) {
+            const streamDurationMs = Date.now() - streamStartTime;
+            const endStreamPayload = {
+              phase: "end",
+              ts: Date.now(),
+              stream_duration_ms: streamDurationMs,
+              lenRaw,
+              lenAfterTrimOutro,
+              lenAfterSynergy,
+              lenAfterTruncation,
+              lenFinal,
+              synergyRemoved,
+              truncationRemoved,
+              truncation_guess: truncationRemoved ? "stripIncompleteTruncation removed content" : synergyRemoved ? "stripIncompleteSynergyChains removed content" : null,
+            };
+            controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }
           controller.enqueue(encoder.encode("\n[DONE]"));
           controller.close();
