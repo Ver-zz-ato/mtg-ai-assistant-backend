@@ -829,7 +829,7 @@ export async function POST(req: NextRequest) {
 
     if (streamInjected === "analyze") {
       sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. The user gave you everything. Start your analysis immediately (mana base, ramp, cuts, upgrades).`;
+      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW.\nFORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals.\nFORBIDDEN: Do NOT ask follow-up questions about deck goals, archetype preferences, or what kind of build the user wants.\nYou MUST infer the deck's plan from the decklist itself and begin the full Step 1–8 analysis immediately.\nYour FIRST sentence must start with "Step 1:" followed by the first analysis step. Do NOT add any preamble or thanks before Step 1.`;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
           try {
@@ -1146,6 +1146,19 @@ export async function POST(req: NextRequest) {
               prompt_tier: selectedTier,
               prompt_contract: promptContractLog,
               format_key: formatKey,
+              analyze_now_expected:
+                selectedTier === "full" &&
+                streamInjected === "analyze" &&
+                !!(deckContextForCompose?.deckCards?.length) &&
+                (activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected"),
+              has_full_deck_context: !!(deckContextForCompose?.deckCards?.length),
+              extra_clarification_allowed: !(
+                selectedTier === "full" &&
+                streamInjected === "analyze" &&
+                !!(deckContextForCompose?.deckCards?.length) &&
+                (activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected")
+              ),
+              prompt_mode: streamInjected,
               v2_summary_used: !!v2Summary,
               v2_card_count: v2Summary?.card_count ?? null,
               deck_context_cards: deckContextForCompose?.deckCards?.length ?? 0,
@@ -1427,6 +1440,15 @@ export async function POST(req: NextRequest) {
                 : promptContractLog.injected === "analyze"
                   ? "other"
                   : "other";
+            const opening = outputText.slice(0, 160).toLowerCase();
+            const openingLooksLikeAnalysis = /^step\s+1\b/.test(opening);
+            const openingLooksLikeClarification =
+              /before i dive in/.test(opening) ||
+              /before we dive in/.test(opening) ||
+              /what (are|do) you (want|want to|want this deck to)/.test(opening) ||
+              /what (kind of|sort of) (build|deck)/.test(opening) ||
+              /what are your goals/.test(opening);
+            const outputOpeningGuess = openingLooksLikeAnalysis ? "analysis" : openingLooksLikeClarification ? "clarification" : "other";
             const endStreamPayload = {
               phase: "end",
               ts: Date.now(),
@@ -1442,6 +1464,7 @@ export async function POST(req: NextRequest) {
               cleanup_chars_removed_truncation: cleanupCharsTruncation,
               truncation_guess: truncationRemoved ? "stripIncompleteTruncation removed content" : synergyRemoved ? "stripIncompleteSynergyChains removed content" : null,
               response_shape_guess: responseShapeGuess,
+              output_opening_guess: outputOpeningGuess,
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }
