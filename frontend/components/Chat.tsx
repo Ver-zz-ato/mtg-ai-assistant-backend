@@ -2025,7 +2025,7 @@ function Chat(props: ChatProps = {}) {
                 Using {(modelTier === 'free' || (isLoggedIn && !isPro)) ? (modelLabel || 'Standard') : modelLabel} model.
                 {(modelTier === 'free' || (isLoggedIn && !isPro)) && <> {FREE_DAILY_MESSAGE_LIMIT} messages/day.</>}{' '}
                 <a href="/pricing" className="text-blue-400 hover:text-blue-300 font-medium">
-                  {modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : (modelTier === 'free' || (isLoggedIn && !isPro)) ? 'Upgrade to Pro for more!' : 'Upgrade to Pro for the best model.'}
+                  {modelTier === 'guest' ? 'Sign in for a better model. Upgrade to Pro for the best.' : (modelTier === 'free' || (isLoggedIn && !isPro)) ? 'Upgrade to Pro for the best chat model.' : 'Upgrade to Pro for the best model.'}
                 </a>
               </span>
             </div>

@@ -66,10 +66,10 @@ export default function PostAnalysisSignupPrompt({ messages }: PostAnalysisSignu
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex-1 text-center sm:text-left">
           <p className="text-white font-semibold text-sm mb-1">
-            Save this analysis to your account
+            Save this analysis and get a better chat model
           </p>
           <p className="text-blue-200 text-xs">
-            Free signup takes 30 seconds • No credit card required
+            Free signup • Better AI quality when you sign in • No credit card required
           </p>
         </div>
         <button
