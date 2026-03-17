@@ -118,10 +118,12 @@ export type ChatDebugLogEntry = { ts: number; tag: string; data: Record<string, 
 export type ChatProps = {
   debugMode?: boolean;
   onDebugLog?: (entry: ChatDebugLogEntry) => void;
+  /** Admin only: override tier for testing (guest/free/pro). Sent in context when set. */
+  forceTier?: "guest" | "free" | "pro";
 };
 
 function Chat(props: ChatProps = {}) {
-  const { debugMode = false, onDebugLog } = props;
+  const { debugMode = false, onDebugLog, forceTier } = props;
   // Rotating example prompts - expanded pool for randomization
   const ALL_SUGGESTION_PROMPTS = [
     { label: 'Analyze my Commander deck', text: "Analyze this Commander deck and tell me what it's missing." },
@@ -755,7 +757,8 @@ function Chat(props: ChatProps = {}) {
       colors: prefs.colors, 
       teaching,
       deckContext: deckContext,
-      memoryContext: memoryContext
+      memoryContext: memoryContext,
+      ...(forceTier && { forceTier }),
     };
     
     // For logged-in users: Create thread before streaming if one doesn't exist
@@ -1379,25 +1382,14 @@ function Chat(props: ChatProps = {}) {
       const normalized = normalizedCardKey(cardName);
       const image = cardImages.get(normalized);
       const normalUrl = image?.normal || image?.art_crop || image?.small;
-      const smallUrl = image?.small || image?.normal;
-      if (!normalUrl) return cardName;
       return (
         <span
-          className="inline-flex items-center gap-1 align-middle cursor-help"
-          onMouseEnter={(e) => handleCardMouseEnter(e, cardName)}
+          className="inline align-middle cursor-help border-b border-dotted border-neutral-500"
+          title={cardName}
+          onMouseEnter={(e) => normalUrl && handleCardMouseEnter(e, cardName)}
           onMouseLeave={handleCardMouseLeave}
         >
-          {smallUrl && (
-            <img
-              src={smallUrl}
-              alt=""
-              className="w-6 h-auto rounded border border-neutral-600 inline-block"
-              aria-hidden
-            />
-          )}
-          <span className="border-b border-dotted border-neutral-500" title={cardName}>
-            {cardName}
-          </span>
+          {cardName}
         </span>
       );
     };

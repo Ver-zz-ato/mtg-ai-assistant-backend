@@ -226,8 +226,8 @@ export function extractCardsForImages(text: string): ExtractedCard[] {
     return true;
   });
 
-  // Limit to 25 so more cards get images and inline chips
-  return unique.slice(0, 25);
+  // Limit so we fetch images for a reasonable set (all [[Card]] still render as hoverable links)
+  return unique.slice(0, 60);
 }
 
 /**

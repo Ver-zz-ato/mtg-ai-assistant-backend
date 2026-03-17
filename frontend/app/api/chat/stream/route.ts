@@ -205,7 +205,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const modelTierRes = getModelForTier({ isGuest, userId, isPro });
+    let modelTierRes = getModelForTier({ isGuest, userId, isPro });
+    const ft = (raw?.context as { forceTier?: string } | undefined)?.forceTier;
+    const forceTierFromContext = typeof ft === "string" && (ft === "guest" || ft === "free" || ft === "pro") ? ft : null;
+    if (forceTierFromContext && sourcePage?.includes("Admin Chat Test")) {
+      modelTierRes = getModelForTier({
+        isGuest: forceTierFromContext === "guest",
+        userId: forceTierFromContext === "guest" ? null : "admin-override",
+        isPro: forceTierFromContext === "pro",
+      });
+    }
     const promptRequestId = generatePromptRequestId();
 
     // Guardrail: chat/completions only accepts chat-capable models
@@ -1136,7 +1145,7 @@ export async function POST(req: NextRequest) {
           while (!streamDone) {
             const elapsed = Date.now() - streamStartTime;
             if (elapsed > MAX_STREAM_SECONDS * 1000) break;
-            if (estimatedTokens > MAX_TOKENS_STREAM) break;
+            if (estimatedTokens > tokenLimit) break;
 
             const { done, value } = await reader.read();
             if (done) break;

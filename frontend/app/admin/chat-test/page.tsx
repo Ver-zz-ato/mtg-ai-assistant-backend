@@ -71,8 +71,11 @@ function DebugLogPanel({ entries, onExport }: { entries: ChatDebugLogEntry[]; on
   );
 }
 
+type TierOption = "guest" | "free" | "pro";
+
 export default function AdminChatTestPage() {
   const [debugEntries, setDebugEntries] = useState<ChatDebugLogEntry[]>([]);
+  const [forceTier, setForceTier] = useState<TierOption>("pro");
 
   const onDebugLog = useCallback((entry: ChatDebugLogEntry) => {
     setDebugEntries((prev) => [...prev, entry]);
@@ -122,8 +125,21 @@ export default function AdminChatTestPage() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
         <div className="lg:col-span-2 min-h-[400px] rounded-lg border border-neutral-700 bg-neutral-900/30 overflow-hidden flex flex-col">
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-neutral-700 bg-neutral-900/50">
+            <span className="text-xs font-medium text-neutral-400">Tier (for testing):</span>
+            {(["guest", "free", "pro"] as const).map((tier) => (
+              <button
+                key={tier}
+                type="button"
+                onClick={() => setForceTier(tier)}
+                className={`px-3 py-1.5 rounded text-sm font-medium capitalize ${forceTier === tier ? "bg-amber-600 text-white" : "bg-neutral-700 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200"}`}
+              >
+                {tier}
+              </button>
+            ))}
+          </div>
           <div className="flex-1 overflow-auto p-2">
-            <Chat debugMode={true} onDebugLog={onDebugLog} />
+            <Chat debugMode={true} onDebugLog={onDebugLog} forceTier={forceTier} />
           </div>
         </div>
         <div className="min-h-[300px] lg:min-h-0 rounded-lg border border-neutral-700 bg-neutral-900/50 p-3 flex flex-col">

@@ -31,7 +31,7 @@ interface ComparisonStats {
 
 export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
   const searchParams = useSearchParams();
-  const { isPro } = useProStatus();
+  const { isPro, loading: proLoading } = useProStatus();
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
   const [deckData, setDeckData] = useState<Map<string, DeckData>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -398,8 +398,8 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
         <div className="flex justify-center">
           <button
             onClick={async () => {
-              // Check Pro status
-              if (!isPro) {
+              // Only gate when we know the user is not Pro (avoid blocking while Pro status is still loading)
+              if (!proLoading && !isPro) {
                 try {
                   const { showProToast } = await import('@/lib/pro-ux');
                   showProToast();
@@ -445,13 +445,13 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
                 setLoadingAi(false);
               }
             }}
-            disabled={loadingAi || !isPro}
+            disabled={loadingAi || (!proLoading && !isPro)}
             className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isPro 
+              isPro || proLoading
                 ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500'
                 : 'bg-gradient-to-r from-purple-600/50 to-blue-600/50 hover:from-purple-500/50 hover:to-blue-500/50 border border-purple-500/30'
             }`}
-            title={!isPro ? '⭐ AI Analysis requires a Pro subscription' : 'Get AI-powered deck comparison'}
+            title={!proLoading && !isPro ? '⭐ AI Analysis requires a Pro subscription' : 'Get AI-powered deck comparison'}
           >
             {loadingAi ? (
               <>
@@ -462,7 +462,7 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
               <>
                 <span>🤖</span>
                 <span>Get AI Analysis</span>
-                {!isPro && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 ml-1">PRO</span>}
+                {!proLoading && !isPro && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 ml-1">PRO</span>}
               </>
             )}
           </button>
