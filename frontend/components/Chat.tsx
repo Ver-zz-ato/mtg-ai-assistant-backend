@@ -1395,39 +1395,9 @@ function Chat(props: ChatProps = {}) {
     };
     const extractedCards = extractCardsForImages(content);
     const knownCardNames = new Set(extractedCards.map(c => normalizedCardKey(c.name)));
-    const showCardImages = !skipCardImages && extractedCards.length > 0;
     return (
       <div className="space-y-3">
         <div>{renderMarkdown(content, { renderCard, knownCardNames })}</div>
-        {showCardImages && (
-          <div className="flex gap-3 flex-wrap pt-2 border-t border-neutral-600">
-            {extractedCards.map((card, idx) => {
-              const normalized = normalizedCardKey(card.name);
-              const image = cardImages.get(normalized);
-              const price = cardPrices.get(normalized);
-              if (!image?.small) return null;
-              return (
-                <div key={idx} className="relative">
-                  <img
-                    src={image.small}
-                    alt={card.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
-                    onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
-                    onMouseLeave={handleCardMouseLeave}
-                    title={card.name}
-                  />
-                  {price !== undefined && (
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-lg">
-                      ${price.toFixed(2)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   }

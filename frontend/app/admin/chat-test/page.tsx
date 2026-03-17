@@ -21,18 +21,22 @@ function debugSummary(e: ChatDebugLogEntry): string {
   const d = e.data as Record<string, unknown>;
   const phase = d?.phase as string | undefined;
   if (phase === "start") {
-    const path = d?.promptPath ?? "—";
-    const model = d?.model ?? "—";
+    const decision = d?.decision ?? (d?.prompt_contract as { injected?: string })?.injected ?? "—";
+    const reason = d?.decision_reason ?? "—";
+    const confirmReq = d?.commander_confirm_required === true ? " confirm_req" : "";
+    const confirmed = d?.commander_confirmed === true ? " confirmed" : "";
     const tier = d?.tier ?? "—";
     const tokenLimit = d?.tokenLimit ?? "—";
-    const injected = (d?.prompt_contract as { injected?: string })?.injected ?? "—";
-    return `START: path=${path} model=${model} tier=${tier} tokens=${tokenLimit} injected=${injected}`;
+    return `START: decision=${decision} reason=${reason}${confirmReq}${confirmed} tier=${tier} tokens=${tokenLimit}`;
   }
   if (phase === "end") {
     const lenFinal = d?.lenFinal ?? "—";
-    const trunc = d?.truncationRemoved ? " [trunc removed]" : "";
-    const syn = d?.synergyRemoved ? " [synergy removed]" : "";
-    return `END: lenFinal=${lenFinal}${trunc}${syn}`;
+    const shape = d?.response_shape_guess ?? "—";
+    const synRem = d?.cleanup_chars_removed_synergy ?? "";
+    const truncRem = d?.cleanup_chars_removed_truncation ?? "";
+    const trunc = d?.truncationRemoved ? " [trunc]" : "";
+    const syn = d?.synergyRemoved ? " [synergy]" : "";
+    return `END: lenFinal=${lenFinal} shape=${shape} removed_syn=${synRem} removed_trunc=${truncRem}${trunc}${syn}`;
   }
   return `${e.tag} @ ${new Date(e.ts).toLocaleTimeString()}`;
 }

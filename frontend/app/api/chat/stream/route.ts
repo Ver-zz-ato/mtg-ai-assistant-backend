@@ -802,13 +802,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
+    let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string; decision_reason?: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
     if (selectedTier === "full") {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     // Phase 6: State-driven prompt assembly from ActiveDeckContext
+    // Confirm-before-analyze: for paste flows (current_paste, guest_ephemeral) require confirmed/corrected commander; linked deck can keep using stored commander.
     const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
     const authForPrompt = isAuthoritativeForPrompt(activeDeckContext);
-    if (activeDeckContext.hasDeck && authForPrompt && activeDeckContext.commanderName) {
+    const pasteSource = activeDeckContext.source === "current_paste" || activeDeckContext.source === "guest_ephemeral";
+    const commanderConfirmedOrCorrected = activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected" || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander;
+    const mayAnalyze = activeDeckContext.hasDeck && activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
+    if (mayAnalyze) {
       sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED ===\nThe commander is [[${activeDeckContext.commanderName}]]. The full decklist is in DECK CONTEXT above. You MUST proceed with deck analysis NOW. FORBIDDEN: Do NOT say "I need your decklist", "paste your decklist", "To help you best I need", "Tell me your commander", or ask for format/budget/goals. The user gave you everything. Start your analysis immediately (mana base, ramp, cuts, upgrades).`;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
@@ -823,7 +827,9 @@ export async function POST(req: NextRequest) {
     } else if (activeDeckContext.hasDeck && activeDeckContext.askReason === "need_commander") {
       sys += `\n\nCOMMANDER NEEDED: You have a decklist but the commander is unclear. Ask the user to confirm their commander before providing deck analysis. Do NOT guess or assume the commander.`;
     }
-    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected: authForPrompt ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none" };
+    const injected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
+    const decisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : "none";
+    promptContractLog = { hasDeck: activeDeckContext.hasDeck, commanderStatus: activeDeckContext.commanderStatus, askReason: activeDeckContext.askReason, injected, decision_reason: decisionReason };
     streamDebug("prompt_contract", promptContractLog);
     }
 
@@ -1095,6 +1101,10 @@ export async function POST(req: NextRequest) {
             const debugPayload = {
               ts: Date.now(),
               phase: "start",
+              decision: promptContractLog.injected,
+              decision_reason: promptContractLog.decision_reason ?? null,
+              commander_confirm_required: promptContractLog.askReason === "confirm_inference" || promptContractLog.askReason === "need_commander",
+              commander_confirmed: promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected",
               promptPath: promptResult.promptPath,
               promptVersionId: promptResult.promptVersionId ?? null,
               model: effectiveModel,
@@ -1186,6 +1196,7 @@ export async function POST(req: NextRequest) {
           const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
           outputText = trimOutroLines(outputText);
           const lenAfterTrimOutro = outputText.length;
+          let lenBeforeSynergy: number | null = null;
           let lenAfterSynergy: number | null = null;
           let lenAfterTruncation: number | null = null;
           let synergyRemoved = false;
@@ -1268,7 +1279,7 @@ export async function POST(req: NextRequest) {
                 }
               }
               const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
-              const lenBeforeSynergy = outputText.length;
+              lenBeforeSynergy = outputText.length;
               outputText = stripIncompleteSynergyChains(outputText);
               lenAfterSynergy = outputText.length;
               synergyRemoved = lenBeforeSynergy > outputText.length;
@@ -1386,6 +1397,11 @@ export async function POST(req: NextRequest) {
           }
           if (wantDebug) {
             const streamDurationMs = Date.now() - streamStartTime;
+            const cleanupCharsSynergy = lenBeforeSynergy != null && lenAfterSynergy != null ? lenBeforeSynergy - lenAfterSynergy : null;
+            const cleanupCharsTruncation = lenAfterSynergy != null && lenAfterTruncation != null ? lenAfterSynergy - lenAfterTruncation : (lenBeforeSynergy != null ? lenBeforeSynergy - lenFinal : null);
+            const hasReportCard = /Deck\s+Report\s+Card|Step\s+8/i.test(outputText);
+            const hasSteps = /Step\s+\d/i.test(outputText);
+            const responseShapeGuess = promptContractLog.injected === "analyze" ? (hasReportCard && hasSteps ? "full_analysis" : hasSteps ? "partial_analysis" : "other") : promptContractLog.injected === "confirm" || promptContractLog.injected === "ask_commander" ? "ask_commander" : "other";
             const endStreamPayload = {
               phase: "end",
               ts: Date.now(),
@@ -1397,7 +1413,10 @@ export async function POST(req: NextRequest) {
               lenFinal,
               synergyRemoved,
               truncationRemoved,
+              cleanup_chars_removed_synergy: cleanupCharsSynergy,
+              cleanup_chars_removed_truncation: cleanupCharsTruncation,
               truncation_guess: truncationRemoved ? "stripIncompleteTruncation removed content" : synergyRemoved ? "stripIncompleteSynergyChains removed content" : null,
+              response_shape_guess: responseShapeGuess,
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }

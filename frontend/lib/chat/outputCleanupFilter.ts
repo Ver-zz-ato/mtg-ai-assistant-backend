@@ -70,13 +70,12 @@ export function stripIncompleteSynergyChains(text: string): string {
       }
       const block = lines.slice(blockStart, blockEnd).join("\n");
       const hasFullChain = /→[^→]*→/.test(block);
-      const hasRequiredPhrase = /together\s+produce|advances\s+win/i.test(block);
       const endsTruncated =
         block.trimEnd().endsWith('"[') ||
         block.trimEnd().endsWith('"\n') ||
         /\n\s*"\[\s*$/.test(block);
-      const invalidShape = block.includes("→") && (!hasFullChain || !hasRequiredPhrase);
-      if (!hasFullChain || endsTruncated || invalidShape) {
+      // Only remove block when clearly truncated (e.g. mid-sentence); do NOT remove for format/phrase differences (was over-removing Guest/smaller-model output)
+      if (endsTruncated || (!hasFullChain && block.includes("→") && (block.trimEnd().endsWith("→") || block.trimEnd().endsWith('"[')))) {
         for (let j = blockStart; j < blockEnd; j++) drop.add(j);
       }
       i = blockEnd;
