@@ -1189,6 +1189,7 @@ export async function POST(req: NextRequest) {
               confirm_question_expected: streamInjected === "confirm" || streamInjected === "ask_commander",
               previous_turn_was_ask_commander: activeDeckContext.lastTurnAskedCommander ?? false,
               user_reply_promoted_to_commander: activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander,
+              promotion_reason: activeDeckContext.promotionSource ?? "none",
               active_deck_context: {
                 hasDeck: activeDeckContext.hasDeck,
                 source: activeDeckContext.source,
@@ -1279,6 +1280,7 @@ export async function POST(req: NextRequest) {
 
           let outputText = fullContent.trim();
           const lenRaw = outputText.length;
+          let askCommanderSafetyNetUsed = false;
           const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
           outputText = trimOutroLines(outputText);
           const lenAfterTrimOutro = outputText.length;
@@ -1391,6 +1393,12 @@ export async function POST(req: NextRequest) {
                 const flags = humanSanityCheck(outputText);
                 if (!flags.feelsHuman || flags.instructionalPhrases.length > 0)
                   console.warn("[stream] humanSanityCheck flags:", flags);
+              }
+              // Tiny safety net: ask_commander with full deck context must not re-ask for decklist
+              if (streamInjected === "ask_commander" && outputText && /paste your decklist|provide your decklist|send the full list|share your decklist|full decklist|paste the decklist|provide the decklist/i.test(outputText)) {
+                const candidate = activeDeckContext.commanderCandidates?.[0]?.name ?? activeDeckContext.commanderName ?? null;
+                outputText = candidate ? `Is [[${candidate}]] your commander for this deck?` : "Please name your commander for this deck.";
+                askCommanderSafetyNetUsed = true;
               }
             } catch (e) {
               if (DEV) console.warn("[stream] validateRecommendations/cleanup error:", e);
@@ -1530,6 +1538,7 @@ export async function POST(req: NextRequest) {
               response_shape_guess: responseShapeGuess,
               output_opening_guess: outputOpeningGuess,
               cleanup_synergy_skipped_for_deck_analysis: cleanupSynergySkippedForDeckAnalysis,
+              ask_commander_safety_net_used: askCommanderSafetyNetUsed,
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }

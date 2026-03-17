@@ -46,6 +46,8 @@ export type ActiveDeckContext = {
   userJustCorrectedCommander: boolean;
   /** True when the last assistant message asked for commander (confirm or ask_commander). */
   lastTurnAskedCommander: boolean;
+  /** Why this turn's reply was promoted to trusted commander, for debug. */
+  promotionSource: "full_name_match" | "short_name_match" | "yes_plus_name" | "explicit_declaration" | "user_named" | "none";
   linkedDeckTakesPriority: boolean;
   parseWarnings: string[];
   /** True when resolved deck hash differs from stored (new deck replacement; persistence should clear commander unless preserved). */
@@ -149,14 +151,32 @@ function looksLikeSingleCardName(text: string): boolean {
   return true;
 }
 
+const normCommander = (s: string) =>
+  s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
 /** True when user reply is just the commander/candidate name (or "yes, Name"), after a confirm question. */
 function replyIsJustCommanderName(reply: string, commanderName: string): boolean {
   if (!reply?.trim() || !commanderName?.trim()) return false;
   let t = reply.trim().replace(/^\[\[([^\]]*)\]\]\s*$/, "$1").trim();
   t = t.replace(/^(yes|yep|yeah|correct|ok|okay),?\s+/i, "").trim();
   t = t.replace(/[.,;:!?]+$/, "").trim();
-  const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-  return norm(t) === norm(commanderName);
+  return normCommander(t) === normCommander(commanderName);
+}
+
+/**
+ * True when reply is a short name that matches the single candidate (e.g. "Korvold" for "Korvold, Fae-Cursed King").
+ * Only safe when there is exactly one candidate; caller must ensure askedCommander && !!commanderName.
+ */
+function replyMatchesCandidateShortName(reply: string, commanderName: string): boolean {
+  if (!reply?.trim() || !commanderName?.trim()) return false;
+  let t = reply.trim().replace(/^(yes|yep|yeah|correct|ok|okay),?\s+/i, "").trim();
+  t = t.replace(/[.,;:!?]+$/, "").trim();
+  if (t.length > 30 || t.includes("\n")) return false;
+  const nReply = normCommander(t);
+  const nCommander = normCommander(commanderName);
+  if (nReply.length < 2) return false;
+  const firstSegment = normCommander(commanderName.split(",")[0]?.trim() ?? "");
+  return nReply === firstSegment || (nCommander.startsWith(nReply) && nReply.length >= 3);
 }
 
 /**
@@ -330,8 +350,9 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     declaredCommander.length <= 80 &&
     declaredCommander.toLowerCase() === commanderName.toLowerCase();
 
-  const replyConfirmsCandidate =
-    askedCommander && !!commanderName && replyIsJustCommanderName((text ?? "").trim(), commanderName);
+  const replyFullNameMatch = askedCommander && !!commanderName && replyIsJustCommanderName((text ?? "").trim(), commanderName);
+  const replyShortNameMatch = askedCommander && !!commanderName && !replyFullNameMatch && replyMatchesCandidateShortName((text ?? "").trim(), commanderName);
+  const replyConfirmsCandidate = replyFullNameMatch || replyShortNameMatch;
   const userJustConfirmedCommander =
     (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn || !!userNamedCommanderThisTurn || !!replyConfirmsCandidate;
   const userJustCorrectedCommander = userRespondedToConfirm && isCorrection;
@@ -375,6 +396,19 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     userJustConfirmedCommander,
     userJustCorrectedCommander,
     lastTurnAskedCommander: askedCommander,
+    promotionSource: userJustCorrectedCommander
+      ? "none"
+      : userNamedCommanderThisTurn
+        ? "user_named"
+        : userDeclaredCommanderThisTurn
+          ? "explicit_declaration"
+          : userRespondedToConfirm && !isCorrection
+            ? "yes_plus_name"
+            : replyFullNameMatch
+              ? "full_name_match"
+              : replyShortNameMatch
+                ? "short_name_match"
+                : "none",
     linkedDeckTakesPriority,
     parseWarnings,
     deckReplacedByHashChange,

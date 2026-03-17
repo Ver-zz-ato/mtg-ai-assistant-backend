@@ -249,7 +249,45 @@ assert.strictEqual(replyIsJustName.userJustConfirmedCommander, true, "reply with
 assert.strictEqual(replyIsJustName.lastTurnAskedCommander, true);
 assert.strictEqual(isAuthoritativeForPrompt(replyIsJustName), true);
 
-// --- same with short name "Muldrotha"
+// --- short-name promotion: "Korvold" matches candidate "Korvold, Fae-Cursed King" (95+ lines so last 1-of is inferred)
+const KORVOLD_DECK = [
+  "1 Sol Ring",
+  "1 Command Tower",
+  "1 Arcane Signet",
+  ...Array(92).fill("1 Forest"),
+  "1 Korvold, Fae-Cursed King",
+].join("\n");
+const replyShortNameKorvold = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "Korvold",
+    thread: { deck_id: null, commander: null, decklist_text: KORVOLD_DECK, decklist_hash: "k1" },
+    streamThreadHistory: [
+      { role: "user", content: KORVOLD_DECK },
+      { role: "assistant", content: "Is [[Korvold, Fae-Cursed King]] your commander?" },
+    ],
+  })
+);
+assert.strictEqual(replyShortNameKorvold.userJustConfirmedCommander, true, "short name Korvold should promote when candidate is Korvold, Fae-Cursed King");
+assert.strictEqual(replyShortNameKorvold.promotionSource, "short_name_match");
+assert.strictEqual(replyShortNameKorvold.commanderName, "Korvold, Fae-Cursed King");
+
+// --- "yes korvold" should promote (yes_plus_name or short_name_match depending on path)
+const replyYesKorvold = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "yes korvold",
+    thread: { deck_id: null, commander: null, decklist_text: KORVOLD_DECK, decklist_hash: "k1" },
+    streamThreadHistory: [
+      { role: "user", content: KORVOLD_DECK },
+      { role: "assistant", content: "Is [[Korvold, Fae-Cursed King]] your commander?" },
+    ],
+  })
+);
+assert.strictEqual(replyYesKorvold.userJustConfirmedCommander, true);
+assert.ok(["short_name_match", "yes_plus_name"].includes(replyYesKorvold.promotionSource));
+
+// --- same with short name "Muldrotha" (first segment match): now should promote via short_name_match
 const replyShortName = resolveActiveDeckContext(
   base({
     tid: "t1",
@@ -261,8 +299,8 @@ const replyShortName = resolveActiveDeckContext(
     ],
   })
 );
-assert.strictEqual(replyShortName.userJustConfirmedCommander, false, "short name Muldrotha does not exactly match full name");
-// (replyIsJustCommanderName compares normalized; "Muldrotha" vs "Muldrotha, the Gravetide" are different)
+assert.strictEqual(replyShortName.userJustConfirmedCommander, true, "short name Muldrotha matches first segment of Muldrotha, the Gravetide");
+assert.strictEqual(replyShortName.promotionSource, "short_name_match");
 assert.strictEqual(replyShortName.commanderName, "Muldrotha, the Gravetide");
 
 console.log("active-deck-context.test.ts: all tests passed");
