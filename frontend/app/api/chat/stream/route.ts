@@ -1278,6 +1278,7 @@ export async function POST(req: NextRequest) {
           let lenAfterTruncation: number | null = null;
           let synergyRemoved = false;
           let truncationRemoved = false;
+          let cleanupSynergySkippedForDeckAnalysis = false;
           const deckCards = deckContextForCompose?.deckCards ?? [];
           if (deckCards.length > 0 && outputText) {
             try {
@@ -1357,9 +1358,16 @@ export async function POST(req: NextRequest) {
               }
               const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
               lenBeforeSynergy = outputText.length;
-              outputText = stripIncompleteSynergyChains(outputText);
-              lenAfterSynergy = outputText.length;
-              synergyRemoved = lenBeforeSynergy > outputText.length;
+              const isDeckAnalysisTurn = streamInjected === "analyze";
+              if (isDeckAnalysisTurn) {
+                lenAfterSynergy = outputText.length;
+                synergyRemoved = false;
+                cleanupSynergySkippedForDeckAnalysis = true;
+              } else {
+                outputText = stripIncompleteSynergyChains(outputText);
+                lenAfterSynergy = outputText.length;
+                synergyRemoved = lenBeforeSynergy > outputText.length;
+              }
               outputText = stripIncompleteTruncation(outputText);
               lenAfterTruncation = outputText.length;
               truncationRemoved = (lenAfterSynergy ?? lenBeforeSynergy) > outputText.length;
@@ -1512,6 +1520,7 @@ export async function POST(req: NextRequest) {
               truncation_guess: truncationRemoved ? "stripIncompleteTruncation removed content" : synergyRemoved ? "stripIncompleteSynergyChains removed content" : null,
               response_shape_guess: responseShapeGuess,
               output_opening_guess: outputOpeningGuess,
+              cleanup_synergy_skipped_for_deck_analysis: cleanupSynergySkippedForDeckAnalysis,
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG_END_STREAM__\n${JSON.stringify(endStreamPayload)}\n__MANATAP_DEBUG_END__\n`));
           }
