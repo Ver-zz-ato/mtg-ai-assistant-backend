@@ -1232,8 +1232,28 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
 export async function POST(req: Request) {
   // Get user and supabase first (needed throughout the function)
   const { getServerSupabase } = await import('@/lib/server-supabase');
-  const supabase = await getServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  // 🔒 Auth precedence (MUST NOT change):
+  // 1) cookie user (website)
+  // 2) else Bearer user (mobile)
+  // 3) else guest/unauth (existing guest logic)
+  let supabase = await getServerSupabase();
+  let { data: { user } } = await supabase.auth.getUser();
+
+  // Mobile app: support Authorization: Bearer when cookies have no session.
+  // IMPORTANT: Only attempt Bearer auth if cookie auth did not yield a user (precedence rule).
+  if (!user) {
+    const authHeader = req.headers.get('Authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+      const bearerSupabase = createClientWithBearerToken(bearerToken);
+      const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+      }
+    }
+  }
   
   // Get Pro status early (needed throughout the function)
   let isPro = false;

@@ -40,11 +40,31 @@ export async function POST(req: NextRequest) {
   let isPro = false;
 
   try {
-    const supabase = await getServerSupabase();
+    // 🔒 Auth precedence (MUST NOT change):
+    // 1) cookie user (website)
+    // 2) else Bearer user (mobile)
+    // 3) else guest/unauth (existing guest logic)
+    let supabase = await getServerSupabase();
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
     let guestToken: string | null = null;
-    const { data: { user } } = await supabase.auth.getUser();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Mobile app: support Authorization: Bearer when cookies have no session.
+    // IMPORTANT: Only attempt Bearer auth if cookie auth did not yield a user (precedence rule).
+    if (!user) {
+      const authHeader = req.headers.get('Authorization');
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
 
     if (!user) {
       isGuest = true;
