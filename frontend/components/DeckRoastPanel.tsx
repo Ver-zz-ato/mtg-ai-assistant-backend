@@ -248,15 +248,15 @@ export default function DeckRoastPanel({
 
   const collapsedHeader = (
     <div
-      className={`flex items-center justify-center py-6 cursor-pointer transition-all ${
-        isPanel ? "bg-gradient-to-br from-amber-950/60 via-neutral-950 to-neutral-900 border-2 border-amber-700/60 rounded-xl" : ""
+      className={`flex items-center justify-center py-2 cursor-pointer transition-all ${
+        isPanel ? "" : ""
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <img
         src="/roast-my-deck-icon.png"
         alt="Roast my Deck"
-        className="w-full max-w-[220px] h-auto object-contain"
+        className="w-full max-w-[240px] h-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
       />
     </div>
   );
@@ -549,14 +549,14 @@ export default function DeckRoastPanel({
     <button
       type="button"
       onClick={() => useModal ? setModalOpen(true) : setIsExpanded(!isExpanded)}
-      className={`w-full flex items-center justify-center py-4 cursor-pointer transition-all ${
-        isPanel ? "bg-gradient-to-br from-amber-950/60 via-neutral-950 to-neutral-900 border-2 border-amber-700/60 rounded-xl hover:border-amber-600/80" : ""
+      className={`w-full flex items-center justify-center py-2 cursor-pointer transition-all ${
+        isPanel ? "hover:opacity-95" : ""
       }`}
     >
       <img
         src="/roast-my-deck-icon.png"
         alt="Roast my Deck"
-        className="w-full max-w-[220px] h-auto object-contain"
+        className="w-full max-w-[240px] h-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
       />
     </button>
   );
