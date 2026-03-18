@@ -253,11 +253,13 @@ export default function DeckRoastPanel({
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      <img
-        src="/roast-my-deck-icon.png"
-        alt="Roast my Deck"
-        className="w-full max-w-[240px] h-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
-      />
+      <div className="w-full max-w-[240px] aspect-square rounded-full overflow-hidden drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
+        <img
+          src="/roast-my-deck-icon.png"
+          alt="Roast my Deck"
+          className="w-full h-full object-cover"
+        />
+      </div>
     </div>
   );
 
@@ -553,11 +555,13 @@ export default function DeckRoastPanel({
         isPanel ? "hover:opacity-95" : ""
       }`}
     >
-      <img
-        src="/roast-my-deck-icon.png"
-        alt="Roast my Deck"
-        className="w-full max-w-[240px] h-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
-      />
+      <div className="w-full max-w-[240px] aspect-square rounded-full overflow-hidden drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
+        <img
+          src="/roast-my-deck-icon.png"
+          alt="Roast my Deck"
+          className="w-full h-full object-cover"
+        />
+      </div>
     </button>
   );
 
