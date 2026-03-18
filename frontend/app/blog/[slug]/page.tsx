@@ -105,7 +105,6 @@ If you're logged in, after a roast you can **Save & share**. We store the roast 
 ## Where to Find It
 
 - **Homepage** — The Roast My Deck panel is on the main page. Expand it, paste your deck, pick your level, and hit Roast.
-- **Admin** — There's also an admin tool at \`/admin/tools/deck-roast\` for internal testing.
 
 ## Try It
 

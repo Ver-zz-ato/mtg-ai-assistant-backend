@@ -57,12 +57,6 @@ export default function MulliganAnalyticsPage() {
           />
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/admin/mulligan-ai"
-            className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
-          >
-            Mulligan Playground
-          </Link>
           <button
             onClick={load}
             disabled={loading}

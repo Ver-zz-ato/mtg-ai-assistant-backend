@@ -175,8 +175,8 @@ export default function AdminChatTestPage() {
           >
             Clear Log
           </button>
-          <Link href="/admin/ai" className="text-sm text-neutral-400 hover:text-white">
-            ← AI Admin
+          <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">
+            ← Admin
           </Link>
         </div>
       </div>
