@@ -248,19 +248,16 @@ export default function DeckRoastPanel({
 
   const collapsedHeader = (
     <div
-      className={`flex flex-col items-center justify-center py-6 cursor-pointer transition-all ${
+      className={`flex items-center justify-center py-6 cursor-pointer transition-all ${
         isPanel ? "bg-gradient-to-br from-amber-950/60 via-neutral-950 to-neutral-900 border-2 border-amber-700/60 rounded-xl" : ""
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <img
         src="/roast-my-deck-icon.png"
-        alt=""
-        className="w-14 h-14 object-contain mb-2 opacity-90"
-        aria-hidden
+        alt="Roast my Deck"
+        className="w-full max-w-[220px] h-auto object-contain"
       />
-      <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
-      <p className="text-sm text-neutral-400 mt-1">Do you dare?</p>
     </div>
   );
 
@@ -552,18 +549,15 @@ export default function DeckRoastPanel({
     <button
       type="button"
       onClick={() => useModal ? setModalOpen(true) : setIsExpanded(!isExpanded)}
-      className={`w-full flex flex-col items-center justify-center py-4 cursor-pointer transition-all ${
+      className={`w-full flex items-center justify-center py-4 cursor-pointer transition-all ${
         isPanel ? "bg-gradient-to-br from-amber-950/60 via-neutral-950 to-neutral-900 border-2 border-amber-700/60 rounded-xl hover:border-amber-600/80" : ""
       }`}
     >
       <img
         src="/roast-my-deck-icon.png"
-        alt=""
-        className="w-14 h-14 object-contain mb-2 opacity-90"
-        aria-hidden
+        alt="Roast my Deck"
+        className="w-full max-w-[220px] h-auto object-contain"
       />
-      <h3 className="text-lg font-bold text-amber-200">Roast my Deck 🔥</h3>
-      <p className="text-sm text-neutral-400 mt-1">Do you dare?</p>
     </button>
   );
 
