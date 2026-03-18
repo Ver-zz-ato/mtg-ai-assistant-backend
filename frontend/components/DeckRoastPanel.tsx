@@ -254,7 +254,7 @@ export default function DeckRoastPanel({
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <img
-        src="/roast-deck-skull-icon.png"
+        src="/roast-my-deck-icon.png"
         alt=""
         className="w-14 h-14 object-contain mb-2 opacity-90"
         aria-hidden
@@ -557,7 +557,7 @@ export default function DeckRoastPanel({
       }`}
     >
       <img
-        src="/roast-deck-skull-icon.png"
+        src="/roast-my-deck-icon.png"
         alt=""
         className="w-14 h-14 object-contain mb-2 opacity-90"
         aria-hidden
