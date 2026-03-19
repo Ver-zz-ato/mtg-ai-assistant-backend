@@ -53,7 +53,7 @@ export default function LivePresenceBanner() {
     <div className="w-full mb-3">
       <div className="relative bg-neutral-900/50 border border-neutral-800/50 rounded-lg overflow-hidden transition-all duration-300">
         {expanded ? (
-          <div className="flex items-center justify-between py-3 text-sm">
+          <div className="flex items-center justify-between gap-4 py-3 text-sm">
             <div className="flex items-center gap-3 flex-shrink-0">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -64,7 +64,8 @@ export default function LivePresenceBanner() {
               </span>
             </div>
             {hasActivity && (
-              <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                <span className="text-neutral-500 font-normal mx-1" aria-hidden>–</span>
                 <div
                   key={currentTickerIndex}
                   className="text-neutral-300 animate-fade-in whitespace-nowrap font-medium"
