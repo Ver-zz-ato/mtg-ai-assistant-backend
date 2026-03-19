@@ -74,8 +74,21 @@ export async function POST(req: NextRequest) {
     let finalUserId = (providedUserId ?? (properties as Record<string, unknown>)?.user_id ?? null) as string | null;
     if (!finalUserId) {
       try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        let supabase = await createClient();
+        let { data: { user } } = await supabase.auth.getUser();
+
+        // Bearer fallback for mobile
+        if (!user) {
+          const authHeader = req.headers.get("Authorization");
+          const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+          if (bearerToken) {
+            const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+            const bearerSupabase = createClientWithBearerToken(bearerToken);
+            const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+            if (bearerUser) user = bearerUser;
+          }
+        }
+
         if (user) {
           finalUserId = user.id;
           (properties as Record<string, unknown>).user_email = user.email;

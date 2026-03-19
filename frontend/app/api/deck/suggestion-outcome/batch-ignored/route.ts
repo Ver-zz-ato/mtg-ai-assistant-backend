@@ -19,8 +19,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, logged: 0 });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await createClient();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
     const deckId = body?.deck_id ? String(body.deck_id).trim() : null;
     const format = body?.format ?? null;
     const commander = body?.commander ?? null;

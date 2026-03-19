@@ -4,17 +4,33 @@
  * Use this to verify which models are used (e.g. check if GPT-5 is configured).
  * Admin-only.
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { isAdmin } from '@/lib/admin-check';
 import { getModelForTier } from '@/lib/ai/model-by-tier';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await getServerSupabase();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile/admin tools
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
     if (!user || !isAdmin(user)) {
       return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
     }

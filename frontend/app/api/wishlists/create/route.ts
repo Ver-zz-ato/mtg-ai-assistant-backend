@@ -6,9 +6,25 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: ures } = await (supabase as any).auth.getUser();
-    const user = ures?.user;
+    let supabase = await getServerSupabase();
+    let { data: ures } = await (supabase as any).auth.getUser();
+    let user = ures?.user;
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase as any;
+        }
+      }
+    }
+
     if (!user) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));

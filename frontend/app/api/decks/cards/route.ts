@@ -26,8 +26,23 @@ export async function GET(req: NextRequest) {
     const deckIds = getDeckIds(req.url);
     if (deckIds && deckIds.length > 0) {
       // Batch: return cards for multiple decks (e.g. ?deckIds=id1,id2,id3)
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      let supabase = await createClient();
+      let { data: { user } } = await supabase.auth.getUser();
+
+      // Bearer fallback for mobile
+      if (!user) {
+        const authHeader = req.headers.get("Authorization");
+        const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        if (bearerToken) {
+          const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+          const bearerSupabase = createClientWithBearerToken(bearerToken);
+          const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+          if (bearerUser) {
+            user = bearerUser;
+            supabase = bearerSupabase;
+          }
+        }
+      }
       const { createClient: createServiceClient } = await import("@supabase/supabase-js");
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
@@ -58,7 +73,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "deckId or deckIds required" }, { status: 400 });
     }
     const supabase = await createClient();
-    
+
     // First check if deck is public - if so, use service role to bypass RLS
     const { data: deck } = await supabase
       .from("decks")
@@ -204,8 +219,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "deckId required" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: { user }, error: uErr } = await supabase.auth.getUser();
+    let supabase = await createClient();
+    let { data: { user }, error: uErr } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user && !uErr) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+          uErr = null;
+        }
+      }
+    }
+
     if (uErr) return NextResponse.json({ ok: false, error: uErr.message }, { status: 401 });
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 

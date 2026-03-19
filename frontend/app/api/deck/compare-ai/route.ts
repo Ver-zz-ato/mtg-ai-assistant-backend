@@ -6,18 +6,21 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
+    let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
 
-    // Mobile app: support Authorization: Bearer when cookies have no session
+    // Bearer fallback for mobile
     if (!user) {
       const authHeader = req.headers.get("Authorization");
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
       if (bearerToken) {
         const { createClientWithBearerToken } = await import("@/lib/server-supabase");
         const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
-        if (bearerUser) user = bearerUser;
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
       }
     }
 

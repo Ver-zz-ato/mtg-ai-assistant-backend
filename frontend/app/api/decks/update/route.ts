@@ -58,11 +58,28 @@ function parseDeckText(text: string): Array<{ name: string; qty: number }> {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const {
+    let supabase = await createClient();
+    let {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user && !userErr) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+          userErr = null;
+        }
+      }
+    }
+
     if (userErr || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

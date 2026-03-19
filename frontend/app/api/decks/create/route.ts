@@ -105,9 +105,25 @@ function aggregateCards(cards: Array<{ name: string; qty: number }>): Array<{ na
 
 async function _POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: userResp } = await supabase.auth.getUser();
-    const user = userResp?.user;
+    let supabase = await createClient();
+    let { data: userResp } = await supabase.auth.getUser();
+    let user = userResp?.user;
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
     if (!user) return err("unauthorized", "unauthorized", 401);
 
     const raw = await req.json().catch(() => ({} as any));

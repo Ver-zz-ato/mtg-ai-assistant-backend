@@ -3,9 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const user = auth?.user;
+  let supabase = await createClient();
+  let { data: auth } = await supabase.auth.getUser();
+  let user = auth?.user;
+
+  // Bearer fallback for mobile
+  if (!user) {
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+      const bearerSupabase = createClientWithBearerToken(bearerToken);
+      const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+      }
+    }
+  }
 
   const body = await req.json().catch(() => ({}));
   const source = typeof body.source === "string" && body.source.trim() ? body.source.trim() : null;

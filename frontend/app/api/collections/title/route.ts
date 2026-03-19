@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = await createClient();
+    let supabase = await createClient();
     const body = await req.json().catch(()=>({}));
     const id = String(body?.id||'');
     const name = String(body?.name||'').trim();
@@ -28,8 +28,25 @@ export async function PATCH(req: NextRequest) {
     const { containsProfanity } = await import("@/lib/profanity");
     if (containsProfanity(name)) return NextResponse.json({ ok:false, error:'Please choose a different name.' }, { status:400 });
 
-    const { data: ures } = await supabase.auth.getUser();
-    const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
+    let { data: ures } = await supabase.auth.getUser();
+    let user = ures?.user;
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
+    if (!user) return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
 
     const { data: col } = await supabase.from('collections').select('id,user_id').eq('id', id).maybeSingle();
     if (!col || col.user_id !== user.id) return NextResponse.json({ ok:false, error:'forbidden' }, { status:403 });

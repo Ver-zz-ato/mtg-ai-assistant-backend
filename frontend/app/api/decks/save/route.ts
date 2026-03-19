@@ -71,9 +71,26 @@ async function computeArchetype(parsed: { name: string; qty: number }[]) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: userRes, error: authErr } = await supabase.auth.getUser();
-    const user = userRes?.user;
+    let supabase = await createClient();
+    let { data: userRes, error: authErr } = await supabase.auth.getUser();
+    let user = userRes?.user;
+
+    // Bearer fallback for mobile
+    if (!user && !authErr) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+          authErr = null;
+        }
+      }
+    }
+
     if (authErr || !user) {
       return NextResponse.json({ ok: false, error: authErr?.message ?? "Unauthenticated" }, { status: 401 });
     }

@@ -7,9 +7,26 @@ function norm(s:string){ return String(s||'').trim(); }
 
 export async function POST(req: NextRequest){
   try{
-    const sb = await createClient();
-    const { data: ures } = await sb.auth.getUser();
-    const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status:401 });
+    let sb = await createClient();
+    let { data: ures } = await sb.auth.getUser();
+    let user = ures?.user;
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          sb = bearerSupabase;
+        }
+      }
+    }
+
+    if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status:401 });
     const body = await req.json().catch(()=>({}));
     const intent = body?.intent || {};
     // Compose a naive deck_text

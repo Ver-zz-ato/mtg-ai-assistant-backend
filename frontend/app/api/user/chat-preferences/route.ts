@@ -4,9 +4,25 @@ import { getServerSupabase } from "@/lib/server-supabase";
 /**
  * GET: Fetch user's saved chat preferences (Pro feature).
  */
-export async function GET() {
-  const supabase = await getServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function GET(req: NextRequest) {
+  let supabase = await getServerSupabase();
+  let { data: { user } } = await supabase.auth.getUser();
+
+  // Bearer fallback for mobile
+  if (!user) {
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+      const bearerSupabase = createClientWithBearerToken(bearerToken);
+      const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+      }
+    }
+  }
+
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
@@ -32,8 +48,24 @@ export async function GET() {
  * PUT: Save user's chat preferences (Pro feature).
  */
 export async function PUT(req: NextRequest) {
-  const supabase = await getServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  let supabase = await getServerSupabase();
+  let { data: { user } } = await supabase.auth.getUser();
+
+  // Bearer fallback for mobile
+  if (!user) {
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+      const bearerSupabase = createClientWithBearerToken(bearerToken);
+      const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+      }
+    }
+  }
+
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }

@@ -43,18 +43,21 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Record<string, any>;
 
-    const supabase = await createClient();
+    let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
 
-    // Mobile app: support Authorization: Bearer when cookies have no session
+    // Bearer fallback for mobile
     if (!user) {
       const authHeader = req.headers.get("Authorization");
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
       if (bearerToken) {
         const { createClientWithBearerToken } = await import("@/lib/server-supabase");
         const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
-        if (bearerUser) user = bearerUser;
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
       }
     }
 
@@ -114,13 +117,16 @@ export async function POST(req: Request) {
 
     let upstreamResp: Response | null = null;
     let lastText = "";
-    // Forward cookies to preserve auth when proxying to same-origin endpoints (important in production)
+    // Forward cookies and/or Authorization for auth when proxying
     const fwdCookie = (()=>{ try { return (new Headers(req.headers)).get('cookie') || ''; } catch { return ''; } })();
+    const fwdAuth = (()=>{ try { return (new Headers(req.headers)).get('Authorization') || ''; } catch { return ''; } })();
+    const fwdHeaders: Record<string, string> = { "content-type": "application/json" };
+    if (fwdCookie) fwdHeaders.cookie = fwdCookie;
+    if (fwdAuth) fwdHeaders.Authorization = fwdAuth;
     for (const url of candidates) {
       const r = await fetch(url, {
         method: "POST",
-        // Forward cookies so downstream can read user session via Supabase
-        headers: { "content-type": "application/json", ...(fwdCookie ? { cookie: fwdCookie } : {}) },
+        headers: fwdHeaders,
         body: JSON.stringify(payload),
       }).catch(() => null as any);
 

@@ -6,11 +6,28 @@ type Params = { id: string };
 
 export async function POST(req: NextRequest, context: { params: Promise<Params> }) {
   const { id } = await context.params;
-  const supabase = await createClient();
+  let supabase = await createClient();
 
   try {
     // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    let { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user && !authError) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+          authError = null;
+        }
+      }
+    }
+
     if (authError || !user) {
       return NextResponse.json({ ok: false, error: "Authentication required" }, { status: 401 });
     }

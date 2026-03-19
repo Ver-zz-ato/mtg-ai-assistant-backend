@@ -50,8 +50,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await createClient();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
 
     const issueTypesArr = hasReasons ? (issueTypes as string[]) : ["other"];
     const descriptionVal = typeof description === "string" ? description.trim().slice(0, 2000) : null;
@@ -121,9 +136,24 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    let supabase = await createClient();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Bearer fallback for mobile
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
