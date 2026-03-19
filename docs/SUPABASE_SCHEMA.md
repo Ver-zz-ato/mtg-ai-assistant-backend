@@ -641,6 +641,24 @@ CREATE TABLE public.deck_versions (
   CONSTRAINT deck_versions_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id),
   CONSTRAINT deck_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
+CREATE TABLE public.precon_decks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  commander text NOT NULL,
+  colors text[] NOT NULL DEFAULT '{}',
+  format text NOT NULL DEFAULT 'Commander',
+  deck_text text NOT NULL DEFAULT '',
+  set_name text NOT NULL,
+  release_year integer NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  meta jsonb DEFAULT '{}',
+  CONSTRAINT precon_decks_pkey PRIMARY KEY (id)
+);
+-- RLS: public read (SELECT); no INSERT/UPDATE/DELETE policies (admin uses service role)
+-- Indexes: set_name, release_year, commander, colors (GIN)
+-- Used by: /decks/browse Precons tab, GET /api/decks/precons, POST /api/decks/precons/import
+
 CREATE TABLE public.decks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid(),

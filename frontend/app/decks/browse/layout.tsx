@@ -29,14 +29,13 @@ export default function BrowseDecksLayout({
         aria-label="About browsing public decks"
       >
         <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
-          Browse Public Commander Decks
+          Browse Decks &amp; Precons
         </h1>
         <p className="text-neutral-300 mb-4">
-          Explore thousands of community-built Magic: The Gathering decks shared
-          by ManaTap users. Filter by format (Commander, Modern, Standard, and
-          more), color identity, and sort by recent, popular, or budget
-          friendly. Each deck page shows the full list, mana curve, playstyle
-          profile, and color breakdown.
+          Explore community-built decks or browse official WotC preconstructed decks.
+          Filter by format (Commander, Modern, Standard, and more), color identity, and sort.
+          Use the <strong>Community Decks</strong> tab for user-shared builds, or <strong>Precons</strong> for
+          official Commander precons you can clone to your account.
         </p>
         <p className="text-neutral-300 mb-4">
           Found a deck you like? Use our tools to analyze and optimize it. Run

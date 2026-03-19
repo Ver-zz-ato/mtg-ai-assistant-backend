@@ -56,7 +56,7 @@ This document lists all analytics events (from code), the main user flows that g
 
 | Event | Where it fires | Client/Server | Key properties |
 |-------|-----------------|---------------|----------------|
-| `browse_decks_page_view` / `browse_decks_loaded` / `browse_deck_clicked` / `advanced_filters_applied` / `back_to_top_clicked` | decks/browse/page | Client | deck_id, filters |
+| `browse_decks_page_view` / `browse_decks_loaded` / `browse_deck_clicked` / `browse_precons_loaded` / `browse_precon_clicked` / `precon_cloned` / `advanced_filters_applied` / `back_to_top_clicked` | decks/browse/page | Client | deck_id, precon_id, filters |
 
 ### 1.6 AI / chat
 
