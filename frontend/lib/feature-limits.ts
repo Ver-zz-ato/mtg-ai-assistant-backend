@@ -39,7 +39,7 @@ export const DECK_COMPARE_PRO = 20;
 export const HEALTH_REPORT_PRO = 10;
 
 /** Deck analyze: max output tokens (ceiling regardless of deck size). */
-export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 1500;
+export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 8192;
 
 /** Deck analyze: hard cap on deck list character length; over this we truncate and add a note. */
 export const MAX_DECK_ANALYZE_DECK_TEXT_CHARS = 30_000;

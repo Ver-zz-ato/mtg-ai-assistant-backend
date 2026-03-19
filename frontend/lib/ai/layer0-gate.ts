@@ -39,8 +39,9 @@ export type Layer0DecideArgs = {
 };
 
 const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
-const MINI_CEILING_TIGHT = 128;
-const MINI_CEILING_NORMAL = 192;
+// No reply shortening: allow full-length responses for all tiers
+const MINI_CEILING_TIGHT = 16384;
+const MINI_CEILING_NORMAL = 16384;
 
 /**
  * True if the user is asking for deck analysis/improvement/suggestions (needs deck context).

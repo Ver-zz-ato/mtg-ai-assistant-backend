@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         feature: "deck_roast",
         model: "gpt-4o-mini",
         fallbackModel: "gpt-4o-mini",
-        maxTokens: 800,
+        maxTokens: 4096,
         apiType: "chat",
         userId: null,
         isPro: false,

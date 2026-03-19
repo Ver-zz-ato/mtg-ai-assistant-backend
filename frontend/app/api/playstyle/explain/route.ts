@@ -143,7 +143,7 @@ Format response as JSON:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: level === 'short' ? 200 : 350,
+      max_tokens: 1024,
       temperature: 0.7,
       response_format: { type: 'json_object' },
     }),

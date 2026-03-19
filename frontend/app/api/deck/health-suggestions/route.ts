@@ -198,7 +198,7 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
           model,
           fallbackModel,
           timeout: 60000,
-          maxTokens: 600,
+          maxTokens: 4096,
           apiType: 'chat',
           userId: user.id,
           isPro,

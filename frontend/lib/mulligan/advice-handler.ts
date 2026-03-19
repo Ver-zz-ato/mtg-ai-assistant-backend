@@ -317,7 +317,7 @@ Task: Decide KEEP or MULLIGAN. If deterministic keepBias is KEEP with high confi
         model,
         fallbackModel: MINI_MODEL,
         timeout: 30000,
-        maxTokens: 400,
+        maxTokens: 2048,
         apiType: "chat",
         userId: userId ?? undefined,
         isPro: effectiveTier === "pro",

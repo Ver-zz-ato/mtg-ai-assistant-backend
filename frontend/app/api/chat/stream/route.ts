@@ -1045,12 +1045,12 @@ export async function POST(req: NextRequest) {
     });
     const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
-    // Phase B: token ceiling and stop sequences (use model max for everyone)
+    // Phase B: token ceiling and stop sequences (no reply shortening; use full ceiling for all tiers)
     const { CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
     let tokenLimit = MAX_TOKENS_STREAM;
     if (streamLayer0MiniOnly) {
       effectiveModel = streamLayer0MiniOnly.model;
-      tokenLimit = Math.min(streamLayer0MiniOnly.max_tokens, MAX_TOKENS_STREAM);
+      tokenLimit = MAX_TOKENS_STREAM; // No cap: allow full responses for MINI_ONLY
     } else if (!!v2Summary || !!(deckContextForCompose?.deckCards?.length)) {
       // Temporary/test-friendly: deck analysis gets higher cap so full 8-step + Report Card doesn't truncate
       tokenLimit = MAX_TOKENS_DECK_ANALYSIS;
@@ -1387,21 +1387,13 @@ export async function POST(req: NextRequest) {
                   if (DEV) console.warn("[stream] regeneration request failed:", regenErr);
                 }
               }
-              const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
+              const { applyOutputCleanupFilter, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
               lenBeforeSynergy = outputText.length;
-              const isDeckAnalysisTurn = streamInjected === "analyze";
-              if (isDeckAnalysisTurn) {
-                lenAfterSynergy = outputText.length;
-                synergyRemoved = false;
-                cleanupSynergySkippedForDeckAnalysis = true;
-              } else {
-                outputText = stripIncompleteSynergyChains(outputText);
-                lenAfterSynergy = outputText.length;
-                synergyRemoved = lenBeforeSynergy > outputText.length;
-              }
-              outputText = stripIncompleteTruncation(outputText);
+              lenAfterSynergy = outputText.length;
               lenAfterTruncation = outputText.length;
-              truncationRemoved = (lenAfterSynergy ?? lenBeforeSynergy) > outputText.length;
+              synergyRemoved = false;
+              truncationRemoved = false;
+              cleanupSynergySkippedForDeckAnalysis = true; // No reply shortening
               outputText = applyOutputCleanupFilter(outputText);
               outputText = applyBracketEnforcement(outputText);
               // Append validation warning if any cards were removed

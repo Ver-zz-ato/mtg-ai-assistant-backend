@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
             model: "gpt-4o-mini",
             fallbackModel: "gpt-4o-mini",
             timeout: 20000,
-            maxTokens: 400,
+            maxTokens: 2048,
             apiType: "chat",
             skipRecordAiUsage: false,
           }

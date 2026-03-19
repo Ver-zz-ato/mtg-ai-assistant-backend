@@ -1747,9 +1747,7 @@ Return the corrected answer with concise, user-facing tone.`;
             if (DEV) console.warn("[chat] regeneration request failed:", regenErr);
           }
         }
-        const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
-        outText = stripIncompleteSynergyChains(outText);
-        outText = stripIncompleteTruncation(outText);
+        const { applyOutputCleanupFilter, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
         outText = applyOutputCleanupFilter(outText);
         outText = applyBracketEnforcement(outText);
         // Append validation warning if any cards were removed

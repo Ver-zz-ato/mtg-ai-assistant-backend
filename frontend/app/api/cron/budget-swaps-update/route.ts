@@ -78,7 +78,7 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
         model,
         fallbackModel: model,
         timeout: 60000,
-        maxTokens: 2000,
+        maxTokens: 4096,
         apiType: "chat",
         skipRecordAiUsage: true,
       }

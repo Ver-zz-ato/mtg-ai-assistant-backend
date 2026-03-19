@@ -10,19 +10,19 @@ export type TokenCeilingOpts = {
   minTokenFloor?: number;
 };
 
-/** Non-stream (single completion) ceilings. Kept conservative to reduce cost. */
-const BASE_SIMPLE = 192;
-const BASE_COMPLEX = 320;
-const DECK_BONUS_SMALL = 64;   // deck present, small
-const DECK_BONUS_LARGE = 128;  // deck present, large (e.g. 60+)
+/** Non-stream (single completion) ceilings. No reply shortening. */
+const BASE_SIMPLE = 2048;
+const BASE_COMPLEX = 4096;
+const DECK_BONUS_SMALL = 2048;   // deck present, small
+const DECK_BONUS_LARGE = 4096;   // deck present, large (e.g. 60+)
 const LARGE_DECK_THRESHOLD = 60;
-const CAP_NON_STREAM = 512;
+const CAP_NON_STREAM = 16384;
 
-/** Stream ceilings: allow longer answers but still cap to avoid runaway. */
-const STREAM_BASE_SIMPLE = 768;
-const STREAM_BASE_COMPLEX = 1800;
-const STREAM_DECK_BONUS = 256;
-const CAP_STREAM = 2000;
+/** Stream ceilings: no reply shortening. */
+const STREAM_BASE_SIMPLE = 4096;
+const STREAM_BASE_COMPLEX = 8192;
+const STREAM_DECK_BONUS = 4096;
+const CAP_STREAM = 16384;
 
 /**
  * Dynamic token ceiling for chat completion.

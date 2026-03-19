@@ -41,12 +41,12 @@ const withFloor = getDynamicTokenCeiling(
 );
 assert.ok(withFloor >= 256, `minTokenFloor=256 should yield >= 256, got ${withFloor}`);
 
-// Without floor, non-stream simple = 192; with floor 256 it becomes 256
+// Without floor, non-stream simple uses BASE_SIMPLE (no reply shortening)
 const withoutFloor = getDynamicTokenCeiling(
   { isComplex: false, deckCardCount: 0 },
   false
 );
-assert.strictEqual(withoutFloor, 192, "non-stream simple without floor = 192");
+assert.ok(withoutFloor >= 2048, `non-stream simple without floor should be >= 2048, got ${withoutFloor}`);
 
 // Non-stream with floor
 const nonStreamWithFloor = getDynamicTokenCeiling(

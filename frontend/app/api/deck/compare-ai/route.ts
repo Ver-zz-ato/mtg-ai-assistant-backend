@@ -104,7 +104,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           model,
           fallbackModel: 'gpt-4o-mini',
           timeout: 90000,
-          maxTokens: 1000,
+          maxTokens: 4096,
           apiType: 'chat',
           userId: user.id,
           isPro: true,

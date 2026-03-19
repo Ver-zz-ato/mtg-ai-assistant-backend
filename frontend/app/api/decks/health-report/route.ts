@@ -130,7 +130,7 @@ Output only the report, no preamble.`;
         model,
         fallbackModel: 'gpt-4o-mini',
         timeout: 90000,
-        maxTokens: 1200,
+        maxTokens: 8192,
         apiType: 'chat',
         userId: user.id,
         isPro: true,

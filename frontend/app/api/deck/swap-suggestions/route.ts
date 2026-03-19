@@ -123,7 +123,7 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
         model,
         fallbackModel: 'gpt-4o-mini',
         timeout: 90000,
-        maxTokens: 512,
+        maxTokens: 4096,
         apiType: 'responses',
         userId: userId || null,
         isPro: isPro || false,

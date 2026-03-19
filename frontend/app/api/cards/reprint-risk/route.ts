@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
             model,
             fallbackModel: 'gpt-4o-mini',
             timeout: 60000,
-            maxTokens: 600,
+            maxTokens: 4096,
             apiType: 'responses',
             userId: user?.id || null,
             isPro: user ? await checkProStatus(user.id) : false,

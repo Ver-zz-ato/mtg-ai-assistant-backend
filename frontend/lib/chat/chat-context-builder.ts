@@ -72,7 +72,7 @@ export async function injectThreadSummaryContext(
           model: tierRes.fallbackModel,
           fallbackModel: tierRes.fallbackModel,
           timeout: 10000,
-          maxTokens: 256,
+          maxTokens: 1024,
           apiType: "chat",
           userId,
           isPro,

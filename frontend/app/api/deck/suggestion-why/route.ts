@@ -80,7 +80,7 @@ Be concise and specific. Use bullet points if multiple reasons apply.`;
         feature: 'suggestion_why',
         model: SUGGESTION_WHY_MODEL,
         fallbackModel: SUGGESTION_WHY_MODEL,
-        maxTokens: 120,
+        maxTokens: 1024,
         apiType: 'responses',
         userId: user?.id ?? null,
         isPro: false,

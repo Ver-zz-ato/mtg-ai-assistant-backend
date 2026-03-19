@@ -82,7 +82,7 @@ Focus on role/function overlap and synergy preservation. When explaining synergy
           model,
           fallbackModel: 'gpt-4o-mini',
           timeout: 60000,
-          maxTokens: 80,
+          maxTokens: 1024,
           apiType: 'responses',
           userId: user?.id || null,
           isPro: user ? await checkProStatus(user.id) : false,

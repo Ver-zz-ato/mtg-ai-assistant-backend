@@ -51,7 +51,7 @@ const whatIsWard = layer0Decide(base({ text: "what is ward?", hasDeckContext: fa
 assert.strictEqual(whatIsWard.mode, "MINI_ONLY");
 assert.strictEqual((whatIsWard as any).reason, "simple_rules_or_term");
 assert.strictEqual((whatIsWard as any).model, "gpt-4o-mini");
-assert.strictEqual((whatIsWard as any).max_tokens, 128);
+assert.strictEqual((whatIsWard as any).max_tokens, 16384);
 
 const whatTrample = layer0Decide(base({ text: "what does trample do?", hasDeckContext: false }));
 assert.strictEqual(whatTrample.mode, "MINI_ONLY");

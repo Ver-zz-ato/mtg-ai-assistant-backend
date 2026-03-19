@@ -246,7 +246,7 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
         model: "gpt-4o-mini",
         fallbackModel: "gpt-4o-mini",
         timeout: 15000,
-        maxTokens: 400,
+        maxTokens: 2048,
         apiType: "chat",
         skipRecordAiUsage: false,
       }

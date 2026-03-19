@@ -27,10 +27,10 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { DECK_ANALYZE_FREE, DECK_ANALYZE_GUEST, DECK_ANALYZE_PRO } from "@/lib/feature-limits";
 
-/** Slot planning: JSON-only output, 3–6 slots. Cap so this stage stays cheap. */
-const MAX_SLOT_PLANNING_TOKENS = 800;
-/** Slot candidates: JSON-only, short candidate list with reasons. */
-const MAX_SLOT_CANDIDATES_TOKENS = 500;
+/** Slot planning: JSON-only output, 3–6 slots. No reply shortening. */
+const MAX_SLOT_PLANNING_TOKENS = 2048;
+/** Slot candidates: JSON-only, candidate list with reasons. No reply shortening. */
+const MAX_SLOT_CANDIDATES_TOKENS = 1024;
 
 export type DeckAnalyzeLLMByFeature = { validated: number; slot_planning: number; slot_candidates: number };
 
@@ -1737,9 +1737,7 @@ export async function POST(req: Request) {
             }
           }
           analysisText = valResult.repairedText;
-          const { applyOutputCleanupFilter, stripIncompleteSynergyChains, stripIncompleteTruncation, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
-          analysisText = stripIncompleteSynergyChains(analysisText);
-          analysisText = stripIncompleteTruncation(analysisText);
+          const { applyOutputCleanupFilter, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
           analysisText = applyOutputCleanupFilter(analysisText);
           analysisText = applyBracketEnforcement(analysisText);
           if (valResult.issues.length > 0) {
