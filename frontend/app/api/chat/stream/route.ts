@@ -981,7 +981,7 @@ export async function POST(req: NextRequest) {
         } else if (decision.handler === "static_faq") {
           responseText = getFaqAnswer(text) ?? "I don't have a canned answer for that. Try asking in different words or use the full AI.";
         } else if (actualHandler === "off_topic") {
-          responseText = "ManaTap is focused on MTG deckbuilding and rules—ask me MTG stuff.";
+          responseText = "ManaTap is focused on MTG deckbuilding and rules—ask me MTG stuff or be more specific.";
         } else {
           responseText = "Please enter your question or paste a decklist.";
         }
