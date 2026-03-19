@@ -13,8 +13,30 @@ const TRACKER_ROUTE = "/api/price/tracker";
 */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await getServerSupabase();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    // Auth precedence:
+    // 1) cookie user (website)
+    // 2) else Authorization: Bearer <token> (mobile app)
+    // 3) else guest/IP-based behavior (existing)
+    if (!user) {
+      const authHeader = req.headers.get('Authorization');
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+
+    type SnapshotDateRow = { snapshot_date: string };
+    type NameUnitRow = { name_norm: string; unit: number };
+
     const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
     const { hashString } = await import("@/lib/guest-tracking");
     const forwarded = req.headers.get("x-forwarded-for");
@@ -66,7 +88,7 @@ export async function GET(req: NextRequest) {
       .eq('currency', currency)
       .order('snapshot_date', { ascending: false })
       .limit(1);
-    const latest = (latestRows as any[])?.[0]?.snapshot_date || null;
+    const latest = ((latestRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     if (!latest) {
       const empty: Record<string, unknown> = { ok: true, rows: [], latest: null };
       if (debug) empty._debug = { usedAdmin: !!admin, latestError: latestError?.message, message: "No latest snapshot date" };
@@ -76,7 +98,7 @@ export async function GET(req: NextRequest) {
     const cutoff = new Date(new Date(latest).getTime() - windowDays*24*60*60*1000).toISOString().slice(0,10);
 
     // Pick the most recent snapshot before latest and within the window; fallback to any prior date (up to 90d) if none in window
-    let { data: priorRows } = await db
+    const { data: priorRows } = await db
       .from('price_snapshots')
       .select('snapshot_date')
       .eq('currency', currency)
@@ -84,7 +106,7 @@ export async function GET(req: NextRequest) {
       .gte('snapshot_date', cutoff)
       .order('snapshot_date', { ascending: false })
       .limit(1);
-    let prior = (priorRows as any[])?.[0]?.snapshot_date || null;
+    let prior = ((priorRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     if (!prior) {
       const fallbackCutoff = new Date(new Date(latest).getTime() - 90*24*60*60*1000).toISOString().slice(0,10);
       const { data: fallbackRows } = await db
@@ -95,7 +117,7 @@ export async function GET(req: NextRequest) {
         .gte('snapshot_date', fallbackCutoff)
         .order('snapshot_date', { ascending: false })
         .limit(1);
-      prior = (fallbackRows as any[])?.[0]?.snapshot_date || null;
+      prior = ((fallbackRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     }
     if (!prior) return NextResponse.json({ ok: true, rows: [], latest });
 
@@ -113,12 +135,12 @@ export async function GET(req: NextRequest) {
       .eq('snapshot_date', latest)
       .limit(10000);
     const priorMap = new Map<string, number>();
-    for (const r of (priorData || []) as any[]) {
+    for (const r of (priorData ?? []) as unknown as NameUnitRow[]) {
       priorMap.set(String(r.name_norm), Number(r.unit));
     }
     const rows: { name_norm: string; snapshot_date: string; unit: number }[] = [];
-    for (const r of (latestData || []) as any[]) {
-      const n = String(r.name_norm);
+    for (const r of (latestData ?? []) as unknown as NameUnitRow[]) {
+      const n = r.name_norm ? String(r.name_norm) : '';
       if (priorMap.has(n)) {
         rows.push({ name_norm: n, snapshot_date: prior, unit: priorMap.get(n)! });
         rows.push({ name_norm: n, snapshot_date: latest, unit: Number(r.unit) });
@@ -126,10 +148,10 @@ export async function GET(req: NextRequest) {
     }
     const byName: Record<string, { prior?: number; latest?: number }> = {};
     for (const r of rows) {
-      const k = String((r as any).name_norm);
-      if (!byName[k]) byName[k] = {} as any;
-      if ((r as any).snapshot_date === prior) byName[k].prior = Number((r as any).unit);
-      if ((r as any).snapshot_date === latest) byName[k].latest = Number((r as any).unit);
+      const k = String(r.name_norm);
+      if (!byName[k]) byName[k] = {};
+      if (r.snapshot_date === prior) byName[k].prior = Number(r.unit);
+      if (r.snapshot_date === latest) byName[k].latest = Number(r.unit);
     }
 
     const out = Object.entries(byName)
@@ -149,7 +171,8 @@ export async function GET(req: NextRequest) {
       body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
     }
     return NextResponse.json(body);
-  } catch (e:any) {
-    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ ok: false, error: msg || 'server_error' }, { status: 500 });
   }
 }
