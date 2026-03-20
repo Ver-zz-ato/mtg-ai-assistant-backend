@@ -1600,8 +1600,28 @@ export async function POST(req: Request) {
     hardcodedDefaultPrompt: DECK_ANALYSIS_HARDCODED_DEFAULT,
     extraSuffix: deckAnalyzeExtraSuffix,
   });
-  const deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
+  let deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
+
+  if (deckAnalysisSystemPrompt && process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1" && entries.length > 0) {
+    try {
+      const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
+      const cardsForFp = entries.map((e) => ({ name: e.name, count: e.count }));
+      const fp = await computeDeckSemanticFingerprint(cardsForFp);
+      if (fp.cardCountAnalyzed > 0) {
+        deckAnalysisSystemPrompt += "\n\n" + formatFingerprintForPrompt(fp);
+        if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
+          try {
+            const { deriveRecommendationWeightProfile, formatSteeringBlockForPrompt } = await import("@/lib/ai/recommendation-weighting");
+            const profile = deriveRecommendationWeightProfile(fp);
+            if (profile) {
+              deckAnalysisSystemPrompt += "\n\n" + formatSteeringBlockForPrompt(profile);
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
 
   const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: 'deck_analysis' });
   const deckAnalyzeLLMByFeature: DeckAnalyzeLLMByFeature = { validated: 0, slot_planning: 0, slot_candidates: 0 };

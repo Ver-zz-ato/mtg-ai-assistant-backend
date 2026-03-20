@@ -729,6 +729,33 @@ export async function POST(req: NextRequest) {
       } else {
         sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
       }
+      if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
+        try {
+          streamDebug("semantic_fingerprint_start", { cardCount: v2Summary.card_names?.length ?? 0 });
+          const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
+          const cardsForFp = (v2Summary.card_names ?? []).map((n: string) => ({ name: n, count: 1 }));
+          const fp = await computeDeckSemanticFingerprint(cardsForFp);
+          if (fp.cardCountAnalyzed > 0) {
+            sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+            streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
+            if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
+              try {
+                const { deriveRecommendationWeightProfile, formatSteeringBlockForPrompt } = await import("@/lib/ai/recommendation-weighting");
+                streamDebug("recommendation_weight_profile_start", {});
+                const profile = deriveRecommendationWeightProfile(fp);
+                if (profile) {
+                  sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                  streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
+                }
+              } catch (wpErr) {
+                streamDebug("recommendation_weight_profile_failopen", { error: wpErr instanceof Error ? wpErr.message : String(wpErr) });
+              }
+            }
+          }
+        } catch (fpErr) {
+          streamDebug("semantic_fingerprint_failopen", { error: fpErr instanceof Error ? fpErr.message : String(fpErr) });
+        }
+      }
       sys += `\nCards in deck (do NOT suggest these): ${cardNamesForPrompt.join(", ")}\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = streamThreadHistory.filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
@@ -814,6 +841,32 @@ export async function POST(req: NextRequest) {
           commanderForRaw
         );
         if (decklistContext) sys += "\n\n" + decklistContext;
+        if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
+          try {
+            streamDebug("semantic_fingerprint_start", { cardCount: deckContextForCompose.deckCards.length });
+            const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
+            const fp = await computeDeckSemanticFingerprint(deckContextForCompose.deckCards);
+            if (fp.cardCountAnalyzed > 0) {
+              sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+              streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
+              if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
+                try {
+                  const { deriveRecommendationWeightProfile, formatSteeringBlockForPrompt } = await import("@/lib/ai/recommendation-weighting");
+                  streamDebug("recommendation_weight_profile_start", {});
+                  const profile = deriveRecommendationWeightProfile(fp);
+                  if (profile) {
+                    sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                    streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
+                  }
+                } catch (wpErr) {
+                  streamDebug("recommendation_weight_profile_failopen", { error: wpErr instanceof Error ? wpErr.message : String(wpErr) });
+                }
+              }
+            }
+          } catch (fpErr) {
+            streamDebug("semantic_fingerprint_failopen", { error: fpErr instanceof Error ? fpErr.message : String(fpErr) });
+          }
+        }
       } else if (tid) {
         try {
           const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
@@ -837,6 +890,36 @@ export async function POST(req: NextRequest) {
             if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
             const decklistContext = generateDeckContext(analyzeDecklistFromText(rawDeckText), "Pasted Decklist", rawDeckText, commander);
             if (decklistContext) sys += "\n\n" + decklistContext;
+            if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
+              try {
+                const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+                const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
+                const entries = parseDeckText(rawDeckText).map((e) => ({ name: e.name, count: e.qty }));
+                if (entries.length > 0) {
+                  streamDebug("semantic_fingerprint_start", { cardCount: entries.length });
+                  const fp = await computeDeckSemanticFingerprint(entries);
+                  if (fp.cardCountAnalyzed > 0) {
+                    sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+                    streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
+                    if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
+                      try {
+                        const { deriveRecommendationWeightProfile, formatSteeringBlockForPrompt } = await import("@/lib/ai/recommendation-weighting");
+                        streamDebug("recommendation_weight_profile_start", {});
+                        const profile = deriveRecommendationWeightProfile(fp);
+                        if (profile) {
+                          sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                          streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
+                        }
+                      } catch (wpErr) {
+                        streamDebug("recommendation_weight_profile_failopen", { error: wpErr instanceof Error ? wpErr.message : String(wpErr) });
+                      }
+                    }
+                  }
+                }
+              } catch (fpErr) {
+                streamDebug("semantic_fingerprint_failopen", { error: fpErr instanceof Error ? fpErr.message : String(fpErr) });
+              }
+            }
           }
         } catch (_) {}
       }

@@ -49,6 +49,15 @@
 
 ---
 
+## Deck semantic fingerprint & recommendation weighting
+
+| Doc / Module | Purpose |
+|--------------|---------|
+| **`lib/ai/deck-semantic-fingerprint.ts`** | Oracle-text-based signals (flash, tribal, tokens, sacrifice, etc.) for deck understanding. Uses scryfall_cache (cache-only). Fail-open. Kill-switch: `DISABLE_DECK_SEMANTIC_FINGERPRINT=1`. Injected into full-tier deck context (v2 + raw paths). |
+| **`lib/ai/recommendation-weighting.ts`** | Derives weight profile (boosts, suppressions, archetype hints) from fingerprint. Deterministic, no LLM. Steers recommendation priority via compact prompt block. Kill-switch: `DISABLE_DECK_RECOMMENDATION_WEIGHTING=1`. |
+
+---
+
 ## Quick reference: chat API routes
 
 | Route | Purpose |
