@@ -107,7 +107,8 @@ export default function AdminUsersPage(){
           "📊 Shows Pro plan type: (Manual), (Monthly), or (Yearly)",
           "⏱️ When to use: Customer support requests, VIP access, testing",
           "🔄 How often: As needed for support tickets",
-          "💡 Pro status is stored in both profiles.is_pro (database) and user_metadata.pro (auth)"
+          "💡 Pro status is stored in both profiles.is_pro (database) and user_metadata.pro (auth)",
+          "🐛 Entitlement debug: GET /api/admin/entitlements/debug?userId=<uuid> — shows profile, metadata, RevenueCat, Stripe, sources, mismatches"
         ]} 
       />
 

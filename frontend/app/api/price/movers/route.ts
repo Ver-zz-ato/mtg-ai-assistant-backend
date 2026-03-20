@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
-import { GUEST_DAILY_FEATURE_LIMIT, PRICE_TRACKER_FREE, PRICE_TRACKER_PRO } from "@/lib/feature-limits";
+import { GUEST_DAILY_FEATURE_LIMIT, PRICE_TRACKER_MOVERS_FREE, PRICE_TRACKER_MOVERS_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 
-const TRACKER_ROUTE = "/api/price/tracker";
+const MOVERS_ROUTE = "/api/price/movers";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+
+type MoversCacheEntry = { body: Record<string, unknown>; at: number };
+const moversResponseCache = new Map<string, MoversCacheEntry>();
 
 /*
   GET /api/price/movers?currency=USD&window_days=7&limit=50
   Returns cards with largest absolute pct change.
-  Works for guests (IP rate limit) and logged-in users. Rate limited with deck-series via TRACKER_ROUTE.
+  Works for guests (IP rate limit) and logged-in users. Uses separate rate-limit bucket from deck-series.
 */
 export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
+    const windowDays = Math.max(1, Math.min(90, parseInt(url.searchParams.get("window_days") || "7", 10)));
+    const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get("limit") || "50", 10)));
+    const cacheKey = `movers:${currency}:${windowDays}:${limit}`;
+
+    const cached = moversResponseCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      return NextResponse.json(cached.body, {
+        headers: { "X-ManaTap-Movers-Cache": "HIT", "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
+      });
+    }
+
     let supabase = await getServerSupabase();
     let { data: { user } } = await supabase.auth.getUser();
 
@@ -49,14 +66,14 @@ export async function GET(req: NextRequest) {
     if (user) {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       isPro = await checkProStatus(user.id);
-      dailyCap = isPro ? PRICE_TRACKER_PRO : PRICE_TRACKER_FREE;
+      dailyCap = isPro ? PRICE_TRACKER_MOVERS_PRO : PRICE_TRACKER_MOVERS_FREE;
       rateLimitKey = `user:${await hashString(user.id)}`;
     } else {
       dailyCap = GUEST_DAILY_FEATURE_LIMIT;
       rateLimitKey = `ip:${await hashString(ip)}`;
     }
 
-    const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, TRACKER_ROUTE, dailyCap, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, MOVERS_ROUTE, dailyCap, 1);
     const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
     if (!skipLimitInDev && !rateLimit.allowed) {
       return NextResponse.json({
@@ -64,16 +81,11 @@ export async function GET(req: NextRequest) {
         code: "RATE_LIMIT_DAILY",
         proUpsell: !user,
         error: user
-          ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${PRICE_TRACKER_FREE} free Price Tracker runs today. Upgrade to Pro for more!`)
+          ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${PRICE_TRACKER_MOVERS_FREE} free Price Tracker runs today. Upgrade to Pro for more!`)
           : "Daily limit reached. Sign in for more.",
         resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }
-
-    const url = new URL(req.url);
-    const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
-    const windowDays = Math.max(1, Math.min(90, parseInt(url.searchParams.get("window_days") || "7", 10)));
-    const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get("limit") || "50", 10)));
 
     // Use admin client so we can read price_snapshots (RLS may block anon/authenticated)
     const admin = (await import("@/app/api/_lib/supa")).getAdmin();
@@ -170,7 +182,10 @@ export async function GET(req: NextRequest) {
     if (debug) {
       body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
     }
-    return NextResponse.json(body);
+    moversResponseCache.set(cacheKey, { body, at: Date.now() });
+    return NextResponse.json(body, {
+      headers: { "X-ManaTap-Movers-Cache": "MISS", "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ ok: false, error: msg || 'server_error' }, { status: 500 });

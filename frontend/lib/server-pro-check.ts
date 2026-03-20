@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { getAdmin } from '@/app/api/_lib/supa';
 
 /** Pro entitlement identifier in RevenueCat (must match mobile app). */
 const REVENUECAT_ENTITLEMENT_ID = 'pro';
@@ -131,13 +132,24 @@ export async function getProStatusDetails(userId: string): Promise<{
     }
 
     const fromRevenueCat = await checkRevenueCatPro(userId);
+    const isPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
+
+    if (process.env.NODE_ENV !== 'production' && process.env.DEBUG_ENTITLEMENTS === '1') {
+      console.debug('[entitlements] getProStatusDetails', {
+        userId: userId.slice(0, 8) + '…',
+        isPro,
+        fromProfile: isProFromProfile,
+        fromMetadata: isProFromMetadata,
+        fromRevenueCat,
+      });
+    }
 
     return {
-      isPro: isProFromProfile || isProFromMetadata || fromRevenueCat,
+      isPro,
       fromProfile: isProFromProfile,
       fromMetadata: isProFromMetadata,
       fromRevenueCat,
-      profileError,
+      profileError: profileError ?? undefined,
     };
   } catch (error: unknown) {
     return {
@@ -148,4 +160,120 @@ export async function getProStatusDetails(userId: string): Promise<{
       profileError: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/** Admin-only: full entitlement debug for any user. Uses admin client. */
+export async function getEntitlementDebugForAdmin(userId: string): Promise<{
+  userId: string;
+  profile: {
+    is_pro: boolean;
+    pro_until: string | null;
+    pro_plan: string | null;
+    has_stripe_customer: boolean;
+    has_stripe_subscription: boolean;
+    stripe_subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
+  };
+  metadata: { is_pro: boolean; pro: boolean };
+  fromProfile: boolean;
+  fromMetadata: boolean;
+  fromRevenueCat: boolean;
+  finalIsPro: boolean;
+  sources: string[];
+  mismatchFlags: string[];
+}> {
+  const admin = getAdmin();
+  if (!admin) {
+    throw new Error('Admin client required');
+  }
+
+  const mismatchFlags: string[] = [];
+  const sources: string[] = [];
+
+  const { data: profileRow, error: profileError } = await admin
+    .from('profiles')
+    .select('is_pro, pro_until, pro_plan, stripe_customer_id, stripe_subscription_id')
+    .eq('id', userId)
+    .single();
+
+  const profile = profileRow as {
+    is_pro?: boolean;
+    pro_until?: string | null;
+    pro_plan?: string | null;
+    stripe_customer_id?: string | null;
+    stripe_subscription_id?: string | null;
+  } | null;
+
+  const hasStripeCustomer = !!(profile?.stripe_customer_id);
+  const hasStripeSubscription = !!(profile?.stripe_subscription_id);
+  let stripeStatus: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none' = 'none';
+  if (profile?.stripe_subscription_id && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const { stripe } = await import('@/lib/stripe');
+      const sub = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+      stripeStatus = sub.status as 'active' | 'trialing' | 'past_due' | 'canceled';
+    } catch (e) {
+      stripeStatus = 'none';
+      if (process.env.NODE_ENV !== 'production' && process.env.DEBUG_ENTITLEMENTS === '1') {
+        console.debug('[entitlements] Stripe retrieve failed (admin debug)', { userId: userId.slice(0, 8) + '…' });
+      }
+    }
+  }
+
+  const now = new Date();
+  let isProFromProfile = profile?.is_pro === true;
+  const proUntil = profile?.pro_until;
+  if (proUntil && isProFromProfile) {
+    const until = new Date(proUntil);
+    if (Number.isFinite(until.getTime()) && until.getTime() < now.getTime()) {
+      isProFromProfile = false;
+      mismatchFlags.push('profile.is_pro=true but pro_until expired');
+    }
+  }
+
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const metadata = (authUser?.user?.user_metadata || {}) as { is_pro?: boolean; pro?: boolean };
+  const isProFromMetadata = metadata?.is_pro === true || metadata?.pro === true;
+
+  const fromRevenueCat = await checkRevenueCatPro(userId);
+
+  const finalIsPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
+  if (isProFromProfile) sources.push('profile');
+  if (isProFromMetadata) sources.push('metadata');
+  if (fromRevenueCat) sources.push('revenuecat');
+
+  if (profile?.is_pro === true && !finalIsPro) {
+    mismatchFlags.push('profile.is_pro=true but final=false (expired pro_until?)');
+  }
+  if (isProFromProfile !== isProFromMetadata) {
+    mismatchFlags.push('profile vs metadata mismatch');
+  }
+  const stripeSaysActive = stripeStatus === 'active' || stripeStatus === 'trialing';
+  if (stripeSaysActive && !finalIsPro) {
+    mismatchFlags.push('Stripe active but final isPro=false');
+  }
+  if (finalIsPro && !stripeSaysActive && !fromRevenueCat && !isProFromProfile && isProFromMetadata) {
+    mismatchFlags.push('Pro from metadata only (possible stale)');
+  }
+
+  return {
+    userId,
+    profile: {
+      is_pro: profile?.is_pro ?? false,
+      pro_until: profile?.pro_until ?? null,
+      pro_plan: profile?.pro_plan ?? null,
+      has_stripe_customer: hasStripeCustomer,
+      has_stripe_subscription: hasStripeSubscription,
+      stripe_subscription_status: hasStripeSubscription ? stripeStatus : undefined,
+    },
+    metadata: {
+      is_pro: isProFromMetadata,
+      pro: metadata?.pro === true,
+    },
+    fromProfile: isProFromProfile,
+    fromMetadata: isProFromMetadata,
+    fromRevenueCat,
+    finalIsPro,
+    sources,
+    mismatchFlags,
+  };
 }

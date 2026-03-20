@@ -1,45 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
-import { PRICE_TRACKER_FREE, PRICE_TRACKER_PRO } from "@/lib/feature-limits";
+import { PRICE_TRACKER_DECK_SERIES_FREE, PRICE_TRACKER_DECK_SERIES_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 
-const TRACKER_ROUTE = "/api/price/tracker";
+const DECK_SERIES_ROUTE = "/api/price/deck-series";
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 min
+
+type DeckSeriesCacheEntry = { body: Record<string, unknown>; at: number };
+const deckSeriesResponseCache = new Map<string, DeckSeriesCacheEntry>();
 
 /*
   GET /api/price/deck-series?deck_id=...&currency=USD&from=YYYY-MM-DD
   Returns: { ok: true, currency, from, points: [{ date, total }] }
-  Rate limited with movers via TRACKER_ROUTE.
+  Uses separate rate-limit bucket from movers. Response cached 3 min.
 */
 export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const deckId = url.searchParams.get("deck_id") || "";
+    const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
+    const from = url.searchParams.get("from") || "";
+    const cacheKey = deckId ? `deck-series:${deckId}:${currency}:${from}` : "";
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+
+    if (cacheKey) {
+      const cached = deckSeriesResponseCache.get(cacheKey);
+      if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+        return NextResponse.json(cached.body, {
+          headers: { "X-ManaTap-DeckSeries-Cache": "HIT", "Cache-Control": "private, s-maxage=180" },
+        });
+      }
+    }
+
     const { checkProStatus } = await import("@/lib/server-pro-check");
     const isPro = await checkProStatus(user.id);
-    const dailyCap = isPro ? PRICE_TRACKER_PRO : PRICE_TRACKER_FREE;
+    const dailyCap = isPro ? PRICE_TRACKER_DECK_SERIES_PRO : PRICE_TRACKER_DECK_SERIES_FREE;
     const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
     const { hashString } = await import("@/lib/guest-tracking");
     const userKeyHash = `user:${await hashString(user.id)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, TRACKER_ROUTE, dailyCap, 1);
-    if (!rateLimit.allowed) {
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, DECK_SERIES_ROUTE, dailyCap, 1);
+    const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
+    if (!skipLimitInDev && !rateLimit.allowed) {
       return NextResponse.json({
         ok: false,
         code: "RATE_LIMIT_DAILY",
         proUpsell: !isPro,
         error: isPro
           ? "You've reached your daily limit. Contact support if you need higher limits."
-          : `You've used your ${PRICE_TRACKER_FREE} free Price Tracker runs today. Upgrade to Pro for more!`,
+          : `You've used your ${PRICE_TRACKER_DECK_SERIES_FREE} free Price Tracker runs today. Upgrade to Pro for more!`,
         resetAt: rateLimit.resetAt,
       }, { status: 429 });
     }
 
-    const url = new URL(req.url);
-    const deckId = url.searchParams.get('deck_id') || '';
-    const currency = (url.searchParams.get('currency') || 'USD').toUpperCase();
-    const from = url.searchParams.get('from') || '';
-    if (!deckId) return NextResponse.json({ ok:true, currency, from, points: [] });
+    if (!deckId) return NextResponse.json({ ok: true, currency, from, points: [] });
 
     // Get deck cards
     const { data: cards } = await supabase
@@ -79,8 +96,11 @@ export async function GET(req: NextRequest) {
       byDate.set(d, (byDate.get(d)||0) + unit*qn);
     }
     const points = Array.from(byDate.entries()).map(([date, total]) => ({ date, total: Number(total.toFixed(2)) })).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-
-    return NextResponse.json({ ok:true, currency, from, points });
+    const body = { ok: true, currency, from, points };
+    if (cacheKey) deckSeriesResponseCache.set(cacheKey, { body, at: Date.now() });
+    return NextResponse.json(body, {
+      headers: { "X-ManaTap-DeckSeries-Cache": "MISS", "Cache-Control": "private, s-maxage=180" },
+    });
   } catch (e:any) {
     return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
   }

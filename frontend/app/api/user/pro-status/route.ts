@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { getModelForTier } from '@/lib/ai/model-by-tier';
+import { checkProStatus, getProStatusDetails } from '@/lib/server-pro-check';
 
 export const dynamic = 'force-dynamic'; // Disable caching
 
+/**
+ * Pro status API — uses checkProStatus so website sees Pro from Supabase, metadata, or RevenueCat.
+ * Aligns with backend gating (same source of truth).
+ */
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getServerSupabase();
@@ -13,15 +18,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, isPro: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const details = await getProStatusDetails(user.id);
+    const isPro = details.isPro;
+
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('is_pro, stripe_customer_id')
+      .select('stripe_customer_id')
       .eq('id', user.id)
       .single();
-
-    const isProFromProfile = profile?.is_pro === true;
-    const isProFromMetadata = user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
-    const isPro = isProFromProfile || isProFromMetadata;
     const hasBillingAccount = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
 
     const tierRes = getModelForTier({ isGuest: false, userId: user.id, isPro });
@@ -30,9 +34,10 @@ export async function GET(req: NextRequest) {
       ok: true,
       isPro,
       hasBillingAccount,
-      fromProfile: isProFromProfile,
-      fromMetadata: isProFromMetadata,
-      profileError: profileError ? profileError.message : null,
+      fromProfile: details.fromProfile,
+      fromMetadata: details.fromMetadata,
+      fromRevenueCat: details.fromRevenueCat,
+      profileError: details.profileError ?? null,
       modelTier: tierRes.tier,
       modelLabel: tierRes.tierLabel,
       ...(tierRes.upgradeMessage != null && { upgradeMessage: tierRes.upgradeMessage }),

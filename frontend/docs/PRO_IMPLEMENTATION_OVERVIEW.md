@@ -16,9 +16,9 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 ## 2. Pro Status Resolution
 
-- **Server:** `lib/server-pro-check.ts` → `checkProStatus(userId)`. Uses `profiles.is_pro` first, then `user_metadata.is_pro` / `user_metadata.pro`. OR logic; either true → Pro.
+- **Server:** `lib/server-pro-check.ts` → `checkProStatus(userId)`. Uses `profiles.is_pro`, `user_metadata.is_pro`/`pro`, or RevenueCat API. OR logic; any true → Pro.
 - **Client:** `hooks/useProStatus.ts` → `useProStatus()`. Fetches `profiles.is_pro` and `user_metadata`; fallback to `/api/user/pro-status` if profile query fails. Subscribes to `profiles` changes for real-time updates.
-- **API:** `GET /api/user/pro-status` returns `{ ok, isPro, fromProfile, fromMetadata }`. Auth required.
+- **API:** `GET /api/user/pro-status` uses `getProStatusDetails()` and returns `{ ok, isPro, fromProfile, fromMetadata, fromRevenueCat }`. Auth required. Same sources as backend gating.
 
 ---
 
