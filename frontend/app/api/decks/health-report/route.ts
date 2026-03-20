@@ -37,6 +37,17 @@ export async function POST(req: NextRequest) {
     const { checkProStatus } = await import('@/lib/server-pro-check');
     const isPro = await checkProStatus(user.id);
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/decks/health-report',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'deck_health_report',
+        });
+      } catch {}
       return NextResponse.json(
         { ok: false, error: 'Pro Health Report is a Pro feature. Upgrade to unlock in-depth AI deck analysis.' },
         { status: 403 }

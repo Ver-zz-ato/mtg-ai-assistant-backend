@@ -80,6 +80,18 @@ export async function checkDurableRateLimit(
           } catch (e) {
             // Fail silently if security events not available
           }
+          try {
+            const { logOpsEvent } = await import('@/lib/ops-events');
+            await logOpsEvent(supabase, {
+              event_type: 'ops_rate_limit_hit',
+              route: routePath,
+              status: 'ok',
+              reason: 'daily_limit',
+              limit: maxRequests,
+              count: result.count_after ?? 0,
+              key_prefix: keyHash.substring(0, 12),
+            });
+          } catch {}
         }
         
         return {
@@ -135,7 +147,18 @@ export async function checkDurableRateLimit(
         } catch (e) {
           // Fail silently if security events not available
         }
-        
+        try {
+          const { logOpsEvent } = await import('@/lib/ops-events');
+          await logOpsEvent(supabase, {
+            event_type: 'ops_rate_limit_hit',
+            route: routePath,
+            status: 'ok',
+            reason: 'daily_limit',
+            limit: maxRequests,
+            count: currentCount,
+            key_prefix: keyHash.substring(0, 12),
+          });
+        } catch {}
         return {
           allowed: false,
           remaining: 0,

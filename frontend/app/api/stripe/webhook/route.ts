@@ -119,10 +119,29 @@ export async function POST(req: NextRequest) {
     }
     processedEvents.add(event.id);
 
+    try {
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(getWebhookSupabase(), {
+        event_type: 'ops_stripe_webhook_processed',
+        route: 'webhook',
+        status: 'ok',
+        stripe_event_type: event.type,
+      });
+    } catch {}
+
     return NextResponse.json({ received: true });
 
   } catch (error: any) {
     console.error('Webhook processing failed:', error);
+    try {
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(getWebhookSupabase(), {
+        event_type: 'ops_stripe_webhook_processed',
+        route: 'webhook',
+        status: 'fail',
+        reason: error?.message?.slice(0, 200),
+      });
+    } catch {}
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }

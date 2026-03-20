@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdmin } from '@/app/api/_lib/supa';
 
 export const runtime = 'nodejs';
@@ -40,7 +41,7 @@ type RevenueCatWebhookPayload = {
   transferred_to?: string[];
 };
 
-function getAdminSupabase() {
+function getAdminSupabase(): SupabaseClient {
   const admin = getAdmin();
   if (!admin) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY required for RevenueCat webhook');
@@ -59,7 +60,7 @@ function planFromProductId(productId: string | undefined): 'monthly' | 'yearly' 
 
 /** Update Supabase profiles and user_metadata for Pro status. */
 async function updateProStatus(
-  supabase: ReturnType<typeof getAdmin>,
+  supabase: SupabaseClient,
   userId: string,
   isPro: boolean,
   proUntil: string | null,
@@ -194,6 +195,16 @@ export async function POST(req: NextRequest) {
       : null;
     const plan = planFromProductId(body.product_id) ?? 'monthly';
     await updateProStatus(supabase, userId, true, proUntil, plan, eventType);
+    try {
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(supabase, {
+        event_type: 'ops_entitlement_granted',
+        route: 'revenuecat_webhook',
+        status: 'ok',
+        user_id: userId,
+        source: eventType,
+      });
+    } catch {}
   } else if (REVOKE_EVENTS.has(eventType)) {
     if (!hasProEntitlement) {
       return NextResponse.json({ received: true, skipped: 'not_pro_entitlement' });
@@ -213,6 +224,17 @@ export async function POST(req: NextRequest) {
           if (traceLog) {
             console.info('[RevenueCat webhook] Revoke skipped: Stripe active', { userId: userId.slice(0, 8) + '…', eventType });
           }
+          try {
+            const { logOpsEvent } = await import('@/lib/ops-events');
+            await logOpsEvent(supabase, {
+              event_type: 'ops_entitlement_revoke_skipped',
+              route: 'revenuecat_webhook',
+              status: 'skipped',
+              reason: 'stripe_active',
+              user_id: userId,
+              source: eventType,
+            });
+          } catch {}
           return NextResponse.json({ received: true, skipped: 'stripe_active' });
         }
       } catch {
@@ -220,6 +242,16 @@ export async function POST(req: NextRequest) {
       }
     }
     await updateProStatus(supabase, userId, false, null, null, eventType);
+    try {
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(supabase, {
+        event_type: 'ops_entitlement_revoked',
+        route: 'revenuecat_webhook',
+        status: 'ok',
+        user_id: userId,
+        source: eventType,
+      });
+    } catch {}
   } else {
     // TEST, BILLING_ISSUE, etc.: acknowledge but no profile update
     return NextResponse.json({ received: true, skipped: 'unhandled_type' });

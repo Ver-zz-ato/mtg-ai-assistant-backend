@@ -25,6 +25,17 @@ export async function GET(req: NextRequest) {
 
     const cached = moversResponseCache.get(cacheKey);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+        try {
+          const supabase = await getServerSupabase();
+          const { logOpsEvent } = await import('@/lib/ops-events');
+          await logOpsEvent(supabase, {
+            event_type: 'ops_movers_cache_hit',
+            route: MOVERS_ROUTE,
+            status: 'ok',
+          });
+        } catch {}
+      }
       return NextResponse.json(cached.body, {
         headers: { "X-ManaTap-Movers-Cache": "HIT", "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
       });
@@ -183,6 +194,12 @@ export async function GET(req: NextRequest) {
       body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
     }
     moversResponseCache.set(cacheKey, { body, at: Date.now() });
+    if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(db, { event_type: 'ops_movers_cache_miss', route: MOVERS_ROUTE, status: 'ok' });
+      } catch {}
+    }
     return NextResponse.json(body, {
       headers: { "X-ManaTap-Movers-Cache": "MISS", "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
     });

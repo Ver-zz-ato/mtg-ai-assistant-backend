@@ -30,6 +30,17 @@ export async function GET(req: NextRequest) {
     if (cacheKey) {
       const cached = deckSeriesResponseCache.get(cacheKey);
       if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+        if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+          try {
+            const { logOpsEvent } = await import('@/lib/ops-events');
+            await logOpsEvent(supabase, {
+              event_type: 'ops_deck_series_cache_hit',
+              route: DECK_SERIES_ROUTE,
+              status: 'ok',
+              user_id: user.id,
+            });
+          } catch {}
+        }
         return NextResponse.json(cached.body, {
           headers: { "X-ManaTap-DeckSeries-Cache": "HIT", "Cache-Control": "private, s-maxage=180" },
         });
@@ -97,7 +108,20 @@ export async function GET(req: NextRequest) {
     }
     const points = Array.from(byDate.entries()).map(([date, total]) => ({ date, total: Number(total.toFixed(2)) })).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
     const body = { ok: true, currency, from, points };
-    if (cacheKey) deckSeriesResponseCache.set(cacheKey, { body, at: Date.now() });
+    if (cacheKey) {
+      deckSeriesResponseCache.set(cacheKey, { body, at: Date.now() });
+      if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+        try {
+          const { logOpsEvent } = await import('@/lib/ops-events');
+          await logOpsEvent(supabase, {
+            event_type: 'ops_deck_series_cache_miss',
+            route: DECK_SERIES_ROUTE,
+            status: 'ok',
+            user_id: user.id,
+          });
+        } catch {}
+      }
+    }
     return NextResponse.json(body, {
       headers: { "X-ManaTap-DeckSeries-Cache": "MISS", "Cache-Control": "private, s-maxage=180" },
     });

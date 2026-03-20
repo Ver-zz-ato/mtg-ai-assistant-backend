@@ -108,7 +108,8 @@ export default function AdminUsersPage(){
           "⏱️ When to use: Customer support requests, VIP access, testing",
           "🔄 How often: As needed for support tickets",
           "💡 Pro status is stored in both profiles.is_pro (database) and user_metadata.pro (auth)",
-          "🐛 Entitlement debug: GET /api/admin/entitlements/debug?userId=<uuid> — shows profile, metadata, RevenueCat, Stripe, sources, mismatches"
+          "🐛 Entitlement debug: GET /api/admin/entitlements/debug?userId=<uuid> — shows profile, metadata, RevenueCat, Stripe, sources, mismatches",
+          "📊 Ops events: GET /api/admin/ops-events?limit=100&eventType=ops_rate_limit_hit&userId=<uuid> — entitlement, rate-limit, webhook, cache events"
         ]} 
       />
 
