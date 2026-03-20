@@ -25,6 +25,22 @@ export async function GET(req: NextRequest) {
 
     if (!names.length) return NextResponse.json({ ok: true, currency, from, series: [] });
 
+    // Log API usage for ops visibility (backend hit; mobile direct Supabase uses ops_price_series_direct_hit)
+    const logClient = admin ?? supabase;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(logClient, {
+        event_type: 'ops_price_series_api_request',
+        route: '/api/price/series',
+        status: 'ok',
+        user_id: user?.id ?? undefined,
+        source: 'price_series',
+        names_count: names.length,
+        currency,
+      });
+    } catch {}
+
     // Normalize names (server side) - match price_snapshots name_norm (bulk snapshot format)
     // NFKD, strip diacritics, apostrophes→', fullwidth comma→comma, nbsp→space, collapse spaces
     const norm = (s: string) =>

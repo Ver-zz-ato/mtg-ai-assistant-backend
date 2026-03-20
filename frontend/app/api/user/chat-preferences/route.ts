@@ -73,6 +73,17 @@ export async function PUT(req: NextRequest) {
   const { checkProStatus } = await import("@/lib/server-pro-check");
   const isPro = await checkProStatus(user.id);
   if (!isPro) {
+    try {
+      const { logOpsEvent } = await import('@/lib/ops-events');
+      await logOpsEvent(supabase, {
+        event_type: 'ops_pro_access_denied',
+        route: '/api/user/chat-preferences',
+        status: 'ok',
+        reason: 'pro_required',
+        user_id: user.id,
+        source: 'chat_preferences',
+      });
+    } catch {}
     return NextResponse.json(
       { ok: false, error: "Pro subscription required to save preferences across chats" },
       { status: 403 }

@@ -23,6 +23,17 @@ export async function POST(req: NextRequest) {
     const isPro = profile?.is_pro || user?.user_metadata?.pro;
     
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase as any, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/watchlist/add',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'watchlist_add',
+        });
+      } catch {}
       return NextResponse.json({ ok: false, error: 'pro_required' }, { status: 403 });
     }
 

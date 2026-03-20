@@ -16,6 +16,17 @@ export const POST = withLogging(async (req: NextRequest) => {
     const isPro = await checkProStatus(user.id);
 
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(sb, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/watchlist/update',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'watchlist_update',
+        });
+      } catch {}
       return NextResponse.json({ ok: false, error: 'pro_required' }, { status: 403 });
     }
 

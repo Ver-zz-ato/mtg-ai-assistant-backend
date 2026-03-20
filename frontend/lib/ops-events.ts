@@ -19,7 +19,8 @@ export type OpsEventType =
   | 'ops_deck_series_cache_hit'
   | 'ops_deck_series_cache_miss'
   | 'ops_price_series_direct_hit'
-  | 'ops_price_series_api_fallback';
+  | 'ops_price_series_api_fallback'
+  | 'ops_price_series_api_request';
 
 export type OpsEventPayload = {
   event_type: OpsEventType;

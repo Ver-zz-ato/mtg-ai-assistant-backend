@@ -33,6 +33,17 @@ export async function POST(req: NextRequest) {
     const isPro = await checkProStatus(user.id);
     
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/deck/compare-ai',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'deck_compare_ai',
+        });
+      } catch {}
       return NextResponse.json({ 
         ok: false, 
         error: "AI deck comparison is a Pro feature. Upgrade to unlock AI-powered deck analysis!" 

@@ -47,6 +47,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const isPro = await checkProStatus(user.id);
 
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/decks/[id]/versions',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'deck_versions',
+        });
+      } catch {}
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
@@ -105,6 +116,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const isPro = await checkProStatus(user.id);
 
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/decks/[id]/versions',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'deck_versions',
+        });
+      } catch {}
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
@@ -240,6 +262,17 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const isPro = await checkProStatus(user.id);
 
     if (!isPro) {
+      try {
+        const { logOpsEvent } = await import('@/lib/ops-events');
+        await logOpsEvent(supabase, {
+          event_type: 'ops_pro_access_denied',
+          route: '/api/decks/[id]/versions',
+          status: 'ok',
+          reason: 'pro_required',
+          user_id: user.id,
+          source: 'deck_versions',
+        });
+      } catch {}
       return NextResponse.json(
         { ok: false, error: "Deck versions are a Pro feature. Upgrade to unlock version history!" },
         { status: 403 }
