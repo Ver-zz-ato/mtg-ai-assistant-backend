@@ -537,8 +537,9 @@ export async function POST(req: NextRequest) {
     // Tier overlay (guest/free/pro) — after user level, before v2/deck context
     if (selectedTier !== "micro") {
       try {
-        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
-        const overlay = getTierOverlay(modelTierRes.tier);
+        const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
+        const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+        const overlay = admin ? await getTierOverlayResolved(admin, modelTierRes.tier) : getTierOverlay(modelTierRes.tier);
         if (overlay) {
           sys += "\n\n" + overlay;
           streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: true });

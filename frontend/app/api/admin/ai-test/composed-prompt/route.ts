@@ -55,8 +55,10 @@ export async function GET(req: NextRequest) {
     let overlay: string | null = null;
     if (tier) {
       try {
-        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
-        overlay = getTierOverlay(tier);
+        const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
+        const { getAdmin } = await import("@/app/api/_lib/supa");
+        const admin = getAdmin();
+        overlay = admin ? await getTierOverlayResolved(admin, tier) : getTierOverlay(tier);
         if (overlay) composedWithOverlay = composed + "\n\n" + overlay;
       } catch (_) {}
     }

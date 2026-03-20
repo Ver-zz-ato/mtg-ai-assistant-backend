@@ -1611,8 +1611,9 @@ export async function POST(req: Request) {
   const overlayTier: "guest" | "free" | "pro" = (forceTierFromBody ?? deckTierRes.tier) as "guest" | "free" | "pro";
   if (deckAnalysisSystemPrompt) {
     try {
-      const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
-      const overlay = getTierOverlay(overlayTier);
+      const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
+      const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+      const overlay = admin ? await getTierOverlayResolved(admin, overlayTier) : getTierOverlay(overlayTier);
       if (overlay) deckAnalysisSystemPrompt += "\n\n" + overlay;
     } catch (_) {}
   }

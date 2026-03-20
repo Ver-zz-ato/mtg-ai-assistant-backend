@@ -946,8 +946,9 @@ export async function POST(req: NextRequest) {
       try {
         const forceTier = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
         const overlayTierForStandard = forceTier ?? chatTierRes.tier;
-        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
-        const overlay = getTierOverlay(overlayTierForStandard);
+        const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
+        const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+        const overlay = admin ? await getTierOverlayResolved(admin, overlayTierForStandard) : getTierOverlay(overlayTierForStandard);
         if (overlay) sys += "\n\n" + overlay;
       } catch (_) {}
     }
@@ -1140,8 +1141,9 @@ export async function POST(req: NextRequest) {
     const forceTierFromContext = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
     const overlayTier = forceTierFromContext ?? chatTierRes.tier;
     try {
-      const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
-      const overlay = getTierOverlay(overlayTier);
+      const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
+      const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+      const overlay = admin ? await getTierOverlayResolved(admin, overlayTier) : getTierOverlay(overlayTier);
       if (overlay) sys += "\n\n" + overlay;
     } catch (_) {}
     // Task 7: Optimize system prompts - shorten teaching mode formatting
