@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     }
     const formatKey = req.nextUrl.searchParams.get("formatKey")?.trim() || "commander";
     const deckId = req.nextUrl.searchParams.get("deckId")?.trim() || null;
+    const tierParam = req.nextUrl.searchParams.get("tier")?.trim()?.toLowerCase();
+    const tier: "guest" | "free" | "pro" | null = tierParam && ["guest", "free", "pro"].includes(tierParam) ? (tierParam as "guest" | "free" | "pro") : null;
 
     let deckContext: { deckCards: { name: string; count?: number }[]; commanderName?: string | null; colorIdentity?: string[] | null; deckId?: string } | null = null;
     if (deckId) {
@@ -49,7 +51,24 @@ export async function GET(req: NextRequest) {
       formatKey,
       deckContext,
     });
-    return NextResponse.json({ ok: true, composed, modulesAttached, formatKey });
+    let composedWithOverlay = composed;
+    let overlay: string | null = null;
+    if (tier) {
+      try {
+        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
+        overlay = getTierOverlay(tier);
+        if (overlay) composedWithOverlay = composed + "\n\n" + overlay;
+      } catch (_) {}
+    }
+    return NextResponse.json({
+      ok: true,
+      composed: composedWithOverlay,
+      baseComposed: composed,
+      overlay: overlay ?? null,
+      overlayTier: tier,
+      modulesAttached,
+      formatKey,
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }

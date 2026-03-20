@@ -818,6 +818,7 @@ export default function AiTestPage() {
   const [manualPromptDescription, setManualPromptDescription] = React.useState("");
   const [creatingPrompt, setCreatingPrompt] = React.useState(false);
   const [adminFormatKey, setAdminFormatKey] = React.useState<"commander" | "standard" | "modern" | "pioneer" | "pauper">("commander");
+  const [forceTier, setForceTier] = React.useState<"guest" | "free" | "pro" | "">("");
   const [layerTab, setLayerTab] = React.useState<"base" | "formats" | "modules">("base");
   const [layerKeys, setLayerKeys] = React.useState<{ key: string; updated_at?: string }[]>([]);
   const [selectedLayerKey, setSelectedLayerKey] = React.useState<string>("BASE_UNIVERSAL_ENFORCEMENT");
@@ -1217,7 +1218,9 @@ export default function AiTestPage() {
   }
   async function loadComposedPreview() {
     try {
-      const r = await fetch(`/api/admin/ai-test/composed-prompt?formatKey=${encodeURIComponent(adminFormatKey)}`, { cache: "no-store" });
+      const params = new URLSearchParams({ formatKey: adminFormatKey });
+      if (forceTier) params.set("tier", forceTier);
+      const r = await fetch(`/api/admin/ai-test/composed-prompt?${params}`, { cache: "no-store" });
       const j = await r.json();
       if (j?.ok) {
         setComposedPreview(j.composed ?? "");
@@ -1246,7 +1249,7 @@ export default function AiTestPage() {
       const runRes = await fetch("/api/admin/ai-test/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testCase, formatKey: adminFormatKey }),
+        body: JSON.stringify({ testCase, formatKey: adminFormatKey, ...(forceTier && { forceTier }) }),
       });
       const runData = await runRes.json();
       if (!runData.ok) {
@@ -1377,6 +1380,7 @@ export default function AiTestPage() {
           suite: `batch-${new Date().toISOString().slice(0, 10)}`,
           validationOptions,
           formatKey: adminFormatKey,
+          ...(forceTier && { forceTier }),
         }),
       });
 
@@ -2726,7 +2730,7 @@ export default function AiTestPage() {
             )}
             {composedPreview !== null && (
               <div className="rounded border border-neutral-700 p-2 space-y-1">
-                <div className="text-xs font-medium">Composed prompt (format: {adminFormatKey})</div>
+                <div className="text-xs font-medium">Composed prompt (format: {adminFormatKey}{forceTier ? `, overlay: ${forceTier}` : ""})</div>
                 {modulesAttachedPreview.length > 0 && <div className="text-xs text-green-400">Modules attached: {modulesAttachedPreview.join(", ")}</div>}
                 <pre className="text-xs text-neutral-300 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{composedPreview.slice(0, 2000)}{composedPreview.length > 2000 ? "…" : ""}</pre>
               </div>
@@ -2999,7 +3003,21 @@ export default function AiTestPage() {
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-sm text-neutral-400">
+            Tier overlay:
+            <select
+              value={forceTier}
+              onChange={(e) => setForceTier((e.target.value || "") as typeof forceTier)}
+              className="px-2 py-1 rounded border border-neutral-700 bg-neutral-800 text-neutral-200 text-sm"
+              title="Force tier for prompt overlay (guest/free/pro). Affects single run and batch."
+            >
+              <option value="">Default (natural)</option>
+              <option value="guest">Guest</option>
+              <option value="free">Free</option>
+              <option value="pro">Pro</option>
+            </select>
+          </label>
           <button
             onClick={runBatchTests}
             disabled={runningBatch || filteredCases.length === 0}

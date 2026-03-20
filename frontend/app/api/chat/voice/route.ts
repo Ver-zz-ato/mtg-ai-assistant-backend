@@ -127,16 +127,17 @@ export async function POST(req: NextRequest) {
     }
 
     const contextRaw = (formData.get("context") as string)?.trim();
-    let context: {
+    type VoiceContext = {
       deckId?: string;
       screen?: string;
       players?: Array<{ id: string; name: string }>;
       selfPlayerId?: string;
       voiceMode?: string;
-    } | null = null;
+    };
+    let context: VoiceContext | null = null;
     if (contextRaw) {
       try {
-        context = JSON.parse(contextRaw) as typeof context;
+        context = JSON.parse(contextRaw) as VoiceContext;
       } catch {
         // ignore invalid context
       }

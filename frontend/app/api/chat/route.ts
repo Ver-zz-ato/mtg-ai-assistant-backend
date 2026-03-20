@@ -941,6 +941,16 @@ export async function POST(req: NextRequest) {
     // Tool suggestions are now added deterministically after the AI response (see getToolSuggestionsForMessage)
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });
+    // Tier overlay for standard tier (full tier injects later, after getUserLevelInstruction)
+    if (selectedTier === "standard") {
+      try {
+        const forceTier = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
+        const overlayTierForStandard = forceTier ?? chatTierRes.tier;
+        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
+        const overlay = getTierOverlay(overlayTierForStandard);
+        if (overlay) sys += "\n\n" + overlay;
+      } catch (_) {}
+    }
     let promptLogged = false;
     if (!promptLogged) {
       promptLogged = true;
@@ -1126,6 +1136,14 @@ export async function POST(req: NextRequest) {
     // User level: tailor language, tone, and depth (beginner/intermediate/pro)
     const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
     sys += getUserLevelInstruction(prefs?.userLevel);
+    // Tier overlay (guest/free/pro) — after user level, before v2/deck blocks
+    const forceTierFromContext = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
+    const overlayTier = forceTierFromContext ?? chatTierRes.tier;
+    try {
+      const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
+      const overlay = getTierOverlay(overlayTier);
+      if (overlay) sys += "\n\n" + overlay;
+    } catch (_) {}
     // Task 7: Optimize system prompts - shorten teaching mode formatting
     if (teachingFlag) {
       sys += `\n\nTeaching mode: Answer in 3 parts: 1) Concept/explanation, 2) Categorized examples (land ramp, rocks, dorks), 3) Application to deck. Define jargon first time (ETB=enters battlefield). Match examples to format.`;

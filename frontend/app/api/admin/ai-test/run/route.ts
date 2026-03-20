@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     const { type, input } = finalTestCase;
     const formatKey = body?.formatKey ?? input?.format;
+    const forceTier = typeof body?.forceTier === "string" && ["guest", "free", "pro"].includes(body.forceTier) ? body.forceTier : null;
     let responseText = "";
     let promptUsed: { system?: string; user?: string; prompt_version_id?: string | null } = {};
     let error: string | null = null;
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
               format: formatKey ?? input?.format,
               teaching: input.context?.teaching || false,
             },
-            context: input.context,
+            context: { ...input.context, ...(forceTier && { forceTier }) },
           }),
         });
 
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
             plan: input.context?.plan || "Optimized",
             currency: input.context?.currency || "USD",
             sourcePage: "admin_ai_test",
+            ...(forceTier && { forceTier }),
           }),
         });
 

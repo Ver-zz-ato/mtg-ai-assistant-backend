@@ -534,6 +534,22 @@ export async function POST(req: NextRequest) {
     const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
     sys += getUserLevelInstruction(prefs?.userLevel);
 
+    // Tier overlay (guest/free/pro) — after user level, before v2/deck context
+    if (selectedTier !== "micro") {
+      try {
+        const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
+        const overlay = getTierOverlay(modelTierRes.tier);
+        if (overlay) {
+          sys += "\n\n" + overlay;
+          streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: true });
+        } else {
+          streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: false });
+        }
+      } catch (err) {
+        streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: false, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
     // Runtime AI config (env overrides when explicitly off)
     const streamRuntimeConfig = await (await import("@/lib/ai/runtime-config")).getRuntimeAIConfig(supabase);
     // LLM v2 context (Phase A). Kill-switch: LLM_V2_CONTEXT=off or runtime forces raw path.

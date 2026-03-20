@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { testCases, suite, validationOptions, formatKey: batchFormatKey } = body;
+    const { testCases, suite, validationOptions, formatKey: batchFormatKey, forceTier: batchForceTier } = body;
+    const forceTier = typeof batchForceTier === "string" && ["guest", "free", "pro"].includes(batchForceTier) ? batchForceTier : null;
 
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return NextResponse.json({ ok: false, error: "testCases array required" }, { status: 400 });
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest) {
                   format: batchFormatKey ?? input?.format,
                   teaching: input.context?.teaching || false,
                 },
-                context: input.context,
+                context: { ...input.context, ...(forceTier && { forceTier }) },
                 noUserInsert: true,
                 forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
                 eval_run_id: evalRunId,
@@ -195,6 +196,7 @@ export async function POST(req: NextRequest) {
                 forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
                 eval_run_id: evalRunId,
                 sourcePage: "admin_ai_test",
+                ...(forceTier && { forceTier }),
               }),
             });
 

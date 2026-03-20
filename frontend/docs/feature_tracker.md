@@ -700,6 +700,72 @@ Navigation
 
 ---
 
+## Additional Features (2025 Q1 – 2026 Q1)
+
+### Roast My Deck
+☑ Roast My Deck — AI deck roast with shareable permalinks <!-- id:roast.feature -->
+  - Paste or upload decklist; AI roasts with four heat levels: Gentle 🟢, Balanced 🟡, Spicy 🌶, Savage 🔥
+  - Shareable permalinks (`/roast/[id]`) for logged-in users; anyone can view shared roasts
+  - Commander art, card hover previews, dynamic Open Graph for social sharing
+  - Best-burn excerpt extraction for OG image (punchy one-liner)
+  - `roast_permalinks` table; `app/roast/[id]/page.tsx`, `opengraph-image.tsx`
+
+### Deck building upgrades (March 2025)
+☑ Finish This Deck — AI suggests cards to fill gaps <!-- id:deck.finish_this_deck -->
+  - Build Assistant + insufficient-cards banner; reach 100 cards for Commander
+☑ Build Deck From Collection — Generate Commander decks from your cards <!-- id:deck.build_from_collection -->
+  - Preview modal before creating; same flow for AI Deck Generator modules
+☑ Card Suggestions — Color-identity compliant with hover art popup <!-- id:deck.card_suggestions -->
+
+### Precon Decks
+☑ Precon browse and clone <!-- id:precons.browse_clone -->
+  - `precon_decks` table; browse at `/decks/browse` (Precons tab); clone creates user deck
+  - Admin: `/admin/precons` — insert single precon or run generated SQL for bulk import
+  - Westly/CommanderPrecons integration for fetching precon lists
+
+### AI Test platform (admin)
+☑ AI Test V3/V4 unified evaluation <!-- id:admin.ai_test_v3_v4 -->
+  - Suites v1–v5: Prompt Contract, Context/State, Behavioral (v3), Adversarial (v4), Regression (v5)
+  - Model-backed v3/v4 call chat API; rubrics score rules, deck reasoning, synergy, honesty, hallucination resistance
+  - `ai_test_suites`, `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`, `ai_test_regressions`, `ai_test_improvement_suggestions`
+  - Admin: `/admin/ai-test-v3` — run suites, view results, regression library
+
+### App Changelog (mobile)
+☑ App-only What's New <!-- id:admin.app_changelog -->
+  - `app_config` key `app_changelog` for ManaTap mobile app (hamburger → What's New)
+  - Admin: `/admin/JustForDavy/app-whats-new` — build entries, generate SQL
+
+### February 2026 User Improvements (v1.12.0)
+☑ Fix Card Names now FREE for everyone <!-- id:fix.free -->
+  - Match imported cards to database at no cost; unlocks images, prices, AI analysis
+☑ Live Shoutbox — Real-time community chat on homepage <!-- id:shoutbox.live -->
+  - AI-powered conversation to keep things lively; moderation (migration 079)
+☑ Pro Gate Analytics — Admin dashboard for conversion funnels <!-- id:admin.pro_gate -->
+☑ Smarter Import Prompts — After CSV import, alerts for cards needing fix with one-click access <!-- id:import.smart_prompts -->
+
+### Chat & AI
+☑ User Chat Preferences (Pro) <!-- id:chat.preferences -->
+  - `user_chat_preferences` table: format, budget, colors, playstyle; injected into every chat for Pro users
+☑ Commander legality rules expanded <!-- id:rules.commander_expanded -->
+  - Partner/Background, Companion, Wish effects, Silver/acorn cards (prompt_layers)
+☑ AI response reports context <!-- id:admin.ai_reports_context -->
+  - `context_jsonb` on `ai_response_reports` for deck analyzer suggestion reports (source, deck_id, suggestion_id)
+☑ Thread metadata — Commander and decklist in chat threads <!-- id:chat.thread_metadata -->
+  - `chat_threads_deck_metadata`; supports eval mode and deck context in AI test runs
+
+### Data & infra
+☑ Data moat tables <!-- id:data.moat -->
+  - `ai_suggestion_outcomes` (accepted/rejected/ignored); `meta_signals_history` (daily snapshots)
+  - Append-only; service-role only; for behavioral learning and trend analysis
+
+### Social & SEO
+☑ Social preview (root + roast) <!-- id:seo.social_preview -->
+  - Root layout: Open Graph, Twitter cards; static `/opengraph-image.jpg`, `/twitter-image.jpg`
+  - Dynamic roast OG: best-burn quote, commander art, heat labels
+  - Compress script: `scripts/compress-og-images.mjs`
+
+---
+
 ## 🔧 Critical Technical Notes (For AI/Debugging)
 
 ### Auth Session Invalidation Bug (Fixed 2025-10-22)

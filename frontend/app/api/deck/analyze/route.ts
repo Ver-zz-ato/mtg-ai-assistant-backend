@@ -1358,6 +1358,8 @@ export async function POST(req: Request) {
     sourcePage?: string;
     /** For AI test cost reporting - links ai_usage to eval_runs */
     eval_run_id?: string;
+    /** Admin AI test: force tier overlay (guest/free/pro) */
+    forceTier?: string;
   };
 
   let deckText = String(body.deckText || "").trim();
@@ -1603,6 +1605,18 @@ export async function POST(req: Request) {
   let deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
 
+  // Tier overlay (guest/free/pro) — after base prompt, before fingerprint
+  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: "deck_analysis" });
+  const forceTierFromBody = typeof body.forceTier === "string" && ["guest", "free", "pro"].includes(body.forceTier) ? body.forceTier : null;
+  const overlayTier: "guest" | "free" | "pro" = (forceTierFromBody ?? deckTierRes.tier) as "guest" | "free" | "pro";
+  if (deckAnalysisSystemPrompt) {
+    try {
+      const { getTierOverlay } = await import("@/lib/ai/tier-overlays");
+      const overlay = getTierOverlay(overlayTier);
+      if (overlay) deckAnalysisSystemPrompt += "\n\n" + overlay;
+    } catch (_) {}
+  }
+
   if (deckAnalysisSystemPrompt && process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1" && entries.length > 0) {
     try {
       const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
@@ -1623,7 +1637,6 @@ export async function POST(req: Request) {
     } catch (_) {}
   }
 
-  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: 'deck_analysis' });
   const deckAnalyzeLLMByFeature: DeckAnalyzeLLMByFeature = { validated: 0, slot_planning: 0, slot_candidates: 0 };
   let deckAnalyzeRequestId: string | undefined;
   let promptLogged = false;

@@ -2,7 +2,7 @@
 
 This document provides a complete technical breakdown of the AI test suite for an LLM to use when reworking or extending the system.
 
-**See also:** [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs.
+**See also:** [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs; [TIER_OVERLAY_AUDIT.md](TIER_OVERLAY_AUDIT.md) — tier overlay (Guest/Free/Pro) architecture and ai-test/chat-test integration.
 
 ---
 
