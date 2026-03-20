@@ -2,6 +2,8 @@
 
 **Purpose:** Single source of truth for how the AI chat works end-to-end. All architecture, request flow, deck context, commander handling, and design rationale live here.
 
+**See also:** [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs.
+
 ---
 
 ## 1. Goals

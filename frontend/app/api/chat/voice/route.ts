@@ -4,14 +4,18 @@
  * STRICT CONTRACT:
  * - Auth: Cookie OR Bearer (same as other authenticated routes)
  * - Request: multipart/form-data with file (or audio), optional mimeType, optional context
- * - Response: { transcript, assistant_text, audio_url, duration_ms, model_used }
+ * - Response: { transcript, assistant_text, audio_url, duration_ms, model_used, mode?, actions?, clarification?, spoken_confirmation? }
  * - Max file: 25MB. Reject empty, unsupported formats.
+ * - Context: { deckId?, screen?, players?: {id,name}[], selfPlayerId?, voiceMode? }
  */
 
 import { NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { VOICE_CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-chat";
 import { put as putAudio } from "@/lib/voice-audio-store";
+import { classifyIntent } from "@/lib/voice/intent-classifier";
+import { parseCommands } from "@/lib/voice/command-parser";
+import { generateClarification } from "@/lib/voice/clarifier";
 
 export const runtime = "nodejs";
 
@@ -123,10 +127,16 @@ export async function POST(req: NextRequest) {
     }
 
     const contextRaw = (formData.get("context") as string)?.trim();
-    let context: { deckId?: string; screen?: string } | null = null;
+    let context: {
+      deckId?: string;
+      screen?: string;
+      players?: Array<{ id: string; name: string }>;
+      selfPlayerId?: string;
+      voiceMode?: string;
+    } | null = null;
     if (contextRaw) {
       try {
-        context = JSON.parse(contextRaw) as { deckId?: string; screen?: string };
+        context = JSON.parse(contextRaw) as typeof context;
       } catch {
         // ignore invalid context
       }
@@ -167,36 +177,87 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- STEP 2: AI response ---
-    let systemPrompt = VOICE_CHAT_SYSTEM_PROMPT;
-    if (context?.deckId) {
-      systemPrompt += `\n\nThe user may be asking about deck ${context.deckId}. If relevant, tailor your answer accordingly.`;
+    // --- STEP 2: Routing (game screen) or chat ---
+    const isGameScreen = context?.screen === "game";
+    let mode: "game_action" | "chat" | "clarify" = "chat";
+    let actions: unknown[] | null = null;
+    let clarification: string | null = null;
+    let spoken_confirmation: string | null = null;
+
+    if (isGameScreen) {
+      try {
+        const intent = await classifyIntent(transcript, apiKey);
+        const confidence = intent.confidence ?? 0;
+
+        if (intent.mode === "game_action" && confidence >= 0.7) {
+          const parsed = await parseCommands(transcript, apiKey, {
+            players: context?.players,
+            selfPlayerId: context?.selfPlayerId,
+          });
+          if (parsed.actions.length > 0) {
+            mode = "game_action";
+            actions = parsed.actions;
+            spoken_confirmation = parsed.spoken_confirmation || null;
+            assistant_text = parsed.spoken_confirmation || "Done.";
+          } else {
+            const clar = await generateClarification(transcript, apiKey);
+            mode = "clarify";
+            clarification = clar.clarification;
+            assistant_text = clar.clarification;
+          }
+        } else if (intent.mode === "clarify" || confidence < 0.7) {
+          const clar = await generateClarification(transcript, apiKey);
+          mode = "clarify";
+          clarification = clar.clarification;
+          assistant_text = clar.clarification;
+        } else {
+          // chat
+          if (context?.voiceMode === "commands_only") {
+            assistant_text = "That sounds like a question, not a game action.";
+            mode = "chat";
+          } else {
+            // fall through to chat path below
+          }
+        }
+      } catch (e) {
+        console.error("[voice] Routing error:", e);
+        mode = "chat";
+        // fall through to chat path
+      }
     }
 
-    const chatRes = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: transcript },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+    // Chat path (non-game, or chat intent, or routing failed)
+    if (mode === "chat" && (context?.voiceMode !== "commands_only" || !isGameScreen)) {
+      let systemPrompt = VOICE_CHAT_SYSTEM_PROMPT;
+      if (context?.deckId) {
+        systemPrompt += `\n\nThe user may be asking about deck ${context.deckId}. If relevant, tailor your answer accordingly.`;
+      }
 
-    if (!chatRes.ok) {
-      const err = await chatRes.text();
-      console.error("[voice] Chat error:", err);
-      assistant_text = "I had trouble processing that. Please try again.";
-    } else {
-      const chatJson = (await chatRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      assistant_text = chatJson.choices?.[0]?.message?.content?.trim() ?? "I didn't catch that. Could you repeat?";
+      const chatRes = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: transcript },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!chatRes.ok) {
+        const err = await chatRes.text();
+        console.error("[voice] Chat error:", err);
+        assistant_text = "I had trouble processing that. Please try again.";
+      } else {
+        const chatJson = (await chatRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
+        assistant_text = chatJson.choices?.[0]?.message?.content?.trim() ?? "I didn't catch that. Could you repeat?";
+      }
     }
 
     // --- STEP 3: TTS ---
@@ -225,10 +286,18 @@ export async function POST(req: NextRequest) {
     }
 
     const duration_ms = Date.now() - t0;
-    return jsonResponse(
-      { transcript, assistant_text, audio_url, duration_ms, model_used },
-      200
-    );
+    const body: Record<string, unknown> = {
+      transcript,
+      assistant_text,
+      audio_url,
+      duration_ms,
+      model_used,
+    };
+    if (mode) body.mode = mode;
+    if (actions !== null) body.actions = actions;
+    if (clarification !== null) body.clarification = clarification;
+    if (spoken_confirmation !== null) body.spoken_confirmation = spoken_confirmation;
+    return jsonResponse(body, 200);
   } catch (e) {
     console.error("[voice] Handler error:", e);
     const duration_ms = Date.now() - t0;

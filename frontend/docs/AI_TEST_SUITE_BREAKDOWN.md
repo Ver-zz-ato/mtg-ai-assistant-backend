@@ -2,6 +2,8 @@
 
 This document provides a complete technical breakdown of the AI test suite for an LLM to use when reworking or extending the system.
 
+**See also:** [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs.
+
 ---
 
 ## 1. Architecture Overview
@@ -205,8 +207,8 @@ When `expectedChecks` includes:
 
 | System | Used By | Source |
 |--------|---------|--------|
-| **prompt_versions** | Chat, deck_analysis (production) | `app_config.active_prompt_version_{kind}` → `prompt_versions` |
-| **prompt_layers** | Deck analysis (3-layer compose) | `composeSystemPrompt` |
+| **prompt_layers** (primary) | Chat, deck_analysis | `composeSystemPrompt` — 3-layer composition (BASE + FORMAT + MODULES) |
+| **prompt_versions** (fallback) | Chat, deck_analysis | `app_config.active_prompt_version_{kind}` → `prompt_versions` when composition fails |
 
 ### 6.2 Prompt Versions (Chat / Deck Analysis)
 
@@ -434,7 +436,7 @@ When `expectedChecks` includes:
 ## 11. Known Gaps & Limitations
 
 1. **No cost aggregation** — Test costs not reported in admin
-2. **No golden decklist mode** — `eval-set-discipline.md` suggests 5–10 golden decks; not implemented
+2. **No golden decklist mode** — Suggested discipline (5–10 golden decks, fixed deck set) not yet implemented
 3. **Alert email** — Schedule has `alert_email` but "TODO: Send email" in cron
 4. **JSON file often empty** — Seed data lives in migrations, not `ai_test_cases.json`
 5. **ai_test_cases / ai_test_results** — No CREATE TABLE in migrations; tables assumed to exist (likely created elsewhere or manually)
@@ -459,7 +461,7 @@ When `expectedChecks` includes:
 | `frontend/lib/prompts/composeSystemPrompt.ts` | 3-layer composition |
 | `frontend/lib/data/ai_test_cases.json` | JSON test cases |
 | `frontend/lib/data/banned_cards.json` | Format banlists |
-| `frontend/docs/ai/eval-set-discipline.md` | Golden deck discipline |
+| `frontend/docs/prompt-system-breakdown.md` | Prompt composition and fallback |
 
 ---
 

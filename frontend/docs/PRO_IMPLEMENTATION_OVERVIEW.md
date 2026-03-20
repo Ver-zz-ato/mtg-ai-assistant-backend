@@ -2,6 +2,8 @@
 
 This document describes Pro status, access levels (Guest / Logged-in / Pro), and where limits and Pro gates are enforced across pages and APIs.
 
+**See also:** [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs.
+
 ---
 
 ## 1. Access Levels
@@ -104,7 +106,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 ### 6.1 Deck Page (`/my-decks/[id]`)
 
 - **Build Assistant (sticky):** AI scan, balance curve, budget swaps, “Fix” per health item, Undo/Redo → Pro. Else `showProToast()` / guard.
-- **Functions Panel:** “Fix card names” → Pro. Deck Version History → Pro.
+- **Functions Panel:** "Fix card names" → Free (deck name matching). Deck Version History → Pro.
 - **Deck Overview / Health:** Clicking health categories for AI suggestions → Pro. `DeckAssistant` health clicks → Pro.
 - **Probability panel:** Full usage (K, N, H, T, k, tags, etc.) → Pro. Free users see disabled controls and “Pro only” copy.
 - **Recompute button:** Uses `isPro` for analytics.
@@ -187,7 +189,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 | **Deck analyze** | 5/day | 20/day | 200/day |
 | **Deck swap suggestions** | — | 10/day | 100/day |
 | **Deck health AI** | — | ❌ | ✅ (50/day) |
-| **Fix card names (wishlist)** | — | ❌ | ✅ |
+| **Fix card names (wishlist)** | — | ✅ | ✅ |
 | **Watchlist add/update** | — | ❌ | ✅ |
 | **Hand testing** | 3 free runs | 3 free runs | Unlimited |
 | **Build Assistant AI** | — | ❌ | ✅ |

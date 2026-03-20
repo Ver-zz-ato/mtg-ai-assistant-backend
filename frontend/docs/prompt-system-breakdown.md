@@ -2,7 +2,7 @@
 
 This document describes the current prompt system so an LLM or developer can understand how prompts are built, versioned, and used.
 
-**Related:** [Thin prompt / thick validator](thin_prompt_thick_validator.md) — architecture (prompts guide judgment; code enforces correctness) and fallback phase-out strategy.
+**Related:** [Thin prompt / thick validator](thin_prompt_thick_validator.md) — architecture (prompts guide judgment; code enforces correctness) and fallback phase-out strategy. [AI_IMPLEMENTATION_INDEX.md](AI_IMPLEMENTATION_INDEX.md) — index of AI workflow docs.
 
 ---
 
