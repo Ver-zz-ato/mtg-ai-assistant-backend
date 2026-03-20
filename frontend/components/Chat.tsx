@@ -1680,7 +1680,6 @@ function Chat(props: ChatProps = {}) {
             onChanged={() => setHistKey((k: number) => k + 1)}
             onDeleted={() => { setThreadId(null); setMessages([]); setHistKey((k: number) => k + 1); }}
             onNewChat={newChat}
-            deckId={linkedDeckId}
             messageCount={messages.length}
             refreshKey={histKey}
           />

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { listThreads, renameThread, deleteThread, linkThread } from "@/lib/threads";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { listThreads, renameThread, deleteThread } from "@/lib/threads";
 import type { ThreadSummary } from "@/types/chat";
 
 type Props = {
@@ -12,7 +11,6 @@ type Props = {
   onChanged?: () => void;
   onDeleted?: () => void;
   onNewChat?: () => void;
-  deckId?: string | null;
   messageCount?: number;
   refreshKey?: number;
 };
@@ -24,17 +22,12 @@ export default function BuilderOverflowMenu({
   onChanged,
   onDeleted,
   onNewChat,
-  deckId,
   messageCount,
   refreshKey,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [linkMode, setLinkMode] = useState(false);
-  const [linked, setLinked] = useState<boolean>(!!deckId);
-  const [choices, setChoices] = useState<Array<{ id: string; title: string }>>([]);
-  const [sel, setSel] = useState<string>("");
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,32 +52,9 @@ export default function BuilderOverflowMenu({
   }, [refreshKey]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      if (!threadId) {
-        setLinked(false);
-        return;
-      }
-      try {
-        const r = await fetch("/api/chat/threads/get", { cache: "no-store" });
-        const j = await r.json().catch(() => ({}));
-        const one = (Array.isArray(j?.threads) ? j.threads : Array.isArray(j?.data) ? j.data : []).find(
-          (t: { id?: string }) => t.id === threadId
-        );
-        if (!cancelled) setLinked(!!(one as { deck_id?: string })?.deck_id);
-      } catch {}
-    }
-    probe();
-    return () => {
-      cancelled = true;
-    };
-  }, [threadId]);
-
-  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpen(false);
-        setLinkMode(false);
       }
     }
     if (open) document.addEventListener("mousedown", handleClickOutside);
@@ -114,40 +84,6 @@ export default function BuilderOverflowMenu({
       setBusy(false);
     }
     setOpen(false);
-  }
-
-  async function openLink() {
-    if (!threadId) return;
-    setLinkMode((v) => !v);
-    if (choices.length === 0) {
-      try {
-        const sb = createBrowserSupabaseClient();
-        const {
-          data: { user },
-        } = await sb.auth.getUser();
-        const uid = user?.id;
-        if (!uid) return;
-        const { data } = await sb
-          .from("decks")
-          .select("id,title")
-          .eq("user_id", uid)
-          .order("created_at", { ascending: false });
-        setChoices(((data as { id: string; title: string }[]) || []).map((d) => ({ id: d.id, title: d.title })));
-      } catch {}
-    }
-  }
-
-  async function saveLink() {
-    if (!threadId) return;
-    setBusy(true);
-    try {
-      await linkThread(threadId, sel || null);
-      setLinked(!!sel);
-      setLinkMode(false);
-      onChanged?.();
-    } finally {
-      setBusy(false);
-    }
   }
 
   function handleNewChat() {
@@ -228,49 +164,6 @@ export default function BuilderOverflowMenu({
           >
             Delete
           </button>
-          <button
-            onClick={openLink}
-            disabled={disabled}
-            className="w-full px-3 py-2 text-left text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-40"
-            title={linked ? "Change link" : "Link to deck"}
-            data-testid="thread-action"
-          >
-            {linked ? "Change link" : "Link deck"}
-            {linked && <span className="ml-1 text-neutral-500">✓</span>}
-          </button>
-
-          {linkMode && (
-            <div className="px-3 py-2 border-t border-neutral-700 space-y-2">
-              <select
-                className="w-full rounded bg-neutral-800 border border-neutral-600 px-2 py-1.5 text-xs text-neutral-200"
-                value={sel}
-                onChange={(e) => setSel(e.target.value)}
-              >
-                <option value="">— Unlink —</option>
-                {choices.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-              <div className="flex gap-1">
-                <button
-                  onClick={saveLink}
-                  disabled={busy}
-                  className="flex-1 px-2 py-1 rounded bg-neutral-600 hover:bg-neutral-500 text-white text-xs"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setLinkMode(false)}
-                  disabled={busy}
-                  className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
