@@ -159,7 +159,20 @@ This document provides a complete technical breakdown of the AI test suite for a
 | Specificity | `validateSpecificity` | Min card names by response length |
 | Color Identity & Legality | `validateColorIdentityAndLegality` | When `requireLegalIdentity` |
 
-### 4.9 Safety Checks (`validateSafetyChecks`)
+### 4.9 Archetype Checks (`validateArchetypeChecks`)
+
+When `expectedChecks` includes archetype fields (optional, additive):
+
+- **Primary archetype match** — PASS if output contains expectedPrimaryArchetype or an alias; WARN/FAIL if only secondary theme or main archetype unclear
+- **mustNotClassifyAs** — FAIL if output frames deck as any forbidden archetype (e.g. aristocrats when it is recursion)
+- **wrongArchetypeKeywords** — FAIL if phrases appear in affirmative (non-negated) context
+- **expectedSecondaryThemes** — PASS if at least one acknowledged
+- **mustDescribeAsHybrid** — PASS only if output acknowledges hybrid/mixed structure
+- **expectedGamePlanKeywords** — PASS if sufficient presence
+- **forbiddenRecommendationPackages** — FAIL if output strongly recommends (e.g. sac outlets for non-aristocrats)
+- Negation handling: phrases like "this is NOT aristocrats" do not trigger wrong-archetype FAIL
+
+### 4.10 Safety Checks (`validateSafetyChecks`)
 
 When `expectedChecks` includes:
 
@@ -170,7 +183,7 @@ When `expectedChecks` includes:
 - `maxTotalCards` / `minTotalCards` — deck size
 - `mustNotRecommendExcessiveLands` / `maxRecommendedLandsToAdd`
 
-### 4.10 Overall Score
+### 4.11 Overall Score
 
 - Average of all run checks
 - Pass: `overallScore >= 70`
@@ -343,7 +356,13 @@ When `expectedChecks` includes:
 
 ## 8. Admin UI Features
 
-### 8.1 Main Sections
+### 8.1 Tier Compare Mode
+
+- **Compare tiers (single run):** Checkbox in Batch Testing section. When enabled, running a single test executes it 3× (guest, free, pro) and displays a side-by-side tier comparison with scores and archetype pass/fail.
+- **Run across tiers (batch):** Checkbox in Batch Testing section. When enabled, each test case runs once per tier (guest, free, pro); results include tier badge and a Tier Comparison Summary.
+- **Tier overlay dropdown:** Force guest/free/pro overlay for single run and batch (when not using run across tiers).
+
+### 8.2 Main Sections
 
 - **Test cases list** — Filter by tag, type, status; search; sort by quality
 - **Single run** — Select case, run, view response + validation
@@ -360,7 +379,7 @@ When `expectedChecks` includes:
 - **Generate from failures** — Create test cases from failed runs
 - **Apply improvements** — Apply prompt_patches from judge suggestions
 
-### 8.2 Format Key
+### 8.3 Format Key
 
 - Admin format: `adminFormatKey` (commander, standard, modern, pioneer, pauper) — used when running tests without format in input
 
@@ -428,6 +447,15 @@ When `expectedChecks` includes:
   shouldNotSuggestCard?: string[];
   minSynergyScore?: number;
   expectedAnswer?: string;  // For semantic similarity
+  // Archetype correctness (optional; all additive):
+  expectedPrimaryArchetype?: string;      // Main archetype label (e.g. "flash tempo-control")
+  expectedArchetypeAliases?: string[];    // Acceptable alternates (e.g. "reactive flash")
+  expectedSecondaryThemes?: string[];     // Themes to acknowledge (e.g. "elf mana engine")
+  mustNotClassifyAs?: string[];           // Archetypes model must not present as main plan
+  mustDescribeAsHybrid?: boolean;         // Requires output to acknowledge mixed/hybrid structure
+  wrongArchetypeKeywords?: string[];      // Phrases indicating archetype drift
+  expectedGamePlanKeywords?: string[];    // Phrases indicating gameplay loop understood
+  forbiddenRecommendationPackages?: string[];  // Packages not to recommend when off-plan
 }
 ```
 

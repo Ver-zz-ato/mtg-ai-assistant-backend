@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { testCases, suite, validationOptions, formatKey: batchFormatKey, forceTier: batchForceTier } = body;
+    const { testCases, suite, validationOptions, formatKey: batchFormatKey, forceTier: batchForceTier, runAcrossTiers } = body;
     const forceTier = typeof batchForceTier === "string" && ["guest", "free", "pro"].includes(batchForceTier) ? batchForceTier : null;
+    const runAcrossTiersEnabled = runAcrossTiers === true;
 
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return NextResponse.json({ ok: false, error: "testCases array required" }, { status: 400 });
@@ -131,11 +132,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Helper function to run a single test case
-    async function runSingleTest(testCase: any): Promise<any> {
+    // Helper function to run a single test case (tierOverride: when runAcrossTiers, 'guest'|'free'|'pro')
+    async function runSingleTest(testCase: any, tierOverride?: "guest" | "free" | "pro"): Promise<any> {
       try {
         const type = testCase.type;
         const input = testCase.input;
+        const effectiveTier = tierOverride ?? forceTier;
         let responseText = "";
         let promptUsed: any = {};
         let error: string | null = null;
@@ -157,7 +159,7 @@ export async function POST(req: NextRequest) {
                   format: batchFormatKey ?? input?.format,
                   teaching: input.context?.teaching || false,
                 },
-                context: { ...input.context, ...(forceTier && { forceTier }) },
+                context: { ...input.context, ...(effectiveTier && { forceTier: effectiveTier }) },
                 noUserInsert: true,
                 forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
                 eval_run_id: evalRunId,
@@ -196,7 +198,7 @@ export async function POST(req: NextRequest) {
                 forceModel: process.env.MODEL_AI_TEST || 'gpt-4o-mini',
                 eval_run_id: evalRunId,
                 sourcePage: "admin_ai_test",
-                ...(forceTier && { forceTier }),
+                ...(effectiveTier && { forceTier: effectiveTier }),
               }),
             });
 
@@ -241,6 +243,9 @@ export async function POST(req: NextRequest) {
           };
 
           validation = await validateResponse(responseText, testCase, validationOpts);
+          if (tierOverride && validation) {
+            validation = { ...validation, tier: tierOverride };
+          }
         }
 
         // Save test result
@@ -280,6 +285,7 @@ export async function POST(req: NextRequest) {
 
         return {
           testCase,
+          tier: tierOverride ?? null,
           result: {
             response: { text: responseText, promptUsed, error },
           },
@@ -288,8 +294,23 @@ export async function POST(req: NextRequest) {
       } catch (e: any) {
         return {
           testCase,
+          tier: tierOverride ?? null,
           error: e.message,
         };
+      }
+    }
+
+    // Build work items: when runAcrossTiers, each test becomes 3 runs (guest, free, pro)
+    const workItems: { testCase: any; tier?: "guest" | "free" | "pro" }[] = [];
+    if (runAcrossTiersEnabled) {
+      for (const tc of testCases) {
+        workItems.push({ testCase: tc, tier: "guest" });
+        workItems.push({ testCase: tc, tier: "free" });
+        workItems.push({ testCase: tc, tier: "pro" });
+      }
+    } else {
+      for (const tc of testCases) {
+        workItems.push({ testCase: tc });
       }
     }
 
@@ -297,22 +318,23 @@ export async function POST(req: NextRequest) {
     const concurrencyLimit = 8;
     const testResults: any[] = [];
     
-    console.log(`[batch] Starting batch run with ${testCases.length} test cases (concurrency: ${concurrencyLimit})`);
+    console.log(`[batch] Starting batch run with ${workItems.length} runs (${testCases.length} cases${runAcrossTiersEnabled ? " × 3 tiers" : ""}, concurrency: ${concurrencyLimit})`);
     
     // Process tests in batches to maintain concurrency limit
-    for (let i = 0; i < testCases.length; i += concurrencyLimit) {
-      const batch = testCases.slice(i, i + concurrencyLimit);
+    for (let i = 0; i < workItems.length; i += concurrencyLimit) {
+      const batch = workItems.slice(i, i + concurrencyLimit);
       const batchNum = Math.floor(i / concurrencyLimit) + 1;
-      const totalBatches = Math.ceil(testCases.length / concurrencyLimit);
+      const totalBatches = Math.ceil(workItems.length / concurrencyLimit);
       
-      console.log(`[batch] Processing batch ${batchNum}/${totalBatches} (${batch.length} tests)`);
+      console.log(`[batch] Processing batch ${batchNum}/${totalBatches} (${batch.length} runs)`);
       
-      const batchPromises = batch.map((testCase, idx) => 
-        runSingleTest(testCase).catch((error) => {
+      const batchPromises = batch.map((item, idx) => 
+        runSingleTest(item.testCase, item.tier).catch((error) => {
           // Ensure errors don't crash the batch
-          console.error(`[batch] Test ${testCase.id || testCase.name || `#${i + idx}`} failed:`, error);
+          console.error(`[batch] Test ${item.testCase.id || item.testCase.name || `#${i + idx}`}${item.tier ? ` [${item.tier}]` : ""} failed:`, error);
           return {
-            testCase,
+            testCase: item.testCase,
+            tier: item.tier ?? null,
             error: error?.message || "Unknown error",
             validation: null,
           };
@@ -333,24 +355,70 @@ export async function POST(req: NextRequest) {
     const failCount = results.filter((r) => r.validation?.overall?.passed === false).length;
     const passRate = results.length > 0 ? Math.round((passCount / results.length) * 100) : 0;
 
+    const meta: Record<string, unknown> = {
+      test_count: runAcrossTiersEnabled ? testCases.length : results.length,
+      run_count: results.length,
+      pass_count: passCount,
+      fail_count: failCount,
+      pass_rate: passRate,
+      prompt_kind: promptKind,
+      prompt_version: promptVersion?.version || "unknown",
+      run_across_tiers: runAcrossTiersEnabled,
+      validation_options: {
+        runLLMFactCheck: validationOptions?.runLLMFactCheck !== false,
+        runReferenceCompare: validationOptions?.runReferenceCompare !== false,
+      },
+    };
+
     await supabase
       .from("eval_runs")
-      .update({
-        status: "complete",
-        meta: {
-          test_count: testCases.length,
-          pass_count: passCount,
-          fail_count: failCount,
-          pass_rate: passRate,
-          prompt_kind: promptKind,
-          prompt_version: promptVersion?.version || "unknown",
-          validation_options: {
-            runLLMFactCheck: validationOptions?.runLLMFactCheck !== false,
-            runReferenceCompare: validationOptions?.runReferenceCompare !== false,
-          },
-        },
-      })
+      .update({ status: "complete", meta })
       .eq("id", evalRunId);
+
+    // Tier comparison summary when runAcrossTiers
+    let tierComparisonSummary: Record<string, unknown> | null = null;
+    if (runAcrossTiersEnabled && results.length > 0) {
+      const byCase = new Map<string, { guest?: any; free?: any; pro?: any }>();
+      for (const r of results) {
+        const key = r.testCase?.id ?? r.testCase?.name ?? "unknown";
+        if (!byCase.has(key)) byCase.set(key, {});
+        const entry = byCase.get(key)!;
+        const tier = r.tier as "guest" | "free" | "pro";
+        if (tier) entry[tier] = r;
+      }
+      const summaries: any[] = [];
+      for (const [caseKey, tiers] of byCase) {
+        const guest = tiers.guest;
+        const free = tiers.free;
+        const pro = tiers.pro;
+        const gScore = guest?.validation?.overall?.score ?? null;
+        const fScore = free?.validation?.overall?.score ?? null;
+        const pScore = pro?.validation?.overall?.score ?? null;
+        const gPass = guest?.validation?.overall?.passed ?? false;
+        const fPass = free?.validation?.overall?.passed ?? false;
+        const pPass = pro?.validation?.overall?.passed ?? false;
+        const wrongByTier: Record<string, boolean> = {};
+        if (guest?.validation?.archetypeResults?.passed === false) wrongByTier.guest = true;
+        if (free?.validation?.archetypeResults?.passed === false) wrongByTier.free = true;
+        if (pro?.validation?.archetypeResults?.passed === false) wrongByTier.pro = true;
+        const scores = [gScore, fScore, pScore].filter((s): s is number => typeof s === "number");
+        const maxScore = scores.length > 0 ? Math.max(...scores) : null;
+        const tierScores = [gScore, fScore, pScore] as (number | null)[];
+        const bestIdx = maxScore != null ? tierScores.indexOf(maxScore) : -1;
+        const bestTier = bestIdx === 0 ? "guest" : bestIdx === 1 ? "free" : bestIdx === 2 ? "pro" : null;
+        const archetypeAgreement = gPass === fPass && fPass === pPass;
+        summaries.push({
+          caseKey,
+          guest: { score: gScore, passed: gPass },
+          free: { score: fScore, passed: fPass },
+          pro: { score: pScore, passed: pPass },
+          archetypeAgreement,
+          wrongArchetypeDetectedByTier: Object.keys(wrongByTier).length > 0 ? wrongByTier : undefined,
+          bestTierByScore: bestTier,
+        });
+      }
+      tierComparisonSummary = { byCase: summaries };
+    }
 
     return NextResponse.json({
       ok: true,
@@ -361,6 +429,8 @@ export async function POST(req: NextRequest) {
         passed: passCount,
         failed: failCount,
         passRate,
+        runAcrossTiers: runAcrossTiersEnabled,
+        tierComparisonSummary: tierComparisonSummary ?? undefined,
       },
     });
   } catch (e: any) {

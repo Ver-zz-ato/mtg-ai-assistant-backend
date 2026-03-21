@@ -46,6 +46,28 @@ Sentry.init({
   beforeSend(event, hint) {
     const errorValue = event.exception?.values?.[0]?.value || '';
     const errorType = event.exception?.values?.[0]?.type || '';
+    const eventTitle = (event as any).title || (event as any).metadata?.title || '';
+    const browserName = (event.contexts?.browser as { name?: string })?.name || '';
+
+    // Hydration errors from DuckDuckGo in-app browser: DDG injects DOM/scripts and uses non-standard APIs,
+    // causing environmental mismatches we cannot fix. These recur and are not actionable.
+    if (
+      (eventTitle === 'Hydration Error' || errorValue.toLowerCase().includes('hydration')) &&
+      browserName.toLowerCase().includes('duckduckgo')
+    ) {
+      return null;
+    }
+
+    // React #418 (hydration text mismatch) from localhost + Electron (Cursor IDE embedded browser).
+    // Cursor's Electron has subtle differences causing hydration; not actionable production noise.
+    const requestUrl = (event.request?.url || '').toLowerCase();
+    if (
+      (errorValue.includes('Minified React error #418') || errorValue.includes('react.dev/errors/418')) &&
+      browserName.toLowerCase().includes('electron') &&
+      (requestUrl.includes('localhost') || requestUrl.includes('127.0.0.1'))
+    ) {
+      return null;
+    }
 
     // Browser/media: Some browsers (e.g. DuckDuckGo Mobile) throw when matchMedia("(hover: hover)")
     // or similar interaction features are not supported. PostHog and other libs use these. Not an app bug.
@@ -87,8 +109,6 @@ Sentry.init({
     ];
     
     // Build a comprehensive search string from all error-related fields (errorType already declared above)
-    // Access title and message safely (they may not be on the base Event type)
-    const eventTitle = (event as any).title || '';
     const eventMessage = (event as any).message || '';
     const originalException = hint.originalException as Error | undefined;
     const errorUrl = originalException?.message || '';
@@ -131,6 +151,20 @@ Sentry.init({
       }
     }
     
+    return event;
+  },
+
+  // Filter transaction events (pageload, etc.) from localhost + Electron.
+  // Cursor IDE's embedded browser causes React #418 hydration; these transactions clutter Sentry.
+  beforeSendTransaction(event) {
+    const requestUrl = (event.request?.url || (event as any).url || '').toLowerCase();
+    const browserName = ((event as any).contexts?.browser as { name?: string })?.name || '';
+    if (
+      browserName.toLowerCase().includes('electron') &&
+      (requestUrl.includes('localhost') || requestUrl.includes('127.0.0.1'))
+    ) {
+      return null;
+    }
     return event;
   },
 });

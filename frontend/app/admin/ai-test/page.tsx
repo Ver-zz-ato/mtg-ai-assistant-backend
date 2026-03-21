@@ -814,6 +814,10 @@ export default function AiTestPage() {
   const [autoMergeEnabled, setAutoMergeEnabled] = React.useState(false);
   const [adminFormatKey, setAdminFormatKey] = React.useState<"commander" | "standard" | "modern" | "pioneer" | "pauper">("commander");
   const [forceTier, setForceTier] = React.useState<"guest" | "free" | "pro" | "">("");
+  const [compareTiers, setCompareTiers] = React.useState(false);
+  const [runAcrossTiers, setRunAcrossTiers] = React.useState(false);
+  const [tierCompareResults, setTierCompareResults] = React.useState<{ tier: "guest" | "free" | "pro"; runData: any; validation?: any }[] | null>(null);
+  const [lastBatchSummary, setLastBatchSummary] = React.useState<any>(null);
   const [layerTab, setLayerTab] = React.useState<"base" | "formats" | "modules">("base");
   const [layerKeys, setLayerKeys] = React.useState<{ key: string; updated_at?: string }[]>([]);
   const [selectedLayerKey, setSelectedLayerKey] = React.useState<string>("BASE_UNIVERSAL_ENFORCEMENT");
@@ -1226,34 +1230,55 @@ export default function AiTestPage() {
     setLoading(true);
     setTestResult(null);
     setValidationResult(null);
+    setTierCompareResults(null);
     try {
-      // Run the test
-      const runRes = await fetch("/api/admin/ai-test/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testCase, formatKey: adminFormatKey, ...(forceTier && { forceTier }) }),
-      });
-      const runData = await runRes.json();
-      if (!runData.ok) {
-        throw new Error(runData.error || "Test failed");
-      }
-
-      setTestResult(runData);
-
-      // Auto-validate if response exists
-      if (runData.response?.text && testCase.expectedChecks) {
-        const validateRes = await fetch("/api/admin/ai-test/validate", {
+      if (compareTiers) {
+        // Compare tiers mode: run 3x (guest, free, pro)
+        const tiers: ("guest" | "free" | "pro")[] = ["guest", "free", "pro"];
+        const results: { tier: "guest" | "free" | "pro"; runData: any; validation?: any }[] = [];
+        for (const tier of tiers) {
+          const runRes = await fetch("/api/admin/ai-test/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ testCase, formatKey: adminFormatKey, forceTier: tier }),
+          });
+          const runData = await runRes.json();
+          let validation: any = null;
+          if (runData.ok && runData.response?.text && testCase.expectedChecks) {
+            const validateRes = await fetch("/api/admin/ai-test/validate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ response: runData.response.text, testCase, options: validationOptions }),
+            });
+            const validateData = await validateRes.json();
+            if (validateData.ok) validation = validateData.validation;
+          }
+          results.push({
+            tier,
+            runData: runData.ok ? runData : { testCase, response: { error: runData.error } },
+            validation,
+          });
+        }
+        setTierCompareResults(results);
+        setTestResult(results[0]?.runData ?? null);
+        setValidationResult(results[0]?.validation ?? null);
+      } else {
+        const runRes = await fetch("/api/admin/ai-test/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            response: runData.response.text,
-            testCase,
-            options: validationOptions,
-          }),
+          body: JSON.stringify({ testCase, formatKey: adminFormatKey, ...(forceTier && { forceTier }) }),
         });
-        const validateData = await validateRes.json();
-        if (validateData.ok) {
-          setValidationResult(validateData.validation);
+        const runData = await runRes.json();
+        if (!runData.ok) throw new Error(runData.error || "Test failed");
+        setTestResult(runData);
+        if (runData.response?.text && testCase.expectedChecks) {
+          const validateRes = await fetch("/api/admin/ai-test/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ response: runData.response.text, testCase, options: validationOptions }),
+          });
+          const validateData = await validateRes.json();
+          if (validateData.ok) setValidationResult(validateData.validation);
         }
       }
     } catch (e: any) {
@@ -1363,12 +1388,14 @@ export default function AiTestPage() {
           validationOptions,
           formatKey: adminFormatKey,
           ...(forceTier && { forceTier }),
+          runAcrossTiers: runAcrossTiers || undefined,
         }),
       });
 
       const batchData = await batchRes.json();
       if (batchData.ok) {
         setBatchResults(batchData.results || []);
+        setLastBatchSummary(batchData.summary || null);
         
         // Save test results to history
         try {
@@ -1495,9 +1522,13 @@ export default function AiTestPage() {
 
   const filteredCases = getFilteredTestCases();
   const runAllCount = Math.min(filteredCases.length, RUN_ALL_MAX);
-  const runAllLabel = filteredCases.length > RUN_ALL_MAX
-    ? `Run All (${runAllCount} of ${filteredCases.length} tests)`
-    : `Run All (${runAllCount} tests)`;
+  const runAllLabel = runAcrossTiers
+    ? (filteredCases.length > RUN_ALL_MAX
+      ? `Run All ×3 tiers (${runAllCount} cases = ${runAllCount * 3} runs)`
+      : `Run All ×3 tiers (${runAllCount} cases = ${runAllCount * 3} runs)`)
+    : (filteredCases.length > RUN_ALL_MAX
+      ? `Run All (${runAllCount} of ${filteredCases.length} tests)`
+      : `Run All (${runAllCount} tests)`);
   const allTags = getUniqueTags();
   const passCount = batchResults.filter(
     (r) => r.validation?.overall?.passed === true
@@ -2972,6 +3003,7 @@ export default function AiTestPage() {
                 onClick={() => {
                   if (confirm("Clear all test results? This will remove all batch test data from the current session.")) {
                     setBatchResults([]);
+                    setLastBatchSummary(null);
                     setExpandedResults(new Set());
                     setResultSuggestions(new Map());
                     setFilterStatus(null); // Reset status filter when clearing
@@ -2999,6 +3031,14 @@ export default function AiTestPage() {
               <option value="free">Free</option>
               <option value="pro">Pro</option>
             </select>
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-neutral-400" title="Single run: run same test 3× (guest/free/pro) and compare">
+            <input type="checkbox" checked={compareTiers} onChange={(e) => setCompareTiers(e.target.checked)} className="rounded" />
+            Compare tiers
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-neutral-400" title="Batch: run each test 3× (guest/free/pro)">
+            <input type="checkbox" checked={runAcrossTiers} onChange={(e) => setRunAcrossTiers(e.target.checked)} className="rounded" />
+            Run across tiers
           </label>
           <button
             onClick={runBatchTests}
@@ -3128,12 +3168,42 @@ export default function AiTestPage() {
         </div>
       </section>
 
+      {/* Tier Compare Results (when compare tiers mode) */}
+      {tierCompareResults && tierCompareResults.length > 0 && (
+        <section className="rounded border border-amber-800/50 bg-amber-950/20 p-3 space-y-3">
+          <div className="font-medium">Tier Comparison: {tierCompareResults[0]?.runData?.testCase?.name}</div>
+          <div className="grid grid-cols-3 gap-3">
+            {tierCompareResults.map(({ tier, runData, validation }) => (
+              <div key={tier} className="rounded border border-neutral-700 bg-neutral-900/60 p-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm capitalize">{tier}</span>
+                  {validation?.overall && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${validation.overall.passed ? "bg-green-900/50 text-green-300" : "bg-red-900/50 text-red-300"}`}>
+                      {validation.overall.score}% {validation.overall.passed ? "✓" : "✗"}
+                    </span>
+                  )}
+                </div>
+                {validation?.archetypeResults && (
+                  <div className="text-[10px] text-neutral-500">
+                    Archetype: {validation.archetypeResults.passed ? "✓" : "✗"}
+                  </div>
+                )}
+                <pre className="text-[10px] whitespace-pre-wrap max-h-32 overflow-auto bg-neutral-950 rounded p-1">
+                  {runData?.response?.text?.slice(0, 400) || runData?.response?.error || "—"}
+                  {(runData?.response?.text?.length || 0) > 400 ? "…" : ""}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Test Result Display */}
       {testResult && (
         <section className="rounded border border-neutral-800 p-3 space-y-3">
-          <div className="font-medium">Test Result: {testResult.testCase.name}</div>
+          <div className="font-medium">Test Result: {testResult.testCase?.name}</div>
 
-          {testResult.response.error && (
+          {testResult.response?.error && (
             <div className="p-2 rounded bg-red-950/40 border border-red-800 text-sm text-red-200">
               Error: {testResult.response.error}
             </div>
@@ -3234,6 +3304,18 @@ export default function AiTestPage() {
                     )}
                   </div>
                 )}
+                {validationResult.archetypeResults && (
+                  <div className="mt-3">
+                    <div className="text-xs font-medium mb-1">Archetype Checks:</div>
+                    <div className="space-y-1">
+                      {validationResult.archetypeResults.checks.map((check: any, idx: number) => (
+                        <div key={idx} className={`text-[11px] ${check.passed ? "text-green-300" : "text-red-300"}`}>
+                          {check.passed ? "✅" : "❌"} {check.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3247,6 +3329,25 @@ export default function AiTestPage() {
           {lastEvalRunId != null && (
             <div className="text-xs opacity-80 mb-2">
               Eval run ID: <code className="bg-neutral-800 px-1 rounded">{lastEvalRunId}</code> — copy this for the Cost report (Cost tab).
+            </div>
+          )}
+          {lastBatchSummary?.tierComparisonSummary?.byCase && lastBatchSummary.tierComparisonSummary.byCase.length > 0 && (
+            <div className="rounded border border-amber-800/50 bg-amber-950/20 p-3 mb-2 space-y-2">
+              <div className="font-medium text-sm">Tier Comparison Summary</div>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {lastBatchSummary.tierComparisonSummary.byCase.map((s: any, i: number) => (
+                  <div key={i} className="text-xs flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-neutral-400 truncate max-w-[120px]">{s.caseKey}</span>
+                    <span>G:{s.guest?.score ?? "—"} {s.guest?.passed ? "✓" : "✗"}</span>
+                    <span>F:{s.free?.score ?? "—"} {s.free?.passed ? "✓" : "✗"}</span>
+                    <span>P:{s.pro?.score ?? "—"} {s.pro?.passed ? "✓" : "✗"}</span>
+                    {s.wrongArchetypeDetectedByTier && (
+                      <span className="text-amber-400">Wrong archetype: {Object.keys(s.wrongArchetypeDetectedByTier).join(", ")}</span>
+                    )}
+                    {s.bestTierByScore && <span className="text-neutral-500">Best: {s.bestTierByScore}</span>}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
@@ -3264,7 +3365,12 @@ export default function AiTestPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="text-sm font-medium">{result.testCase.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{result.testCase?.name}</span>
+                      {result.tier && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-300 capitalize">{result.tier}</span>
+                      )}
+                    </div>
                     {result.validation?.overall && (
                       <div className="text-xs mt-1">
                         {result.validation.overall.passed ? "✅" : "❌"}{" "}
@@ -3383,6 +3489,11 @@ export default function AiTestPage() {
                             {result.validation.colorIdentityResults && (
                               <div className="text-[10px]">
                                 <span className="opacity-70">Color Identity & Legality:</span> {result.validation.colorIdentityResults.passed ? "✅" : "❌"} {result.validation.colorIdentityResults.message || ""}
+                              </div>
+                            )}
+                            {result.validation.archetypeResults && (
+                              <div className="text-[10px]">
+                                <span className="opacity-70">Archetype:</span> {result.validation.archetypeResults.passed ? "✅" : "❌"} {result.validation.archetypeResults.checks?.map((c: any) => c.message).join("; ") || ""}
                               </div>
                             )}
                           </div>

@@ -98,13 +98,14 @@
 
 ### 5.2 AI Test Suite (`/admin/ai-test`)
 
-- **Single run:** `POST /api/admin/ai-test/run` → calls `/api/chat` or `/api/deck/analyze`
-- **Batch:** `POST /api/admin/ai-test/batch` → same; uses `forceModel`, `eval_run_id`; no `forceTier`
-- **Composed prompt:** `GET /api/admin/ai-test/composed-prompt` — previews BASE+FORMAT+MODULES; does not include overlay
+- **Single run:** `POST /api/admin/ai-test/run` → calls `/api/chat` or `/api/deck/analyze`; accepts `forceTier` (guest/free/pro)
+- **Compare tiers (single):** UI checkbox — runs same test 3× (guest, free, pro), displays tier comparison
+- **Batch:** `POST /api/admin/ai-test/batch` → same; uses `forceModel`, `eval_run_id`; accepts `forceTier` or `runAcrossTiers` (runs each case 3×)
+- **Composed prompt:** `GET /api/admin/ai-test/composed-prompt?tier=guest|free|pro` — previews BASE+FORMAT+MODULES+overlay
 - **Test cases:** `ai_test_cases` (DB) + `ai_test_cases.json`; `expectedChecks` for validation
 - **Eval runs:** `eval_runs`; `prompt_version_id` stored for runs
 
-**Gap:** No way to run tests with Guest/Free/Pro overlay. Need to add `forceTier` (or `tier`) to run/batch request and pass through to chat/analyze APIs.
+**Status:** `forceTier` and `runAcrossTiers` implemented. Run and batch pass `forceTier` through to chat/analyze APIs. Composed prompt accepts `?tier=` and includes overlay.
 
 ### 5.3 Chat Test (`/admin/chat-test`)
 

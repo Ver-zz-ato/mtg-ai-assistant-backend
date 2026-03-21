@@ -499,6 +499,15 @@ export type ExpectedChecks = {
   // land recommendation sanity checks
   mustNotRecommendExcessiveLands?: boolean;
   maxRecommendedLandsToAdd?: number; // e.g. 5
+  // Archetype correctness (optional; all additive)
+  expectedPrimaryArchetype?: string;
+  expectedArchetypeAliases?: string[];
+  expectedSecondaryThemes?: string[];
+  mustNotClassifyAs?: string[];
+  mustDescribeAsHybrid?: boolean;
+  wrongArchetypeKeywords?: string[];
+  expectedGamePlanKeywords?: string[];
+  forbiddenRecommendationPackages?: string[];
 };
 
 export type DeckAnalysisExpectedChecks = ExpectedChecks & {
@@ -2587,6 +2596,173 @@ export function validateSpecificity(
   };
 }
 
+/** Case-insensitive includes check. */
+function containsIgnoreCase(text: string, phrase: string): boolean {
+  return text.toLowerCase().includes(phrase.toLowerCase());
+}
+
+/** Check for negation patterns (e.g. "this is NOT aristocrats"). */
+function isNegated(text: string, phrase: string): boolean {
+  const lower = text.toLowerCase();
+  const phraseLower = phrase.toLowerCase();
+  const idx = lower.indexOf(phraseLower);
+  if (idx < 0) return false;
+  const before = lower.slice(Math.max(0, idx - 80), idx);
+  return /\b(not|isn't|aren't|doesn't|don't|no\b|never|avoid|wrong|incorrect)\b/i.test(before);
+}
+
+/**
+ * Archetype correctness validation (optional; only runs when archetype expectedChecks present).
+ * - Primary archetype match
+ * - mustNotClassifyAs (wrong archetype)
+ * - wrongArchetypeKeywords
+ * - expectedSecondaryThemes
+ * - mustDescribeAsHybrid
+ * - expectedGamePlanKeywords
+ * - forbiddenRecommendationPackages
+ */
+export function validateArchetypeChecks(
+  response: string,
+  testCase: { expectedChecks?: ExpectedChecks }
+): ValidationResult {
+  const checks: Array<{ type: string; passed: boolean; message: string }> = [];
+  const warnings: string[] = [];
+  let score = 100;
+  const c = testCase.expectedChecks || {};
+  const hasArchetype = c.expectedPrimaryArchetype || (c.expectedArchetypeAliases && c.expectedArchetypeAliases.length > 0) ||
+    (c.mustNotClassifyAs && c.mustNotClassifyAs.length > 0) || (c.wrongArchetypeKeywords && c.wrongArchetypeKeywords.length > 0) ||
+    (c.expectedSecondaryThemes && c.expectedSecondaryThemes.length > 0) || c.mustDescribeAsHybrid ||
+    (c.expectedGamePlanKeywords && c.expectedGamePlanKeywords.length > 0) ||
+    (c.forbiddenRecommendationPackages && c.forbiddenRecommendationPackages.length > 0);
+  if (!hasArchetype) {
+    return {
+      passed: true,
+      score: 100,
+      checks: [{ type: "archetype", passed: true, message: "No archetype checks defined" }],
+      warnings: [],
+    };
+  }
+  const resp = normalizeMarkdown(response);
+  const respLower = resp.toLowerCase();
+
+  // 1. mustNotClassifyAs — FAIL if output strongly frames deck as any of these
+  if (c.mustNotClassifyAs && c.mustNotClassifyAs.length > 0) {
+    for (const bad of c.mustNotClassifyAs) {
+      if (!containsIgnoreCase(resp, bad)) continue;
+      if (isNegated(resp, bad)) continue;
+      const framePatterns = [
+        new RegExp(`(?:this is |that's |it's )?(?:a[n]? |an )?${escapeRegex(bad)}(?: deck| shell| strategy)?`, "i"),
+        new RegExp(`(?:primary |main )?(?:archetype|plan|strategy)[^.]*\\b${escapeRegex(bad)}\\b`, "i"),
+      ];
+      const looksMain = framePatterns.some((re) => re.test(resp));
+      if (looksMain) {
+        checks.push({ type: "mustNotClassifyAs", passed: false, message: `Output frames deck as "${bad}" but must not` });
+        score = Math.min(score, 0);
+      }
+    }
+  }
+
+  // 2. wrongArchetypeKeywords — FAIL if affirmed (not negated)
+  if (c.wrongArchetypeKeywords && c.wrongArchetypeKeywords.length > 0) {
+    for (const kw of c.wrongArchetypeKeywords) {
+      if (!containsIgnoreCase(resp, kw)) continue;
+      if (isNegated(resp, kw)) continue;
+      checks.push({ type: "wrongArchetypeKeywords", passed: false, message: `Wrong archetype signal: "${kw}"` });
+      score = Math.min(score, 30);
+    }
+  }
+
+  // 3. forbiddenRecommendationPackages — FAIL if strongly pushed
+  if (c.forbiddenRecommendationPackages && c.forbiddenRecommendationPackages.length > 0) {
+    for (const pkg of c.forbiddenRecommendationPackages) {
+      if (!containsIgnoreCase(resp, pkg)) continue;
+      if (isNegated(resp, pkg)) continue;
+      const recommendPatterns = [
+        new RegExp(`(?:add|consider|recommend|suggest|include)[^.]*${escapeRegex(pkg)}`, "i"),
+        new RegExp(`${escapeRegex(pkg)}[^.]*(?:would help|improves|strengthens)`, "i"),
+      ];
+      if (recommendPatterns.some((re) => re.test(resp))) {
+        checks.push({ type: "forbiddenRecommendationPackages", passed: false, message: `Recommends forbidden package: "${pkg}"` });
+        score = Math.min(score, 40);
+      }
+    }
+  }
+
+  // 4. expectedPrimaryArchetype / expectedArchetypeAliases — PASS if found
+  const primaryCandidates = [
+    ...(c.expectedPrimaryArchetype ? [c.expectedPrimaryArchetype] : []),
+    ...(c.expectedArchetypeAliases || []),
+  ];
+  if (primaryCandidates.length > 0) {
+    const found = primaryCandidates.some((p) => containsIgnoreCase(resp, p));
+    if (found) {
+      checks.push({ type: "expectedPrimaryArchetype", passed: true, message: `Archetype match: ${primaryCandidates.find((p) => containsIgnoreCase(resp, p))}` });
+    } else if (c.expectedSecondaryThemes && c.expectedSecondaryThemes.length > 0) {
+      const hasSecondary = c.expectedSecondaryThemes.some((s) => containsIgnoreCase(resp, s));
+      if (hasSecondary) {
+        checks.push({ type: "expectedPrimaryArchetype", passed: false, message: "Only secondary theme mentioned; main archetype unclear" });
+        warnings.push("Main archetype not clearly identified");
+        score = Math.min(score, 60);
+      } else {
+        checks.push({ type: "expectedPrimaryArchetype", passed: false, message: "Expected archetype not found" });
+        score = Math.min(score, 50);
+      }
+    } else {
+      checks.push({ type: "expectedPrimaryArchetype", passed: false, message: "Expected archetype not found" });
+      score = Math.min(score, 50);
+    }
+  }
+
+  // 5. expectedSecondaryThemes — PASS if at least one acknowledged
+  if (c.expectedSecondaryThemes && c.expectedSecondaryThemes.length > 0) {
+    const found = c.expectedSecondaryThemes.filter((s) => containsIgnoreCase(resp, s)).length;
+    const passed = found > 0;
+    checks.push({
+      type: "expectedSecondaryThemes",
+      passed,
+      message: passed ? `Secondary themes acknowledged: ${found}/${c.expectedSecondaryThemes.length}` : `No expected secondary themes found`,
+    });
+    if (!passed) score = Math.min(score, 70);
+  }
+
+  // 6. mustDescribeAsHybrid — PASS only if hybrid/mixed acknowledged
+  if (c.mustDescribeAsHybrid === true) {
+    const hybridPhrases = ["hybrid", "mixed", "pulled in multiple directions", "multiple plans", "split between", "dual plan", "two themes"];
+    const found = hybridPhrases.some((p) => containsIgnoreCase(resp, p));
+    checks.push({
+      type: "mustDescribeAsHybrid",
+      passed: found,
+      message: found ? "Output acknowledges hybrid/mixed structure" : "Output should describe deck as hybrid",
+    });
+    if (!found) score = Math.min(score, 60);
+  }
+
+  // 7. expectedGamePlanKeywords — PASS if sufficient presence
+  if (c.expectedGamePlanKeywords && c.expectedGamePlanKeywords.length > 0) {
+    const found = c.expectedGamePlanKeywords.filter((k) => containsIgnoreCase(resp, k)).length;
+    const minReq = Math.ceil(c.expectedGamePlanKeywords.length * 0.5);
+    const passed = found >= minReq;
+    checks.push({
+      type: "expectedGamePlanKeywords",
+      passed,
+      message: passed ? `Game plan keywords: ${found}/${c.expectedGamePlanKeywords.length}` : `Need more game plan keywords (${found}/${minReq})`,
+    });
+    if (!passed) score = Math.min(score, 65);
+  }
+
+  const passed = score >= 70;
+  return {
+    passed,
+    score,
+    checks: checks.length > 0 ? checks : [{ type: "archetype", passed: true, message: "Archetype checks passed" }],
+    warnings,
+  };
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Run all validation checks
  */
@@ -2756,6 +2932,24 @@ export async function validateResponse(
       );
     }
 
+    // Archetype correctness (only when archetype expectedChecks present)
+    const hasArchetypeChecks =
+      checks.expectedPrimaryArchetype ||
+      (checks.expectedArchetypeAliases && checks.expectedArchetypeAliases.length > 0) ||
+      (checks.mustNotClassifyAs && checks.mustNotClassifyAs.length > 0) ||
+      (checks.wrongArchetypeKeywords && checks.wrongArchetypeKeywords.length > 0) ||
+      (checks.expectedSecondaryThemes && checks.expectedSecondaryThemes.length > 0) ||
+      checks.mustDescribeAsHybrid ||
+      (checks.expectedGamePlanKeywords && checks.expectedGamePlanKeywords.length > 0) ||
+      (checks.forbiddenRecommendationPackages && checks.forbiddenRecommendationPackages.length > 0);
+    if (hasArchetypeChecks) {
+      try {
+        (results as any).archetypeResults = validateArchetypeChecks(response, { expectedChecks: checks });
+      } catch (error) {
+        console.warn("[validateResponse] Archetype validation failed:", error);
+      }
+    }
+
     // Safety Checks (new regression test validators)
     const hasSafetyChecks = 
       checks.requireNoHallucinatedCards ||
@@ -2807,6 +3001,7 @@ export async function validateResponse(
   if ((results as any).heuristicsResults) allScores.push((results as any).heuristicsResults.score);
   if ((results as any).contextRelevanceResults) allScores.push((results as any).contextRelevanceResults.score);
   if ((results as any).cardRoleResults) allScores.push((results as any).cardRoleResults.score);
+  if ((results as any).archetypeResults) allScores.push((results as any).archetypeResults.score);
 
   const overallScore =
     allScores.length > 0
