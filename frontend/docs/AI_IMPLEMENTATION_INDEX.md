@@ -27,7 +27,6 @@
 | Doc | Purpose |
 |-----|---------|
 | **[AI_TEST_SUITE_BREAKDOWN.md](AI_TEST_SUITE_BREAKDOWN.md)** | Full AI test suite: run/batch API, validators, prompt systems, DB schema, admin UI, expected checks. Tier compare (guest/free/pro), archetype expectedChecks, wrong-archetype detection. |
-| **[AI_TEST_V3_V4_WIRING.md](AI_TEST_V3_V4_WIRING.md)** | V3/V4 model-backed suites: wiring status, run route 501, model-runner stubs, deck injection options. |
 
 ---
 

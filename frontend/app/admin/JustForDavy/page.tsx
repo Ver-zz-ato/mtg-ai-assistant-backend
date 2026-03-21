@@ -22,8 +22,6 @@ const GROUPS = [
       { href: "/admin/ai-health", label: "AI Health", eli5: "Is the API key working? Run a live test" },
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai-test", label: "AI Test Suite", eli5: "Run evals, compare prompts, approve changes" },
-      { href: "/admin/ai-test-v3", label: "AI Test V3", eli5: "Unified AI evaluation: prompt contract, context, behavior, adversarial, and regression tests. Run suites, compare runs, export, and review improvement ideas." },
-      { href: "/admin/test-suite-v2", label: "V2", eli5: "Test Suite V2: scenario-based AI eval, deck memory, rules grounding" },
       { href: "/admin/chat-test", label: "Chat Test", eli5: "Full chat module in isolation with debug log panel" },
       { href: "/admin/prompt-edit", label: "Prompt Edit", eli5: "Edit base prompts (chat/deck) and tier overlays (guest/free/pro). Stored in DB." },
     ],

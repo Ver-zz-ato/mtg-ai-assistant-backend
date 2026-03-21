@@ -724,11 +724,7 @@ Navigation
   - Westly/CommanderPrecons integration for fetching precon lists
 
 ### AI Test platform (admin)
-☑ AI Test V3/V4 unified evaluation <!-- id:admin.ai_test_v3_v4 -->
-  - Suites v1–v5: Prompt Contract, Context/State, Behavioral (v3), Adversarial (v4), Regression (v5)
-  - Model-backed v3/v4 call chat API; rubrics score rules, deck reasoning, synergy, honesty, hallucination resistance
-  - `ai_test_suites`, `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`, `ai_test_regressions`, `ai_test_improvement_suggestions`
-  - Admin: `/admin/ai-test-v3` — run suites, view results, regression library
+☐ AI Test V3/V4 — removed; use `/admin/ai-test` instead
 
 ### App Changelog (mobile)
 ☑ App-only What's New <!-- id:admin.app_changelog -->
