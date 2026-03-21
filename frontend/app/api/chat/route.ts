@@ -342,36 +342,41 @@ export async function POST(req: NextRequest) {
     const raw = await req.json().catch(() => ({}));
 
     if (!user) {
-      // Allow guest users with server-side enforced message limits
-      const { cookies } = await import('next/headers');
-      const cookieStore = await cookies();
-      guestToken = cookieStore.get('guest_session_token')?.value || null;
-      
-      // Extract IP and User-Agent for token verification/tracking
-      const forwarded = req.headers.get('x-forwarded-for');
-      const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+      // Guest path: token (header/cookie) or IP fallback for mobile
+      const { getGuestToken } = await import('@/lib/api/get-guest-token');
+      const { guestToken: token } = await getGuestToken(req);
+      guestToken = token;
       const userAgent = req.headers.get('user-agent') || 'unknown';
-      
-      // If no token, deny (middleware should have created one, but fail closed)
-      if (!guestToken) {
-        status = 401;
-        return err(`Please sign in to continue chatting. Guest access requires a session token.`, "guest_token_missing", 401);
-      }
 
-      // Verify token and check limit server-side
-      const { verifyGuestToken } = await import('@/lib/guest-tracking');
-      const tokenData = await verifyGuestToken(guestToken);
-      
-      if (!tokenData) {
-        status = 401;
-        return err(`Please sign in to continue chatting. Invalid or expired guest session.`, "guest_token_invalid", 401);
-      }
-
-      const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
-      const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
-      if (!guestCheck.allowed) {
-        status = 401;
-        return err(`Please sign in to continue chatting. You've reached the ${GUEST_MESSAGE_LIMIT} message limit for guest users.`, "guest_limit_reached", 401);
+      if (guestToken) {
+        // Token present: verify and use guest_sessions path (website or mobile with header)
+        const { verifyGuestToken } = await import('@/lib/guest-tracking');
+        const tokenData = await verifyGuestToken(guestToken);
+        if (!tokenData) {
+          status = 401;
+          return err(`Please sign in to continue chatting. Invalid or expired guest session.`, "guest_token_invalid", 401, { tier: "guest", requiresAuth: true });
+        }
+        const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
+        const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
+        if (!guestCheck.allowed) {
+          status = 429;
+          return err(`Please sign in to continue chatting. You've reached the ${GUEST_MESSAGE_LIMIT} message limit for guest users.`, "RATE_LIMIT_DAILY", status, {
+            tier: "guest", requiresAuth: true, resetAt: null, message: `Guest limit reached. Sign in to continue.`, guestLimitReached: true
+          });
+        }
+      } else {
+        // No token: IP fallback for mobile guests (no cookie/header)
+        const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+        const { hashString } = await import('@/lib/guest-tracking');
+        const ipKeyHash = `ip:${await hashString(ip)}`;
+        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1);
+        if (!durableLimit.allowed) {
+          status = 429;
+          return err(`You've used your ${GUEST_MESSAGE_LIMIT} free messages today. Sign in for more!`, "RATE_LIMIT_DAILY", status, {
+            tier: "guest", requiresAuth: true, resetAt: durableLimit.resetAt ?? null, message: `Guest limit reached. Sign in to continue.`, guestLimitReached: true
+          });
+        }
+        guestToken = null; // anonId will use IP hash below
       }
       isGuest = true;
       userId = null;
@@ -386,6 +391,9 @@ export async function POST(req: NextRequest) {
     } else if (guestToken) {
       const { hashGuestToken } = await import('@/lib/guest-tracking');
       anonId = await hashGuestToken(guestToken);
+    } else if (isGuest) {
+      const { hashString } = await import('@/lib/guest-tracking');
+      anonId = await hashString(`chat:ip:${ip}`);
     }
 
     // Check Pro status (only for authenticated users) - use standardized check

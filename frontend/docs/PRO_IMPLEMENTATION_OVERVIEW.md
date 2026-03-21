@@ -10,7 +10,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 | Level | Description |
 |-------|-------------|
-| **Guest** | Not logged in. Uses `guest_session_token` (middleware). Limited chat, no persistent threads, no My Decks / Profile / etc. |
+| **Guest** | Not logged in. Identity via `guest_session_token` (cookie or `X-Guest-Session-Token` header) or IP fallback. Limited chat, no persistent threads, no My Decks / Profile / etc. |
 | **Logged-in (Free)** | Authenticated, `profiles.is_pro = false` (or not set). Full access to free features; Pro features gated or rate-limited. |
 | **Pro** | Authenticated, `profiles.is_pro = true` or `user_metadata.pro` / `user_metadata.is_pro = true`. Pro features and higher limits. |
 
@@ -41,7 +41,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 | **Daily messages** | — | 50 | 500 |
 | **Per-minute burst** | — | 20 | 20 |
 | **Threads** | None (no threads) | 30 max | Unlimited |
-| **Enforcement** | `lib/api/guest-limit-check.ts` (`GUEST_MESSAGE_LIMIT`), `guest_sessions` table | `/api/chat` + `/api/chat/stream`: `checkDurableRateLimit` + `checkFreeUserLimit` / `checkRateLimit` | Same APIs, higher daily cap |
+| **Enforcement** | Token: `guest-limit-check.ts` + `guest_sessions`. No token: `checkDurableRateLimit` with `ip:` (10/day). See `getGuestToken`. | `/api/chat` + `/api/chat/stream`: `checkDurableRateLimit` + `checkFreeUserLimit` / `checkRateLimit` | Same APIs, higher daily cap |
 
 - **Guest:** Warnings at 5, 7, 9 messages; modal at 10. `GuestLimitModal`, `Chat` client logic.
 - **Stream:** `/api/chat/stream` uses durable daily limit (50 vs 500) and in-memory 20/min limit for authenticated users.
@@ -67,8 +67,8 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 | User | Daily limit |
 |------|-------------|
-| Free | 10 |
-| Pro | 100 |
+| Free | 5 |
+| Pro | 50 |
 
 - **Enforcement:** `checkDurableRateLimit`.
 
@@ -156,7 +156,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 ## 8. Guest-Specific Behavior
 
-- **Chat:** 10-message cap, warnings at 5/7/9, modal at 10. No threads; messages not persisted in `chat_threads` / `chat_messages`.
+- **Chat:** 10-message cap (token-based: `guest_sessions`; no token: IP-based 10/day). Warnings at 5/7/9, modal at 10. Token via cookie or `X-Guest-Session-Token` header; IP fallback for mobile. No threads; messages not persisted in `chat_threads` / `chat_messages`.
 - **Guest exit warning:** `GuestExitWarning` when navigating away with active guest chat.
 - **Deck analyze:** 5/day for unauthenticated users (by guest token or IP).
 - **No access** to My Decks, Profile, Collections, Wishlist, Watchlist, or other authenticated-only features.
@@ -169,7 +169,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 |------|--------|
 | **Pro status** | `lib/server-pro-check.ts`, `hooks/useProStatus.ts`, `app/api/user/pro-status/route.ts` |
 | **Pro UX** | `lib/pro-ux.ts` (`showProToast`) |
-| **Guest limits** | `lib/api/guest-limit-check.ts`, `GUEST_MESSAGE_LIMIT`, `guest_sessions` |
+| **Guest limits** | `lib/api/guest-limit-check.ts`, `lib/api/get-guest-token.ts`, `GUEST_MESSAGE_LIMIT`, `guest_sessions`, `checkDurableRateLimit` (IP fallback) |
 | **Rate limiting** | `lib/api/rate-limit.ts`, `lib/api/durable-rate-limit.ts`, `app/api/rate-limit/status/route.ts` |
 | **Chat** | `app/api/chat/route.ts`, `app/api/chat/stream/route.ts`, `components/Chat.tsx`, `components/GuestLimitModal.tsx` |
 | **Deck** | `app/my-decks/[id]/page.tsx`, `BuildAssistantSticky`, `FunctionsPanel`, `DeckOverview`, `DeckProbabilityPanel`, `Client`, etc. |
@@ -187,7 +187,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 | **Chat messages** | 10 total | 50/day, 20/min | 500/day, 20/min |
 | **Chat threads** | — | 30 max | Unlimited |
 | **Deck analyze** | 5/day | 20/day | 200/day |
-| **Deck swap suggestions** | — | 10/day | 100/day |
+| **Deck swap suggestions** | 5/day | 5/day | 50/day |
 | **Deck health AI** | — | ❌ | ✅ (50/day) |
 | **Fix card names (wishlist)** | — | ✅ | ✅ |
 | **Watchlist add/update** | — | ❌ | ✅ |

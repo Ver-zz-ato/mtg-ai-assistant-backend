@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
     // 🔒 Auth precedence (MUST NOT change):
     // 1) cookie user (website)
     // 2) else Bearer user (mobile)
-    // 3) else guest/unauth (existing guest logic)
+    // 3) else guest via token (header X-Guest-Session-Token or cookie)
+    // 4) else guest via IP fallback (mobile without token)
     let supabase = await getServerSupabase();
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
@@ -127,54 +128,48 @@ export async function POST(req: NextRequest) {
     }
 
     // Guest user limit checking (server-side enforcement)
+    // Supports: cookie token, X-Guest-Session-Token header, or IP fallback for mobile
     if (isGuest) {
-      const { cookies } = await import('next/headers');
-      const cookieStore = await cookies();
-      guestToken = cookieStore.get('guest_session_token')?.value || null;
+      const { getGuestToken } = await import('@/lib/api/get-guest-token');
+      const { guestToken: token } = await getGuestToken(req);
+      guestToken = token;
       const userAgent = req.headers.get('user-agent') || 'unknown';
-      
-      if (!guestToken) {
-        return new Response(JSON.stringify({
-          fallback: true,
-          reason: "guest_token_missing",
-          message: "Please sign in to continue chatting. Guest access requires a session token.",
-          guestLimitReached: true
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
 
-      // Verify token
-      const { verifyGuestToken } = await import('@/lib/guest-tracking');
-      const tokenData = await verifyGuestToken(guestToken);
-      
-      if (!tokenData) {
-        return new Response(JSON.stringify({
-          fallback: true,
-          reason: "guest_token_invalid",
-          message: "Please sign in to continue chatting. Invalid or expired guest session.",
-          guestLimitReached: true
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      // Check limit server-side
-      const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
-      const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
-      
-      if (!guestCheck.allowed) {
-        return new Response(JSON.stringify({
-          fallback: true,
-          reason: "guest_limit_exceeded",
-          message: `Please sign in to continue chatting. You've reached the ${GUEST_MESSAGE_LIMIT} message limit for guest users.`,
-          guestLimitReached: true
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
+      if (guestToken) {
+        const { verifyGuestToken } = await import('@/lib/guest-tracking');
+        const tokenData = await verifyGuestToken(guestToken);
+        if (!tokenData) {
+          return new Response(JSON.stringify({
+            fallback: true, reason: "guest_token_invalid",
+            message: "Please sign in to continue chatting. Invalid or expired guest session.",
+            code: "guest_token_invalid", tier: "guest", requiresAuth: true, guestLimitReached: true
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
+        const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
+        if (!guestCheck.allowed) {
+          return new Response(JSON.stringify({
+            fallback: true, reason: "guest_limit_exceeded",
+            message: "Guest limit reached. Sign in to continue.",
+            code: "RATE_LIMIT_DAILY", tier: "guest", requiresAuth: true, resetAt: null,
+            guestLimitReached: true
+          }), { status: 429, headers: { "Content-Type": "application/json" } });
+        }
+      } else {
+        // IP fallback for mobile guests (no cookie/header)
+        const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
+        const { hashString } = await import('@/lib/guest-tracking');
+        const ipKeyHash = `ip:${await hashString(ip)}`;
+        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1);
+        if (!durableLimit.allowed) {
+          return new Response(JSON.stringify({
+            fallback: true, reason: "guest_limit_exceeded",
+            message: "Guest limit reached. Sign in to continue.",
+            code: "RATE_LIMIT_DAILY", tier: "guest", requiresAuth: true, resetAt: durableLimit.resetAt ?? null,
+            guestLimitReached: true
+          }), { status: 429, headers: { "Content-Type": "application/json" } });
+        }
+        guestToken = null;
       }
     }
 
@@ -185,6 +180,9 @@ export async function POST(req: NextRequest) {
     } else if (guestToken) {
       const { hashGuestToken } = await import('@/lib/guest-tracking');
       anonId = await hashGuestToken(guestToken);
+    } else if (isGuest) {
+      const { hashString: hs } = await import('@/lib/guest-tracking');
+      anonId = await hs(`chat:ip:${ip}`);
     }
 
     // Rate limiting for authenticated users
