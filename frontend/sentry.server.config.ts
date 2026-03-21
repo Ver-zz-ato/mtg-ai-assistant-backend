@@ -21,7 +21,7 @@ Sentry.init({
   // Filter out harmless connection abort errors (common during test runs)
   // These occur when HTTP connections are aborted (client disconnects) and are not actual errors
   beforeSend(event, hint) {
-    const error = hint.originalException as Error & { code?: string } | undefined;
+    const error = hint.originalException as Error & { code?: string; cause?: unknown } | undefined;
     const errorMessage = event.exception?.values?.[0]?.value || '';
     const errorType = event.exception?.values?.[0]?.type || '';
     const culprit = (event as any).culprit || '';
@@ -41,6 +41,24 @@ Sentry.init({
     ) {
       // These are not real errors - ignore them to reduce noise in Sentry
       return null;
+    }
+
+    // "failed to pipe response" when cause is client disconnect (ECONNRESET, terminated)
+    // Happens on streaming routes (e.g. /api/chat/stream) when user closes tab, navigates away,
+    // or mobile app backgrounds mid-stream. Next.js wraps the underlying error.
+    if (errorMessage === 'failed to pipe response') {
+      const causeChain = (e: unknown): string[] => {
+        if (!e || typeof e !== 'object') return [];
+        const err = e as Error & { cause?: unknown };
+        const parts = [err.message || '', (err as any).code || ''];
+        if (err.cause) parts.push(...causeChain(err.cause));
+        return parts;
+      };
+      const chain = [...causeChain(error), ...(event.exception?.values?.map((v: any) => v?.value || '') ?? [])];
+      const hasClientDisconnect = chain.some(
+        (s) => s.includes('ECONNRESET') || s.includes('terminated') || s.includes('EPIPE')
+      );
+      if (hasClientDisconnect) return null;
     }
 
     return event;
