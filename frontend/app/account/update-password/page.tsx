@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
@@ -23,7 +24,8 @@ function hasRecoveryTokens(hash: string): boolean {
   return !!(p.type === 'recovery' && (p.access_token || p.refresh_token));
 }
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordContent() {
+  const searchParams = useSearchParams();
   const [state, setState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [password, setPassword] = useState('');
@@ -59,9 +61,22 @@ export default function UpdatePasswordPage() {
     async function run() {
       if (typeof window === 'undefined') return;
 
-      const hash = window.location.hash;
-      if (!hash) {
+      if (searchParams.get('error') === 'invalid_or_expired') {
         setState('invalid');
+        return;
+      }
+
+      const hash = window.location.hash;
+
+      if (!hash) {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session) {
+          setState('form');
+        } else {
+          setState('invalid');
+        }
         return;
       }
 
@@ -82,7 +97,7 @@ export default function UpdatePasswordPage() {
 
     run();
     return () => { cancelled = true; };
-  }, [validateAndConsumeRecovery]);
+  }, [validateAndConsumeRecovery, searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -237,5 +252,22 @@ export default function UpdatePasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-neutral-900 text-white rounded-lg shadow-xl border border-neutral-700 w-full max-w-sm p-6">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white mx-auto mb-4" />
+            <div className="font-semibold">Loading...</div>
+          </div>
+        </div>
+      </div>
+    }>
+      <UpdatePasswordContent />
+    </Suspense>
   );
 }
