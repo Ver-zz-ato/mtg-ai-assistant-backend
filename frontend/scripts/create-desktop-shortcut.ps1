@@ -1,9 +1,10 @@
 # Create desktop shortcut for Bulk Scryfall Import automation
+# Paths follow this repo wherever it lives (no hardcoded drive/folder).
 
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $ShortcutPath = Join-Path $DesktopPath "Bulk Scryfall Import.lnk"
-$ScriptPath = "C:\Users\davy_\mtg_ai_assistant\frontend\scripts\run-bulk-scryfall-local.ps1"
-$WorkingDir = "C:\Users\davy_\mtg_ai_assistant\frontend"
+$ScriptPath = Join-Path $PSScriptRoot "run-bulk-scryfall-local.ps1"
+$WorkingDir = Split-Path -Parent $PSScriptRoot
 
 $WshShell = New-Object -ComObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
