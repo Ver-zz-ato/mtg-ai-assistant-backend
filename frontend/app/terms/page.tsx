@@ -32,7 +32,7 @@ export default function TermsPage() {
         {/* Main Content */}
         <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 mb-6">
           <p className="text-base text-gray-300 mb-6">
-            <strong>By using Manatap.ai, you agree to the following:</strong>
+            <strong>By using Manatap.ai on the web or the ManaTap mobile app, you agree to the following:</strong>
           </p>
 
           <div className="space-y-4">
@@ -75,7 +75,26 @@ export default function TermsPage() {
                     Fair Use
                   </h3>
                   <p className="text-gray-300">
-                    Don't abuse the site (e.g. spamming, exploiting the system, or attempting to break security).
+                    Don&apos;t abuse ManaTap (e.g. spamming, exploiting the system, or attempting to break security)—on the website or in the app.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile app */}
+            <div className="bg-slate-50 dark:bg-slate-900/30 rounded-xl p-4 border-l-4 border-slate-500">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">📱</div>
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-1">
+                    Mobile app (iOS &amp; Android)
+                  </h3>
+                  <p className="text-gray-300">
+                    The ManaTap mobile app (Expo/React Native) connects to the same services described in our{' '}
+                    <Link href="/privacy#mobile-app" className="text-blue-400 hover:text-blue-300 underline">
+                      Privacy Policy
+                    </Link>
+                    . Pro and other in-app purchases are processed by Apple or Google; RevenueCat manages subscription status. Store platform rules and refund policies apply to those purchases in addition to these Terms.
                   </p>
                 </div>
               </div>
@@ -87,10 +106,10 @@ export default function TermsPage() {
                 <div className="text-2xl">💝</div>
                 <div>
                   <h3 className="text-lg font-bold text-white mb-1">
-                    Support/Donations
+                    Support/Donations (website)
                   </h3>
                   <p className="text-gray-300">
-                    Any payments through Ko-fi, PayPal, or Stripe are voluntary tips, not purchases. They are non-refundable and don't entitle you to goods, services, or special treatment.
+                    Voluntary tips or payments through Ko-fi, PayPal, or Stripe on the website are not purchases of goods. They are non-refundable and don&apos;t entitle you to goods, services, or special treatment. In-app Pro subscriptions are separate—see Mobile app above.
                   </p>
                 </div>
               </div>

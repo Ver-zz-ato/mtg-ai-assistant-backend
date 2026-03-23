@@ -68,13 +68,21 @@ export default function PrivacyPage() {
       <p><strong>Effective date:</strong> {today}</p>
       <p>Manatap.ai is a free, personal project created to help Magic: The Gathering players explore deck ideas and costs.</p>
 
+      <h2 id="mobile-app" className="scroll-mt-24">ManaTap mobile app (iOS &amp; Android)</h2>
+      <p className="text-sm text-neutral-300">
+        The ManaTap app is built with Expo and React Native. When you use the app with an account, data is sent to our backend at the URL configured in the app (typically the same site as this policy, e.g. <code className="text-neutral-200 bg-neutral-800 px-1 rounded">EXPO_PUBLIC_API_BASE_URL</code>) and to{' '}
+        <strong className="text-neutral-200">Supabase</strong> for authentication and synced content (e.g. decks, collection), consistent with the rest of this policy.
+        Optional <strong className="text-neutral-200">PostHog</strong> analytics in the app records in-app usage (e.g. screens and events) only if you have opted in—use the toggle on this page (web) or in the app’s Privacy screen.
+        <strong className="text-neutral-200"> Pro</strong> subscriptions purchased in the app are processed by <strong className="text-neutral-200">Apple</strong> or <strong className="text-neutral-200">Google</strong> as in-app purchases; <strong className="text-neutral-200">RevenueCat</strong> manages entitlements and may receive purchase-related identifiers as described in their privacy policy.
+      </p>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
         <div>
           <h2 className="text-xl font-semibold mb-3">What data we collect</h2>
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>Basic usage data (page visits, actions) through analytics tools</span>
+              <span>Usage data: on the website, page visits and actions; in the app, optional in-app analytics (screens/events) when you consent—via PostHog</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
@@ -82,7 +90,7 @@ export default function PrivacyPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>Payment info via Ko-fi, PayPal, or Stripe (we don't store card details)</span>
+              <span>Payments: on the website, tips or checkouts via Ko-fi, PayPal, or Stripe (we don&apos;t store your card details). In the mobile app, Pro is sold via Apple/Google in-app purchase through RevenueCat—we don&apos;t receive your full card number from the stores</span>
             </li>
           </ul>
         </div>
@@ -114,11 +122,11 @@ export default function PrivacyPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-purple-400 mt-1">•</span>
-              <span>Payment processors (Ko-fi, PayPal, Stripe)</span>
+              <span>Payment processors (Ko-fi, PayPal, Stripe on web; Apple, Google, RevenueCat for in-app Pro)</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-purple-400 mt-1">•</span>
-              <span>Analytics (PostHog)</span>
+              <span>Analytics (PostHog), when you consent</span>
             </li>
           </ul>
         </div>
@@ -134,8 +142,8 @@ export default function PrivacyPage() {
         </div>
       </div>
 
-      <h2>Cookies & Tracking</h2>
-      <p>We use strictly necessary cookies for authentication and preference storage, and optional analytics cookies with your consent.</p>
+      <h2>Cookies &amp; tracking</h2>
+      <p>On the website we use strictly necessary cookies for authentication and preference storage, and optional analytics cookies with your consent. The mobile app does not use browser cookies; authentication uses Supabase session tokens stored on your device, and optional analytics uses PostHog only when you opt in.</p>
 
       {/* Cookie Consent Toggle */}
       {mounted && (
@@ -257,6 +265,34 @@ export default function PrivacyPage() {
               <div><strong className="text-neutral-300">Note:</strong> We do not store payment card details</div>
               <div>
                 <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  Privacy Policy →
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RevenueCat (mobile in-app purchases) */}
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+          <button
+            onClick={() => togglePanel('revenuecat')}
+            className="w-full p-4 flex items-start gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+          >
+            <span className="text-2xl">📱</span>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-white">
+                RevenueCat (Mobile Pro / IAP)
+              </h3>
+            </div>
+            <span className="text-neutral-400">{expandedPanels['revenuecat'] ? '▼' : '▶'}</span>
+          </button>
+          {expandedPanels['revenuecat'] && (
+            <div className="px-4 pb-4 pl-16 text-xs text-neutral-400 space-y-1">
+              <div><strong className="text-neutral-300">Purpose:</strong> Subscription and entitlement management for the ManaTap mobile app; coordinates with Apple App Store and Google Play billing</div>
+              <div><strong className="text-neutral-300">Cookies:</strong> Not applicable in the native app; web dashboard may use cookies per RevenueCat</div>
+              <div><strong className="text-neutral-300">Type:</strong> Necessary to deliver Pro features you purchase in-app</div>
+              <div>
+                <a href="https://www.revenuecat.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
                   Privacy Policy →
                 </a>
               </div>
