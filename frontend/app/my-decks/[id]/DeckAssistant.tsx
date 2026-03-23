@@ -57,10 +57,16 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [streamingContent, setStreamingContent] = React.useState<string>("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const cardImagesRef = React.useRef<Map<string, ImageInfo>>(new Map());
+  const cardExtractDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Card image states
   const [cardImages, setCardImages] = React.useState<Map<string, ImageInfo>>(new Map());
   const [hoverCard, setHoverCard] = React.useState<{ name: string; x: number; y: number; src: string } | null>(null);
+
+  React.useEffect(() => {
+    cardImagesRef.current = cardImages;
+  }, [cardImages]);
   
   // Deck Health AI Suggestions modal state
   const [healthSuggestionsOpen, setHealthSuggestionsOpen] = React.useState(false);
@@ -231,34 +237,54 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     };
   }, [deckId, threadId, commander, fmt, plan, deckCI, teaching]);
   
-  // Extract and fetch card images from assistant messages
+  // Extract and fetch card images from assistant messages + streaming (debounced while streaming; same as main Chat)
   React.useEffect(() => {
-    (async () => {
+    const normalizedCardKey = (name: string) =>
+      name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+    const runFetch = async () => {
       try {
         const assistantMessages = msgs.filter(m => m.role === 'assistant');
-        if (assistantMessages.length === 0) return;
-        
-        // Extract cards from all assistant messages
+        const texts: string[] = assistantMessages.map(m => m.content || '');
+        if (isStreaming && streamingContent) texts.push(streamingContent);
         const allCards: string[] = [];
-        for (const msg of assistantMessages) {
-          const extracted = extractCardsForImages(msg.content || '');
+        for (const text of texts) {
+          const extracted = extractCardsForImages(text);
           extracted.forEach(card => {
-            if (!allCards.includes(card.name)) {
-              allCards.push(card.name);
-            }
+            if (!allCards.includes(card.name)) allCards.push(card.name);
           });
         }
-        
         if (allCards.length === 0) return;
-        
-        // Fetch images for extracted cards
-        const imagesMap = await getImagesForNames(allCards);
-        setCardImages(imagesMap);
-      } catch (error) {
+        const haveKeys = new Set(cardImagesRef.current.keys());
+        const toFetch = isStreaming ? allCards.filter(name => !haveKeys.has(normalizedCardKey(name))) : allCards;
+        if (toFetch.length === 0 && isStreaming) return;
+        const namesToFetch = isStreaming ? toFetch : allCards;
+        const imagesMap = await getImagesForNames(namesToFetch);
+        if (isStreaming) {
+          setCardImages(prev => new Map([...prev, ...imagesMap]));
+        } else {
+          setCardImages(imagesMap);
+        }
+      } catch {
         // Silently fail
       }
-    })();
-  }, [msgs]);
+    };
+
+    if (isStreaming && streamingContent) {
+      if (cardExtractDebounceRef.current) clearTimeout(cardExtractDebounceRef.current);
+      cardExtractDebounceRef.current = setTimeout(() => {
+        cardExtractDebounceRef.current = null;
+        runFetch();
+      }, 400);
+      return () => {
+        if (cardExtractDebounceRef.current) {
+          clearTimeout(cardExtractDebounceRef.current);
+          cardExtractDebounceRef.current = null;
+        }
+      };
+    }
+    runFetch();
+  }, [msgs, streamingContent, isStreaming]);
 
   function parseAdds(s: string): Array<{ qty:number; name:string }> {
     const out: Array<{qty:number; name:string}> = [];
@@ -452,15 +478,15 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       } as any
     ]);
     
-    // Create streaming message placeholder
-    const streamingMsgId = `streaming_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Assistant placeholder while waiting / streaming (same pattern as main Chat.tsx)
+    const streamingMsgId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setMsgs((prev: any) => [
       ...prev,
       {
         id: streamingMsgId,
         thread_id: threadId || "",
         role: "assistant",
-        content: "",
+        content: "Thinking..",
         created_at: new Date().toISOString()
       } as any
     ]);
@@ -562,7 +588,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     setHoverCard(null);
   }
   
-  // Render message content with inline card images (like main chat) and card strip at bottom
+  // Render message content: inline card names → hover full art (same as main Chat.tsx; no bottom card strip)
   function renderMessageContent(content: string, isAssistant: boolean) {
     if (!isAssistant) {
       return renderMarkdown(content);
@@ -573,54 +599,22 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const normalized = normalizedCardKey(cardName);
       const image = cardImages.get(normalized);
       const normalUrl = image?.normal || image?.art_crop || image?.small;
-      const smallUrl = image?.small || image?.normal;
-      if (!normalUrl) return cardName;
       return (
         <span
-          className="inline-flex items-center gap-1 align-middle cursor-help"
-          onMouseEnter={(e) => handleCardMouseEnter(e, cardName)}
+          className="inline align-middle cursor-help border-b border-dotted border-neutral-500"
+          title={cardName}
+          onMouseEnter={(e) => normalUrl && handleCardMouseEnter(e, cardName)}
           onMouseLeave={handleCardMouseLeave}
         >
-          {smallUrl && (
-            <img
-              src={smallUrl}
-              alt=""
-              className="w-6 h-auto rounded border border-neutral-600 inline-block"
-              aria-hidden
-            />
-          )}
-          <span className="border-b border-dotted border-neutral-500" title={cardName}>
-            {cardName}
-          </span>
+          {cardName}
         </span>
       );
     };
     const extractedCards = extractCardsForImages(content);
+    const knownCardNames = new Set(extractedCards.map(c => normalizedCardKey(c.name)));
     return (
       <div className="space-y-3">
-        <div>{renderMarkdown(content, { renderCard })}</div>
-        {extractedCards.length > 0 && (
-          <div className="flex gap-2 flex-wrap pt-2 border-t border-neutral-600">
-            {extractedCards.map((card, idx) => {
-              const normalized = normalizedCardKey(card.name);
-              const image = cardImages.get(normalized);
-              if (!image?.small) return null;
-              return (
-                <img
-                  key={idx}
-                  src={image.small}
-                  alt={card.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-16 h-22 rounded cursor-pointer border border-neutral-600 hover:border-blue-500 transition-colors hover:scale-105"
-                  onMouseEnter={(e) => handleCardMouseEnter(e, card.name)}
-                  onMouseLeave={handleCardMouseLeave}
-                  title={card.name}
-                />
-              );
-            })}
-          </div>
-        )}
+        <div>{renderMarkdown(content, { renderCard, knownCardNames })}</div>
       </div>
     );
   }
@@ -930,8 +924,15 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           ) : (
             <div className="space-y-3">
             {msgs.map(m => {
-          // Skip empty streaming placeholder
-          if (m.id.toString().startsWith('streaming_') && !m.content && !isStreaming) return null;
+          // While tokens stream in, hide the "Thinking.." bubble (streaming block shows live text; same UX as main chat)
+          if (
+            m.role === 'assistant' &&
+            m.content === 'Thinking..' &&
+            isStreaming &&
+            streamingContent
+          ) {
+            return null;
+          }
           
           try {
             const obj = JSON.parse(m.content);
@@ -957,7 +958,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
                   <span>{isAssistant ? 'assistant' : 'you'}</span>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isAssistant && m.content && (
+                    {isAssistant && m.content && m.content !== 'Thinking..' && (
                       <button
                         onClick={async () => {
                           try {
@@ -974,7 +975,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                         </svg>
                       </button>
                     )}
-                    {isAssistant && (
+                    {isAssistant && m.content && m.content !== 'Thinking..' && (
                       correctedMessageIds.includes(String(m.id)) ? (
                         <span className="text-[10px] text-neutral-500 px-1">Corrected</span>
                       ) : (
@@ -995,7 +996,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           );
             })}
             
-            {/* Show streaming content */}
+            {/* Live streaming tokens (same pattern as main Chat.tsx) */}
             {isStreaming && streamingContent && (
               <div className="text-left">
                 <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
@@ -1079,10 +1080,10 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           </div>
           <button 
             onClick={send} 
-            disabled={busy || !text.trim() || isStreaming} 
+            disabled={busy || !text.trim()} 
             className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {busy || isStreaming ? 'Sending...' : 'Send'}
+            {busy ? 'Thinking...' : 'Send'}
           </button>
         </div>
       </div>

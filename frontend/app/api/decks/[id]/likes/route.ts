@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
-import { sameOriginOk } from "@/lib/api/csrf";
+import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 
 export const runtime = "nodejs";
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<Params> }) {
   const user = ures?.user;
   if (!user) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   try {
-    if (!sameOriginOk(req)) return NextResponse.json({ ok: false, error: 'bad_origin' }, { status: 403 });
+    if (!sameOriginOrBearerPresent(req)) return NextResponse.json({ ok: false, error: 'bad_origin' }, { status: 403 });
     const body = await req.json().catch(()=>({}));
     const action = (body?.action || 'toggle') as 'like'|'unlike'|'toggle';
 

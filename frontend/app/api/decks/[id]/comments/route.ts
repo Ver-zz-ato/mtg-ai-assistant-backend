@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
+import { notifyOwnerNewComment } from "@/lib/notify-comment-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -99,10 +102,15 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createClient();
+    if (!sameOriginOrBearerPresent(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid origin" },
+        { status: 403 }
+      );
+    }
+    let { supabase, user, authError } = await getUserAndSupabase(req);
     const { id: deckId } = await context.params;
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
     if (authError || !user) {
       return NextResponse.json(
         { ok: false, error: "Must be logged in to comment" },
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // Check if deck is public
     const { data: deck, error: deckError } = await supabase
       .from("decks")
-      .select("is_public")
+      .select("is_public, user_id, title")
       .eq("id", deckId)
       .single();
 
@@ -185,6 +193,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         avatar: meta.avatar || null,
       },
     };
+
+    const ownerId = (deck as { user_id?: string }).user_id;
+    const deckTitle = (deck as { title?: string }).title || "Deck";
+    void notifyOwnerNewComment({
+      ownerUserId: ownerId || "",
+      actorUserId: user.id,
+      resourceLabel: `Comment on ${deckTitle}`,
+      preview: content.trim(),
+      data: { deck_id: deckId, type: "deck_comment" },
+    });
 
     return NextResponse.json({
       ok: true,

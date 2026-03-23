@@ -114,6 +114,16 @@ export function sameOriginOk(req: NextRequest): boolean {
 }
 
 /**
+ * CSRF for browser POSTs, or any request with valid Bearer (mobile app).
+ * Route handlers should still validate JWT via supabase.auth.getUser().
+ */
+export function sameOriginOrBearerPresent(req: NextRequest): boolean {
+  if (sameOriginOk(req)) return true;
+  const auth = req.headers.get("authorization");
+  return typeof auth === "string" && auth.startsWith("Bearer ") && auth.length > 20;
+}
+
+/**
  * Wrapper function for CSRF protection on API route handlers
  * 
  * @param handler - The route handler function

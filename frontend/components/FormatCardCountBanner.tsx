@@ -35,16 +35,23 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
 
     let mounted = true;
     
-    async function checkCardCount() {
+    /**
+     * @param silent - When true (e.g. after deck:changed), refresh counts without `checking` true.
+     * Otherwise the component returns null while checking, which unmounts FinishDeckPanel and
+     * remounts it when done — re-running analyze and showing "Finalizing recommendations..." again.
+     */
+    async function checkCardCount(silent = false) {
       try {
-        setChecking(true);
+        if (!silent) setChecking(true);
         
         // Fetch deck cards
         const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
         if (res.status === 401 || res.status === 403) {
           if (mounted) {
-            setCardCount(null);
-            setViolation(null);
+            if (!silent) {
+              setCardCount(null);
+              setViolation(null);
+            }
             setChecking(false);
           }
           return;
@@ -53,8 +60,10 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
         const data = await res.json().catch(() => ({ ok: false }));
         if (!mounted || !data?.ok) {
           if (mounted) {
-            setCardCount(null);
-            setViolation(null);
+            if (!silent) {
+              setCardCount(null);
+              setViolation(null);
+            }
             setChecking(false);
           }
           return;
@@ -73,28 +82,31 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
             setViolation({ type: 'too_many', expected: expectedCount, actual: totalCount });
           } else {
             setViolation(null);
+            setShowFinishDeck(false);
           }
         }
       } catch (error) {
         if (!mounted) return;
         console.error('[FormatCardCountBanner] Check failed:', error);
-        setCardCount(null);
-        setViolation(null);
+        if (!silent) {
+          setCardCount(null);
+          setViolation(null);
+        }
       } finally {
-        if (mounted) {
+        if (mounted && !silent) {
           setChecking(false);
         }
       }
     }
 
     // Small delay to avoid blocking initial render
-    const timeoutId = setTimeout(checkCardCount, 500);
+    const timeoutId = setTimeout(() => { void checkCardCount(false); }, 500);
     
     // Listen for deck changes to re-check
     const handleChange = () => {
       if (mounted) {
         setDismissed(false);
-        checkCardCount();
+        void checkCardCount(true);
       }
     };
     window.addEventListener('deck:changed', handleChange);
@@ -106,14 +118,38 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
     };
   }, [deckId, formatLower, shouldCheck, expectedCount]);
 
-  // Don't show if checking, dismissed, or no violation
-  if (!shouldCheck || checking || dismissed || !violation || cardCount === null) {
+  // If violation clears while modal flag is still true (e.g. fetch error), close modal without rendering invalid state
+  React.useEffect(() => {
+    if (showFinishDeck && !violation && cardCount !== null) {
+      setShowFinishDeck(false);
+    }
+  }, [showFinishDeck, violation, cardCount]);
+
+  // Don't show banner if checking, dismissed, or no violation — but keep rendering FinishDeckPanel
+  // while it's open so adding a card doesn't unmount/remount the modal (see checkCardCount silent).
+  const hideBanner =
+    !shouldCheck || checking || dismissed || !violation || cardCount === null;
+  if (hideBanner && !showFinishDeck) {
     return null;
   }
 
   const formatName = formatLower.charAt(0).toUpperCase() + formatLower.slice(1);
-  const isTooFew = violation.type === 'too_few';
-  const difference = Math.abs(violation.actual - violation.expected);
+  const isTooFew = violation?.type === 'too_few';
+  const difference = violation ? Math.abs(violation.actual - violation.expected) : 0;
+
+  if (showFinishDeck && violation && cardCount !== null) {
+    return (
+      <FinishDeckPanel
+        deckId={deckId}
+        cardCount={violation.actual}
+        onClose={() => setShowFinishDeck(false)}
+      />
+    );
+  }
+
+  if (!violation) {
+    return null;
+  }
 
   return (
     <div className="mb-4 rounded-lg border border-yellow-500/50 bg-gradient-to-r from-yellow-900/40 to-orange-900/40 p-4 shadow-lg">
@@ -153,13 +189,6 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
           ✕
         </button>
       </div>
-      {showFinishDeck && (
-        <FinishDeckPanel
-          deckId={deckId}
-          cardCount={violation.actual}
-          onClose={() => setShowFinishDeck(false)}
-        />
-      )}
     </div>
   );
 }
