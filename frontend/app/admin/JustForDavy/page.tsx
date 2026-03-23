@@ -4,6 +4,38 @@ import Link from "next/link";
 
 const GROUPS = [
   {
+    label: "Mobile & Client Control",
+    eli5:
+      "Remote-control the mobile app from the website: turn features on/off, edit copy and limits, and preview the bootstrap payload without shipping a new build.",
+    links: [
+      {
+        href: "/admin/feature-flags",
+        label: "Feature Flags",
+        eli5: "Turn app features on/off without a new release.",
+      },
+      {
+        href: "/admin/remote-config",
+        label: "Remote Config",
+        eli5: "Edit app text, sections, and behavior from admin.",
+      },
+      {
+        href: "/admin/app-whats-new",
+        label: "App What's New",
+        eli5: "Manage update notes and popup content for mobile users.",
+      },
+      {
+        href: "/admin/tier-limits",
+        label: "Tier & Limits",
+        eli5: "Control guest/free/pro limits and app gating rules (mobile.tiers.limits).",
+      },
+      {
+        href: "/admin/mobile-bootstrap-preview",
+        label: "Mobile Bootstrap Preview",
+        eli5: "See exactly what config the app will receive on launch.",
+      },
+    ],
+  },
+  {
     label: "Users & Feedback",
     eli5: "Read what users say, manage accounts, and handle support requests.",
     links: [
