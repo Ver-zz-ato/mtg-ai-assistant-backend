@@ -4,7 +4,6 @@
  */
 import { Readable } from "stream";
 import { finished } from "stream/promises";
-import { createGunzip } from "zlib";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StreamArray = require("stream-json/streamers/StreamArray") as { withParser: (opts?: unknown) => NodeJS.ReadWriteStream };
 
@@ -61,8 +60,12 @@ export async function getOracleCardsBulkUri(): Promise<string> {
 }
 
 /**
- * Stream oracle_cards bulk (gzip JSON array), collect banned card names per format.
+ * Stream oracle_cards bulk (JSON array from Scryfall), collect banned card names per format.
  * Keeps memory low by processing one card at a time.
+ *
+ * Do not gunzip here: Scryfall serves plain JSON from data.scryfall.io, and Node's fetch()
+ * already transparently decompresses Content-Encoding: gzip when present — piping again
+ * would throw zlib "incorrect header check" (Z_DATA_ERROR).
  */
 export async function buildBannedListsFromStream(
   body: ReadableStream<Uint8Array> | NodeJS.ReadableStream
@@ -78,9 +81,7 @@ export async function buildBannedListsFromStream(
       ? Readable.fromWeb(body as any)
       : (body as NodeJS.ReadableStream);
 
-  const gunzip = createGunzip();
-  nodeStream.pipe(gunzip);
-  const pipeline = gunzip.pipe(StreamArray.withParser());
+  const pipeline = nodeStream.pipe(StreamArray.withParser());
 
   pipeline.on("data", ({ value }: { value: CardLike }) => {
     const name = value?.name;
