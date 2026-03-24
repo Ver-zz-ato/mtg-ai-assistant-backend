@@ -100,11 +100,11 @@ export default function DataPage(){
         '🎯 CONSOLIDATION: Reduced from 6 jobs to 3 essential ones for simplicity and reliability',
         '🔍 Card Lookup: Check individual card cache data (manual tool below)',
         '🔄 Refresh Cache: Force-update a specific card if data is stale',
-        '🤖 AUTOMATED: All 3 jobs run nightly at 2 AM UTC via GitHub Actions',
+        '🤖 AUTOMATED: Jobs 2 & 3 run daily via GitHub Actions (UTC). Job 1 runs weekly on production (Sunday ~2 AM UTC); use RUN NOW locally for dev/catch-up.',
         '📊 Job 1: Bulk Scryfall Import - ALL 110k+ cards metadata (images, rarity, types)',
         '💰 Job 2: Bulk Price Import - Live prices for ALL cached cards',
-        '📈 Job 3: Weekly FULL Snapshot - Historical price tracking for charts',
-        '⏱️ Total nightly runtime: ~10-15 minutes for complete data refresh',
+        '📈 Job 3: Daily FULL Snapshot - Historical price tracking for charts',
+        '⏱️ Typical nightly runtime (jobs 2+3): ~10-15 minutes',
         '💡 Each job shows when it last ran successfully below'
       ]} />
 
@@ -151,11 +151,11 @@ export default function DataPage(){
         
         <div className="bg-blue-900/20 border border-blue-800 rounded p-3 mb-4">
           <div className="text-sm text-blue-200 space-y-1">
-            <div className="font-semibold">🤖 Automated Nightly Schedule (GitHub Actions)</div>
-            <div>• Runs every night at 2:00 AM UTC</div>
-            <div>• All 3 jobs run in sequence automatically</div>
-            <div>• Total runtime: ~10-15 minutes</div>
-            <div>• You can also trigger manually below for testing</div>
+            <div className="font-semibold">🤖 Automated schedule (GitHub Actions)</div>
+            <div>• Job 2 (prices): daily ~3:00 AM UTC — see <code className="bg-black/40 px-1 rounded">daily-price-update.yml</code></div>
+            <div>• Job 3 (snapshots): daily ~2:00 AM UTC — <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code> (<code className="bg-black/40 px-1 rounded">CRON_URL</code>)</div>
+            <div>• Job 1 (bulk Scryfall): weekly Sunday ~2:00 AM UTC on production — <code className="bg-black/40 px-1 rounded">weekly-scryfall-import.yml</code></div>
+            <div>• RUN NOW below hits your <strong>local</strong> server (dev / manual catch-up)</div>
           </div>
         </div>
 
@@ -225,8 +225,9 @@ export default function DataPage(){
               
               <div className="font-semibold text-purple-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes ~3-5 minutes (downloads ~100MB)</div>
-              <div>• ❌ NOT in automated schedule - run manually MONTHLY (or when new sets release)</div>
-              <div>• 💡 Check MTG release calendar or Scryfall's sets page</div>
+              <div>• Production: weekly (Sunday ~2:00 AM UTC) via GitHub Actions → <code className="bg-black/40 px-1 rounded">BASE_URL</code></div>
+              <div>• Local: use RUN NOW anytime (dev, catch-up, or after new sets). Optional weekly/monthly cadence is up to you.</div>
+              <div>• Gap-fill for existing rows (legalities / flags) uses a separate cron: <code className="bg-black/40 px-1 rounded">POST /api/cron/scryfall-cache-phase3-backfill</code> — not this button.</div>
               
               <div className="font-semibold text-purple-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_scryfall'])}</div>
@@ -298,7 +299,7 @@ export default function DataPage(){
               
               <div className="font-semibold text-green-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes ~3-5 minutes (downloads ~100MB bulk data)</div>
-              <div>• Runs nightly at 2:00 AM UTC via GitHub Actions</div>
+              <div>• Runs daily ~3:00 AM UTC via GitHub Actions (<code className="bg-black/40 px-1 rounded">daily-price-update.yml</code>)</div>
               <div>• Also runs locally on demand via this button</div>
               
               <div className="font-semibold text-green-300 mt-2">Last successful run:</div>
@@ -350,7 +351,7 @@ export default function DataPage(){
               <div className="text-blue-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
               
               <div className="font-semibold text-blue-300 mt-2">What it does:</div>
-              <div>🔄 Creates price snapshots for ALL 110,000+ cards from price_cache, then creates snapshot rows in price_snapshots table with today's date (USD, EUR, and GBP). This enables price history tracking for ANY card users search on the price tracker page.</div>
+              <div>🔄 Downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median USD/EUR per card name, GBP from FX → rows in <code className="bg-black/40 px-1 rounded">price_snapshots</code> for today. Powers price history for the price tracker and movers (same pipeline as production cron).</div>
               
               <div className="font-semibold text-blue-300 mt-2">Database table:</div>
               <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data (snapshot_date, name_norm, currency, unit)</div>
@@ -362,12 +363,12 @@ export default function DataPage(){
               <div>• Supports price spike detection</div>
               
               <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes ~2-3 minutes (fetches live prices from Scryfall)</div>
-              <div>• Runs nightly at 2:05 AM UTC via GitHub Actions (after price refresh)</div>
-              <div>• Also runs locally on demand via this button</div>
+              <div>• Takes several minutes (downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median prices per name → <code className="bg-black/40 px-1 rounded">price_snapshots</code>)</div>
+              <div>• Production: same pipeline — <code className="bg-black/40 px-1 rounded">CRON_URL</code> should hit <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> (daily ~2:00 AM UTC, <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code>)</div>
+              <div>• Local button: <code className="bg-black/40 px-1 rounded">POST /api/bulk-jobs/price-snapshot</code></div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
-              <div>⚠️ Requires price_cache to be populated (run Job 2: Bulk Price Import first)</div>
+              <div>⚠️ Snapshots no longer read <code className="bg-black/40 px-1 rounded">price_cache</code> — Job 3 can run even if Job 2 failed. You still want Job 2 for live deck/collection prices elsewhere.</div>
               
               <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>

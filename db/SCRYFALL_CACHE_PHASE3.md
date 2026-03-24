@@ -34,6 +34,14 @@ A row is a candidate if any of:
 - Images present but `type_line` null and all type flags null
 - `type_line` present but `colors` or `keywords` null (fill from API; colorless uses `[]`)
 
+## Local batch loop (`run-phase3-backfill-loop.mjs`)
+
+Optional helper in **`frontend/run-phase3-backfill-loop.mjs`**: calls the cron repeatedly with `nextAfter` until **completion** or a stop rule.
+
+- **`message: no_rows_needing_backfill_in_scan_range`:** if **`nextAfter` equals the request cursor**, the scan did not advance (typically **end of table** or nothing left to do) → **stop**. If **`nextAfter` differs**, the window had no candidates but the cursor **advanced** → **continue** (do not treat as global “done” mid-table).
+- **`merged = 0` for 5 consecutive rounds** only counts when **`candidates > 0`** (had rows to merge but none merged).
+- **Safety:** `MAX_ROUNDS` default **10,000,000** (practical infinity). Update the script’s starting `after` to the latest `nextAfter` when resuming.
+
 ## Verification
 
 Run **`db/scryfall_cache_phase3_verification.sql`** (read-only).
@@ -56,3 +64,4 @@ Adopt new fields in readers (mobile/website) once verification shows stable cove
 | `frontend/app/api/cron/scryfall-cache-phase3-backfill/route.ts` | Cron handler |
 | `db/scryfall_cache_phase3_verification.sql` | Verification SELECTs |
 | `db/SCRYFALL_CACHE_PHASE3.md` | This doc |
+| `frontend/run-phase3-backfill-loop.mjs` | Resumable local loop until completion or stop rules |

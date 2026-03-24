@@ -1,0 +1,956 @@
+﻿{
+  "stopReason": "complete: no Phase 3 candidates in range and cursor did not advance (end of table or all rows satisfied in scan)",
+  "finalNextAfter": "ÒâòÒéºÒéñÒé┐Òâ¬Òé╣ÒéÖÒâá",
+  "baselineTotal": 38572,
+  "totalRoundsExecuted": 127,
+  "recentRoundsSampleSize": 100,
+  "note": "rounds array is last 100 rounds only",
+  "rounds": [
+    {
+      "round": 28,
+      "cursor": "sprite dragon",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "squirrelanoids"
+    },
+    {
+      "round": 29,
+      "cursor": "squirrelanoids",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "stand together"
+    },
+    {
+      "round": 30,
+      "cursor": "stand together",
+      "status": 200,
+      "candidates": 75,
+      "merged": 62,
+      "notFoundIdentifiers": 13,
+      "nextAfter": "stasis cocoon"
+    },
+    {
+      "round": 31,
+      "cursor": "stasis cocoon",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "steelclad serpent"
+    },
+    {
+      "round": 32,
+      "cursor": "steelclad serpent",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "stinging hivemaster"
+    },
+    {
+      "round": 33,
+      "cursor": "stinging hivemaster",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "stone rain"
+    },
+    {
+      "round": 34,
+      "cursor": "stone rain",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "storm seeker"
+    },
+    {
+      "round": 35,
+      "cursor": "storm seeker",
+      "status": 200,
+      "candidates": 75,
+      "merged": 61,
+      "notFoundIdentifiers": 13,
+      "nextAfter": "strago and relm"
+    },
+    {
+      "round": 36,
+      "cursor": "strago and relm",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "strip mine"
+    },
+    {
+      "round": 37,
+      "cursor": "strip mine",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "sturmgeist"
+    },
+    {
+      "round": 38,
+      "cursor": "sturmgeist",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "sultai banner"
+    },
+    {
+      "round": 39,
+      "cursor": "sultai banner",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "sun-collared raptor"
+    },
+    {
+      "round": 40,
+      "cursor": "sun-collared raptor",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "sunrise cavalier // sunrise cavalier"
+    },
+    {
+      "round": 41,
+      "cursor": "sunrise cavalier // sunrise cavalier",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "sure-footed infiltrator"
+    },
+    {
+      "round": 42,
+      "cursor": "sure-footed infiltrator",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "sustaining spirit"
+    },
+    {
+      "round": 43,
+      "cursor": "sustaining spirit",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "swift end"
+    },
+    {
+      "round": 44,
+      "cursor": "swift end",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "sworn to the legion"
+    },
+    {
+      "round": 45,
+      "cursor": "sworn to the legion",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "syphon essence"
+    },
+    {
+      "round": 46,
+      "cursor": "syphon essence",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "tainted remedy"
+    },
+    {
+      "round": 47,
+      "cursor": "tainted remedy",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "talisman of impulse"
+    },
+    {
+      "round": 48,
+      "cursor": "talisman of impulse",
+      "status": 200,
+      "candidates": 75,
+      "merged": 61,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "tanglepool bridge"
+    },
+    {
+      "round": 49,
+      "cursor": "tanglepool bridge",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "tattermunge duo"
+    },
+    {
+      "round": 50,
+      "cursor": "tattermunge duo",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "tectonic giant"
+    },
+    {
+      "round": 51,
+      "cursor": "tectonic giant",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "telekinesis"
+    },
+    {
+      "round": 52,
+      "cursor": "telekinesis",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "temporal firestorm"
+    },
+    {
+      "round": 53,
+      "cursor": "temporal firestorm",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "terashi's verdict"
+    },
+    {
+      "round": 54,
+      "cursor": "terashi's verdict",
+      "status": 200,
+      "candidates": 75,
+      "merged": 59,
+      "notFoundIdentifiers": 15,
+      "nextAfter": "terry pin, turboturtle"
+    },
+    {
+      "round": 55,
+      "cursor": "terry pin, turboturtle",
+      "status": 200,
+      "candidates": 75,
+      "merged": 61,
+      "notFoundIdentifiers": 13,
+      "nextAfter": "thalakos sentry"
+    },
+    {
+      "round": 56,
+      "cursor": "thalakos sentry",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "the bears of littjara"
+    },
+    {
+      "round": 57,
+      "cursor": "the bears of littjara",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "the crystal's chosen"
+    },
+    {
+      "round": 58,
+      "cursor": "the crystal's chosen",
+      "status": 200,
+      "candidates": 75,
+      "merged": 55,
+      "notFoundIdentifiers": 20,
+      "nextAfter": "the fifteenth doctor"
+    },
+    {
+      "round": 59,
+      "cursor": "the fifteenth doctor",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "the infamous cruelclaw"
+    },
+    {
+      "round": 60,
+      "cursor": "the infamous cruelclaw",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "the mindskinner"
+    },
+    {
+      "round": 61,
+      "cursor": "the mindskinner",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "the rollercrusher ride"
+    },
+    {
+      "round": 62,
+      "cursor": "the rollercrusher ride",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "the valeyard"
+    },
+    {
+      "round": 63,
+      "cursor": "the valeyard",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "they came from the pipes"
+    },
+    {
+      "round": 64,
+      "cursor": "they came from the pipes",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "thorn-thrash viashino"
+    },
+    {
+      "round": 65,
+      "cursor": "thorn-thrash viashino",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "thousand moons crackshot"
+    },
+    {
+      "round": 66,
+      "cursor": "thousand moons crackshot",
+      "status": 200,
+      "candidates": 75,
+      "merged": 61,
+      "notFoundIdentifiers": 14,
+      "nextAfter": "three visits"
+    },
+    {
+      "round": 67,
+      "cursor": "three visits",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "thunder magic"
+    },
+    {
+      "round": 68,
+      "cursor": "thunder magic",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "tibalt the chaotic"
+    },
+    {
+      "round": 69,
+      "cursor": "tibalt the chaotic",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "timberline ridge"
+    },
+    {
+      "round": 70,
+      "cursor": "timberline ridge",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "tireless missionaries"
+    },
+    {
+      "round": 71,
+      "cursor": "tireless missionaries",
+      "status": 200,
+      "candidates": 75,
+      "merged": 57,
+      "notFoundIdentifiers": 18,
+      "nextAfter": "together forever // together forever"
+    },
+    {
+      "round": 72,
+      "cursor": "together forever // together forever",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "toolcraft exemplar (klr) 35"
+    },
+    {
+      "round": 73,
+      "cursor": "toolcraft exemplar (klr) 35",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "torpid moloch"
+    },
+    {
+      "round": 74,
+      "cursor": "torpid moloch",
+      "status": 200,
+      "candidates": 75,
+      "merged": 58,
+      "notFoundIdentifiers": 17,
+      "nextAfter": "tower of murmurs"
+    },
+    {
+      "round": 75,
+      "cursor": "tower of murmurs",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "training grounds"
+    },
+    {
+      "round": 76,
+      "cursor": "training grounds",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "traveling minister // traveling minister"
+    },
+    {
+      "round": 77,
+      "cursor": "traveling minister // traveling minister",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "trelasarra, moon dancer"
+    },
+    {
+      "round": 78,
+      "cursor": "trelasarra, moon dancer",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "triple threat"
+    },
+    {
+      "round": 79,
+      "cursor": "triple threat",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "trueheart twins"
+    },
+    {
+      "round": 80,
+      "cursor": "trueheart twins",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "turn into a pumpkin"
+    },
+    {
+      "round": 81,
+      "cursor": "turn into a pumpkin",
+      "status": 200,
+      "candidates": 75,
+      "merged": 61,
+      "notFoundIdentifiers": 14,
+      "nextAfter": "twins of discord"
+    },
+    {
+      "round": 82,
+      "cursor": "twins of discord",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "tyvar's stand"
+    },
+    {
+      "round": 83,
+      "cursor": "tyvar's stand",
+      "status": 200,
+      "candidates": 75,
+      "merged": 58,
+      "notFoundIdentifiers": 17,
+      "nextAfter": "umara wizard // umara wizard"
+    },
+    {
+      "round": 84,
+      "cursor": "umara wizard // umara wizard",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "undead warchief"
+    },
+    {
+      "round": 85,
+      "cursor": "undead warchief",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "undying evil (dka) 77"
+    },
+    {
+      "round": 86,
+      "cursor": "undying evil (dka) 77",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "universal surveillance // universal surveillance"
+    },
+    {
+      "round": 87,
+      "cursor": "universal surveillance // universal surveillance",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "unstickerify"
+    },
+    {
+      "round": 88,
+      "cursor": "unstickerify",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "urborg syphon-mage"
+    },
+    {
+      "round": 89,
+      "cursor": "urborg syphon-mage",
+      "status": 200,
+      "candidates": 75,
+      "merged": 60,
+      "notFoundIdentifiers": 14,
+      "nextAfter": "urza's tome"
+    },
+    {
+      "round": 90,
+      "cursor": "urza's tome",
+      "status": 200,
+      "candidates": 75,
+      "merged": 62,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "valley dasher"
+    },
+    {
+      "round": 91,
+      "cursor": "valley dasher",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "vampiric tutor"
+    },
+    {
+      "round": 92,
+      "cursor": "vampiric tutor",
+      "status": 200,
+      "candidates": 75,
+      "merged": 60,
+      "notFoundIdentifiers": 15,
+      "nextAfter": "vault robber // vault robber"
+    },
+    {
+      "round": 93,
+      "cursor": "vault robber // vault robber",
+      "status": 200,
+      "candidates": 75,
+      "merged": 72,
+      "notFoundIdentifiers": 3,
+      "nextAfter": "venerable knight"
+    },
+    {
+      "round": 94,
+      "cursor": "venerable knight",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "verdant command (mh2) [tokens]"
+    },
+    {
+      "round": 95,
+      "cursor": "verdant command (mh2) [tokens]",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "veteran motorist"
+    },
+    {
+      "round": 96,
+      "cursor": "veteran motorist",
+      "status": 200,
+      "candidates": 75,
+      "merged": 74,
+      "notFoundIdentifiers": 1,
+      "nextAfter": "viconia, disciple of arcana"
+    },
+    {
+      "round": 97,
+      "cursor": "viconia, disciple of arcana",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 9,
+      "nextAfter": "vindictive vampire"
+    },
+    {
+      "round": 98,
+      "cursor": "vindictive vampire",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "viscera seer (m11) 120"
+    },
+    {
+      "round": 99,
+      "cursor": "viscera seer (m11) 120",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "vizier of deferment"
+    },
+    {
+      "round": 100,
+      "cursor": "vizier of deferment",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "voidwing hybrid"
+    },
+    {
+      "round": 101,
+      "cursor": "voidwing hybrid",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "voltaic key $3.49"
+    },
+    {
+      "round": 102,
+      "cursor": "voltaic key $3.49",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "vraska's scorn"
+    },
+    {
+      "round": 103,
+      "cursor": "vraska's scorn",
+      "status": 200,
+      "candidates": 75,
+      "merged": 67,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "walking dream"
+    },
+    {
+      "round": 104,
+      "cursor": "walking dream",
+      "status": 200,
+      "candidates": 75,
+      "merged": 73,
+      "notFoundIdentifiers": 2,
+      "nextAfter": "waltz of rage // waltz of rage"
+    },
+    {
+      "round": 105,
+      "cursor": "waltz of rage // waltz of rage",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "war-trained slasher"
+    },
+    {
+      "round": 106,
+      "cursor": "war-trained slasher",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "warren-scourge elf"
+    },
+    {
+      "round": 107,
+      "cursor": "warren-scourge elf",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "waterbender ascension"
+    },
+    {
+      "round": 108,
+      "cursor": "waterbender ascension",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "weaponize the monsters"
+    },
+    {
+      "round": 109,
+      "cursor": "weaponize the monsters",
+      "status": 200,
+      "candidates": 75,
+      "merged": 66,
+      "notFoundIdentifiers": 8,
+      "nextAfter": "weirding shaman"
+    },
+    {
+      "round": 110,
+      "cursor": "weirding shaman",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "whimsy"
+    },
+    {
+      "round": 111,
+      "cursor": "whimsy",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 5,
+      "nextAfter": "whitemane lion"
+    },
+    {
+      "round": 112,
+      "cursor": "whitemane lion",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "wild swing"
+    },
+    {
+      "round": 113,
+      "cursor": "wild swing",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "wilt-leaf cavaliers"
+    },
+    {
+      "round": 114,
+      "cursor": "wilt-leaf cavaliers",
+      "status": 200,
+      "candidates": 75,
+      "merged": 71,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "wingfold pteron"
+    },
+    {
+      "round": 115,
+      "cursor": "wingfold pteron",
+      "status": 200,
+      "candidates": 75,
+      "merged": 69,
+      "notFoundIdentifiers": 6,
+      "nextAfter": "wistful thinking"
+    },
+    {
+      "round": 116,
+      "cursor": "wistful thinking",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "wizards of the _____"
+    },
+    {
+      "round": 117,
+      "cursor": "wizards of the _____",
+      "status": 200,
+      "candidates": 75,
+      "merged": 65,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "woodland liege"
+    },
+    {
+      "round": 118,
+      "cursor": "woodland liege",
+      "status": 200,
+      "candidates": 75,
+      "merged": 70,
+      "notFoundIdentifiers": 4,
+      "nextAfter": "worn powerstone (mh3) 298"
+    },
+    {
+      "round": 119,
+      "cursor": "worn powerstone (mh3) 298",
+      "status": 200,
+      "candidates": 75,
+      "merged": 68,
+      "notFoundIdentifiers": 7,
+      "nextAfter": "writhing necromass"
+    },
+    {
+      "round": 120,
+      "cursor": "writhing necromass",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "xolatoyac, the smiling flood"
+    },
+    {
+      "round": 121,
+      "cursor": "xolatoyac, the smiling flood",
+      "status": 200,
+      "candidates": 75,
+      "merged": 62,
+      "notFoundIdentifiers": 12,
+      "nextAfter": "yenna, redtooth regent"
+    },
+    {
+      "round": 122,
+      "cursor": "yenna, redtooth regent",
+      "status": 200,
+      "candidates": 75,
+      "merged": 63,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "young wei recruits"
+    },
+    {
+      "round": 123,
+      "cursor": "young wei recruits",
+      "status": 200,
+      "candidates": 75,
+      "merged": 58,
+      "notFoundIdentifiers": 15,
+      "nextAfter": "zareth san, the trickster"
+    },
+    {
+      "round": 124,
+      "cursor": "zareth san, the trickster",
+      "status": 200,
+      "candidates": 75,
+      "merged": 64,
+      "notFoundIdentifiers": 11,
+      "nextAfter": "zhao, the moon slayer // zhao, the moon slayer"
+    },
+    {
+      "round": 125,
+      "cursor": "zhao, the moon slayer // zhao, the moon slayer",
+      "status": 200,
+      "candidates": 75,
+      "merged": 60,
+      "notFoundIdentifiers": 13,
+      "nextAfter": "zombie goliath"
+    },
+    {
+      "round": 126,
+      "cursor": "zombie goliath",
+      "status": 200,
+      "candidates": 68,
+      "merged": 58,
+      "notFoundIdentifiers": 10,
+      "nextAfter": "ÒâòÒéºÒéñÒé┐Òâ¬Òé╣ÒéÖÒâá"
+    },
+    {
+      "round": 127,
+      "cursor": "ÒâòÒéºÒéñÒé┐Òâ¬Òé╣ÒéÖÒâá",
+      "status": 200,
+      "merged": 0,
+      "notFoundIdentifiers": 0,
+      "nextAfter": "ÒâòÒéºÒéñÒé┐Òâ¬Òé╣ÒéÖÒâá"
+    }
+  ],
+  "firstVerify": {
+    "total_rows": 38572,
+    "rows_with_legalities": 25708,
+    "rows_with_keywords": 25531,
+    "rows_with_colors": 25352,
+    "rows_with_power": 13997,
+    "rows_with_toughness": 13997,
+    "rows_with_loyalty": 240,
+    "land_rows": 873,
+    "creature_rows": 13863,
+    "instant_rows": 2808,
+    "sorcery_rows": 2694,
+    "enchantment_rows": 2874,
+    "artifact_rows": 2820,
+    "planeswalker_rows": 249
+  },
+  "lastVerify": {
+    "total_rows": 38572,
+    "rows_with_legalities": 33978,
+    "rows_with_keywords": 33801,
+    "rows_with_colors": 33573,
+    "rows_with_power": 18577,
+    "rows_with_toughness": 18577,
+    "rows_with_loyalty": 317,
+    "land_rows": 1194,
+    "creature_rows": 18383,
+    "instant_rows": 3708,
+    "sorcery_rows": 3502,
+    "enchantment_rows": 3713,
+    "artifact_rows": 3784,
+    "planeswalker_rows": 328
+  },
+  "netChangesExcludingTotalRows": {
+    "rows_with_legalities": 8270,
+    "rows_with_keywords": 8270,
+    "rows_with_colors": 8221,
+    "rows_with_power": 4580,
+    "rows_with_toughness": 4580,
+    "rows_with_loyalty": 77,
+    "land_rows": 321,
+    "creature_rows": 4520,
+    "instant_rows": 900,
+    "sorcery_rows": 808,
+    "enchantment_rows": 839,
+    "artifact_rows": 964,
+    "planeswalker_rows": 79
+  }
+}

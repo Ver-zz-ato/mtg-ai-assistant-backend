@@ -1,3 +1,39 @@
+2025-03-24 – Price snapshots: cron aligned with Scryfall bulk (product choice #2):
+- `lib/server/priceSnapshotFromScryfallBulk.ts` — shared `default_cards` download, median USD/EUR per `name_norm`, GBP via FX; upsert + 60d cleanup.
+- `app/api/cron/price/snapshot/route.ts` — uses shared runner (no longer prefers `price_cache`); `maxDuration` 600s.
+- `app/api/bulk-jobs/price-snapshot/route.ts` — delegates to shared runner.
+- `app/admin/data/page.tsx` — Job 3 copy: production `CRON_URL` should hit `/api/cron/price/snapshot`; same pipeline as local bulk button; “What it does” / dependencies updated (snapshots do not read `price_cache`).
+
+2025-03-24 – Phase 3 backfill loop script (run to completion):
+- `frontend/run-phase3-backfill-loop.mjs` — `no_rows_needing_backfill` only stops when cursor does not advance; otherwise advances `after` and continues. `merged=0` streak only when `candidates > 0`. Safety cap 10M rounds. Default resume cursor `shield of the realm`.
+
+2025-03-24 – Phase 3 backfill loop script:
+- `frontend/run-phase3-backfill-loop.mjs` — removed verification-unchanged stop; resume cursor updated; 300-round run completed against local cron.
+
+2025-03-24 – Phase 3C Bucket A SQL:
+- `db/scryfall_cache_phase3c_bracketed_merge_review.sql` — full side-by-side dirty/canonical values; `bucket_a_count` = distinct dirty Bucket A rows.
+- `db/scryfall_cache_phase3c_bracketed_merge_cleanup.sql` — merge includes images, rarity, set, collector via COALESCE; `SCRYFALL_CACHE_PHASE3C_BRACKETED_MERGE.md` run order.
+
+2025-03-24 – Phase 3D Bucket B canonicalization SQL:
+- `db/scryfall_cache_phase3d_bucket_b_canonicalization.sql` — NOT IN exclusion list for malformed proposed PKs (Section 0 + Section 1).
+
+2025-03-24 – Phase 3D Bucket B canonicalization (SQL only):
+- `db/scryfall_cache_phase3d_bucket_b_review.sql`, `db/scryfall_cache_phase3d_bucket_b_canonicalization.sql`, `db/SCRYFALL_CACHE_PHASE3D_BUCKET_B.md` — safe-candidate rules; INSERT canonical row (lower(trim inner)); no delete; ON CONFLICT DO NOTHING; Phase 3 resume note.
+
+2025-03-24 – Phase 3C review SQL UX:
+- `db/scryfall_cache_phase3c_bracketed_merge_review.sql` — note: run first counts `SELECT` alone (Supabase often returns only last statement); remove duplicate `bucket_b_count` query; add `total_bracketed_non_mdfc`.
+
+2025-03-24 – Phase 3C two-bucket bracketed cleanup (SQL only):
+- `db/scryfall_cache_phase3c_bracketed_merge_review.sql` — Bucket A (with canonical) vs Bucket B (no canonical) counts; A side-by-side; B review + triage columns; no deletes for B.
+- `db/scryfall_cache_phase3c_bracketed_merge_cleanup.sql` — Bucket A merge (rules/identity fields only; not images/set/rarity); `pick` restricted to rows with canonical; delete after merge.
+- `db/SCRYFALL_CACHE_PHASE3C_BRACKETED_MERGE.md` — two-bucket plan and Bucket B next steps.
+
+2025-03-24 – Phase 3C bracketed merge-then-delete (SQL only):
+- `db/scryfall_cache_phase3c_bracketed_merge_review.sql`, `db/scryfall_cache_phase3c_bracketed_merge_cleanup.sql`, `db/SCRYFALL_CACHE_PHASE3C_BRACKETED_MERGE.md` — merge `[[...]]` dupes into canonical then delete; COALESCE-only fills.
+
+2025-03-24 – Phase 3B scryfall_cache duplicate review (SQL only):
+- `db/scryfall_cache_phase3b_duplicate_cleanup_review.sql`, `db/scryfall_cache_phase3b_duplicate_cleanup.sql`, `db/SCRYFALL_CACHE_PHASE3B_DUPLICATES.md` — bracketed `[[...]]` and print-annotation dupes vs existing canonical PK; commented safe deletes.
+
 2025-03-24 – Phase 3 scryfall_cache backfill (Phase 2A + legalities):
 - mergeScryfallCacheRowFromApiCard + needsPhase3Backfill; cron POST /api/cron/scryfall-cache-phase3-backfill (Scryfall collection, resumable cursor).
 - db/scryfall_cache_phase3_verification.sql, db/SCRYFALL_CACHE_PHASE3.md.
