@@ -438,7 +438,8 @@ Recommendations must be tailored to this specific deck's failure modes and engin
 - Each slot (and each suggested add) must solve a specific, identified failure mode for THIS deck—not only a generic role label.
 - Prefer cards that synergize with the commander's mechanics, scale with spell count or engine turns where relevant, and support how this deck wins and where it loses.
 - For interaction, prefer answers that fit this deck's speed and play pattern (cheap, chainable, or synergistic) over generically strong staples that do not advance the plan.
-- When multiple valid options exist, choose the one most aligned with this deck's engine—not the most commonly played card.`;
+- When multiple valid options exist, choose the one most aligned with this deck's engine—not the most commonly played card.
+- When suggesting interaction for spell-heavy or chaining decks, prioritize low-cost, stack-efficient, or storm-scaling interaction that can be used during multi-spell turns, rather than slower or mana-intensive answers.`;
 
 async function planSuggestionSlots(
   deckText: string,
