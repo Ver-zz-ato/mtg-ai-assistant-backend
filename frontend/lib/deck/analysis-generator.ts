@@ -6,6 +6,7 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getPreferredApiSurface } from "@/lib/ai/modelCapabilities";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { MAX_DECK_ANALYZE_OUTPUT_TOKENS, MAX_DECK_ANALYZE_DECK_TEXT_CHARS } from "@/lib/feature-limits";
+import { formatCommanderGroundingForPrompt } from "@/lib/deck/commander-grounding";
 import type { InferredDeckContext } from "./inference";
 import type { DeckAnalysisJSON } from "./analysis-validator";
 
@@ -96,10 +97,20 @@ export async function generateDeckAnalysis(
   const archetype = context.archetype || "";
   const powerLevel = (context as any).powerLevel || "";
 
+  let commanderGrounding: string | null = null;
+  if (commander) {
+    try {
+      commanderGrounding = await formatCommanderGroundingForPrompt(commander);
+    } catch {
+      commanderGrounding = null;
+    }
+  }
+
   const userPrompt = [
     `Format: ${format}`,
     `Deck colors: ${colors.join(", ") || "Colorless"}`,
     commander ? `Commander: ${commander}` : "",
+    commanderGrounding || "",
     archetype ? `Detected archetype: ${archetype}` : "",
     powerLevel ? `Power level: ${powerLevel}` : "",
     commanderProfile?.plan ? `Commander plan: ${commanderProfile.plan}` : "",

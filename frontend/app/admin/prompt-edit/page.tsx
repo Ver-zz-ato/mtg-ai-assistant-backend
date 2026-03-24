@@ -8,9 +8,21 @@ type TierOverlay = "guest" | "free" | "pro";
 
 type OverlaysState = Record<TierOverlay, string>;
 
+/** Layer keys used by composeSystemPrompt — live AI reads prompt_layers, not prompt_versions. */
+const LAYER_KEY_BY_KIND: Record<PromptKind, string> = {
+  chat: "BASE_UNIVERSAL_ENFORCEMENT",
+  deck_analysis: "DECK_ANALYSIS_EXEMPLARS",
+};
+
+type LayerMeta = { key: string; updated_at?: string | null; meta?: Record<string, unknown> };
+
 export default function PromptEditPage() {
   const [baseChat, setBaseChat] = useState("");
   const [baseDeckAnalysis, setBaseDeckAnalysis] = useState("");
+  const [layerMeta, setLayerMeta] = useState<Record<PromptKind, LayerMeta | null>>({
+    chat: null,
+    deck_analysis: null,
+  });
   const [overlays, setOverlays] = useState<OverlaysState>({ guest: "", free: "", pro: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -18,14 +30,45 @@ export default function PromptEditPage() {
 
   const loadBasePrompts = useCallback(async () => {
     try {
+      const kChat = encodeURIComponent(LAYER_KEY_BY_KIND.chat);
+      const kDeck = encodeURIComponent(LAYER_KEY_BY_KIND.deck_analysis);
       const [chatRes, deckRes] = await Promise.all([
-        fetch("/api/admin/prompt-versions?kind=chat", { cache: "no-store" }),
-        fetch("/api/admin/prompt-versions?kind=deck_analysis", { cache: "no-store" }),
+        fetch(`/api/admin/prompt-layers?key=${kChat}`, { cache: "no-store" }),
+        fetch(`/api/admin/prompt-layers?key=${kDeck}`, { cache: "no-store" }),
       ]);
       const chatData = await chatRes.json();
       const deckData = await deckRes.json();
-      if (chatData?.ok && chatData.activePromptText) setBaseChat(chatData.activePromptText);
-      if (deckData?.ok && deckData.activePromptText) setBaseDeckAnalysis(deckData.activePromptText);
+      if (chatRes.ok && chatData?.ok) {
+        setBaseChat(typeof chatData.body === "string" ? chatData.body : "");
+        setLayerMeta((m) => ({
+          ...m,
+          chat: {
+            key: chatData.key ?? LAYER_KEY_BY_KIND.chat,
+            updated_at: chatData.updated_at,
+            meta: chatData.meta && typeof chatData.meta === "object" ? (chatData.meta as Record<string, unknown>) : {},
+          },
+        }));
+      } else {
+        setBaseChat("");
+        setLayerMeta((m) => ({ ...m, chat: null }));
+        if (chatRes.status !== 404) console.warn("[prompt-edit] load chat layer:", chatData?.error || chatRes.status);
+      }
+      if (deckRes.ok && deckData?.ok) {
+        setBaseDeckAnalysis(typeof deckData.body === "string" ? deckData.body : "");
+        setLayerMeta((m) => ({
+          ...m,
+          deck_analysis: {
+            key: deckData.key ?? LAYER_KEY_BY_KIND.deck_analysis,
+            updated_at: deckData.updated_at,
+            meta: deckData.meta && typeof deckData.meta === "object" ? (deckData.meta as Record<string, unknown>) : {},
+          },
+        }));
+      } else {
+        setBaseDeckAnalysis("");
+        setLayerMeta((m) => ({ ...m, deck_analysis: null }));
+        if (deckRes.status !== 404) console.warn("[prompt-edit] load deck layer:", deckData?.error || deckRes.status);
+      }
+      console.info("[prompt-edit] reads/writes table prompt_layers (production composeSystemPrompt)", LAYER_KEY_BY_KIND);
     } catch (e) {
       console.error("Failed to load base prompts:", e);
     }
@@ -56,21 +99,27 @@ export default function PromptEditPage() {
       alert("Prompt text cannot be empty");
       return;
     }
-    if (!confirm(`Create new ${kind} prompt version and set as active?`)) return;
+    const layerKey = LAYER_KEY_BY_KIND[kind];
+    if (!confirm(`Save to table prompt_layers, key ${layerKey}? This is what composeSystemPrompt uses in production.`)) return;
     setSaving(`base_${kind}`);
+    const prevMeta = layerMeta[kind]?.meta ?? {};
     try {
-      const r = await fetch("/api/admin/prompt-versions/create", {
-        method: "POST",
+      const r = await fetch("/api/admin/prompt-layers", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          promptText: text,
-          kind,
-          description: "Edited via Prompt Edit admin page",
+          key: layerKey,
+          body: text,
+          meta: { ...prevMeta, source: "admin_prompt_edit" },
         }),
       });
       const j = await r.json();
       if (j.ok) {
-        alert(`✅ Created ${j.newVersion} and set as active for ${kind}`);
+        setLayerMeta((m) => ({
+          ...m,
+          [kind]: { key: j.key ?? layerKey, updated_at: j.updated_at },
+        }));
+        alert(`✅ Saved prompt_layers · ${j.key ?? layerKey} (updated_at: ${j.updated_at ?? "—"})`);
         await loadBasePrompts();
       } else {
         alert(`Failed: ${j.error}`);
@@ -121,7 +170,8 @@ export default function PromptEditPage() {
         <div>
           <h1 className="text-xl font-semibold">Prompt Edit</h1>
           <p className="text-sm text-neutral-400">
-            Edit base prompts (chat / deck analysis) and tier overlays (guest / free / pro). Changes are stored in the database.
+            Edit base prompts (chat / deck analysis) and tier overlays (guest / free / pro). Base prompts are stored in{" "}
+            <code className="bg-neutral-800 px-1 rounded">prompt_layers</code> (same table as production composeSystemPrompt).
           </p>
         </div>
         <Link href="/admin/JustForDavy" className="text-sm text-neutral-400 hover:text-white">
@@ -133,9 +183,18 @@ export default function PromptEditPage() {
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
         <h2 className="font-medium">Base Prompts</h2>
         <p className="text-xs text-neutral-500">
-          Stored in <code className="bg-neutral-800 px-1 rounded">prompt_versions</code>. Used when composed prompt (prompt_layers) is unavailable.
+          <span className="text-amber-200/90">Storage:</span> table{" "}
+          <code className="bg-neutral-800 px-1 rounded">prompt_layers</code> (live — no prompt_versions fallback). Chat tab ={" "}
+          <code className="bg-neutral-800 px-1 rounded">BASE_UNIVERSAL_ENFORCEMENT</code>; Deck Analysis tab ={" "}
+          <code className="bg-neutral-800 px-1 rounded">DECK_ANALYSIS_EXEMPLARS</code> (appended only for deck-analysis requests).
         </p>
-        <div className="flex gap-2">
+        {layerMeta[activeKind] && (
+          <p className="text-[11px] text-neutral-400 font-mono">
+            Active key: {layerMeta[activeKind]!.key}
+            {layerMeta[activeKind]!.updated_at ? ` · updated_at ${layerMeta[activeKind]!.updated_at}` : ""}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2 items-center">
           {(["chat", "deck_analysis"] as const).map((k) => (
             <button
               key={k}
@@ -145,6 +204,9 @@ export default function PromptEditPage() {
               {k === "deck_analysis" ? "Deck Analysis" : k}
             </button>
           ))}
+          <span className="text-[11px] text-neutral-500">
+            {activeKind === "chat" ? `→ ${LAYER_KEY_BY_KIND.chat}` : `→ ${LAYER_KEY_BY_KIND.deck_analysis}`}
+          </span>
         </div>
         <div>
           <label className="text-xs opacity-70 block mb-1">Prompt text</label>
@@ -162,7 +224,7 @@ export default function PromptEditPage() {
               disabled={!!saving || !baseText.trim()}
               className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
-              {saving === `base_${activeKind}` ? "Saving…" : "Create New Version & Set Active"}
+              {saving === `base_${activeKind}` ? "Saving…" : "Save to prompt_layers"}
             </button>
           </div>
         </div>

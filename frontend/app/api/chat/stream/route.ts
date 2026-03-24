@@ -784,6 +784,17 @@ export async function POST(req: NextRequest) {
         sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
       }
     }
+    if (selectedTier === "full" && streamInjected === "analyze") {
+      const commanderForGrounding =
+        activeDeckContext.commanderName ?? v2Summary?.commander ?? deckData?.d?.commander ?? null;
+      if (commanderForGrounding) {
+        try {
+          const { formatCommanderGroundingForPrompt } = await import("@/lib/deck/commander-grounding");
+          const grounding = await formatCommanderGroundingForPrompt(commanderForGrounding);
+          if (grounding) sys += `\n\n${grounding}`;
+        } catch (_) {}
+      }
+    }
     if (selectedTier === "full" && streamInjected === "analyze" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
       const formatDisplay = deckFormat || formatKey;

@@ -1042,6 +1042,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (selectedTier === "full") {
+    const commanderForGrounding =
+      v2Summary?.commander ?? d?.commander ?? pastedDecklistForCompose?.commanderName ?? null;
+    if (commanderForGrounding) {
+      try {
+        const { formatCommanderGroundingForPrompt } = await import("@/lib/deck/commander-grounding");
+        const grounding = await formatCommanderGroundingForPrompt(commanderForGrounding);
+        if (grounding) sys += `\n\n${grounding}`;
+      } catch (_) {}
+    }
     // Add RAG context if found (Task 3) - skip when v2 summary used to avoid duplication
     if (ragContext && !v2Summary) {
       sys += ragContext;
