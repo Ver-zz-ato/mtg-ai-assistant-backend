@@ -11,9 +11,28 @@ export type TagWithMeta = {
   source: string;
 };
 
+/** Optional cache flags when enrichment supplies them; otherwise type_line fallbacks apply. */
 export type TaggedCard = EnrichedCard & {
   tags: TagWithMeta[];
+  is_land?: boolean;
+  is_creature?: boolean;
 };
+
+/** Prefer `is_land`; else legacy `type_line` substring (includes "land"). */
+export function isLandForDeck(card: EnrichedCard & { is_land?: boolean }): boolean {
+  const tl = (card.type_line || "").toLowerCase();
+  if (card.is_land === true) return true;
+  if (card.is_land === false) return false;
+  return tl.includes("land");
+}
+
+/** Prefer `is_creature`; else legacy `type_line` substring (includes "creature"). */
+export function isCreatureForDeck(card: EnrichedCard & { is_creature?: boolean }): boolean {
+  const tl = (card.type_line || "").toLowerCase();
+  if (card.is_creature === true) return true;
+  if (card.is_creature === false) return false;
+  return tl.includes("creature");
+}
 
 const SOURCE_ORACLE_REGEX = "oracle_regex";
 const SOURCE_TYPE_LINE = "type_line";
@@ -42,8 +61,7 @@ function checkRamp(card: EnrichedCard): TagWithMeta | null {
   if (/signet|talisman|sol ring|mana rock|arcane signet/i.test(n)) {
     return tag("mana_rock", 0.9, SOURCE_HEURISTIC);
   }
-  const tl = (card.type_line || "").toLowerCase();
-  if (tl.includes("creature") && /add \{[wubrg]+\}|add one mana/i.test(o)) {
+  if (isCreatureForDeck(card) && /add \{[wubrg]+\}|add one mana/i.test(o)) {
     return tag("mana_dork", 0.88, SOURCE_ORACLE_REGEX);
   }
   return null;
@@ -147,7 +165,7 @@ function checkFinisher(card: EnrichedCard): TagWithMeta | null {
   if (/you win the game|target player loses the game|each opponent loses \d+/i.test(o)) {
     return tag("finisher", 0.95, SOURCE_ORACLE_REGEX);
   }
-  if (cmc >= 6 && (card.type_line || "").toLowerCase().includes("creature")) {
+  if (cmc >= 6 && isCreatureForDeck(card)) {
     return tag("finisher", 0.6, SOURCE_HEURISTIC);
   }
   return null;
@@ -158,7 +176,7 @@ function checkComboEngine(card: EnrichedCard): TagWithMeta | null {
   if (/infinite|unlimited|any number of times/i.test(o)) {
     return tag("combo_piece", 0.85, SOURCE_ORACLE_REGEX);
   }
-  if (/copy.*spell|whenever you cast|whenever .* enters/i.test(o) && (card.type_line || "").toLowerCase().includes("creature")) {
+  if (/copy.*spell|whenever you cast|whenever .* enters/i.test(o) && isCreatureForDeck(card)) {
     return tag("engine", 0.7, SOURCE_HEURISTIC);
   }
   if (/whenever|each (?:turn|combat)|at the beginning of (?:your|each)/i.test(o)) {
@@ -171,7 +189,7 @@ function checkFixing(card: EnrichedCard): TagWithMeta | null {
   const tl = (card.type_line || "").toLowerCase();
   const o = (card.oracle_text || "").toLowerCase();
   const n = (card.name || "").toLowerCase();
-  if (!tl.includes("land")) return null;
+  if (!isLandForDeck(card)) return null;
   if (/add one mana of any color|tap.*add \{[wubrg]\}/i.test(o)) {
     return tag("fixing", 0.9, SOURCE_ORACLE_REGEX);
   }

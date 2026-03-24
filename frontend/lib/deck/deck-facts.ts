@@ -3,7 +3,7 @@
  * Includes archetype/engine/win-pattern candidates with scores and uncertainty flags.
  */
 
-import type { TaggedCard } from "./card-role-tags";
+import { isLandForDeck, type TaggedCard } from "./card-role-tags";
 
 export type ArchetypeCandidate = { name: string; score: number };
 export type UncertaintyFlag =
@@ -110,8 +110,8 @@ export function buildDeckFacts(
   const format = options.format ?? "Commander";
   const commander = options.commander ?? null;
 
-  const lands = taggedCards.filter((c) => (c.type_line || "").toLowerCase().includes("land"));
-  const nonlands = taggedCards.filter((c) => !(c.type_line || "").toLowerCase().includes("land"));
+  const lands = taggedCards.filter((c) => isLandForDeck(c));
+  const nonlands = taggedCards.filter((c) => !isLandForDeck(c));
 
   const landCount = lands.reduce((s, c) => s + c.qty, 0);
   const nonlandCount = nonlands.reduce((s, c) => s + c.qty, 0);
