@@ -5,7 +5,10 @@
  * Kill-switch: DISABLE_DECK_SEMANTIC_FINGERPRINT=1
  */
 
-import { getDetailsForNamesCacheOnly } from "@/lib/server/scryfallCache";
+import {
+  getDetailsForNamesCacheOnly,
+  type CacheOnlyCardDetails,
+} from "@/lib/server/scryfallCache";
 
 function norm(name: string): string {
   return String(name || "")
@@ -83,6 +86,27 @@ function hasType(typeLine: string | undefined, substr: string): boolean {
   return (typeLine || "").toLowerCase().includes(substr.toLowerCase());
 }
 
+/** Scryfall oracle keyword list (e.g. "Flash"). Case-insensitive exact match. */
+function hasOracleKeyword(keywords: string[] | undefined, canonical: string): boolean {
+  if (!keywords?.length) return false;
+  const want = canonical.toLowerCase();
+  return keywords.some((k) => String(k).toLowerCase() === want);
+}
+
+/** Prefer cache `is_instant`; else `type_line` substring (unchanged legacy). */
+function isInstantForFingerprint(row: CacheOnlyCardDetails, tlLower: string): boolean {
+  if (row.is_instant === true) return true;
+  if (row.is_instant === false) return false;
+  return tlLower.includes("instant");
+}
+
+/** Prefer cache `is_sorcery`; else `type_line` substring (unchanged legacy). */
+function isSorceryForFingerprint(row: CacheOnlyCardDetails, tlLower: string): boolean {
+  if (row.is_sorcery === true) return true;
+  if (row.is_sorcery === false) return false;
+  return tlLower.includes("sorcery");
+}
+
 /**
  * Compute deck semantic fingerprint from card list.
  * Fetches oracle_text, type_line from scryfall_cache in ONE query. Fail-open on errors.
@@ -119,7 +143,7 @@ export async function computeDeckSemanticFingerprint(
     };
   }
 
-  let cacheMap: Map<string, { type_line?: string; oracle_text?: string }> = new Map();
+  let cacheMap: Map<string, CacheOnlyCardDetails> = new Map();
   try {
     cacheMap = await getDetailsForNamesCacheOnly(namesToFetch);
   } catch (_) {
@@ -156,7 +180,10 @@ export async function computeDeckSemanticFingerprint(
     const otLower = ot.toLowerCase();
     const tlLower = tl.toLowerCase();
 
-    if (hasOracle(ot, ["flash", "as though they had flash", "any time you could cast an instant"])) {
+    if (
+      hasOracle(ot, ["flash", "as though they had flash", "any time you could cast an instant"]) ||
+      hasOracleKeyword(row.keywords, "Flash")
+    ) {
       signalCounts.flash += count;
     }
     if (
@@ -200,7 +227,7 @@ export async function computeDeckSemanticFingerprint(
         "trample",
         "haste",
       ]) &&
-      (tlLower.includes("instant") || tlLower.includes("sorcery"))
+      (isInstantForFingerprint(row, tlLower) || isSorceryForFingerprint(row, tlLower))
     ) {
       signalCounts.overrunFinisher += count;
     }
@@ -223,7 +250,7 @@ export async function computeDeckSemanticFingerprint(
         "exile target",
         "return target",
       ]) &&
-      (tlLower.includes("instant") || otLower.includes("any time you could cast an instant"))
+      (isInstantForFingerprint(row, tlLower) || otLower.includes("any time you could cast an instant"))
     ) {
       signalCounts.instantSpeedInteraction += count;
     }
@@ -246,6 +273,7 @@ export async function computeDeckSemanticFingerprint(
 
     const contributesToTheme =
       hasOracle(ot, ["flash", "as though they had flash"]) ||
+      hasOracleKeyword(row.keywords, "Flash") ||
       hasOracle(ot, ["during each opponent's turn", "during an opponent's turn"]) ||
       hasOracle(ot, ["you may cast spells from exile", "exile the top card of target opponent"]) ||
       hasType(tl, "elf") ||

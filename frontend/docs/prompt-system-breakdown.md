@@ -61,7 +61,7 @@ Composition order is fixed:
   1. Load BASE: `prompt_layers` where `key = 'BASE_UNIVERSAL_ENFORCEMENT'`.
   2. Load FORMAT: `prompt_layers` where `key = 'FORMAT_<UPPERCASE_FORMAT>'` (e.g. `FORMAT_COMMANDER`).
   3. If `deckContext?.deckCards?.length`:
-     - Call `getDetailsForNamesCacheOnly(deck card names)` (Scryfall cache, type_line + oracle_text only).
+     - Call `getDetailsForNamesCacheOnly(deck card names)` (Scryfall cache: type_line, oracle_text, optional `keywords` for module hints).
      - Call `detectModules(deckCards, cachedCardDataByName, commanderName)`.
      - For each returned module key, load `prompt_layers` by that key and append body.
   4. Concatenate: `BASE + "\n\n" + FORMAT + "\n\n" + MODULE_1 + "\n\n" + ...`

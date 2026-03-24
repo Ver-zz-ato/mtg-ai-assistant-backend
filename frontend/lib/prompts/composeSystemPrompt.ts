@@ -5,7 +5,7 @@
  */
 
 import { getServerSupabase } from "@/lib/server-supabase";
-import { detectModules } from "./moduleDetection";
+import { detectModules, type CachedCard } from "./moduleDetection";
 import { getDetailsForNamesCacheOnly } from "@/lib/server/scryfallCache";
 
 async function getDbForLayers(supabase?: any) {
@@ -80,7 +80,7 @@ export async function composeSystemPrompt(options: {
   if (deckContext?.deckCards?.length) {
     const names = Array.from(new Set(deckContext.deckCards.map((c) => c.name))).slice(0, 200);
     const cached = await getDetailsForNamesCacheOnly(names);
-    const normMap = new Map<string, { type_line?: string; oracle_text?: string }>();
+    const normMap = new Map<string, CachedCard>();
     cached.forEach((v, k) => normMap.set(k, v));
     const { modulesAttached: attached } = detectModules(
       deckContext.deckCards,

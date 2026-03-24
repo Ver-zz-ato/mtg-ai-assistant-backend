@@ -1,3 +1,5 @@
+2025-03-24 – Phase 4G: `getDetailsForNamesCacheOnly` loads `keywords`; `moduleDetection` ORs `hasOracleKeyword` (Cascade, Storm, Landfall, Dredge) with existing oracle checks; `composeSystemPrompt` uses `CachedCard` for norm map (`lib/server/scryfallCache.ts`, `lib/prompts/moduleDetection.ts`, `lib/prompts/composeSystemPrompt.ts`).
+
 2025-03-24 – Phase 4F: `lib/deck/inference.ts` — `sfIsLand`, `sfIsCreature`, `sfIsInstant`, `sfIsPlaneswalker` prefer `SfCard` type flags with `type_line` regex fallback; used in `inferDeckAim`, `tagCardRoles`, `analyzeCurve`, `analyzeManabase`, `inferDeckContext` land count.
 
 2025-03-24 – Phase 4E: `POST /api/cards/batch-metadata` selects and passes through optional `legalities`, `keywords`, `colors`, P/T, `loyalty`, `is_*` from `scryfall_cache`; memo key `batch-metadata:v2:` (`app/api/cards/batch-metadata/route.ts`).

@@ -11,7 +11,7 @@ export type ModuleFlags = {
   graveyard: boolean;
 };
 
-export type CachedCard = { type_line?: string; oracle_text?: string };
+export type CachedCard = { type_line?: string; oracle_text?: string; keywords?: string[] };
 
 // Thresholds (tuneable constants)
 const CASCADE_MIN_COUNT = 5;
@@ -47,6 +47,13 @@ const GRAVEYARD_ENABLER_NAMES = new Set([
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Oracle keyword list from Scryfall (e.g. "Cascade", "Landfall"). Case-insensitive exact match. */
+function hasOracleKeyword(keywords: string[] | undefined, canonical: string): boolean {
+  if (!keywords?.length) return false;
+  const want = canonical.toLowerCase();
+  return keywords.some((k) => String(k).toLowerCase() === want);
 }
 
 function hasCascade(oracleText: string): boolean {
@@ -142,23 +149,30 @@ export function detectModules(
     const card = cachedCardDataByName.get(name);
     const oracle = card?.oracle_text ?? "";
     const typeLine = card?.type_line ?? "";
+    const kw = card?.keywords;
 
-    if (hasCascade(oracle)) cascadeCount++;
+    // Primary: oracle/type_line (unchanged). Additive: Scryfall keyword list when present.
+    if (hasCascade(oracle) || hasOracleKeyword(kw, "Cascade")) cascadeCount++;
     if (isInstantOrSorcery(typeLine)) instantsSorceriesCount++;
-    if (hasStormPayoff || hasStorm(oracle)) hasStormPayoff = true;
-    if (isLandfallPayoff(oracle)) landfallPayoffCount++;
+    if (hasStormPayoff || hasStorm(oracle) || hasOracleKeyword(kw, "Storm")) hasStormPayoff = true;
+    if (isLandfallPayoff(oracle) || hasOracleKeyword(kw, "Landfall")) landfallPayoffCount++;
     if (isExtraLandDrop(oracle)) extraLandDropCount++;
     if (isRepeatableSacOutlet(oracle)) sacOutletScore += 2;
     else if (isSacOutlet(oracle)) sacOutletScore += 1;
     if (isDeathPayoff(oracle)) deathPayoffCount++;
-    if (isRecursionOrSelfMill(oracle)) recursionCount++;
+    if (isRecursionOrSelfMill(oracle) || hasOracleKeyword(kw, "Dredge")) recursionCount++;
   }
 
   // Commander has cascade
   if (commanderName) {
     const cmdNorm = norm(commanderName);
     const cmdCard = cachedCardDataByName.get(cmdNorm);
-    if (cmdCard && hasCascade(cmdCard.oracle_text ?? "")) cascadeCount = Math.max(cascadeCount, CASCADE_MIN_COUNT);
+    if (
+      cmdCard &&
+      (hasCascade(cmdCard.oracle_text ?? "") || hasOracleKeyword(cmdCard.keywords, "Cascade"))
+    ) {
+      cascadeCount = Math.max(cascadeCount, CASCADE_MIN_COUNT);
+    }
     if (GRAVEYARD_COMMANDER_NAMES.has(cmdNorm)) flags.graveyard = true;
   }
 

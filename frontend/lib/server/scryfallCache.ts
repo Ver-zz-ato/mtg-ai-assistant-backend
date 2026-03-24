@@ -157,24 +157,50 @@ export async function getDetailsForNamesCached(names: string[]) {
   return out;
 }
 
-/** Cache-only read: type_line + oracle_text from scryfall_cache. No live Scryfall fetch. Used for module detection. */
-export async function getDetailsForNamesCacheOnly(names: string[]) {
+/** Shape returned by {@link getDetailsForNamesCacheOnly} (module detection + compose + semantic fingerprint). */
+export type CacheOnlyCardDetails = {
+  type_line?: string;
+  oracle_text?: string;
+  keywords?: string[];
+  is_instant?: boolean;
+  is_sorcery?: boolean;
+};
+
+/** Cache-only read: type_line, oracle_text, keywords, instant/sorcery flags from scryfall_cache. No live Scryfall fetch. */
+export async function getDetailsForNamesCacheOnly(names: string[]): Promise<Map<string, CacheOnlyCardDetails>> {
   const supabase = await createClient();
   const uniq = Array.from(new Set((names || []).filter(Boolean)));
   const keys = uniq.map(norm);
-  const out = new Map<string, { type_line?: string; oracle_text?: string }>();
+  const out = new Map<string, CacheOnlyCardDetails>();
   if (!keys.length) return out;
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text")
+      .select("name, type_line, oracle_text, keywords, is_instant, is_sorcery")
       .in("name", keys);
-    const rows = (data || []) as { name: string; type_line?: string | null; oracle_text?: string | null }[];
+    const rows = (data || []) as {
+      name: string;
+      type_line?: string | null;
+      oracle_text?: string | null;
+      keywords?: unknown;
+      is_instant?: boolean | null;
+      is_sorcery?: boolean | null;
+    }[];
     for (const row of rows) {
-      out.set(row.name, {
+      const kwRaw = row.keywords;
+      let keywords: string[] | undefined;
+      if (Array.isArray(kwRaw)) {
+        const k = kwRaw.filter((x): x is string => typeof x === "string");
+        if (k.length) keywords = k;
+      }
+      const entry: CacheOnlyCardDetails = {
         type_line: row.type_line ?? undefined,
         oracle_text: row.oracle_text ?? undefined,
-      });
+      };
+      if (keywords) entry.keywords = keywords;
+      if (typeof row.is_instant === "boolean") entry.is_instant = row.is_instant;
+      if (typeof row.is_sorcery === "boolean") entry.is_sorcery = row.is_sorcery;
+      out.set(row.name, entry);
     }
   } catch {}
   return out;
