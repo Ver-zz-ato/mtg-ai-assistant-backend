@@ -410,6 +410,16 @@ function formatDeckMetricsFromServer(context: InferredDeckContext): string {
   return lines.join("\n");
 }
 
+/** User-prompt add-on: how to read server metrics without overreacting to raw counts. */
+const DECK_METRICS_INTERPRETATION_GUIDANCE = `Interpretation guidance:
+
+- Treat the metrics above as ground truth, but interpret counts in the context of the deck's archetype and commander.
+- Do not assume a category is excessive purely because its count is high.
+- In spellslinger decks, rituals, temporary mana bursts, cost reducers, and commander-generated mana can inflate ramp-like counts and should not be treated the same as permanent mana development.
+- Prioritize identifying missing roles, weak card quality, redundancy, and poor synergy over criticizing raw counts alone.
+- Prefer improving card quality and role coverage rather than making recommendations that simply "balance numbers."
+- If a category is high, explain whether those cards are actually low-impact, redundant, or off-plan before recommending cuts.`;
+
 async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
@@ -459,6 +469,7 @@ async function planSuggestionSlots(
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
+    DECK_METRICS_INTERPRETATION_GUIDANCE,
     "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
     userMessage ? `User message:\n${userMessage}` : "",
@@ -558,6 +569,7 @@ async function fetchSlotCandidates(
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
+    DECK_METRICS_INTERPRETATION_GUIDANCE,
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
@@ -643,6 +655,7 @@ async function retrySlotCandidates(
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
+    DECK_METRICS_INTERPRETATION_GUIDANCE,
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",
