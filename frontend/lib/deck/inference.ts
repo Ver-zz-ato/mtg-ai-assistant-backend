@@ -13,6 +13,20 @@ export type SfCard = {
   legalities?: Record<string, string>;
   mana_cost?: string; // e.g. "{1}{R}{G}"
   set?: string; // Set code e.g. "woe", "mkm"
+  /** Oracle keywords (e.g. Flying). From cache or API when available. */
+  keywords?: string[];
+  /** Card colors (Scryfall `colors`), not the same as color_identity. */
+  colors?: string[];
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
+  is_land?: boolean;
+  is_creature?: boolean;
+  is_instant?: boolean;
+  is_sorcery?: boolean;
+  is_enchantment?: boolean;
+  is_artifact?: boolean;
+  is_planeswalker?: boolean;
 };
 
 function norm(name: string): string {
@@ -28,6 +42,74 @@ function normalizeLegalities(value: unknown): Record<string, string> {
   }
   return out;
 }
+
+function coerceStringArray(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v.filter((x): x is string => typeof x === "string");
+  return out.length ? out : undefined;
+}
+
+function optionalBool(v: unknown): boolean | undefined {
+  if (v === true) return true;
+  if (v === false) return false;
+  return undefined;
+}
+
+function optionalStat(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  const s = String(v).trim();
+  return s === "" ? undefined : s;
+}
+
+/** Map Phase 2A / backfilled `scryfall_cache` columns onto optional `SfCard` fields (omit when absent). */
+function mapScryfallCacheRowExtras(row: Record<string, unknown>): Partial<SfCard> {
+  const out: Partial<SfCard> = {};
+  const kw = coerceStringArray(row.keywords);
+  const col = coerceStringArray(row.colors);
+  if (kw) out.keywords = kw;
+  if (col) out.colors = col;
+  const p = optionalStat(row.power);
+  const t = optionalStat(row.toughness);
+  const l = optionalStat(row.loyalty);
+  if (p !== undefined) out.power = p;
+  if (t !== undefined) out.toughness = t;
+  if (l !== undefined) out.loyalty = l;
+  const land = optionalBool(row.is_land);
+  const cre = optionalBool(row.is_creature);
+  const ins = optionalBool(row.is_instant);
+  const sor = optionalBool(row.is_sorcery);
+  const enc = optionalBool(row.is_enchantment);
+  const art = optionalBool(row.is_artifact);
+  const pw = optionalBool(row.is_planeswalker);
+  if (land !== undefined) out.is_land = land;
+  if (cre !== undefined) out.is_creature = cre;
+  if (ins !== undefined) out.is_instant = ins;
+  if (sor !== undefined) out.is_sorcery = sor;
+  if (enc !== undefined) out.is_enchantment = enc;
+  if (art !== undefined) out.is_artifact = art;
+  if (pw !== undefined) out.is_planeswalker = pw;
+  return out;
+}
+
+/** Optional fields from Scryfall API card JSON (collection / named). */
+function mapApiCardExtras(c: Record<string, unknown>): Partial<SfCard> {
+  const out: Partial<SfCard> = {};
+  const kw = coerceStringArray(c.keywords);
+  const col = coerceStringArray(c.colors);
+  if (kw) out.keywords = kw;
+  if (col) out.colors = col;
+  const front = c.card_faces && Array.isArray(c.card_faces) ? (c.card_faces as unknown[])[0] as Record<string, unknown> | undefined : undefined;
+  const p = optionalStat(c.power ?? front?.power);
+  const t = optionalStat(c.toughness ?? front?.toughness);
+  const l = optionalStat(c.loyalty ?? front?.loyalty);
+  if (p !== undefined) out.power = p;
+  if (t !== undefined) out.toughness = t;
+  if (l !== undefined) out.loyalty = l;
+  return out;
+}
+
+const SC_CACHE_INFERENCE_SELECT =
+  "name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker";
 
 // Simple in-process cache (persists across hot reloads on server)
 declare global {
@@ -117,23 +199,24 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     const supabase = await createClient();
     const { data: rows } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
+      .select(SC_CACHE_INFERENCE_SELECT)
       .eq("name", key)
       .limit(1);
     
     if (rows && rows.length > 0) {
-      const row = rows[0];
+      const row = rows[0] as Record<string, unknown>;
       // Check if cache is stale (30 days TTL)
-      if (!isStale(row.updated_at)) {
+      if (!isStale(row.updated_at as string | null | undefined)) {
         const card: SfCard = {
-          name: row.name,
-          type_line: row.type_line || undefined,
-          oracle_text: row.oracle_text || null,
+          name: String(row.name),
+          type_line: (row.type_line as string | null) || undefined,
+          oracle_text: (row.oracle_text as string | null) || null,
           color_identity: (row.color_identity || []) as string[],
           cmc: typeof row.cmc === "number" ? row.cmc : undefined,
           // Was incorrectly `{}` always; DB may have jsonb legalities from bulk/API upserts.
-          legalities: normalizeLegalities((row as { legalities?: unknown }).legalities),
-          mana_cost: row.mana_cost || undefined,
+          legalities: normalizeLegalities(row.legalities),
+          mana_cost: (row.mana_cost as string | null) || undefined,
+          ...mapScryfallCacheRowExtras(row),
         };
         // Store in memory cache for next time
         sfCache.set(key, card);
@@ -163,6 +246,7 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     );
     if (!r.ok) return null;
     const j = (await r.json()) as ScryfallNamed;
+    const jrec = j as unknown as Record<string, unknown>;
 
     const card: SfCard = {
       name: j.name,
@@ -172,6 +256,7 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
       cmc: typeof j.cmc === "number" ? j.cmc : undefined,
       legalities: j.legalities ?? {},
       mana_cost: j.mana_cost ?? undefined,
+      ...mapApiCardExtras(jrec),
     };
     
     // Store in memory cache
@@ -233,23 +318,25 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
     const supabase = await createClient();
     const { data: rows } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
+      .select(SC_CACHE_INFERENCE_SELECT)
       .in("name", dbKeys);
     
     if (rows && rows.length > 0) {
       const staleRows: string[] = [];
       
       for (const row of rows) {
-        const key = row.name;
-        if (!isStale(row.updated_at)) {
+        const r = row as Record<string, unknown>;
+        const key = String(r.name);
+        if (!isStale(r.updated_at as string | null | undefined)) {
           const card: SfCard = {
-            name: row.name,
-            type_line: row.type_line || undefined,
-            oracle_text: row.oracle_text || null,
-            color_identity: (row.color_identity || []) as string[],
-            cmc: typeof row.cmc === "number" ? row.cmc : undefined,
-            legalities: normalizeLegalities((row as { legalities?: unknown }).legalities),
-            mana_cost: row.mana_cost || undefined,
+            name: key,
+            type_line: (r.type_line as string | null) || undefined,
+            oracle_text: (r.oracle_text as string | null) || null,
+            color_identity: (r.color_identity || []) as string[],
+            cmc: typeof r.cmc === "number" ? r.cmc : undefined,
+            legalities: normalizeLegalities(r.legalities),
+            mana_cost: (r.mana_cost as string | null) || undefined,
+            ...mapScryfallCacheRowExtras(r),
           };
           result.set(key, card);
           sfCache.set(key, card); // Store in memory too
@@ -268,7 +355,7 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
       }
       
       // Add cards not found in DB to API fetch list
-      const foundKeys = new Set(rows.map(r => r.name));
+      const foundKeys = new Set(rows.map(r => String((r as { name?: string }).name)));
       for (let i = 0; i < dbKeys.length; i++) {
         if (!foundKeys.has(dbKeys[i])) {
           toApi.push(toFetch[i]);
@@ -321,6 +408,7 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
             cmc: typeof c.cmc === "number" ? c.cmc : undefined,
             legalities: c.legalities || {},
             mana_cost: c.mana_cost,
+            ...mapApiCardExtras(c as Record<string, unknown>),
           };
           
           result.set(key, card);

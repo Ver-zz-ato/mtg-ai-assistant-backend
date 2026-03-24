@@ -28,13 +28,23 @@ const KNOWN_ANY_COLOR_LANDS = new Set([
   "gemstone caverns",
 ]);
 
-type MemoEntry = { typeLine: string | null; expiresAt: number };
+type MemoEntry = { typeLine: string | null; isLand: boolean | null; expiresAt: number };
 const MEMO_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const memo = new Map<string, MemoEntry>();
+
+/** Populated by `getTypeLinesForNames` so `isLandFromLookup` can prefer `scryfall_cache.is_land`. */
+const landFlagByNormalizedName = new Map<string, boolean | null>();
+
+function coerceIsLand(v: unknown): boolean | null {
+  if (v === true) return true;
+  if (v === false) return false;
+  return null;
+}
 
 /**
  * Batch fetch type_line from scryfall_cache. Cache-only, no live API.
  * Returns Map keyed by normalized name.
+ * Also records `is_land` (when present) for {@link isLandFromLookup}.
  */
 export async function getTypeLinesForNames(
   names: string[]
@@ -49,6 +59,7 @@ export async function getTypeLinesForNames(
     const entry = memo.get(key);
     if (entry && entry.expiresAt > now) {
       out.set(key, entry.typeLine);
+      landFlagByNormalizedName.set(key, entry.isLand ?? null);
     } else {
       toFetch.push(key);
     }
@@ -61,26 +72,32 @@ export async function getTypeLinesForNames(
     try {
       const { data } = await supabase
         .from("scryfall_cache")
-        .select("name, type_line")
+        .select("name, type_line, is_land")
         .in("name", uniq);
 
-      const rows = (data || []) as { name: string; type_line?: string | null }[];
+      const rows = (data || []) as { name: string; type_line?: string | null; is_land?: boolean | null }[];
       for (const row of rows) {
         const key = normalizeCardName(row.name);
         const typeLine = row.type_line ?? null;
+        const isLand = coerceIsLand(row.is_land);
         out.set(key, typeLine);
-        memo.set(key, { typeLine, expiresAt: now + MEMO_TTL_MS });
+        landFlagByNormalizedName.set(key, isLand);
+        memo.set(key, { typeLine, isLand, expiresAt: now + MEMO_TTL_MS });
       }
       // Mark misses as null so we don't re-fetch
       for (const k of uniq) {
         if (!out.has(k)) {
           out.set(k, null);
-          memo.set(k, { typeLine: null, expiresAt: now + MEMO_TTL_MS });
+          landFlagByNormalizedName.set(k, null);
+          memo.set(k, { typeLine: null, isLand: null, expiresAt: now + MEMO_TTL_MS });
         }
       }
     } catch {
       for (const k of uniq) {
-        if (!out.has(k)) out.set(k, null);
+        if (!out.has(k)) {
+          out.set(k, null);
+          landFlagByNormalizedName.set(k, null);
+        }
       }
     }
   }
@@ -136,12 +153,16 @@ export function colorsFromTypeLine(
 }
 
 /**
- * Check if a card is a land: either type_line says Land, or it's a known any-color land.
+ * Check if a card is a land: prefer `scryfall_cache.is_land` when set (via {@link getTypeLinesForNames}),
+ * else type_line substring "Land", else known any-color land names.
  */
 export function isLandFromLookup(
   typeLine: string | null,
   cardNameNormalized: string
 ): boolean {
+  const flag = landFlagByNormalizedName.get(cardNameNormalized);
+  if (flag === true) return true;
+  if (flag === false) return false;
   if (isLandType(typeLine)) return true;
   return KNOWN_ANY_COLOR_LANDS.has(cardNameNormalized);
 }

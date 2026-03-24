@@ -1,3 +1,15 @@
+2025-03-24 – Phase 4E: `POST /api/cards/batch-metadata` selects and passes through optional `legalities`, `keywords`, `colors`, P/T, `loyalty`, `is_*` from `scryfall_cache`; memo key `batch-metadata:v2:` (`app/api/cards/batch-metadata/route.ts`).
+
+2025-03-24 – Phase 4D: `SfCard` + `fetchCard` / `fetchCardsBatch` read optional Phase 2A fields from `scryfall_cache` (`keywords`, `colors`, P/T, `loyalty`, `is_*`); `mapApiCardExtras` for API path; `SC_CACHE_INFERENCE_SELECT` (`lib/deck/inference.ts`).
+
+2025-03-24 – Phase 4C: recommendations deck API uses `cacheNameNorm` (same as `scryfall_cache` PK) for legality `.in('name', …)`, legal set membership, deck/collection checks, commander identity keys (`app/api/recommendations/deck/[id]/route.ts`).
+
+2025-03-24 – Phase 4B: mulligan `getTypeLinesForNames` + `isLandFromLookup` use `scryfall_cache.is_land` when set, else existing `type_line` / known-name logic (`lib/mulligan/card-types.ts` only).
+
+2025-03-24 – Phase 4A: `getEnrichmentForNames` reads cached power, toughness, loyalty, keywords, colors:
+- `lib/server/scryfallCache.ts` — extended `.select`, `EnrichmentRow`, DB + API branch mapping; `coerceStringArray` for jsonb arrays.
+- `lib/deck/deck-enrichment.ts` — `EnrichedCard` pass-through for same fields.
+
 2025-03-24 – Price snapshots: cron aligned with Scryfall bulk (product choice #2):
 - `lib/server/priceSnapshotFromScryfallBulk.ts` — shared `default_cards` download, median USD/EUR per `name_norm`, GBP via FX; upsert + 60d cleanup.
 - `app/api/cron/price/snapshot/route.ts` — uses shared runner (no longer prefers `price_cache`); `maxDuration` 600s.

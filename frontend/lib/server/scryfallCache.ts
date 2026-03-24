@@ -211,7 +211,7 @@ export async function getCardDataForProfileTrends(names: string[]) {
   return out;
 }
 
-/** Enrichment data for deck intelligence. Returns type_line, oracle_text, color_identity, cmc, mana_cost, legalities, power, toughness, layout. */
+/** Enrichment data for deck intelligence. Cached + API fallback. */
 export type EnrichmentRow = {
   name: string;
   type_line?: string;
@@ -222,11 +222,22 @@ export type EnrichmentRow = {
   legalities?: Record<string, string>;
   power?: string;
   toughness?: string;
+  loyalty?: string;
+  /** Card colors (Scryfall `colors`), distinct from color_identity. */
+  colors?: string[];
+  /** Oracle keywords (e.g. Flying, Flash). */
+  keywords?: string[];
   layout?: string;
   cache_miss?: boolean;
 };
 
-/** Batch enrichment for deck cards. Cache + Scryfall API fallback. Power/toughness/layout from API when fetched. */
+function coerceStringArray(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v.filter((x): x is string => typeof x === "string");
+  return out.length ? out : undefined;
+}
+
+/** Batch enrichment for deck cards. Cache + Scryfall API fallback. Power/toughness/loyalty/keywords/colors from cache when present, else API when fetched. */
 export async function getEnrichmentForNames(names: string[]): Promise<Map<string, EnrichmentRow>> {
   const supabase = await createClient();
   const uniq = Array.from(new Set((names || []).filter(Boolean)));
@@ -234,16 +245,34 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
   const out = new Map<string, EnrichmentRow>();
   if (!keys.length) return out;
 
-  type Row = { name: string; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; cmc?: number|null; mana_cost?: string|null; legalities?: Record<string, string>|null; updated_at?: string|null };
+  type Row = {
+    name: string;
+    type_line?: string | null;
+    oracle_text?: string | null;
+    color_identity?: string[] | null;
+    cmc?: number | null;
+    mana_cost?: string | null;
+    legalities?: Record<string, string> | null;
+    power?: string | null;
+    toughness?: string | null;
+    loyalty?: string | null;
+    keywords?: unknown;
+    colors?: unknown;
+    updated_at?: string | null;
+  };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
+      .select(
+        "name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, power, toughness, loyalty, keywords, colors, updated_at"
+      )
       .in("name", keys);
     rows = (data || []) as Row[];
     for (const row of rows) {
       if (!row.name) continue;
+      const kw = coerceStringArray(row.keywords);
+      const col = coerceStringArray(row.colors);
       out.set(row.name, {
         name: row.name,
         type_line: row.type_line ?? undefined,
@@ -251,7 +280,12 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         color_identity: row.color_identity ?? [],
         cmc: typeof row.cmc === "number" ? row.cmc : undefined,
         mana_cost: row.mana_cost ?? undefined,
-        legalities: (row.legalities && typeof row.legalities === "object") ? (row.legalities as Record<string, string>) : undefined,
+        legalities: row.legalities && typeof row.legalities === "object" ? (row.legalities as Record<string, string>) : undefined,
+        power: row.power != null && String(row.power).trim() !== "" ? String(row.power) : undefined,
+        toughness: row.toughness != null && String(row.toughness).trim() !== "" ? String(row.toughness) : undefined,
+        loyalty: row.loyalty != null && String(row.loyalty).trim() !== "" ? String(row.loyalty) : undefined,
+        keywords: kw,
+        colors: col,
       });
     }
   } catch {}
@@ -285,6 +319,8 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         const legalities = (c?.legalities && typeof c.legalities === "object") ? (c.legalities as Record<string, string>) : null;
         const oracleText = c?.oracle_text ?? c?.card_faces?.[0]?.oracle_text;
         const front = c?.card_faces?.[0];
+        const apiKeywords = coerceStringArray(c?.keywords);
+        const apiColors = coerceStringArray(c?.colors);
         out.set(key, {
           name: key,
           type_line: c?.type_line,
@@ -295,6 +331,14 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
           legalities: legalities ?? undefined,
           power: c?.power ?? front?.power,
           toughness: c?.toughness ?? front?.toughness,
+          loyalty:
+            c?.loyalty != null && String(c.loyalty).trim() !== ""
+              ? String(c.loyalty)
+              : front?.loyalty != null && String(front.loyalty).trim() !== ""
+                ? String(front.loyalty)
+                : undefined,
+          keywords: apiKeywords,
+          colors: apiColors,
           layout: c?.layout,
         });
         up.push(buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));

@@ -30,15 +30,45 @@ function safeNext(next: string | null, base: string, defaultNext: string): strin
   }
 }
 
+/** recovery + invite keep classic redirect; other OTP types use /auth/confirmed */
+function usesEmailConfirmationSuccessPage(type: EmailOtpType | null): boolean {
+  if (!type) return false;
+  if (RECOVERY_TYPES.includes(type)) return false;
+  if (type === 'invite') return false;
+  return true;
+}
+
+function buildConfirmedSuccessUrl(
+  req: NextRequest,
+  origin: string,
+  rawNext: string | null,
+  defaultNext: string,
+  userEmail: string | null | undefined,
+  otpType: EmailOtpType,
+): URL {
+  const u = new URL('/auth/confirmed', req.url);
+  u.searchParams.set('verified', '1');
+  const trimmed = (rawNext ?? '').trim();
+  if (trimmed) {
+    u.searchParams.set('next', safeNext(rawNext, origin, defaultNext));
+  }
+  if (userEmail) {
+    u.searchParams.set('email', userEmail);
+  }
+  u.searchParams.set('resend_type', otpType === 'email_change' ? 'email_change' : 'signup');
+  return u;
+}
+
 /**
  * Token-hash confirm route for Supabase OTP flows.
- * Supports: recovery (password reset), email (signup + magic link), invite.
+ * Supports: recovery (password reset), email (signup + magic link), invite, email_change, etc.
  *
  * Email templates should link to:
  * {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=...&next=...
  *
  * - type=recovery: default next=/account/update-password, error → /account/update-password?error=invalid_or_expired
- * - type=email, type=invite: default next=/, error → /?auth_error=invalid_or_expired
+ * - type=invite: default next=/, error → /?auth_error=invalid_or_expired
+ * - type=email, email_change, signup, magiclink, …: success → /auth/confirmed?verified=1&…, error → /?auth_error=invalid_or_expired
  */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -59,12 +89,20 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash, type });
     if (error) {
       console.warn('[auth/confirm] verifyOtp failed:', type, error.message);
       return NextResponse.redirect(new URL(errorRedirect, req.url));
     }
     console.log('[auth/confirm] success:', type);
+
+    const userEmail = data.session?.user?.email ?? data.user?.email ?? null;
+
+    if (usesEmailConfirmationSuccessPage(type)) {
+      const dest = buildConfirmedSuccessUrl(req, url.origin, rawNext, defaultNext, userEmail, type);
+      return NextResponse.redirect(dest);
+    }
+
     return NextResponse.redirect(new URL(next, req.url));
   } catch (e) {
     console.error('[auth/confirm] error:', type, e);

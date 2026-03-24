@@ -20,6 +20,9 @@ export type EnrichedCard = {
   legalities?: Record<string, string>;
   power?: string;
   toughness?: string;
+  loyalty?: string;
+  colors?: string[];
+  keywords?: string[];
   layout?: string;
   commander_eligible?: boolean;
   cache_miss?: boolean;
@@ -89,6 +92,9 @@ export async function enrichDeck(
       legalities: r.legalities,
       power: r.power,
       toughness: r.toughness,
+      loyalty: r.loyalty,
+      colors: r.colors,
+      keywords: r.keywords,
       layout: r.layout,
       commander_eligible: isCommanderEligible(r.type_line, r.oracle_text),
       cache_miss: r.cache_miss,

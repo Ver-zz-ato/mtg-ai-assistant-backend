@@ -5,6 +5,16 @@ import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
 
 export const runtime = 'nodejs';
 
+/** Same normalization as `scryfall_cache.name` keys in `lib/server/scryfallCache.ts` (`norm`). */
+function cacheNameNorm(s: string): string {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * Deck-Specific Card Recommendations API
  * Returns 3-5 recommended cards based on the current deck's strategy and color identity
@@ -66,7 +76,7 @@ export async function GET(
         if (match) {
           const cardName = match[1].trim();
           if (cardName && !cardName.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
-            deckCards.add(cardName.toLowerCase());
+            deckCards.add(cacheNameNorm(cardName));
           }
         }
       }
@@ -87,7 +97,7 @@ export async function GET(
         .eq('collection_id', collections[0].id);
       
       if (items) {
-        items.forEach(item => collectionCards.add(item.name.toLowerCase()));
+        items.forEach(item => collectionCards.add(cacheNameNorm(item.name)));
       }
     }
 
@@ -155,15 +165,14 @@ export async function GET(
     });
 
     // Filter out cards already in deck
-    let filtered = candidates.filter(card => !deckCards.has(card.name.toLowerCase()));
+    let filtered = candidates.filter(card => !deckCards.has(cacheNameNorm(card.name)));
 
     // Commander: filter by color identity (ensure no off-color cards)
     if (isCommander && colors.length > 0) {
       const cardNames = filtered.map(c => c.name);
       const details = await getDetailsForNamesCached(cardNames);
-      const norm = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
       filtered = filtered.filter(card => {
-        const key = norm(card.name);
+        const key = cacheNameNorm(card.name);
         const entry = details.get(key);
         if (!entry) return true; // Unknown card: keep (e.g. cache miss)
         return isWithinColorIdentity(entry as any, colors);
@@ -172,33 +181,34 @@ export async function GET(
 
     // Filter by format legality (non-Commander)
     if (deckFormat !== 'commander') {
-      // Check legality in scryfall_cache
-      const cardNames = filtered.map(c => c.name);
-      const { data: legalityData } = await supabase
-        .from('scryfall_cache')
-        .select('name, legalities')
-        .in('name', cardNames);
+      const legalityKeys = Array.from(new Set(filtered.map((c) => cacheNameNorm(c.name)))).filter(Boolean);
+      if (legalityKeys.length > 0) {
+        const { data: legalityData } = await supabase
+          .from('scryfall_cache')
+          .select('name, legalities')
+          .in('name', legalityKeys);
 
-      if (legalityData && legalityData.length > 0) {
-        const legalCards = new Set<string>();
-        legalityData.forEach((card: any) => {
-          const legalities = card.legalities || {};
-          const formatKey = deckFormat === 'standard' ? 'standard' : deckFormat === 'modern' ? 'modern' : 'commander';
-          if (legalities[formatKey] === 'legal' || legalities[formatKey] === 'restricted') {
-            legalCards.add(card.name.toLowerCase());
-          }
-        });
-        filtered = filtered.filter(card => legalCards.has(card.name.toLowerCase()));
+        if (legalityData && legalityData.length > 0) {
+          const legalCards = new Set<string>();
+          legalityData.forEach((card: any) => {
+            const legalities = card.legalities || {};
+            const formatKey = deckFormat === 'standard' ? 'standard' : deckFormat === 'modern' ? 'modern' : 'commander';
+            if (legalities[formatKey] === 'legal' || legalities[formatKey] === 'restricted') {
+              legalCards.add(cacheNameNorm(String(card.name ?? '')));
+            }
+          });
+          filtered = filtered.filter((card) => legalCards.has(cacheNameNorm(card.name)));
+        }
       }
     }
 
     // Prioritize cards not in collection
     const notInCollection = filtered.filter(card => 
-      !collectionCards.has(card.name.toLowerCase())
+      !collectionCards.has(cacheNameNorm(card.name))
     );
 
     const inCollection = filtered.filter(card => 
-      collectionCards.has(card.name.toLowerCase())
+      collectionCards.has(cacheNameNorm(card.name))
     );
 
     // Take up to 5 recommendations (prefer cards not in collection)
