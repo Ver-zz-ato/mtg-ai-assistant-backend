@@ -25,6 +25,9 @@ export type EnrichedCard = {
   keywords?: string[];
   layout?: string;
   commander_eligible?: boolean;
+  /** From scryfall_cache when present; see Phase 4I role tagging / deck facts. */
+  is_land?: boolean;
+  is_creature?: boolean;
   cache_miss?: boolean;
 };
 
@@ -98,6 +101,8 @@ export async function enrichDeck(
       layout: r.layout,
       commander_eligible: isCommanderEligible(r.type_line, r.oracle_text),
       cache_miss: r.cache_miss,
+      ...(typeof r.is_land === "boolean" ? { is_land: r.is_land } : {}),
+      ...(typeof r.is_creature === "boolean" ? { is_creature: r.is_creature } : {}),
     });
   }
   return result;

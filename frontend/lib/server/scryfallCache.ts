@@ -254,6 +254,9 @@ export type EnrichmentRow = {
   /** Oracle keywords (e.g. Flying, Flash). */
   keywords?: string[];
   layout?: string;
+  /** From scryfall_cache when set; used by deck enrichment / role tagging. */
+  is_land?: boolean;
+  is_creature?: boolean;
   cache_miss?: boolean;
 };
 
@@ -285,13 +288,15 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
     keywords?: unknown;
     colors?: unknown;
     updated_at?: string | null;
+    is_land?: boolean | null;
+    is_creature?: boolean | null;
   };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
       .select(
-        "name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, power, toughness, loyalty, keywords, colors, updated_at"
+        "name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, power, toughness, loyalty, keywords, colors, updated_at, is_land, is_creature"
       )
       .in("name", keys);
     rows = (data || []) as Row[];
@@ -312,6 +317,8 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         loyalty: row.loyalty != null && String(row.loyalty).trim() !== "" ? String(row.loyalty) : undefined,
         keywords: kw,
         colors: col,
+        ...(typeof row.is_land === "boolean" ? { is_land: row.is_land } : {}),
+        ...(typeof row.is_creature === "boolean" ? { is_creature: row.is_creature } : {}),
       });
     }
   } catch {}
@@ -347,6 +354,7 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         const front = c?.card_faces?.[0];
         const apiKeywords = coerceStringArray(c?.keywords);
         const apiColors = coerceStringArray(c?.colors);
+        const built = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>);
         out.set(key, {
           name: key,
           type_line: c?.type_line,
@@ -366,8 +374,10 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
           keywords: apiKeywords,
           colors: apiColors,
           layout: c?.layout,
+          ...(typeof built.is_land === "boolean" ? { is_land: built.is_land } : {}),
+          ...(typeof built.is_creature === "boolean" ? { is_creature: built.is_creature } : {}),
         });
-        up.push(buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+        up.push(built);
       }
       if (up.length) {
         await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
