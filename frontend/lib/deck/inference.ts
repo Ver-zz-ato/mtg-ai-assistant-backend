@@ -108,6 +108,31 @@ function mapApiCardExtras(c: Record<string, unknown>): Partial<SfCard> {
   return out;
 }
 
+/** Prefer backfilled `scryfall_cache` booleans; fall back to `type_line` substring checks. `typeLineLower` = (card.type_line||'').toLowerCase(). */
+function sfIsLand(c: SfCard, typeLineLower: string): boolean {
+  if (c.is_land === true) return true;
+  if (c.is_land === false) return false;
+  return /land/i.test(typeLineLower);
+}
+
+function sfIsCreature(c: SfCard, typeLineLower: string): boolean {
+  if (c.is_creature === true) return true;
+  if (c.is_creature === false) return false;
+  return /creature/i.test(typeLineLower);
+}
+
+function sfIsInstant(c: SfCard, typeLineLower: string): boolean {
+  if (c.is_instant === true) return true;
+  if (c.is_instant === false) return false;
+  return /instant/i.test(typeLineLower);
+}
+
+function sfIsPlaneswalker(c: SfCard, typeLineLower: string): boolean {
+  if (c.is_planeswalker === true) return true;
+  if (c.is_planeswalker === false) return false;
+  return /planeswalker/i.test(typeLineLower);
+}
+
 const SC_CACHE_INFERENCE_SELECT =
   "name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker";
 
@@ -621,7 +646,9 @@ export async function inferDeckAim(
   // Planeswalker strategies
   const planeswalkerCount = entries.filter(e => {
     const card = byName.get(e.name.toLowerCase());
-    return card?.type_line?.toLowerCase().includes('planeswalker');
+    if (!card) return false;
+    const tl = (card.type_line || '').toLowerCase();
+    return sfIsPlaneswalker(card, tl);
   }).length;
   if (planeswalkerCount >= 8) {
     const proliferateCards = cardNames.filter(n => {
@@ -740,7 +767,7 @@ export function tagCardRoles(
     }
     
     // Lands
-    if (/land/i.test(typeLine)) {
+    if (sfIsLand(c, typeLine)) {
       roles.push('land');
       if (/basic/i.test(typeLine)) {
         // Basic lands are also ramp/fixing
@@ -778,7 +805,7 @@ export function tagCardRoles(
     if (
       /you win the game|players.*lose|deal.*damage to each opponent|mill.*library/i.test(oracleText) ||
       /win|payoff|finisher/i.test(name.toLowerCase()) ||
-      (cmc >= 6 && /creature|planeswalker/i.test(typeLine))
+      (cmc >= 6 && (sfIsCreature(c, typeLine) || sfIsPlaneswalker(c, typeLine)))
     ) {
       roles.push('wincon_payoff');
     }
@@ -876,7 +903,7 @@ export function analyzeCurve(
     const oracleText = (c.oracle_text || '').toLowerCase();
     
     // Skip lands from curve calculation
-    if (/land/i.test(typeLine)) continue;
+    if (sfIsLand(c, typeLine)) continue;
     
     totalCMC += cmc * count;
     totalCards += count;
@@ -902,7 +929,7 @@ export function analyzeCurve(
     
     // Check for interaction (removal, counters)
     if (/destroy|exile|counter|return.*to.*hand|deal.*damage/i.test(oracleText) ||
-        /instant/i.test(typeLine)) {
+        sfIsInstant(c, typeLine)) {
       interactionCount += count;
     }
   }
@@ -1163,7 +1190,7 @@ export function analyzeManabase(
     const oracleText = (c.oracle_text || '') + (c.type_line || '');
     
     // Skip lands
-    if (/land/i.test(typeLine)) {
+    if (sfIsLand(c, typeLine)) {
       // Count colored sources in lands
       const colors = c.color_identity || [];
       colors.forEach((color: string) => {
@@ -1286,11 +1313,11 @@ export async function inferDeckContext(
   context.budgetCurrency = options.currency ?? 'USD';
 
   // Count lands
-  const landRe = /land/i;
   for (const { name, count } of entries) {
     const c = byName.get(name.toLowerCase());
-    const t = c?.type_line ?? "";
-    if (landRe.test(t)) context.landCount += count;
+    if (!c) continue;
+    const t = (c.type_line || "").toLowerCase();
+    if (sfIsLand(c, t)) context.landCount += count;
   }
 
   // Try to detect commander
