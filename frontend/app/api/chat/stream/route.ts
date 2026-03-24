@@ -1204,6 +1204,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Layer 0 treats bare card names (e.g. commander replies) as non-MTG via keyword check — must not run before chat + activeDeckContext.
+    const awaitingCommanderConfirmation =
+      activeDeckContext.hasDeck &&
+      (activeDeckContext.askReason === "confirm_inference" || activeDeckContext.askReason === "need_commander");
+    const skipLayer0ForCommanderFlow =
+      activeDeckContext.userJustConfirmedCommander ||
+      activeDeckContext.userJustCorrectedCommander ||
+      awaitingCommanderConfirmation;
+    if (skipLayer0ForCommanderFlow) {
+      streamDebug("layer0_skip_commander_flow", {
+        awaitingCommanderConfirmation,
+        userJustConfirmedCommander: activeDeckContext.userJustConfirmedCommander,
+        userJustCorrectedCommander: activeDeckContext.userJustCorrectedCommander,
+        askReason: activeDeckContext.askReason,
+      });
+    }
+
     // Layer 0: deterministic / mini-only gate (runtime or env LLM_LAYER0=on)
     const { isDecklist: isDecklistForLayer0 } = await import("@/lib/chat/decklistDetector");
     const streamHasDeckContextForLayer0 =
@@ -1215,7 +1232,7 @@ export async function POST(req: NextRequest) {
     let streamLayer0MiniOnly: { model: string; max_tokens: number } | null = null;
     const streamForceFullRoutes = streamRuntimeConfig.llm_force_full_routes ?? [];
     const streamForceFull = Array.isArray(streamForceFullRoutes) && streamForceFullRoutes.includes("chat_stream");
-    if (streamRuntimeConfig.flags.llm_layer0 === true && !streamForceFull) {
+    if (streamRuntimeConfig.flags.llm_layer0 === true && !streamForceFull && !skipLayer0ForCommanderFlow) {
       const { layer0Decide } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
       const status = await checkBudgetStatus(supabase);

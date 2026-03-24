@@ -1330,7 +1330,7 @@ function Chat(props: ChatProps = {}) {
     return (
       <>
         {!open && !reportOpen && (
-          <div className="pointer-events-auto absolute right-1 bottom-2 md:bottom-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-[10px]">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-[10px]">
             <button title="Helpful" onClick={()=>send(1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👍</button>
             <button title="Not helpful" onClick={()=>send(-1)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">👎</button>
             <button title="Comment" onClick={()=>setOpen(true)} disabled={busy} className="px-1 py-[1px] rounded border border-neutral-600/70 bg-neutral-900/40 hover:bg-neutral-800/70">💬</button>
@@ -1802,43 +1802,66 @@ function Chat(props: ChatProps = {}) {
                   {isAssistant && (
                     <>
                       <SourceReceipts sources={generateSourceAttribution(String(m.content || ''), { deckId: linkedDeckId || undefined })} />
-                      <div className="mt-2">
-                        <InlineFeedback
-                          msgId={String(m.id)}
-                          content={String(m.content || '')}
-                          isCorrected={correctedMessageIds.includes(String(m.id))}
-                          onOpenCorrection={setCorrectionOpenForMessageId}
-                        />
+                      <div className="mt-2 w-full flex flex-col items-end gap-1">
+                        <div className="flex justify-end w-full max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(String(m.content || ''));
+                                capture('chat_message_copied', {
+                                  messageId: String(m.id),
+                                  role: m.role,
+                                });
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            className="p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700/90"
+                            title="Copy"
+                            aria-label="Copy message"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="w-full flex justify-end">
+                          <InlineFeedback
+                            msgId={String(m.id)}
+                            content={String(m.content || '')}
+                            isCorrected={correctedMessageIds.includes(String(m.id))}
+                            onOpenCorrection={setCorrectionOpenForMessageId}
+                          />
+                        </div>
                       </div>
                     </>
                   )}
-                  <div className="flex justify-end mt-1.5 max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(String(m.content || ''));
-                          capture('chat_message_copied', {
-                            messageId: String(m.id),
-                            role: m.role,
-                          });
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                      className={
-                        isAssistant
-                          ? 'p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700/90'
-                          : 'p-1.5 rounded-md text-blue-100/90 hover:text-white hover:bg-blue-500/35'
-                      }
-                      title="Copy"
-                      aria-label="Copy message"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
+                  {!isAssistant && (
+                    <div className="flex justify-end mt-1.5 max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(String(m.content || ''));
+                            capture('chat_message_copied', {
+                              messageId: String(m.id),
+                              role: m.role,
+                            });
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                        className="p-1.5 rounded-md text-blue-100/90 hover:text-white hover:bg-blue-500/35"
+                        title="Copy"
+                        aria-label="Copy message"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

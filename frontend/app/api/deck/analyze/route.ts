@@ -430,6 +430,16 @@ const DECK_ANALYZE_PROBLEM_WEIGHTING = `Problem selection / recommendation weigh
 - Prefer changes that strengthen the primary engine, fix a clearly demonstrated bottleneck, improve enabler/payoff balance, protection or interaction timing, or consistency without diluting core synergy.
 - Before recommending cuts from a high-count category, explain why the specific cards are low-impact, redundant, or off-plan—not the number alone.`;
 
+/** User-prompt add-on: deck-specific slot problems and candidate picks (planner + slot stages). */
+const DECK_ANALYZE_SLOT_INTENT_PRECISION = `Slot intent precision:
+
+Recommendations must be tailored to this specific deck's failure modes and engine. Do not default to generic staple cards unless they are clearly the best fit. Prefer cards that synergize with the commander and scale with the deck's primary game plan. For interaction, favor spells that match the deck's speed, chaining patterns, and engine turns rather than broadly powerful but generic options.
+
+- Each slot (and each suggested add) must solve a specific, identified failure mode for THIS deck—not only a generic role label.
+- Prefer cards that synergize with the commander's mechanics, scale with spell count or engine turns where relevant, and support how this deck wins and where it loses.
+- For interaction, prefer answers that fit this deck's speed and play pattern (cheap, chainable, or synergistic) over generically strong staples that do not advance the plan.
+- When multiple valid options exist, choose the one most aligned with this deck's engine—not the most commonly played card.`;
+
 async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
@@ -481,6 +491,7 @@ async function planSuggestionSlots(
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
+    DECK_ANALYZE_SLOT_INTENT_PRECISION,
     "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
     userMessage ? `User message:\n${userMessage}` : "",
@@ -582,6 +593,7 @@ async function fetchSlotCandidates(
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
+    DECK_ANALYZE_SLOT_INTENT_PRECISION,
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
@@ -669,6 +681,7 @@ async function retrySlotCandidates(
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
+    DECK_ANALYZE_SLOT_INTENT_PRECISION,
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",
