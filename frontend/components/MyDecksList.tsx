@@ -9,7 +9,7 @@ import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
 import { capture } from '@/lib/ph';
 import { EmptyDecksState } from './EmptyStates';
-import { TagPills, TagSelector } from './DeckTags';
+import { TagSelector } from './DeckTags';
 import { getTagByLabel } from '@/lib/predefined-tags';
 
 interface DeckRow {
@@ -27,13 +27,250 @@ interface MyDecksListProps {
   pinnedIds: string[];
 }
 
+/** Must be a separate component: hooks (e.g. useSwipeable) cannot run inside rows.map(). */
+function MyDeckGridCard({
+  r,
+  pinnedIds,
+  deckStats,
+  deckTags,
+  swipedDeckId,
+  setSwipedDeckId,
+  setTagModalOpen,
+  deleteDeck,
+  duplicateDeck,
+}: {
+  r: DeckRow;
+  pinnedIds: string[];
+  deckStats: Map<string, DeckStats>;
+  deckTags: Map<string, string[]>;
+  swipedDeckId: string | null;
+  setSwipedDeckId: (id: string | null) => void;
+  setTagModalOpen: (id: string | null) => void;
+  deleteDeck: (deckId: string, deckName: string) => void;
+  duplicateDeck: (deckId: string, deckName: string) => void;
+}) {
+  const router = useRouter();
+  const title = r.title ?? "Untitled Deck";
+  const stats = deckStats.get(r.id);
+  const isPinned = pinnedIds.includes(r.id);
+  const isThisSwiped = swipedDeckId === r.id;
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => setSwipedDeckId(r.id),
+    onSwipedRight: () => setSwipedDeckId(null),
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  });
+
+  return (
+    <div {...swipeHandlers} className="relative">
+      <DeckArtLoader
+        deckId={r.id}
+        commander={r.commander || undefined}
+        title={r.title || undefined}
+      >
+        {(art, loading) => (
+          <div
+            className={`group rounded-xl border overflow-hidden bg-neutral-950 flex flex-col transition-all ${isPinned ? 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-transparent' : 'border-neutral-800'} hover:border-neutral-600 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1`}
+            style={{ transform: isThisSwiped ? 'translateX(-120px)' : 'translateX(0)' }}
+          >
+            <Link
+              href={`/my-decks/${r.id}`}
+              className="relative h-48 w-full overflow-hidden block cursor-pointer"
+              onClick={() => {
+                setTimeout(() => {
+                  try {
+                    capture('deck_card_click', { id: r.id });
+                    const colors: string[] = [];
+                    aiMemory.updateDeckContext({
+                      id: r.id,
+                      name: title,
+                      commander: r.commander || undefined,
+                      colors
+                    });
+                  } catch {}
+                }, 0);
+              }}
+            >
+              {art && !loading ? (
+                <img src={art} alt="cover" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              ) : loading ? (
+                <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                  <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
+                  {stats?.cardCount === 0 || stats?.cardCount === undefined ? (
+                    <div className="text-center z-10 p-4">
+                      <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-600/20 border-2 border-dashed border-emerald-500/50 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-emerald-300 font-medium">New deck — start building</div>
+                      <div className="text-xs text-neutral-400 mt-1">Add cards to see art</div>
+                    </div>
+                  ) : (
+                    <div className="text-center z-10">
+                      <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-600/20 border-2 border-blue-600/40 flex items-center justify-center">
+                        <svg className="w-10 h-10 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="12" r="10" opacity="0.3" />
+                          <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-blue-300 font-medium">Loading art...</div>
+                      <div className="text-xs text-neutral-400 mt-1">{stats.cardCount} cards</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+
+              {isPinned && (
+                <div className="absolute top-2 right-2 px-2 py-1 rounded bg-amber-600 text-white text-xs font-bold">
+                  📌 PINNED
+                </div>
+              )}
+            </Link>
+
+            <div className="p-4 flex-1 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <Link href={`/my-decks/${r.id}`} className="font-semibold text-base truncate hover:underline flex-1" title={title}>{title}</Link>
+                <button
+                  onClick={(e) => { e.preventDefault(); deleteDeck(r.id, title); }}
+                  className="text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-70 hover:opacity-100 transition-opacity"
+                  aria-label="Delete deck"
+                >
+                  Delete
+                </button>
+              </div>
+
+              {r.commander && (
+                <div className="text-xs text-gray-400 truncate" title={r.commander}>
+                  Commander: {r.commander}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(deckTags.get(r.id) || []).slice(0, 3).map((tag) => {
+                    const def = getTagByLabel(tag);
+                    const borderColor = def?.color?.replace('text-', 'border-') || 'border-neutral-600';
+                    return (
+                      <span
+                        key={tag}
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
+                      >
+                        {tag}
+                      </span>
+                    );
+                  })}
+                  {(deckTags.get(r.id) || []).length > 3 && (
+                    <span className="text-xs text-neutral-500">+{(deckTags.get(r.id) || []).length - 3}</span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setTagModalOpen(r.id);
+                  }}
+                  className="px-4 py-1.5 rounded-full text-xs font-medium border border-blue-600/30 text-blue-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
+                  aria-label="Edit tags"
+                >
+                  {deckTags.get(r.id)?.length ? '✏️' : '+ Tags'}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-4 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
+                  <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
+                </span>
+                <span className={`px-4 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border border-neutral-700/30 text-neutral-400'}`}>
+                  {r.is_public ? '🌐 Public' : '🔒 Private'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 mt-auto pt-3 pb-1 border-t border-neutral-800">
+                <LikeButton deckId={r.id} />
+                {(() => {
+                  try {
+                    const Pin = require('@/components/PinDeckButton').default;
+                    return (<Pin deckId={r.id} pinned={isPinned} currentPinned={pinnedIds} />);
+                  } catch {
+                    return null;
+                  }
+                })()}
+                {(() => {
+                  try {
+                    const Menu = require('@/components/DeckCardMenu').default;
+                    return (<Menu id={r.id} title={r.title} is_public={r.is_public} />);
+                  } catch {
+                    return null;
+                  }
+                })()}
+              </div>
+
+              <div className="text-[10px] opacity-50">
+                Updated: {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+              </div>
+            </div>
+          </div>
+        )}
+      </DeckArtLoader>
+
+      {isThisSwiped && (
+        <div className="absolute right-0 top-0 h-full flex items-center gap-2 pr-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSwipedDeckId(null);
+              router.push(`/compare-decks?deck1=${r.id}`);
+            }}
+            className="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors"
+            title="Compare"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSwipedDeckId(null);
+              duplicateDeck(r.id, title);
+            }}
+            className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition-colors"
+            title="Duplicate"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSwipedDeckId(null);
+              deleteDeck(r.id, title);
+            }}
+            className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+            title="Delete"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DeckStats {
   cardCount: number;
   estimatedValue?: number;
 }
 
 export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
-  const router = useRouter();
   const [deckStats, setDeckStats] = useState<Map<string, DeckStats>>(new Map());
   const [deckTags, setDeckTags] = useState<Map<string, string[]>>(new Map());
   const [tagModalOpen, setTagModalOpen] = useState<string | null>(null);
@@ -291,236 +528,20 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
       )}
       
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {rows.map((r) => {
-          const title = r.title ?? "Untitled Deck";
-          const stats = deckStats.get(r.id);
-          const isPinned = pinnedIds.includes(r.id);
-          const isThisSwiped = swipedDeckId === r.id;
-          
-          const swipeHandlers = useSwipeable({
-            onSwipedLeft: () => setSwipedDeckId(r.id),
-            onSwipedRight: () => setSwipedDeckId(null),
-            trackMouse: false, // Only track touch, not mouse
-            preventScrollOnSwipe: true,
-          });
-        
-        return (
-          <div key={r.id} {...swipeHandlers} className="relative">
-            <DeckArtLoader 
-            deckId={r.id} 
-            commander={r.commander || undefined} 
-            title={r.title || undefined}
-          >
-            {(art, loading) => (
-              <div className={`group rounded-xl border overflow-hidden bg-neutral-950 flex flex-col transition-all ${isPinned ? 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-transparent' : 'border-neutral-800'} hover:border-neutral-600 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1`} style={{ transform: isThisSwiped ? 'translateX(-120px)' : 'translateX(0)' }}>
-                {/* Cover - Clickable */}
-                <Link 
-                  href={`/my-decks/${r.id}`}
-                  className="relative h-48 w-full overflow-hidden block cursor-pointer"
-                  onClick={() => {
-                    // Fire analytics in background (non-blocking)
-                    setTimeout(() => {
-                      try {
-                        capture('deck_card_click', { id: r.id });
-                        const colors: string[] = [];
-                        aiMemory.updateDeckContext({
-                          id: r.id,
-                          name: title,
-                          commander: r.commander || undefined,
-                          colors
-                        });
-                      } catch {}
-                    }, 0);
-                  }}
-                >
-                  {art && !loading ? (
-                    <img src={art} alt="cover" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                  ) : loading ? (
-                    <div className="w-full h-full bg-neutral-900 skeleton-shimmer" />
-                  ) : (
-                    // Empty state placeholder with gradient and icon
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-900/20 via-blue-900/20 to-purple-900/20 flex items-center justify-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                      {/* Subtle pattern */}
-                      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-                      
-                      {stats?.cardCount === 0 || stats?.cardCount === undefined ? (
-                        // No cards: Show "New deck" state with better styling
-                        <div className="text-center z-10 p-4">
-                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-600/20 border-2 border-dashed border-emerald-500/50 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                          </div>
-                          <div className="text-sm text-emerald-300 font-medium">New deck — start building</div>
-                          <div className="text-xs text-neutral-400 mt-1">Add cards to see art</div>
-                        </div>
-                      ) : (
-                        // Has cards but no art: Show mana symbol
-                        <div className="text-center z-10">
-                          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-600/20 border-2 border-blue-600/40 flex items-center justify-center">
-                            <svg className="w-10 h-10 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                              <circle cx="12" cy="12" r="10" opacity="0.3" />
-                              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
-                            </svg>
-                          </div>
-                          <div className="text-sm text-blue-300 font-medium">Loading art...</div>
-                          <div className="text-xs text-neutral-400 mt-1">{stats.cardCount} cards</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                  
-                  {/* Pinned badge */}
-                  {isPinned && (
-                    <div className="absolute top-2 right-2 px-2 py-1 rounded bg-amber-600 text-white text-xs font-bold">
-                      📌 PINNED
-                    </div>
-                  )}
-                </Link>
-                
-                {/* Body with expanded stats */}
-                <div className="p-4 flex-1 flex flex-col gap-3">
-                  {/* Title and Delete - Delete hover-only */}
-                  <div className="flex items-start justify-between gap-2">
-                    <Link href={`/my-decks/${r.id}`} className="font-semibold text-base truncate hover:underline flex-1" title={title}>{title}</Link>
-                    <button 
-                      onClick={(e) => { e.preventDefault(); deleteDeck(r.id, title); }} 
-                      className="text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-70 hover:opacity-100 transition-opacity"
-                      aria-label="Delete deck"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  
-                  {/* Commander */}
-                  {r.commander && (
-                    <div className="text-xs text-gray-400 truncate" title={r.commander}>
-                      Commander: {r.commander}
-                    </div>
-                  )}
-                  
-                  {/* Tags - outline chips style */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {(deckTags.get(r.id) || []).slice(0, 3).map((tag) => {
-                        const def = getTagByLabel(tag);
-                        const borderColor = def?.color?.replace('text-', 'border-') || 'border-neutral-600';
-                        return (
-                          <span
-                            key={tag}
-                            className={`px-4 py-1.5 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
-                          >
-                            {tag}
-                          </span>
-                        );
-                      })}
-                      {(deckTags.get(r.id) || []).length > 3 && (
-                        <span className="text-xs text-neutral-500">+{(deckTags.get(r.id) || []).length - 3}</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setTagModalOpen(r.id);
-                      }}
-                      className="px-4 py-1.5 rounded-full text-xs font-medium border border-blue-600/30 text-blue-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
-                      aria-label="Edit tags"
-                    >
-                      {deckTags.get(r.id)?.length ? '✏️' : '+ Tags'}
-                    </button>
-                  </div>
-                  
-                  {/* Main stats - improved chip distinction */}
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {/* Cards: Badge style */}
-                    <span className="px-4 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
-                      <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
-                    </span>
-                    {/* Visibility: Pill style */}
-                    <span className={`px-4 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border-neutral-700/30 text-neutral-400'}`}>
-                      {r.is_public ? '🌐 Public' : '🔒 Private'}
-                    </span>
-                  </div>
-                  
-                  {/* Actions row - more spacing */}
-                  <div className="flex items-center gap-3 mt-auto pt-3 pb-1 border-t border-neutral-800">
-                    <LikeButton deckId={r.id} />
-                    {(()=>{ 
-                      try {
-                        const Pin = require('@/components/PinDeckButton').default; 
-                        return (<Pin deckId={r.id} pinned={isPinned} currentPinned={pinnedIds} />); 
-                      } catch {
-                        return null;
-                      }
-                    })()}
-                    {(()=>{ 
-                      try {
-                        const Menu = require('@/components/DeckCardMenu').default; 
-                        return (<Menu id={r.id} title={r.title} is_public={r.is_public} />); 
-                      } catch {
-                        return null;
-                      }
-                    })()}
-                  </div>
-                  
-                  {/* Updated timestamp */}
-                  <div className="text-[10px] opacity-50">
-                    Updated: {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                  </div>
-                </div>
-              </div>
-            )}
-          </DeckArtLoader>
-          
-          {/* Swipe Action Buttons */}
-          {isThisSwiped && (
-            <div className="absolute right-0 top-0 h-full flex items-center gap-2 pr-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSwipedDeckId(null);
-                  router.push(`/compare-decks?deck1=${r.id}`);
-                }}
-                className="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors"
-                title="Compare"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSwipedDeckId(null);
-                  duplicateDeck(r.id, title);
-                }}
-                className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition-colors"
-                title="Duplicate"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSwipedDeckId(null);
-                  deleteDeck(r.id, title);
-                }}
-                className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
-                title="Delete"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </div>
-        );
-      })}
+        {rows.map((r) => (
+          <MyDeckGridCard
+            key={r.id}
+            r={r}
+            pinnedIds={pinnedIds}
+            deckStats={deckStats}
+            deckTags={deckTags}
+            swipedDeckId={swipedDeckId}
+            setSwipedDeckId={setSwipedDeckId}
+            setTagModalOpen={setTagModalOpen}
+            deleteDeck={deleteDeck}
+            duplicateDeck={duplicateDeck}
+          />
+        ))}
       </div>
 
       {/* Tag Selector Modal */}
