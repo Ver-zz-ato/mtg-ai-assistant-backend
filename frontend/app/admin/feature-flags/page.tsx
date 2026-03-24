@@ -198,7 +198,7 @@ export default function AdminFeatureFlagsPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-4 text-neutral-500">
-                    No rows (run migration 097 or check service role).
+                    No rows (run migration 097 or verify the admin API can read this table).
                   </td>
                 </tr>
               ) : (
