@@ -1795,27 +1795,8 @@ function Chat(props: ChatProps = {}) {
                     (isAssistant ? "bg-neutral-800 text-left" : "bg-blue-600/80 text-left")
                   }
                 >
-                  <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1 flex items-center justify-between gap-2">
+                  <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
                     <span>{isAssistant ? 'assistant' : (displayName || 'you')}</span>
-                    {isAssistant && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(String(m.content || ''));
-                            capture('chat_message_copied', { messageId: String(m.id) });
-                            // Could show a toast here if needed
-                          } catch (err) {
-                            // Silently fail
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
-                        title="Copy message"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    )}
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
                   {isAssistant && (
@@ -1831,6 +1812,33 @@ function Chat(props: ChatProps = {}) {
                       </div>
                     </>
                   )}
+                  <div className="flex justify-end mt-1.5 max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(String(m.content || ''));
+                          capture('chat_message_copied', {
+                            messageId: String(m.id),
+                            role: m.role,
+                          });
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className={
+                        isAssistant
+                          ? 'p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700/90'
+                          : 'p-1.5 rounded-md text-blue-100/90 hover:text-white hover:bg-blue-500/35'
+                      }
+                      title="Copy"
+                      aria-label="Copy message"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );

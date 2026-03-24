@@ -420,6 +420,16 @@ const DECK_METRICS_INTERPRETATION_GUIDANCE = `Interpretation guidance:
 - Prefer improving card quality and role coverage rather than making recommendations that simply "balance numbers."
 - If a category is high, explain whether those cards are actually low-impact, redundant, or off-plan before recommending cuts.`;
 
+/** User-prompt add-on: evidence-led problems and shell-specific recommendations (planner + slot stages). */
+const DECK_ANALYZE_PROBLEM_WEIGHTING = `Problem selection / recommendation weighting:
+
+- Prioritize deck-evidence over raw totals when identifying problems. Do not elevate a metric-based issue unless the actual card mix and game plan show it is harming the plan.
+- If aggregate counts and archetype or card-role evidence conflict, trust the commander, roles, and supported primary plan over the raw count.
+- Do not infer a subtheme from a few isolated cards unless there is clear payoff density or structural support.
+- Avoid generic staple recommendations unless they directly address the deck's most evidenced bottleneck.
+- Prefer changes that strengthen the primary engine, fix a clearly demonstrated bottleneck, improve enabler/payoff balance, protection or interaction timing, or consistency without diluting core synergy.
+- Before recommending cuts from a high-count category, explain why the specific cards are low-impact, redundant, or off-plan—not the number alone.`;
+
 async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
@@ -470,6 +480,7 @@ async function planSuggestionSlots(
     colorSummary || "",
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
+    DECK_ANALYZE_PROBLEM_WEIGHTING,
     "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
     userMessage ? `User message:\n${userMessage}` : "",
@@ -570,6 +581,7 @@ async function fetchSlotCandidates(
     colorSummary || "",
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
+    DECK_ANALYZE_PROBLEM_WEIGHTING,
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
@@ -656,6 +668,7 @@ async function retrySlotCandidates(
     colorSummary || "",
     formatDeckMetricsFromServer(context),
     DECK_METRICS_INTERPRETATION_GUIDANCE,
+    DECK_ANALYZE_PROBLEM_WEIGHTING,
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",

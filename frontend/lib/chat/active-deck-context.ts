@@ -8,7 +8,7 @@
  * - confirmed | corrected = AUTHORITATIVE (user-validated)
  */
 
-import { isDecklist, extractCommanderFromDecklistText, inferCommander } from "./decklistDetector";
+import { isDecklist, extractCommanderFromDecklistText, inferCommander, parseCardEntries } from "./decklistDetector";
 import { normalizeDecklistText, hashDecklist } from "./decklist-normalize";
 
 /** Commander status. inferred = tentative; confirmed/corrected = authoritative. */
@@ -47,7 +47,17 @@ export type ActiveDeckContext = {
   /** True when the last assistant message asked for commander (confirm or ask_commander). */
   lastTurnAskedCommander: boolean;
   /** Why this turn's reply was promoted to trusted commander, for debug. */
-  promotionSource: "full_name_match" | "short_name_match" | "yes_plus_name" | "explicit_declaration" | "user_named" | "none";
+  promotionSource:
+    | "full_name_match"
+    | "short_name_match"
+    | "yes_plus_name"
+    | "explicit_declaration"
+    | "user_named"
+    | "bare_exact_pool"
+    | "bare_short_pool"
+    | "bare_exact_deck"
+    | "bare_short_deck"
+    | "none";
   linkedDeckTakesPriority: boolean;
   parseWarnings: string[];
   /** True when resolved deck hash differs from stored (new deck replacement; persistence should clear commander unless preserved). */
@@ -177,6 +187,83 @@ function replyMatchesCandidateShortName(reply: string, commanderName: string): b
   if (nReply.length < 2) return false;
   const firstSegment = normCommander(commanderName.split(",")[0]?.trim() ?? "");
   return nReply === firstSegment || (nCommander.startsWith(nReply) && nReply.length >= 3);
+}
+
+/** Strip light phrasing so "commander is Vivi" / "It's Vivi" can match pool/deck. */
+function stripCommanderIntentPrefix(t: string): string {
+  let s = t.trim();
+  s = s.replace(/^(it['']s|it is|commander is|my commander is)\s+/i, "").trim();
+  return s;
+}
+
+type BareCommanderPick = { name: string; via: "exact_pool" | "short_pool" | "exact_deck" | "short_deck" };
+
+/**
+ * When the assistant asked for commander (confirm or name), accept a bare card-name reply
+ * by matching candidates and (only for "name your commander" prompts) unique deck names.
+ */
+function resolveBareCommanderFromReply(opts: {
+  text: string;
+  decklistText: string | null;
+  commanderCandidates: CommanderCandidate[];
+  commanderName: string | null;
+  lastAssistantContent: string;
+  askedCommander: boolean;
+  alreadyConfirmedByReply: boolean;
+  currentIsDecklist: boolean;
+  hasDeck: boolean;
+  isCorrection: boolean;
+}): BareCommanderPick | null {
+  const {
+    text,
+    decklistText,
+    commanderCandidates,
+    commanderName,
+    lastAssistantContent,
+    askedCommander,
+    alreadyConfirmedByReply,
+    currentIsDecklist,
+    hasDeck,
+    isCorrection,
+  } = opts;
+
+  if (!hasDeck || currentIsDecklist || alreadyConfirmedByReply || isCorrection) return null;
+  if (!askedCommander && !lastAssistantAskedForCommanderName(lastAssistantContent)) return null;
+
+  let raw = stripCommanderIntentPrefix(text);
+  raw = raw.replace(/^\[\[([^\]]*)\]\]\s*$/, "$1").trim();
+  if (!looksLikeSingleCardName(raw)) return null;
+
+  const nt = normCommander(raw.replace(/[.,;:!?]+$/, "").trim());
+
+  const pool = new Map<string, string>();
+  for (const c of commanderCandidates) {
+    if (c?.name?.trim()) pool.set(normCommander(c.name), c.name);
+  }
+  if (commanderName?.trim()) pool.set(normCommander(commanderName), commanderName);
+
+  if (pool.has(nt)) return { name: pool.get(nt)!, via: "exact_pool" };
+
+  const poolNames = [...new Set(pool.values())];
+  const shortPool = poolNames.filter((nm) => replyMatchesCandidateShortName(raw, nm));
+  if (shortPool.length === 1) return { name: shortPool[0], via: "short_pool" };
+
+  // Only for explicit "name your commander" prompts: allow unique match against decklist card names.
+  if (lastAssistantAskedForCommanderName(lastAssistantContent) && decklistText?.trim()) {
+    const entries = parseCardEntries(decklistText);
+    const byNorm = new Map<string, string>();
+    for (const e of entries) {
+      const n = normCommander(e.name);
+      if (!byNorm.has(n)) byNorm.set(n, e.name);
+    }
+    if (byNorm.has(nt)) return { name: byNorm.get(nt)!, via: "exact_deck" };
+
+    const deckNames = [...new Set(byNorm.values())];
+    const shortDeck = deckNames.filter((nm) => replyMatchesCandidateShortName(raw, nm));
+    if (shortDeck.length === 1) return { name: shortDeck[0], via: "short_deck" };
+  }
+
+  return null;
 }
 
 /**
@@ -353,8 +440,29 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
   const replyFullNameMatch = askedCommander && !!commanderName && replyIsJustCommanderName((text ?? "").trim(), commanderName);
   const replyShortNameMatch = askedCommander && !!commanderName && !replyFullNameMatch && replyMatchesCandidateShortName((text ?? "").trim(), commanderName);
   const replyConfirmsCandidate = replyFullNameMatch || replyShortNameMatch;
+
+  const bareCommanderPick = resolveBareCommanderFromReply({
+    text: text ?? "",
+    decklistText,
+    commanderCandidates,
+    commanderName,
+    lastAssistantContent,
+    askedCommander,
+    alreadyConfirmedByReply: replyConfirmsCandidate,
+    currentIsDecklist,
+    hasDeck,
+    isCorrection,
+  });
+  if (bareCommanderPick) {
+    commanderName = bareCommanderPick.name;
+  }
+
+  const replyConfirmsCandidateOrBare = replyConfirmsCandidate || !!bareCommanderPick;
   const userJustConfirmedCommander =
-    (userRespondedToConfirm && !isCorrection) || !!userDeclaredCommanderThisTurn || !!userNamedCommanderThisTurn || !!replyConfirmsCandidate;
+    (userRespondedToConfirm && !isCorrection) ||
+    !!userDeclaredCommanderThisTurn ||
+    !!userNamedCommanderThisTurn ||
+    replyConfirmsCandidateOrBare;
   const userJustCorrectedCommander = userRespondedToConfirm && isCorrection;
 
   // Once user explicitly confirms or corrects, promote status so downstream never sees "inferred" for this turn
@@ -402,13 +510,21 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
         ? "user_named"
         : userDeclaredCommanderThisTurn
           ? "explicit_declaration"
-          : userRespondedToConfirm && !isCorrection
-            ? "yes_plus_name"
-            : replyFullNameMatch
-              ? "full_name_match"
-              : replyShortNameMatch
-                ? "short_name_match"
-                : "none",
+          : bareCommanderPick
+            ? bareCommanderPick.via === "exact_pool"
+              ? "bare_exact_pool"
+              : bareCommanderPick.via === "short_pool"
+                ? "bare_short_pool"
+                : bareCommanderPick.via === "exact_deck"
+                  ? "bare_exact_deck"
+                  : "bare_short_deck"
+            : userRespondedToConfirm && !isCorrection
+              ? "yes_plus_name"
+              : replyFullNameMatch
+                ? "full_name_match"
+                : replyShortNameMatch
+                  ? "short_name_match"
+                  : "none",
     linkedDeckTakesPriority,
     parseWarnings,
     deckReplacedByHashChange,

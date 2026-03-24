@@ -303,4 +303,27 @@ assert.strictEqual(replyShortName.userJustConfirmedCommander, true, "short name 
 assert.strictEqual(replyShortName.promotionSource, "short_name_match");
 assert.strictEqual(replyShortName.commanderName, "Muldrotha, the Gravetide");
 
+// --- "Please name your commander" + last-card inference differs: bare full name matches another card in deck (bare_exact_deck)
+const KORVOLD_DECK_WITH_MUL = [
+  "1 Sol Ring",
+  "1 Command Tower",
+  "1 Muldrotha, the Gravetide",
+  ...Array(91).fill("1 Forest"),
+  "1 Korvold, Fae-Cursed King",
+].join("\n");
+const bareMuldrothaFromDeck = resolveActiveDeckContext(
+  base({
+    tid: "t1",
+    text: "Muldrotha, the Gravetide",
+    thread: { deck_id: null, commander: null, decklist_text: KORVOLD_DECK_WITH_MUL, decklist_hash: "km1" },
+    streamThreadHistory: [
+      { role: "user", content: KORVOLD_DECK_WITH_MUL },
+      { role: "assistant", content: "Please name your commander for this deck." },
+    ],
+  })
+);
+assert.strictEqual(bareMuldrothaFromDeck.userJustConfirmedCommander, true);
+assert.strictEqual(bareMuldrothaFromDeck.commanderName, "Muldrotha, the Gravetide");
+assert.strictEqual(bareMuldrothaFromDeck.promotionSource, "bare_exact_deck");
+
 console.log("active-deck-context.test.ts: all tests passed");
