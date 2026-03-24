@@ -156,7 +156,9 @@ export async function postMessageStreamWithDebug(
   onDone: () => void,
   onError: (error: Error) => void,
   onDebug: (data: Record<string, unknown>) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** e.g. x-admin-prompt-preview for admin chat-test (server requires isAdmin + this header). */
+  extraHeaders?: Record<string, string>
 ): Promise<void> {
   const { StreamingPacer } = await import("./streaming-pacer");
   const pacer = new StreamingPacer({
@@ -168,15 +170,20 @@ export async function postMessageStreamWithDebug(
     onError,
   });
 
+  const streamHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-debug-chat": "1",
+    ...(extraHeaders || {}),
+  };
   let response = await fetch("/api/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-debug-chat": "1" },
+    headers: streamHeaders,
     body: JSON.stringify(payload),
     signal,
   });
   if (response.status === 405) response = await fetch("/api/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-debug-chat": "1" },
+    headers: streamHeaders,
     body: JSON.stringify(payload),
     signal,
   });

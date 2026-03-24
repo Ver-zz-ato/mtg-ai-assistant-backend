@@ -205,3 +205,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/share/comments?commentId=...
+ * Comment author or resource owner may delete.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    if (!sameOriginOrBearerPresent(req)) {
+      return NextResponse.json({ ok: false, error: "Bad origin" }, { status: 403 });
+    }
+    const { user, authError } = await getUserAndSupabase(req);
+    if (authError || !user) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const commentId = req.nextUrl.searchParams.get("commentId")?.trim() ?? "";
+    if (!commentId) {
+      return NextResponse.json({ ok: false, error: "commentId required" }, { status: 400 });
+    }
+
+    const admin = adminClient();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
+    }
+
+    const { data: row, error: rowErr } = await admin
+      .from("shared_item_comments")
+      .select("id, resource_type, resource_id, user_id")
+      .eq("id", commentId)
+      .maybeSingle();
+
+    if (rowErr || !row) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+
+    const type = row.resource_type as ResourceType;
+    const resourceId = String(row.resource_id ?? "");
+    const { ownerId } = await resolveOwnerAndVisibility(admin, type, resourceId);
+    const isAuthor = row.user_id === user.id;
+    const isOwner = ownerId === user.id;
+    if (!isAuthor && !isOwner) {
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    const { error: delErr } = await admin.from("shared_item_comments").delete().eq("id", commentId);
+    if (delErr) {
+      console.error("share_comments_delete", delErr);
+      return NextResponse.json({ ok: false, error: "Failed to delete" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "error";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
+}

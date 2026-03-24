@@ -223,10 +223,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
  */
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createClient();
+    if (!sameOriginOrBearerPresent(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid origin" },
+        { status: 403 }
+      );
+    }
     const { id: deckId } = await context.params;
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { supabase, user, authError } = await getUserAndSupabase(req);
     if (authError || !user) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },

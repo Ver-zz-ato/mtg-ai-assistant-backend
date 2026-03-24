@@ -8,6 +8,7 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
+import { createEmptyAdminPromptPreview, type AdminPromptPreviewPayload } from "@/lib/ai/admin-prompt-preview-types";
 
 export const runtime = "nodejs";
 
@@ -76,6 +77,12 @@ export async function POST(req: NextRequest) {
         isPro = await checkProStatus(userId);
       } catch {}
     }
+
+    const wantPromptPreview =
+      req.headers.get("x-admin-prompt-preview") === "1" &&
+      !!user &&
+      (await import("@/lib/admin-check")).isAdmin(user);
+    let adminPv: AdminPromptPreviewPayload | null = wantPromptPreview ? createEmptyAdminPromptPreview() : null;
 
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
@@ -384,6 +391,7 @@ export async function POST(req: NextRequest) {
       promptVersionId = null;
       promptResult = { systemPrompt: MICRO_PROMPT, promptPath: "composed", formatKey, modulesAttached: [] };
     } else if (selectedTier === "standard") {
+      let standardRecentHistoryAppend = "";
       promptResult = await buildSystemPromptForRequest({
         kind: "chat",
         formatKey,
@@ -405,9 +413,11 @@ export async function POST(req: NextRequest) {
         return `${label}: ${body}`;
       });
       if (redacted.length > 0) {
-        sys += "\n\nRecent conversation (last 2 turns):\n" + redacted.join("\n");
+        standardRecentHistoryAppend = "\n\nRecent conversation (last 2 turns):\n" + redacted.join("\n");
+        sys += standardRecentHistoryAppend;
       }
       }
+      if (adminPv) adminPv.standard_recent_history_text = standardRecentHistoryAppend || null;
     } else {
       // Full tier: compute commander decision first so we use deck_analysis only when actually analyzing
       const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
@@ -475,6 +485,42 @@ export async function POST(req: NextRequest) {
       promptVersionId = promptResult.promptVersionId ?? null;
     }
 
+    if (adminPv) {
+      adminPv.selected_prompt_tier = selectedTier;
+      adminPv.stream_injected = selectedTier === "full" ? streamInjected : "none";
+      adminPv.model_tier = modelTierRes.tier;
+      if (selectedTier === "micro") {
+        adminPv.prompt_path = "micro_override";
+        adminPv.prompt_layers_used = false;
+        adminPv.base_prompt_source_label = "MICRO_PROMPT (lib/ai/prompt-tier)";
+        adminPv.base_prompt_text = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
+        adminPv.modules_attached = [];
+        adminPv.prompt_version_id = null;
+        adminPv.notes.push("Micro tier uses MICRO_PROMPT, not prompt_layers.");
+      } else {
+        adminPv.prompt_path = promptResult.promptPath;
+        adminPv.prompt_layers_used = promptResult.promptPath === "composed";
+        adminPv.prompt_version_id = promptResult.promptVersionId ?? null;
+        adminPv.modules_attached = [...(promptResult.modulesAttached ?? [])];
+        adminPv.base_prompt_source_label =
+          promptResult.promptPath === "composed"
+            ? "prompt_layers: BASE_UNIVERSAL_ENFORCEMENT + FORMAT_* (+ MODULE_* when deck context present)"
+            : promptResult.promptPath === "fallback_version"
+              ? `prompt_versions (${promptResult.promptVersionId ?? "?"})`
+              : "hardcoded CHAT_HARDCODED_DEFAULT";
+        adminPv.base_prompt_text = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
+        if (
+          selectedTier === "full" &&
+          promptResult.promptPath === "fallback_version" &&
+          (promptResult.modulesAttached?.length ?? 0) === 0
+        ) {
+          adminPv.notes.push(
+            "When analyzing a linked deck, fallback_version may be the deck_analysis row from prompt_versions (see prompt_version_id), not the chat prompt.",
+          );
+        }
+      }
+    }
+
     let promptLogged = false;
     if (!promptLogged) {
       promptLogged = true;
@@ -511,6 +557,7 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
+    let userPrefsBlock = "";
     if (selectedTier === "full") {
     // User preferences: Commander must never use "Colors=any" (enforce color identity)
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
@@ -524,21 +571,27 @@ export async function POST(req: NextRequest) {
       } else {
         colors = "not applicable";
       }
-      sys += `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
+      userPrefsBlock = `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
+      sys += userPrefsBlock;
     }
     }
+    if (adminPv) adminPv.user_prefs_text = userPrefsBlock || null;
 
     // User level: tailor language, tone, and depth (beginner/intermediate/pro)
     const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
-    sys += getUserLevelInstruction(prefs?.userLevel);
+    const userLevelBlock = getUserLevelInstruction(prefs?.userLevel);
+    sys += userLevelBlock;
+    if (adminPv) adminPv.user_level_text = userLevelBlock || null;
 
     // Tier overlay (guest/free/pro) — after user level, before v2/deck context
+    let tierOverlayCaptured: string | null = null;
     if (selectedTier !== "micro") {
       try {
         const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
         const admin = (await import("@/app/api/_lib/supa")).getAdmin();
         const overlay = admin ? await getTierOverlayResolved(admin, modelTierRes.tier) : getTierOverlay(modelTierRes.tier);
         if (overlay) {
+          tierOverlayCaptured = overlay;
           sys += "\n\n" + overlay;
           streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: true });
         } else {
@@ -548,11 +601,17 @@ export async function POST(req: NextRequest) {
         streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: false, error: err instanceof Error ? err.message : String(err) });
       }
     }
+    if (adminPv) {
+      adminPv.tier_overlay_text = tierOverlayCaptured;
+      adminPv.tier_overlay_applied = !!tierOverlayCaptured;
+    }
 
     // Runtime AI config (env overrides when explicitly off)
     const streamRuntimeConfig = await (await import("@/lib/ai/runtime-config")).getRuntimeAIConfig(supabase);
     // LLM v2 context (Phase A). Kill-switch: LLM_V2_CONTEXT=off or runtime forces raw path.
     let v2Summary: import("@/lib/deck/deck-context-summary").DeckContextSummary | null = null;
+    /** Semantic fingerprint prose for key-card selector (v2 analyze path); optional. */
+    let semanticFingerprintTextForKeyCards: string | null = null;
     let streamContextSource: "linked_db" | "paste_ttl" | "raw_fallback" = "raw_fallback";
     let streamSummaryTokensEstimate: number | null = null;
     let streamDeckHashForLog: string | null = null;
@@ -650,7 +709,9 @@ export async function POST(req: NextRequest) {
           try {
             const rulesBundle = await getRulesFactBundle(rulesCommander, rulesCards.length ? rulesCards : undefined);
             const rulesProse = formatRulesFactsForLLM(rulesBundle);
-            sys += `\n\n=== RULES FACTS (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${rulesProse}\n`;
+            const rulesBlock = `\n\n=== RULES FACTS (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${rulesProse}\n`;
+            sys += rulesBlock;
+            if (adminPv) adminPv.rules_facts_text = rulesBlock.trim();
           } catch (rulesErr) {
             if (DEV) console.warn("[stream] Rules facts fetch failed:", rulesErr);
           }
@@ -719,6 +780,8 @@ export async function POST(req: NextRequest) {
         }
       }
       const summaryForPrompt = { ...v2Summary, card_names: cardNamesForPrompt };
+      let semanticFingerprintAppend = "";
+      let recommendationSteeringAppend = "";
       if (v2Summary.deck_facts && v2Summary.synergy_diagnostics) {
         if (process.env.DEBUG_DECK_INTELLIGENCE === "1") {
           console.log(JSON.stringify({
@@ -732,7 +795,8 @@ export async function POST(req: NextRequest) {
         const { buildDeckPlanProfile } = await import("@/lib/deck/deck-plan-profile");
         const commanderForFacts = activeDeckContext.userJustCorrectedCommander ? activeDeckContext.commanderName : undefined;
         const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderForFacts ?? undefined);
-        sys += `\n\n=== DECK INTELLIGENCE (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${deckFactsProse}\n`;
+        const deckIntelA = `\n\n=== DECK INTELLIGENCE (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${deckFactsProse}\n`;
+        sys += deckIntelA;
         const deckPlanOptions = {
           rampCards: v2Summary.ramp_cards,
           drawCards: v2Summary.draw_cards,
@@ -740,9 +804,13 @@ export async function POST(req: NextRequest) {
         };
         const deckPlanProfile = buildDeckPlanProfile(v2Summary.deck_facts, v2Summary.synergy_diagnostics, deckPlanOptions);
         const deckPlanProse = formatDeckPlanProfileForLLM(deckPlanProfile);
-        sys += `\n${deckPlanProse}\n`;
+        const deckIntelB = `\n${deckPlanProse}\n`;
+        sys += deckIntelB;
+        if (adminPv) adminPv.deck_intelligence_block_text = (deckIntelA + deckIntelB).trim();
       } else {
-        sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
+        const v2JsonBlock = `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
+        sys += v2JsonBlock;
+        if (adminPv) adminPv.v2_summary_json_text = v2JsonBlock.trim();
       }
       if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
         try {
@@ -751,7 +819,9 @@ export async function POST(req: NextRequest) {
           const cardsForFp = (v2Summary.card_names ?? []).map((n: string) => ({ name: n, count: 1 }));
           const fp = await computeDeckSemanticFingerprint(cardsForFp);
           if (fp.cardCountAnalyzed > 0) {
-            sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+            const fpStr = `\n\n${formatFingerprintForPrompt(fp)}\n`;
+            semanticFingerprintAppend += fpStr;
+            sys += fpStr;
             streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
             if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
               try {
@@ -759,7 +829,9 @@ export async function POST(req: NextRequest) {
                 streamDebug("recommendation_weight_profile_start", {});
                 const profile = deriveRecommendationWeightProfile(fp);
                 if (profile) {
-                  sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                  const stStr = `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                  recommendationSteeringAppend += stStr;
+                  sys += stStr;
                   streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
                 }
               } catch (wpErr) {
@@ -771,7 +843,14 @@ export async function POST(req: NextRequest) {
           streamDebug("semantic_fingerprint_failopen", { error: fpErr instanceof Error ? fpErr.message : String(fpErr) });
         }
       }
-      sys += `\nCards in deck (do NOT suggest these): ${cardNamesForPrompt.join(", ")}\n`;
+      if (adminPv) {
+        adminPv.semantic_fingerprint_text = semanticFingerprintAppend.trim() || null;
+        adminPv.recommendation_steering_text = recommendationSteeringAppend.trim() || null;
+      }
+      semanticFingerprintTextForKeyCards = semanticFingerprintAppend.trim() || null;
+      const cardsInDeckLine = `\nCards in deck (do NOT suggest these): ${cardNamesForPrompt.join(", ")}\n`;
+      sys += cardsInDeckLine;
+      if (adminPv) adminPv.cards_in_deck_line_text = cardsInDeckLine.trim();
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = streamThreadHistory.filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
       const redacted = last6.map((m) => {
@@ -780,9 +859,12 @@ export async function POST(req: NextRequest) {
         const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
         return `${label}: ${body}`;
       });
+      let recent6Block = "";
       if (redacted.length > 0) {
-        sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+        recent6Block = "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+        sys += recent6Block;
       }
+      if (adminPv) adminPv.recent_conversation_block_text = recent6Block.trim() || null;
     }
     if (selectedTier === "full" && streamInjected === "analyze") {
       const commanderForGrounding =
@@ -791,8 +873,49 @@ export async function POST(req: NextRequest) {
         try {
           const { formatCommanderGroundingForPrompt } = await import("@/lib/deck/commander-grounding");
           const grounding = await formatCommanderGroundingForPrompt(commanderForGrounding);
-          if (grounding) sys += `\n\n${grounding}`;
+          if (grounding) {
+            const gBlock = `\n\n${grounding}`;
+            sys += gBlock;
+            if (adminPv) adminPv.commander_grounding_text = grounding.trim();
+          }
         } catch (_) {}
+      } else if (adminPv) {
+        adminPv.commander_grounding_text = null;
+        adminPv.notes.push("Commander authoritative grounding block not injected (no commander resolved for this path).");
+      }
+      try {
+        const { selectKeyCardsForGrounding } = await import("@/lib/deck/select-key-cards");
+        const { formatKeyCardsGroundingForPrompt, KEY_CARDS_GROUNDING_INSTRUCTION } = await import("@/lib/deck/key-card-grounding");
+        const cardNamesFull =
+          Array.isArray(v2Summary?.card_names) && v2Summary.card_names.length > 0
+            ? (v2Summary.card_names as string[])
+            : deckData?.entries?.length
+              ? deckData.entries.map((e: { name: string }) => e.name)
+              : [];
+        if (cardNamesFull.length > 0) {
+          const keyNames = await selectKeyCardsForGrounding({
+            cardNames: cardNamesFull,
+            commander: commanderForGrounding,
+            v2Summary: v2Summary ?? null,
+            fingerprintText: semanticFingerprintTextForKeyCards,
+            maxCards: 5,
+          });
+          const keyBlock = await formatKeyCardsGroundingForPrompt(keyNames);
+          streamDebug("key_cards_grounding", { selected: keyNames.length, injected: !!keyBlock });
+          if (keyBlock) {
+            sys += `\n\n${KEY_CARDS_GROUNDING_INSTRUCTION}\n\n${keyBlock}`;
+            if (adminPv) adminPv.key_cards_grounding_text = keyBlock.trim();
+          } else if (adminPv) {
+            adminPv.key_cards_grounding_text = null;
+          }
+        } else if (adminPv) {
+          adminPv.key_cards_grounding_text = null;
+        }
+      } catch (kcErr) {
+        if (adminPv) {
+          adminPv.key_cards_grounding_text = null;
+          adminPv.notes.push(`Key cards grounding skipped: ${kcErr instanceof Error ? kcErr.message : String(kcErr)}`);
+        }
       }
     }
     if (selectedTier === "full" && streamInjected === "analyze" && deckData && deckData.deckText.trim()) {
@@ -816,18 +939,21 @@ export async function POST(req: NextRequest) {
         isAuthoritativeForPrompt(activeDeckContext) && activeDeckContext.commanderName
           ? activeDeckContext.commanderName
           : inferredContext.commander;
-      sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
-      sys += `- Format: ${inferredContext.format} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
-      sys += `- Colors: ${inferredContext.colors.join(", ") || "none"}\n`;
-      if (commanderForDeckContext) sys += `- Commander: ${commanderForDeckContext}\n`;
-      sys += `- Deck Title: ${d?.title || "Untitled Deck"}\n`;
-      sys += `- Full Decklist:\n${deckData.deckText}\n`;
-      sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+      let deckCtxBlock = "";
+      deckCtxBlock += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
+      deckCtxBlock += `- Format: ${inferredContext.format} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
+      deckCtxBlock += `- Colors: ${inferredContext.colors.join(", ") || "none"}\n`;
+      if (commanderForDeckContext) deckCtxBlock += `- Commander: ${commanderForDeckContext}\n`;
+      deckCtxBlock += `- Deck Title: ${d?.title || "Untitled Deck"}\n`;
+      deckCtxBlock += `- Full Decklist:\n${deckData.deckText}\n`;
+      deckCtxBlock += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
       if (String(inferredContext.format).toLowerCase() !== "commander") {
-        sys += `- Do NOT suggest Commander-only cards (e.g. Sol Ring, Command Tower). Only suggest cards legal in ${inferredContext.format}.\n`;
+        deckCtxBlock += `- Do NOT suggest Commander-only cards (e.g. Sol Ring, Command Tower). Only suggest cards legal in ${inferredContext.format}.\n`;
       }
-      sys += `- Do NOT suggest cards already in the decklist above.\n`;
-      sys += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
+      deckCtxBlock += `- Do NOT suggest cards already in the decklist above.\n`;
+      deckCtxBlock += `- When describing draw vs filtering: card advantage = net gain of cards; Faithless Looting / Careful Study = filtering, not draw.\n`;
+      sys += deckCtxBlock;
+      if (adminPv) adminPv.deck_context_block_text = deckCtxBlock.trim();
     }
 
     // Few-shot learning (format anchoring): same as non-stream for consistent quality — full tier only, and only when doing analysis
@@ -836,7 +962,9 @@ export async function POST(req: NextRequest) {
         const { findSimilarExamples, formatExamplesForPrompt } = await import("@/lib/ai/few-shot-learning");
         const examples = await findSimilarExamples(text, undefined, undefined, 2);
         if (examples.length > 0) {
-          sys += formatExamplesForPrompt(examples);
+          const fewShotBlock = formatExamplesForPrompt(examples);
+          sys += fewShotBlock;
+          if (adminPv) adminPv.few_shot_examples_text = fewShotBlock.trim();
         }
       } catch (err) {
         console.warn("[chat/stream] Few-shot learning failed:", err instanceof Error ? err.message : String(err));
@@ -845,6 +973,7 @@ export async function POST(req: NextRequest) {
 
     if (selectedTier === "full" && streamInjected === "analyze" && !v2Summary) {
       // Same deck context for Pro and Guest when no v2Summary (Guest has no tid; or v2 was discarded). Only when doing analysis.
+      let rawFallbackExtras = "";
       streamDebug("raw_path", { branch: deckContextForCompose?.deckCards?.length ? "deckContextForCompose" : tid ? "tid_messages" : "none", deckContextLen: deckContextForCompose?.deckCards?.length ?? 0 });
       if (deckContextForCompose?.deckCards?.length) {
         const { extractCommanderFromDecklistText, isDecklist } = await import("@/lib/chat/decklistDetector");
@@ -866,14 +995,20 @@ export async function POST(req: NextRequest) {
           deckTextForRaw || text || undefined,
           commanderForRaw
         );
-        if (decklistContext) sys += "\n\n" + decklistContext;
+        if (decklistContext) {
+          const chunk = "\n\n" + decklistContext;
+          sys += chunk;
+          rawFallbackExtras += chunk;
+        }
         if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
           try {
             streamDebug("semantic_fingerprint_start", { cardCount: deckContextForCompose.deckCards.length });
             const { computeDeckSemanticFingerprint, formatFingerprintForPrompt } = await import("@/lib/ai/deck-semantic-fingerprint");
             const fp = await computeDeckSemanticFingerprint(deckContextForCompose.deckCards);
             if (fp.cardCountAnalyzed > 0) {
-              sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+              const fpChunk = `\n\n${formatFingerprintForPrompt(fp)}\n`;
+              sys += fpChunk;
+              rawFallbackExtras += fpChunk;
               streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
               if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
                 try {
@@ -881,7 +1016,9 @@ export async function POST(req: NextRequest) {
                   streamDebug("recommendation_weight_profile_start", {});
                   const profile = deriveRecommendationWeightProfile(fp);
                   if (profile) {
-                    sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                    const stChunk = `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                    sys += stChunk;
+                    rawFallbackExtras += stChunk;
                     streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
                   }
                 } catch (wpErr) {
@@ -915,7 +1052,11 @@ export async function POST(req: NextRequest) {
             const commander = threadCommander ?? extractCommanderFromDecklistText(rawDeckText, text ?? undefined);
             if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
             const decklistContext = generateDeckContext(analyzeDecklistFromText(rawDeckText), "Pasted Decklist", rawDeckText, commander);
-            if (decklistContext) sys += "\n\n" + decklistContext;
+            if (decklistContext) {
+              const chunk = "\n\n" + decklistContext;
+              sys += chunk;
+              rawFallbackExtras += chunk;
+            }
             if (process.env.DISABLE_DECK_SEMANTIC_FINGERPRINT !== "1") {
               try {
                 const { parseDeckText } = await import("@/lib/deck/parseDeckText");
@@ -925,7 +1066,9 @@ export async function POST(req: NextRequest) {
                   streamDebug("semantic_fingerprint_start", { cardCount: entries.length });
                   const fp = await computeDeckSemanticFingerprint(entries);
                   if (fp.cardCountAnalyzed > 0) {
-                    sys += `\n\n${formatFingerprintForPrompt(fp)}\n`;
+                    const fpChunk = `\n\n${formatFingerprintForPrompt(fp)}\n`;
+                    sys += fpChunk;
+                    rawFallbackExtras += fpChunk;
                     streamDebug("semantic_fingerprint_result", { oracleCoverage: fp.oracleCoverage, themes: fp.detectedThemes?.length ?? 0 });
                     if (process.env.DISABLE_DECK_RECOMMENDATION_WEIGHTING !== "1") {
                       try {
@@ -933,7 +1076,9 @@ export async function POST(req: NextRequest) {
                         streamDebug("recommendation_weight_profile_start", {});
                         const profile = deriveRecommendationWeightProfile(fp);
                         if (profile) {
-                          sys += `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                          const stChunk = `\n\n${formatSteeringBlockForPrompt(profile)}\n`;
+                          sys += stChunk;
+                          rawFallbackExtras += stChunk;
                           streamDebug("recommendation_weight_profile_result", { boosts: profile.boosts?.length ?? 0, suppressions: profile.suppressions?.length ?? 0 });
                         }
                       } catch (wpErr) {
@@ -960,8 +1105,13 @@ export async function POST(req: NextRequest) {
           const body = isDecklist(content) ? "(decklist provided; summarized)" : content;
           return `${label}: ${body}`;
         });
-        if (redacted.length > 0) sys += "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+        if (redacted.length > 0) {
+          const rc = "\n\nRecent conversation (last 6 turns):\n" + redacted.join("\n");
+          sys += rc;
+          rawFallbackExtras += rc;
+        }
       }
+      if (adminPv) adminPv.raw_fallback_extras_text = rawFallbackExtras.trim() || null;
     }
 
     let promptContractLog: { hasDeck: boolean; commanderStatus: string; askReason: string | null; injected: string; decision_reason?: string } = { hasDeck: false, commanderStatus: "missing", askReason: null, injected: "none" };
@@ -975,9 +1125,12 @@ export async function POST(req: NextRequest) {
     };
     streamDebug("prompt_contract", promptContractLog);
 
+    let streamContractInjection = "";
     if (streamInjected === "analyze") {
-      sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-      sys += `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nCommander is [[${activeDeckContext.commanderName}]]. Deck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist, commander, format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`;
+      const a = `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
+      const b = `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nCommander is [[${activeDeckContext.commanderName}]]. Deck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist, commander, format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`;
+      streamContractInjection = a + b;
+      sys += a + b;
       if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
         if (tid && !isGuest) {
           try {
@@ -987,15 +1140,18 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (streamInjected === "confirm" && activeDeckContext.commanderName) {
-      sys += `\n\nCRITICAL: Ask only this, nothing else: "Is [[${activeDeckContext.commanderName}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
+      streamContractInjection = `\n\nCRITICAL: Ask only this, nothing else: "Is [[${activeDeckContext.commanderName}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
+      sys += streamContractInjection;
     } else if (streamInjected === "ask_commander") {
       const bestCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
       if (bestCandidate) {
-        sys += `\n\nCRITICAL: Ask only this, nothing else: "Is [[${bestCandidate}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
+        streamContractInjection = `\n\nCRITICAL: Ask only this, nothing else: "Is [[${bestCandidate}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
       } else {
-        sys += `\n\nCRITICAL: Ask only this, nothing else: "Please name your commander for this deck." Do not ask for decklist, goals, or provide analysis.`;
+        streamContractInjection = `\n\nCRITICAL: Ask only this, nothing else: "Please name your commander for this deck." Do not ask for decklist, goals, or provide analysis.`;
       }
+      sys += streamContractInjection;
     }
+    if (adminPv) adminPv.stream_contract_injection_text = streamContractInjection.trim() || null;
     }
 
     // Thread summary (within-thread memory) - same logic as non-stream
@@ -1017,7 +1173,10 @@ export async function POST(req: NextRequest) {
         isGuest,
         anonId
       );
-      if (summaryResult.formatted) sys += summaryResult.formatted;
+      if (summaryResult.formatted) {
+        sys += summaryResult.formatted;
+        if (adminPv) adminPv.thread_memory_block_text = summaryResult.formatted.trim();
+      }
     }
 
     // Pro cross-thread memory: inject saved preferences
@@ -1026,7 +1185,10 @@ export async function POST(req: NextRequest) {
       const savedPrefs = await getProUserPreferences(supabase, userId, isPro);
       if (savedPrefs) {
         const proPrefsFormatted = formatProPreferencesForPrompt(savedPrefs);
-        if (proPrefsFormatted) sys += proPrefsFormatted;
+        if (proPrefsFormatted) {
+          sys += proPrefsFormatted;
+          if (adminPv) adminPv.pro_cross_thread_prefs_text = proPrefsFormatted.trim();
+        }
       }
     }
 
@@ -1153,6 +1315,13 @@ export async function POST(req: NextRequest) {
       layer0Handler: streamLayer0Mode === "NO_LLM" ? undefined : streamLayer0Mode ?? undefined,
     });
     const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+    if (adminPv) {
+      adminPv.final_system_prompt_exact = sys;
+      adminPv.notes.push(
+        "final_system_prompt_exact is the full system message string passed to OpenAI for this request (same as messages[0].content).",
+      );
+    }
 
     // Phase B: token ceiling and stop sequences (no reply shortening; use full ceiling for all tiers)
     const { CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
@@ -1348,6 +1517,7 @@ export async function POST(req: NextRequest) {
               v2_summary_used: !!v2Summary,
               v2_card_count: v2Summary?.card_count ?? null,
               deck_context_cards: deckContextForCompose?.deckCards?.length ?? 0,
+              ...(adminPv ? { prompt_preview: adminPv } : {}),
             };
             controller.enqueue(encoder.encode(`__MANATAP_DEBUG__\n${JSON.stringify(debugPayload)}\n__MANATAP_DEBUG_END__\n`));
           }

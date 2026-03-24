@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/lib/supa";
-import { getTierOverlay, type TierOverlay } from "@/lib/ai/tier-overlays";
+import {
+  appConfigKeyForTierOverlay,
+  getTierOverlay,
+  type TierOverlay,
+} from "@/lib/ai/tier-overlays";
 
 export const runtime = "nodejs";
 
@@ -18,17 +22,20 @@ function isAdmin(user: unknown): boolean {
 }
 
 const TIER_KEYS: TierOverlay[] = ["guest", "free", "pro"];
-const APP_CONFIG_PREFIX = "tier_overlay_";
+
+/** Legacy key — delete on clear so old rows do not shadow defaults. */
+function legacyOverlayKey(tier: TierOverlay): string {
+  return `tier_overlay_${tier}`;
+}
 
 async function getOverlayFromDb(db: ReturnType<typeof getAdmin>, tier: TierOverlay): Promise<string | null> {
-  const { data } = await db
-    .from("app_config")
-    .select("value")
-    .eq("key", `${APP_CONFIG_PREFIX}${tier}`)
-    .maybeSingle();
-  if (!data?.value || typeof data.value !== "object") return null;
-  const body = (data.value as { body?: string }).body;
-  return typeof body === "string" && body.trim() ? body.trim() : null;
+  for (const key of [appConfigKeyForTierOverlay(tier), legacyOverlayKey(tier)]) {
+    const { data } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
+    if (!data?.value || typeof data.value !== "object") continue;
+    const body = (data.value as { body?: string }).body;
+    if (typeof body === "string" && body.trim()) return body.trim();
+  }
+  return null;
 }
 
 /**
@@ -89,22 +96,48 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const key = `${APP_CONFIG_PREFIX}${tier}`;
+    const key = appConfigKeyForTierOverlay(tier);
+    const now = new Date().toISOString();
     if (overlayBody) {
-      const { error } = await admin
+      const { data: row, error } = await admin
         .from("app_config")
-        .upsert({ key, value: { body: overlayBody } }, { onConflict: "key" });
+        .upsert(
+          { key, value: { body: overlayBody }, updated_at: now },
+          { onConflict: "key" }
+        )
+        .select("key, value, updated_at")
+        .maybeSingle();
       if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        console.error("[admin/tier-overlays] upsert failed", { key, code: error.code, message: error.message });
+        return NextResponse.json(
+          { ok: false, error: error.message || "upsert_failed", details: { code: error.code, key } },
+          { status: 500 }
+        );
       }
-    } else {
-      await admin.from("app_config").delete().eq("key", key);
+      // Drop legacy key so DB does not keep two rows for the same tier
+      await admin.from("app_config").delete().eq("key", legacyOverlayKey(tier));
+      return NextResponse.json({
+        ok: true,
+        message: `Saved ${tier} overlay`,
+        tier,
+        key: row?.key ?? key,
+        updated_at: (row as { updated_at?: string })?.updated_at ?? now,
+      });
+    }
+    const { error: delErr } = await admin.from("app_config").delete().in("key", [key, legacyOverlayKey(tier)]);
+    if (delErr) {
+      console.error("[admin/tier-overlays] delete failed", delErr);
+      return NextResponse.json(
+        { ok: false, error: delErr.message || "delete_failed", details: { key } },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       ok: true,
-      message: overlayBody ? `Saved ${tier} overlay` : `Cleared ${tier} overlay (will use default)`,
+      message: `Cleared ${tier} overlay (will use default)`,
       tier,
+      key,
     });
   } catch (e: unknown) {
     return NextResponse.json(

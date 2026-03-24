@@ -44,21 +44,20 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", id).limit(400);
   const arr = Array.isArray(cards) ? (cards as any[]).map(x=>({ name:String(x.name), qty:Number(x.qty||1) })) : [];
 
-  // Use cached Scryfall data via our cache system instead of live API
+  // Cache + Scryfall fallback for misses. Profile-trends helper is cache-only; uncached cards
+  // had empty type_line so lands/ramp meters undercounted non-basics vs basics that were in DB.
   async function scryfallBatch(names: string[]) {
     const uniqueNames = Array.from(new Set(names.filter(Boolean))).slice(0, 400);
     const out: Record<string, any> = {};
     if (!uniqueNames.length) return out;
     
     try {
-      // Use the cached getCardDataForProfileTrends function
-      const { getCardDataForProfileTrends } = await import('@/lib/server/scryfallCache');
-      const cardData = await getCardDataForProfileTrends(uniqueNames);
+      const { getEnrichmentForNames } = await import('@/lib/server/scryfallCache');
+      const cardData = await getEnrichmentForNames(uniqueNames);
       
-      // Convert to expected format (keyed by normalized name)
       for (const [normalizedKey, value] of cardData.entries()) {
         out[normalizedKey] = {
-          name: normalizedKey, // This will be the normalized name
+          name: normalizedKey,
           type_line: value.type_line,
           oracle_text: value.oracle_text,
           color_identity: value.color_identity,
@@ -177,7 +176,9 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     const d = details[norm(name)];
     const tl = String(d?.type_line||'');
     const q = Math.max(1, Number(qty)||1);
-    (Object.keys(types) as Array<keyof typeof types>).forEach(k => { if (tl.includes(k)) types[k] += q; });
+    (Object.keys(types) as Array<keyof typeof types>).forEach(k => {
+      if (k === 'Land' ? /\bland\b/i.test(tl) : tl.includes(k)) types[k] += q;
+    });
   }
 
   // Core meters: lands/ramp/draw/removal heuristic counts - mutually exclusive
@@ -190,7 +191,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     const q = Math.max(1, Number(qty)||1);
     
     // Priority order: Lands > Ramp > Draw > Removal (mutually exclusive)
-    if (tl.includes('Land')) {
+    if (/\bland\b/i.test(tl)) {
       core.lands += q;
     } else if (
       // Ramp: mana rocks, land search, or cards that add mana

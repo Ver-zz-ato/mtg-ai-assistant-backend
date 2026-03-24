@@ -120,10 +120,12 @@ export type ChatProps = {
   onDebugLog?: (entry: ChatDebugLogEntry) => void;
   /** Admin only: override tier for testing (guest/free/pro). Sent in context when set. */
   forceTier?: "guest" | "free" | "pro";
+  /** With debugMode: request prompt composition preview (requires admin session). Default true. */
+  adminPromptPreview?: boolean;
 };
 
 function Chat(props: ChatProps = {}) {
-  const { debugMode = false, onDebugLog, forceTier } = props;
+  const { debugMode = false, onDebugLog, forceTier, adminPromptPreview = true } = props;
   // Rotating example prompts - expanded pool for randomization
   const ALL_SUGGESTION_PROMPTS = [
     { label: 'Analyze my Commander deck', text: "Analyze this Commander deck and tell me what it's missing." },
@@ -979,7 +981,8 @@ function Chat(props: ChatProps = {}) {
           (data: Record<string, unknown>) => {
             onDebugLog({ ts: (data.ts as number) ?? Date.now(), tag: "stream_debug", data });
           },
-          abortController.signal
+          abortController.signal,
+          debugMode && adminPromptPreview ? { "x-admin-prompt-preview": "1" } : undefined
         );
       } else {
         await postMessageStream(

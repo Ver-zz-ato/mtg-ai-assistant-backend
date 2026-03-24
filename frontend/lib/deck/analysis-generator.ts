@@ -1,12 +1,18 @@
 // lib/deck/analysis-generator.ts
 // Generates full deck analysis text with JSON output mode.
-// This is the single LLM call path for full deck analysis; do not add a second LLM call in the same flow.
+// One `callLLM` for the main analysis output. Key-card selection may run an optional prepass LLM (selector only; fail-open).
 
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getPreferredApiSurface } from "@/lib/ai/modelCapabilities";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { MAX_DECK_ANALYZE_OUTPUT_TOKENS, MAX_DECK_ANALYZE_DECK_TEXT_CHARS } from "@/lib/feature-limits";
 import { formatCommanderGroundingForPrompt } from "@/lib/deck/commander-grounding";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { selectKeyCardsForGrounding } from "@/lib/deck/select-key-cards";
+import {
+  formatKeyCardsGroundingForPrompt,
+  KEY_CARDS_GROUNDING_INSTRUCTION,
+} from "@/lib/deck/key-card-grounding";
 import type { InferredDeckContext } from "./inference";
 import type { DeckAnalysisJSON } from "./analysis-validator";
 
@@ -106,11 +112,33 @@ export async function generateDeckAnalysis(
     }
   }
 
+  let keyCardsGrounding: string | null = null;
+  let keyCardsInstruction = "";
+  try {
+    const parsedNames = parseDeckText(deckText).map((e) => e.name);
+    if (parsedNames.length > 0) {
+      const keyNames = await selectKeyCardsForGrounding({
+        cardNames: parsedNames,
+        commander: commander || null,
+        v2Summary: null,
+        fingerprintText: null,
+        maxCards: 5,
+      });
+      keyCardsGrounding = await formatKeyCardsGroundingForPrompt(keyNames);
+      if (keyCardsGrounding) keyCardsInstruction = KEY_CARDS_GROUNDING_INSTRUCTION;
+    }
+  } catch {
+    keyCardsGrounding = null;
+    keyCardsInstruction = "";
+  }
+
   const userPrompt = [
     `Format: ${format}`,
     `Deck colors: ${colors.join(", ") || "Colorless"}`,
     commander ? `Commander: ${commander}` : "",
     commanderGrounding || "",
+    keyCardsInstruction || "",
+    keyCardsGrounding || "",
     archetype ? `Detected archetype: ${archetype}` : "",
     powerLevel ? `Power level: ${powerLevel}` : "",
     commanderProfile?.plan ? `Commander plan: ${commanderProfile.plan}` : "",

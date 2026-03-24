@@ -77,10 +77,17 @@ export default function PromptEditPage() {
   const loadOverlays = useCallback(async () => {
     try {
       const r = await fetch("/api/admin/tier-overlays", { cache: "no-store" });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        console.error("[prompt-edit] load tier overlays failed", r.status, j);
+        alert(`Failed to load tier overlays (${r.status}): ${typeof j?.error === "string" ? j.error : JSON.stringify(j)}`);
+        return;
+      }
       if (j?.ok && j.overlays) setOverlays(j.overlays);
+      else console.warn("[prompt-edit] tier overlays response missing overlays", j);
     } catch (e) {
       console.error("Failed to load overlays:", e);
+      alert(`Failed to load tier overlays: ${e instanceof Error ? e.message : "Unknown"}`);
     }
   }, []);
 
@@ -139,12 +146,23 @@ export default function PromptEditPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier, body: overlays[tier] }),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const msg =
+          typeof j?.error === "string"
+            ? j.error
+            : `HTTP ${r.status} ${JSON.stringify(j).slice(0, 200)}`;
+        console.error("[prompt-edit] save tier overlay failed", tier, r.status, j);
+        alert(`Save failed (${r.status}): ${msg}`);
+        return;
+      }
       if (j.ok) {
-        alert(`✅ Saved ${tier} overlay`);
+        const keyInfo = typeof j.key === "string" ? ` · app_config.key=${j.key}` : "";
+        const at = typeof j.updated_at === "string" ? ` · updated_at ${j.updated_at}` : "";
+        alert(`✅ Saved ${tier} overlay${keyInfo}${at}`);
         await loadOverlays();
       } else {
-        alert(`Failed: ${j.error}`);
+        alert(`Failed: ${typeof j?.error === "string" ? j.error : JSON.stringify(j)}`);
       }
     } catch (e: unknown) {
       alert(`Error: ${e instanceof Error ? e.message : "Unknown"}`);
@@ -234,7 +252,11 @@ export default function PromptEditPage() {
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-4">
         <h2 className="font-medium">Tier Overlays (Guest / Free / Pro)</h2>
         <p className="text-xs text-neutral-500">
-          Stored in <code className="bg-neutral-800 px-1 rounded">app_config</code>. Appended after user level instruction. Empty = use hardcoded default.
+          Stored in <code className="bg-neutral-800 px-1 rounded">app_config</code> with keys{" "}
+          <code className="bg-neutral-800 px-1 rounded">ai_overlay_guest</code>,{" "}
+          <code className="bg-neutral-800 px-1 rounded">ai_overlay_free</code>,{" "}
+          <code className="bg-neutral-800 px-1 rounded">ai_overlay_pro</code> (value JSON:{" "}
+          <code className="bg-neutral-800 px-1 rounded">{`{ "body": "…" }`}</code>). Appended after user level instruction. Empty save = clear override (hardcoded default).
         </p>
         {(["guest", "free", "pro"] as const).map((tier) => (
           <div key={tier} className="border border-neutral-700 rounded p-3 space-y-2">

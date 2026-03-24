@@ -1051,6 +1051,27 @@ export async function POST(req: NextRequest) {
         if (grounding) sys += `\n\n${grounding}`;
       } catch (_) {}
     }
+    try {
+      const { selectKeyCardsForGrounding } = await import("@/lib/deck/select-key-cards");
+      const { formatKeyCardsGroundingForPrompt, KEY_CARDS_GROUNDING_INSTRUCTION } = await import("@/lib/deck/key-card-grounding");
+      const cardNamesFull =
+        Array.isArray(v2Summary?.card_names) && v2Summary.card_names.length > 0
+          ? (v2Summary.card_names as string[])
+          : entries.length > 0
+            ? entries.map((e) => e.name)
+            : [];
+      if (cardNamesFull.length > 0) {
+        const keyNames = await selectKeyCardsForGrounding({
+          cardNames: cardNamesFull,
+          commander: commanderForGrounding,
+          v2Summary: v2Summary ?? null,
+          fingerprintText: null,
+          maxCards: 5,
+        });
+        const keyBlock = await formatKeyCardsGroundingForPrompt(keyNames);
+        if (keyBlock) sys += `\n\n${KEY_CARDS_GROUNDING_INSTRUCTION}\n\n${keyBlock}`;
+      }
+    } catch (_) {}
     // Add RAG context if found (Task 3) - skip when v2 summary used to avoid duplication
     if (ragContext && !v2Summary) {
       sys += ragContext;
