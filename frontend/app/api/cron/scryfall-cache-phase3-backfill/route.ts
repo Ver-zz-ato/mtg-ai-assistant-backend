@@ -164,8 +164,16 @@ export async function POST(req: NextRequest) {
     upserts.push(merged);
   }
 
-  if (upserts.length > 0) {
-    const { error: upErr } = await admin.from("scryfall_cache").upsert(upserts, { onConflict: "name" });
+  // Postgres upsert: one row per PK — collection can return duplicate oracle names in one response.
+  const dedupedByName = new Map<string, Record<string, unknown>>();
+  for (const row of upserts) {
+    const n = String(row.name ?? "");
+    if (n) dedupedByName.set(n, row);
+  }
+  const upsertRows = Array.from(dedupedByName.values());
+
+  if (upsertRows.length > 0) {
+    const { error: upErr } = await admin.from("scryfall_cache").upsert(upsertRows, { onConflict: "name" });
     if (upErr) {
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
@@ -181,8 +189,8 @@ export async function POST(req: NextRequest) {
     );
     await admin.from("admin_audit").insert({
       action: "scryfall_cache_phase3_backfill",
-      target: String(upserts.length),
-      payload: { merged: upserts.length, actor: actor || "cron" },
+      target: String(upsertRows.length),
+      payload: { merged: upsertRows.length, actor: actor || "cron" },
     });
   } catch {
     /* non-fatal */
@@ -192,7 +200,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     batchSizeRequested: batchSize,
     candidates: candidates.length,
-    merged: upserts.length,
+    merged: upsertRows.length,
+    duplicatePkInBatch: upserts.length - upsertRows.length,
     skippedMismatch,
     notFoundIdentifiers: not_found.length,
     scryfallCardsReturned: cards.length,
