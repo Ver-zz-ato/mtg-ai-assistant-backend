@@ -355,6 +355,61 @@ function extractJsonObject(raw: string): any | null {
   }
 }
 
+/** Compact deterministic deck metrics for LLM user prompts (server-computed in inferDeckContext only). */
+function formatDeckMetricsFromServer(context: InferredDeckContext): string {
+  const lines: string[] = [];
+  lines.push("Deck metrics (from server) — use these counts as ground truth; do not contradict them.");
+  lines.push(
+    `Lands (inferred): ${context.landCount} | Ramp-role cards: ${context.existingRampCount} | Commander provides ramp: ${context.commanderProvidesRamp ? "yes" : "no"}`
+  );
+  if (context.isBudget !== undefined) {
+    lines.push(`Budget mode: ${context.isBudget ? "yes" : "no"}`);
+  }
+  if (context.powerLevel) lines.push(`Power level (heuristic): ${context.powerLevel}`);
+  if (context.archetype) lines.push(`Archetype hint: ${context.archetype}`);
+
+  const c = context.curveAnalysis;
+  if (c) {
+    const avg = Number.isFinite(c.averageCMC) ? c.averageCMC.toFixed(2) : String(c.averageCMC);
+    lines.push(
+      `Curve: avg CMC ${avg} | shape ${c.shape} | 6+ drops: ${c.highEndCount} | low curve: ${c.lowCurve} | tight manabase flag: ${c.tightManabase}`
+    );
+    const b = c.buckets;
+    lines.push(
+      `CMC buckets (nonland slots): 0-1:${b["0-1"]} 2:${b["2"]} 3:${b["3"]} 4:${b["4"]} 5:${b["5"]} 6+:${b["6+"]}`
+    );
+    if (c.gaps?.length) lines.push(`Curve gaps (no cards at CMC): ${c.gaps.join(", ")}`);
+    if (c.warnings?.length) lines.push(`Curve warnings: ${c.warnings.join(" | ")}`);
+  }
+
+  const m = context.manabaseAnalysis;
+  if (m) {
+    lines.push(`Manabase acceptable (heuristic): ${m.isAcceptable ? "yes" : "no"}`);
+    const ratioParts = Object.entries(m.ratio)
+      .filter(([, v]) => typeof v === "number" && Number.isFinite(v))
+      .map(([k, v]) => `${k}:${(v as number).toFixed(2)}`)
+      .slice(0, 10);
+    if (ratioParts.length) lines.push(`Source/pip ratio: ${ratioParts.join(" ")}`);
+  }
+
+  const rd = context.roleDistribution?.byRole;
+  if (rd) {
+    lines.push(
+      `Role counts (tagged slots): commander:${rd.commander} ramp:${rd.ramp_fixing} draw:${rd.draw_advantage} removal:${rd.removal_interact} wincon:${rd.wincon_payoff} engine:${rd.engine_enabler} protection:${rd.protection_recursion} land:${rd.land}`
+    );
+  }
+
+  const pr = context.protectedRoles;
+  if (pr?.length) {
+    const shown = pr.slice(0, 12);
+    lines.push(
+      `Protected (do not suggest cutting): ${shown.join(", ")}${pr.length > shown.length ? " …" : ""}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
 async function planSuggestionSlots(
   deckText: string,
   userMessage: string | undefined,
@@ -403,9 +458,9 @@ async function planSuggestionSlots(
     profileNoteLines.length ? profileNoteLines.join("\n") : "",
     baselineSummary || "",
     colorSummary || "",
+    formatDeckMetricsFromServer(context),
+    "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
-    context.archetype ? `Detected archetype: ${context.archetype}` : "",
-    context.powerLevel ? `Power level: ${context.powerLevel}` : "",
     userMessage ? `User message:\n${userMessage}` : "",
     "Decklist:",
     deckText,
@@ -502,6 +557,7 @@ async function fetchSlotCandidates(
     profileNoteLines.length ? profileNoteLines.join(" | ") : "",
     baselineSummary || "",
     colorSummary || "",
+    formatDeckMetricsFromServer(context),
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
@@ -586,6 +642,7 @@ async function retrySlotCandidates(
     profileNoteLines.length ? profileNoteLines.join(" | ") : "",
     baselineSummary || "",
     colorSummary || "",
+    formatDeckMetricsFromServer(context),
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",
