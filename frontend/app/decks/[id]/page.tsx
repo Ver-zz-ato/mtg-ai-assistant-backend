@@ -13,6 +13,7 @@ import CloneDeckButton from "@/components/CloneDeckButton";
 import ShareButton from "@/components/ShareButton";
 import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
+import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
@@ -231,21 +232,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       
       // Cache the new data
       try {
-        const up = rows.map((c:any)=>{
-          const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
-          return {
-            name: norm(c?.name||''),
-            small: img.small || null,
-            normal: img.normal || null,
-            art_crop: img.art_crop || null,
-            type_line: c?.type_line || null,
-            oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
-            cmc: c?.cmc || c?.mana_value || null,
-            color_identity: c?.color_identity || [],
-            mana_cost: c?.mana_cost || (c?.card_faces?.[0]?.mana_cost || null),
-            updated_at: new Date().toISOString(),
-          };
-        });
+        const up = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
         if (up.length) await cacheClient.from('scryfall_cache').upsert(up, { onConflict: 'name' });
       } catch (e) {
         console.error('Cache write failed:', e);

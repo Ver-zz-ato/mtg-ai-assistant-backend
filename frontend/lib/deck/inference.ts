@@ -1,6 +1,7 @@
 // Shared deck inference functions for analyze and chat routes
 import { createClient } from "@/lib/supabase/server";
 import { isStale } from "@/lib/server/scryfallTtl";
+import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 
 // --- Minimal typed Scryfall card for our needs ---
 export type SfCard = {
@@ -16,6 +17,16 @@ export type SfCard = {
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** jsonb `legalities` from scryfall_cache or Scryfall API; `{}` when null/missing/invalid. */
+function normalizeLegalities(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
 }
 
 // Simple in-process cache (persists across hot reloads on server)
@@ -106,7 +117,7 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     const supabase = await createClient();
     const { data: rows } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, updated_at")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
       .eq("name", key)
       .limit(1);
     
@@ -120,7 +131,8 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
           oracle_text: row.oracle_text || null,
           color_identity: (row.color_identity || []) as string[],
           cmc: typeof row.cmc === "number" ? row.cmc : undefined,
-          legalities: {}, // Not stored in cache, will be empty
+          // Was incorrectly `{}` always; DB may have jsonb legalities from bulk/API upserts.
+          legalities: normalizeLegalities((row as { legalities?: unknown }).legalities),
           mana_cost: row.mana_cost || undefined,
         };
         // Store in memory cache for next time
@@ -168,15 +180,9 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     // Upsert to database cache
     try {
       const supabase = await createClient();
-      await supabase.from("scryfall_cache").upsert({
-        name: key,
-        type_line: card.type_line || null,
-        oracle_text: card.oracle_text || null,
-        color_identity: card.color_identity || [],
-        cmc: card.cmc || 0,
-        mana_cost: card.mana_cost || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "name" });
+      await supabase.from("scryfall_cache").upsert(buildScryfallCacheRowFromApiCard(j as Record<string, unknown>), {
+        onConflict: "name",
+      });
     } catch (error) {
       // If DB upsert fails, continue anyway (card is still in memory cache)
       console.warn('[inference] DB cache upsert failed:', error);
@@ -227,7 +233,7 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
     const supabase = await createClient();
     const { data: rows } = await supabase
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, updated_at")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, updated_at")
       .in("name", dbKeys);
     
     if (rows && rows.length > 0) {
@@ -242,7 +248,7 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
             oracle_text: row.oracle_text || null,
             color_identity: (row.color_identity || []) as string[],
             cmc: typeof row.cmc === "number" ? row.cmc : undefined,
-            legalities: {},
+            legalities: normalizeLegalities((row as { legalities?: unknown }).legalities),
             mana_cost: row.mana_cost || undefined,
           };
           result.set(key, card);
@@ -320,16 +326,8 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
           result.set(key, card);
           sfCache.set(key, card); // Store in memory
           
-          // Prepare for DB upsert
-          upsertRows.push({
-            name: key,
-            type_line: card.type_line || null,
-            oracle_text: card.oracle_text || null,
-            color_identity: card.color_identity || [],
-            cmc: card.cmc || 0,
-            mana_cost: card.mana_cost || null,
-            updated_at: new Date().toISOString(),
-          });
+          // Prepare for DB upsert (canonical row shape + Phase 2A columns)
+          upsertRows.push(buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
         }
         
         // Upsert to database cache

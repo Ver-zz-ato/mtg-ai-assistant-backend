@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import { sanitizeImageCacheInputName, normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -21,15 +22,17 @@ export const POST = withLogging(async (req: NextRequest) => {
     }
 
     // Use our scryfall cache instead of making live API calls
-    const imageMap = await getImagesForNamesCached(names.map((name: string) => name.trim()));
+    const imageMap = await getImagesForNamesCached(names.map((name: string) => String(name).trim()));
     
     // Transform cached data to Scryfall API format for compatibility
     const data: any[] = [];
     const not_found: any[] = [];
     
     for (const name of names) {
-      const cleanName = name.trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-      const imageInfo = imageMap.get(cleanName);
+      const trimmed = String(name).trim();
+      const sanitized = sanitizeImageCacheInputName(trimmed);
+      const cleanName = sanitized != null ? normalizeScryfallCacheName(sanitized) : "";
+      const imageInfo = cleanName ? imageMap.get(cleanName) : undefined;
       
       if (imageInfo && (imageInfo.small || imageInfo.normal || imageInfo.art_crop)) {
         // Format as Scryfall card object

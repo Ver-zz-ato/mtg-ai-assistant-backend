@@ -3,19 +3,25 @@
 // Returns a map from normalized name to { small, normal, art_crop } image URIs.
 // Uses a simple in-memory cache to reduce duplicate network hits during a session.
 
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+
 export type ImageInfo = { small?: string; normal?: string; art_crop?: string };
 
-const memCache: Map<string, ImageInfo> = new Map(); // key = normalized name
+/** In-memory cache: keyed by request lookup key and by canonical oracle name (Phase 2B). */
+const memCache: Map<string, ImageInfo> = new Map();
 
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
+/** Internal result: callers use byRequestKey; DB upserts must use cacheWritesByCanonicalName only (Phase 2B). */
+export type GetImagesForNamesInternalResult = {
+  byRequestKey: Map<string, ImageInfo>;
+  /** Resolved Scryfall oracle identity -> images. Used for scryfall_cache upserts only. */
+  cacheWritesByCanonicalName: Map<string, ImageInfo>;
+};
 
 /** Fetch English printing of a card by name. Scryfall collection can return non-English "newest" printings. Exported for use in server cache. */
 export async function fetchEnglishCardImages(name: string): Promise<ImageInfo | null> {
   try {
     const r = await fetch(
-      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${name.replace(/"/g, '')}"`)} lang:en`,
+      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${name.replace(/"/g, "")}"`)} lang:en`,
       {
         cache: "no-store",
         headers: { Accept: "application/json", "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)" },
@@ -32,34 +38,49 @@ export async function fetchEnglishCardImages(name: string): Promise<ImageInfo | 
   }
 }
 
-export async function getImagesForNames(names: string[]): Promise<Map<string, ImageInfo>> {
-  const out = new Map<string, ImageInfo>();
-  if (!Array.isArray(names) || names.length === 0) return out;
+async function fetchImagesForNamesInternal(names: string[]): Promise<GetImagesForNamesInternalResult> {
+  const byRequestKey = new Map<string, ImageInfo>();
+  const cacheWritesByCanonicalName = new Map<string, ImageInfo>();
+  if (!Array.isArray(names) || names.length === 0) {
+    return { byRequestKey, cacheWritesByCanonicalName };
+  }
 
-  // Map normalized -> first seen original so we can query Scryfall with exact names
+  // Map normalized request key -> first-seen string for Scryfall identifiers (caller-facing keys unchanged).
   const origForNorm = new Map<string, string>();
   for (const raw of names) {
-    const n = norm(raw);
+    const n = normalizeScryfallCacheName(String(raw));
     if (!n) continue;
     if (!origForNorm.has(n)) origForNorm.set(n, String(raw));
   }
 
-  // Partition into cache hits and misses (by normalized key)
   const missesNorm: string[] = [];
   for (const n of origForNorm.keys()) {
     if (memCache.has(n)) {
-      out.set(n, memCache.get(n)!);
+      byRequestKey.set(n, memCache.get(n)!);
     } else {
       missesNorm.push(n);
     }
   }
 
-  // Batch fetch in chunks of 75 (Scryfall limit)
+  /**
+   * Record in-memory result by request key; DB upserts use canonical oracle name only.
+   * Phase 2B: previously we upserted with the request key as `name`, which polluted scryfall_cache
+   * with punctuation/junk when fuzzy matched a real card.
+   */
+  const recordResolved = (requestKey: string, cardNameFromApi: string | undefined, info: ImageInfo) => {
+    byRequestKey.set(requestKey, info);
+    memCache.set(requestKey, info);
+    const cn = cardNameFromApi ? normalizeScryfallCacheName(cardNameFromApi) : "";
+    if (cn) {
+      memCache.set(cn, info);
+      cacheWritesByCanonicalName.set(cn, info);
+    }
+  };
+
   for (let i = 0; i < missesNorm.length; i += 75) {
     const batchNorm = missesNorm.slice(i, i + 75);
     if (batchNorm.length === 0) continue;
-    const identifiers = batchNorm.map((n) => ({ name: origForNorm.get(n)! })); // use original names for accuracy
-    const body = { identifiers } as any;
+    const identifiers = batchNorm.map((n) => ({ name: origForNorm.get(n)! }));
     const unresolved = new Set(batchNorm);
     try {
       const r = await fetch("https://api.scryfall.com/cards/collection", {
@@ -69,7 +90,7 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
           Accept: "application/json",
           "User-Agent": "ManaTap-AI/1.0 (https://manatap.ai)",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ identifiers }),
         cache: "no-store",
       });
       const ok = r.ok;
@@ -78,23 +99,22 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
       for (let idx = 0; idx < data.length; idx++) {
         const card = data[idx];
         const requestedName = identifiers[idx]?.name;
-        const key = requestedName ? norm(requestedName) : norm(card?.name || "");
+        const key = requestedName
+          ? normalizeScryfallCacheName(String(requestedName))
+          : normalizeScryfallCacheName(String(card?.name || ""));
         if (!key) continue;
         const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
         let info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
-        // Prefer English: Scryfall collection returns "newest" which can be non-English (e.g. Portuguese LCC)
         if (card?.lang && card.lang !== "en" && requestedName) {
           const enInfo = await fetchEnglishCardImages(requestedName);
           if (enInfo?.normal || enInfo?.small) info = enInfo;
         }
-        memCache.set(key, info);
-        out.set(key, info);
+        recordResolved(key, String(card?.name || ""), info);
         unresolved.delete(key);
       }
 
-      // Fuzzy fallback for any unresolved names in this batch (best-effort, small volume)
       if (unresolved.size > 0) {
-        const pending = Array.from(unresolved).slice(0, 20); // cap to be gentle
+        const pending = Array.from(unresolved).slice(0, 20);
         await Promise.all(
           pending.map(async (n) => {
             const orig = origForNorm.get(n)!;
@@ -108,16 +128,15 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
               );
               if (!fr.ok) return;
               const card: any = await fr.json().catch(() => ({}));
-              const key = n; // use requested normalized name
-              if (!key) return;
+              const requestKey = n;
+              if (!requestKey) return;
               const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
               let info: ImageInfo = { small: img.small, normal: img.normal, art_crop: img.art_crop };
               if (card?.lang && card.lang !== "en") {
                 const enInfo = await fetchEnglishCardImages(orig);
                 if (enInfo?.normal || enInfo?.small) info = enInfo;
               }
-              memCache.set(key, info);
-              out.set(key, info);
+              recordResolved(requestKey, String(card?.name || ""), info);
             } catch {}
           })
         );
@@ -125,5 +144,15 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
     } catch {}
   }
 
-  return out;
+  return { byRequestKey, cacheWritesByCanonicalName };
+}
+
+export async function getImagesForNames(names: string[]): Promise<Map<string, ImageInfo>> {
+  const r = await fetchImagesForNamesInternal(names);
+  return r.byRequestKey;
+}
+
+/** Full fetch metadata: use cacheWritesByCanonicalName for scryfall_cache upserts only (Phase 2B). */
+export async function getImagesForNamesForCache(names: string[]): Promise<GetImagesForNamesInternalResult> {
+  return fetchImagesForNamesInternal(names);
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 
 export const runtime = "nodejs";
 
@@ -17,14 +18,7 @@ async function scryfallBatch(names: string[], supabase: any) {
     const rows:any[] = Array.isArray(j?.data) ? j.data : [];
     for (const c of rows) out[norm(c?.name||'')] = c;
     try {
-      const up = rows.map((c:any)=>{
-        const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
-        return {
-          name: norm(c?.name||''), small: img.small||null, normal: img.normal||null, art_crop: img.art_crop||null,
-          type_line: c?.type_line || null, oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
-          updated_at: new Date().toISOString(),
-        };
-      });
+      const up = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
       if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
     } catch {}
   } catch {}

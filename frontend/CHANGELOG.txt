@@ -1,3 +1,12 @@
+2025-03-24 – Phase 3 scryfall_cache backfill (Phase 2A + legalities):
+- mergeScryfallCacheRowFromApiCard + needsPhase3Backfill; cron POST /api/cron/scryfall-cache-phase3-backfill (Scryfall collection, resumable cursor).
+- db/scryfall_cache_phase3_verification.sql, db/SCRYFALL_CACHE_PHASE3.md.
+- **build:** bulk-scryfall — `ScryfallCard` passed to `buildScryfallCacheRowFromApiCard` via `as unknown as Record<string, unknown>` for strict tsc.
+
+2025-03-24 – Phase 2B scryfall_cache image writes:
+- Image-cache DB upserts use resolved canonical Scryfall oracle name (normalizeScryfallCacheName(card.name)), not the request key; partial rows unchanged.
+- getImagesForNamesCached / prewarm / batch-images: sanitizeImageCacheInputName for obvious junk; getImagesForNames Map keys unchanged for callers.
+
 2025-09-10  –  Fix collections +/- & delete:
 - API now accepts id, delta from JSON body OR query string for PATCH/DELETE.
 - Auto-delete row when qty goes to 0 or below.

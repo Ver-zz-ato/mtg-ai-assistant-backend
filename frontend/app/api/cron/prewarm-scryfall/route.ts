@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getImagesForNamesCached, getDetailsForNamesCached } from "@/lib/server/scryfallCache";
+import { sanitizeImageCacheInputName } from "@/lib/server/scryfallCacheRow";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 
@@ -83,7 +84,10 @@ export async function POST(req: NextRequest) {
     );
     for (const arr of results) for (const n of arr) names.add(clean(n));
 
-    const list = Array.from(names).slice(0, 400);
+    const list = Array.from(names)
+      .map((n) => sanitizeImageCacheInputName(clean(String(n))))
+      .filter((x): x is string => x != null)
+      .slice(0, 400);
     // Warm both images and details paths; helpers will upsert and respect TTL
     await getImagesForNamesCached(list);
     await getDetailsForNamesCached(list);

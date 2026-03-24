@@ -5,6 +5,7 @@ import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
+import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 
 type SaveBody = {
   title?: string;
@@ -28,18 +29,7 @@ async function scryfallBatch(names: string[]): Promise<Record<string, any>> {
     // Upsert details into scryfall_cache (images + type_line/oracle_text)
     try {
       const supabase = await createClient();
-      const up: any[] = rows.map((c:any)=>{
-        const img = c?.image_uris || c?.card_faces?.[0]?.image_uris || {};
-        return {
-          name: String(c?.name||'').toLowerCase(),
-          small: img.small || null,
-          normal: img.normal || null,
-          art_crop: img.art_crop || null,
-          type_line: c?.type_line || null,
-          oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
-          updated_at: new Date().toISOString(),
-        };
-      });
+      const up: any[] = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
       if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
     } catch {}
   } catch {}

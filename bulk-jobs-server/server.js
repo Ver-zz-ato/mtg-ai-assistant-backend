@@ -26,9 +26,85 @@ function checkAuth(req, res, next) {
   next();
 }
 
-// Helper function for normalization
+// Helper: matches frontend lib/server/scryfallCacheRow.ts (Phase 2A canonical row)
 function norm(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function deriveTypeFlagsFromTypeLine(typeLine) {
+  const nil = { is_land: null, is_creature: null, is_instant: null, is_sorcery: null, is_enchantment: null, is_artifact: null, is_planeswalker: null };
+  if (typeLine == null || !String(typeLine).trim()) return nil;
+  const tl = String(typeLine);
+  const has = (w) => new RegExp(`\\b${w}\\b`, 'i').test(tl);
+  return {
+    is_land: has('Land'),
+    is_creature: has('Creature'),
+    is_instant: has('Instant'),
+    is_sorcery: has('Sorcery'),
+    is_enchantment: has('Enchantment'),
+    is_artifact: has('Artifact'),
+    is_planeswalker: has('Planeswalker'),
+  };
+}
+
+/** Mirror of buildScryfallCacheRowFromApiCard — keep in sync when cache schema changes. */
+function buildScryfallCacheRowFromApiCard(card) {
+  const nameKey = norm(card.name);
+  const faces = Array.isArray(card.card_faces) ? card.card_faces : [];
+  const front = faces[0] || {};
+  const imageUris = card.image_uris || {};
+  const faceUris = front.image_uris || {};
+  const img = {
+    small: imageUris.small || faceUris.small || null,
+    normal: imageUris.normal || faceUris.normal || null,
+    art_crop: imageUris.art_crop || faceUris.art_crop || null,
+  };
+  const oracleRaw = card.oracle_text != null ? card.oracle_text : front.oracle_text;
+  const oracle_text = oracleRaw != null && String(oracleRaw).trim() !== '' ? String(oracleRaw).trim() : null;
+  const manaCostRaw = card.mana_cost != null ? card.mana_cost : front.mana_cost;
+  const mana_cost = manaCostRaw != null && String(manaCostRaw).trim() !== '' ? String(manaCostRaw).trim() : null;
+  const cmcRaw = card.cmc != null ? card.cmc : card.mana_value;
+  const cmc = typeof cmcRaw === 'number' ? Math.round(cmcRaw) : 0;
+  const typeLineRaw = card.type_line != null ? String(card.type_line).trim() : '';
+  const type_line = typeLineRaw !== '' ? typeLineRaw : null;
+  const color_identity = Array.isArray(card.color_identity) ? card.color_identity : [];
+  const colors = Array.isArray(card.colors) ? card.colors : null;
+  const keywords = Array.isArray(card.keywords) ? card.keywords : null;
+  const power = card.power != null && String(card.power).trim() !== '' ? String(card.power) : (front.power != null && String(front.power).trim() !== '' ? String(front.power) : null);
+  const toughness = card.toughness != null && String(card.toughness).trim() !== '' ? String(card.toughness) : (front.toughness != null && String(front.toughness).trim() !== '' ? String(front.toughness) : null);
+  const loyalty = card.loyalty != null && String(card.loyalty).trim() !== '' ? String(card.loyalty) : (front.loyalty != null && String(front.loyalty).trim() !== '' ? String(front.loyalty) : null);
+  const flags = deriveTypeFlagsFromTypeLine(type_line);
+  const rarity = card.rarity ? String(card.rarity).toLowerCase().trim() : null;
+  const set = card.set ? String(card.set).toUpperCase().trim() : null;
+  const collector_number = card.collector_number != null && String(card.collector_number).trim() !== '' ? String(card.collector_number).trim() : null;
+  let legalities = null;
+  if (card.legalities && typeof card.legalities === 'object' && !Array.isArray(card.legalities)) {
+    const keys = Object.keys(card.legalities);
+    if (keys.length) legalities = card.legalities;
+  }
+  return {
+    name: nameKey,
+    name_norm: nameKey,
+    small: img.small,
+    normal: img.normal,
+    art_crop: img.art_crop,
+    type_line,
+    oracle_text,
+    color_identity,
+    colors,
+    keywords,
+    power,
+    toughness,
+    loyalty,
+    ...flags,
+    cmc,
+    mana_cost,
+    rarity,
+    set,
+    collector_number,
+    legalities,
+    updated_at: new Date().toISOString(),
+  };
 }
 
 // Health check
@@ -87,21 +163,7 @@ async function runBulkScryfallImport() {
     
     for (let i = 0; i < cards.length; i += batchSize) {
       const batch = cards.slice(i, i + batchSize);
-      const rows = batch.map(card => ({
-        name: card.name,
-        oracle_text: card.oracle_text || null,
-        type_line: card.type_line || null,
-        mana_cost: card.mana_cost || null,
-        cmc: card.cmc || 0,
-        colors: card.colors || [],
-        color_identity: card.color_identity || [],
-        rarity: card.rarity || null,
-        set: card.set || null,
-        collector_number: card.collector_number || null,
-        small: card.image_uris?.small || card.card_faces?.[0]?.image_uris?.small || null,
-        normal: card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null,
-        art_crop: card.image_uris?.art_crop || card.card_faces?.[0]?.image_uris?.art_crop || null,
-      }));
+      const rows = batch.map((card) => buildScryfallCacheRowFromApiCard(card));
       
       const { error } = await supabase.from('scryfall_cache').upsert(rows, {
         onConflict: 'name',

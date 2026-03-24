@@ -1,10 +1,12 @@
 // lib/server/scryfallCache.ts
 import { createClient } from "@/lib/supabase/server";
 import { ImageInfo, fetchEnglishCardImages } from "@/lib/scryfall";
-
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
+import {
+  normalizeScryfallCacheName as norm,
+  sanitizeImageCacheInputName,
+  buildScryfallCacheRowFromApiCard,
+  buildScryfallCachePartialImageRow,
+} from "./scryfallCacheRow";
 
 export const SCRYFALL_CACHE_TTL_DAYS = 30;
 const MAX_REFRESH_PER_REQUEST = 200; // cap to reduce burst refreshes (raised for better banner coverage on listings)
@@ -13,7 +15,14 @@ import { isStale } from "./scryfallTtl";
 
 export async function getImagesForNamesCached(names: string[]) {
   const supabase = await createClient();
-  const uniq = Array.from(new Set((names || []).filter(Boolean)));
+  const uniq = Array.from(
+    new Set(
+      (names || [])
+        .filter(Boolean)
+        .map((s) => sanitizeImageCacheInputName(String(s)))
+        .filter((x): x is string => x != null)
+    )
+  );
   const keys = uniq.map(norm);
   if (keys.length === 0) return new Map<string, ImageInfo>();
   const out = new Map<string, ImageInfo>();
@@ -38,15 +47,17 @@ export async function getImagesForNamesCached(names: string[]) {
   const stale = rows.filter(r => isStale(r.updated_at)).map(r => r.name);
   const toFetch = Array.from(new Set([...misses, ...stale])).slice(0, MAX_REFRESH_PER_REQUEST);
 
-  // 2) fetch needed from Scryfall and upsert
+  // 2) fetch needed from Scryfall and upsert (Phase 2B: PK = canonical oracle name, not request key)
   if (toFetch.length) {
     try {
-      const { getImagesForNames } = await import("@/lib/scryfall");
-      const fetched = await getImagesForNames(toFetch);
-      const up: any[] = [];
-      fetched.forEach((v, k) => {
+      const { getImagesForNamesForCache } = await import("@/lib/scryfall");
+      const { byRequestKey, cacheWritesByCanonicalName } = await getImagesForNamesForCache(toFetch);
+      byRequestKey.forEach((v, k) => {
         out.set(k, v);
-        up.push({ name: k, small: v.small || null, normal: v.normal || null, art_crop: v.art_crop || null, updated_at: new Date().toISOString() });
+      });
+      const up: any[] = [];
+      cacheWritesByCanonicalName.forEach((v, k) => {
+        up.push(buildScryfallCachePartialImageRow(k, { small: v.small, normal: v.normal, art_crop: v.art_crop }));
       });
       if (up.length) {
         await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
@@ -132,20 +143,12 @@ export async function getDetailsForNamesCached(names: string[]) {
           collector_number: c?.collector_number,
           legalities: legalities ?? undefined,
         });
-        up.push({
-          name: key,
-          small: img.small || null,
-          normal: img.normal || null,
-          art_crop: img.art_crop || null,
-          type_line: c?.type_line || null,
-          oracle_text: c?.oracle_text || (c?.card_faces?.[0]?.oracle_text || null),
-          color_identity: colorIdentity,
-          rarity: c?.rarity || null,
-          set: c?.set || null,
-          collector_number: c?.collector_number || null,
-          legalities,
-          updated_at: new Date().toISOString(),
-        });
+        // Preserve English image override for non-English printings (see img resolution above).
+        const cacheRow = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>) as Record<string, unknown>;
+        cacheRow.small = (img as { small?: string }).small ?? cacheRow.small;
+        cacheRow.normal = (img as { normal?: string }).normal ?? cacheRow.normal;
+        cacheRow.art_crop = (img as { art_crop?: string }).art_crop ?? cacheRow.art_crop;
+        up.push(cacheRow);
       }
       if (up.length) await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
     } catch {}
@@ -294,16 +297,7 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
           toughness: c?.toughness ?? front?.toughness,
           layout: c?.layout,
         });
-        up.push({
-          name: key,
-          type_line: c?.type_line || null,
-          oracle_text: oracleText || null,
-          color_identity: colorIdentity,
-          cmc: typeof c?.cmc === "number" ? c.cmc : 0,
-          mana_cost: c?.mana_cost ?? front?.mana_cost ?? null,
-          legalities,
-          updated_at: new Date().toISOString(),
-        });
+        up.push(buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
       }
       if (up.length) {
         await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });

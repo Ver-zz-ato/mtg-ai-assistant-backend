@@ -24,6 +24,18 @@ function normalizeName(raw: string): string {
     .trim();
 }
 
+/** Card page URL from canonical scryfall_cache fields (`set` + `collector_number` only). */
+function scryfallCardUriFromCache(
+  set: string | null | undefined,
+  collector: string | null | undefined,
+  fallbackName: string
+): string {
+  const s = set != null ? String(set).trim() : "";
+  const c = collector != null ? String(collector).trim() : "";
+  if (s && c) return `https://scryfall.com/card/${encodeURIComponent(s)}/${encodeURIComponent(c)}`;
+  return `https://scryfall.com/search?q=${encodeURIComponent(fallbackName)}`;
+}
+
 // Cache-aware price fetching
 async function getCachedPrices(supabase: any, names: string[]): Promise<Map<string, { usd?: number; eur?: number; gbp?: number }>> {
   const map = new Map<string, { usd?: number; eur?: number; gbp?: number }>();
@@ -54,19 +66,22 @@ async function getCachedCardData(supabase: any, names: string[]): Promise<Map<st
   const normalizedNames = names.map(normalizeName);
   const { data } = await supabase
     .from('scryfall_cache')
-    .select('name, type_line, oracle_text, set, set_name, collector_number, scryfall_uri, reprint_count')
+    .select('name, type_line, oracle_text, set, collector_number, updated_at')
     .in('name', normalizedNames)
     .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // 7 days
-  
+
   for (const row of (data || [])) {
+    const setName = row.set ? String(row.set).toUpperCase() : null;
     map.set(row.name, {
       type_line: row.type_line,
       oracle_text: row.oracle_text,
       set: row.set,
-      set_name: row.set_name,
+      // Full set name is not stored on scryfall_cache; use set code for display when present.
+      set_name: setName,
       collector_number: row.collector_number,
-      scryfall_uri: row.scryfall_uri,
-      reprint_count: row.reprint_count
+      scryfall_uri: scryfallCardUriFromCache(row.set, row.collector_number, row.name),
+      // Reprint count is not in cache; 0 until live Scryfall data fills via batch path.
+      reprint_count: 0,
     });
   }
   
