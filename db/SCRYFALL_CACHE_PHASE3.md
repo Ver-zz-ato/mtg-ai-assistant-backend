@@ -20,8 +20,8 @@ Populate Phase 2A columns (`name_norm`, `colors`, `keywords`, `power`, `toughnes
 | **Auth** | Same as other crons: `x-cron-key` / `?key=` / Vercel cron / signed-in admin |
 | **Client** | Service role via `getAdmin()` |
 | **Batch** | Up to 75 names per request; scans pages of 200 rows until enough **candidates** or `maxPages` |
-| **Query params** | `batchSize` (default 75, max 75), `maxPages` (default 15, max 50), `after` (cursor: last `name` from previous run) |
-| **Resumable** | Yes: use `nextAfter` from JSON response as `?after=` on the next call until `merged: 0` and scan completes |
+| **Query params** | `batchSize` (default 75, max 75), `maxPages` (default 15, max 50), `after` (exact PK string; next request uses `name` **>** `after` in text sort) |
+| **Resumable** | Yes: use `nextAfter` as `?after=` — it is the **last row examined** in the scan (not necessarily “canonical”; brackets/punctuation are literal DB `name`). |
 | **Safety** | Skips merge when `normalizeScryfallCacheName(card.name) !== row.name` (PK mismatch / junk row) |
 
 ## Candidate selection (`needsPhase3Backfill`)

@@ -51,7 +51,8 @@ async function fetchCollection(identifiers: { name: string }[]): Promise<{
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    message: "POST with x-cron-key or admin session. Query: batchSize (max 75), maxPages, after (name cursor).",
+    message:
+      "POST with x-cron-key or admin session. Query: batchSize (max 75), maxPages, after=<exact PK string>. after is lexicographic on name; use nextAfter from the previous response (any characters, e.g. brackets, are literal PK text).",
     source: "Scryfall /cards/collection + mergeScryfallCacheRowFromApiCard",
     docs: "db/SCRYFALL_CACHE_PHASE3.md",
   });
@@ -123,12 +124,16 @@ export async function POST(req: NextRequest) {
     const rows = (page || []) as Record<string, unknown>[];
     if (rows.length === 0) break;
 
+    // Resume cursor = last row *examined* in this page — not rows[length-1] when we stop early,
+    // or we would skip the rest of the page on the next request (name > cursor).
+    let lastExaminedNameInPage = "";
     for (const row of rows) {
+      lastExaminedNameInPage = String(row.name ?? "");
       if (needsPhase3Backfill(row)) candidates.push(row);
       if (candidates.length >= batchSize) break;
     }
 
-    scanCursor = String(rows[rows.length - 1].name ?? "");
+    scanCursor = lastExaminedNameInPage;
     pagesScanned++;
     if (rows.length < 200) break;
   }

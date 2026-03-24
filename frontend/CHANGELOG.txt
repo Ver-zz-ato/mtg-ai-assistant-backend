@@ -3,6 +3,7 @@
 - db/scryfall_cache_phase3_verification.sql, db/SCRYFALL_CACHE_PHASE3.md.
 - **build:** bulk-scryfall — `ScryfallCard` passed to `buildScryfallCacheRowFromApiCard` via `as unknown as Record<string, unknown>` for strict tsc.
 - Phase 3 backfill route: dedupe merged rows by PK before upsert (fixes Postgres “ON CONFLICT … second time” when Scryfall returns duplicate names in one batch); response includes `duplicatePkInBatch`.
+- Phase 3 resume: `nextAfter` is last **examined** row in the page (not last row of the 200 window) so the next `name > after` scan does not skip rows when the batch fills early.
 
 2025-03-24 – Phase 2B scryfall_cache image writes:
 - Image-cache DB upserts use resolved canonical Scryfall oracle name (normalizeScryfallCacheName(card.name)), not the request key; partial rows unchanged.
