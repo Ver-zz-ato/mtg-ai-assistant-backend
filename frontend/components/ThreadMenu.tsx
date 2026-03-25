@@ -37,8 +37,14 @@ export default function ThreadMenu({
     if (!confirm('Delete this thread?')) return;
     setBusy(true);
     try {
-      await deleteThread(threadId);
-      onDeleted?.();
+      const r = await deleteThread(threadId);
+      if (r.ok) onDeleted?.();
+      else {
+        try {
+          const { toastError } = await import("@/lib/toast-client");
+          toastError(r.error?.message || "Could not delete thread");
+        } catch {}
+      }
     } finally {
       setBusy(false);
     }

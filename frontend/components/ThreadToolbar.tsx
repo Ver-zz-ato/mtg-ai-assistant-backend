@@ -37,7 +37,11 @@ export default function ThreadToolbar({ threadId, onChanged }: Props) {
   const onDelete = async () => {
     if (!ensure()) return;
     if (!confirm('Delete this thread? This cannot be undone.')) return;
-    await deleteThread(threadId as string).catch(e => alert(e.message));
+    const r = await deleteThread(threadId as string);
+    if (!r.ok) {
+      alert(r.error?.message || "Could not delete thread");
+      return;
+    }
     onChanged?.();
   };
 

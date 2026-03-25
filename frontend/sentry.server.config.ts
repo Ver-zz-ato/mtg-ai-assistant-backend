@@ -11,6 +11,9 @@ Sentry.init({
   // COST OPTIMIZATION: 10% in production, 1% in dev to reduce Sentry overhead during development/testing
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0.01,
 
+  // Match client: N+1 performance issues use span data; omit noisy per-card fetches from traces.
+  ignoreSpans: [/\/api\/price/, /\/api\/decks\/cards/],
+
   // Enable logs to be sent to Sentry
   enableLogs: true,
 

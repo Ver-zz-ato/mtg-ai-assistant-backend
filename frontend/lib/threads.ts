@@ -71,13 +71,15 @@ export async function renameThread(threadId: string, title: string): Promise<Env
 }
 
 export async function deleteThread(threadId: string): Promise<Envelope<{}>> {
-  return j(
-    await fetch("/api/chat/threads/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId }),
-    } as RequestInit),
-  );
+  const res = await fetch("/api/chat/threads/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ threadId }),
+  } as RequestInit);
+  if (res.status === 401) {
+    return { ok: false, error: { message: "Sign in to delete threads", code: "unauthorized" } };
+  }
+  return j(res);
 }
 
 export async function linkThread(threadId: string, deckId: string | null): Promise<Envelope<{}>> {
