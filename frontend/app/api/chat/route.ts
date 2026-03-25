@@ -12,6 +12,7 @@ import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { COMMANDER_BANNED } from "@/lib/deck/banned-cards";
+import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -340,6 +341,7 @@ export async function POST(req: NextRequest) {
 
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
+    const clientEntrySource = sanitizeMobileChatSource(raw);
 
     if (!user) {
       // Guest path: token (header/cookie) or IP fallback for mobile
@@ -2043,7 +2045,8 @@ Return the corrected answer with concise, user-facing tone.`;
         user_message: text ? text.slice(0, 200) : null,
         assistant_message: outText ? outText.slice(0, 200) : null,
         format: typeof prefs?.format === 'string' ? prefs.format : null,
-        commander_name: inferredContext?.commander || null
+        commander_name: inferredContext?.commander || null,
+        ...(clientEntrySource ? { source: clientEntrySource } : {}),
       });
     } catch {}
 

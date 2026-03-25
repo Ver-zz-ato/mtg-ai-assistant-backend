@@ -9,6 +9,7 @@ import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { createEmptyAdminPromptPreview, type AdminPromptPreviewPayload } from "@/lib/ai/admin-prompt-preview-types";
+import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
 
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
+    const clientEntrySource = sanitizeMobileChatSource(raw);
     const inputText = typeof raw?.prompt === "string" ? raw.prompt : raw?.text;
     
     const normalized = { text: inputText, threadId: raw?.threadId, messages: raw?.messages };
@@ -1297,6 +1299,25 @@ export async function POST(req: NextRequest) {
           is_guest: isGuest,
           user_tier: modelTierRes.tier,
         });
+        if (clientEntrySource) {
+          try {
+            const { captureServer } = await import("@/lib/server/analytics");
+            await captureServer(
+              "chat_sent",
+              {
+                route: "chat_stream",
+                layer0: "NO_LLM",
+                ms: Date.now() - t0,
+                thread_id: tid,
+                user_id: userId,
+                user_message: text ? text.slice(0, 200) : null,
+                assistant_message: responseText ? responseText.slice(0, 200) : null,
+                source: clientEntrySource,
+              },
+              userId ?? undefined
+            );
+          } catch (_) {}
+        }
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           start(controller) {
@@ -1756,6 +1777,26 @@ export async function POST(req: NextRequest) {
               system_prompt_token_estimate: estimateSystemPromptTokens(sys),
             });
           } catch (_) {}
+
+          if (clientEntrySource) {
+            try {
+              const { captureServer } = await import("@/lib/server/analytics");
+              await captureServer(
+                "chat_sent",
+                {
+                  route: "chat_stream",
+                  ms: Date.now() - t0,
+                  thread_id: tid,
+                  user_id: userId,
+                  user_message: text ? text.slice(0, 200) : null,
+                  assistant_message: outputText ? outputText.slice(0, 200) : null,
+                  source: clientEntrySource,
+                  has_deck_context: streamHasDeckContextForLayer0,
+                },
+                userId ?? undefined
+              );
+            } catch (_) {}
+          }
 
           // Cache-on-complete: write to two-tier cache when stream finishes successfully
           if (outputText && typeof outputText === "string" && outputText.length > 0) {
