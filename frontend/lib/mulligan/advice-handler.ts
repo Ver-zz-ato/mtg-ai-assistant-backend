@@ -15,6 +15,7 @@ import { evaluateHandDeterministically } from "@/lib/mulligan/hand-eval";
 import { computeHandTags } from "@/lib/mulligan/hand-tags";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { costUSD } from "@/lib/ai/pricing";
+import { AI_USAGE_SOURCE_MANATAP_APP } from "@/lib/ai/manatap-client-origin";
 
 const ResponseSchema = z.object({
   action: z.enum(["KEEP", "MULLIGAN"]),
@@ -87,6 +88,10 @@ export type AdviceContext = {
   userId: string | null;
   source: "admin_playground" | "production_widget";
   effectiveTier: "guest" | "free" | "pro";
+  /** When set to manatap_app, overrides production_widget for ai_usage.source */
+  aiUsageSource?: string | null;
+  /** Fine-grained feature key for ai_usage.source_page */
+  sourcePage?: string | null;
 };
 
 export type AdviceResult =
@@ -98,7 +103,7 @@ export async function runMulliganAdvice(
   context: AdviceContext
 ): Promise<AdviceResult> {
   const { modelTier, playDraw, mulliganCount, hand, deck } = input;
-  const { userId, source, effectiveTier } = context;
+  const { userId, source, effectiveTier, aiUsageSource, sourcePage } = context;
 
   const effectiveModelTier = effectiveTier !== "pro" ? "mini" : modelTier;
 
@@ -323,7 +328,13 @@ Task: Decide KEEP or MULLIGAN. If deterministic keepBias is KEEP with high confi
         isPro: effectiveTier === "pro",
         anonId: null,
         skipRecordAiUsage: false,
-        source: source === "admin_playground" ? "admin_mulligan_playground" : "production_widget",
+        source:
+          aiUsageSource === AI_USAGE_SOURCE_MANATAP_APP
+            ? AI_USAGE_SOURCE_MANATAP_APP
+            : source === "admin_playground"
+              ? "admin_mulligan_playground"
+              : "production_widget",
+        source_page: sourcePage ?? null,
       }
     );
 

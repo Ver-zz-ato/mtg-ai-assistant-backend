@@ -33,6 +33,8 @@ export type AnalysisGenerationOptions = {
   requestId?: string;
   /** Optional: where the analyze was triggered (e.g. deck_page_analyze, homepage, build_assistant) */
   sourcePage?: string;
+  /** Optional: ai_test | manatap_app from resolveAiUsageSourceForRequest */
+  usageSource?: string;
 };
 
 /**
@@ -74,6 +76,7 @@ export async function generateDeckAnalysis(
     deckSize,
     requestId,
     sourcePage,
+    usageSource,
   } = options;
 
   // Input trim: hard cap on deck list length; add note so model focuses on highest-signal info
@@ -212,6 +215,7 @@ export async function generateDeckAnalysis(
       responsePreview: null,
       deckSize: deckSize ?? undefined,
       source_page: sourcePage ?? null,
+      source: usageSource ?? null,
     });
 
     const text = response.text;

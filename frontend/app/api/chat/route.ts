@@ -466,6 +466,8 @@ export async function POST(req: NextRequest) {
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
     const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
     const sourcePage = (typeof raw?.sourcePage === "string" ? raw.sourcePage : raw?.source_page)?.trim() || null;
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const chatAiUsageSource = resolveAiUsageSourceForRequest(req, raw, evalRunId ?? null);
     const looksSearch = typeof inputText === 'string' && /^(?:show|find|search|cards?|creatures?|artifacts?|enchantments?)\b/i.test(inputText.trim());
     let suppressInsert = !!looksSearch;
     if (!parse.success) { status = 400; return err(parse.error.issues[0].message, "bad_request", 400); }
@@ -781,7 +783,7 @@ export async function POST(req: NextRequest) {
           is_guest: isGuest,
           user_tier: isPro ? "pro" : userId ? "free" : "guest",
           eval_run_id: evalRunId ?? null,
-          source: evalRunId ? "ai_test" : undefined,
+          source: chatAiUsageSource,
         });
         return ok({ text: responseText, threadId: tid, provider: "layer0" });
         }
@@ -1454,7 +1456,7 @@ export async function POST(req: NextRequest) {
           is_guest: isGuest,
           user_tier: tierLabel,
           eval_run_id: evalRunId ?? null,
-          source: evalRunId ? "ai_test" : undefined,
+          source: chatAiUsageSource,
         });
       } catch (_) {}
       return ok({ text: cachedText, threadId: tid, provider: "cached" });
@@ -2021,7 +2023,7 @@ Return the corrected answer with concise, user-facing tone.`;
         prompt_tier: selectedTier,
         system_prompt_token_estimate: estimateSystemPromptTokens(sys),
         eval_run_id: evalRunId ?? undefined,
-        source: evalRunId ? "ai_test" : undefined,
+        source: chatAiUsageSource,
       });
     } catch {}
 

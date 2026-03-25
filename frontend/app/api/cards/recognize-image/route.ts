@@ -122,6 +122,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
     }
 
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const fdUsage = formData.get("usageSource");
+    const fdUsageSnake = formData.get("usage_source");
+    const usageSourceBody = {
+      usageSource:
+        typeof fdUsage === "string" ? fdUsage : typeof fdUsageSnake === "string" ? fdUsageSnake : undefined,
+    };
+    const usageSource = resolveAiUsageSourceForRequest(req, usageSourceBody, null);
+    const sourcePageRaw = formData.get("sourcePage") ?? formData.get("source_page");
+    const sourcePage = typeof sourcePageRaw === "string" && sourcePageRaw.trim() ? sourcePageRaw.trim() : null;
+
     const file = formData.get("image") ?? formData.get("file");
     const blob = file instanceof Blob ? file : null;
     if (!blob || blob.size === 0) {
@@ -183,6 +194,8 @@ export async function POST(req: NextRequest) {
       output_tokens: outputTokens,
       cost_usd: cost,
       route: "scan_recognize_image",
+      source_page: sourcePage,
+      source: usageSource ?? undefined,
       prompt_preview: "card recognition vision",
       response_preview: content?.slice(0, 200) ?? null,
       latency_ms: Date.now() - t0,

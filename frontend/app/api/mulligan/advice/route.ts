@@ -23,6 +23,8 @@ const AdviceSchema = z.object({
     cards: z.array(z.object({ name: z.string(), count: z.number() })),
     commander: z.string().nullable().optional(),
   }),
+  /** Optional mobile attribution (ai_usage.source_page) */
+  sourcePage: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -35,6 +37,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  const { resolveAiUsageSourceForRequest, AI_USAGE_SOURCE_MANATAP_APP } = await import("@/lib/ai/manatap-client-origin");
+  const aiUsageSource = resolveAiUsageSourceForRequest(req, body, null);
 
   const parsed = AdviceSchema.safeParse(body);
   if (!parsed.success) {
@@ -100,10 +105,16 @@ export async function POST(req: NextRequest) {
     format: "commander" as const,
   };
 
+  const explicitPage = typeof parsed.data.sourcePage === "string" ? parsed.data.sourcePage.trim() : "";
+  const srcPage =
+    explicitPage || (aiUsageSource === AI_USAGE_SOURCE_MANATAP_APP ? "app_mulligan_advice" : null);
+
   const result = await runMulliganAdvice(input, {
     userId: user?.id ?? null,
     source: "production_widget",
     effectiveTier,
+    aiUsageSource,
+    sourcePage: srcPage,
   });
 
   if (!result.ok) {

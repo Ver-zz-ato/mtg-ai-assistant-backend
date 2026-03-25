@@ -10,6 +10,10 @@ const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard"] as const;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const usageSource = resolveAiUsageSourceForRequest(req, body, null);
+    const sourcePage =
+      (typeof body.sourcePage === "string" ? body.sourcePage : typeof body.source_page === "string" ? body.source_page : null)?.trim() || null;
     const deckText = String(body?.deckText || "").trim();
     const format = String(body?.format || "Commander").trim();
     const commanderName = typeof body?.commanderName === "string" ? body.commanderName.trim() || null : null;
@@ -90,6 +94,8 @@ export async function POST(req: NextRequest) {
         apiType: "chat",
         userId: null,
         isPro: false,
+        source_page: sourcePage,
+        source: usageSource ?? null,
       }
     );
 

@@ -11,6 +11,10 @@ import { GUEST_DAILY_FEATURE_LIMIT, SWAP_WHY_FREE, SWAP_WHY_PRO } from '@/lib/fe
 export async function POST(req: NextRequest){
   try{
     const body = await req.json().catch(()=>({}));
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const usageSource = resolveAiUsageSourceForRequest(req, body, null);
+    const sourcePage =
+      (typeof body.sourcePage === "string" ? body.sourcePage : typeof body.source_page === "string" ? body.source_page : null)?.trim() || null;
     const fromRaw = String(body?.from||'');
     const toRaw = String(body?.to||'');
     const deckText = String(body?.deckText||'');
@@ -87,6 +91,8 @@ Focus on role/function overlap and synergy preservation. When explaining synergy
           userId: user?.id || null,
           isPro: user ? await checkProStatus(user.id) : false,
           anonId,
+          source_page: sourcePage,
+          source: usageSource ?? null,
         }
       );
 

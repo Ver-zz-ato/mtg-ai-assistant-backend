@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
     
     const { text, threadId, messages: clientMessages } = parse.data;
     const sourcePage = (typeof raw?.sourcePage === "string" ? raw.sourcePage : raw?.source_page)?.trim() || null;
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const streamAiUsageSource = resolveAiUsageSourceForRequest(req, raw, null);
     const clientConversation = Array.isArray(clientMessages) ? clientMessages : [];
     
     // Check if OpenAI API key exists
@@ -1287,6 +1289,7 @@ export async function POST(req: NextRequest) {
           cost_usd: 0,
           route: "chat_stream",
           source_page: sourcePage,
+          source: streamAiUsageSource,
           request_kind: "NO_LLM",
           context_source: streamContextSource,
           layer0_mode: "NO_LLM",
@@ -1730,6 +1733,7 @@ export async function POST(req: NextRequest) {
               cost_usd: cost,
               route: "chat_stream",
               source_page: sourcePage,
+              source: streamAiUsageSource,
               request_kind: streamLayer0Mode ?? undefined,
               layer0_mode: streamLayer0Mode ?? undefined,
               layer0_reason: streamLayer0Reason ?? undefined,

@@ -267,6 +267,8 @@ async function callOpenAI(
     anonId?: string | null;
     /** For AI test cost reporting */
     evalRunId?: string | null;
+    /** Resolved: ai_test | manatap_app | undefined */
+    usageSource?: string | null;
   } = {}
 ): Promise<string> {
   const feature = opts.feature ?? "deck_analyze";
@@ -331,7 +333,7 @@ async function callOpenAI(
         source_page: opts.sourcePage ?? null,
         anonId: opts.anonId ?? null,
         eval_run_id: opts.evalRunId ?? null,
-        source: opts.evalRunId ? "ai_test" : null,
+        source: opts.usageSource ?? null,
       }
     );
 
@@ -452,7 +454,8 @@ async function planSuggestionSlots(
   forceModel?: string,
   sourcePage?: string | null,
   anonId?: string | null,
-  evalRunId?: string | null
+  evalRunId?: string | null,
+  usageSource?: string | null
 ): Promise<SuggestionSlotPlan[]> {
   const profile = getCommanderProfileData(context.commander, context);
   const promptVersion = getActivePromptVersion();
@@ -517,6 +520,7 @@ async function planSuggestionSlots(
       sourcePage,
       anonId,
       evalRunId,
+      usageSource,
     });
     const parsed = extractJsonObject(raw);
     const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
@@ -547,7 +551,8 @@ async function fetchSlotCandidates(
   forceModel?: string,
   sourcePage?: string | null,
   anonId?: string | null,
-  evalRunId?: string | null
+  evalRunId?: string | null,
+  usageSource?: string | null
 ): Promise<SlotCandidate[]> {
   const profile = getCommanderProfileData(context.commander, context);
 
@@ -617,6 +622,7 @@ async function fetchSlotCandidates(
       sourcePage,
       anonId,
       evalRunId,
+      usageSource,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -642,7 +648,8 @@ async function retrySlotCandidates(
   forceModel?: string,
   sourcePage?: string | null,
   anonId?: string | null,
-  evalRunId?: string | null
+  evalRunId?: string | null,
+  usageSource?: string | null
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
   const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
@@ -704,6 +711,7 @@ async function retrySlotCandidates(
       sourcePage,
       anonId,
       evalRunId,
+      usageSource,
     });
     const parsed = extractJsonObject(raw);
     const items = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
@@ -732,7 +740,8 @@ async function validateSlots(
   forceModel?: string,
   sourcePage?: string | null,
   anonId?: string | null,
-  evalRunId?: string | null
+  evalRunId?: string | null,
+  usageSource?: string | null
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -747,7 +756,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId, usageSource);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -826,7 +835,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId, usageSource);
       await attempt(retry, "retry");
     }
   }
@@ -1459,6 +1468,13 @@ export async function POST(req: Request) {
     forceTier?: string;
   };
 
+  const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+  const deckAnalyzeUsageSource = resolveAiUsageSourceForRequest(
+    req,
+    body,
+    typeof body.eval_run_id === "string" ? body.eval_run_id : null
+  );
+
   let deckText = String(body.deckText || "").trim();
   if (body.deckId && !deckText) {
     const { data: deckRow } = await supabase.from("decks").select("deck_text, commander, format, colors").eq("id", body.deckId).maybeSingle();
@@ -1490,7 +1506,7 @@ export async function POST(req: Request) {
       layer0_reason: "no_deck",
       source_page: body.sourcePage?.trim() || null,
       eval_run_id: typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null,
-      source: body.eval_run_id ? "ai_test" : undefined,
+      source: deckAnalyzeUsageSource,
     });
     return new Response(
       JSON.stringify({
@@ -1774,8 +1790,8 @@ export async function POST(req: Request) {
   const sourcePage = body.sourcePage?.trim() || null;
   const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -1788,7 +1804,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -1838,6 +1854,7 @@ export async function POST(req: Request) {
         isPro: isPro ?? false,
         requestId: deckAnalyzeRequestId,
         sourcePage: sourcePage ?? undefined,
+        usageSource: deckAnalyzeUsageSource,
       };
 
       const validationContext = {

@@ -56,6 +56,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const usageSource = resolveAiUsageSourceForRequest(req, body, null);
+    const sourcePage =
+      (typeof body.sourcePage === "string" ? body.sourcePage : typeof body.source_page === "string" ? body.source_page : null)?.trim() || null;
     const { decks, comparison } = body;
 
     if (!decks || !comparison) {
@@ -119,6 +123,8 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           apiType: 'chat',
           userId: user.id,
           isPro: true,
+          source_page: sourcePage,
+          source: usageSource ?? null,
         }
       );
 

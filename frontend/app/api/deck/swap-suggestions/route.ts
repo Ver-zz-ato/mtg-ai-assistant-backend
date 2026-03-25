@@ -73,7 +73,9 @@ async function aiSuggest(
   isPro?: boolean,
   anonId?: string | null,
   commander?: string | null,
-  allowedColors?: string[] | null
+  allowedColors?: string[] | null,
+  usageSource?: string | null,
+  sourcePage?: string | null
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
   const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
   
@@ -128,6 +130,8 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
         userId: userId || null,
         isPro: isPro || false,
         anonId: anonId ?? null,
+        source_page: sourcePage ?? null,
+        source: usageSource ?? null,
       }
     );
 
@@ -161,6 +165,10 @@ async function snapOrScryPrice(name: string, currency: string, useSnapshot: bool
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+    const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+    const usageSource = resolveAiUsageSourceForRequest(req, body, null);
+    const sourcePage =
+      (typeof body.sourcePage === "string" ? body.sourcePage : typeof body.source_page === "string" ? body.source_page : null)?.trim() || null;
     const deckText = String(body.deckText || body.deck_text || "");
     const currency = String(body.currency || "USD").toUpperCase();
     const budget = Number(body.budget ?? 5); // suggest swaps for cards over this per-unit
@@ -277,7 +285,7 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
-      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId, commander || null, allowedColors.length > 0 ? allowedColors : null);
+      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId, commander || null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;

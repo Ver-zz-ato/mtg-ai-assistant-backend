@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { usePriceTrends, getTrendDisplay, formatTrendPct } from '@/hooks/usePriceTrends';
+import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
 
 type Card = {
   name: string;
@@ -9,6 +10,32 @@ type Card = {
 };
 
 type CardImageMap = Record<string, { small?: string; normal?: string }>;
+
+/** Keys must match getImagesForNames / CardsPane (NFKD-normalized). */
+function resolveCardImageUrls(name: string, imgMap: CardImageMap): { small?: string; normal?: string } {
+  const norm = (s: string) => normalizeScryfallCacheName(s);
+  let key = norm(name);
+  let small = imgMap[key]?.small;
+  let normal = imgMap[key]?.normal;
+
+  if (!small && name.includes('//')) {
+    const frontFace = norm(name.split('//')[0].trim());
+    small = imgMap[frontFace]?.small;
+    normal = imgMap[frontFace]?.normal;
+    if (!small) {
+      const imgKeys = Object.keys(imgMap).filter((k) => {
+        if (!k.includes('//') || !k.startsWith(frontFace + ' //')) return false;
+        const parts = k.split('//').map((p: string) => p.trim());
+        return parts[0] !== parts[1];
+      });
+      if (imgKeys.length > 0) {
+        small = imgMap[imgKeys[0]]?.small;
+        normal = imgMap[imgKeys[0]]?.normal;
+      }
+    }
+  }
+  return { small, normal };
+}
 
 interface PublicDeckCardListProps {
   cards: Card[];
@@ -24,9 +51,25 @@ export default function PublicDeckCardList({
   currency = 'USD' 
 }: PublicDeckCardListProps) {
   const [imgMap, setImgMap] = useState<CardImageMap>({});
-  const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ 
-    src: "", x: 0, y: 0, shown: false, below: false 
+  const [pv, setPv] = useState<{
+    previewCardName: string | null;
+    x: number;
+    y: number;
+    shown: boolean;
+    below: boolean;
+  }>({
+    previewCardName: null,
+    x: 0,
+    y: 0,
+    shown: false,
+    below: false,
   });
+
+  const previewSrc = useMemo(() => {
+    if (!pv.previewCardName || !pv.shown) return '';
+    const { small, normal } = resolveCardImageUrls(pv.previewCardName, imgMap);
+    return normal || small || '';
+  }, [pv.previewCardName, pv.shown, imgMap]);
   
   // Get card names for trend fetching
   const cardNames = useMemo(() => cards.map(c => c.name), [cards]);
@@ -83,43 +126,19 @@ export default function PublicDeckCardList({
     <>
       <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
         <ul className="space-y-2">
-          {cards.map((c) => {
-            const unitPrice = priceMap.get(String(c.name).toLowerCase());
+          {cards.map((c, idx) => {
+            const nk = normalizeScryfallCacheName(String(c.name));
+            const unitPrice = priceMap.get(nk) ?? priceMap.get(String(c.name).toLowerCase());
             const totalValue = typeof unitPrice === 'number' && unitPrice > 0 
               ? unitPrice * c.qty 
               : null;
             const valueDisplay = totalValue !== null ? `$${totalValue.toFixed(2)}` : '';
             
-            // Get card image
-            let key = c.name.toLowerCase();
-            let src = imgMap[key]?.small;
-            let normalSrc = imgMap[key]?.normal;
-            
-            // Handle DFCs
-            if (!src && c.name.includes('//')) {
-              const frontFace = c.name.split('//')[0].trim().toLowerCase();
-              src = imgMap[frontFace]?.small;
-              normalSrc = imgMap[frontFace]?.normal;
-              
-              if (!src) {
-                const imgKeys = Object.keys(imgMap).filter(k => {
-                  if (!k.includes('//') || !k.startsWith(frontFace + ' //')) return false;
-                  const parts = k.split('//').map((p: string) => p.trim());
-                  return parts[0] !== parts[1];
-                });
-                if (imgKeys.length > 0) {
-                  src = imgMap[imgKeys[0]]?.small;
-                  normalSrc = imgMap[imgKeys[0]]?.normal;
-                  key = imgKeys[0];
-                }
-              } else {
-                key = frontFace;
-              }
-            }
+            const { small: src } = resolveCardImageUrls(c.name, imgMap);
             
             return (
               <li 
-                key={c.name} 
+                key={`${idx}-${c.name}`} 
                 className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-800/40 hover:bg-neutral-800/70 transition-colors border border-neutral-700/50 hover:border-neutral-600/70 group"
               >
                 <span className="w-10 text-center tabular-nums font-semibold text-emerald-400 bg-neutral-900/50 px-2 py-1 rounded">
@@ -136,13 +155,13 @@ export default function PublicDeckCardList({
                     className="w-[24px] h-[34px] object-cover rounded cursor-pointer"
                     onMouseEnter={(e) => { 
                       const { x, y, below } = calcPos(e as any); 
-                      setPv({ src: normalSrc || src, x, y, shown: true, below }); 
+                      setPv({ previewCardName: c.name, x, y, shown: true, below }); 
                     }}
                     onMouseMove={(e) => { 
                       const { x, y, below } = calcPos(e as any); 
                       setPv(p => p.shown ? { ...p, x, y, below } : p); 
                     }}
-                    onMouseLeave={() => setPv(p => ({ ...p, shown: false }))}
+                    onMouseLeave={() => setPv((p) => ({ ...p, shown: false, previewCardName: null }))}
                   />
                 )}
                 
@@ -176,7 +195,7 @@ export default function PublicDeckCardList({
       </div>
       
       {/* Global hover preview for card images */}
-      {pv.shown && typeof window !== 'undefined' && (
+      {pv.shown && previewSrc && typeof window !== 'undefined' && (
         <div 
           className="fixed z-[9999] pointer-events-none" 
           style={{ 
@@ -187,8 +206,8 @@ export default function PublicDeckCardList({
         >
           <div className="rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl w-72 md:w-80 transition-opacity duration-150 ease-out opacity-100" style={{ minWidth: '18rem' }}>
             <img 
-              src={pv.src} 
-              alt="preview" 
+              src={previewSrc} 
+              alt={pv.previewCardName ?? 'preview'} 
               className="block w-full h-auto max-h-[70vh] max-w-none object-contain rounded" 
             />
           </div>
