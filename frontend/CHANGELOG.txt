@@ -1,3 +1,5 @@
+2026-03-26 – `POST /api/decks/health-report` injects deterministic `buildDeckFacts` (after `enrichDeck` → `tagCards`) into the LLM prompt; same JSON response shape. Export `resolveCommanderFromEnriched` from `deck-context-summary.ts` for reuse (`app/api/decks/health-report/route.ts`, `lib/deck/deck-context-summary.ts`). Docs: `docs/WEBSITE_SCRYFALL_META_TAG_AUDIT.md` updated for health-report grounding.
+
 2025-03-24 – Phase 4I: `isLandForDeck` / `isCreatureForDeck` prefer `is_land` / `is_creature` when set, else legacy `type_line` substrings; `buildDeckFacts` land split + role rules (`checkRamp` mana_dork, `checkFinisher`, `checkComboEngine`, `checkFixing`) (`lib/deck/card-role-tags.ts`, `lib/deck/deck-facts.ts`).
 
 2025-03-24 – Phase 4G: `getDetailsForNamesCacheOnly` loads `keywords`; `moduleDetection` ORs `hasOracleKeyword` (Cascade, Storm, Landfall, Dredge) with existing oracle checks; `composeSystemPrompt` uses `CachedCard` for norm map (`lib/server/scryfallCache.ts`, `lib/prompts/moduleDetection.ts`, `lib/prompts/composeSystemPrompt.ts`).

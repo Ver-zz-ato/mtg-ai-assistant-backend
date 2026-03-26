@@ -174,7 +174,8 @@ function inferWarningFlags(
  * Resolve commander to only legendary creatures (or special planeswalkers).
  * If extracted commander is not eligible, pick first commander-eligible card from deck.
  */
-function resolveCommanderFromEnriched(
+/** Resolves commander name against enriched deck rows (eligibility + deck_cards names). Reusable by routes that build deck_facts. */
+export function resolveCommanderFromEnriched(
   enriched: Array<{ name: string; commander_eligible?: boolean }>,
   extractedCommander: string | null
 ): string | null {
