@@ -1044,23 +1044,38 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <button 
                     onClick={async () => {
                       const confirmation = prompt('Type "DELETE" to confirm account deletion:');
-                      if (confirmation === 'DELETE') {
-                        if (confirm('Are you absolutely sure? This action is irreversible.')) {
-                          try {
-                            const r = await fetch('/api/profile/delete-account', { method: 'POST', credentials: 'include' });
-                            const j = await r.json().catch(() => ({}));
-                            if (r.ok && j?.ok) {
-                              alert('Account deleted. You will be logged out.');
-                              window.location.href = '/';
-                            } else {
-                              alert(j?.error || 'Failed to delete account');
-                            }
-                          } catch (e: any) {
-                            alert(e?.message || 'Failed to delete account');
-                          }
+                      if (confirmation !== 'DELETE') {
+                        if (confirmation !== null) alert('Deletion cancelled. You must type "DELETE" exactly.');
+                        return;
+                      }
+                      if (!confirm('Are you absolutely sure? This action is irreversible.')) return;
+                      const hasEmailIdentity = (authUser?.identities ?? []).some((i) => i.provider === 'email');
+                      let password: string | undefined;
+                      if (hasEmailIdentity) {
+                        const pwd = prompt('Enter your account password to permanently delete your account:');
+                        if (pwd === null) return;
+                        if (!String(pwd).trim()) {
+                          alert('Your password is required to delete your account.');
+                          return;
                         }
-                      } else if (confirmation !== null) {
-                        alert('Deletion cancelled. You must type "DELETE" exactly.');
+                        password = String(pwd);
+                      }
+                      try {
+                        const r = await fetch('/api/profile/delete-account', {
+                          method: 'POST',
+                          credentials: 'include',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(password ? { password } : {}),
+                        });
+                        const j = await r.json().catch(() => ({}));
+                        if (r.ok && j?.ok) {
+                          alert('Account deleted. You will be logged out.');
+                          window.location.href = '/';
+                        } else {
+                          alert(j?.error || 'Failed to delete account');
+                        }
+                      } catch (e: any) {
+                        alert(e?.message || 'Failed to delete account');
                       }
                     }}
                     className="px-3 py-2 rounded bg-red-900 hover:bg-red-800 text-white text-sm"

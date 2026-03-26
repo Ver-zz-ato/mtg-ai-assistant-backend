@@ -1,20 +1,77 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
+function hasEmailPasswordIdentity(user: { identities?: { provider: string }[] } | null): boolean {
+  return (user?.identities ?? []).some((i) => i.provider === "email");
+}
+
 /**
  * POST /api/profile/delete-account
- * Self-service account deletion. Requires authenticated user.
+ * Self-service account deletion. Requires authenticated user (session cookie or Bearer token).
+ * Email/password users must send `{ "password": "..." }`; verified via anon `signInWithPassword` before delete.
+ * OAuth-only users (no `email` identity): deletion allowed with session only (no password on file).
  * Deletes all user data then auth user (service role required).
  */
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await getServerSupabase();
+    let {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        supabase = createClientWithBearerToken(bearerToken);
+        ({
+          data: { user },
+        } = await supabase.auth.getUser());
+      }
+    }
+
+    if (!user?.email) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    let body: { password?: string } = {};
+    try {
+      const ct = req.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
+        body = await req.json();
+      }
+    } catch {
+      body = {};
+    }
+
+    if (hasEmailPasswordIdentity(user)) {
+      const pwd = typeof body.password === "string" ? body.password : "";
+      if (!pwd.trim()) {
+        return NextResponse.json(
+          { ok: false, error: "Enter your account password to delete your account." },
+          { status: 400 },
+        );
+      }
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!url || !anon) {
+        return NextResponse.json({ ok: false, error: "Server configuration error." }, { status: 500 });
+      }
+      const verifyClient = createClient(url, anon, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: pwErr } = await verifyClient.auth.signInWithPassword({
+        email: user.email,
+        password: pwd,
+      });
+      if (pwErr) {
+        return NextResponse.json({ ok: false, error: "Incorrect password." }, { status: 401 });
+      }
     }
 
     const admin = getAdmin();
