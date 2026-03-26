@@ -3,6 +3,12 @@
  * All structured fields are optional; legacy-only bodies behave as before.
  */
 
+import type { TransformIntentCanonical } from "@/lib/deck/transform-intent";
+import {
+  normalizeTransformIntent as normalizeTransformIntentToken,
+  buildTransformIntentPromptBlock,
+} from "@/lib/deck/transform-intent";
+
 export type NormalizedGenerationInput = {
   collectionId: string | null;
   commander: string | null;
@@ -23,7 +29,10 @@ export type NormalizedGenerationInput = {
   notes: string | null;
 };
 
-const KNOWN_BUILD_MODES = new Set(["full_deck", "core_shell", "staples_flex"]);
+/** Normalize client tokens (e.g. core-shell → core_shell). */
+function normalizeModeRefKey(s: string): string {
+  return s.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
 
 const GENERATION_INTENT_HINTS: Record<string, string> = {
   new_build: "Start a fresh 100-card deck from constraints (not a direct edit of an imported list unless source deck text is provided).",
@@ -104,35 +113,102 @@ export function normalizeGenerationBody(body: unknown): NormalizedGenerationInpu
   };
 }
 
-function buildModeUserAddendum(input: NormalizedGenerationInput): string {
-  const m = input.buildMode;
-  if (!m || m === "full_deck") return "";
+/**
+ * Operational build-mode text for the model. Output remains a plain 100-line decklist (no section headers);
+ * modes bias *card choice* only. Empty when absent or when nothing to add.
+ */
+export function buildModePromptDirective(buildMode: string | null): string {
+  if (!buildMode?.trim()) return "";
+  const m = normalizeModeRefKey(buildMode);
+  if (m === "full_deck") {
+    return [
+      "BUILD MODE (mandatory — follow when choosing cards): full_deck",
+      "Produce a standard, complete 100-card Commander list: a normal land count (typically ~35–38 lands including utility lands), adequate ramp and card draw, interaction, and clear win lines. Balance all roles; do not emphasize a shell/flex split.",
+    ].join("\n");
+  }
   if (m === "core_shell") {
-    return "Build mode: core shell — emphasize a tight nonland core (synergy, ramp, win lines) with a complete 100-card Commander-legal list; still output exactly 100 cards.";
+    return [
+      "BUILD MODE (mandatory — follow when choosing cards): core_shell",
+      "Still output exactly 100 lines of \"qty Card Name\" with no labels or commentary. Bias card selection toward: (1) a stable mana base (~35–38 lands) and ~8–12 ramp sources where possible, (2) the deck's engine, payoffs, and synergy density in nonland slots before filler, (3) interaction and protection that directly support the commander's plan.",
+      "Prioritize cards that are redundant with the strategy (multiple ways to execute the same game plan) over scattered goodstuff that does not advance the theme.",
+    ].join("\n");
   }
   if (m === "staples_flex") {
-    return "Build mode: staples + flex — use solid format staples for mana and interaction; reserve slots for flexible on-theme choices.";
+    return [
+      "BUILD MODE (mandatory — follow when choosing cards): staples_flex",
+      "Still output exactly 100 plain lines. Structure choices as: (1) efficient format-wide staples for mana fixing, ramp, and must-answer interaction (on-color), (2) reserve roughly 15–25 slots for flexible, theme-specific, or meta-dependent cards that define deck identity.",
+      "Do not skimp on interaction or ramp to add flex; staples carry consistency, flex carries flavor.",
+    ].join("\n");
   }
-  if (!KNOWN_BUILD_MODES.has(m)) {
-    return `Build mode requested: "${m}" (non-standard; interpret as a slight emphasis on a coherent deck).`;
-  }
-  return "";
+  return [
+    `BUILD MODE (non-standard token "${buildMode.trim()}" — still apply):`,
+    "Interpret as: keep a coherent 100-card Commander list, but lean choices toward what that label suggests without breaking color identity or legality.",
+  ].join("\n");
+}
+
+/**
+ * Strong refinement guidance. Empty when absent.
+ */
+export function refinementPromptDirective(refinement: string | null): string {
+  if (!refinement?.trim()) return "";
+  const r = normalizeModeRefKey(refinement);
+  const map: Record<string, string> = {
+    more_ramp: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_ramp",
+      "Increase mana acceleration: aim for roughly 10–14 ramp sources total (land ramp, mana dorks, mana rocks, spells that put extra lands or mana into play) unless the commander/budget forbids. Prefer adding ramp before cutting lands.",
+    ].join("\n"),
+    more_interaction: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_interaction",
+      "Increase interaction density: aim for roughly 10–15+ spells or permanents that answer threats (creature removal, artifact/enchantment removal, counterspells, bounce). If space is tight, trim lower-impact value or win-more cards first.",
+    ].join("\n"),
+    lower_budget: [
+      "REFINEMENT (mandatory — follow when choosing cards): lower_budget",
+      "Prefer budget and affordable reprints; avoid chase Reserved List or unnecessarily expensive singles when a cheaper card fills the same role. Prioritize function over price prestige.",
+    ].join("\n"),
+    faster_curve: [
+      "REFINEMENT (mandatory — follow when choosing cards): faster_curve",
+      "Lower the curve: favor 1–3 mana plays; minimize clunky 6+ mana spells except finishers or essential top-end. Trim slow haymakers that do not close games.",
+    ].join("\n"),
+    more_on_theme: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_on_theme",
+      "Prioritize synergy with the commander and stated theme. Replace generic staples that do not advance the plan when an on-theme alternative exists at similar power.",
+    ].join("\n"),
+    more_casual: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_casual",
+      "Avoid cEDH-style fast-combo stacks, hard locks, and two-card instant wins unless power level demands it. Prefer interactive, multiplayer-friendly patterns.",
+    ].join("\n"),
+    more_optimized: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_optimized",
+      "Tighten efficiency: better curve, redundant interaction, fewer dead or cute cards; tutors and consistency tools where appropriate. Stay within the stated power level and budget.",
+    ].join("\n"),
+  };
+  if (map[r]) return map[r];
+  return [
+    `REFINEMENT (non-standard token "${refinement.trim()}" — still apply):`,
+    "Weight card choices toward what that label implies while staying Commander-legal and on-color.",
+  ].join("\n");
+}
+
+/** Combined block for generate structured section or transform user prompt. */
+export function formatBuildModeAndRefinementDirectives(
+  buildMode: string | null,
+  refinement: string | null
+): string {
+  const parts: string[] = [];
+  const bm = buildModePromptDirective(buildMode);
+  const rf = refinementPromptDirective(refinement);
+  if (bm) parts.push(bm);
+  if (rf) parts.push(rf);
+  if (parts.length === 0) return "";
+  return parts.join("\n\n");
+}
+
+function buildModeUserAddendum(input: NormalizedGenerationInput): string {
+  return buildModePromptDirective(input.buildMode);
 }
 
 function refinementAddendum(input: NormalizedGenerationInput): string {
-  const r = input.refinement;
-  if (!r) return "";
-  const hints: Record<string, string> = {
-    more_ramp: "Include more mana acceleration (lands, rocks, dorks) while staying legal.",
-    more_interaction: "Include more removal, counters, and stack interaction.",
-    lower_budget: "Prefer lower-cost card options where possible; avoid unnecessary luxury cards.",
-    faster_curve: "Lower average CMC and prioritize efficient plays.",
-    more_on_theme: "Tighten synergy with the commander and theme; avoid off-theme fillers.",
-    more_casual: "Favor fun, table-friendly cards over hard optimization.",
-    more_optimized: "Strengthen consistency and power within the stated power band.",
-  };
-  const line = hints[r] || `Refinement preference: ${r}.`;
-  return line;
+  return refinementPromptDirective(input.refinement);
 }
 
 function structuredIntentSection(input: NormalizedGenerationInput): string {
@@ -171,6 +247,12 @@ function structuredIntentSection(input: NormalizedGenerationInput): string {
   return `\nStructured instructions (follow when compatible with the rules above):\n${lines.join("\n")}\n`;
 }
 
+/** Reminder line so BUILD MODE / REFINEMENT are not treated as optional flavor text. */
+function buildDirectiveComplianceReminder(input: NormalizedGenerationInput): string {
+  if (!input.buildMode?.trim() && !input.refinement?.trim()) return "";
+  return "\nCompliance: Where BUILD MODE or REFINEMENT directives conflict with generic deck-building advice, obey the directives.\n";
+}
+
 export function buildGenerationSystemPrompt(): string {
   return `You are an expert Magic: The Gathering deck builder. Your task is to output a valid Commander decklist.
 
@@ -191,6 +273,7 @@ export function buildGenerationUserPrompt(input: NormalizedGenerationInput, coll
     : "No commander specified. Pick a well-known commander that fits the collection and build a 100-card Commander deck. Include the commander.";
 
   const structured = structuredIntentSection(input);
+  const compliance = buildDirectiveComplianceReminder(input);
 
   return `Build a Commander deck with these constraints:
 
@@ -202,17 +285,20 @@ ${collectionList}
 Playstyle: ${input.playstyle || "general"}
 Power level: ${input.powerLevel}
 Budget: ${input.budget}
-${structured}
-Output EXACTLY 100 cards. Double-check: no cards outside the commander's color identity. Output the decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
+${structured}${compliance}Output EXACTLY 100 cards. Double-check: no cards outside the commander's color identity. Output the decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
 }
 
 export type NormalizedTransformInput = {
   sourceDeckText: string;
   format: string;
   commander: string | null;
-  transformIntent: string;
+  /** Canonical transform intent (unknown raw values map to general). */
+  transformIntent: TransformIntentCanonical;
   powerLevel: string;
   budget: string;
+  /** Optional; same semantics as generate-from-collection (additive). */
+  buildMode: string | null;
+  refinement: string | null;
   constraints: string | null;
   notes: string | null;
 };
@@ -232,12 +318,13 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
 
   const format = typeof b.format === "string" && b.format.trim() ? b.format.trim() : "Commander";
   const commander = typeof b.commander === "string" ? b.commander.trim() || null : null;
-  const ti =
+  const tiRaw =
     typeof b.transformIntent === "string" && b.transformIntent.trim()
       ? b.transformIntent.trim()
       : typeof b.transformType === "string" && b.transformType.trim()
         ? b.transformType.trim()
         : "general";
+  const ti = normalizeTransformIntentToken(tiRaw.slice(0, 128));
   const powerLevel = typeof b.powerLevel === "string" && b.powerLevel.trim() ? b.powerLevel.trim() : "Casual";
   const budget = typeof b.budget === "string" && b.budget.trim() ? b.budget.trim() : "Moderate";
   const constraints =
@@ -250,6 +337,8 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
             .slice(0, 8000) || null
         : null;
   const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 8000) || null : null;
+  const buildMode = strOrNull(b.buildMode, 64);
+  const refinement = strOrNull(b.refinement, 64);
 
   return {
     ok: true,
@@ -257,9 +346,11 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
       sourceDeckText,
       format,
       commander,
-      transformIntent: ti.slice(0, 128),
+      transformIntent: ti,
       powerLevel,
       budget,
+      buildMode,
+      refinement,
       constraints,
       notes,
     },
@@ -267,7 +358,9 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
 }
 
 export function buildTransformSystemPrompt(format: string): string {
-  return `You are an expert Magic: The Gathering deck builder. Revise and output a complete ${format} decklist.
+  return `You are an expert Magic: The Gathering deck builder. You MODIFY an existing decklist — you do not invent a brand-new deck unless the source is unusable.
+
+Your job is to read the SOURCE DECK below and output a REPLACEMENT full ${format} decklist that applies the user's transform goal while preserving commander, theme, and strategy whenever the instructions allow.
 
 CRITICAL RULES:
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
@@ -280,22 +373,37 @@ CRITICAL RULES:
 
 export function buildTransformUserPrompt(input: NormalizedTransformInput): string {
   const commanderLine = input.commander
-    ? `Commander: ${input.commander}.`
-    : "Infer commander from the list if present; otherwise choose a commander that fits the deck.";
+    ? `Commander (preserve unless legality requires change): ${input.commander}.`
+    : "Infer commander from the source list if identifiable; otherwise pick one commander that matches the deck's colors and theme.";
+
+  const intentBlock = buildTransformIntentPromptBlock(input.transformIntent);
+
+  const modeRef = formatBuildModeAndRefinementDirectives(input.buildMode, input.refinement);
+  const modeRefBlock = modeRef ? `${modeRef}\n\n` : "";
 
   const extra: string[] = [];
   if (input.constraints) extra.push(`Constraints: ${input.constraints}`);
   if (input.notes) extra.push(`Notes: ${input.notes}`);
   const extraBlock = extra.length ? `\n${extra.join("\n")}\n` : "";
 
-  return `Transform the following deck. ${commanderLine}
+  const compliance =
+    input.buildMode?.trim() || input.refinement?.trim()
+      ? "\nCompliance: Where BUILD MODE or REFINEMENT directives conflict with generic advice, obey the directives.\n"
+      : "";
 
-Transform intent: ${input.transformIntent}
+  return `TASK: Revise the SOURCE DECK below — do not ignore it and generate an unrelated list.
+
+${commanderLine}
+
+${intentBlock}
+
+${modeRefBlock}Canonical transform intent: ${input.transformIntent}
 Power level: ${input.powerLevel}
 Budget: ${input.budget}
 ${extraBlock}
-Source deck (revise and improve this list):
+--- SOURCE DECK (edit this list into an improved 100-card deck) ---
 ${input.sourceDeckText.slice(0, 24_000)}
-
-Output EXACTLY 100 cards for Commander. Double-check color identity.`;
+--- END SOURCE ---
+${compliance}
+Output EXACTLY 100 cards for Commander. Double-check color identity and Commander singleton rules.`;
 }

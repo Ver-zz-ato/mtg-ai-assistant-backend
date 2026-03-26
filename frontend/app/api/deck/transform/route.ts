@@ -13,6 +13,8 @@ import {
   buildTransformSystemPrompt,
   buildTransformUserPrompt,
 } from "@/lib/deck/generation-input";
+import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
+import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -153,13 +155,25 @@ export async function POST(req: NextRequest) {
     const allNames = cards.map((c) => c.name);
     const details = await getDetailsForNamesCached(allNames);
 
+    const warnings: string[] = [];
+    const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
+    if (warnSrc) warnings.push(warnSrc);
+
+    const beforeCi = cards.length;
     const filtered = cards.filter((c) => {
       const entry = details.get(norm(c.name));
       if (!entry) return true;
       return isWithinColorIdentity(entry as SfCard, allowedColors);
     });
+    const droppedCi = beforeCi - filtered.length;
+    if (droppedCi > 0) {
+      warnings.push(
+        `Color identity validation removed ${droppedCi} card line(s) from the model output (off-color or unknown).`
+      );
+    }
 
     if (filtered.length > 100) {
+      warnings.push(`Model output had ${filtered.length} cards after color filter; list trimmed to 100.`);
       cards = filtered.slice(0, 100);
     } else {
       cards = filtered;
@@ -175,9 +189,14 @@ export async function POST(req: NextRequest) {
       // optional
     }
 
-    const warnings: string[] = [];
     if (cards.length < 100) {
       warnings.push(`List has ${cards.length} cards after validation; target is 100 for Commander.`);
+    }
+
+    const intentLabel = summarizeTransformIntent(input.transformIntent);
+    let summary = `Transformed: ${intentLabel}. Power ${input.powerLevel}, budget ${input.budget}.`;
+    if (previewFacts?.avg_cmc != null && previewFacts.avg_cmc > 0) {
+      summary += ` Avg CMC ~${previewFacts.avg_cmc}.`;
     }
 
     return NextResponse.json({
@@ -188,7 +207,7 @@ export async function POST(req: NextRequest) {
       colors,
       deckText,
       format: input.format,
-      summary: `Transformed with intent: ${input.transformIntent} (${input.powerLevel}, ${input.budget}).`,
+      summary,
       warnings: warnings.length ? warnings : undefined,
       transformIntent: input.transformIntent,
       ...(previewFacts ? { previewFacts } : {}),
