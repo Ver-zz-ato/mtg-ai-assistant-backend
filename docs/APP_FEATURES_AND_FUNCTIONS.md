@@ -65,7 +65,7 @@
 | **Card suggestions** | Deck-page recommendations respect color identity and format; hover card art for full image | ✅ | ✅ |
 | **AI Deck Generator** | Generate full Commander decks (Commander page modules A/B/C/D); loading state + preview modal before creating | ✅ | Rate limited |
 
-*Routes: `/api/deck/analyze`, `/api/deck/health-suggestions`, `/api/recommendations/deck/[id]`, `/api/deck/generate-from-collection`*
+*Routes: `/api/deck/analyze`, `/api/deck/health-suggestions`, `/api/recommendations/deck/[id]`, `/api/deck/generate-from-collection` (optional structured fields; additive `previewFacts`), `/api/deck/transform` (Commander deck text in → revised list out; shares daily cap with generate-from-collection)*
 
 ---
 

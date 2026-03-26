@@ -72,3 +72,7 @@ export const PRICE_TRACKER_DECK_SERIES_PRO = 50;
 /** Generate deck from collection (Build Deck From Collection, Commander Builder Module D): free 3/day, Pro 20/day. */
 export const GENERATE_FROM_COLLECTION_FREE = 3;
 export const GENERATE_FROM_COLLECTION_PRO = 20;
+
+/** Deck transform/refine (POST /api/deck/transform): same daily caps as generate-from-collection. */
+export const DECK_TRANSFORM_FREE = GENERATE_FROM_COLLECTION_FREE;
+export const DECK_TRANSFORM_PRO = GENERATE_FROM_COLLECTION_PRO;

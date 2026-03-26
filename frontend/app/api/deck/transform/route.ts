@@ -3,16 +3,15 @@ import { createClient } from "@/lib/server-supabase";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { sanitizeName } from "@/lib/profanity";
 import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity } from "@/lib/deck/generation-helpers";
 import {
-  normalizeGenerationBody,
-  buildGenerationSystemPrompt,
-  buildGenerationUserPrompt,
+  normalizeTransformBody,
+  buildTransformSystemPrompt,
+  buildTransformUserPrompt,
 } from "@/lib/deck/generation-input";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 
@@ -26,7 +25,6 @@ export async function POST(req: NextRequest) {
     const { data: userResp } = await supabase.auth.getUser();
     let user = userResp?.user;
 
-    // Bearer fallback for mobile
     if (!user) {
       const authHeader = req.headers.get("Authorization");
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -46,26 +44,25 @@ export async function POST(req: NextRequest) {
     }
 
     const rawBody = await req.json().catch(() => ({}));
-    const input = normalizeGenerationBody(rawBody);
-    const collectionId = input.collectionId;
-    const commander = input.commander;
-    const playstyle = input.playstyle;
-    const powerLevel = input.powerLevel;
-    const format = input.format;
+    const parsed = normalizeTransformBody(rawBody);
+    if (!parsed.ok) {
+      return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+    }
+    const input = parsed.input;
 
-    if (!collectionId && !commander) {
+    if (input.format.toLowerCase() !== "commander") {
       return NextResponse.json(
-        { ok: false, error: "Provide collectionId and/or commander (at least one required)" },
+        { ok: false, error: "Only Commander format is supported for deck transform at this time" },
         { status: 400 }
       );
     }
 
-    // Rate limit by tier (free vs pro)
     let isPro = false;
     try {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       isPro = await checkProStatus(user.id);
     } catch {}
+    // Share daily cap with generate-from-collection (same family; do not double quota).
     const dailyLimit = isPro ? GENERATE_FROM_COLLECTION_PRO : GENERATE_FROM_COLLECTION_FREE;
     const keyHash = `user:${user.id}`;
     try {
@@ -92,34 +89,11 @@ export async function POST(req: NextRequest) {
         );
       }
     } catch (e) {
-      console.error("[generate-from-collection] Rate limit check failed:", e);
+      console.error("[deck/transform] Rate limit check failed:", e);
     }
 
-    // Fetch collection cards if collectionId provided
-    let collectionItems: Array<{ name: string; qty: number }> = [];
-    if (collectionId) {
-      const { data: col } = await supabase
-        .from("collections")
-        .select("id, user_id")
-        .eq("id", collectionId)
-        .maybeSingle();
-      if (!col || col.user_id !== user.id) {
-        return NextResponse.json({ ok: false, error: "Collection not found or access denied" }, { status: 403 });
-      }
-      const { data: cards } = await supabase
-        .from("collection_cards")
-        .select("name, qty")
-        .eq("collection_id", collectionId);
-      collectionItems = (cards ?? []).map((c) => ({ name: c.name, qty: Number(c.qty) || 1 }));
-    }
-
-    const collectionList =
-      collectionItems.length > 0
-        ? collectionItems.map((c) => `- ${c.name} x${c.qty}`).join("\n")
-        : "No collection provided; generate a deck from the full card pool.";
-
-    const systemPrompt = buildGenerationSystemPrompt();
-    const userPrompt = buildGenerationUserPrompt(input, collectionList);
+    const systemPrompt = buildTransformSystemPrompt(input.format);
+    const userPrompt = buildTransformUserPrompt(input);
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -140,7 +114,7 @@ export async function POST(req: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       max_completion_tokens: 8000,
-      temperature: 0.7,
+      temperature: 0.55,
     } as Record<string, unknown>);
 
     // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
@@ -155,38 +129,36 @@ export async function POST(req: NextRequest) {
 
     if (!resp.ok) {
       const errText = await resp.text();
-      console.error("[generate-from-collection] OpenAI error:", resp.status, errText);
+      console.error("[deck/transform] OpenAI error:", resp.status, errText);
       return NextResponse.json(
-        { ok: false, error: "Deck generation failed" },
+        { ok: false, error: "Deck transform failed" },
         { status: 500 }
       );
     }
 
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content ?? "";
-    const parsed = parseAiDeckOutputLines(content);
-    let cards = aggregateCards(parsed);
+    const parsedLines = parseAiDeckOutputLines(content);
+    let cards = aggregateCards(parsedLines);
 
     if (cards.length < 30) {
       return NextResponse.json(
-        { ok: false, error: "Generated decklist too short; please try again" },
+        { ok: false, error: "Transformed decklist too short; please try again" },
         { status: 500 }
       );
     }
 
-    const commanderName = commander || cards[0]?.name || "Unknown";
+    const commanderName = input.commander || cards[0]?.name || "Unknown";
     const allowedColors = (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase());
     const allNames = cards.map((c) => c.name);
     const details = await getDetailsForNamesCached(allNames);
 
-    // Filter out color identity violations
     const filtered = cards.filter((c) => {
       const entry = details.get(norm(c.name));
-      if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
+      if (!entry) return true;
       return isWithinColorIdentity(entry as SfCard, allowedColors);
     });
 
-    // Trim to exactly 100 cards (prioritize order from AI; remove extras from end)
     if (filtered.length > 100) {
       cards = filtered.slice(0, 100);
     } else {
@@ -195,13 +167,6 @@ export async function POST(req: NextRequest) {
 
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const colors = allowedColors;
-    const overallAim = playstyle
-      ? `A ${powerLevel} ${playstyle} Commander deck led by ${commanderName}.`
-      : `A ${powerLevel} Commander deck led by ${commanderName}.`;
-    const title = sanitizeName(
-      commander ? `${commander} (AI)` : `AI Deck from Collection`,
-      120
-    );
 
     let previewFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> = undefined;
     try {
@@ -210,22 +175,26 @@ export async function POST(req: NextRequest) {
       // optional
     }
 
-    // Return preview only; client will call decks/create when user confirms
+    const warnings: string[] = [];
+    if (cards.length < 100) {
+      warnings.push(`List has ${cards.length} cards after validation; target is 100 for Commander.`);
+    }
+
     return NextResponse.json({
       ok: true,
       preview: true,
       decklist: cards,
       commander: commanderName,
       colors,
-      overallAim,
-      title,
       deckText,
-      format: format || "Commander",
-      plan: "Optimized",
+      format: input.format,
+      summary: `Transformed with intent: ${input.transformIntent} (${input.powerLevel}, ${input.budget}).`,
+      warnings: warnings.length ? warnings : undefined,
+      transformIntent: input.transformIntent,
       ...(previewFacts ? { previewFacts } : {}),
     });
   } catch (e: unknown) {
-    console.error("[generate-from-collection]", e);
+    console.error("[deck/transform]", e);
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "server_error" },
       { status: 500 }
