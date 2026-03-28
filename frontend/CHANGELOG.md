@@ -2,6 +2,12 @@
 
 ## 2026-03-28
 
+### Vercel cost — polling, middleware, ingest matcher
+
+- **`lib/active-users-context.tsx`:** **`/api/stats/activity`** poll **120s** (was 60s); **no poll while tab hidden**; **visibility** refetch when stale (~90s); **in-flight** dedupe.
+- **`components/RateLimitIndicator.tsx`:** Pro **`/api/rate-limit/status`** poll **120s** (was 30s); same **visibility** + **dedupe**; **`hasWarned`** moved to **ref** so toasts don’t reset the interval.
+- **`middleware.ts`:** After a **maintenance off** config read, **skip** internal **`/api/config?key=maintenance`** fetch for **12s** (emergency: **`MAINTENANCE_HARD_READONLY`**); matcher excludes **`/ingest/*`** (analytics proxy — no session/maintenance work).
+
 ### Deck role tagging — supplemental Scryfall `keywords`
 
 - **`lib/deck/card-role-tags.ts`:** After existing oracle/heuristic rules, optional additive tags from `EnrichedCard.keywords` (source `keywords`, lower confidence): Landfall → `payoff` (nonlands only); subset of graveyard keyword actions → `graveyard_setup`; Populate → `token_payoff`; Fabricate → `token_producer`. Skipped when that role was already assigned.

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { capture } from '@/lib/ph';
 
 interface RateLimitStatus {
@@ -10,25 +10,36 @@ interface RateLimitStatus {
   percentUsed: number;
 }
 
+/** Pro rate-limit poll interval (was 30s — reduced Vercel invocations). */
+const POLL_MS = 120_000;
+/** Refetch when tab becomes visible if last fetch is older than this. */
+const STALE_ON_VISIBLE_MS = 60_000;
+
 export default function RateLimitIndicator({ isPro }: { isPro?: boolean }) {
   const [status, setStatus] = useState<RateLimitStatus | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [hasWarned, setHasWarned] = useState(false);
+  const lastFetchAtRef = useRef(0);
+  const inFlightRef = useRef(false);
+  /** Ref so the polling effect does not reset when a toast fires (was hasWarned state). */
+  const hasWarnedRef = useRef(false);
 
   useEffect(() => {
     // Only show for Pro users
     if (!isPro) return;
 
     const fetchStatus = async () => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       try {
         const res = await fetch('/api/rate-limit/status');
         const data = await res.json();
         if (data.ok) {
+          lastFetchAtRef.current = Date.now();
           setStatus(data.status);
-          
+
           // Show warning toast at 90% usage
-          if (data.status.percentUsed >= 90 && !hasWarned) {
-            setHasWarned(true);
+          if (data.status.percentUsed >= 90 && !hasWarnedRef.current) {
+            hasWarnedRef.current = true;
             const { toast } = await import('@/lib/toast-client');
             toast(`⚠️ You're at ${data.status.percentUsed}% of your hourly rate limit`, 'warning');
             capture('rate_limit_warning_shown', { percent_used: data.status.percentUsed });
@@ -36,23 +47,45 @@ export default function RateLimitIndicator({ isPro }: { isPro?: boolean }) {
         }
       } catch (error) {
         console.error('Failed to fetch rate limit status:', error);
+      } finally {
+        inFlightRef.current = false;
       }
     };
 
-    fetchStatus();
-    
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchStatus, 30000);
-    
-    return () => clearInterval(interval);
-  }, [isPro, hasWarned]);
+    void fetchStatus();
+
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void fetchStatus();
+    };
+
+    const interval = setInterval(tick, POLL_MS);
+
+    const onVisibility = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+      const stale =
+        lastFetchAtRef.current === 0 || Date.now() - lastFetchAtRef.current > STALE_ON_VISIBLE_MS;
+      if (stale) void fetchStatus();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [isPro]);
 
   // Reset warning when usage drops below 90%
   useEffect(() => {
-    if (status && status.percentUsed < 90 && hasWarned) {
-      setHasWarned(false);
+    if (status && status.percentUsed < 90 && hasWarnedRef.current) {
+      hasWarnedRef.current = false;
     }
-  }, [status, hasWarned]);
+  }, [status]);
 
   if (!isPro || !status) return null;
 
@@ -160,69 +193,3 @@ export default function RateLimitIndicator({ isPro }: { isPro?: boolean }) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

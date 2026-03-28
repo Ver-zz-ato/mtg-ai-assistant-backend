@@ -22,6 +22,15 @@ import {
   logPageMetrics,
 } from './lib/observability/pageMetrics';
 
+/**
+ * After a successful /api/config read shows maintenance is OFF, skip the internal
+ * maintenance fetch for this many ms (reduces double invocations on write-heavy traffic).
+ * If maintenance is ON we never skip (see block below). Turning maintenance ON via DB can
+ * take up to this long to apply unless MAINTENANCE_HARD_READONLY=1 or the window expires.
+ */
+const MAINTENANCE_OFF_SKIP_MS = 12_000;
+let maintenanceOffSkipUntil = 0;
+
 // Validate environment variables at startup (fail fast)
 try {
   validateEnv();
@@ -35,8 +44,9 @@ try {
 
 // Exclude sitemap and static assets from middleware so they're served directly.
 // Static images (logo, tool buttons, deck snapshot) must bypass middleware to load reliably.
+// Exclude /ingest/* (PostHog/Sentry proxy rewrites) — no Supabase session or maintenance checks needed.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/|ingest|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)'],
 };
 
 export async function middleware(req: NextRequest) {
@@ -165,16 +175,22 @@ export async function middleware(req: NextRequest) {
         if (process.env.MAINTENANCE_HARD_READONLY === '1') {
           return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message:'Maintenance mode (env) — writes paused' }), { status: 503, headers: { 'content-type': 'application/json' } });
         }
-        try {
-          const cfgUrl = new URL('/api/config?key=maintenance', req.url);
-          const r = await fetch(cfgUrl.toString(), { cache: 'no-store' });
-          const j = await r.json();
-          const m = j?.config?.maintenance;
-          if (m?.enabled) {
-            const msg = String(m?.message || 'Maintenance mode — writes paused');
-            return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message: msg }), { status: 503, headers: { 'content-type': 'application/json' } });
-          }
-        } catch { /* allow on failure */ }
+        // Skip internal /api/config fetch while we recently confirmed maintenance is off (saves one invocation per write burst).
+        if (Date.now() < maintenanceOffSkipUntil) {
+          // no-op: allow request through
+        } else {
+          try {
+            const cfgUrl = new URL('/api/config?key=maintenance', req.url);
+            const r = await fetch(cfgUrl.toString(), { cache: 'no-store' });
+            const j = await r.json();
+            const m = j?.config?.maintenance;
+            if (m?.enabled) {
+              const msg = String(m?.message || 'Maintenance mode — writes paused');
+              return new NextResponse(JSON.stringify({ ok:false, maintenance:true, message: msg }), { status: 503, headers: { 'content-type': 'application/json' } });
+            }
+            maintenanceOffSkipUntil = Date.now() + MAINTENANCE_OFF_SKIP_MS;
+          } catch { /* allow on failure */ }
+        }
       }
     }
   } else {
