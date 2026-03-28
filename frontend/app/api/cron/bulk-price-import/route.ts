@@ -16,6 +16,10 @@ interface ScryfallCard {
   };
 }
 
+/**
+ * Price import keying only — not interchangeable with `normalizeScryfallCacheName` (apostrophe folding).
+ * Do not use for `scryfall_cache.name` / PK; that table uses `normalizeScryfallCacheName` in scryfallCacheRow.ts.
+ */
 function norm(name: string): string {
   return String(name || "")
     .toLowerCase()

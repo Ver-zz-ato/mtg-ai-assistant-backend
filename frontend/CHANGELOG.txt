@@ -1,3 +1,16 @@
+2026-03-28 – **lightweight-scryfall + bulk-jobs/scryfall-import:** upserts use `buildScryfallCacheRowFromApiCard` (full Phase 2A row); dedupe key `String(row.name)`; schema probe uses same builder. **Files:** `app/api/cron/lightweight-scryfall/route.ts`, `app/api/bulk-jobs/scryfall-import/route.ts`.
+
+2026-03-28 – **scryfall_cache PK hardening (additive):**
+- `lib/server/scryfallCacheRow.ts` — `buildScryfallCacheRowFromApiCard` returns `null` if top-level `card.name` is empty; optional `ScryfallCacheWriteContext`; `mergeScryfallCacheRowFromApiCard` logs DB PK vs normalized API `card.name` (plus `set` / `collector_number` / `route`). JSDoc: canonical `normalizeScryfallCacheName` vs bulk-price `norm` (near-match).
+- `lib/server/scryfallCache.ts` — skip cache upsert when collection lookup key ≠ normalized API `card.name` (getDetailsForNamesCached, getEnrichmentForNames).
+- `lib/deck/inference.ts`, `app/api/cron/bulk-scryfall/route.ts`, deck save/update/page, recompute-archetypes — handle null rows; inference/recompute use imported `normalizeScryfallCacheName`.
+- `lib/server/priceSnapshotFromScryfallBulk.ts` — use `normalizeScryfallCacheName` for aggregation keys.
+- `bulk-jobs-server/server.js` — skip cards with empty `card.name`; empty-batch guard before upsert.
+- `db/scryfall_cache_health_audit.sql` — read-only duplicate/drift/missing-field queries.
+- `app/api/admin/data/scryfall-cache-health/route.ts` — admin GET snapshot (counts + SQL pointer).
+- `docs/SCRYFALL_CACHE_REBUILD_AUDIT.md` — Operational hardening section.
+- `app/api/cron/lightweight-scryfall/route.ts`, `app/api/bulk-jobs/scryfall-import/route.ts` — PK via `normalizeScryfallCacheName` + `name_norm`; trim empty names.
+
 2026-03-26 – `POST /api/deck/transform` multi-mode: canonical transform intents (`refine_imported_deck`, `improve_mana_base`, `tighten_curve`, `add_interaction`, `lower_budget`, `more_casual`, `more_optimized`, `fix_legality`, `transform_template`, `general`) in `lib/deck/transform-intent.ts` with aliases + fail-open to `general`; stronger modify-in-place system/user prompts in `generation-input.ts`; deterministic warnings via `lib/deck/transform-warnings.ts` (source off-color lines, color-filter drops); summary uses `summarizeTransformIntent` + optional avg CMC from `previewFacts`.
 
 2026-03-26 – `buildMode` / `refinement` prompt directives: stronger operational text in `lib/deck/generation-input.ts` (`buildModePromptDirective`, `refinementPromptDirective`, `formatBuildModeAndRefinementDirectives`); case-insensitive keys; optional `buildMode` + `refinement` on `POST /api/deck/transform` body; compliance reminder when set. Parser/output unchanged (still plain 100-line lists).

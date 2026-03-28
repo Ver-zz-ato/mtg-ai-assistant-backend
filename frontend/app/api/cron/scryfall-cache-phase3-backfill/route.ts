@@ -161,7 +161,9 @@ export async function POST(req: NextRequest) {
     const pk = normalizeScryfallCacheName(String(card.name ?? ""));
     const existing = byPk.get(pk);
     if (!existing) continue;
-    const merged = mergeScryfallCacheRowFromApiCard(existing, card);
+    const merged = mergeScryfallCacheRowFromApiCard(existing, card, {
+      route: "/api/cron/scryfall-cache-phase3-backfill",
+    });
     if (!merged) {
       skippedMismatch++;
       continue;

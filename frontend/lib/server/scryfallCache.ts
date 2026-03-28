@@ -144,11 +144,27 @@ export async function getDetailsForNamesCached(names: string[]) {
           legalities: legalities ?? undefined,
         });
         // Preserve English image override for non-English printings (see img resolution above).
-        const cacheRow = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>) as Record<string, unknown>;
-        cacheRow.small = (img as { small?: string }).small ?? cacheRow.small;
-        cacheRow.normal = (img as { normal?: string }).normal ?? cacheRow.normal;
-        cacheRow.art_crop = (img as { art_crop?: string }).art_crop ?? cacheRow.art_crop;
-        up.push(cacheRow);
+        const apiPk = norm(String(c?.name ?? ""));
+        const cacheRow = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
+          source: "getDetailsForNamesCached",
+        });
+        if (cacheRow && key === apiPk) {
+          cacheRow.small = (img as { small?: string }).small ?? cacheRow.small;
+          cacheRow.normal = (img as { normal?: string }).normal ?? cacheRow.normal;
+          cacheRow.art_crop = (img as { art_crop?: string }).art_crop ?? cacheRow.art_crop;
+          up.push(cacheRow);
+        } else if (cacheRow && key !== apiPk) {
+          console.warn(
+            "[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert",
+            {
+              lookupKey: key,
+              apiCardName: c?.name,
+              set: c?.set,
+              collector_number: c?.collector_number,
+              source: "getDetailsForNamesCached",
+            }
+          );
+        }
       }
       if (up.length) await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
     } catch {}
@@ -354,7 +370,10 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         const front = c?.card_faces?.[0];
         const apiKeywords = coerceStringArray(c?.keywords);
         const apiColors = coerceStringArray(c?.colors);
-        const built = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>);
+        const built = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
+          source: "getEnrichmentForNames",
+        });
+        const apiPk = norm(String(c?.name ?? ""));
         out.set(key, {
           name: key,
           type_line: c?.type_line,
@@ -374,10 +393,23 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
           keywords: apiKeywords,
           colors: apiColors,
           layout: c?.layout,
-          ...(typeof built.is_land === "boolean" ? { is_land: built.is_land } : {}),
-          ...(typeof built.is_creature === "boolean" ? { is_creature: built.is_creature } : {}),
+          ...(built && typeof built.is_land === "boolean" ? { is_land: built.is_land } : {}),
+          ...(built && typeof built.is_creature === "boolean" ? { is_creature: built.is_creature } : {}),
         });
-        up.push(built);
+        if (built && key === apiPk) {
+          up.push(built);
+        } else if (built && key !== apiPk) {
+          console.warn(
+            "[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert",
+            {
+              lookupKey: key,
+              apiCardName: c?.name,
+              set: c?.set,
+              collector_number: c?.collector_number,
+              source: "getEnrichmentForNames",
+            }
+          );
+        }
       }
       if (up.length) {
         await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });

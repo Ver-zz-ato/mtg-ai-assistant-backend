@@ -1,7 +1,10 @@
 // Shared deck inference functions for analyze and chat routes
 import { createClient } from "@/lib/supabase/server";
 import { isStale } from "@/lib/server/scryfallTtl";
-import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import {
+  buildScryfallCacheRowFromApiCard,
+  normalizeScryfallCacheName,
+} from "@/lib/server/scryfallCacheRow";
 
 // --- Minimal typed Scryfall card for our needs ---
 export type SfCard = {
@@ -29,9 +32,8 @@ export type SfCard = {
   is_planeswalker?: boolean;
 };
 
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
+/** Same as `normalizeScryfallCacheName` — alias for local call sites. */
+const norm = normalizeScryfallCacheName;
 
 /** jsonb `legalities` from scryfall_cache or Scryfall API; `{}` when null/missing/invalid. */
 function normalizeLegalities(value: unknown): Record<string, string> {
@@ -290,9 +292,12 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     // Upsert to database cache
     try {
       const supabase = await createClient();
-      await supabase.from("scryfall_cache").upsert(buildScryfallCacheRowFromApiCard(j as Record<string, unknown>), {
-        onConflict: "name",
-      });
+      const row = buildScryfallCacheRowFromApiCard(j as Record<string, unknown>, { source: "inference.fetchCard" });
+      if (row) {
+        await supabase.from("scryfall_cache").upsert(row, {
+          onConflict: "name",
+        });
+      }
     } catch (error) {
       // If DB upsert fails, continue anyway (card is still in memory cache)
       console.warn('[inference] DB cache upsert failed:', error);
@@ -440,7 +445,10 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
           sfCache.set(key, card); // Store in memory
           
           // Prepare for DB upsert (canonical row shape + Phase 2A columns)
-          upsertRows.push(buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+          const built = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
+            source: "inference.fetchCardsBatch",
+          });
+          if (built) upsertRows.push(built);
         }
         
         // Upsert to database cache

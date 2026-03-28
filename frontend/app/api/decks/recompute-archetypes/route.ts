@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import {
+  buildScryfallCacheRowFromApiCard,
+  normalizeScryfallCacheName,
+} from "@/lib/server/scryfallCacheRow";
 
 export const runtime = "nodejs";
 
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
+const norm = normalizeScryfallCacheName;
 
 async function scryfallBatch(names: string[], supabase: any) {
   const identifiers = Array.from(new Set(names.filter(Boolean))).slice(0, 600).map((n) => ({ name: n }));
@@ -18,7 +19,9 @@ async function scryfallBatch(names: string[], supabase: any) {
     const rows:any[] = Array.isArray(j?.data) ? j.data : [];
     for (const c of rows) out[norm(c?.name||'')] = c;
     try {
-      const up = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+      const up = rows
+        .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/recompute-archetypes" }))
+        .filter((r): r is Record<string, unknown> => r != null);
       if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
     } catch {}
   } catch {}

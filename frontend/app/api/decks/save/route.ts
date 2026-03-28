@@ -29,7 +29,9 @@ async function scryfallBatch(names: string[]): Promise<Record<string, any>> {
     // Upsert details into scryfall_cache (images + type_line/oracle_text)
     try {
       const supabase = await createClient();
-      const up: any[] = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+      const up = rows
+        .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/save" }))
+        .filter((r): r is Record<string, unknown> => r != null);
       if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
     } catch {}
   } catch {}

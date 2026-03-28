@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 
 interface ScryfallCard {
   name: string;
@@ -26,10 +27,6 @@ interface ScryfallCard {
       art_crop?: string;
     };
   }>;
-}
-
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 }
 
 function isAdmin(user: any): boolean {
@@ -217,23 +214,21 @@ export async function POST(req: NextRequest) {
     try {
       const testCard = cards[0];
       if (testCard) {
-        const testRow = {
-          name: norm(testCard.name),
-          color_identity: testCard.color_identity || [],
-          small: testCard.image_uris?.small || null,
-          normal: testCard.image_uris?.normal || null,
-          art_crop: testCard.image_uris?.art_crop || null,
-          updated_at: new Date().toISOString()
-        };
-        
-        const { error: schemaError } = await admin
-          .from('scryfall_cache')
-          .upsert([testRow], { onConflict: 'name' });
-          
-        if (schemaError) {
-          console.warn("⚠️ Schema validation failed, using basic fields only:", schemaError.message);
+        const testRow = buildScryfallCacheRowFromApiCard(testCard as unknown as Record<string, unknown>, {
+          source: "bulk-jobs/scryfall-import schema probe",
+        });
+        if (!testRow) {
+          console.warn("⚠️ Schema test skipped: buildScryfallCacheRowFromApiCard returned null");
         } else {
-          console.log("✅ Schema validation passed");
+          const { error: schemaError } = await admin
+            .from('scryfall_cache')
+            .upsert([testRow], { onConflict: 'name' });
+
+          if (schemaError) {
+            console.warn("⚠️ Schema validation failed, using basic fields only:", schemaError.message);
+          } else {
+            console.log("✅ Schema validation passed");
+          }
         }
       }
     } catch (schemaError: any) {
@@ -252,37 +247,12 @@ export async function POST(req: NextRequest) {
       const rowMap = new Map<string, any>();
       
       for (const card of batch) {
-        // Skip cards without names
-        if (!card.name) continue;
+        const row = buildScryfallCacheRowFromApiCard(card as unknown as Record<string, unknown>, {
+          source: "bulk-jobs/scryfall-import",
+        });
+        if (!row) continue;
 
-        const normalizedName = norm(card.name);
-        const images = card.image_uris || card.card_faces?.[0]?.image_uris || {};
-        const colorIdentity = Array.isArray(card.color_identity) ? card.color_identity : [];
-        const cmc = typeof card.cmc === 'number' ? Math.round(card.cmc) : 0;
-
-        // Build row object with only fields that exist in the database schema
-        const currentTimestamp = new Date().toISOString();
-        const row: any = {
-          name: normalizedName,
-          color_identity: colorIdentity,
-          small: images.small || null,
-          normal: images.normal || null,
-          art_crop: images.art_crop || null,
-          updated_at: currentTimestamp
-        };
-        
-        // Add optional fields only if they have values (to avoid schema errors)
-        if (card.type_line) row.type_line = String(card.type_line).trim();
-        if (card.oracle_text || card.card_faces?.[0]?.oracle_text) {
-          const oracleText = card.oracle_text || card.card_faces?.[0]?.oracle_text;
-          row.oracle_text = String(oracleText).trim();
-        }
-        if (card.mana_cost) row.mana_cost = String(card.mana_cost).trim();
-        if (cmc >= 0) row.cmc = cmc; // Allow 0 CMC cards
-        if (card.rarity) row.rarity = String(card.rarity).toLowerCase().trim();
-        if (card.set) row.set = String(card.set).toUpperCase().trim();
-        if (card.collector_number) row.collector_number = String(card.collector_number).trim();
-        
+        const normalizedName = String(row.name);
         // Only keep the first occurrence of each card name in this batch
         // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"
         if (!rowMap.has(normalizedName)) {

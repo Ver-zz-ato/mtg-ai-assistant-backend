@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import {
+  buildScryfallCacheRowFromApiCard,
+  normalizeScryfallCacheName,
+} from "@/lib/server/scryfallCacheRow";
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
@@ -51,10 +54,6 @@ interface ScryfallCard {
       art_crop?: string;
     };
   }>;
-}
-
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 }
 
 function isAdmin(user: any): boolean {
@@ -247,16 +246,21 @@ export async function POST(req: NextRequest) {
     try {
       const testCard = cards[0];
       if (testCard) {
-        const testRow = buildScryfallCacheRowFromApiCard(testCard as unknown as Record<string, unknown>);
-        
-        const { error: schemaError } = await admin
-          .from('scryfall_cache')
-          .upsert([testRow], { onConflict: 'name' });
-          
-        if (schemaError) {
-          console.warn("⚠️ Schema validation failed, using basic fields only:", schemaError.message);
+        const testRow = buildScryfallCacheRowFromApiCard(testCard as unknown as Record<string, unknown>, {
+          source: "bulk-scryfall schema probe",
+        });
+        if (!testRow) {
+          console.warn("⚠️ Schema test skipped: buildScryfallCacheRowFromApiCard returned null");
         } else {
-          console.log("✅ Schema validation passed");
+          const { error: schemaError } = await admin
+            .from('scryfall_cache')
+            .upsert([testRow], { onConflict: 'name' });
+
+          if (schemaError) {
+            console.warn("⚠️ Schema validation failed, using basic fields only:", schemaError.message);
+          } else {
+            console.log("✅ Schema validation passed");
+          }
         }
       }
     } catch (schemaError: any) {
@@ -279,8 +283,12 @@ export async function POST(req: NextRequest) {
         // Skip cards without names
         if (!card.name) continue;
 
-        const normalizedName = norm(card.name);
-        const row = buildScryfallCacheRowFromApiCard(card as unknown as Record<string, unknown>) as Record<string, unknown>;
+        const row = buildScryfallCacheRowFromApiCard(card as unknown as Record<string, unknown>, {
+          source: "bulk-scryfall",
+        });
+        if (!row) continue;
+
+        const normalizedName = normalizeScryfallCacheName(String(card.name));
         
         // Only keep the first occurrence of each card name in this batch
         // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"

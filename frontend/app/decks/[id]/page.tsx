@@ -232,7 +232,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       
       // Cache the new data
       try {
-        const up = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+        const up = rows
+          .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/[id]/page" }))
+          .filter((r): r is Record<string, unknown> => r != null);
         if (up.length) await cacheClient.from('scryfall_cache').upsert(up, { onConflict: 'name' });
       } catch (e) {
         console.error('Cache write failed:', e);

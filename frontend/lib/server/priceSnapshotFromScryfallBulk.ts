@@ -5,15 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-function norm(s: string): string {
-  return String(s || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import { normalizeScryfallCacheName as norm } from "@/lib/server/scryfallCacheRow";
 
 function median(arr: number[]): number | null {
   if (!arr.length) return null;

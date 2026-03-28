@@ -26,7 +26,7 @@ function checkAuth(req, res, next) {
   next();
 }
 
-// Helper: matches frontend lib/server/scryfallCacheRow.ts (Phase 2A canonical row)
+// Helper: must stay byte-for-byte in sync with frontend `normalizeScryfallCacheName` (scryfallCacheRow.ts).
 function norm(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -47,9 +47,14 @@ function deriveTypeFlagsFromTypeLine(typeLine) {
   };
 }
 
-/** Mirror of buildScryfallCacheRowFromApiCard — keep in sync when cache schema changes. */
+/** Mirror of buildScryfallCacheRowFromApiCard — PK from top-level card.name only; keep in sync when cache schema changes. */
 function buildScryfallCacheRowFromApiCard(card) {
-  const nameKey = norm(card.name);
+  const raw = String(card.name ?? '').trim();
+  if (!raw) {
+    console.warn('[scryfall_cache] bulk-jobs skip: empty top-level card.name', { set: card.set, collector_number: card.collector_number });
+    return null;
+  }
+  const nameKey = norm(raw);
   const faces = Array.isArray(card.card_faces) ? card.card_faces : [];
   const front = faces[0] || {};
   const imageUris = card.image_uris || {};
@@ -163,8 +168,9 @@ async function runBulkScryfallImport() {
     
     for (let i = 0; i < cards.length; i += batchSize) {
       const batch = cards.slice(i, i + batchSize);
-      const rows = batch.map((card) => buildScryfallCacheRowFromApiCard(card));
-      
+      const rows = batch.map((card) => buildScryfallCacheRowFromApiCard(card)).filter(Boolean);
+      if (!rows.length) continue;
+
       const { error } = await supabase.from('scryfall_cache').upsert(rows, {
         onConflict: 'name',
         ignoreDuplicates: false

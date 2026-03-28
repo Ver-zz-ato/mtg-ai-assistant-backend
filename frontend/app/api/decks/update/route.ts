@@ -193,7 +193,9 @@ export async function POST(req: Request) {
             for (const c of rows) scry[String(c?.name||'').toLowerCase()] = c;
             // cache details
             try {
-              const up = rows.map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>));
+              const up = rows
+                .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/update" }))
+                .filter((r): r is Record<string, unknown> => r != null);
               if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
             } catch {}
           }

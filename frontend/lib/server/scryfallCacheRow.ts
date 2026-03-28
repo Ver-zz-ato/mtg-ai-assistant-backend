@@ -22,7 +22,15 @@ export function sanitizeImageCacheInputName(raw: string): string | null {
   return s;
 }
 
-/** Matches production behavior: scryfallCache.ts / inference / bulk-scryfall `norm()`. */
+/**
+ * Canonical PK for `scryfall_cache.name` / `name_norm`. Single source of truth for cache rows.
+ *
+ * **Lockstep copies** (must match this algorithm byte-for-byte):
+ * - `bulk-jobs-server/server.js` → `norm()`
+ *
+ * **Near-match (do not use for scryfall_cache PK):** `bulk-price-import/route.ts` adds apostrophe
+ * normalization for `price_cache` keys — intentional; not interchangeable with this function.
+ */
 export function normalizeScryfallCacheName(name: string): string {
   return String(name || "")
     .toLowerCase()
@@ -31,6 +39,12 @@ export function normalizeScryfallCacheName(name: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/** Optional structured logging for cache writes / merge (route or subsystem label). */
+export type ScryfallCacheWriteContext = {
+  route?: string;
+  source?: string;
+};
 
 /**
  * Conservative type flags from full type_line (including MDFC " // ").
@@ -83,9 +97,27 @@ function legalitiesForUpsert(card: ScryfallApiCard): Record<string, string> | nu
 
 /**
  * Full upsert row from a Scryfall API card object (collection, named, or bulk default_cards shape).
+ * PK is always `normalizeScryfallCacheName` of top-level `card.name` only (never request key, never `card_faces[0].name`).
+ * @returns null if `card.name` is missing or blank after trim — caller must not upsert.
  */
-export function buildScryfallCacheRowFromApiCard(card: ScryfallApiCard): Record<string, unknown> {
-  const nameKey = normalizeScryfallCacheName(String(card.name ?? ""));
+export function buildScryfallCacheRowFromApiCard(
+  card: ScryfallApiCard,
+  context?: ScryfallCacheWriteContext
+): Record<string, unknown> | null {
+  const raw = String(card.name ?? "").trim();
+  if (!raw) {
+    console.warn("[scryfall_cache] skip upsert: missing or empty top-level card.name", {
+      set: card.set,
+      collector_number: card.collector_number,
+      ...context,
+    });
+    return null;
+  }
+  const nameKey = normalizeScryfallCacheName(raw);
+  if (!nameKey) {
+    console.warn("[scryfall_cache] skip upsert: normalized name empty", { ...context });
+    return null;
+  }
   return buildScryfallCacheRowCore(card, nameKey);
 }
 
@@ -111,13 +143,37 @@ function isEmptyLegalities(v: unknown): boolean {
  */
 export function mergeScryfallCacheRowFromApiCard(
   existing: Record<string, unknown>,
-  card: ScryfallApiCard
+  card: ScryfallApiCard,
+  context?: ScryfallCacheWriteContext
 ): Record<string, unknown> | null {
   const pk = String(existing.name ?? "");
-  const fromApi = normalizeScryfallCacheName(String(card.name ?? ""));
-  if (!pk || fromApi !== pk) return null;
+  const fromApi = normalizeScryfallCacheName(String(card.name ?? "").trim());
+  if (!pk) {
+    console.warn("[scryfall_cache] merge skip: empty existing PK", { ...context });
+    return null;
+  }
+  if (!String(card.name ?? "").trim()) {
+    console.warn("[scryfall_cache] merge skip: empty API card.name", {
+      existingPk: pk,
+      set: card.set,
+      collector_number: card.collector_number,
+      ...context,
+    });
+    return null;
+  }
+  if (fromApi !== pk) {
+    console.warn("[scryfall_cache] merge skip: DB PK does not match normalized API card.name", {
+      existingPk: pk,
+      apiCardName: String(card.name ?? ""),
+      set: card.set,
+      collector_number: card.collector_number,
+      ...context,
+    });
+    return null;
+  }
 
-  const built = buildScryfallCacheRowFromApiCard(card) as Record<string, unknown>;
+  const built = buildScryfallCacheRowFromApiCard(card, { ...context, source: context?.source ?? "mergeScryfallCacheRowFromApiCard" });
+  if (!built) return null;
   const out: Record<string, unknown> = { ...built, name: pk, name_norm: pk };
 
   const takeExistingIfNewEmpty = (key: string) => {
@@ -186,7 +242,10 @@ export function needsPhase3Backfill(row: Record<string, unknown>): boolean {
   return false;
 }
 
-/** Shared row body for merge and full build (Phase 3). */
+/**
+ * Shared row body for merge and full build (Phase 3).
+ * `nameKey` must already be `normalizeScryfallCacheName(top-level card.name)` — never derived from `card_faces`.
+ */
 function buildScryfallCacheRowCore(card: ScryfallApiCard, nameKey: string): Record<string, unknown> {
   const faces = Array.isArray(card.card_faces) ? (card.card_faces as ScryfallApiCard[]) : [];
   const front = faces[0] as ScryfallApiCard | undefined;
